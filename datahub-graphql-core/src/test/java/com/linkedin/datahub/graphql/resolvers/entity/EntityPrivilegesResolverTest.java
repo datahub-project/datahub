@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -33,10 +35,21 @@ public class EntityPrivilegesResolverTest {
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
   final String businessAttributeUrn = "urn:li:businessAttribute:testBusinessAttribute";
+  final String documentUrn = "urn:li:document:test-document";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getSource()).thenReturn(entity);
+    return mockEnv;
+  }
+
+  private DataFetchingEnvironment setUpTestWithResourcePrivilege(Entity entity, String privilege) {
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test", privilege, UrnUtils.getUrn(entity.getUrn()));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(entity);
@@ -140,6 +153,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanEditQueries());
     assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanDeleteEntity());
   }
 
   @Test
@@ -155,6 +169,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanEditQueries());
     assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanDeleteEntity());
   }
 
   @Test
@@ -242,6 +257,46 @@ public class EntityPrivilegesResolverTest {
   }
 
   @Test
+  public void testGetDocumentPrivileges() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithPermissions(document)).get();
+    assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanDeleteEntity());
+
+    result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithoutPermissions(document)).get();
+    assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDocumentPrivilegesSeparatesDeleteFromMove() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Document owners get DELETE_ENTITY only, via the default document-owner delete policy.
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "DELETE_ENTITY"))
+            .get();
+    assertTrue(result.getCanDeleteEntity());
+    assertFalse(result.getCanManageEntity());
+
+    // Editors get EDIT_ENTITY only, so they can move but not delete.
+    result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "EDIT_ENTITY"))
+            .get();
+    assertTrue(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
+  }
+
+  @Test
   public void testGetBusinessAttributeSuccessWithPermissions() throws Exception {
     final BusinessAttribute businessAttribute = new BusinessAttribute();
     businessAttribute.setUrn(businessAttributeUrn);
@@ -315,5 +370,187 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditDescription());
     assertTrue(result.getCanEditLinks());
     assertTrue(result.getCanManageAssetSummary());
+  }
+
+  /**
+   * {@code canViewQueries} must be true for an actor holding ONLY the platform-level
+   * VIEW_ALL_QUERIES privilege — VIEW_ENTITY_QUERIES itself is explicitly denied here — so the
+   * Queries/View Definition tab gate is consistent with what {@code
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} would actually grant once the tab
+   * loads.
+   */
+  @Test
+  public void testCanViewQueriesGrantedViaViewAllQueriesAlone() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(
+            dataset,
+            contextGrantingOnly(
+                com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE
+                    .getType()));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanViewQueries());
+  }
+
+  /** Baseline: the ordinary dataset-scoped privilege alone still grants canViewQueries. */
+  @Test
+  public void testCanViewQueriesGrantedViaViewEntityQueriesAlone() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(
+            dataset,
+            contextGrantingOnly(
+                com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE
+                    .getType()));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanViewQueries());
+  }
+
+  /** Neither privilege held: canViewQueries must be false. */
+  @Test
+  public void testCanViewQueriesDeniedWithoutEitherPrivilege() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithContext(dataset, contextGrantingOnly());
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanViewQueries());
+  }
+
+  /**
+   * The escape valve: with query-view authorization disabled entirely ({@code
+   * QUERY_ENTITY_AUTHORIZATION_ENABLED=false} and the general view-authorization switch also off),
+   * canViewQueries reads as granted even for an actor holding neither privilege — matching
+   * ListQueriesResolver/QueryType's identical guard, so the UI doesn't show a denial message when
+   * the backend isn't actually enforcing anything.
+   */
+  @Test
+  public void testCanViewQueriesGrantedWhenQueryAuthorizationDisabled() throws Exception {
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(datasetUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(
+            dataset,
+            contextWithViewAuthConfig(
+                com.datahub.authorization.config.ViewAuthorizationConfiguration.builder()
+                    .enabled(false)
+                    .queryEntities(
+                        com.datahub.authorization.config.ViewAuthorizationConfiguration
+                            .QueryEntityAuthorizationConfig.builder()
+                            .enabled(false)
+                            .build())
+                    .build()));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanViewQueries());
+  }
+
+  private QueryContext contextWithViewAuthConfig(
+      com.datahub.authorization.config.ViewAuthorizationConfiguration
+          viewAuthorizationConfiguration) {
+    com.datahub.plugins.auth.authorization.Authorizer mockAuthorizer =
+        Mockito.mock(com.datahub.plugins.auth.authorization.Authorizer.class);
+    Mockito.when(
+            mockAuthorizer.authorize(
+                Mockito.any(com.datahub.authorization.AuthorizationRequest.class)))
+        .thenReturn(
+            new com.datahub.authorization.AuthorizationResult(
+                null, com.datahub.authorization.AuthorizationResult.Type.DENY, ""));
+
+    Authentication authentication =
+        new Authentication(
+            new com.datahub.authentication.Actor(com.datahub.authentication.ActorType.USER, "test"),
+            "creds");
+
+    io.datahubproject.metadata.context.OperationContext systemContext =
+        io.datahubproject.test.metadata.context.TestOperationContexts.systemContext(
+            () ->
+                io.datahubproject.metadata.context.OperationContextConfig.builder()
+                    .viewAuthorizationConfiguration(viewAuthorizationConfiguration)
+                    .build(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    io.datahubproject.metadata.context.OperationContext opContext =
+        systemContext.asSession(
+            io.datahubproject.metadata.context.RequestContext.TEST, mockAuthorizer, authentication);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(authentication);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+    return mockContext;
+  }
+
+  private DataFetchingEnvironment setUpTestWithContext(Entity entity, QueryContext context) {
+    Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(context);
+    Mockito.when(mockEnv.getSource()).thenReturn(entity);
+    return mockEnv;
+  }
+
+  /**
+   * A context whose authorizer grants exactly the given privilege strings (matched by name alone,
+   * regardless of resource) and denies everything else.
+   */
+  private QueryContext contextGrantingOnly(String... allowedPrivileges) {
+    java.util.Set<String> allowed = java.util.Set.of(allowedPrivileges);
+    com.datahub.plugins.auth.authorization.Authorizer mockAuthorizer =
+        Mockito.mock(com.datahub.plugins.auth.authorization.Authorizer.class);
+    Mockito.when(
+            mockAuthorizer.authorize(
+                Mockito.any(com.datahub.authorization.AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              com.datahub.authorization.AuthorizationRequest request = invocation.getArgument(0);
+              boolean isAllowed = allowed.contains(request.getPrivilege());
+              return new com.datahub.authorization.AuthorizationResult(
+                  request,
+                  isAllowed
+                      ? com.datahub.authorization.AuthorizationResult.Type.ALLOW
+                      : com.datahub.authorization.AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    Authentication authentication =
+        new Authentication(
+            new com.datahub.authentication.Actor(com.datahub.authentication.ActorType.USER, "test"),
+            "creds");
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(authentication);
+    io.datahubproject.metadata.context.OperationContext operationContext =
+        io.datahubproject.test.metadata.context.TestOperationContexts
+            .userContextNoSearchAuthorization(mockAuthorizer, authentication);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
+    return mockContext;
   }
 }

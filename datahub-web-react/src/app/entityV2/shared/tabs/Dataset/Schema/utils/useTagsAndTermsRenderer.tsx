@@ -6,6 +6,9 @@ import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import useEditableSchemaFieldInfoMaps, {
+    EditableFieldInfoMaps,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
@@ -31,14 +34,17 @@ export default function useTagsAndTermsRenderer(
     filterText: string,
     canEdit: boolean,
     showOneAndCount?: boolean,
+    fieldInfoMaps?: EditableFieldInfoMaps,
 ) {
     const { t } = useTranslation('entity.profile.schema');
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const schemaRefetch = useSchemaRefetch();
-    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
-    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
+    const maps = fieldInfoMaps ?? fallbackMaps;
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata, maps);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, maps);
     const { entityData } = useEntityData();
     const platformName = entityData?.platform
         ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)

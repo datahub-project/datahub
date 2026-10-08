@@ -11,13 +11,14 @@ const StyledSelect = styled(Select)`
 type Props = {
     value: string;
     onChange: (newTimezone: any) => void;
+    disabled?: boolean;
 };
 
-export const TimezoneSelect = ({ value, onChange }: Props) => {
+export const TimezoneSelect = ({ value, onChange, disabled, ..._props }: Props) => {
     const timezones = getSupportedTimezones();
     return (
         <>
-            <StyledSelect showSearch value={value} onChange={onChange}>
+            <StyledSelect showSearch value={value} onChange={onChange} disabled={disabled}>
                 {timezones.map((timezone) => (
                     <Select.Option key={timezone} value={timezone}>
                         {timezone}

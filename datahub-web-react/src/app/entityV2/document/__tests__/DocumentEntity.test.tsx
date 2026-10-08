@@ -398,34 +398,6 @@ describe('Document Preview - Platform Logo Display', () => {
     });
 
     describe('Hover Card Preview', () => {
-        it('should display platform logo in hover card preview', async () => {
-            const mockPlatform = createMockPlatform('GoogleDocs', 'https://example.com/gdocs-logo.png');
-            const mockDocument = createMockDocument({
-                platform: mockPlatform as any,
-            });
-
-            const { container } = render(
-                <TestWrapper>
-                    <Preview
-                        document={mockDocument}
-                        urn={mockDocument.urn}
-                        data={createMockGenericData(mockDocument, mockPlatform)}
-                        name="Test Document"
-                        description="This is test document content."
-                        platformName="GoogleDocs"
-                        platformLogo="https://example.com/gdocs-logo.png"
-                        previewType={PreviewType.HOVER_CARD}
-                    />
-                </TestWrapper>,
-            );
-
-            await waitFor(() => {
-                const platformImage = container.querySelector('img[alt="GoogleDocs"]');
-                expect(platformImage).toBeInTheDocument();
-                expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
-            });
-        });
-
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
             const mockDocument = createMockDocument({
@@ -965,7 +937,6 @@ describe('Document State Handling', () => {
 describe('Preview Type Rendering Variations', () => {
     const previewTypes = [
         { type: PreviewType.SEARCH, name: 'Search Results' },
-        { type: PreviewType.HOVER_CARD, name: 'Hover Card' },
         { type: PreviewType.PREVIEW, name: 'Full Preview' },
         { type: PreviewType.BROWSE, name: 'Browse View' },
     ];
@@ -1231,7 +1202,7 @@ describe('Document Profile Rendering', () => {
         it('should render native profile loading state', async () => {
             const mockDocument = createMockNativeDocument();
 
-            const { container } = render(
+            render(
                 <ProfileTestWrapper document={mockDocument} urn={mockDocument.urn}>
                     <DocumentNativeProfile
                         urn={mockDocument.urn}
@@ -1242,10 +1213,8 @@ describe('Document Profile Rendering', () => {
                 </ProfileTestWrapper>,
             );
 
-            // Should show loading indicator
             await waitFor(() => {
-                const loadingIcon = container.querySelector('.anticon-loading');
-                expect(loadingIcon).toBeInTheDocument();
+                expect(screen.getByLabelText('Loading...')).toBeInTheDocument();
             });
         });
 

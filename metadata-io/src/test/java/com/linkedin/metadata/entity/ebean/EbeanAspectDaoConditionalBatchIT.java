@@ -259,21 +259,16 @@ public class EbeanAspectDaoConditionalBatchIT {
   }
 
   /**
-   * Test: rewriteBatchedStatements=true latch. After a SUCCESS_NO_INFO (-2) result,
-   * dao.isOptimisticWriteBatchEnabled() must flip to false, latching the DAO into sequential mode.
-   *
-   * <p>Mechanism: Open MySQL with rewriteBatchedStatements=true, which causes the JDBC driver to
-   * rewrite batch updates into a single multi-row statement. When a conflict occurs, the driver
-   * returns Statement.SUCCESS_NO_INFO (-2), signaling that per-row counts are unavailable. This
-   * forces the DAO to latch and fall back to sequential writes.
+   * Connector/J still rewrites batches when {@code rewriteBatchedStatements=true}, but current
+   * drivers return per-row update counts (1 / 0) instead of {@code SUCCESS_NO_INFO} (-2). Mixed
+   * match/conflict must complete without disabling CAS batching. The -2 latch itself is covered by
+   * {@link EbeanAspectDaoCasBatchAmbiguousResultTest}.
    */
   @Test
-  public void rewriteBatchedStatementsLatchesBatchingOff() throws Exception {
+  public void rewriteBatchedStatementsReportsPerRowCounts() throws Exception {
     MySQLContainer<?> mysql = MysqlTestUtils.startMysql();
 
-    // Build an Ebean Database whose JDBC URL enables rewriteBatchedStatements — mirrors
-    // MysqlTestUtils.createEbeanPrimaryDatabase but with the rewrite flag, so tx.connection()
-    // returns SUCCESS_NO_INFO (-2) for a batched UPDATE and the DAO latches batching off.
+    // Build an Ebean Database whose JDBC URL enables rewriteBatchedStatements.
     io.ebean.datasource.DataSourceConfig dsc = new io.ebean.datasource.DataSourceConfig();
     dsc.setUrl(
         mysql.getJdbcUrl()
@@ -333,26 +328,24 @@ public class EbeanAspectDaoConditionalBatchIT {
             new ConditionalAspectUpdate(
                 newAspect(urnB, new Status().setRemoved(true), sysMeta("2")), "999"));
 
-    // Run the batch on a rewriteDb transaction so tx.connection() carries rewriteBatchedStatements
-    // -> executeBatch returns SUCCESS_NO_INFO (-2) -> the DAO latches batching off. The throw is
-    // the
-    // expected ambiguous-result path (rolls back for sequential retry); swallow it, then assert the
-    // latch flipped.
+    // Mixed match/conflict: current Connector/J reports 1 and 0 rather than SUCCESS_NO_INFO.
+    List<ConditionalUpdateResult> results;
     try (Transaction tx = rewriteDb.beginTransaction()) {
-      latchDao.updateAspectsConditionalBatch(
-          opContext,
-          TransactionContext.empty(tx, TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY),
-          updates);
+      results =
+          latchDao.updateAspectsConditionalBatch(
+              opContext,
+              TransactionContext.empty(tx, TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY),
+              updates);
       tx.commit();
-    } catch (jakarta.persistence.PersistenceException expected) {
-      // -2 ambiguous path.
     } finally {
       EbeanTestUtils.shutdownDatabase(rewriteDb);
     }
 
-    assertFalse(
+    assertEquals(
+        results, List.of(ConditionalUpdateResult.UPDATED, ConditionalUpdateResult.CONFLICT));
+    assertTrue(
         latchDao.isOptimisticWriteBatchEnabled(),
-        "batching must be latched OFF after a SUCCESS_NO_INFO (-2) result");
+        "per-row update counts must not latch CAS batching off");
   }
 
   // ============================================================================

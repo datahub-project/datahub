@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Доступ уже предоставлен",
+    "accessManagement.accessGrantedTooltip": "У вас уже есть доступ к этой роли",
+    "accessManagement.columnAccess": "Доступ",
+    "accessManagement.columnAccessType": "Тип доступа",
+    "accessManagement.columnRoleName": "Название роли",
+    "accessManagement.granted": "Предоставлено",
+    "accessManagement.request": "Запросить",
+    "accessManagement.requestAccess": "Запросить доступ",
+    "accessManagement.tableAriaLabel": "Таблица ролей управления доступом"
+}

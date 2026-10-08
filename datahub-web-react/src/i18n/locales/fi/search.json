@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Parhaat osumat",
     "searchBar.sections.recentlySearched": "Olet äskettäin hakenut",
     "searchBar.sections.recentlyViewed": "Olet äskettäin katsonut",
+    "searchBar.viewAll": "Näytä kaikki →",
     "searchBar.viewAllResults": "Näytä kaikki tulokset haulle <bold>{{query}}</bold>",
     "searchHeader.discover": "Tutustu",
     "sidebar.loadingError": "Sivupalkin lataaminen epäonnistui.",

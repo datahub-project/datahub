@@ -1,0 +1,35 @@
+import logging
+
+import pytest
+
+from datahub.emitter.mce_builder import make_dataset_urn
+from tests.e2e.utils import delete_urns, wait_for_writes_to_sync
+from utilities.concurrent_openapi import run_tests
+from utilities.domains import Domain
+
+logger = logging.getLogger(__name__)
+
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
+
+
+generated_urns = [make_dataset_urn("test", f"database_test_{i}") for i in range(0, 100)]
+
+
+@pytest.fixture(scope="module")
+def ingest_cleanup_data(graph_client, request):
+    logger.info("removing test data before")
+    delete_urns(graph_client, generated_urns)
+    wait_for_writes_to_sync()
+    yield
+    logger.info("removing test data after")
+    delete_urns(graph_client, generated_urns)
+    wait_for_writes_to_sync()
+
+
+def test_mysql_deadlock_gap_locking(auth_session, ingest_cleanup_data):
+    # This generates concurrent batches with interleaved urn ids
+    run_tests(
+        auth_session,
+        fixture_globs=["tests/e2e/database/v3/mysql_gap_deadlock/*.json"],
+        num_workers=8,
+    )

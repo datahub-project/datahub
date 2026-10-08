@@ -1,72 +1,36 @@
-import { Icon, Input, Text, Tooltip } from '@components';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Collapse, Form } from 'antd';
+import { Input, Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import {
-    CollapseHeader,
-    FlexContainer,
-    InputLabel,
-    StyledCollapse,
-} from '@app/govern/structuredProperties/styledComponents';
+import CollapsibleSection from '@app/govern/structuredProperties/CollapsibleSection';
 
-interface Props {
+type Props = {
     isEditMode: boolean;
-}
+    isReadOnly: boolean;
+    qualifiedName: string | undefined;
+    setQualifiedName: (value: string) => void;
+    error?: string;
+};
 
-const AdvancedOptions = ({ isEditMode }: Props) => {
+const AdvancedOptions = ({ isEditMode, isReadOnly, qualifiedName, setQualifiedName, error }: Props) => {
     const { t } = useTranslation('governance.structured-properties');
 
     return (
-        <StyledCollapse
-            ghost
-            expandIcon={({ isActive }) => (
-                <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
-            )}
-            expandIconPosition="end"
-            defaultActiveKey={[]}
-        >
-            <Collapse.Panel
-                key={1}
-                header={
-                    <CollapseHeader>
-                        <Text weight="bold" color="gray">
-                            {t('advancedOptions.title')}
-                        </Text>
-                    </CollapseHeader>
-                }
-                forceRender
-            >
-                <InputLabel>
-                    <FlexContainer>
-                        {t('advancedOptions.qualifiedName')}
-                        <Tooltip title={t('advancedOptions.qualifiedNameTooltip')} showArrow={false}>
-                            <Icon icon={Info} color="iconBrand" size="lg" />
-                        </Tooltip>
-                    </FlexContainer>
-                </InputLabel>
-                <Tooltip title={isEditMode && t('advancedOptions.qualifiedNameDisabledTooltip')} showArrow={false}>
-                    <Form.Item
-                        name="qualifiedName"
-                        rules={[
-                            {
-                                pattern: /^[^\s]*$/,
-                                whitespace: true,
-                                message: t('advancedOptions.qualifiedNameError'),
-                            },
-                        ]}
-                    >
-                        <Input
-                            label=""
-                            placeholder={t('advancedOptions.qualifiedNamePlaceholder')}
-                            isDisabled={isEditMode}
-                        />
-                    </Form.Item>
-                </Tooltip>
-            </Collapse.Panel>
-        </StyledCollapse>
+        <CollapsibleSection title={t('advancedOptions.title')} dataTestId="structured-props-advanced-options">
+            <Tooltip title={isEditMode && t('advancedOptions.qualifiedNameDisabledTooltip')} showArrow={false}>
+                <div>
+                    <Input
+                        label={t('advancedOptions.qualifiedName')}
+                        helperText={t('advancedOptions.qualifiedNameTooltip')}
+                        placeholder={t('advancedOptions.qualifiedNamePlaceholder')}
+                        value={qualifiedName ?? ''}
+                        setValue={setQualifiedName}
+                        error={error}
+                        isDisabled={isEditMode || isReadOnly}
+                    />
+                </div>
+            </Tooltip>
+        </CollapsibleSection>
     );
 };
 

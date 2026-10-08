@@ -322,7 +322,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
       final String type = internalAuthenticatorConfig.getType();
       final Map<String, Object> configs = internalAuthenticatorConfig.getConfigs();
 
-      log.debug(String.format("Found configs for Authenticator of type %s: %s ", type, configs));
+      log.debug("Found configs for Authenticator of type {}: {} ", type, configs);
 
       // Instantiate the Authenticator class.
       Class<?> clazz = null;
@@ -347,7 +347,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
         final Authenticator authenticator =
             (Authenticator) clazz.getDeclaredConstructor().newInstance();
         // Successfully created authenticator. Now init and register it.
-        log.debug(String.format("Initializing Authenticator with name %s", type));
+        log.debug("Initializing Authenticator with name {}", type);
         if (authenticator instanceof HealthStatusAuthenticator) {
           Map<String, Object> authenticatorConfig =
               new HashMap<>(

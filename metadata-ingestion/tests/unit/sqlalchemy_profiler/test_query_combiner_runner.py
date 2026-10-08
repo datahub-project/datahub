@@ -1,13 +1,14 @@
 """Unit tests for QueryCombinerRunner - focuses on query combining behavior."""
 
 import math
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine, event
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -890,8 +891,8 @@ class TestRowShapeRegressions:
                 return True
 
             def get_estimated_row_count(self, table, conn):
-                query = (
-                    sa.select([sa.column("value")])
+                query: Any = (
+                    sa.select(sa.column("value"))
                     .select_from(table)
                     .where(sa.column("id") == -1)
                 )
@@ -941,7 +942,9 @@ class TestMissingTagIsObservable:
     ):
         class UntaggedAdapter(type(test_adapter)):  # type: ignore[misc]
             def get_column_min(self, table, column, conn):
-                query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
+                query: Any = sa.select(sa.func.min(sa.column(column))).select_from(
+                    table
+                )
                 # Should have been execute_single_row: batching is lost.
                 return conn.execute_rows(query).scalar()
 

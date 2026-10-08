@@ -143,6 +143,32 @@ bootJar {
   archiveFileName = "${project.name}.jar"
 }
 
+// ONNX image variant (R3): a second boot archive that re-adds the ONNX/DJL native libs
+// (compileOnlyApi in metadata-io, so absent from the default jar) into BOOT-INF/lib. The
+// datahub-upgrade-onnx image is built from this; system-update needs it to build the semantic
+// ES index via the embedding provider bean. The default datahub-upgrade.jar stays slim.
+configurations {
+  onnxRuntimeVariant {
+    canBeConsumed = false
+    canBeResolved = true
+    extendsFrom configurations.implementation, configurations.runtimeOnly
+  }
+}
+dependencies {
+  onnxRuntimeVariant externalDependency.onnxRuntime
+  onnxRuntimeVariant externalDependency.djlApi
+  onnxRuntimeVariant externalDependency.djlHuggingFaceTokenizers
+}
+tasks.register('onnxBootJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
+  mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  archiveFileName = 'datahub-upgrade-onnx.jar'
+  classpath = sourceSets.main.output + configurations.onnxRuntimeVariant
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  // The Spring Boot plugin only auto-populates this on the primary bootJar; a second BootJar
+  // must set it or the task fails with "property 'targetJavaVersion' has no value available".
+  targetJavaVersion = java.targetCompatibility
+}
+
 bootRun {
   environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
   environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"

@@ -36,6 +36,10 @@ By default, search terms will match against different aspects of a data assets. 
 
 The default boolean logic used to interpret text in a query string is `AND`. For example, a query of `information about orders` is interpreted as `information AND about AND orders`.
 
+:::note Search V3
+With Search V3 keyword reads on, a query matches any of its words, tolerates small typos, and ranks results that match more of the words, in names first, at the top. The operators described below (`-`, `+`, `|`, parentheses, `~` and `*`) are treated as plain text, so `logging -snowflake` also matches `snowflake`; a bare `*` still matches everything. Use a structured query (`/q`) for boolean logic. With the default search configuration, a quoted query matches names, titles, qualified names, ids and URNs, and, for 4 or more words, descriptions that hold all of its words in any order. A quoted name with dots, such as `db.schema.table`, also matches the other fields searched by default, such as ids, tags and custom properties, that hold all of its parts.
+:::
+
 ### Filters
 
 The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click.

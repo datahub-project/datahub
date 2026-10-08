@@ -84,7 +84,18 @@ def _register_gcs_oauth_before_send(
             request.headers["x-goog-project-id"] = project_id
 
     for op in _GCS_OAUTH_S3_OPERATIONS:
-        client.meta.events.register(f"before-send.s3.{op}", inject_bearer)
+        # unique_id makes re-registration a no-op: get_s3_client() memoizes the
+        # client, so repeated calls would otherwise stack duplicate handlers.
+        # botocore's HierarchicalEmitter keeps the FIRST handler registered under a
+        # given unique_id and skips later duplicate registrations, so this closure's
+        # captured credentials are frozen at first registration. That is fine here:
+        # _gcs_oauth_credentials is set once before the first get_s3_client() call
+        # and refreshed in place on the same Credentials object. Reassigning
+        # _gcs_oauth_credentials after the client is cached would silently keep using
+        # the stale creds; register once at client-creation time if that ever changes.
+        client.meta.events.register(
+            f"before-send.s3.{op}", inject_bearer, unique_id=f"datahub-gcs-oauth-{op}"
+        )
 
 
 class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
@@ -165,6 +176,19 @@ class GCSSourceConfig(
     )
     profiling: DataLakeProfilerConfig = Field(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
+    )
+
+    enable_schema_inference: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer the schema from sampled files and emit a "
+            "`schemaMetadata` aspect. Set to `False` when another pipeline owns the "
+            "schema: no `schemaMetadata` is emitted for any dataset in this recipe, "
+            "and no files are opened for inference. Schemas already in DataHub are "
+            "left as they are and stop updating; new datasets get no schema unless "
+            "another pipeline writes one. Properties, partitions, containers, tags "
+            "and profiling are still emitted, and profiling still reads files."
+        ),
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -305,6 +329,7 @@ class GCSSource(StatefulIngestionSourceBase):
             convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            enable_schema_inference=self.config.enable_schema_inference,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
             profile_patterns=self.config.profile_patterns,

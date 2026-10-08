@@ -416,6 +416,7 @@ public class UpdateIndicesV2StrategyTest {
 
     ESIndexBuilder mockIndexBuilder = mock(ESIndexBuilder.class);
     when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    when(elasticSearchService.getIndexBuilder(anyString())).thenReturn(mockIndexBuilder);
     doThrow(new IOException("index unavailable"))
         .when(mockIndexBuilder)
         .applyMappings(any(OperationContext.class), eq(failing), eq(false));

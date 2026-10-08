@@ -1406,6 +1406,11 @@ enum EntityType {
   APPLICATION
 
   """
+  An API — a named callable with a typed input and output schema (MCP tool, REST endpoint, gRPC method, function, etc.)
+  """
+  API
+
+  """
   A Knowledge Article
   """
   DOCUMENT
@@ -2214,6 +2219,10 @@ enum IconLibrary {
   Icons from the Material UI icon library
   """
   MATERIAL
+  """
+  Icons from the Phosphor icon library
+  """
+  PHOSPHOR
 }
 
 type FineGrainedLineage {
@@ -4113,13 +4122,16 @@ type ViewProperties {
   materialized: Boolean!
 
   """
-  The logic associated with the view, most commonly a SQL statement
+  The logic associated with the view, most commonly a SQL statement. Null when the requesting
+  actor lacks VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the dataset -- materialized/language
+  remain populated regardless, since only the SQL text itself is privilege-gated.
   """
-  logic: String!
+  logic: String
 
   """
   A formatted version of the logic associated with the view.
-  For dbt, this contains the compiled SQL.
+  For dbt, this contains the compiled SQL. Null when the requesting actor lacks
+  VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the dataset, same as logic.
   """
   formattedLogic: String
 
@@ -6982,9 +6994,11 @@ The query that was used to populate a Chart
 """
 type ChartQuery {
   """
-  Raw query to build a chart from input datasets
+  Raw query to build a chart from input datasets. Null when the requesting actor lacks
+  VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the chart -- only the query text itself is
+  privilege-gated.
   """
-  rawQuery: String!
+  rawQuery: String
 
   """
   The type of the chart query
@@ -10282,6 +10296,21 @@ type ActorFilter {
 }
 
 """
+Structured property criterion value for policy matching
+"""
+type StructuredPropertyCriterionValue {
+  """
+  The URN of the structured property
+  """
+  propertyUrn: String!
+
+  """
+  Values to match for this structured property
+  """
+  values: [String!]!
+}
+
+"""
 Filter object that encodes a complex filter logic with OR + AND
 """
 type PolicyMatchFilter {
@@ -10303,8 +10332,15 @@ type PolicyMatchCriterion {
 
   """
   Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  Used for traditional fields (type, tag, domain, etc). Use empty array when using structuredPropertyValues
   """
   values: [PolicyMatchCriterionValue!]!
+
+  """
+  Structured property criterion values. Used when field is STRUCTURED_PROPERTY.
+  All properties are combined with AND logic (all must match).
+  """
+  structuredPropertyValues: [StructuredPropertyCriterionValue!]
 
   """
   The name of the field that the criterion refers to
@@ -10416,6 +10452,21 @@ input ActorFilterInput {
 }
 
 """
+Structured property criterion value input for policy matching
+"""
+input StructuredPropertyCriterionValueInput {
+  """
+  The URN of the structured property
+  """
+  propertyUrn: String!
+
+  """
+  Values to match for this structured property
+  """
+  values: [String!]!
+}
+
+"""
 Filter object that encodes a complex filter logic with OR + AND
 """
 input PolicyMatchFilterInput {
@@ -10437,11 +10488,18 @@ input PolicyMatchCriterionInput {
 
   """
   Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  Used for traditional fields (type, tag, domain, etc). Use empty array when using structuredPropertyValues
   """
   values: [String!]!
 
   """
-  The name of the field that the criterion refers to
+  Structured property criterion values. Used when field is STRUCTURED_PROPERTY.
+  All properties are combined with AND logic (all must match).
+  """
+  structuredPropertyValues: [StructuredPropertyCriterionValueInput!]
+
+  """
+  The condition for matching (EQUALS, STARTS_WITH, NOT_EQUALS)
   """
   condition: PolicyMatchCondition!
 }
@@ -12198,6 +12256,21 @@ type ParentDomainsResult {
 }
 
 """
+The full chain of parent applications for a single Application through all of its ancestors
+"""
+type ParentApplicationsResult {
+  """
+  The number of parent applications bubbling up for this entity
+  """
+  count: Int!
+
+  """
+  A list of parent applications in order from direct parent, to parent's parent etc. If there are no parents, return an empty list
+  """
+  applications: [Application!]!
+}
+
+"""
 Properties about a domain
 """
 type DomainProperties {
@@ -13174,14 +13247,22 @@ A DataHub View Filter. Note that
 """
 type DataHubViewFilter {
   """
-  The operator used to combine the filters.
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   """
-  operator: LogicalOperator!
+  operator: LogicalOperator
 
   """
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   A set of filters combined using the operator. If left empty, then no filters will be applied.
   """
-  filters: [FacetFilter!]!
+  filters: [FacetFilter!]
+
+  """
+  The primary format for view filters: stringified json representation of the logical predicate.
+  """
+  json: String
 }
 
 """
@@ -13299,14 +13380,28 @@ Input required for creating a DataHub View Definition
 """
 input DataHubViewFilterInput {
   """
+  Deprecated: Use orFilters instead.
   The operator used to combine the filters.
   """
-  operator: LogicalOperator!
+  operator: LogicalOperator
 
   """
+  Deprecated: Use orFilters instead.
   A set of filters combined via an operator. If left empty, then no filters will be applied.
   """
-  filters: [FacetFilterInput!]!
+  filters: [FacetFilterInput!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters).
+  This is the preferred format for new views.
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  The stringified json representing the logical predicate built in the UI.
+  This is used to restore the full nested structure for editing.
+  """
+  json: String
 }
 
 """
@@ -14000,6 +14095,20 @@ type Application implements Entity {
   """
   properties: ApplicationProperties
     @aspectMapping(aspects: ["applicationProperties"])
+
+  """
+  The parent application that contains this one (app-of-apps hierarchy).
+  Resolved from the ApplicationPartOf relationship.
+  """
+  parentApplication: Application
+    @aspectMapping(aspects: ["applicationProperties"])
+
+  """
+  The full chain of parent applications for this Application, ordered from the direct
+  parent up through its ancestors (app-of-apps hierarchy). Resolved by walking the
+  ApplicationPartOf relationship.
+  """
+  parentApplications: ParentApplicationsResult @noAspects
 
   """
   Ownership metadata of the Application

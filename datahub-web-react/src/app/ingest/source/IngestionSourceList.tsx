@@ -343,7 +343,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: 'Loading...', duration: 3 });
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -383,7 +383,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         if (shouldRun && result.data?.createIngestionSource) {
                             executeIngestionSource(result.data.createIngestionSource);
                         }
-                    }, 2000);
+                    }, 3000);
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();

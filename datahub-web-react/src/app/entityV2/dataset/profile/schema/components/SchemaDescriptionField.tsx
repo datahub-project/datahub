@@ -1,5 +1,5 @@
-import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +17,7 @@ import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/c
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { MetadataAttribution } from '@types';
 
-const EditIcon = styled(EditOutlined)`
+const EditIcon = styled(PencilSimple).attrs({ size: 14 })`
     cursor: pointer;
     display: none;
     color: ${(props) => props.theme.colors.iconSuccess};

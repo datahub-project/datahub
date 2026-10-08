@@ -1,7 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Modal } from '@components';
 import { Spin, Steps } from 'antd';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -13,6 +12,7 @@ import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { IngestionSource } from '@types';
 
@@ -177,7 +177,7 @@ export const IngestionSourceBuilderModal = ({
             buttons={[]}
             dataTestId={isEditing ? 'edit-data-source-modal' : 'connect-data-source-modal'}
         >
-            <Spin spinning={loading} indicator={<LoadingOutlined />}>
+            <Spin spinning={loading} indicator={<StyledSpinner $height={24} />}>
                 {currentStepIndex > 0 ? (
                     <StepsContainer>
                         <Steps current={currentStepIndex}>

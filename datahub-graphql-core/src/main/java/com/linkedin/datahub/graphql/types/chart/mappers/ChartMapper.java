@@ -55,6 +55,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -89,7 +90,9 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     mappingHelper.mapToResult(
         CHART_INFO_ASPECT_NAME,
         (entity, dataMap) -> this.mapChartInfo(context, entity, dataMap, entityUrn));
-    mappingHelper.mapToResult(CHART_QUERY_ASPECT_NAME, this::mapChartQuery);
+    mappingHelper.mapToResult(
+        CHART_QUERY_ASPECT_NAME,
+        (entity, dataMap) -> this.mapChartQuery(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         EDITABLE_CHART_PROPERTIES_ASPECT_NAME, this::mapEditableChartProperties);
     mappingHelper.mapToResult(
@@ -264,14 +267,25 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     return result;
   }
 
-  private void mapChartQuery(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+  private void mapChartQuery(
+      @Nullable QueryContext context,
+      @Nonnull Chart chart,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     final com.linkedin.chart.ChartQuery gmsChartQuery = new com.linkedin.chart.ChartQuery(dataMap);
-    chart.setQuery(mapQuery(gmsChartQuery));
+    chart.setQuery(mapQuery(context, gmsChartQuery, entityUrn));
   }
 
-  private ChartQuery mapQuery(final com.linkedin.chart.ChartQuery query) {
+  private ChartQuery mapQuery(
+      @Nullable QueryContext context,
+      final com.linkedin.chart.ChartQuery query,
+      @Nonnull Urn entityUrn) {
     final ChartQuery result = new ChartQuery();
-    result.setRawQuery(query.getRawQuery());
+    if (context == null
+        || EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+            context.getOperationContext(), entityUrn)) {
+      result.setRawQuery(query.getRawQuery());
+    }
     result.setType(ChartQueryType.valueOf(query.getType().toString()));
     return result;
   }

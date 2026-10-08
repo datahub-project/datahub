@@ -2,6 +2,10 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
@@ -10,8 +14,10 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -19,21 +25,28 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -46,11 +59,13 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -108,6 +123,7 @@ public class UpdateIndicesV3StrategyTest {
 
     // Setup mock index builder
     when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    when(elasticSearchService.getIndexBuilder(anyString())).thenReturn(mockIndexBuilder);
 
     // Create strategy with V2 disabled (testing V3-only scenario)
     strategy =
@@ -477,14 +493,23 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
-  public void testGetIndexMappingsWithNewStructuredProperty() {
-    // Execute
-    Collection<MappingsBuilder.IndexMapping> mappings =
-        strategy.getIndexMappingsWithNewStructuredProperty(
-            operationContext, testUrn, new StructuredPropertyDefinition());
+  public void testGetIndexMappingsWithNewStructuredProperty() throws IOException {
+    StructuredPropertyDefinition property =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("retention")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:retention");
 
-    // Verify - should return empty collection (stub implementation)
-    assertTrue(mappings.isEmpty());
+    Collection<MappingsBuilder.IndexMapping> mappings =
+        strategy.getIndexMappingsWithNewStructuredProperty(operationContext, propertyUrn, property);
+
+    // As on V2, the strategy returns its mappings builder's mappings for the new property
+    assertFalse(mappings.isEmpty());
+    assertEquals(
+        mappings,
+        new MultiEntityMappingsBuilder(EntityIndexConfiguration.builder().v3(v3Config).build())
+            .getIndexMappingsWithNewStructuredProperty(operationContext, propertyUrn, property));
   }
 
   @Test
@@ -1041,5 +1066,708 @@ public class UpdateIndicesV3StrategyTest {
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testLiftsEmbeddingsToDocumentV3RootWhenSemanticEnabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+    semanticDoc.put("skipReason", "EMPTY_TEXT");
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertTrue(written.has("embeddings"));
+    assertEquals(written.get("skipReason").asText(), "EMPTY_TEXT");
+    assertTrue(written.has("resolvedTextSha256"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("embeddings"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("skipReason"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsWhenSemanticDisabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(false);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
+    assertTrue(written.get("_aspects").get("semanticContent").has("embeddings"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsForDataset() throws Exception {
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", testUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnDocumentInfoOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnSemanticTextOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+
+    ObjectNode textDoc = JsonNodeFactory.instance.objectNode();
+    textDoc.put("urn", documentUrn.toString());
+    textDoc.put("semanticText", "curated override");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(textDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("curated override"));
+  }
+
+  @Test
+  public void testStampsResolvedHashWhenDocumentInfoLeadsMixedBatch() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(mockEvent.getAspectSpec()).thenReturn(mockAspectSpec);
+
+    AspectSpec semanticAspectSpec = mock(AspectSpec.class);
+    when(semanticAspectSpec.getName()).thenReturn("semanticContent");
+    when(semanticAspectSpec.isTimeseries()).thenReturn(false);
+    MCLItem semanticEvent = mock(MCLItem.class);
+    when(semanticEvent.getUrn()).thenReturn(documentUrn);
+    when(semanticEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(semanticEvent.getAspectSpec()).thenReturn(semanticAspectSpec);
+    when(semanticEvent.getAspectName()).thenReturn("semanticContent");
+    when(semanticEvent.getRecordTemplate()).thenReturn(mockAspect);
+    when(semanticEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(semanticEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(semanticEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(mockAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(semanticAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, List.of(mockEvent, semanticEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertTrue(written.has("embeddings"));
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  @Test
+  public void testProcessBatch_ProjectsAspectFieldsToRootAndAspects() throws Exception {
+    RecordTemplate previousAspect = mock(RecordTemplate.class);
+    when(mockEvent.getAspectName()).thenReturn(DATASET_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    when(mockEvent.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("run-1"));
+    stubTransform(mockAspect, Map.of("name", "orders"));
+    stubTransform(previousAspect, Map.of("name", "old", "description", "dropped"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "orders");
+    // A partial update keeps whatever it does not overwrite, so removed values are nulled
+    assertTrue(written.get("description").isNull());
+    assertFalse(written.has("_systemMetadata"));
+    JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
+    assertEquals(aspect.get("name").asText(), "orders");
+    assertTrue(aspect.get("description").isNull());
+    assertEquals(aspect.get("_systemMetadata").get("runId").asText(), "run-1");
+  }
+
+  @Test
+  public void testProcessBatch_EditableAspectWinsSharedRootField() throws Exception {
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate baseRecord = baseEvent.getRecordTemplate();
+    stubTransform(editableRecord, Map.of("displayName", "edited"));
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+
+    // The base aspect arrives last, but the user-edited override still wins the root field
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(editableEvent, baseEvent)),
+        false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "edited");
+    assertEquals(
+        written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("displayName").asText(),
+        "ingested");
+  }
+
+  @Test
+  public void testProcessBatch_CoalescesAspectEventsAgainstBatchBaseline() throws Exception {
+    RecordTemplate before = mock(RecordTemplate.class);
+    MCLItem first = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem second = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate firstRecord = first.getRecordTemplate();
+    RecordTemplate secondRecord = second.getRecordTemplate();
+    when(first.getPreviousRecordTemplate()).thenReturn(before);
+    when(second.getPreviousRecordTemplate()).thenReturn(firstRecord);
+    stubTransform(before, Map.of("name", "a", "description", "kept by the first event"));
+    stubTransform(secondRecord, Map.of("name", "c"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(first, second)), false);
+
+    // Diffed against the value before the batch, so the removal reaches _aspects too
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "c");
+    assertTrue(written.get("description").isNull());
+    JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
+    assertEquals(aspect.get("name").asText(), "c");
+    assertTrue(aspect.get("description").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_RemovedOverrideKeepsBaseRootValue() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    RecordTemplate baseRecord = baseEvent.getRecordTemplate();
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate previousOverride = mock(RecordTemplate.class);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(previousOverride);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of());
+    stubTransform(previousOverride, Map.of("displayName", "edited"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The override was removed, so the root falls back to the ingested value
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "ingested");
+    assertTrue(
+        written.get("_aspects").get("editableDatasetProperties").get("displayName").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_RemovedOverrideFallsBackToUnchangedBaseAspect() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    Status baseRecord = new Status().setRemoved(false);
+    Status basePrevious = new Status().setRemoved(false);
+    when(baseEvent.getRecordTemplate()).thenReturn(baseRecord);
+    when(baseEvent.getPreviousRecordTemplate()).thenReturn(basePrevious);
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate previousOverride = mock(RecordTemplate.class);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(previousOverride);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of());
+    stubTransform(previousOverride, Map.of("displayName", "edited"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The unchanged base aspect is not rewritten, but the root still falls back to its value
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "ingested");
+    assertFalse(written.get("_aspects").has(DATASET_PROPERTIES_ASPECT_NAME));
+    assertTrue(
+        written.get("_aspects").get("editableDatasetProperties").get("displayName").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_UnchangedOverrideKeepsSharedRootField() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    Status baseRecord = new Status().setRemoved(true);
+    when(baseEvent.getRecordTemplate()).thenReturn(baseRecord);
+    Status editableRecord = new Status().setRemoved(false);
+    Status editablePrevious = new Status().setRemoved(false);
+    when(editableEvent.getRecordTemplate()).thenReturn(editableRecord);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(editablePrevious);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of("displayName", "edited", "editedDescription", "kept"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The unchanged override still wins the root field its base aspect rewrote; nothing else of
+    // it is rewritten
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "edited");
+    assertFalse(written.has("editedDescription"));
+    assertFalse(written.get("_aspects").has("editableDatasetProperties"));
+  }
+
+  @Test
+  public void testProcessBatch_RestateThenUpdateNullsDroppedField() throws Exception {
+    MCLItem restate = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate restated = restate.getRecordTemplate();
+    RecordTemplate updated = update.getRecordTemplate();
+    when(restate.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(update.getPreviousRecordTemplate()).thenReturn(restated);
+    stubTransform(restated, Map.of("name", "a", "description", "dropped by the update"));
+    stubTransform(updated, Map.of("name", "b"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(restate, update)), false);
+
+    // The restate has no previous value, so the update's previous value is the baseline
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "b");
+    assertTrue(written.get("description").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_CreateThenUpdateNullsNoFieldTheIndexNeverHeld() throws Exception {
+    MCLItem create = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate created = create.getRecordTemplate();
+    RecordTemplate updated = update.getRecordTemplate();
+    when(update.getPreviousRecordTemplate()).thenReturn(created);
+    stubTransform(created, Map.of("name", "a", "description", "dropped by the update"));
+    stubTransform(updated, Map.of("name", "b"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(create, update)), false);
+
+    // The index held no value of the aspect, so a null here could only clear a root field that
+    // another aspect supplies
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "b");
+    assertFalse(written.has("description"));
+  }
+
+  @Test
+  public void testProcessBatch_WritesCreatedAspectFollowedByNoOp() throws Exception {
+    MCLItem create = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem noOp = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status created = new Status().setRemoved(false);
+    Status unchanged = new Status().setRemoved(false);
+    when(create.getRecordTemplate()).thenReturn(created);
+    when(noOp.getRecordTemplate()).thenReturn(unchanged);
+    when(noOp.getPreviousRecordTemplate()).thenReturn(created);
+    stubTransform(unchanged, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(create, noOp)), false);
+
+    // The index did not hold the aspect before the batch, so it is written
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
+  }
+
+  @Test
+  public void testProcessBatch_WritesAspectForcedInsideBatch() throws Exception {
+    Status value = new Status().setRemoved(false);
+    List<MCLItem> batch = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+      MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+      when(event.getRecordTemplate()).thenReturn(value);
+      when(event.getPreviousRecordTemplate()).thenReturn(value);
+      batch.add(event);
+    }
+    when(batch.get(1).getSystemMetadata())
+        .thenReturn(
+            new SystemMetadata().setProperties(new StringMap(Map.of(FORCE_INDEXING_KEY, "true"))));
+    stubTransform(value, Map.of("removed", "false"));
+
+    strategy.processBatch(operationContext, Collections.singletonMap(testUrn, batch), false);
+
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
+  }
+
+  @Test
+  public void testProcessBatch_SkipsDeleteThenRecreateWithSameValue() throws Exception {
+    MCLItem delete = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem recreate = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status value = new Status().setRemoved(false);
+    when(delete.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(delete.getPreviousRecordTemplate()).thenReturn(value);
+    when(recreate.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(value, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(delete, recreate)), false);
+
+    // The index ends the batch holding what it held before it
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_UpdateThenDeleteNullsFieldsHeldBeforeBatch() throws Exception {
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem delete = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate before = mock(RecordTemplate.class);
+    RecordTemplate updated = update.getRecordTemplate();
+    when(update.getPreviousRecordTemplate()).thenReturn(before);
+    when(delete.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(delete.getPreviousRecordTemplate()).thenReturn(updated);
+    RecordTemplate deleted = delete.getRecordTemplate();
+    stubTransform(before, Map.of("name", "a"));
+    stubTransform(deleted, Map.of());
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(update, delete)), false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertTrue(written.get("name").isNull());
+    assertTrue(written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("name").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
+    MCLItem first = aspectEvent("dataPlatformInstance");
+    MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem last = aspectEvent("dataPlatformInstance");
+    RecordTemplate otherRecord = other.getRecordTemplate();
+    RecordTemplate lastRecord = last.getRecordTemplate();
+    stubTransform(otherRecord, Map.of("platform", "from datasetProperties"));
+    stubTransform(lastRecord, Map.of("platform", "from dataPlatformInstance"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(first, other, last)), false);
+
+    // As on V2, an aspect is written at its first position with its last value
+    assertEquals(
+        capturedDocument(DATASET_ENTITY_NAME).get("platform").asText(), "from datasetProperties");
+  }
+
+  @Test
+  public void testProcessBatch_SkipsUnchangedAspect() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(status, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
+
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_UnchangedBatchStillRunsMappingHook() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(status, Map.of("removed", "false"));
+    UpdateIndicesV3Strategy spiedStrategy = spy(strategy);
+
+    spiedStrategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), true);
+
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    // Re-saving an unchanged property definition is how a failed mapping update is repaired
+    verify(spiedStrategy)
+        .updateIndexMappings(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockEntitySpec),
+            any(AspectSpec.class),
+            eq(status),
+            any());
+  }
+
+  @Test
+  public void testProcessBatch_ForceIndexingWritesUnchangedAspect() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    SystemMetadata systemMetadata =
+        new SystemMetadata().setProperties(new StringMap(Map.of(FORCE_INDEXING_KEY, "true")));
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    when(event.getSystemMetadata()).thenReturn(systemMetadata);
+    stubTransform(status, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
+
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
+  }
+
+  private MCLItem aspectEvent(String aspectName) {
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn(aspectName);
+    MCLItem event = mock(MCLItem.class);
+    when(event.getUrn()).thenReturn(testUrn);
+    when(event.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(event.getAspectSpec()).thenReturn(aspectSpec);
+    when(event.getAspectName()).thenReturn(aspectName);
+    when(event.getRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+    when(event.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
+    return event;
+  }
+
+  private void stubTransform(RecordTemplate record, Map<String, String> fields) throws Exception {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("urn", testUrn.toString());
+    fields.forEach(document::put);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            eq(record),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(document));
+  }
+
+  private void enableDocumentSemanticStrategy() {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+  }
+
+  private ObjectNode capturedDocument(String searchGroup) throws Exception {
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
+    return (ObjectNode)
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
   }
 }

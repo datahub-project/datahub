@@ -1,4 +1,4 @@
-import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -31,7 +31,7 @@ export default function TableauEmbed({ externalUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<HeaderIcon />} title={tc('preview')} />
+                <SummaryTabHeaderTitle icon={<Eye />} title={tc('preview')} />
             </SummaryTabHeaderWrapper>
             {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment

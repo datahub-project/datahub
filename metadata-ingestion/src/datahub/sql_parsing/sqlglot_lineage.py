@@ -122,6 +122,12 @@ def _restore_mssql_temp_table_prefix(
     if not hasattr(identifier, "args"):
         return table.name
 
+    # TODO: MSSQL table-valued functions still resolve to the function name
+    # here (ghost URNs). sqlglot's Table.name is "" when Table.this is a Func,
+    # but this reads the name off the function node. Once sqlglot parses bare
+    # hints like `dbo.t (NOLOCK)` as table hints
+    # (https://github.com/tobymao/sqlglot/issues/8468), return "" for a Func
+    # here and in the Dot branch of _table_name_from_sqlglot_table.
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
@@ -138,6 +144,16 @@ def _restore_mssql_temp_table_prefix(
     return table_name
 
 
+def _table_name_as_sqlglot_table(table: _TableName) -> sqlglot.exp.Table:
+    return sqlglot.exp.Table(
+        catalog=(
+            sqlglot.exp.Identifier(this=table.database) if table.database else None
+        ),
+        db=sqlglot.exp.Identifier(this=table.db_schema) if table.db_schema else None,
+        this=sqlglot.exp.Identifier(this=table.table),
+    )
+
+
 def _table_name_from_sqlglot_table(
     table: sqlglot.exp.Table,
     dialect: Optional[sqlglot.Dialect],
@@ -146,8 +162,7 @@ def _table_name_from_sqlglot_table(
 ) -> _TableName:
     """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
 
-    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
-    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
+    Restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
 
     Args:
         table: The SQLGlot Table expression
@@ -200,8 +215,7 @@ def _table_name_from_sqlglot_table(
 
     # Handle Dot expressions (more than 3-part names).
     # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-    # identifiers while walking left, then reverse. Mirror of the traversal in
-    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
+    # identifiers while walking left, then reverse.
     if isinstance(table.this, sqlglot.exp.Dot):
         all_parts_exp: List[sqlglot.exp.Expression] = []
         exp: sqlglot.exp.Expression = table.this
@@ -464,10 +478,19 @@ def _extract_table_names(
     result: OrderedSet[_TableName] = OrderedSet()
     for table in iterable:
         try:
-            result.add(_table_name_from_sqlglot_table(table, dialect))
+            name = _table_name_from_sqlglot_table(table, dialect)
         except SqlUnderstandingError as e:
             # One unresolvable table ref must not drop the whole statement's lineage.
             logger.debug(f"Skipping unresolvable table reference: {e}")
+            continue
+        # e.g. table functions like mysql() or generate_series(). Without a table
+        # name there is no valid dataset URN to build.
+        if not name.table:
+            logger.debug(
+                f"Skipping table reference with no name: {table.sql(dialect=dialect)}"
+            )
+            continue
+        result.add(name)
     return result
 
 
@@ -949,7 +972,7 @@ def _prepare_query_columns(
             normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
 
         sqlglot_db_schema.add_table(
-            table.as_sqlglot_table(),
+            _table_name_as_sqlglot_table(table),
             column_mapping=normalized_table_schema,
         )
 
@@ -1410,7 +1433,6 @@ def _get_direct_raw_col_upstreams(
                         and dialect is not None
                     ):
                         table_ref = table_ref.qualified(
-                            dialect=dialect,
                             default_db=default_db,
                             default_schema=default_schema,
                         )
@@ -1482,6 +1504,20 @@ def _get_column_transformation(
             dialect=dialect,
             parent=lineage_node,
         )
+
+
+def _is_unnamed_table(table: _TableName) -> bool:
+    # e.g. a table function such as generate_series(), which sqlglot parses as a
+    # table with an empty name.
+    return not table.table
+
+
+def _has_only_unnamed_tables(tables: OrderedSet[_TableName]) -> bool:
+    return bool(tables) and all(_is_unnamed_table(t) for t in tables)
+
+
+def _drop_unnamed_tables(tables: Iterable[_TableName]) -> OrderedSet[_TableName]:
+    return OrderedSet(t for t in tables if not _is_unnamed_table(t))
 
 
 def _collect_tables_from_scope(
@@ -1645,7 +1681,9 @@ def _list_joins(
                             join.sql(dialect=dialect),
                         )
                     continue
-                elif len(left_side_tables | right_side_tables) == 1:
+                elif (
+                    len(_drop_unnamed_tables(left_side_tables | right_side_tables)) == 1
+                ):
                     # When we don't have an ON clause, we're more strict about the
                     # minimum number of tables we need to resolve to avoid false positives.
                     # On the off chance someone is doing a self-cross-join, we'll miss it.
@@ -1655,6 +1693,19 @@ def _list_joins(
                             join.sql(dialect=dialect),
                         )
                     continue
+
+            # An unnamed table has no URN, so the URN lookup would discard the whole
+            # join. Drop unnamed tables here instead, and skip the join if nothing else
+            # is left on a side, e.g. `a JOIN generate_series(...)`.
+            if _has_only_unnamed_tables(left_side_tables) or _has_only_unnamed_tables(
+                right_side_tables
+            ):
+                continue
+            left_side_tables = _drop_unnamed_tables(left_side_tables)
+            right_side_tables = _drop_unnamed_tables(right_side_tables)
+            joined_columns = OrderedSet(
+                col for col in joined_columns if not _is_unnamed_table(col.table)
+            )
 
             joins.append(
                 _JoinInfo(
@@ -1679,10 +1730,17 @@ def _list_joins(
             # Get tables from lateral subquery
             qualified_right: OrderedSet[_TableName] = OrderedSet()
             if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
-                qualified_right.update(
+                lateral_tables: OrderedSet[_TableName] = OrderedSet(
                     _table_name_from_sqlglot_table(t, dialect)
                     for t in lateral.this.find_all(sqlglot.exp.Table)
                 )
+                # A body of only unnamed tables, e.g. `LATERAL (SELECT n FROM
+                # generate_series(...))`, would leave just the merged-in left side
+                # below and report a self-join.
+                if _has_only_unnamed_tables(lateral_tables):
+                    continue
+                qualified_right.update(_drop_unnamed_tables(lateral_tables))
+            qualified_left = _drop_unnamed_tables(qualified_left)
             qualified_right.update(qualified_left)
 
             if qualified_left and qualified_right:
@@ -2097,11 +2155,16 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
-    if isinstance(statement, sqlglot.exp.Command):
+    if isinstance(statement, (sqlglot.exp.Command, sqlglot.exp.Execute)):
         # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
         # This is effectively a parsing error, and we won't get any lineage from it.
         # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
         # and https://github.com/tobymao/sqlglot/pull/2874
+        #
+        # Execute is rejected for a different reason: it parses, but the callee is an
+        # `exp.Table`, so table-level lineage would report a procedure call as an
+        # upstream dataset that does not exist. Procedure-call lineage is built from
+        # the parsed call elsewhere and does not come through here.
         raise UnsupportedStatementTypeError(
             f"Got unsupported syntax for statement: {sql}"
         )
@@ -2151,7 +2214,7 @@ def _sqlglot_lineage_inner(
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
+            default_db=default_db, default_schema=default_schema
         )
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)

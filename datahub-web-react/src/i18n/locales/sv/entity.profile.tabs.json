@@ -54,6 +54,7 @@
     "properties.save.error": "Det gick inte att spara den strukturerade egenskapen. Något gick fel.",
     "properties.search.placeholder": "Sök...",
     "properties.searchInProperties.placeholder": "Sök bland egenskaper...",
+    "properties.showCountMoreValues": "visa {{count}} fler av {{total, number}} värden",
     "properties.structuredProperty.title": "Strukturerad egenskap",
     "properties.updated.success": "Den strukturerade egenskapen har uppdaterats!"
 }

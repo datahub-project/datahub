@@ -1,11 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Pill, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position, useNodeId } from 'reactflow';
-import styled, { useTheme } from 'styled-components';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -42,8 +43,14 @@ import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/Depr
 
 import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 
-import LinkOut from '@images/link-out.svg?react';
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
 
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 export const LoadingWrapper = styled.div`
     color: ${({ theme }) => theme.colors.iconBrand};
     font-size: 32px;
@@ -168,6 +175,8 @@ interface Props {
     /** Whether the node may be hiding lineage in each direction, i.e. it shows a control saying so. */
     mayHideUpstreamLineage: boolean;
     mayHideDownstreamLineage: boolean;
+    /** Whether the entity itself is part of the highlighted column lineage; see `NodeWrapper`. */
+    highlighted: boolean;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -215,6 +224,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
         mayHideUpstreamLineage,
         mayHideDownstreamLineage,
+        highlighted,
     } = props;
 
     const { t } = useTranslation('lineage');
@@ -300,7 +310,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             rel="noopener noreferrer"
                         >
                             <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
-                                <LinkOut />
+                                <ArrowSquareOut size={12} />
                             </Tooltip>
                         </LinkOutWrapper>
                     )}
@@ -355,6 +365,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
+                highlighted={highlighted}
             >
                 <LineageCard
                     urn={urn}
@@ -447,12 +458,18 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 )}
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                    <Spin
+                                        delay={urn === rootUrn ? undefined : 500}
+                                        indicator={<SpinningCircleNotch />}
+                                    />
                                 </LoadingWrapper>
                             )}
                             {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                    <Spin
+                                        delay={urn === rootUrn ? undefined : 500}
+                                        indicator={<SpinningCircleNotch />}
+                                    />
                                 </LoadingWrapper>
                             )}
                         </>

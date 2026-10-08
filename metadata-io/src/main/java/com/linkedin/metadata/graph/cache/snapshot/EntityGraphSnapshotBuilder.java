@@ -30,7 +30,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -427,7 +426,7 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(scrollDirection),
+                QueryUtils.newRelationshipFilter(QueryUtils.EMPTY_FILTER, scrollDirection),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -700,7 +699,8 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(resolved.getGraphDirection()),
+                QueryUtils.newRelationshipFilter(
+                    QueryUtils.EMPTY_FILTER, resolved.getGraphDirection()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -863,7 +863,7 @@ public class EntityGraphSnapshotBuilder {
   }
 
   @Nonnull
-  static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
+  public static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
     List<String> canonical =
         edges.stream()
             .map(DirectedEdge::canonicalLine)
@@ -946,12 +946,17 @@ public class EntityGraphSnapshotBuilder {
     private void bypass(String reason) {
       bypassed = true;
       bypassReason = reason;
+      int maxVertices = definition.getBounds().getMaxVertices();
+      int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
       log.warn(
-          "Graph {} exceeded bounds: reason={} vertices={} edges={}",
+          "Entity graph cache exceeded bounds: graphId={} buildSource={} reason={} vertices={} maxVertices={} edges={} maxEdges={}",
           definition.getGraphId(),
+          definition.getBuildSource(),
           reason,
           vertices.size(),
-          edgesByLine.size());
+          maxVertices,
+          edgesByLine.size(),
+          maxEdges);
     }
 
     boolean isBypassed() {

@@ -14,8 +14,10 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -39,7 +41,10 @@ public class JavaEntityClientFactory {
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
       final EntityClientConfig entityClientConfig,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+          // Absent where ReliableHardDeleteFactory is not scanned; deletes then run today's path.
+          final @Qualifier("reliableHardDelete") ObjectProvider<ReliableHardDelete>
+              reliableHardDelete) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -51,7 +56,8 @@ public class JavaEntityClientFactory {
         rollbackService,
         _eventProducer,
         entityClientConfig,
-        metricUtils);
+        metricUtils,
+        reliableHardDelete.getIfAvailable());
   }
 
   @Bean("systemEntityClient")

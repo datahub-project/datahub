@@ -50,6 +50,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
+    DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
@@ -66,6 +67,10 @@ logger = logging.getLogger(__name__)
 # carries the curated override. Passed to DocumentEventConsumer AND checked in
 # _process_single_event — keep the two filters in lockstep via this constant.
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
+# Source types whose documents DataHub owns and embeds itself. SYSTEM marks
+# documents managed by the platform rather than created by users.
+DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
 
 
 class DocumentEnumerationError(Exception):
@@ -88,6 +93,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
     num_documents_skipped_orphaned: int = 0
+    num_documents_pruned_from_state: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
@@ -95,6 +101,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
     num_documents_limit_reached: bool = False
+    # Documents whose semanticContent was truncated/dropped to fit the size floor
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -141,6 +150,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
     Automatically fetches embedding configuration from server to ensure alignment.
+
+    Embedding generation is gated on the server's semanticSearchConfig, not on Search V3.
+    When both semantic search and V3 are enabled, GMS dual-writes embeddings onto
+    documentindex_v3; this source still only emits SemanticContent via MCP.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -201,16 +214,25 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             embedding=self.config.embedding,
             max_documents=self.config.max_documents,
         )
+        # A failed config lookup must stop the run: treating it as "semantic search
+        # off" would re-hash every document unembedded, then re-embed them all.
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
             config=chunking_config,
             standalone=False,
             graph=self.graph,
+            fail_on_config_lookup_error=True,
         )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None
+        # What the latest batch scroll listed (minus orphans) and whether it listed every
+        # live document, plus URNs written to state this run, which search may not list
+        # yet. Pruning keeps both, and only runs after a complete, non-empty listing.
+        self._enumerated_urns: set[str] = set()
+        self._enumeration_complete = False
+        self._written_urns: set[str] = set()
 
         if self.config.incremental.enabled:
             self._initialize_state_tracking()
@@ -406,6 +428,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # though no semanticContent was ever written for it.
             if self.config.incremental.enabled and processed_ok:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
+
+        # State is carried forward between runs, so without this every document ever
+        # embedded keeps an entry and the checkpoint grows until it can't be committed.
+        # A listing with no live documents is far likelier an index problem than an empty
+        # catalog.
+        if (
+            self.config.incremental.enabled
+            and self._enumeration_complete
+            and self._enumerated_urns
+        ):
+            self._prune_document_state(self._enumerated_urns | self._written_urns)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -845,12 +878,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in event mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
         Args:
-            source_type: Document source type ("NATIVE" or "EXTERNAL")
+            source_type: Document source type ("NATIVE", "SYSTEM" or "EXTERNAL")
             aspect_dict: Parsed documentInfo aspect dictionary
             entity_urn: Document URN for logging and fetching platform
 
@@ -863,8 +896,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         ):
             return True
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -910,7 +943,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in batch mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
@@ -934,8 +967,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if source_type is None:
             source_type = "NATIVE"
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -1053,6 +1086,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
         )
 
+    def _supports_non_global_context_documents(self) -> bool:
+        # Ask the live schema rather than infer from the server version: a server
+        # that doesn't define this flag rejects the whole query when it is sent.
+        try:
+            supported = self.graph._graphql_input_type_has_field(
+                "SearchFlags", "includeNonGlobalContextDocuments"
+            )
+        except GraphError as e:
+            self.report.warning(
+                title="Documents outside the global context were not enumerated",
+                message="Could not check whether the server supports "
+                "includeNonGlobalContextDocuments, so documents hidden from global "
+                "search are not embedded in this run.",
+                exc=e,
+            )
+            return False
+        logger.info(
+            f"includeNonGlobalContextDocuments {'enabled' if supported else 'disabled'} "
+            "for document enumeration"
+        )
+        return supported
+
     def _scroll_document_urns(self) -> Iterable[str]:
         """Enumerate Document URNs via scrollAcrossEntities.
 
@@ -1072,7 +1127,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         query scrollDocumentUrns(
             $scrollId: String,
             $batchSize: Int!,
-            $orFilters: [AndFilterInput!]
+            $orFilters: [AndFilterInput!],
+            $searchFlags: SearchFlags
         ) {
           scrollAcrossEntities(input: {
             types: [DOCUMENT],
@@ -1080,11 +1136,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             count: $batchSize,
             scrollId: $scrollId,
             orFilters: $orFilters,
-            searchFlags: {
-              skipHighlighting: true,
-              skipAggregates: true
-              includeHiddenLifecycleStages: true
-            }
+            searchFlags: $searchFlags
           }) {
             nextScrollId
             searchResults {
@@ -1116,6 +1168,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
+        search_flags: dict[str, bool] = {
+            "skipHighlighting": True,
+            "skipAggregates": True,
+            "includeHiddenLifecycleStages": True,
+        }
+        # Servers that place documents outside the global context (e.g. embedded product
+        # docs) hide them from search unless asked; older servers reject the unknown flag.
+        if self._supports_non_global_context_documents():
+            search_flags["includeNonGlobalContextDocuments"] = True
+
+        self._enumerated_urns = set()
+        self._enumeration_complete = False
+        truncated = False
         scroll_id: Optional[str] = None
         first_iter = True
         while first_iter or scroll_id:
@@ -1132,6 +1197,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "batchSize": self.config.scroll_batch_size,
                 "scrollId": scroll_id,
                 "orFilters": or_filters,
+                "searchFlags": search_flags,
             }
             response = self.graph.execute_graphql(query, variables)
             scroll_data = response.get("scrollAcrossEntities")
@@ -1162,6 +1228,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # fail the run — a warning would let a large silent gap pass as a
             # successful run.
             if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
+                truncated = True
                 self.report.failure(
                     title="Document enumeration ended without a scroll cursor",
                     message="A full page returned no nextScrollId; enumeration "
@@ -1172,7 +1239,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 entity = result.get("entity") or {}
                 urn = entity.get("urn")
                 if urn:
+                    self._enumerated_urns.add(urn)
                     yield urn
+
+        # Only a scroll that ran to the end without truncating lists every live
+        # document, which is what makes it safe to prune state against it. The
+        # checkpoint commits even when the run fails, so this can't rely on that.
+        self._enumeration_complete = not truncated
 
     def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
@@ -1214,6 +1287,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
         urn_iter = iter(urns)
+        # Whether an all-null batch means a serving problem or just orphans can
+        # only be judged across the whole run, so track both run-wide.
+        resolved_any = False
+        first_all_null_urn: Optional[str] = None
         while True:
             # islice pulls one window from the enumerator, so scrolling and
             # hydration interleave instead of enumerating everything up front.
@@ -1240,6 +1317,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 hydrated_any = False
                 for entity in self._hydrate_individually(query, batch):
                     hydrated_any = True
+                    resolved_any = True
                     yield entity
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
@@ -1286,17 +1364,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 for entity in entities
                 if entity and entity.get("urn")
             }
-            if not entities_by_urn:
-                # Right length, but every slot came back null. Unlike a length
-                # mismatch this is interpretable — every requested URN was
-                # unresolvable — and the rest of the catalog may be healthy, so
-                # fail the run without aborting it. A page of index drift must not
-                # take down a run that can still embed everything else.
-                self.report.failure(
+            if entities_by_urn:
+                resolved_any = True
+            else:
+                # Right length, but every slot came back null. On its own this is
+                # orphan drift, not a serving problem: enumeration is ordered by
+                # URN, so orphans sharing a prefix (e.g. a family of documents
+                # hard-deleted together) are contiguous and can fill whole
+                # batches. Warn and keep going; whether it was really a serving
+                # problem is decided once the run has seen every batch, below.
+                if first_all_null_urn is None:
+                    first_all_null_urn = batch[0]
+                self.report.warning(
                     title="Document hydration resolved nothing in a batch",
-                    message="Every URN in a hydration batch resolved to null, which "
-                    "is usually a serving problem rather than that many orphans; "
-                    "the batch was skipped and the run continues.",
+                    message="Every URN in a hydration batch resolved to null "
+                    "(a contiguous run of orphaned index entries); the batch was "
+                    "skipped and the run continues.",
                     context=batch[0],
                 )
             for urn in batch:
@@ -1305,6 +1388,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self._skip_orphaned(urn)
                     continue
                 yield hydrated
+
+        if first_all_null_urn is not None and not resolved_any:
+            # Nothing resolved anywhere in the run. A healthy catalog with orphan
+            # drift still resolves its live documents, so this is a serving
+            # problem, not orphans, and the run must not finish green having
+            # embedded nothing.
+            self.report.failure(
+                title="Document hydration resolved nothing",
+                message="Every enumerated document URN resolved to null, which is "
+                "usually a serving problem rather than every document being "
+                "orphaned; nothing was embedded.",
+                context=first_all_null_urn,
+            )
 
     def _hydrate_individually(
         self, query: str, urns: list[str]
@@ -1338,6 +1434,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _skip_orphaned(self, urn: str) -> None:
         """Record an orphaned index entry (a URN with no resolvable entity)."""
+        # The document is gone even though its index entry outlived it.
+        self._enumerated_urns.discard(urn)
         self.report.report_document_skipped_orphaned()
         self.report.warning(
             title="Skipped orphaned document",
@@ -1377,10 +1475,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             Dictionary of config values that affect processing output.
         """
-        # Chunking/embedding is enabled when embedding provider is configured
-        embedding_enabled = self.config.embedding.provider is not None
+        # Read the config the chunking source resolved, not self.config.embedding: with
+        # no local embedding block (the managed recipe) the provider comes from the
+        # server, so the recipe copy stays empty and server changes would never re-hash.
+        embedding = self.chunking_source.config.embedding
+        embedding_enabled = embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1397,15 +1498,30 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             else None,
             # Embedding affects vector embeddings on chunks
             "embedding_enabled": embedding_enabled,
-            "embedding_provider": self.config.embedding.provider
-            if embedding_enabled
-            else None,
-            "embedding_model": self.config.embedding.model
-            if embedding_enabled
-            else None,
+            "embedding_provider": embedding.provider if embedding_enabled else None,
+            "embedding_model": embedding.model if embedding_enabled else None,
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        # cls and mean pooling give different vectors from the same onnx model. Like
+        # the chunk cap, only a non-default value is fingerprinted (normalized as the
+        # provider does), so onnx documents hashed before this knob are not re-embedded.
+        if embedding.provider == "onnx":
+            pooling = (embedding.onnx_pooling or "cls").lower()
+            if pooling != "cls":
+                fingerprint["onnx_pooling"] = pooling
+        return fingerprint
 
     @staticmethod
     def _resolve_embed_text(contents: Dict[str, Any]) -> str:
@@ -1469,6 +1585,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Update state after processing document."""
         content_hash = self._calculate_text_hash(text)
         last_processed = datetime.utcnow().isoformat()
+        # Written this run, so it exists even if search can't list it yet.
+        self._written_urns.add(document_urn)
 
         # Use state_handler if available (proper stateful ingestion)
         if self.state_handler and self.state_handler.is_checkpointing_enabled():
@@ -1481,6 +1599,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "content_hash": content_hash,
                 "last_processed": last_processed,
             }
+
+    def _prune_document_state(self, live_urns: set[str]) -> None:
+        """Drop state for documents that are no longer enumerated (deleted)."""
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            pruned = self.state_handler.prune_document_state(live_urns)
+        else:
+            stale = self.document_state.keys() - live_urns
+            for document_urn in stale:
+                del self.document_state[document_urn]
+            pruned = len(stale)
+        self.report.num_documents_pruned_from_state = pruned
+        if pruned:
+            logger.info(f"Pruned state for {pruned} deleted document(s)")
 
     def _state_has_document(self, document_urn: str) -> bool:
         """Whether incremental state already tracks this document.
@@ -1667,6 +1798,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
         self.report.processing_errors = list(
             self.chunking_source.report.processing_errors
+        )
+        self.report.num_documents_truncated_oversized = (
+            self.chunking_source.report.num_documents_truncated_oversized
+        )
+        self.report.num_documents_dropped_oversized = (
+            self.chunking_source.report.num_documents_dropped_oversized
         )
         return self.report
 

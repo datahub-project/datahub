@@ -45,7 +45,7 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     renderProfile = (urn: string) => <GroupProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpGroup) => (
+    renderPreview = (_previewType: PreviewType, data: CorpGroup) => (
         <Preview
             urn={data.urn}
             name={this.displayName(data)}

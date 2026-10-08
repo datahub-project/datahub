@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 class Constant:
@@ -203,9 +204,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # is counted in chart_input_fields_resolved; each additional pair increments
     # this counter. Non-zero means some chart columns have multi-upstream lineage.
     chart_input_fields_multi_ref_extra: int = 0
-    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
-    # against a workbook element name (warehouse fallback intentionally skipped).
+    # Per ref: a ref source matching several workbook element or Data Model
+    # upstream names that differ only in case, none picked by lineage or spelled
+    # as the ref is, so it is refused (warehouse fallback skipped too).
     chart_input_fields_case_mismatch: int = 0
+    # Per ref: the ref's column is absent from its upstream's known columns, or
+    # matches only several case variants of it, so no edge is emitted.
+    chart_input_fields_column_not_found: int = 0
+    # Per ref: a 3+ segment ref no upstream with known columns confirmed as
+    # [Element/Column with slashes].
+    chart_input_fields_multi_segment_refused: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
@@ -361,6 +369,40 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # emit a user-visible warning to prevent report flooding on a
     # vendor-wide regression; this counter captures the rest.
     pagination_malformed_entries_dropped: int = 0
+    # Paginated calls that aborted partway, losing every entry after the
+    # failure point. The warnings all group under one title, so without this
+    # the report shows one warning however many endpoints were truncated.
+    pagination_aborted: int = 0
+
+    # Failed Sigma API calls by HTTP status, or by exception class when there
+    # is no response (hence ..._or_error). Sourced from ``_log_http_error``,
+    # so NOT a total: the handlers that already emit their own entry with a
+    # status in it skip it rather than report the same failure twice.
+    api_call_failures_by_status_or_error: Dict[str, int] = field(default_factory=dict)
+    # The same failures keyed by Sigma's own ``code``, which is the actionable
+    # one: a single 400 covers a deleted warehouse object (inode_archived), a
+    # broken model (invalid_request) and the customer's own SQL failing
+    # (warehouse_query_failed_user_error). TopKDict because the key is
+    # server-controlled: it prints the top 10 plus a rollup, and keeps the
+    # rest.
+    api_call_failures_by_sigma_code: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    # RUN-WIDE calls whose failure removes entities from the emitted set.
+    # A failure, not a warning: the framework suppresses soft-deletion only
+    # when the source reports one.
+    entity_enumeration_failed: int = 0
+    # The same failure scoped to ONE parent: a workbook's pages, a page's
+    # elements, a Data Model's elements, or a workspace or file-path lookup.
+    # Counted, not failed -- the framework guard is run-wide, so failing here
+    # would freeze soft-deletion tenant-wide for one flaky call. The unit is
+    # DISTINCT PARENTS; both lookup paths dedupe on their own counted-set.
+    #
+    # RESIDUAL RISK, accepted: with ingest_shared_entities False a failed
+    # workspace lookup drops that workspace's content and the run still
+    # passes, so it is soft-deleted, with only fail_safe_threshold behind it.
+    # Reached only for workspaces MISSING from the /workspaces listing.
+    child_entity_listing_failed: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
@@ -428,6 +470,65 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+
+    # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
+    # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
+    # broke (a dataset-backed element's /query now returns 200 with no SQL).
+    # The dataset_* counters below are per Sigma Dataset, never per
+    # referencing element. connection_path_* are per warehouse table, and
+    # dataset_sources_endpoint_removed is effectively once per run.
+    #
+    # Datasets whose warehouse table(s) were recovered through this route.
+    dataset_warehouse_upstream_from_inode: int = 0
+    # Datasets whose /sources listed no type=table entry: a CSV upload, a
+    # dataset-on-dataset, or a custom-SQL dataset. Not an error.
+    dataset_warehouse_no_table_sources: int = 0
+    # A /sources entry named a table but could not be used: not a JSON object,
+    # or a type=table entry with no inodeId. Mirrors
+    # dm_element_warehouse_table_entry_incomplete. Counted per entry, and kept
+    # out of no_table_sources, which is documented as the benign case.
+    dataset_warehouse_table_entry_incomplete: int = 0
+    # /datasets/{id}/sources returned non-200, raised, or was not a JSON list.
+    dataset_sources_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    dataset_sources_lookup_rate_limited: int = 0
+    # Sub-bucket of dataset_sources_lookup_failed: /sources could not resolve one
+    # dataset (404, or the 409 inode_archived Sigma actually returns), i.e. it was
+    # deleted, archived or re-permissioned after the listing.
+    dataset_sources_not_found: int = 0
+    # 1 once the endpoint is concluded to be removed: a 410, or a 404/409 that a
+    # re-probe confirms (of a known-good dataset, or of the dataset API itself
+    # before anything has succeeded). Set at most once per run.
+    dataset_sources_endpoint_removed: int = 0
+    # Datasets skipped without a request because the endpoint was already
+    # latched as removed. Shows how much lineage the latch cost.
+    dataset_sources_skipped_endpoint_gone: int = 0
+    # /connections/paths/{inodeId} failed or returned an unusable body, so the
+    # table could not be tied to a connection.
+    connection_path_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    connection_path_lookup_rate_limited: int = 0
+    # The table's connectionId is absent from the connection registry or is
+    # not mappable to a DataHub platform. Mirrors
+    # dm_element_warehouse_unknown_connection for this route.
+    dataset_warehouse_unknown_connection: int = 0
+    # An element reads a Sigma Dataset that /v2/datasets did not return, so its
+    # datasetId is unknown and /sources cannot be called. Usually
+    # workspace_pattern excludes that dataset's workspace -- unless
+    # datasets_listing_failed is also set, in which case the listing itself
+    # failed and every referenced dataset lands here.
+    dataset_warehouse_unlisted_dataset: int = 0
+    # /v2/datasets could not be listed. The per-listing breakdown of
+    # entity_enumeration_failed: both fire, the aggregate driving the
+    # stale-removal guard and this one telling sigma.py which listing died.
+    # Without it the lineage loss looks like a workspace_pattern choice
+    # rather than the deprecated endpoint going away.
+    datasets_listing_failed: int = 0
+    # Datasets present in the listing but dropped because /files metadata was
+    # missing for them. _get_files_metadata returning {} drops every dataset
+    # without raising, so this distinguishes that from a workspace_pattern
+    # exclusion when a dataset later turns out to be unresolvable.
+    datasets_dropped_missing_file_metadata: int = 0
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -547,6 +648,16 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    ingest_datasets: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest Sigma Datasets. Sigma ended dataset "
+        "support on 2026-09-15, so ``/v2/datasets`` is on a removal path. Set "
+        "this to ``False`` once that endpoint has gone for your tenant: the "
+        "call is not made and the run stops failing. Sigma Datasets a "
+        "previous run emitted are then soft-deleted. Data Model elements "
+        "that read one lose that upstream edge; workbook elements are "
+        "linked straight to the warehouse table when their SQL names it.",
     )
     ingest_data_models: bool = pydantic.Field(
         default=True,

@@ -1,8 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Button, Input, Modal, Spin, notification } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
+import styled, { keyframes } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -15,6 +16,16 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput } from '@types';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinIcon = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    font-size: 24px;
+`;
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
@@ -56,7 +67,7 @@ export default function DownloadAsCsvModal({
                 : t('downloadCsv.creating'),
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+            icon: <Spin indicator={<SpinIcon />} />,
         });
     };
 
@@ -90,19 +101,29 @@ export default function DownloadAsCsvModal({
             path: location.pathname,
         });
 
+        let sizeForDownload = SEARCH_PAGE_SIZE_FOR_DOWNLOAD;
+        let timeTaken = 0;
+
         function fetchNextPage() {
+            const startTime = new Date().getTime();
             downloadSearchResults({
                 scrollId: nextScrollId,
                 query,
-                count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
+                count: sizeForDownload,
                 orFilters: filters,
                 viewUrn,
             })
                 .then((refetchData) => {
+                    timeTaken += new Date().getTime() - startTime;
                     accumulatedResults = [
                         ...accumulatedResults,
                         ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                     ];
+                    console.log(
+                        `Downloaded ${accumulatedResults.length} rows out of ${
+                            refetchData?.total
+                        } rows. Time taken for download so far: ${timeTaken / 1000}s`,
+                    );
                     // If we have a "next offset", then we continue.
                     // Otherwise, we terminate fetching.
                     if (refetchData?.nextScrollId) {
@@ -119,8 +140,14 @@ export default function DownloadAsCsvModal({
                     }
                 })
                 .catch((_) => {
-                    setIsDownloadingCsv(false);
-                    showFailedDownloadNotification();
+                    if (sizeForDownload > 10) {
+                        sizeForDownload = Math.floor(sizeForDownload / 2);
+                        console.log(`Failed to download, retrying with smaller page size of ${sizeForDownload}`);
+                        fetchNextPage();
+                    } else {
+                        setIsDownloadingCsv(false);
+                        showFailedDownloadNotification();
+                    }
                 });
         }
         fetchNextPage();

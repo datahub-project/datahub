@@ -13,6 +13,7 @@ import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
+import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
@@ -20,6 +21,7 @@ import { ErrorCodes } from '@app/shared/constants';
 import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { installApolloPollingContextPatch } from '@src/apolloPolling';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
@@ -59,11 +61,10 @@ const errorLink = onError((error) => {
 
 const injectVariablesLink = new ApolloLink((operation, forward) => {
     // eslint-disable-next-line no-param-reassign
-    operation.variables = {
-        ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current,
-        skipLineage: hideLineageInSearchCardsRef.current,
-    };
+    operation.variables = injectGlobalSearchVariables(operation.variables, {
+        showSeparateSiblings: showSeparateSiblingsRef.current,
+        hideLineageInSearchCards: hideLineageInSearchCardsRef.current,
+    });
 
     return forward(operation);
 });
@@ -84,6 +85,14 @@ const client = new ApolloClient({
                         },
                     },
                     entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
                         },
@@ -109,6 +118,10 @@ const client = new ApolloClient({
     },
 });
 
+// Forward NetworkStatus.poll onto operation.context so GraphQL tracing links can skip
+// timer-driven poll ticks without an op-name denylist. Must run after `new ApolloClient`.
+installApolloPollingContextPatch(client);
+
 export const InnerApp: React.VFC = () => {
     const isDarkMode = loadIsDarkMode();
 
@@ -116,7 +129,11 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
-                <ToastRenderer />
+                {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                    so it needs one of its own while the locale bundle loads. */}
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

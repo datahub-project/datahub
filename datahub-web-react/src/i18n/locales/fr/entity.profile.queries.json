@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Copier la requête",
-    "emptyQueries.noHighlightedQueries": "Aucune requête mise en avant pour le moment",
     "queriesTab.addHighlightedQueryButton": "Ajouter une requête mise en avant",
     "queriesTab.addHighlightedQueryTooltip": "Ajouter une requête mise en avant",
     "queriesTab.addUnauthorizedMessage": "Vous n'êtes pas autorisé à ajouter des requêtes à cette entité.",

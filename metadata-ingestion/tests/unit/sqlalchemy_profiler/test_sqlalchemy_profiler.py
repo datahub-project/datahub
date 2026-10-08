@@ -2,25 +2,37 @@
 
 import logging
 import sqlite3
-from typing import Any, Dict, List
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
+from sqlalchemy.dialects.postgresql import CITEXT
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
     ProfilingIsolationLevel,
 )
-from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
-from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
+from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
+    format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 from datahub.utilities.stats_collections import float_top_k_dict
 
 
@@ -95,6 +107,45 @@ def profiler(sqlite_engine, profiler_config, mock_report):
         platform="sqlite",
         env="TEST",
     )
+
+
+class TestNullStdevResolution:
+    """A NULL stddev is settled from the count already in hand, not a requery."""
+
+    @staticmethod
+    def _stdev_for(profiler, non_null_count):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        runner = MagicMock()
+        runner.adapter = GenericAdapter(profiler.config, SQLSourceReport(), MagicMock())
+        future = MagicMock()
+        future.result.return_value = None
+        column_profile = DatasetFieldProfileClass(fieldPath="value_col")
+        profiler._process_numeric_column_stats(
+            runner=runner,
+            sql_table=MagicMock(),
+            col_name="value_col",
+            column_profile=column_profile,
+            col_type=ProfilerDataType.INT,
+            cardinality=Cardinality.MANY,
+            non_null_count=non_null_count,
+            numeric_stats_futures={"value_col": {"stdev": future}},
+            pretty_name="test.table",
+        )
+        # No second query may be issued to settle it.
+        runner.get_column_non_null_count.assert_not_called()
+        return column_profile.stdev
+
+    def test_single_value_is_undefined(self, profiler):
+        assert self._stdev_for(profiler, 1) is None
+
+    def test_several_equal_values_are_zero_variance(self, profiler):
+        assert self._stdev_for(profiler, 5) == "0.0"
+
+    def test_all_null_column_defers_to_the_adapter(self, profiler):
+        assert self._stdev_for(profiler, 0) is None
 
 
 class TestSQLAlchemyProfiler:
@@ -307,7 +358,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -347,7 +398,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -518,9 +569,9 @@ class TestSQLAlchemyProfiler:
             column_profile=mock_column_profile,
             col_type=ProfilerDataType.FLOAT,
             cardinality=Cardinality.MANY,
+            non_null_count=10,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
-            platform="sqlite",
         )
 
         # Verify warning was logged
@@ -555,9 +606,9 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Histogram",
                 "expected_context": "test.table.value_col",
@@ -571,9 +622,9 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Quantiles",
                 "expected_context": "test.table.value_col",
@@ -652,8 +703,8 @@ class TestSQLAlchemyProfiler:
         Test that profiling returns None when row_count metric fails.
 
         This prevents empty profiles from being emitted when we can't get basic
-        metrics like row count (e.g., due to permission errors). This matches
-        GE profiler behavior which asserts that profile.rowCount is not None.
+        metrics like row count (e.g., due to permission errors): a profile is
+        only emitted when profile.rowCount is not None.
 
         The row_count extraction includes explicit exception handling and early
         return logic to prevent emitting profiles without this critical metric.
@@ -706,7 +757,7 @@ class TestSQLAlchemyProfiler:
         """
         Test that empty tables (row_count == 0) skip column profiling but return basic profile.
 
-        This optimization matches GE profiler behavior:
+        This optimization:
         - Empty tables get a basic profile with rowCount=0
         - Column profiling is skipped (no field profiles generated)
         - No wasted queries on empty tables
@@ -1360,3 +1411,196 @@ class TestQueryCombinerWiring:
         )
 
         assert kwargs["flatten_enabled"] is False
+
+
+class TestFormatProfileValue:
+    """Tests for the unified format_profile_value function."""
+
+    # -- None handling --
+
+    @pytest.mark.parametrize(
+        "col_type",
+        [
+            ProfilerDataType.INT,
+            ProfilerDataType.FLOAT,
+            ProfilerDataType.NUMERIC,
+            ProfilerDataType.DATETIME,
+            ProfilerDataType.STRING,
+        ],
+    )
+    def test_none_returns_none(self, col_type: ProfilerDataType) -> None:
+        assert format_profile_value(None, col_type) is None
+        assert format_profile_value(None, col_type, as_stat=True) is None
+
+    # -- INT data values (min/max/histogram) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100"),
+            (0, "0"),
+            (float(100.0), "100"),
+            (Decimal("100"), "100"),
+        ],
+    )
+    def test_int_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.INT) == expected
+
+    # -- INT stat values (mean/median/stdev/quantiles) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (0, "0.0"),
+            (float(100.0), "100.0"),
+            (Decimal("100"), "100.0"),
+            (3.14, "3.14"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_int_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.INT, as_stat=True) == expected
+        )
+
+    # -- FLOAT data values --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (1.0, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_float_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.FLOAT) == expected
+
+    # -- FLOAT stat values (same as data values for FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+        ],
+    )
+    def test_float_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.FLOAT, as_stat=True)
+            == expected
+        )
+
+    # -- NUMERIC data values (same rules as FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (Decimal("100"), "100.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_numeric_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.NUMERIC) == expected
+
+    # -- DATETIME values --
+
+    def test_datetime_object(self) -> None:
+        dt = datetime(2024, 1, 1, 12, 0, 0)
+        assert (
+            format_profile_value(dt, ProfilerDataType.DATETIME) == "2024-01-01T12:00:00"
+        )
+
+    def test_date_object(self) -> None:
+        d = date(2024, 1, 1)
+        assert format_profile_value(d, ProfilerDataType.DATETIME) == "2024-01-01"
+
+    def test_datetime_string_with_space(self) -> None:
+        assert (
+            format_profile_value("2024-01-01 12:00:00", ProfilerDataType.DATETIME)
+            == "2024-01-01T12:00:00"
+        )
+
+    def test_date_string(self) -> None:
+        assert (
+            format_profile_value("2024-01-01", ProfilerDataType.DATETIME)
+            == "2024-01-01T00:00:00"
+        )
+
+    def test_datetime_unparseable_string_returned_as_is(self) -> None:
+        # Non-ISO strings that fromisoformat can't parse are returned unchanged
+        assert (
+            format_profile_value("2024/01/02 10:30", ProfilerDataType.DATETIME)
+            == "2024/01/02 10:30"
+        )
+
+    # -- STRING type --
+
+    def test_string_type(self) -> None:
+        assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
+        assert format_profile_value(42, ProfilerDataType.STRING) == "42"
+
+
+class TestSampledPartitionSpec:
+    """A sampled profile's partitionSpec must be reproducible.
+
+    It is part of the emitted aspect, so anything derived from the sample's
+    actual size makes an unchanged table produce a different profile each run --
+    a BERNOULLI sample never lands on the same row count twice.
+    """
+
+    @staticmethod
+    def _partition_spec_for(
+        profiler: SQLAlchemyProfiler, spec: Optional[PartitionSpecClass]
+    ) -> PartitionSpecClass:
+        profile = DatasetProfileClass(timestampMillis=0, partitionSpec=spec)
+        context = ProfilingContext(pretty_name="t", table="t", is_sampled=True)
+
+        runner = MagicMock()
+        row_count = MagicMock()
+        row_count.result.return_value = 997
+        runner.batch.return_value.__enter__.return_value.get_row_count.return_value = (
+            row_count
+        )
+
+        measured = profiler._profile_row_count(
+            runner=runner,
+            sql_table=MagicMock(),
+            profile=profile,
+            context=context,
+            pretty_name="t",
+            adapter=MagicMock(),
+        )
+
+        assert measured == 997
+        assert profile.partitionSpec is not None
+        return profile.partitionSpec
+
+    def test_full_table_becomes_a_bare_sample_marker(
+        self, profiler: SQLAlchemyProfiler
+    ) -> None:
+        spec = self._partition_spec_for(
+            profiler,
+            PartitionSpecClass(
+                type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+            ),
+        )
+
+        assert spec.type == PartitionTypeClass.QUERY
+        assert spec.partition == "SAMPLE"
+
+    def test_partition_keeps_its_id_and_gains_only_the_marker(
+        self, profiler: SQLAlchemyProfiler
+    ) -> None:
+        spec = self._partition_spec_for(
+            profiler,
+            PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition="20230906"),
+        )
+
+        assert spec.type == PartitionTypeClass.PARTITION
+        assert spec.partition == "20230906 SAMPLE"
