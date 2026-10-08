@@ -23,6 +23,7 @@ import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -55,6 +57,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({EntityRegistryFactory.class})
 public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(PlatformEventGeneratorHook.class, "change events for MCL");
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
@@ -150,13 +154,21 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   private List<ChangeEvent> getChangeEvents(
       OperationContext operationContext, MetadataChangeLog logEvent) {
-    final AspectSpec aspectSpec =
+    // The aspect-name allowlist does not check the entity type: after a version rollback an
+    // allowlisted aspect can arrive for an entity type that does not have it in this build.
+    final Optional<AspectSpec> maybeAspectSpec =
         operationContext
             .getEntityRegistry()
-            .getEntitySpec(logEvent.getEntityType())
-            .getAspectSpec(logEvent.getAspectName());
-
-    assert aspectSpec != null;
+            .findAspectSpec(logEvent.getEntityType(), logEvent.getAspectName());
+    if (maybeAspectSpec.isEmpty()) {
+      UNKNOWN_DATA.skipped(
+          operationContext.getMetricUtils(),
+          logEvent.getEntityType(),
+          logEvent.getAspectName(),
+          logEvent.getEntityUrn());
+      return Collections.emptyList();
+    }
+    final AspectSpec aspectSpec = maybeAspectSpec.get();
 
     final RecordTemplate fromAspect =
         logEvent.getPreviousAspectValue() != null

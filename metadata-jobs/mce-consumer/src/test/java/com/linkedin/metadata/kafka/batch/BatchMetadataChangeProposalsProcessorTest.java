@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -300,6 +301,80 @@ public class BatchMetadataChangeProposalsProcessorTest {
   }
 
   @Test
+  public void testUnknownAspectFailsAloneWithoutFailingTheBatch() throws Exception {
+    setupBasicConfiguration();
+    MetadataChangeProposal known1 = createSimpleMCP();
+    MetadataChangeProposal unknown = createSimpleMCP();
+    unknown.setAspectName("aspectFromNewerBuild");
+    MetadataChangeProposal known2 = createSimpleMCP();
+    known2.setEntityUrn(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset2,PROD)"));
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(known1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(unknown);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord3)).thenReturn(known2);
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+
+    // Exactly one failure, carrying only the unknown MCP
+    verify(mockKafkaProducer, times(1)).produceFailedMetadataChangeProposal(any(), any(), any());
+    verify(mockKafkaProducer)
+        .produceFailedMetadataChangeProposal(any(), eq(List.of(unknown)), any());
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+    assertEquals(batchCaptor.getValue().getItems().size(), 2);
+  }
+
+  @Test
+  public void testFailureTopicErrorForUnknownMcpDoesNotDropTheBatch() throws Exception {
+    setupBasicConfiguration();
+    MetadataChangeProposal unknown = createSimpleMCP();
+    unknown.setAspectName("aspectFromNewerBuild");
+    MetadataChangeProposal known = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(unknown);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(known);
+    doThrow(new RuntimeException("failure topic unavailable"))
+        .when(mockKafkaProducer)
+        .produceFailedMetadataChangeProposal(any(), eq(List.of(unknown)), any());
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2));
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+    assertEquals(batchCaptor.getValue().getItems().size(), 1);
+  }
+
+  @Test
+  public void testUnknownEntityTypeFailsAlone() throws Exception {
+    setupBasicConfiguration();
+    MetadataChangeProposal unknownEntity = createSimpleMCP();
+    unknownEntity.setEntityType("entityFromNewerBuild");
+    unknownEntity.setEntityUrn(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc"));
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(unknownEntity);
+
+    processor.consume(List.of(mockConsumerRecord1));
+
+    verify(mockKafkaProducer, times(1))
+        .produceFailedMetadataChangeProposal(any(), eq(List.of(unknownEntity)), any());
+    verify(mockEntityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testUnknownEntityTypeWithoutAspectNameFailsAlone() throws Exception {
+    setupBasicConfiguration();
+    MetadataChangeProposal unknownEntity = createSimpleMCP();
+    unknownEntity.setEntityType("entityFromNewerBuild");
+    unknownEntity.setEntityUrn(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc"));
+    unknownEntity.removeAspectName();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(unknownEntity);
+
+    processor.consume(List.of(mockConsumerRecord1));
+
+    verify(mockKafkaProducer, times(1))
+        .produceFailedMetadataChangeProposal(any(), eq(List.of(unknownEntity)), any());
+    verify(mockEntityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
   public void testEmptyBatch() throws Exception {
     // Execute test with empty list
     processor.consume(new ArrayList<>());
@@ -324,7 +399,9 @@ public class BatchMetadataChangeProposalsProcessorTest {
                             new MetadataChangeProposalConfig.BatchConfig()
                                 .setSize(Integer.MAX_VALUE))));
 
-    // Create 3 Invalid MCPs
+    // Three MCPs the registry knows; the batch ingest itself fails. (MCPs with unknown entity
+    // types or aspects are failed individually before batching — see
+    // testUnknownAspectFailsAloneWithoutFailingTheBatch.)
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setSystemMetadata(new SystemMetadata());
     mcp1.setChangeType(ChangeType.UPSERT);
@@ -339,17 +416,16 @@ public class BatchMetadataChangeProposalsProcessorTest {
         UrnUtils.getUrn(
             "urn:li:dataset:(urn:li:dataPlatform:test,testSuccessfulBatchIngestion2,PROD)"));
     mcp2.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
-    mcp2.setEntityType("FOOBAR"); // Invalid entity type
+    mcp2.setEntityType("dataset");
     mcp2.setAspectName("status");
     MetadataChangeProposal mcp3 = new MetadataChangeProposal();
     mcp3.setSystemMetadata(new SystemMetadata());
     mcp3.setChangeType(ChangeType.UPSERT);
     mcp3.setEntityUrn(
-        UrnUtils.getUrn(
-            "urn:li:dataset:(urn:li:dataPlatform:test,testSuccessfulBatchIngestion2,PROD)"));
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testIngestionFailure3,PROD)"));
     mcp3.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
     mcp3.setEntityType("dataset");
-    mcp3.setAspectName("INVALID"); // Invalid aspect
+    mcp3.setAspectName("status");
 
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp1);
@@ -358,6 +434,10 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     List<ConsumerRecord<String, GenericRecord>> records =
         List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3);
+
+    doThrow(new RuntimeException("batch ingest failed"))
+        .when(mockEntityService)
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
 
     // Execute test
     processor.consume(records);
@@ -382,10 +462,6 @@ public class BatchMetadataChangeProposalsProcessorTest {
     assert capturedMCPs.contains(mcp1);
     assert capturedMCPs.contains(mcp2);
     assert capturedMCPs.contains(mcp3);
-
-    // Verify that ingestProposal was not called
-    verify(mockEntityService, never())
-        .ingestProposal(any(OperationContext.class), any(), anyBoolean());
   }
 
   @Test
@@ -660,6 +736,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Create operation context with metric utils
     OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
     when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
 
     // Mock withQueueSpan to execute the runnable directly
@@ -725,6 +802,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Create operation context with metric utils
     OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
     when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
 
     // Mock withQueueSpan
@@ -792,6 +870,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Create operation context with metric utils
     OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
     when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
 
     // Mock withQueueSpan
@@ -874,6 +953,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Create operation context without metric utils
     OperationContext opContextNoRegistry = mock(OperationContext.class);
+    when(opContextNoRegistry.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
     when(opContextNoRegistry.getMetricUtils()).thenReturn(Optional.empty());
 
     // Mock withQueueSpan

@@ -12,15 +12,17 @@ public class LoadIndicesResult {
   public long timeElasticsearchWriteMs = 0;
   // Aspects skipped by the skipConversionErrors escape hatch (0 unless the hatch is enabled).
   public long conversionErrorsSkipped = 0;
+  public long unknownToRegistrySkipped = 0;
 
   @Override
   public String toString() {
     return String.format(
-        "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d}",
+        "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d, unknownToRegistrySkipped=%d}",
         rowsProcessed,
         urnsProcessed,
         timeSqlQueryMs,
         timeElasticsearchWriteMs,
-        conversionErrorsSkipped);
+        conversionErrorsSkipped,
+        unknownToRegistrySkipped);
   }
 }

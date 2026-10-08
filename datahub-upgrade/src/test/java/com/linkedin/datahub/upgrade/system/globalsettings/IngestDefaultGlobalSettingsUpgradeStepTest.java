@@ -9,9 +9,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mock;
@@ -78,5 +81,37 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testSkipsWriteWhenStoredSettingsAlreadyHaveEveryDefault() {
+    // Nothing to merge, so stored values (possibly written by a newer version) aren't re-validated.
+    GlobalSettingsInfo stored = new GlobalSettingsInfo();
+    stored.data().put("views", new DataMap());
+    when(mockEntityService.getAspect(any(), any(), any(), eq(0L))).thenReturn(stored);
+
+    IngestDefaultGlobalSettingsUpgradeStep step =
+        new IngestDefaultGlobalSettingsUpgradeStep(
+            mockEntityService, true, "boot/test_global_settings.json");
+
+    assertEquals(
+        step.executable().apply(mockUpgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockEntityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testValidationFailureOfStoredSettingsDoesNotFailTheStep() {
+    // After a rollback the stored settings can hold values this version can't validate; the
+    // blocking step leaves them unchanged instead of failing system-update.
+    when(mockEntityService.getAspect(any(), any(), any(), eq(0))).thenReturn(null);
+    when(mockEntityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenThrow(new ValidationException("unknown enum symbol"));
+
+    IngestDefaultGlobalSettingsUpgradeStep step =
+        new IngestDefaultGlobalSettingsUpgradeStep(
+            mockEntityService, true, "boot/test_global_settings.json");
+
+    assertEquals(
+        step.executable().apply(mockUpgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
   }
 }
