@@ -571,6 +571,82 @@ class BigQuerySchemaGenerator:
         ):
             yield wu
 
+    def _all_object_types_processed(self) -> bool:
+        return bool(
+            self.config.include_tables
+            and self.config.include_views
+            and self.config.include_table_snapshots
+        )
+
+    def _is_processed_type(self, table_item: TableListItem) -> bool:
+        """Whether a full processor in _process_schema already adds this object to table_refs.
+
+        Each object must reach table_refs through one path only, so the full path's
+        type-specific pattern (view_pattern, table_snapshot_pattern) keeps deciding.
+        """
+        # list_tables spells types with underscores (MATERIALIZED_VIEW).
+        table_type = (table_item.table_type or "").replace("_", " ")
+        if table_type in (BigqueryTableType.VIEW, BigqueryTableType.MATERIALIZED_VIEW):
+            return bool(self.config.include_views)
+        if table_type == BigqueryTableType.SNAPSHOT:
+            return bool(self.config.include_table_snapshots)
+        return bool(self.config.include_tables)
+
+    def _discover_table_refs(
+        self, project_id: str, dataset_name: str, skip_processed_types: bool
+    ) -> None:
+        """Fill table_refs from a cheap list_tables call, without fetching schemas."""
+        logger.debug(
+            f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
+        )
+
+        sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+        non_sharded_tables: List[TableListItem] = []
+
+        for table_item in self.schema_api.list_tables(dataset_name, project_id):
+            if skip_processed_types and self._is_processed_type(table_item):
+                continue
+            table_id = table_item.table_id
+
+            match = self.shard_matcher.match(table_id)
+            if match:
+                base_name = BigqueryTableIdentifier.extract_base_table_name(
+                    table_id, dataset_name, match
+                )
+                shard = match[3]
+
+                self.report.num_sharded_tables_scanned += 1
+
+                if base_name not in sharded_tables:
+                    sharded_tables[base_name] = (table_item, shard)
+                    logger.debug(
+                        f"Found sharded table base {project_id}.{dataset_name}.{base_name} "
+                        f"(initial shard: {table_id})"
+                    )
+                else:
+                    stored_shard = sharded_tables[base_name][1]
+                    if is_shard_newer(shard, stored_shard):
+                        logger.debug(
+                            f"Updating sharded table {project_id}.{dataset_name}.{base_name} "
+                            f"to use newer shard {table_id} (was {sharded_tables[base_name][0].table_id})"
+                        )
+                        sharded_tables[base_name] = (table_item, shard)
+                    else:
+                        logger.debug(
+                            f"Skipping older shard {project_id}.{dataset_name}.{table_id} "
+                            f"(keeping {sharded_tables[base_name][0].table_id})"
+                        )
+                    self.report.num_sharded_tables_deduped += 1
+                continue
+
+            non_sharded_tables.append(table_item)
+
+        for _base_name, (table_item, _shard) in sharded_tables.items():
+            self._add_table_to_refs(table_item, project_id, dataset_name)
+
+        for table_item in non_sharded_tables:
+            self._add_table_to_refs(table_item, project_id, dataset_name)
+
     def _add_table_to_refs(
         self, table_item: TableListItem, project_id: str, dataset_name: str
     ) -> None:
@@ -684,56 +760,19 @@ class BigQuerySchemaGenerator:
                 constraints = self.schema_api.get_table_constraints_for_dataset(
                     project_id=project_id, dataset_name=dataset_name, report=self.report
                 )
+            # table_refs is the lineage/usage filter, and the processors below only fill
+            # it for the object types they ingest. List the rest, or turning one type off
+            # (a lineage-only recipe with include_tables: false) treats every object of
+            # that type as a temp table, and an empty list disables the filter outright.
+            if self.store_table_refs and not self._all_object_types_processed():
+                self._discover_table_refs(
+                    project_id, dataset_name, skip_processed_types=True
+                )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
-            logger.debug(
-                f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
+            self._discover_table_refs(
+                project_id, dataset_name, skip_processed_types=False
             )
-
-            sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
-            non_sharded_tables: List[TableListItem] = []
-
-            for table_item in self.schema_api.list_tables(dataset_name, project_id):
-                table_id = table_item.table_id
-
-                match = self.shard_matcher.match(table_id)
-                if match:
-                    base_name = BigqueryTableIdentifier.extract_base_table_name(
-                        table_id, dataset_name, match
-                    )
-                    shard = match[3]
-
-                    self.report.num_sharded_tables_scanned += 1
-
-                    if base_name not in sharded_tables:
-                        sharded_tables[base_name] = (table_item, shard)
-                        logger.debug(
-                            f"Found sharded table base {project_id}.{dataset_name}.{base_name} "
-                            f"(initial shard: {table_id})"
-                        )
-                    else:
-                        stored_shard = sharded_tables[base_name][1]
-                        if is_shard_newer(shard, stored_shard):
-                            logger.debug(
-                                f"Updating sharded table {project_id}.{dataset_name}.{base_name} "
-                                f"to use newer shard {table_id} (was {sharded_tables[base_name][0].table_id})"
-                            )
-                            sharded_tables[base_name] = (table_item, shard)
-                        else:
-                            logger.debug(
-                                f"Skipping older shard {project_id}.{dataset_name}.{table_id} "
-                                f"(keeping {sharded_tables[base_name][0].table_id})"
-                            )
-                        self.report.num_sharded_tables_deduped += 1
-                    continue
-
-                non_sharded_tables.append(table_item)
-
-            for _base_name, (table_item, _shard) in sharded_tables.items():
-                self._add_table_to_refs(table_item, project_id, dataset_name)
-
-            for table_item in non_sharded_tables:
-                self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
         if self.config.include_tables:
