@@ -85,7 +85,8 @@ const StyledViewer = styled(Editor)`
     padding-right: 8px;
     display: block;
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         font-size: 12px;
         font-weight: 400;

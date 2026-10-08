@@ -16,7 +16,8 @@ const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
     margin-top: 4px;
     &&& {
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             padding: 0;
             color: ${(props) => props.theme.colors.text};
         }
