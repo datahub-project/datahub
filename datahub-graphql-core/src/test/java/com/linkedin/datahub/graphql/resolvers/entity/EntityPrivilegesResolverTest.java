@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -39,6 +40,16 @@ public class EntityPrivilegesResolverTest {
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getSource()).thenReturn(entity);
+    return mockEnv;
+  }
+
+  private DataFetchingEnvironment setUpTestWithResourcePrivilege(Entity entity, String privilege) {
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test", privilege, UrnUtils.getUrn(entity.getUrn()));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(entity);
@@ -142,6 +153,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanEditQueries());
     assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanDeleteEntity());
   }
 
   @Test
@@ -157,6 +169,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanEditQueries());
     assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanDeleteEntity());
   }
 
   @Test
@@ -257,6 +270,29 @@ public class EntityPrivilegesResolverTest {
     result =
         new EntityPrivilegesResolver(mockClient).get(setUpTestWithoutPermissions(document)).get();
     assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDocumentPrivilegesSeparatesDeleteFromMove() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Document owners get DELETE_ENTITY only, via the default document-owner delete policy.
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "DELETE_ENTITY"))
+            .get();
+    assertTrue(result.getCanDeleteEntity());
+    assertFalse(result.getCanManageEntity());
+
+    // Editors get EDIT_ENTITY only, so they can move but not delete.
+    result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "EDIT_ENTITY"))
+            .get();
+    assertTrue(result.getCanManageEntity());
     assertFalse(result.getCanDeleteEntity());
   }
 

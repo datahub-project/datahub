@@ -333,7 +333,8 @@ type EntityPrivileges {
   canManageChildren: Boolean
 
   """
-  Whether or not a user can move this entity.
+  Whether or not a user can manage this entity. For documents, this controls moving;
+  deletion is reported by canDeleteEntity.
   """
   canManageEntity: Boolean
 

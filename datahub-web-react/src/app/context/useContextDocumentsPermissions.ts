@@ -22,7 +22,7 @@ interface ContextDocumentsPermissions {
  *
  * Permission Rules:
  * - Create: Requires CREATE_ENTITY or EDIT_ENTITY for Documents, or MANAGE_DOCUMENTS
- * - Manage (delete/move): Requires MANAGE_DOCUMENTS platform privilege
+ * - Manage (delete/move/import): Requires MANAGE_DOCUMENTS platform privilege
  *
  * @returns ContextDocumentsPermissions object with permission flags
  */

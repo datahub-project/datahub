@@ -138,8 +138,9 @@ _Note: Ask DataHub is available in DataHub Cloud only._
 | ------ | ------ | ------------- | ----------------------- |
 | Admin  | Yes    | Yes           | Yes                     |
 | Editor | Yes    | Yes           | Only documents they own |
-| Owner  | -      | Yes           | Yes                     |
 | Reader | No     | No            | No                      |
+
+Owners of a document can also edit, move, and delete it, whatever their role.
 
 To change this, edit your [policies](../../../authorization/policies.md#documents).
 
