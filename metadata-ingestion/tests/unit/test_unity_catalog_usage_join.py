@@ -2,7 +2,7 @@ import pathlib
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Set, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +10,7 @@ from databricks.sdk.service.sql import QueryStatementType
 
 import datahub.ingestion.source.unity.usage as usage_mod
 from datahub.configuration.time_window_config import BucketDuration
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
@@ -19,6 +20,7 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    OperationClass,
     QuerySubjectsClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -1462,12 +1464,13 @@ def _query_with_lineage(
     *,
     sources: List[str],
     targets: Optional[List[str]] = None,
+    statement_type: Optional[QueryStatementType] = None,
 ) -> Query:
     ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
     return Query(
         query_id=qid,
         query_text=text,
-        statement_type=None,
+        statement_type=statement_type,
         start_time=ts,
         end_time=ts,
         user_id=1,
@@ -3652,7 +3655,9 @@ _INGESTED_REF = TableReference(
 )
 
 
-def _real_usage_extractor(proxy: MagicMock) -> UnityCatalogUsageExtractor:
+def _real_usage_extractor(
+    proxy: MagicMock, config_overrides: Optional[Dict[str, object]] = None
+) -> UnityCatalogUsageExtractor:
     config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "t",
@@ -3664,15 +3669,22 @@ def _real_usage_extractor(proxy: MagicMock) -> UnityCatalogUsageExtractor:
             "include_queries": True,
             "include_query_usage_statistics": True,
             "include_operational_stats": False,
+            **(config_overrides or {}),
         }
     )
     return _extractor(config, proxy)
 
 
-def _cross_catalog_proxy() -> MagicMock:
+def _history_proxy(queries: List[Query]) -> MagicMock:
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
-    proxy.get_query_history_via_system_tables.return_value = [
+    proxy.get_query_history_via_system_tables.return_value = queries
+    proxy.query_history.return_value = queries
+    return proxy
+
+
+def _cross_catalog_queries() -> List[Query]:
+    return [
         _query_with_lineage(
             "SELECT * FROM main.sales.orders o "
             "JOIN other_catalog.finance.invoices i ON o.id = i.order_id",
@@ -3685,26 +3697,46 @@ def _cross_catalog_proxy() -> MagicMock:
             sources=["other_catalog.finance.invoices"],
         ),
     ]
-    return proxy
 
 
-def _dataset_subjects(workunits: List[MetadataWorkUnit]) -> List[List[str]]:
-    subjects: List[List[str]] = []
+def _dataset_subjects(workunits: List[MetadataWorkUnit]) -> List[Set[str]]:
+    subjects: List[Set[str]] = []
     for wu in workunits:
         aspect = wu.get_aspect_of_type(QuerySubjectsClass)
         if aspect is not None:
             subjects.append(
-                [
+                {
                     s.entity
                     for s in aspect.subjects
                     if s.entity.startswith("urn:li:dataset:")
-                ]
+                }
             )
     return subjects
 
 
-def test_tables_not_ingested_are_query_subjects_without_usage() -> None:
-    ex = _real_usage_extractor(_cross_catalog_proxy())
+def _total_sql_queries(workunits: List[MetadataWorkUnit], urn: str) -> List[int]:
+    totals: List[int] = []
+    for wu in workunits:
+        aspect = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
+        if wu.get_urn() == urn and aspect is not None:
+            totals.append(aspect.totalSqlQueries or 0)
+    return totals
+
+
+@pytest.mark.parametrize(
+    "config_overrides",
+    [
+        pytest.param({}, id="system_tables_preparsed"),
+        pytest.param({"include_column_usage_stats": True}, id="column_usage_sqlglot"),
+        pytest.param({"usage_data_source": "API"}, id="api_sqlglot"),
+    ],
+)
+def test_tables_not_ingested_are_query_subjects_without_usage(
+    config_overrides: Dict[str, object],
+) -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()), config_overrides
+    )
     _register_tables(ex, ["main.sales.orders"])
 
     workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
@@ -3714,25 +3746,87 @@ def test_tables_not_ingested_are_query_subjects_without_usage() -> None:
     assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
     # The cross-catalog query lists both tables; the query touching only the
     # other catalog is not emitted by this run.
-    assert _dataset_subjects(workunits) == [[_INGESTED_URN, _NOT_INGESTED_URN]]
-    usage = [
-        wu.get_aspect_of_type(DatasetUsageStatisticsClass)
+    assert _dataset_subjects(workunits) == [{_INGESTED_URN, _NOT_INGESTED_URN}]
+    assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
+
+
+def test_tables_not_ingested_use_the_recipe_platform_instance() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()), {"platform_instance": "inst"}
+    )
+    ex.table_urn_builder = lambda ref: make_dataset_urn_with_platform_instance(
+        "databricks", ref.qualified_table_name, "inst", "PROD"
+    )
+    ex.schema_resolver = SchemaResolver(
+        platform="databricks", platform_instance="inst", env="PROD"
+    )
+    _register_tables(ex, ["main.sales.orders"])
+    ingested_urn = _dataset_urn("inst.main.sales.orders")
+    not_ingested_urn = _dataset_urn("inst.other_catalog.finance.invoices")
+
+    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+
+    assert _dataset_subjects(workunits) == [{ingested_urn, not_ingested_urn}]
+    assert _total_sql_queries(workunits, ingested_urn) == [1]
+    assert not [wu for wu in workunits if wu.get_urn() == not_ingested_urn]
+
+
+def test_operations_only_for_ingested_targets() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query_with_lineage(
+                    "INSERT INTO other_catalog.finance.invoices "
+                    "SELECT * FROM main.sales.orders",
+                    "q1",
+                    sources=["main.sales.orders"],
+                    targets=["other_catalog.finance.invoices"],
+                    statement_type=QueryStatementType.INSERT,
+                ),
+                _query_with_lineage(
+                    "INSERT INTO main.sales.orders "
+                    "SELECT * FROM other_catalog.finance.invoices",
+                    "q2",
+                    sources=["other_catalog.finance.invoices"],
+                    targets=["main.sales.orders"],
+                    statement_type=QueryStatementType.INSERT,
+                ),
+            ]
+        ),
+        {"include_operational_stats": True},
+    )
+    _register_tables(ex, ["main.sales.orders"])
+
+    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+
+    operation_urns = [
+        wu.get_urn()
         for wu in workunits
-        if wu.get_urn() == _INGESTED_URN
+        if wu.get_aspect_of_type(OperationClass) is not None
     ]
-    assert [u.totalSqlQueries for u in usage if u is not None] == [1]
-    assert ex.report.num_queries_observed_sqlglot == 0
-    assert ex.report.num_lineage_tables_not_ingested == 2
+    assert operation_urns == [_INGESTED_URN]
+    assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
 
 
-def test_run_that_ingested_nothing_emits_no_usage_or_queries() -> None:
-    ex = _real_usage_extractor(_cross_catalog_proxy())
+@pytest.mark.parametrize(
+    "config_overrides",
+    [
+        pytest.param({"schema_pattern": {"deny": ["other_catalog\\.finance"]}}),
+        pytest.param({"catalog_pattern": {"deny": ["other_catalog"]}}),
+        pytest.param({"table_pattern": {"deny": [".*\\.invoices"]}}),
+        pytest.param({"catalogs": ["main"]}),
+    ],
+)
+def test_run_that_ingested_no_tables_falls_back_to_recipe_patterns(
+    config_overrides: Dict[str, object],
+) -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()),
+        {"include_tables": False, "include_views": False, **config_overrides},
+    )
 
     workunits = list(ex.get_usage_workunits(set()))
 
-    assert not [
-        wu
-        for wu in workunits
-        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
-        or wu.get_aspect_of_type(QuerySubjectsClass) is not None
-    ]
+    assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
+    assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
+    assert _dataset_subjects(workunits) == [{_INGESTED_URN, _NOT_INGESTED_URN}]

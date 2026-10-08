@@ -13,7 +13,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Query, TableReference
+from datahub.ingestion.source.unity.proxy_types import (
+    Query,
+    TableReference,
+    escape_unity_name,
+    qualified_table_name,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
@@ -167,9 +172,45 @@ class UnityCatalogUsageExtractor:
         # an ingested one, so queries spanning catalogs keep it as a subject.
         # is_allowed_table limits usage and operations to ingested tables.
         self.report.num_lineage_tables_not_ingested += 1
-        self.report.lineage_tables_not_ingested_sample.append(full_name)
+        self.report.lineage_tables_not_ingested_sample.add(full_name)
         return self.table_urn_builder(
             TableReference(metastore=None, catalog=catalog, schema=schema, table=table)
+        )
+
+    def _make_allowed_table_predicate(
+        self, locally_discovered: Set[str]
+    ) -> Callable[[str], bool]:
+        # Only tables this run ingested are allowed, so usage statistics and
+        # operations are never written for datasets another recipe owns; tables from
+        # other catalogs still reach the aggregator as query subjects. A run that
+        # ingested no tables (e.g. include_tables and include_views disabled for a
+        # usage-only recipe) falls back to the recipe's filter patterns instead.
+        if locally_discovered:
+            return lambda name: name.lower() in locally_discovered
+        return self._is_allowed_by_patterns
+
+    def _is_allowed_by_patterns(self, name: str) -> bool:
+        # Applies the same catalogs / catalog_pattern / schema_pattern / table_pattern
+        # checks the source uses when listing tables, against the escaped catalog and
+        # schema ids it builds (the deprecated include_metastore prefix is not known
+        # here, so patterns written for it do not match).
+        parts = split_databricks_identifier(name)
+        if parts is None or len(parts) != 3:
+            return False
+        catalog, schema, table = parts
+        if self.config.catalogs is not None and catalog.lower() not in {
+            c.lower() for c in self.config.catalogs
+        }:
+            return False
+        catalog_id = escape_unity_name(catalog)
+        return (
+            self.config.catalog_pattern.allowed(catalog_id)
+            and self.config.schema_pattern.allowed(
+                f"{catalog_id}.{escape_unity_name(schema)}"
+            )
+            and self.config.table_pattern.allowed(
+                qualified_table_name(catalog, schema, table)
+            )
         )
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
@@ -380,7 +421,7 @@ class UnityCatalogUsageExtractor:
             return
 
         if self._can_use_preparsed_query(query):
-            unresolvable_before = self.report.num_lineage_tables_unresolvable
+            system_skipped_before = self.report.num_lineage_tables_system_skipped
             preparsed_queries = self._to_preparsed_queries(query)
             if preparsed_queries:
                 for preparsed in preparsed_queries:
@@ -400,11 +441,17 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
-            # No lineage name produced a URN. Unless one was malformed, every name
-            # was a system / information_schema table this run did not ingest: a
+            # No lineage name produced a URN. When every name was a system /
+            # information_schema table this run did not ingest, the query is a
             # metadata read with nothing to attribute usage to, and sqlglot would
             # find the same tables.
-            if self.report.num_lineage_tables_unresolvable == unresolvable_before:
+            num_lineage_names = len(query.source_table_full_names) + len(
+                query.target_table_full_names
+            )
+            num_system_skipped = (
+                self.report.num_lineage_tables_system_skipped - system_skipped_before
+            )
+            if num_system_skipped == num_lineage_names:
                 self.report.num_queries_skipped_system_tables_only += 1
                 logger.debug(
                     "Usage query skipped: system-table lineage names only system "
@@ -654,13 +701,7 @@ class UnityCatalogUsageExtractor:
         # form, so we use it directly — using DatasetUrn.name here would include the
         # platform_instance prefix when one is configured, causing a mismatch.
         locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
-
-        # Only tables this run ingested are allowed, so usage statistics and
-        # operations are never written for datasets another recipe owns; tables from
-        # other catalogs still reach the aggregator as query subjects. An empty set
-        # allows nothing, whereas omitting the predicate would allow every table.
-        def is_allowed_table(name: str) -> bool:
-            return name.lower() in locally_discovered
+        is_allowed_table = self._make_allowed_table_predicate(locally_discovered)
 
         # Databricks query history has no per-query session catalog/schema (unlike
         # Snowflake), so we can't derive a per-query default_db.  When the recipe
