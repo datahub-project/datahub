@@ -13,6 +13,7 @@ import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
+import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
@@ -60,11 +61,10 @@ const errorLink = onError((error) => {
 
 const injectVariablesLink = new ApolloLink((operation, forward) => {
     // eslint-disable-next-line no-param-reassign
-    operation.variables = {
-        ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current,
-        skipLineage: hideLineageInSearchCardsRef.current,
-    };
+    operation.variables = injectGlobalSearchVariables(operation.variables, {
+        showSeparateSiblings: showSeparateSiblingsRef.current,
+        hideLineageInSearchCards: hideLineageInSearchCardsRef.current,
+    });
 
     return forward(operation);
 });
@@ -85,6 +85,14 @@ const client = new ApolloClient({
                         },
                     },
                     entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
                         },

@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import (
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
 
+from datahub.ingestion.agent.probe_methods import _provider_class
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
@@ -525,3 +526,9 @@ def test_postgres_special_types_preserve_native_names():
 
     # Reflection passes type modifiers through, e.g. a vector(4) column.
     assert get_native_data_type_for_sqlalchemy_type(VECTOR(4), inspector) == "VECTOR(4)"
+
+
+def test_probe_support_loads_with_core_dependencies():
+    # Needs only core dependencies, so the registry-wide probe contract tests
+    # are guaranteed at least this provider in any environment.
+    assert _provider_class("postgres") is not None

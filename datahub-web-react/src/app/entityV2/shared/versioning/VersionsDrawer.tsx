@@ -1,4 +1,5 @@
 import { Button, Drawer, Input, Menu, OverflowText, Pagination, Table, Text } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
@@ -20,12 +21,10 @@ import dayjs from '@utils/dayjs';
 import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
 import { FilterOperator } from '@types';
 
-import LinkOut from '@images/link-out.svg?react';
-
 const PAGE_SIZE = 10;
 const TIMESTAMP_FORMAT = 'MMMM D, YYYY h:mm A';
 
-const LinkOutIcon = styled(LinkOut)`
+const LinkOutIcon = styled(ArrowSquareOut)`
     width: 14px;
     height: 14px;
 `;

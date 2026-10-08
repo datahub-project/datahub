@@ -187,9 +187,9 @@ def test_an_encoded_separator_cannot_hide_inside_a_placeholder():
 
 
 def test_a_provider_with_no_base_gets_the_same_resolution():
-    """The fallback used to be `decoded.split("?")[0]` -- the original buggy
-    form -- so a provider declaring no api_base_url kept both the %3F and %2F
-    holes. There is one resolution path now, via a synthetic base."""
+    """A provider declaring no api_base_url resolves a path the one way a
+    declared base does, against a synthetic base, so an encoded `?` or `/`
+    is refused there too."""
     with pytest.raises(ApiScopeError):
         check_api_request("GET", "/reports/x%3F/../../admin", ALLOWLIST)
     with pytest.raises(ApiScopeError):

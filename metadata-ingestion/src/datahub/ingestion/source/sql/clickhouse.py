@@ -1,3 +1,4 @@
+import itertools
 import json
 import re
 import textwrap
@@ -29,10 +30,10 @@ from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import RowMapping, reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
+from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER, TypeEngine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import HiddenFromDocs, LaxStr
@@ -58,14 +59,20 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SQLSourceReport,
     SqlWorkUnit,
+    get_column_type,
+    get_schema_metadata,
     logger,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -84,9 +91,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    SchemaFieldClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+from datahub.sdk.dataset import Dataset
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
@@ -94,6 +103,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.utilities.sentinels import unset
 
 assert clickhouse_driver
 
@@ -118,6 +128,14 @@ _NON_USER_TABLE_PREFIXES = (
     "_temporary_and_external_tables.",
     "information_schema.",
     "INFORMATION_SCHEMA.",
+)
+
+# ClickHouseDictionarySource::toString() emits "ClickHouse: db.table", plus
+# ", where: <condition>" when the source has a WHERE clause. Names are unquoted.
+# db is empty when the source omits <db>, which ClickHouse resolves to default.
+_CLICKHOUSE_DICT_SOURCE_TABLE_RE = re.compile(
+    r"^ClickHouse:\s*([^\s.,]*)\.([^\s,]+)",
+    re.IGNORECASE,
 )
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
@@ -304,6 +322,60 @@ class _DeduplicatedQueries(Generic[_Query]):
             )
 
 
+@dataclass(frozen=True)
+class _XmlDictionary:
+    """A dictionary defined in server config files rather than with DDL."""
+
+    # Set only when the config declares <database>; otherwise the dictionary is global.
+    database: Optional[str]
+    name: str
+    key_names: List[str]
+    key_types: List[str]
+    attribute_names: List[str]
+    attribute_types: List[str]
+    source: str
+    origin: str
+    comment: str
+    status: str
+    dict_type: str
+    shares_table_name: bool
+
+    @property
+    def dataset_name(self) -> str:
+        return f"{self.database}.{self.name}" if self.database else self.name
+
+
+def _json_str_list(value: object) -> List[str]:
+    if not value:
+        return []
+    return [str(item) for item in json.loads(str(value))]
+
+
+def _dictionary_source_table(source: str) -> Optional[str]:
+    """Return ``db.table`` from a ``ClickHouse: db.table`` dictionary source."""
+    match = _CLICKHOUSE_DICT_SOURCE_TABLE_RE.match(source.strip())
+    if not match:
+        return None
+    return f"{match.group(1) or 'default'}.{match.group(2)}"
+
+
+def _xml_dictionary_from_row(row: RowMapping) -> _XmlDictionary:
+    return _XmlDictionary(
+        database=str(row["database"] or "") or None,
+        name=str(row["name"]),
+        key_names=_json_str_list(row["key_names"]),
+        key_types=_json_str_list(row["key_types"]),
+        attribute_names=_json_str_list(row["attribute_names"]),
+        attribute_types=_json_str_list(row["attribute_types"]),
+        source=str(row["source"] or ""),
+        origin=str(row["origin"] or ""),
+        comment=str(row["comment"] or ""),
+        status=str(row["status"] or ""),
+        dict_type=str(row["type"] or ""),
+        shares_table_name=bool(int(row["shares_table_name"])),
+    )
+
+
 class ClickHouseConfig(
     TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
@@ -330,6 +402,11 @@ class ClickHouseConfig(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
+    include_config_file_dictionaries: bool = Field(
+        default=False,
+        description="Whether to ingest dictionaries defined in server config files (XML or YAML) "
+        "as datasets. Requires include_tables, SELECT ON system.dictionaries and SHOW DICTIONARIES ON *.*.",
+    )
 
     # Query log extraction options
     include_query_log_lineage: bool = Field(
@@ -1205,8 +1282,20 @@ ORDER BY event_time ASC
             return None
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        # Config-file dictionaries are not in system.tables, so the base scan never
+        # emits them. They go first so their schemas are registered before
+        # gen_metadata() parses view and materialized view SQL at the end of the
+        # base scan.
+        xml_dictionary_workunits = (
+            self._emit_xml_dictionaries()
+            if self.config.include_tables
+            and self.config.include_config_file_dictionaries
+            else []
+        )
         # Emit schema and definition-based lineage workunits
-        for wu in super().get_workunits_internal():
+        for wu in itertools.chain(
+            xml_dictionary_workunits, super().get_workunits_internal()
+        ):
             if (
                 self.config.include_table_lineage
                 and isinstance(wu, SqlWorkUnit)
@@ -1227,6 +1316,209 @@ ORDER BY event_time ASC
         # Emit query log based lineage and usage workunits
         if self._should_extract_query_log():
             yield from self._extract_query_log()
+
+    def _fetch_xml_dictionaries(self) -> List[_XmlDictionary]:
+        # Skips DDL dictionaries, whose origin is their UUID or "db.name" rather than
+        # a file path. toJSONString: the HTTP driver returns arrays as text.
+        query = textwrap.dedent(
+            """\
+            SELECT database
+                 , name
+                 , toJSONString(`key.names`) AS key_names
+                 , toJSONString(`key.types`) AS key_types
+                 , toJSONString(`attribute.names`) AS attribute_names
+                 , toJSONString(`attribute.types`) AS attribute_types
+                 , source
+                 , origin
+                 , comment
+                 , toString(status) AS status
+                 , type
+                 , if(database = '', name, concat(database, '.', name))
+                   IN (SELECT concat(database, '.', name) FROM system.tables)
+                   AS shares_table_name
+              FROM system.dictionaries
+             WHERE origin != toString(uuid)
+               AND origin != concat(database, '.', name)"""
+        )
+
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            return [
+                _xml_dictionary_from_row(row)
+                for row in conn.execute(text(query)).mappings()
+            ]
+
+    def _xml_dictionary_columns(
+        self, dictionary: _XmlDictionary
+    ) -> List[Dict[str, Any]]:
+        dialect = ClickHouseDialect()
+        columns = [
+            dialect._get_column_info(name=name, format_type=type_name, comment="")
+            for name, type_name in zip(
+                dictionary.key_names + dictionary.attribute_names,
+                dictionary.key_types + dictionary.attribute_types,
+                strict=False,
+            )
+        ]
+        # Simple types come back as classes and enums as factories; Inspector.get_columns
+        # instantiates them too.
+        for column in columns:
+            if not isinstance(column["type"], TypeEngine):
+                column["type"] = column["type"]()
+        return columns
+
+    def _emit_xml_dictionaries(self) -> Iterable[MetadataWorkUnit]:
+        try:
+            dictionaries = self._fetch_xml_dictionaries()
+        except Exception as e:
+            self.report.failure(
+                title="Config-file dictionary fetch failed",
+                message="Failed to fetch config-file dictionaries. If access was denied, grant SELECT ON system.dictionaries to the DataHub user",
+                exc=e,
+            )
+            return
+
+        if self.config.include_table_lineage and self._all_tables_set is None:
+            self._all_tables_set = self._get_all_tables()
+
+        for dictionary in dictionaries:
+            dataset_name = dictionary.dataset_name
+            self.report.report_entity_scanned(dataset_name, ent_type="table")
+            # `database` keeps only dictionaries declared in it, so global ones are
+            # dropped. database_pattern applies to the declared database; a global
+            # dictionary has none, so database_pattern does not filter it.
+            if (
+                (self.config.database and dictionary.database != self.config.database)
+                or (
+                    dictionary.database
+                    and not self.config.database_pattern.allowed(dictionary.database)
+                )
+                or not self.config.table_pattern.allowed(dataset_name)
+            ):
+                self.report.report_dropped(dataset_name)
+                continue
+            if dictionary.shares_table_name:
+                self.report.warning(
+                    title="Config-file dictionary shares a table's name",
+                    message="Skipped, so dictGet lineage to it points at the table",
+                    context=dataset_name,
+                )
+                continue
+
+            try:
+                yield from self._emit_xml_dictionary(dictionary)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process config-file dictionary",
+                    message="Error while processing a config-file dictionary",
+                    context=dataset_name,
+                    exc=e,
+                )
+
+    def _emit_xml_dictionary(
+        self, dictionary: _XmlDictionary
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_name = dictionary.dataset_name
+        columns = self._xml_dictionary_columns(dictionary)
+        if not columns:
+            # ClickHouse reports no structure when the dictionary's <structure>
+            # fails to parse. Emitting an empty schema would overwrite the last good one.
+            self.report.warning(
+                title="Config-file dictionary has no columns",
+                message="ClickHouse reported no structure for the dictionary, so its schema was not updated",
+                context=f"{dataset_name} (status: {dictionary.status})",
+            )
+        schema_fields = [
+            SchemaFieldClass(
+                fieldPath=column["name"],
+                type=get_column_type(self.report, dataset_name, column["type"]),
+                nativeDataType=column.get("full_type") or str(column["type"]),
+                description=column.get("comment") or None,
+                nullable=bool(column.get("nullable")),
+                recursive=False,
+                isPartOfKey=column["name"] in dictionary.key_names,
+            )
+            for column in columns
+        ]
+        schema_metadata = (
+            get_schema_metadata(
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                canonical_schema=schema_fields,
+            )
+            if columns
+            else None
+        )
+
+        custom_properties = {
+            "engine": "Dictionary",
+            "origin": dictionary.origin,
+            "status": dictionary.status,
+        }
+        # type and source are empty until ClickHouse loads the dictionary.
+        if dictionary.dict_type:
+            custom_properties["type"] = dictionary.dict_type
+        if dictionary.source:
+            custom_properties["source"] = dictionary.source
+
+        dataset = Dataset(
+            platform=self.platform,
+            # Dataset skips make_dataset_urn_with_platform_instance, which every
+            # reference to this dictionary goes through.
+            name=dataset_name.lower() if builder.DATASET_URN_TO_LOWER else dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=dictionary.name,
+            description=dictionary.comment or None,
+            custom_properties=custom_properties,
+            subtype=DatasetSubTypes.TABLE,
+            schema=schema_metadata,
+            parent_container=(
+                self.get_database_container_key(
+                    dictionary.database, dictionary.database
+                )
+                if dictionary.database
+                else unset
+            ),
+        )
+        dataset_urn = str(dataset.urn)
+
+        if self.config.include_table_lineage and self._all_tables_set is not None:
+            source_path = _dictionary_source_table(dictionary.source)
+            if source_path is not None:
+                if source_path in self._all_tables_set:
+                    dataset.set_upstreams(
+                        [
+                            UpstreamClass(
+                                dataset=self._dataset_urn(source_path),
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ]
+                    )
+                else:
+                    self.report.warning(
+                        title="Config-file dictionary source table not visible",
+                        message="Skipped upstream lineage because the source table is not among the tables visible to the DataHub user",
+                        context=f"{dataset_name}: {source_path}",
+                    )
+
+        if self._save_schema_to_resolver():
+            if schema_metadata is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
+            self.discovered_datasets.add(dataset_name)
+
+        yield from dataset.as_workunits()
+
+        if self.config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+            )
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(

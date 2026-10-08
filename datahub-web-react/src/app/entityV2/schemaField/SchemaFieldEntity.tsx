@@ -1,4 +1,4 @@
-import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
@@ -67,13 +67,13 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                     {
                         name: i18next.t('entity.types:tab.lineage'),
                         component: LineageTab,
-                        icon: PartitionOutlined,
+                        icon: TreeStructure,
                         supportsFullsize: true,
                     },
                     {
                         name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
-                        icon: UnorderedListOutlined,
+                        icon: ListBullets,
                     },
                 ]}
                 sidebarSections={this.getSidebarSections()}

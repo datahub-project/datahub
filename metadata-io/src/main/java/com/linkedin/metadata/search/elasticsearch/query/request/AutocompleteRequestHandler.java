@@ -20,7 +20,9 @@ import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -52,12 +54,18 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 public class AutocompleteRequestHandler extends BaseRequestHandler {
 
   private final List<Pair<String, String>> _defaultAutocompleteFields;
+  // Set when keyword reads go to Search V3: the root fields feeding _search.autocomplete, in the
+  // order a suggestion is taken from
+  @Nullable private final List<String> v3AutocompleteFields;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   // Keyed by the V3 read decision too: a handler scopes and filters requests for V2 or V3 from its
   // configuration
   private static final Map<Pair<EntitySpec, Boolean>, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
+
+  // Field configurations already reported as not applying to Search V3 autocomplete
+  private static final Set<String> V3_IGNORED_FIELD_CONFIGURATIONS = ConcurrentHashMap.newKeySet();
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -93,6 +101,12 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 Stream.of(Pair.of("urn", "1.0")))
             .collect(Collectors.toList());
     this.highlights = getDefaultHighlights(systemOperationContext);
+    this.v3AutocompleteFields =
+        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
+            ? V3SearchFields.autocompleteFields(
+                V3SearchFields.indexGroupSpecs(
+                    systemOperationContext.getEntityRegistry(), List.of(entitySpec)))
+            : null;
     searchableFieldTypes =
         fieldSpecs.stream()
             .collect(
@@ -163,17 +177,22 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             queryFilterRewriteChain);
     baseQuery.filter(filterQuery);
 
-    // Apply field configuration to autocomplete fields
-    List<Pair<String, String>> baseAutocompleteFields = getAutocompleteFields(field);
-    List<Pair<String, String>> configuredFields =
-        customizedQueryHandler.applyAutocompleteFieldConfiguration(
-            baseAutocompleteFields,
-            customizedQueryHandler.resolveFieldConfiguration(
-                opContext.getSearchContext().getSearchFlags(),
-                CustomConfiguration::getAutoCompleteFieldConfigDefault));
+    if (v3AutocompleteFields != null) {
+      warnIfV3IgnoresFieldConfiguration(opContext, field);
+      baseQuery.should(getV3Query(opContext, customAutocompleteConfig, field, input));
+    } else {
+      // Apply field configuration to autocomplete fields
+      List<Pair<String, String>> baseAutocompleteFields = getAutocompleteFields(field);
+      List<Pair<String, String>> configuredFields =
+          customizedQueryHandler.applyAutocompleteFieldConfiguration(
+              baseAutocompleteFields,
+              customizedQueryHandler.resolveFieldConfiguration(
+                  opContext.getSearchContext().getSearchFlags(),
+                  CustomConfiguration::getAutoCompleteFieldConfigDefault));
 
-    // Add autocomplete query
-    baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input));
+      // Add autocomplete query
+      baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input));
+    }
 
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
@@ -206,16 +225,25 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
 
-    // Apply highlight field configuration
-    HighlightBuilder highlightBuilder =
-        buildConfiguredHighlights(
-            opContext,
-            field,
-            customizedQueryHandler.resolveFieldConfiguration(
-                opContext.getSearchContext().getSearchFlags(),
-                CustomConfiguration::getAutoCompleteFieldConfigDefault));
-    if (highlightBuilder != null) {
-      searchSourceBuilder.highlighter(highlightBuilder);
+    if (v3AutocompleteFields != null) {
+      // The suggestion comes from these root values (see extractResult): the shared field the
+      // query reads is filled by copy_to, so the engine cannot highlight it
+      searchSourceBuilder.fetchSource(
+          Stream.concat(Stream.of("urn"), getV3SuggestionFields(field).stream())
+              .toArray(String[]::new),
+          null);
+    } else {
+      // Apply highlight field configuration
+      HighlightBuilder highlightBuilder =
+          buildConfiguredHighlights(
+              opContext,
+              field,
+              customizedQueryHandler.resolveFieldConfiguration(
+                  opContext.getSearchContext().getSearchFlags(),
+                  CustomConfiguration::getAutoCompleteFieldConfigDefault));
+      if (highlightBuilder != null) {
+        searchSourceBuilder.highlighter(highlightBuilder);
+      }
     }
 
     searchRequest.source(searchSourceBuilder);
@@ -351,6 +379,122 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     return finalQuery;
   }
 
+  /**
+   * Search V3 autocomplete reads one shared field, so a field configuration that changes which
+   * fields autocomplete reads does not apply to it. Says so once per configuration.
+   */
+  private void warnIfV3IgnoresFieldConfiguration(
+      @Nonnull OperationContext opContext, @Nullable String field) {
+    final String fieldConfigLabel =
+        customizedQueryHandler.resolveFieldConfiguration(
+            opContext.getSearchContext().getSearchFlags(),
+            CustomConfiguration::getAutoCompleteFieldConfigDefault);
+    if (fieldConfigLabel == null) {
+      return;
+    }
+    final List<Pair<String, String>> baseFields = getAutocompleteFields(field);
+    if (!customizedQueryHandler
+            .applyAutocompleteFieldConfiguration(baseFields, fieldConfigLabel)
+            .equals(baseFields)
+        && V3_IGNORED_FIELD_CONFIGURATIONS.add(fieldConfigLabel)) {
+      log.warn(
+          "Field configuration {} changes the autocomplete fields, which Search V3 autocomplete "
+              + "does not apply: it reads the shared _search.autocomplete field",
+          fieldConfigLabel);
+    }
+  }
+
+  /**
+   * The Search V3 autocomplete query: without a field, the shared {@code _search.autocomplete}
+   * field, which holds every field with {@code enableAutocomplete} and matches a prefix of any word
+   * of them; with a field, a prefix of that root field's whole value, since root fields are not
+   * analyzed. A requested field that is not a string matches nothing.
+   */
+  private BoolQueryBuilder getV3Query(
+      @Nonnull OperationContext operationContext,
+      @Nullable AutocompleteConfiguration customAutocompleteConfig,
+      @Nullable String field,
+      @Nonnull String query) {
+    BoolQueryBuilder finalQuery =
+        Optional.ofNullable(customAutocompleteConfig)
+            .flatMap(
+                cac ->
+                    CustomizedQueryHandler.boolQueryBuilder(
+                        operationContext.getObjectMapper(), cac, query))
+            .orElse(QueryBuilders.boolQuery());
+    if (customAutocompleteConfig == null || customAutocompleteConfig.isDefaultQuery()) {
+      if (isRequestedField(field)) {
+        finalQuery.should(
+            isStringField(field)
+                ? QueryBuilders.prefixQuery(field, query)
+                : new MatchNoneQueryBuilder());
+      } else {
+        String autocomplete = V3SearchFields.path(V3SearchFields.AUTOCOMPLETE);
+        String ngram = autocomplete + "." + V3SearchFields.NGRAM;
+        finalQuery.should(
+            QueryBuilders.multiMatchQuery(query)
+                .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX)
+                .field(ngram)
+                .field(ngram + "._2gram")
+                .field(ngram + "._3gram")
+                .field(ngram + "._4gram"));
+        finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(ngram, query));
+        // An exact value ranks first, as V2's keyword match does
+        finalQuery.should(QueryBuilders.termQuery(autocomplete, query).boost(10.0f));
+      }
+    }
+    if (!finalQuery.should().isEmpty()) {
+      finalQuery.minimumShouldMatch(1);
+    }
+    return finalQuery;
+  }
+
+  /** As on V2, a urn request means the default fields. */
+  private static boolean isRequestedField(@Nullable String field) {
+    return field != null && !field.isEmpty() && !field.equalsIgnoreCase("urn");
+  }
+
+  private boolean isStringField(@Nonnull String field) {
+    return searchableFieldTypes.getOrDefault(field, Set.of()).stream()
+        .anyMatch(V3SearchFields::isStringFieldType);
+  }
+
+  /** The root fields a V3 suggestion is taken from: the requested one, or the default ones. */
+  private List<String> getV3SuggestionFields(@Nullable String field) {
+    return isRequestedField(field) ? List.of(field) : v3AutocompleteFields;
+  }
+
+  /**
+   * The V3 suggestion: the first fetched root value, in suggestion order, holding a word that the
+   * input starts, or else the first fetched value.
+   */
+  private Optional<String> getV3Suggestion(@Nonnull SearchHit hit, @Nonnull String input) {
+    Map<String, Object> source = hit.getSourceAsMap();
+    if (source == null) {
+      return Optional.empty();
+    }
+    List<String> fields =
+        Stream.concat(v3AutocompleteFields.stream(), source.keySet().stream())
+            .filter(fieldName -> !"urn".equals(fieldName) && source.get(fieldName) != null)
+            .distinct()
+            .collect(Collectors.toList());
+    return V3MatchedFields.forAutocomplete(input).find(source, fields).stream()
+        .findFirst()
+        .map(MatchedField::getValue)
+        .or(
+            () ->
+                fields.stream()
+                    .map(source::get)
+                    .map(
+                        value ->
+                            value instanceof List<?> list
+                                ? (list.isEmpty() ? null : list.get(0))
+                                : value)
+                    .filter(java.util.Objects::nonNull)
+                    .map(String::valueOf)
+                    .findFirst());
+  }
+
   @Override
   public Collection<String> getDefaultQueryFieldNames() {
     return _defaultAutocompleteFields.stream().map(Pair::getKey).collect(Collectors.toList());
@@ -391,9 +535,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     for (SearchHit hit : searchResponse.getHits()) {
       Optional<String> matchedFieldValue =
-          hit.getHighlightFields().entrySet().stream()
-              .findFirst()
-              .map(entry -> entry.getValue().getFragments()[0].string());
+          v3AutocompleteFields != null
+              ? getV3Suggestion(hit, input)
+              : hit.getHighlightFields().entrySet().stream()
+                  .findFirst()
+                  .map(entry -> entry.getValue().getFragments()[0].string());
       Optional<String> matchedUrn = Optional.ofNullable((String) hit.getSourceAsMap().get("urn"));
       try {
         if (matchedUrn.isPresent()) {
