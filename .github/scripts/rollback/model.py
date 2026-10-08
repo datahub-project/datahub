@@ -7,6 +7,9 @@ from typing import Optional
 
 
 SAFE = "safe"
+# N's new data that N-1 drops or can't use: a known, expected side effect of
+# rolling back a new feature, with no decision to make.
+EXPECTED_LOSS = "expected_loss"
 REQUIRES_ATTENTION = "requires_attention"
 BLOCKS_ROLLBACK = "blocks_rollback"
 
@@ -17,26 +20,25 @@ DIM_REINDEX = "reindex"
 DIM_SCHEMA_VERSION = "schema_version"
 
 VERDICT_FEASIBLE = "feasible_as_is"
+VERDICT_EXPECTED_LOSS = "feasible_with_expected_loss"
 VERDICT_MANUAL = "feasible_with_manual_intervention"
 VERDICT_NOT_RECOMMENDED = "not_recommended"
 
 VERDICT_LABELS = {
     VERDICT_FEASIBLE: "✅ Feasible as-is",
+    VERDICT_EXPECTED_LOSS: "✅ Feasible; N's new-feature data is lost",
     VERDICT_MANUAL: "⚠️ Feasible with manual intervention",
     VERDICT_NOT_RECOMMENDED: "\U0001f6d1 Not recommended",
 }
 
+# Lead-ins to the per-risk breakdown the report prints under the verdict.
 VERDICT_DESCRIPTIONS = {
-    VERDICT_FEASIBLE: (
-        "All changes are safe; rollback N → N-1 requires no manual steps."
+    VERDICT_FEASIBLE: "All changes are safe; rollback N → N-1 needs no manual steps.",
+    VERDICT_EXPECTED_LOSS: (
+        "Rollback needs no manual steps, but it removes the data of N's new features:"
     ),
-    VERDICT_MANUAL: (
-        "Some changes need review or manual action, but none categorically "
-        "block rollback."
-    ),
-    VERDICT_NOT_RECOMMENDED: (
-        "One or more changes block rollback without prior remediation."
-    ),
+    VERDICT_MANUAL: "Rollback can go ahead once the items that need a decision are checked:",
+    VERDICT_NOT_RECOMMENDED: "Don't roll back until the blockers are fixed:",
 }
 
 
@@ -57,6 +59,9 @@ class RollbackFinding:
     read_impact: Optional[str] = None
     write_impact: Optional[str] = None
     data_loss: Optional[str] = None
+    # Commits on N's first-parent history that changed this file, newest first:
+    # [{"sha": ..., "pr": ... or None, "url": ... or None}].
+    commits: list[dict] = field(default_factory=list)
     # Structure behind `summary`, used to render the report; not in the JSON.
     subject: Optional[str] = None  # the field, member, type or class changed
     record: Optional[str] = None  # nested record that holds `subject`
@@ -115,6 +120,8 @@ def compute_verdict(findings: list[RollbackFinding]) -> str:
         return VERDICT_NOT_RECOMMENDED
     if REQUIRES_ATTENTION in risks:
         return VERDICT_MANUAL
+    if EXPECTED_LOSS in risks:
+        return VERDICT_EXPECTED_LOSS
     return VERDICT_FEASIBLE
 
 

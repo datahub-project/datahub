@@ -149,14 +149,46 @@ def flag_unexplained_version_gaps(findings: list[model.RollbackFinding]) -> None
         )
 
 
-def run(current: str, target: str) -> tuple[list[model.RollbackFinding], str, str]:
+def run(
+    current: str, target: str, repo_url: Optional[str] = None
+) -> tuple[list[model.RollbackFinding], str, str]:
     """Run all analysis dimensions. Returns (findings, current_sha, target_sha)."""
     current_sha = repo.resolve_sha(current)
     target_sha = repo.resolve_sha(target)
     pdl_paths = rac.changed_pdls(target, current)
     findings = collect_findings(current, target, pdl_paths)
     combine_findings(findings, current, target, pdl_paths)
+    attach_commits(findings, current, target, repo_url)
     return findings, current_sha, target_sha
+
+
+def attach_commits(
+    findings: list[model.RollbackFinding],
+    current: str,
+    target: str,
+    repo_url: Optional[str],
+) -> None:
+    """Link each finding to the commits on N's first-parent history that changed
+    its file, and take its PR numbers from them, so every PR belongs to the
+    repository being analysed (a fork's merge PR rather than an upstream one)."""
+    cache: dict[str, list[tuple[str, Optional[str]]]] = {}
+    for f in findings:
+        if f.path not in cache:
+            cache[f.path] = repo.first_parent_changes(current, f.path, target)
+        changes = cache[f.path]
+        if not changes:
+            continue
+        f.commits = [
+            {
+                "sha": sha,
+                "pr": pr,
+                "url": f"{repo_url}/commit/{sha}" if repo_url else None,
+                "pr_url": f"{repo_url}/pull/{pr}" if repo_url and pr else None,
+            }
+            for sha, pr in changes
+        ]
+        prs = list(dict.fromkeys(pr for _, pr in changes if pr))
+        f.pr_number = ", ".join(prs) or None
 
 
 def collect_findings(

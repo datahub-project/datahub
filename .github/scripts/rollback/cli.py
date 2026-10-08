@@ -83,6 +83,14 @@ def main(argv: Optional[list[str]] = None) -> None:
         action="store_true",
         help="Also emit a JSON report alongside markdown",
     )
+    parser.add_argument(
+        "--repo-url",
+        default=None,
+        help=(
+            "Web URL of the repository, for commit and PR links (default: the "
+            "GitHub Actions repository, else the origin remote)"
+        ),
+    )
     args = parser.parse_args(argv)
     if args.emit_json and args.output and Path(args.output).suffix == ".json":
         # The JSON report goes next to the markdown with a .json suffix.
@@ -97,7 +105,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     args.current = repo.resolve_ref_name(args.current)
     args.target = repo.resolve_ref_name(args.target)
 
-    findings, current_sha, target_sha = pipeline.run(args.current, args.target)
+    findings, current_sha, target_sha = pipeline.run(
+        args.current, args.target, args.repo_url or repo.repo_url()
+    )
     warning = order_warning(args.current, args.target, current_sha, target_sha)
     if warning:
         print(f"Warning: {warning}", file=sys.stderr)

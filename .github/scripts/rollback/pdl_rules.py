@@ -113,6 +113,79 @@ def type_change_finding(
     )
 
 
+def _relationship_findings(
+    origin: model.Origin,
+    name: str,
+    cur_rel: Optional[str],
+    tgt_rel: Optional[str],
+    record: Optional[str],
+) -> list[model.RollbackFinding]:
+    """@Relationship changes on one field. N-1 rebuilds edges from stored
+    records by its own rule, but never deletes an edge its rule doesn't
+    produce, so N's extra edges outlive restore-indices."""
+    if cur_rel == tgt_rel:
+        return []
+    findings: list[model.RollbackFinding] = []
+    gained = (
+        pdl_parser.relationship_entity_types(cur_rel)
+        - pdl_parser.relationship_entity_types(tgt_rel)
+        if cur_rel and tgt_rel
+        else set()
+    )
+    if gained:
+        types = ", ".join(f"`{t}`" for t in sorted(gained))
+        findings.append(
+            _finding(
+                origin,
+                model.EXPECTED_LOSS,
+                model.impact(model.OK, model.FAILS, model.LOSS_NO),
+                f"Graph relationship on `{name}` gained target types {types}",
+                subject=name,
+                record=record,
+                detail=(
+                    f"N-1's write validation rejects {types} URNs in this field, so "
+                    "saving a record that holds one fails on N-1 until the URN is "
+                    "removed from the aspect. N's graph edges to them stay until "
+                    "then; restore-indices doesn't remove them. If N-1 has no such "
+                    "entity type, the UI shows these links as empty."
+                ),
+            )
+        )
+        if pdl_parser.without_entity_types(cur_rel) == pdl_parser.without_entity_types(
+            tgt_rel
+        ):
+            return findings
+    if not tgt_rel:
+        why = (
+            "N built graph edges for this field that N-1 doesn't expect. They stay "
+            "after rollback: restore-indices doesn't remove them, so relationship "
+            "and lineage views can show extra edges."
+        )
+    elif not cur_rel:
+        why = (
+            "N didn't build the graph edges N-1 expects for this field. Running "
+            "restore-indices on N-1 rebuilds them from the stored records."
+        )
+    else:
+        why = (
+            "N built graph edges for this field by its own @Relationship rule. "
+            "Restore-indices on N-1 adds the edges N-1's rule expects but doesn't "
+            "remove N's, so relationship and lineage views can show extra edges."
+        )
+    findings.append(
+        _finding(
+            origin,
+            model.REQUIRES_ATTENTION,
+            model.impact(model.OK, model.OK, model.LOSS_NO),
+            f"Graph relationship changed on `{name}`",
+            subject=name,
+            record=record,
+            detail=why,
+        )
+    )
+    return findings
+
+
 def diff_fields(
     cur_fields: dict,
     tgt_fields: dict,
@@ -138,12 +211,16 @@ def diff_fields(
         findings.append(
             _finding(
                 origin,
-                model.SAFE,
+                model.EXPECTED_LOSS,
                 model.impact(model.OK, model.DROPS_NEW_FIELD, model.LOSS_NO),
                 f"Added field `{name}`{pdl_parser.via_note(cur_fields[name])}",
                 "N-1 ignores unknown fields",
                 subject=name,
                 record=record,
+                detail=(
+                    "N-1 doesn't show this field and deletes N's value the next "
+                    "time it saves the record."
+                ),
             )
         )
 
@@ -164,8 +241,10 @@ def diff_fields(
                     subject=name,
                     record=record,
                     detail=(
-                        "N writes records without this field and N-1 can't read "
-                        "or write them. Backfill a value before rolling back."
+                        "N wrote every record without this field, and N-1 can't read "
+                        "or save any of them. Before relying on N-1, delete this aspect "
+                        "for those entities (the API returns 400, but the row is "
+                        "removed), then re-emit the data in N-1's schema."
                     ),
                 )
             )
@@ -209,33 +288,29 @@ def diff_fields(
                     record=record,
                     detail=(
                         "N built the search index with a different mapping for this "
-                        "field. N-1 reindexes only if "
-                        "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true (default "
-                        "false); otherwise search keeps N's mapping for this field."
+                        "field. N-1's system-update sees the difference but skips the "
+                        "index, because it already built it before the upgrade, even "
+                        "with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true; search "
+                        "keeps N's mapping. To rebuild it, delete N-1's "
+                        "BuildIndicesIncremental upgrade result and re-run system-update."
                     ),
                     reindex_required=True,
                 )
             )
 
-        if pdl_parser.normalized_annotation(
-            cur["annotations"].get("Relationship")
-        ) != pdl_parser.normalized_annotation(tgt["annotations"].get("Relationship")):
-            findings.append(
-                _finding(
-                    origin,
-                    model.REQUIRES_ATTENTION,
-                    model.impact(model.OK, model.OK, model.LOSS_NO),
-                    f"Graph relationship changed on `{name}`",
-                    subject=name,
-                    record=record,
-                    detail=(
-                        "N built graph edges for this field by its own @Relationship "
-                        "rule. N-1 expects its rule, so relationship and lineage "
-                        "views can show missing or extra edges until restore-indices "
-                        "rebuilds this aspect."
-                    ),
-                )
+        findings.extend(
+            _relationship_findings(
+                origin,
+                name,
+                pdl_parser.normalized_annotation(
+                    cur["annotations"].get("Relationship")
+                ),
+                pdl_parser.normalized_annotation(
+                    tgt["annotations"].get("Relationship")
+                ),
+                record,
             )
+        )
 
         # N always writes a field it requires, so N-1 can read it whether or
         # not N-1 requires it.
@@ -277,8 +352,10 @@ def diff_fields(
                     subject=name,
                     record=record,
                     detail=(
-                        "N may write records without this field; N-1 fails to read "
-                        "them. Check for records missing it before rolling back."
+                        "N-1 can't read or save records N wrote without this field: "
+                        "the UI fails for those entities and writes fail. For each one, "
+                        "delete this aspect on N-1 (the API returns 400, but the row is "
+                        "removed), then re-emit the data from its source in N-1's schema."
                     ),
                 )
             )
@@ -291,16 +368,17 @@ def diff_fields(
             findings.append(
                 _finding(
                     origin,
-                    model.REQUIRES_ATTENTION,
+                    model.EXPECTED_LOSS,
                     model.impact(model.UI_API_FAILS, model.FAILS, model.LOSS_NO),
                     f"Enum `{ename}`: added value `{v}`",
                     "N-1 doesn't know it",
                     subject=ename,
                     record=record,
                     detail=(
-                        "Records N writes with this value read as $UNKNOWN in N-1 "
-                        "and fail schema validation. Check whether N wrote it and "
-                        "whether N-1 reads this field before rolling back."
+                        "On N-1, entities whose records hold this value fail to load "
+                        "in the UI and GraphQL, writes to those records fail, and so "
+                        "do their search and graph updates. Rewrite them without the "
+                        "value on N before rolling back if they must keep working."
                     ),
                 )
             )
@@ -344,13 +422,16 @@ def classify_pdl_for_rollback(
         findings.append(
             _finding(
                 origin,
-                model.SAFE,
+                model.EXPECTED_LOSS,
                 model.impact(model.RESTORE_FAILS, model.FAILS, model.LOSS_NO),
                 "New file in N",
                 "absent in N-1 (N-1 rejects writes to it)",
                 detail=(
-                    "N-1's restore-indices fails on these rows and skips the whole "
-                    "batch, including valid rows. Normal API reads are unaffected."
+                    "N-1 can't read or write this aspect; its entities' other "
+                    "aspects read normally. N-1's restore-indices skips the whole "
+                    "batch these rows are in, valid rows included, without reporting "
+                    "an error, unless N-1 itself has a fix that ignores unknown "
+                    "aspects."
                 ),
             )
         )
@@ -465,15 +546,15 @@ def typeref_findings(
                 findings.append(
                     _finding(
                         origin,
-                        model.REQUIRES_ATTENTION,
+                        model.EXPECTED_LOSS,
                         model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
                         f"Union `{name}`: added member `{member}`",
                         "N-1 doesn't know it",
                         subject=name,
                         detail=(
-                            "N-1's typed getters throw on a union member they don't "
-                            "know and writes fail schema validation. Check whether N "
-                            "wrote this member before rolling back."
+                            "On N-1, records holding this member fail to load in the "
+                            "UI and GraphQL, OpenAPI returns the union empty, and "
+                            "writes fail schema validation."
                         ),
                     )
                 )

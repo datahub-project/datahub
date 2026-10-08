@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 import sys
 from typing import Callable, Optional
@@ -62,6 +64,47 @@ def java_files_added_between(base: str, head: str) -> set[str]:
     except subprocess.CalledProcessError:
         return set()
     return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def first_parent_changes(
+    head: str, path: str, base: str
+) -> list[tuple[str, Optional[str]]]:
+    """(sha, PR number) of each commit on `head`'s first-parent history since
+    `base` that changed `path`, newest first. On a fork, a change merged from
+    upstream shows up as the fork's merge commit, so links stay in one repo."""
+    try:
+        out = git(
+            "log", "--first-parent", "--format=%H%x09%s", f"{base}..{head}", "--", path
+        )
+    except subprocess.CalledProcessError:
+        return []
+    changes = []
+    for line in out.splitlines():
+        sha, _, subject = line.partition("\t")
+        if sha:
+            changes.append((sha, pr_number(subject)))
+    return changes
+
+
+_REMOTE_RE = re.compile(
+    r"^(?:git@([^:]+):|https?://(?:[^@/]+@)?([^/]+)/)(.+?)(?:\.git)?/?$"
+)
+
+
+def repo_url() -> Optional[str]:
+    """Web URL of the repository: the GitHub Actions repo, else `origin`."""
+    server, name = (
+        os.environ.get("GITHUB_SERVER_URL"),
+        os.environ.get("GITHUB_REPOSITORY"),
+    )
+    if server and name:
+        return f"{server}/{name}"
+    try:
+        remote = git("remote", "get-url", "origin").strip()
+    except subprocess.CalledProcessError:
+        return None
+    m = _REMOTE_RE.match(remote)
+    return f"https://{m.group(1) or m.group(2)}/{m.group(3)}" if m else None
 
 
 def first_pr(head: str, path: str, base: str) -> Optional[str]:

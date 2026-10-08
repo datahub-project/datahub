@@ -1,6 +1,7 @@
 """Tests for rollback_analysis.py"""
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from contextlib import ExitStack, contextmanager
@@ -175,14 +176,14 @@ def _mock_file_at(content_map):
 
 
 class TestClassifyPdlForRollback:
-    def test_new_file_in_n_is_safe(self):
+    def test_new_file_in_n_is_expected_loss(self):
         with patch.object(rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1,
         })), patch.object(rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(rac, "last_author_for_file", return_value=None):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
         assert len(findings) == 1
-        assert findings[0].risk == model.SAFE
+        assert findings[0].risk == model.EXPECTED_LOSS
         assert "New file" in findings[0].summary
 
     def test_deleted_file_in_n_requires_attention(self):
@@ -195,25 +196,25 @@ class TestClassifyPdlForRollback:
         assert findings[0].risk == model.REQUIRES_ATTENTION
         assert "deleted" in findings[0].summary.lower()
 
-    def test_added_optional_field_is_safe(self):
+    def test_added_optional_field_is_expected_loss(self):
         with patch.object(rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1_ADDED_OPTIONAL,
             ("N-1", "test.pdl"): _ASPECT_V1,
         })), patch.object(rac, "pr_numbers_for_file", return_value=["123"]), \
              patch.object(rac, "last_author_for_file", return_value="dev"):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        safe = [f for f in findings if f.risk == model.SAFE]
-        assert any("baz" in f.summary for f in safe)
+        lost = [f for f in findings if f.risk == model.EXPECTED_LOSS]
+        assert any("baz" in f.summary for f in lost)
 
-    def test_added_required_field_is_safe(self):
+    def test_added_required_field_is_expected_loss(self):
         with patch.object(rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_V1_ADDED_REQUIRED,
             ("N-1", "test.pdl"): _ASPECT_V1,
         })), patch.object(rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(rac, "last_author_for_file", return_value=None):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        safe = [f for f in findings if f.risk == model.SAFE]
-        assert any("required_field" in f.summary for f in safe)
+        lost = [f for f in findings if f.risk == model.EXPECTED_LOSS]
+        assert any("required_field" in f.summary for f in lost)
 
     def _removed_bar(self, n_minus_1):
         with patch.object(rac, "file_at", _mock_file_at({
@@ -366,7 +367,7 @@ record TestAspect {
 
 
 class TestEnumChanges:
-    def test_added_enum_value_requires_attention(self):
+    def test_added_enum_value_is_expected_loss(self):
         """N-1 can't trim an unknown enum symbol the way it trims unknown fields."""
         with patch.object(rac, "file_at", _mock_file_at({
             ("N", "test.pdl"): _ASPECT_ENUM_ADDED,
@@ -376,8 +377,8 @@ class TestEnumChanges:
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
         archived = [f for f in findings if f.summary.startswith("Enum `Status`: added value `ARCHIVED`")]
         assert len(archived) == 1
-        assert archived[0].risk == model.REQUIRES_ATTENTION
-        assert model.compute_verdict(findings) == model.VERDICT_MANUAL
+        assert archived[0].risk == model.EXPECTED_LOSS
+        assert model.compute_verdict(findings) == model.VERDICT_EXPECTED_LOSS
 
     def test_removed_enum_value_is_not_reported(self):
         """N never writes a value it removed, so N-1 is unaffected."""
@@ -706,20 +707,22 @@ class TestRenderRollbackReport:
         assert "datasetProperties" in md
         assert "Reason" in md
 
-    def test_version_section_rendered(self):
+    def test_expected_loss_section_lists_what_rollback_removes(self):
         findings = [
-            _finding(
-                dimension=model.DIM_SCHEMA_VERSION,
-                risk=model.REQUIRES_ATTENTION,
-                summary="Schema version gap: v1→v2 (1 hop)",
-                aspect_name="testAspect",
-                detail="N-1 expects version 1; N writes version 2.",
-            ),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="a", subject="E",
+                     summary="Enum `E`: added value `V` — N-1 doesn't know it"),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="a", subject="f", record="Rec",
+                     summary="In `Rec`: Added field `f` — N-1 ignores unknown fields"),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="a", subject="entities",
+                     summary="Graph relationship on `entities` gained target types `chart`"),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="newAspect",
+                     summary="New file in N — absent in N-1 (N-1 rejects writes to it)"),
         ]
-        md = report.render_rollback_report(
-            findings, "v2.0", "v1.0", "abc1234567", "def1234567"
-        )
-        assert "## Schema Version Gaps" in md
+        md = report.render_rollback_report(findings, "v2.0", "v1.0", "abc1234567", "def1234567")
+        assert "## Verdict: ✅ Feasible; N's new-feature data is lost" in md
+        assert "- `a`: enum value `E.V`, field `Rec.f`, `chart` targets on `entities`" in md
+        assert "- `newAspect`: the whole aspect" in md
+        assert "## Schema Version Gaps" not in md
 
     def test_pr_number_in_table(self):
         findings = [
@@ -930,7 +933,6 @@ class TestMixedFindings:
         assert "## Mutators in Window" in md
         assert "## Upgrade Steps in Window" in md
         assert "## Reindex Triggers" in md
-        assert "## Schema Version Gaps" in md
 
 
 class TestMainTargetDefault:
@@ -950,7 +952,7 @@ class TestMainTargetDefault:
         ) as run:
             cli.main(["--current", "abc123", "--output", str(out)])
         resolve.assert_called_once()
-        run.assert_called_once_with("abc123", "v1.2.0")
+        assert run.call_args.args[:2] == ("abc123", "v1.2.0")
         assert "v1.2.0" in out.read_text()
 
     def test_explicit_target_skips_resolution(self, tmp_path):
@@ -962,7 +964,7 @@ class TestMainTargetDefault:
                 ["--current", "abc123", "--target", "v1.1.0", "--output", str(out)]
             )
         resolve.assert_not_called()
-        run.assert_called_once_with("abc123", "v1.1.0")
+        assert run.call_args.args[:2] == ("abc123", "v1.1.0")
 
 
     def test_json_report_never_overwrites_markdown(self, tmp_path):
@@ -1083,7 +1085,7 @@ class TestImpact:
 
     def test_added_field_is_dropped_on_n1_write(self):
         f = [x for x in self._classify(_ASPECT_V1_ADDED_OPTIONAL, _ASPECT_V1) if "baz" in x.summary][0]
-        assert f.risk == model.SAFE
+        assert f.risk == model.EXPECTED_LOSS
         assert (f.read_impact, f.write_impact, f.data_loss) == ("ok", model.DROPS_NEW_FIELD, "no")
 
     def test_report_shows_read_write_data_loss_columns(self):
@@ -1357,8 +1359,8 @@ class TestEmbeddedAspectChanges:
             findings.extend(pdl_rules.analyze_schema_version_gaps("N", "N-1", [inner, outer]))
         pipeline.flag_unexplained_version_gaps(findings)
 
-        rel = [f for f in findings if f.summary.startswith("Graph relationship changed on `entities`")]
-        assert len(rel) == 1
+        rel = [f for f in findings if f.summary.startswith("Graph relationship on `entities` gained")]
+        assert len(rel) == 1 and rel[0].risk == model.EXPECTED_LOSS and rel[0].write_impact == "fails"
         assert rel[0].aspect_name == "innerAspect"
         assert rel[0].affected_aspects == ["outerAspect"]
         assert "Also embedded in: outerAspect." in rel[0].detail
@@ -1386,7 +1388,7 @@ class TestRelationshipAndIncludes:
              patch.object(rac, "last_author_for_file", return_value=None):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
         added = [f for f in findings if f.summary.startswith("Added field `customProperties` (via includes `Extra`)")]
-        assert len(added) == 1 and added[0].risk == model.SAFE
+        assert len(added) == 1 and added[0].risk == model.EXPECTED_LOSS
 
 
 class TestUpgradeStepImpact:
@@ -1514,15 +1516,15 @@ class TestFullReviewFixes:
         with _mock_repo(files, tuple(all_files)):
             return pdl_rules.analyze_nested_changes("N", "N-1", pdl_paths)
 
-    def test_union_member_added_in_shared_typeref_requires_attention(self):
+    def test_union_member_added_in_shared_typeref_is_expected_loss(self):
         u, asp = _P + "U.pdl", _P + "UAspect.pdl"
         files = {("N", u): _U_V2, ("N-1", u): _U_V1, ("N", asp): _ASP_U, ("N-1", asp): _ASP_U}
         findings = self._nested(files, [u], [u, asp])
         assert [f.summary.split(" — ")[0] for f in findings] == ["Union `U`: added member `long`"]
         f = findings[0]
-        assert f.risk == model.REQUIRES_ATTENTION and (f.read_impact, f.write_impact) == ("API fails", "fails")
+        assert f.risk == model.EXPECTED_LOSS and (f.read_impact, f.write_impact) == ("API fails", "fails")
         assert f.affected_aspects == ["uAspect"]
-        assert model.compute_verdict(findings) == model.VERDICT_MANUAL
+        assert model.compute_verdict(findings) == model.VERDICT_EXPECTED_LOSS
 
     def test_comment_only_change_in_typeref_file_is_not_reported(self):
         u, asp = _P + "U.pdl", _P + "UAspect.pdl"
@@ -1681,3 +1683,85 @@ class TestMainRecord:
         pdl = "namespace a\ntyperef T = string\nrecord R includes Base {\n  x: T\n}\n"
         rdef = pdl_parser.main_record(pdl)
         assert rdef is not None and rdef["includes"] == {"Base"} and set(rdef["fields"]) == {"x"}
+
+
+class TestRelationshipRules:
+    def _rel(self, cur, tgt):
+        origin = model.Origin("p", "a", None, None)
+        return pdl_rules._relationship_findings(
+            origin, "f", pdl_parser.normalized_annotation(cur), pdl_parser.normalized_annotation(tgt), None
+        )
+
+    def test_gained_target_type_is_expected_loss_and_writes_fail(self):
+        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset", "chart" ] }',
+                        '{ "name": "On", "entityTypes": [ "dataset" ] }')
+        assert f.risk == model.EXPECTED_LOSS and f.write_impact == model.FAILS
+        assert "`chart`" in f.summary and "restore-indices doesn't remove" in f.detail
+
+    def test_gained_type_with_other_change_also_needs_attention(self):
+        risks = [f.risk for f in self._rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
+                                           '{ "name": "On", "entityTypes": [ "dataset" ] }')]
+        assert risks == [model.EXPECTED_LOSS, model.REQUIRES_ATTENTION]
+
+    def test_relationship_added_in_n_leaves_extra_edges(self):
+        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }', None)
+        assert f.risk == model.REQUIRES_ATTENTION and "doesn't remove them" in f.detail
+
+    def test_relationship_removed_in_n_is_rebuilt_by_restore_indices(self):
+        [f] = self._rel(None, '{ "name": "On", "entityTypes": [ "dataset" ] }')
+        assert f.risk == model.REQUIRES_ATTENTION and "rebuilds them" in f.detail
+
+
+class TestCommitLinks:
+    def test_findings_link_to_first_parent_commits_of_this_repo(self):
+        f = _finding(path="x.pdl", pr_number="19367")
+        log = "aaaaaaaaaaaa1\tai-auto-merge: upstream → acryl-main (#11686)\nbbbbbbbbbbbb2\tdirect fix\n"
+        with patch.object(repo, "git", return_value=log) as git:
+            pipeline.attach_commits([f], "N", "N-1", "https://github.com/o/r")
+        assert "--first-parent" in git.call_args.args
+        assert f.pr_number == "11686"
+        cell = report._format_changes(f)
+        assert cell == "[#11686](https://github.com/o/r/pull/11686), [`bbbbbbbbbb`](https://github.com/o/r/commit/bbbbbbbbbbbb2)"
+
+    def test_no_commits_keeps_existing_pr(self):
+        f = _finding(path="x.pdl", pr_number="7")
+        with patch.object(repo, "git", side_effect=subprocess.CalledProcessError(1, "git")):
+            pipeline.attach_commits([f], "N", "N-1", None)
+        assert report._format_changes(f) == "#7"
+
+    def test_repo_url_from_actions_env_or_remote(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "acme/fork")
+        assert repo.repo_url() == "https://github.com/acme/fork"
+        monkeypatch.delenv("GITHUB_SERVER_URL")
+        for remote in ("git@github.com:acme/fork.git", "https://token@github.com/acme/fork.git"):
+            with patch.object(repo, "git", return_value=remote + "\n"):
+                assert repo.repo_url() == "https://github.com/acme/fork"
+
+
+class TestVerdictDetails:
+    def test_one_line_per_risk_level_with_its_action(self):
+        findings = [
+            _finding(risk=model.REQUIRES_ATTENTION, dimension=model.DIM_UPGRADE_STEP),
+            _finding(risk=model.REQUIRES_ATTENTION),
+            _finding(risk=model.EXPECTED_LOSS),
+            _finding(risk=model.SAFE),
+        ]
+        lines = report._verdict_details(findings)
+        assert lines[0].startswith("- **2 need a decision:** 1 schema change, 1 upgrade step.")
+        assert lines[1].startswith("- **1 expected loss:**")
+        assert lines[2].startswith("- **1 safe:**")
+        assert model.compute_verdict(findings) == model.VERDICT_MANUAL
+
+
+class TestRequiredFieldRemediation:
+    def _field(self, optional):
+        return {"type": "string", "optional": optional, "annotations": {}, "has_default": False, "via": None}
+
+    def test_blocker_and_flip_both_say_delete_then_reemit(self):
+        removed = pdl_rules.diff_fields({}, {"f": self._field(False)}, {}, {}, None, "p", "a", None, None)
+        flipped = pdl_rules.diff_fields({"f": self._field(True)}, {"f": self._field(False)}, {}, {}, None, "p", "a", None, None)
+        assert [f.risk for f in removed] == [model.BLOCKS_ROLLBACK]
+        assert [f.risk for f in flipped] == [model.REQUIRES_ATTENTION]
+        for f in removed + flipped:
+            assert "delete this aspect" in f.detail and "re-emit" in f.detail

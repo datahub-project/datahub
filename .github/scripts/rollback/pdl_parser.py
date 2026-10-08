@@ -26,6 +26,29 @@ def normalized_annotation(value: object) -> Optional[str]:
     return re.sub(r",(?=[}\]])", "", re.sub(r"\s+", "", str(value)))
 
 
+_ENTITY_TYPES_RE = re.compile(r'"entityTypes":\[([^\]]*)\]')
+
+
+def relationship_entity_types(normalized: Optional[str]) -> set[str]:
+    """Entity types a normalized @Relationship annotation accepts as targets."""
+    if not normalized:
+        return set()
+    return {
+        t
+        for m in _ENTITY_TYPES_RE.finditer(normalized)
+        for t in re.findall(r'"([^"]+)"', m.group(1))
+    }
+
+
+def without_entity_types(normalized: Optional[str]) -> Optional[str]:
+    """The annotation with its entityTypes lists blanked, to compare the rest."""
+    return (
+        _ENTITY_TYPES_RE.sub('"entityTypes":[]', normalized)
+        if normalized
+        else normalized
+    )
+
+
 def mapping_annotations(annotations: dict) -> dict[str, Optional[str]]:
     """Mapping-affecting annotations, with whitespace and trailing commas
     normalised so formatting-only edits don't count as changes."""
