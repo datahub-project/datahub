@@ -13,6 +13,9 @@ import { CorpUser, PlatformPrivileges } from '@types';
  */
 const LOCAL_STATE_KEY = 'userState';
 
+/** Stop blocking search if default-view lookups never settle. */
+export const DEFAULT_VIEW_RESOLUTION_TIMEOUT_MS = 10_000;
+
 /**
  * Loads a persisted object from the local browser storage.
  */
@@ -40,7 +43,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     /**
      * Retrieve the current user details once on component mount.
      */
-    const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getMe, { data: meData, error: meError, loading: meLoading, called: meCalled, refetch }] = useGetMeLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
     useEffect(() => {
         getMe();
     }, [getMe]);
@@ -48,7 +53,10 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     /**
      * Retrieve the Global View settings once on component mount.
      */
-    const [getGlobalViewSettings, { data: settingsData }] = useGetGlobalViewsSettingsLazyQuery({
+    const [
+        getGlobalViewSettings,
+        { data: settingsData, error: settingsError, loading: settingsLoading, called: settingsCalled },
+    ] = useGetGlobalViewsSettingsLazyQuery({
         fetchPolicy: 'cache-first',
     });
     useEffect(() => {
@@ -70,33 +78,43 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         [localState, updateLocalState],
     );
 
+    // A settled response includes errors and empty payloads so one failed lookup cannot block search.
+    const globalQuerySettled = settingsCalled && !settingsLoading;
+    const personalQuerySettled = meCalled && !meLoading;
+
     // Update the global default views in local state
     useEffect(() => {
-        if (!state.views.loadedGlobalDefaultViewUrn && settingsData?.globalViewsSettings) {
-            setState({
-                ...state,
+        if (state.views.loadedGlobalDefaultViewUrn || !globalQuerySettled) return;
+        setState((previous) => {
+            if (previous.views.loadedGlobalDefaultViewUrn) return previous;
+            return {
+                ...previous,
                 views: {
-                    ...state.views,
-                    globalDefaultViewUrn: settingsData?.globalViewsSettings?.defaultView,
+                    ...previous.views,
+                    globalDefaultViewUrn: settingsError ? undefined : settingsData?.globalViewsSettings?.defaultView,
                     loadedGlobalDefaultViewUrn: true,
                 },
-            });
-        }
-    }, [settingsData, state]);
+            };
+        });
+    }, [globalQuerySettled, settingsData, settingsError, state.views.loadedGlobalDefaultViewUrn]);
 
     // Update the personal default views in local state
     useEffect(() => {
-        if (!state.views.loadedPersonalDefaultViewUrn && meData?.me?.corpUser?.settings) {
-            setState({
-                ...state,
+        if (state.views.loadedPersonalDefaultViewUrn || !personalQuerySettled) return;
+        setState((previous) => {
+            if (previous.views.loadedPersonalDefaultViewUrn) return previous;
+            return {
+                ...previous,
                 views: {
-                    ...state.views,
-                    personalDefaultViewUrn: meData?.me?.corpUser?.settings?.views?.defaultView?.urn,
+                    ...previous.views,
+                    personalDefaultViewUrn: meError
+                        ? undefined
+                        : meData?.me?.corpUser?.settings?.views?.defaultView?.urn,
                     loadedPersonalDefaultViewUrn: true,
                 },
-            });
-        }
-    }, [meData, state]);
+            };
+        });
+    }, [meData, meError, personalQuerySettled, state.views.loadedPersonalDefaultViewUrn]);
 
     /**
      * Initialize the default selected view for the logged in user.
@@ -112,23 +130,45 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
             !state.views.hasSetDefaultView &&
             state.views.loadedPersonalDefaultViewUrn &&
             state.views.loadedGlobalDefaultViewUrn;
-        if (shouldSetDefaultView) {
-            if (localState.selectedViewUrn === undefined) {
-                if (state.views.personalDefaultViewUrn) {
-                    setDefaultSelectedView(state.views.personalDefaultViewUrn);
-                } else if (state.views.globalDefaultViewUrn) {
-                    setDefaultSelectedView(state.views.globalDefaultViewUrn);
-                }
+        if (!shouldSetDefaultView) return;
+
+        // Write the default before marking resolution complete, so search starts once with that view.
+        if (localState.selectedViewUrn === undefined) {
+            const defaultViewUrn = state.views.personalDefaultViewUrn || state.views.globalDefaultViewUrn;
+            if (defaultViewUrn) {
+                setDefaultSelectedView(defaultViewUrn);
+                return;
             }
-            setState({
-                ...state,
+        }
+
+        setState((previous) => {
+            if (previous.views.hasSetDefaultView) return previous;
+            return {
+                ...previous,
                 views: {
-                    ...state.views,
+                    ...previous.views,
                     hasSetDefaultView: true,
                 },
-            });
-        }
+            };
+        });
     }, [state, localState.selectedViewUrn, setDefaultSelectedView]);
+
+    useEffect(() => {
+        if (state.views.hasSetDefaultView) return undefined;
+        const timeoutId = window.setTimeout(() => {
+            setState((previous) => {
+                if (previous.views.hasSetDefaultView) return previous;
+                return {
+                    ...previous,
+                    views: {
+                        ...previous.views,
+                        hasSetDefaultView: true,
+                    },
+                };
+            });
+        }, DEFAULT_VIEW_RESOLUTION_TIMEOUT_MS);
+        return () => window.clearTimeout(timeoutId);
+    }, [state.views.hasSetDefaultView]);
 
     return (
         <UserContext.Provider

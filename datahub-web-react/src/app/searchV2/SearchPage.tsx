@@ -17,6 +17,7 @@ import SearchFiltersSection from '@app/searchV2/filters/SearchFiltersSection';
 import useFilterMode from '@app/searchV2/filters/useFilterMode';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import useIsDefaultViewReady from '@app/searchV2/useIsDefaultViewReady';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
@@ -48,6 +49,7 @@ export const SearchPage = () => {
     const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
+    const defaultViewReady = useIsDefaultViewReady();
     const { filterModeRef } = useFilterMode(filters, unionType);
     const selectedSortOption = useSelectedSortOption();
 
@@ -58,10 +60,11 @@ export const SearchPage = () => {
 
     const {
         data,
-        loading,
+        loading: searchLoading,
         error,
         refetch: realRefetch,
     } = useGetSearchResultsForMultipleQuery({
+        skip: !defaultViewReady,
         variables: {
             input: {
                 types: [],
@@ -84,6 +87,7 @@ export const SearchPage = () => {
         },
         fetchPolicy: 'cache-and-network',
     });
+    const loading = searchLoading || !defaultViewReady;
 
     const total = data?.searchAcrossEntities?.total || 0;
 

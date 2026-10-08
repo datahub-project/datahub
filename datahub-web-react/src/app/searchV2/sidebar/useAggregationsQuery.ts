@@ -1,6 +1,8 @@
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { MAX_AGGREGATION_VALUES } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import useIsDefaultViewReady from '@app/searchV2/useIsDefaultViewReady';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -16,6 +18,12 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const defaultViewReady = useIsDefaultViewReady();
+    const liveViewUrn = useGetSearchQueryInputs().viewUrn;
+    // Queries that apply a view wait until that view is known, and until the sidebar's
+    // copied filters have caught up, so the first request is not issued with a stale view.
+    const appliesView = !excludeFilters;
+    const viewInSync = sidebarFilters.viewUrn === liveViewUrn;
 
     const {
         data: newData,
@@ -24,7 +32,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         error,
         refetch,
     } = useAggregateAcrossEntitiesQuery({
-        skip,
+        skip: skip || (appliesView && (!defaultViewReady || !viewInSync)),
         fetchPolicy: 'cache-first',
         variables: {
             input: {
