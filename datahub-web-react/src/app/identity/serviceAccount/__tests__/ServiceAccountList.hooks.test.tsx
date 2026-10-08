@@ -476,7 +476,6 @@ describe('useServiceAccountDefaultView', () => {
     });
 
     it('should call mutation and show success message when setting a view', async () => {
-        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -498,7 +497,6 @@ describe('useServiceAccountDefaultView', () => {
     });
 
     it('should call mutation and show success message when clearing a view', async () => {
-        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -520,7 +518,6 @@ describe('useServiceAccountDefaultView', () => {
     });
 
     it('should show error message when mutation fails', async () => {
-        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockRejectedValue(new Error('Unauthorized'));
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
