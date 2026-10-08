@@ -45,8 +45,7 @@ and `ingest_datasets` switch a whole kind off (`ingest_datasets` is off by defau
 
 The probe reads the list endpoints ingestion reads, and a dataset's detail only when its list record
 lacks the database. Records carry names, ids, schemas and database names; owners and the users who
-last changed an object are never returned. A listing the credential's role may not read (HTTP 403 or
-404) comes back empty with a warning; a refused login, any other HTTP error or an unreachable host
+last changed an object are never returned. A listing the credential's role may not read (HTTP 403 or 404) comes back empty with a warning; a refused login, any other HTTP error or an unreachable host
 fails the command with exit code 3.
 
 ### Limitations
