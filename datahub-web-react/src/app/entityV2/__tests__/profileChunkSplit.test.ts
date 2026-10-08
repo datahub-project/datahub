@@ -1,7 +1,6 @@
 import { readFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-
 import { describe, expect, it } from 'vitest';
 
 const srcRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
