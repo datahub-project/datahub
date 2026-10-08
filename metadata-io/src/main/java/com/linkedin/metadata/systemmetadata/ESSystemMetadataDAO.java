@@ -229,6 +229,47 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
+  /**
+   * Rows of a run sorted by urn, aspect, after the given (urn, aspect) position (keyset paging).
+   */
+  public SearchResponse findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      @Nonnull String runId,
+      boolean includeSoftDeleted,
+      @Nullable String afterUrn,
+      @Nullable String afterAspect,
+      int size) {
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("runId", runId));
+    if (!includeSoftDeleted) {
+      query.mustNot(QueryBuilders.termQuery("removed", "true"));
+    }
+    if (afterUrn != null && afterAspect != null) {
+      query.filter(
+          QueryBuilders.boolQuery()
+              .should(QueryBuilders.rangeQuery("urn").gt(afterUrn))
+              .should(
+                  QueryBuilders.boolQuery()
+                      .filter(QueryBuilders.termQuery("urn", afterUrn))
+                      .filter(QueryBuilders.rangeQuery("aspect").gt(afterAspect)))
+              .minimumShouldMatch(1));
+    }
+    final SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(query)
+            .sort("urn", SortOrder.ASC)
+            .sort("aspect", SortOrder.ASC)
+            .size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
+    final SearchRequest searchRequest = new SearchRequest().source(source);
+    searchRequest.indices(indexName(opContext));
+    try {
+      return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.error("Error while searching run {} after {}/{}.", runId, afterUrn, afterAspect, e);
+    }
+    return null;
+  }
+
   public SearchResponse scroll(
       @Nonnull OperationContext opContext,
       BoolQueryBuilder queryBuilder,

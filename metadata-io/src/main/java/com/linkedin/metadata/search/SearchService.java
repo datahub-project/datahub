@@ -198,11 +198,10 @@ public class SearchService {
 
     // Entity types this registry doesn't know (e.g. requested by a client built for a newer version
     // after a rollback) can't be searched; drop them instead of failing the whole request. If none
-    // remain, callers return an empty result rather than searching every type. Names are matched
-    // the way the search layer resolves them, so "data_product" still finds dataProduct.
+    // remain, callers return an empty result rather than searching every type.
     final List<String> knownEntities =
         lowercaseEntities.stream()
-            .filter(entity -> isKnownEntityType(opContext, entity))
+            .filter(entity -> opContext.getEntityRegistry().findEntitySpec(entity).isPresent())
             .collect(Collectors.toList());
     if (knownEntities.size() < lowercaseEntities.size()) {
       final List<String> unknownEntities =
@@ -218,13 +217,6 @@ public class SearchService {
           unknownEntities);
     }
     return knownEntities;
-  }
-
-  private static boolean isKnownEntityType(
-      @Nonnull final OperationContext opContext, @Nonnull final String entity) {
-    // Mirrors ESUtils, which resolves "data_product" to dataProduct by dropping underscores.
-    return opContext.getEntityRegistry().findEntitySpec(entity).isPresent()
-        || opContext.getEntityRegistry().findEntitySpec(entity.replace("_", "")).isPresent();
   }
 
   /**
@@ -386,8 +378,20 @@ public class SearchService {
     return aggregationMetadata;
   }
 
-  /** An empty page, e.g. when every requested entity type is unknown to the registry. */
-  public static SearchResult getEmptySearchResult(int from, int size) {
+  /**
+   * An empty page sized like a real one (the configured limit applies), e.g. when every requested
+   * entity type is unknown to the registry.
+   */
+  public SearchResult emptySearchResult(int from, @Nullable Integer size) {
+    return getEmptySearchResult(from, ConfigUtils.applyLimit(searchServiceConfig, size));
+  }
+
+  /** As {@link #emptySearchResult}, for a scroll. */
+  public ScrollResult emptyScrollResult(@Nullable Integer size) {
+    return getEmptyScrollResult(ConfigUtils.applyLimit(searchServiceConfig, size));
+  }
+
+  private static SearchResult getEmptySearchResult(int from, int size) {
     return new SearchResult()
         .setEntities(new SearchEntityArray())
         .setNumEntities(0)
@@ -396,8 +400,7 @@ public class SearchService {
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
-  /** An empty scroll page, e.g. when every requested entity type is unknown to the registry. */
-  public static ScrollResult getEmptyScrollResult(int size) {
+  private static ScrollResult getEmptyScrollResult(int size) {
     return new ScrollResult()
         .setEntities(new SearchEntityArray())
         .setNumEntities(0)

@@ -34,6 +34,9 @@ public class UrnDerivedRegistryLookupLintTest {
 
   private static final List<String> MODULES =
       List.of(
+          "entity-registry",
+          "metadata-auth",
+          "metadata-utils",
           "metadata-io",
           "metadata-jobs",
           "metadata-service",

@@ -22,9 +22,11 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -176,16 +178,35 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
               .setTime(System.currentTimeMillis()),
           false);
     } catch (ValidationException e) {
-      // The stored settings hold values this version can't validate (written by a newer version
-      // before a rollback). Leave them as they are rather than failing a blocking upgrade step.
+      // Stored settings written by a newer version (read after a rollback) can hold values this
+      // version can't validate; leave them as they are rather than failing a blocking upgrade step.
+      // Any other validation failure fails the step as before.
+      if (!isFromNewerVersion(systemOperationContext)) {
+        throw e;
+      }
       log.warn(
-          "Stored global settings failed validation; leaving them unchanged and skipping the new"
-              + " defaults.",
+          "Stored global settings from a newer version failed validation; leaving them unchanged"
+              + " and skipping the new defaults.",
           e);
       return;
     }
 
     log.info("Successfully ingested default global settings.");
+  }
+
+  private static boolean isFromNewerVersion(
+      @Nonnull final OperationContext systemOperationContext) {
+    final SystemAspect stored =
+        systemOperationContext
+            .getAspectRetriever()
+            .getLatestSystemAspect(
+                systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    return stored != null
+        && UnknownEntityUrnStripper.isFromNewerVersion(
+            stored.getRecordTemplate(),
+            stored.getSystemMetadata(),
+            stored.getAspectSpec(),
+            systemOperationContext.getEntityRegistry());
   }
 
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {

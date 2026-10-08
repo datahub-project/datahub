@@ -3,6 +3,7 @@ package com.linkedin.metadata.utils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryFit;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
@@ -101,6 +102,31 @@ public final class UnknownDataGuard {
         subject);
   }
 
+  /**
+   * As {@link #admit}, and also skips an event whose urn references an unknown entity type in its
+   * key (e.g. a schema field or monitor of an entity type only a newer version has). Such a urn
+   * fails key validation, which would otherwise fail the whole batch it arrives in.
+   */
+  public boolean admitEvent(
+      @Nonnull final EntityRegistry registry,
+      @Nonnull final Optional<MetricUtils> metricUtils,
+      @Nullable final Urn urn,
+      @Nullable final String entityType,
+      @Nullable final String aspectName) {
+    if (!admit(registry, metricUtils, entityType, aspectName, urn)) {
+      return false;
+    }
+    if (urn != null && RegistryKnowledge.referencesUnknownEntityType(registry, urn)) {
+      skippedBecause(
+          metricUtils,
+          entityType + "/key",
+          "its urn key references an entity type not in the entity registry",
+          urn);
+      return false;
+    }
+    return true;
+  }
+
   /** As {@link #admit}, for a urn string that may be null or unparseable. */
   public boolean admitUrn(
       @Nonnull final EntityRegistry registry,
@@ -167,16 +193,27 @@ public final class UnknownDataGuard {
             .asMap()
             .computeIfAbsent(site.getName() + '|' + what + '|' + key, k -> new Window(now))
             .tryAcquire(now);
+    if (suppressed < 0) {
+      return;
+    }
+    // Subjects and reasons can carry request or stored values; keep each skip on one log line.
+    final String safeSubject = oneLine(String.valueOf(subject));
+    final String safeReason = oneLine(reason);
     if (suppressed == 0) {
-      log.warn("Skipping {} {}: {}", what, subject, reason);
-    } else if (suppressed > 0) {
+      log.warn("Skipping {} {}: {}", what, safeSubject, safeReason);
+    } else {
       log.warn(
           "Skipping {} {}: {} ({} more skipped since the last report)",
           what,
-          subject,
-          reason,
+          safeSubject,
+          safeReason,
           suppressed);
     }
+  }
+
+  @Nonnull
+  private static String oneLine(@Nonnull final String value) {
+    return value.replace('\r', ' ').replace('\n', ' ');
   }
 
   @VisibleForTesting

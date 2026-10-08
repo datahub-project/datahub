@@ -66,11 +66,11 @@ public class RollbackService {
 
   public List<AspectRowSummary> rollbackTargetAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
-    return systemMetadataService.findByRunId(
+    return systemMetadataService.findByRunIdAfter(
         opContext,
         runId,
         hardDelete,
-        0,
+        null,
         systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
   }
 
@@ -205,24 +205,22 @@ public class RollbackService {
           .filter(row -> row.isKeyAspect() && !isUnknownToRegistry(opContext, row))
           .forEach(allKeyAspects::add);
 
-      // since elastic limits how many rows we can access at once, we need to iteratively
-      // delete. Rolled-back rows drop out of the next query, so each pass normally re-reads from
-      // the same offset. Rows rollbackRun skips because their entity/aspect is unknown to this
-      // build (after a version rollback) stay in system metadata; once a full page is nothing but
-      // those, page past them instead of re-reading them forever.
-      int from = 0;
+      // Elastic limits how many rows we can read at once, so delete page by page. Pages are read in
+      // urn/aspect order, each after the last row of the previous one: rolled-back rows drop out of
+      // the index, while rows rollbackRun skips because their entity/aspect is unknown to this
+      // build
+      // (after a version rollback) stay in it, and paging by position steps past them without an
+      // offset that could outgrow the search result window.
       while (aspectRowsToDelete.size()
           >= systemMetadataServiceConfig.getLimit().getResults().getApiDefault()) {
-        if (aspectRowsToDelete.stream().allMatch(row -> isUnknownToRegistry(opContext, row))) {
-          from += aspectRowsToDelete.size();
-        }
+        final AspectRowSummary lastRow = aspectRowsToDelete.get(aspectRowsToDelete.size() - 1);
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         aspectRowsToDelete =
-            systemMetadataService.findByRunId(
+            systemMetadataService.findByRunIdAfter(
                 opContext,
                 runId,
                 hardDelete,
-                from,
+                lastRow,
                 systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");

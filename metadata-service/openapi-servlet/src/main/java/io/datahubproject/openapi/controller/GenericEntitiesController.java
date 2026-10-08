@@ -579,11 +579,16 @@ public abstract class GenericEntitiesController<
         entityService.deleteUrn(opContext, urn);
       }
     } else {
-      aspects.stream()
-          .map(aspectName -> RequestInputUtil.requireAspectSpec(entitySpec, aspectName).getName())
-          .forEach(
-              aspectName ->
-                  entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
+      // Resolve every name first, so a request naming an unknown aspect deletes nothing.
+      final List<String> aspectNames =
+          aspects.stream()
+              .map(
+                  aspectName ->
+                      RequestInputUtil.requireAspectSpec(entitySpec, aspectName).getName())
+              .collect(Collectors.toList());
+      aspectNames.forEach(
+          aspectName ->
+              entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
     }
   }
 

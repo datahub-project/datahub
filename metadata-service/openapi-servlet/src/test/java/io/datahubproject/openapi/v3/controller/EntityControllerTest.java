@@ -2354,7 +2354,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.delete(path)
-                .param("aspects", "futureAspect")
+                // A known aspect next to the unknown one must not be deleted either.
+                .param("aspects", "status,futureAspect")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isBadRequest());
 

@@ -244,6 +244,34 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testObjectChangedToKeywordStillRequiresReindex() {
+    // Pruning only drops field definitions the target lacks; a field the target now types
+    // differently (an object turned keyword) is still a change that needs a reindex.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("changed_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "changed_field",
+                Map.of(
+                    "type", "object", PROPERTIES_KEY, Map.of("child", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
   void testRemovedFieldParameterStillRequiresReindex() {
     // Only whole field definitions missing from the target are ignored; a parameter removed from
     // a field both have is still a change.

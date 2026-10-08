@@ -558,7 +558,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       // version, after a rollback). An empty list would otherwise mean "search every type".
       return RestliUtils.toTask(
           opContext,
-          () -> SearchService.getEmptySearchResult(start, count == null ? 0 : count),
+          () -> searchService.emptySearchResult(start, count),
           "searchAcrossEntities");
     }
     return RestliUtils.toTask(
@@ -664,7 +664,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       // See searchAcrossEntities: never widen a request for unknown types to every type.
       return RestliUtils.toTask(
           opContext,
-          () -> SearchService.getEmptyScrollResult(count == null ? 0 : count),
+          () -> searchService.emptyScrollResult(count),
           "scrollAcrossEntities");
     }
 

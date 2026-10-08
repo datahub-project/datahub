@@ -626,6 +626,9 @@ public class CDCProcessorTest {
             "{\"after\": {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)\","
                 + " \"aspect\": \"aspectFromNewerBuild\", \"version\": 0, \"metadata\": \"{}\","
                 + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    // dataset is known; only the aspect is not.
+    when(mockEntityRegistry.getEntitySpec("dataset"))
+        .thenReturn(mock(com.linkedin.metadata.models.EntitySpec.class));
     when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
     when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
 

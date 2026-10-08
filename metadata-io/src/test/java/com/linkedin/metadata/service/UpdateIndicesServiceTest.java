@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
@@ -17,6 +18,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -320,6 +322,48 @@ public class UpdateIndicesServiceTest {
     updateIndicesService.handleChangeEvents(context, List.of(unknownAspect));
 
     verify(metrics).increment(UpdateIndicesService.class, "unknown_to_registry_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_CountsInvalidEventsFromANewerVersion() {
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "invalid.metric",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    updateIndicesService.handleChangeEvents(context, List.of(unstrippable));
+
+    verify(metrics).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_SkipsEventsWhoseUrnKeyReferencesAnUnknownType() {
+    // A schema field of an entity type only a newer version has fails key validation; it is
+    // skipped on its own instead of failing the whole batch.
+    MetadataChangeLog known = datasetPropertiesEvent("nested.known");
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col_a)");
+    MetadataChangeLog nestedUnknown =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(nested)
+            .setEntityType(nested.getEntityType())
+            .setAspectName(STATUS_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    updateIndicesService.handleChangeEvents(operationContext, List.of(nestedUnknown, known));
+
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, known);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(operationContext, nestedUnknown);
   }
 
   @Test

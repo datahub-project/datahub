@@ -299,19 +299,30 @@ public class IncidentMapperTest {
   }
 
   @Test
-  public void testUnknownIncidentTypeAndStageFallBack() throws Exception {
+  public void testUnknownIncidentTypeStateAndStageFallBack() throws Exception {
     // Values a newer version wrote (read after a rollback) don't fail the incident.
     EntityResponse entityResponse = createBaseEntityResponse();
     EnvelopedAspect incidentAspect =
         entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
     IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
     incidentInfo.data().put("type", "TYPE_FROM_NEWER_BUILD");
+    com.linkedin.incident.IncidentStatus status =
+        new com.linkedin.incident.IncidentStatus()
+            .setState(com.linkedin.incident.IncidentState.ACTIVE)
+            .setLastUpdated(incidentInfo.getCreated());
+    status.data().put("state", "STATE_FROM_NEWER_BUILD");
+    status.data().put("stage", "STAGE_FROM_NEWER_BUILD");
+    incidentInfo.setStatus(status);
     incidentAspect.setValue(new Aspect(incidentInfo.data()));
 
     Incident incident = IncidentMapper.map(null, entityResponse);
 
     assertEquals(
         incident.getIncidentType(), com.linkedin.datahub.graphql.generated.IncidentType.CUSTOM);
+    assertEquals(
+        incident.getIncidentStatus().getState(),
+        com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE);
+    assertNull(incident.getIncidentStatus().getStage());
   }
 
   /** Creates a minimal EntityResponse with a basic IncidentInfo aspect. */

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.mxe.SystemMetadata;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,6 +40,8 @@ import javax.annotation.Nullable;
  * aspects without urn fields cost one cached lookup.
  */
 public final class UnknownEntityUrnStripper {
+
+  private static final String URN_PREFIX = "urn:li:";
 
   // Whether a schema can hold an urn at any depth. Keyed by schema identity: schemas are shared
   // singletons, and their equals/hashCode are deep.
@@ -89,6 +93,7 @@ public final class UnknownEntityUrnStripper {
     private final boolean mutate;
     // Aspects repeat a few entity types many times (e.g. tags on every schema field).
     private final Map<String, Boolean> unknownByEntityType = new HashMap<>();
+    private final Map<String, Boolean> unknownByNestedUrn = new HashMap<>();
     private int removed;
     private boolean found;
 
@@ -163,9 +168,27 @@ public final class UnknownEntityUrnStripper {
     private boolean isUnknownEntityType(@Nonnull final String urn) {
       final String entityType = RegistryKnowledge.entityTypeOf(urn);
       // Malformed urns (no entity type) are left for validation to reject.
-      return entityType != null
-          && unknownByEntityType.computeIfAbsent(
-              entityType, type -> entityRegistry.findEntitySpec(type).isEmpty());
+      if (entityType == null) {
+        return false;
+      }
+      if (unknownByEntityType.computeIfAbsent(
+          entityType, type -> entityRegistry.findEntitySpec(type).isEmpty())) {
+        return true;
+      }
+      // Urns nesting another urn in their key (e.g. a schema field or monitor of an entity type
+      // only a newer version has) are parsed and checked whole; others skip the parse.
+      return urn.indexOf(URN_PREFIX, URN_PREFIX.length()) > 0
+          && unknownByNestedUrn.computeIfAbsent(urn, this::referencesUnknownEntityType);
+    }
+
+    private boolean referencesUnknownEntityType(@Nonnull final String urn) {
+      try {
+        return RegistryKnowledge.referencesUnknownEntityType(
+            entityRegistry, Urn.createFromString(urn));
+      } catch (URISyntaxException e) {
+        // Malformed urns are left for validation to reject.
+        return false;
+      }
     }
   }
 

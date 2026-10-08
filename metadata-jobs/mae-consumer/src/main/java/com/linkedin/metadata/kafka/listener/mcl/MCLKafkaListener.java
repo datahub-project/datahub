@@ -89,12 +89,12 @@ public class MCLKafkaListener
     // After a rollback, MCLs written by the newer build can name entity types or aspects this build
     // does not know. No hook can process them, and hooks that look up their specs would throw and
     // skip the rest of their batch.
-    return !UNKNOWN_DATA.admit(
+    return !UNKNOWN_DATA.admitEvent(
         opContext.getEntityRegistry(),
         opContext.getMetricUtils(),
+        event.getEntityUrn(),
         entityType,
-        aspectName,
-        event.getEntityUrn());
+        aspectName);
   }
 
   @Override

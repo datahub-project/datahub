@@ -110,12 +110,12 @@ public class UpdateIndicesService implements SearchIndicesService {
         events.stream()
             .filter(
                 event -> {
-                  return UNKNOWN_DATA.admit(
+                  return UNKNOWN_DATA.admitEvent(
                       entityRegistry,
                       opContext.getMetricUtils(),
+                      event.getEntityUrn(),
                       event.hasEntityType() ? event.getEntityType() : null,
-                      event.hasAspectName() ? event.getAspectName() : null,
-                      event.getEntityUrn());
+                      event.hasAspectName() ? event.getAspectName() : null);
                 })
             .map(event -> buildValidMCLItem(opContext, event))
             .filter(Objects::nonNull)

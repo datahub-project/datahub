@@ -186,7 +186,8 @@ public class EntityController
               alternateValidation
                   ? lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null)
                   : RequestInputUtil.requireAspectSpec(
-                      entityRegistry.getEntitySpec(entityUrn.getEntityType()), aspect.getKey());
+                      entityRegistry.findEntitySpec(entityUrn.getEntityType()).orElse(null),
+                      aspect.getKey());
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (alternateValidation) {

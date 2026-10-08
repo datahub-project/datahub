@@ -193,6 +193,23 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
+  public List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      int size) {
+    return toAspectRowSummary(
+        _esDAO.findByRunIdAfter(
+            opContext,
+            runId,
+            includeSoftDeleted,
+            after == null ? null : after.getUrn(),
+            after == null ? null : after.getAspectName(),
+            size));
+  }
+
+  @Override
   public List<AspectRowSummary> findByUrn(
       @Nonnull OperationContext opContext,
       String urn,

@@ -46,6 +46,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.query.SearchFlags;
@@ -151,11 +152,28 @@ public class EntityResourceTest {
             new String[] {"entityFromNewerBuild"}, "*", null, null, null, 0, 10, null);
 
     assertNotNull(task);
+    verify(searchService).emptySearchResult(0, 10);
     verify(searchService, never())
         .searchAcrossEntities(
             any(OperationContext.class), any(), any(), any(), any(), anyInt(), any(), any());
   }
 
+  @Test
+  public void testScrollAcrossOnlyUnknownEntityTypesDoesNotScrollEveryType() throws Exception {
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of());
+    setSearchService(entityResource, searchService);
+
+    Task<ScrollResult> task =
+        entityResource.scrollAcrossEntities(
+            new String[] {"entityFromNewerBuild"}, "*", null, null, null, null, "5m", 10, null);
+
+    assertNotNull(task);
+    verify(searchService).emptyScrollResult(10);
+    verify(searchService, never())
+        .scrollAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), any(), any(), any());
+  }
   /**
    * Entities such as {@code structuredProperty} have no registered timeseries aspects. The delete
    * flow must not call {@link TimeseriesAspectService#deleteAspectValues} (or require timeseries
