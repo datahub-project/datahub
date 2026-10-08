@@ -338,11 +338,14 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
-      log.debug("entity type = {}", this.urn.getEntityType());
-
+      // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+      // version before a rollback) must fail as a ValidationException, like an unknown aspect, not
+      // as the IllegalArgumentException batch building treats as "skip silently".
       entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
+
+      urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
+      log.debug("entity type = {}", this.urn.getEntityType());
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);

@@ -91,13 +91,16 @@ public class DeleteItemImpl implements ChangeMCP {
 
     @SneakyThrows
     public DeleteItemImpl build(AspectRetriever aspectRetriever) {
-      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
-      log.debug("entity type = {}", this.urn.getEntityType());
-
+      // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+      // version before a rollback) must fail as a ValidationException, like an unknown aspect, not
+      // as the IllegalArgumentException batch building treats as "skip silently".
       entitySpec(
           ValidationApiUtils.validateEntity(
               aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
+
+      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+      log.debug("entity type = {}", this.urn.getEntityType());
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);

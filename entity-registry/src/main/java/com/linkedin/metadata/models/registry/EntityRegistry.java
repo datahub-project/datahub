@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -186,5 +187,31 @@ public interface EntityRegistry {
   default BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory>
       getPluginFactoryProvider() {
     return null;
+  }
+
+  /**
+   * Safe lookup: returns the {@link AspectSpec} for the given entity/aspect pair, or empty if
+   * either the entity type or the aspect name is not in this registry. Handles both implementations
+   * that throw on unknown entities and those that return null.
+   */
+  @Nonnull
+  default Optional<AspectSpec> findAspectSpec(
+      @Nonnull String entityName, @Nonnull String aspectName) {
+    return findEntitySpec(entityName).map(entitySpec -> entitySpec.getAspectSpec(aspectName));
+  }
+
+  /**
+   * Safe lookup: returns the {@link EntitySpec} for the given entity name, or empty if the entity
+   * type is not in this registry. Only "not found" is mapped to empty; any other failure is a bug
+   * and propagates rather than being mistaken for an unknown entity type.
+   */
+  @Nonnull
+  default Optional<EntitySpec> findEntitySpec(@Nonnull String entityName) {
+    try {
+      return Optional.ofNullable(getEntitySpec(entityName));
+    } catch (IllegalArgumentException e) {
+      // Registries throw IllegalArgumentException for entity names they don't know.
+      return Optional.empty();
+    }
   }
 }
