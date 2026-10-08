@@ -148,10 +148,10 @@ def mock_trino_engine() -> Any:
 @pytest.fixture
 def mock_athena_engine() -> Any:
     """Mock Athena engine with correct dialect."""
-    from pyathena import sqlalchemy_athena
+    from pyathena.sqlalchemy.rest import AthenaRestDialect
 
     engine = MagicMock()
-    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    engine.dialect = AthenaRestDialect()
     return engine
 
 
@@ -298,6 +298,22 @@ class TestGenericAdapter:
     def adapter(self, config, report, mock_generic_engine):
         """Create generic adapter for testing."""
         return GenericAdapter(config, report, mock_generic_engine)
+
+    @pytest.mark.parametrize(
+        "non_null_count,expected",
+        [(1, None), (5, 0.0), (0, None), (None, None)],
+    )
+    def test_resolve_stdev_null(self, adapter, non_null_count, expected):
+        """A NULL stddev means undefined at one value, zero variance above that."""
+        assert adapter.resolve_stdev_null(non_null_count) == expected
+
+    def test_stdev_issues_a_single_query(self, adapter, mock_table):
+        """A NULL stddev must not trigger a second count; it is resolved later."""
+        mock_conn = MagicMock()
+        mock_conn.execute_aggregate.return_value.scalar.return_value = None
+
+        assert adapter.get_column_stdev(mock_table, "value_col", mock_conn) is None
+        assert mock_conn.execute_aggregate.call_count == 1
 
     def test_setup_profiling_creates_sql_table(self, adapter, mock_generic_engine):
         """Test setup creates SQLAlchemy table object."""
@@ -491,53 +507,6 @@ class TestMSSQLAdapter:
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
         assert "stddev_samp" not in sql.lower()
 
-    def test_stdev_single_row_returns_none(self, adapter, real_table):
-        """
-        STDEV() returns NULL on a single-value column. Stddev of one value is
-        mathematically undefined, so we return None (not 0.0).
-        """
-        mock_conn = MagicMock()
-        # First execute: STDEV(...) returns NULL.
-        # Second execute: COUNT(value_col) for the non-null disambiguation returns 1.
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 1
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result is None
-
-    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
-        """
-        STDEV() returns NULL when all values are equal (zero variance). With
-        multiple non-null rows, the well-defined answer is 0.0.
-        """
-        mock_conn = MagicMock()
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 5
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result == 0.0
-
-    def test_stdev_all_null_returns_default(self, adapter, real_table):
-        """
-        STDEV() on an all-null column falls through to the
-        `get_stdev_null_value` hook. MSSQL inherits the base default (None).
-        """
-        mock_conn = MagicMock()
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result is None
-
     def test_quantiles_use_percentile_disc_with_over_window(
         self, adapter, real_table, mock_mssql_engine
     ):
@@ -675,6 +644,13 @@ class TestRedshiftAdapter:
     def test_supports_row_count_estimation(self, adapter):
         """Test Redshift supports fast row count estimation."""
         assert adapter.supports_row_count_estimation() is True
+
+    def test_all_null_stdev_is_zero_not_none(self, adapter):
+        """Redshift's STDDEV returns 0.0 on an all-null column, unlike the rest."""
+        assert adapter.resolve_stdev_null(0) == 0.0
+        # The other two branches are shared with the base adapter.
+        assert adapter.resolve_stdev_null(1) is None
+        assert adapter.resolve_stdev_null(5) == 0.0
 
 
 class TestSnowflakeAdapter:
@@ -1427,7 +1403,7 @@ class TestDatabricksAdapter:
         assert_sql_matches_pattern(sql, pattern)
 
     def test_map_databricks_column_type_variant(self, adapter):
-        from databricks.sqlalchemy.dialect import DatabricksDecimal, DatabricksTimestamp
+        from databricks.sqlalchemy._types import TIMESTAMP, TIMESTAMP_NTZ
         from sqlalchemy.sql import sqltypes
 
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
@@ -1437,16 +1413,18 @@ class TestDatabricksAdapter:
         assert map_databricks_column_type("variant") is sqltypes.NullType
         assert map_databricks_column_type("VARIANT") is sqltypes.NullType
         # ^\w+ strips the precision suffix so "decimal(10,2)" still resolves to decimal.
-        assert map_databricks_column_type("decimal(10,2)") is DatabricksDecimal
+        assert map_databricks_column_type("decimal(10,2)") is sqltypes.Numeric
         assert map_databricks_column_type("int") is sqltypes.Integer
-        assert map_databricks_column_type("timestamp_ntz") is DatabricksTimestamp
-        assert map_databricks_column_type("timestamp_ltz") is DatabricksTimestamp
+        assert map_databricks_column_type("timestamp_ntz") is TIMESTAMP_NTZ
+        # Missing from the vendor map, which would otherwise raise KeyError.
+        assert map_databricks_column_type("timestamp_ltz") is TIMESTAMP
+        assert map_databricks_column_type("geography") is sqltypes.NullType
         # Unparseable / missing type names fall back to NULL instead of raising.
         assert map_databricks_column_type("") is sqltypes.NullType
         assert map_databricks_column_type(None) is sqltypes.NullType
 
     def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
-        from databricks.sqlalchemy.dialect import DatabricksTimestamp
+        from databricks.sqlalchemy._types import TIMESTAMP
         from sqlalchemy.sql import sqltypes
 
         dialect = mock_databricks_engine.dialect
@@ -1459,7 +1437,7 @@ class TestDatabricksAdapter:
                 self.TYPE_NAME = type_name
                 self.NULLABLE = 1
                 self.COLUMN_DEF = None
-                self.IS_AUTO_INCREMENT = "NO"
+                self.REMARKS = None
 
         class _Cursor:
             def __init__(self) -> None:
@@ -1475,7 +1453,8 @@ class TestDatabricksAdapter:
                 return [
                     _Col("id", "int"),
                     _Col("payload", "variant"),
-                    _Col("event_time", "timestamp_ntz"),
+                    _Col("event_time", "timestamp_ltz"),
+                    _Col("amount", "DECIMAL(10,2)"),
                 ]
 
             def __enter__(self) -> "_Cursor":
@@ -1488,16 +1467,108 @@ class TestDatabricksAdapter:
         dialect.get_connection_cursor = lambda connection: cursor
         columns = dialect.get_columns(None, "events_with_variant")
         assert cursor.calls == 1
-        # The patched reflection resolves catalog/schema off the dialect.
+        # Reflection resolves catalog/schema off the dialect.
         assert cursor.captured_kwargs == {
             "catalog_name": "my_catalog",
             "schema_name": "my_schema",
             "table_name": "events_with_variant",
         }
-        assert [col["name"] for col in columns] == ["id", "payload", "event_time"]
+        assert [col["name"] for col in columns] == [
+            "id",
+            "payload",
+            "event_time",
+            "amount",
+        ]
         assert columns[0]["type"] is sqltypes.Integer
         assert columns[1]["type"] is sqltypes.NullType
-        assert columns[2]["type"] is DatabricksTimestamp
+        assert columns[2]["type"] is TIMESTAMP
+        # Known types still go through the vendor parser, which keeps precision.
+        assert (columns[3]["type"].precision, columns[3]["type"].scale) == (10, 2)
+
+    def test_vendor_get_columns_calls_our_parser(self, mock_databricks_engine):
+        # The patch replaces a private vendor module global. If databricks-
+        # sqlalchemy renames it or stops resolving through it, the patch is a
+        # silent no-op; this fails instead. patch.object also raises if the
+        # attribute is gone.
+        import databricks.sqlalchemy.base as databricks_dialect_base
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        parser_attr = "parse_column_info_from_tgetcolumnsresponse"
+        assert getattr(databricks_dialect_base, parser_attr) is (
+            _tolerant_parse_column_info
+        )
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+        row = Mock(
+            COLUMN_NAME="payload",
+            TYPE_NAME="variant",
+            NULLABLE=1,
+            COLUMN_DEF=None,
+            REMARKS=None,
+        )
+        cursor = MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.columns.return_value.fetchall.return_value = [row]
+        dialect.get_connection_cursor = lambda connection: cursor
+
+        with patch.object(
+            databricks_dialect_base, parser_attr, wraps=_tolerant_parse_column_info
+        ) as spy:
+            dialect.get_columns(None, "events")
+        spy.assert_called_once_with(row)
+
+    def test_unmapped_type_reported_once_per_type(self, adapter, report):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        def _table(name: str) -> sa.Table:
+            # Mirrors what reflection builds: SQLAlchemy copies the parsed
+            # column's "info" onto Column.info.
+            parsed = [
+                _tolerant_parse_column_info(
+                    Mock(
+                        COLUMN_NAME=col,
+                        TYPE_NAME=type_name,
+                        NULLABLE=1,
+                        COLUMN_DEF=None,
+                        REMARKS=None,
+                    )
+                )
+                for col, type_name in [
+                    ("geo", "geography"),
+                    ("payload", "variant"),
+                    ("ts", "timestamp_ltz"),
+                ]
+            ]
+            return sa.Table(
+                name,
+                sa.MetaData(),
+                *[
+                    sa.Column(p["name"], p["type"], info=p.get("info", {}))
+                    for p in parsed
+                ],
+            )
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.base_adapter."
+            "PlatformAdapter._create_sqlalchemy_table",
+            side_effect=[_table("t1"), _table("t2")],
+        ):
+            adapter._create_sqlalchemy_table("s", "t1")
+            adapter._create_sqlalchemy_table("s", "t2")
+
+        # VARIANT is deliberately NULL and TIMESTAMP_LTZ is mapped, so only the
+        # genuinely unknown type is reported -- once, despite two tables.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert len(warnings[0].context) == 1
+        assert "geography" in warnings[0].context[0]
 
 
 class TestTrinoAdapter:
@@ -1625,7 +1696,7 @@ class TestClickHouseAdapter:
         assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"score"\s*\)')
         # Verify the label renders inside a SELECT — query combiner extracts by name.
         select_sql = compile_expr_to_sql(
-            sa.select([expr]), mock_clickhouse_engine.dialect
+            sa.select(expr), mock_clickhouse_engine.dialect
         )
         assert_sql_matches_pattern(select_sql, r"\bAS\s+median\b")
 
@@ -1652,46 +1723,6 @@ class TestClickHouseAdapter:
         executed = mock_conn.execute_aggregate.call_args[0][1]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
-
-    def test_get_column_stdev_null_with_single_row_returns_none(
-        self, adapter, mock_table
-    ):
-        """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.return_value.scalar.side_effect = [
-            None,  # stddevSamp result
-            1,  # non-null count
-        ]
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result is None
-
-    def test_get_column_stdev_null_with_multiple_rows_returns_zero(
-        self, adapter, mock_table
-    ):
-        """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.return_value.scalar.side_effect = [None, 10]
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result == 0.0
-
-    def test_get_column_stdev_query_failure_reports_warning(
-        self, adapter, report, mock_table
-    ):
-        """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.side_effect = sa.exc.SQLAlchemyError(
-            "permission denied"
-        )
-
-        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
-
-        assert result is None
-        # Distinguish from the non_null_count-disambiguation path.
-        assert any("compute stdev" in w.title.lower() for w in report.warnings)
 
     def test_supports_row_count_estimation_is_false(self, adapter):
         assert adapter.supports_row_count_estimation() is False
@@ -1885,19 +1916,6 @@ class TestClickHouseAdapter:
         assert result == [5.0]
         assert any("non-numeric" in w.title.lower() for w in report.warnings)
 
-    def test_get_column_stdev_non_null_count_failure_reports_warning(
-        self, adapter, report, mock_table
-    ):
-        """If the inner non_null_count query fails, the failure is still reported."""
-        mock_conn = MagicMock()
-        mock_conn.execute_aggregate.side_effect = [
-            MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
-            sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
-        ]
-        assert adapter.get_column_stdev(mock_table, "score", mock_conn) is None
-        # Discriminate from the stddevSamp-query failure path.
-        assert any("disambiguate" in w.title.lower() for w in report.warnings)
-
     def test_get_column_stdev_happy_path_emits_no_warnings(
         self, adapter, report, real_table
     ):
@@ -2018,7 +2036,8 @@ class TestExecuteAggregateGuard:
             FLATTENABLE_EXECUTION_OPTION,
         )
 
-        for expr in (sa.column("v"), sa.column("v").label("x")):
+        exprs: Any = (sa.column("v"), sa.column("v").label("x"))
+        for expr in exprs:
             raw = MagicMock()
             ProfilingConnection(raw).execute_aggregate(table, expr)
             opts = raw.execute.call_args.args[0].get_execution_options()

@@ -1,6 +1,8 @@
 import { ApolloLink, Observable } from '@apollo/client';
 import { SpanStatusCode, context, trace } from '@opentelemetry/api';
 
+import { shouldSkipTracingSpan } from '@src/apolloPolling';
+
 /**
  * Apollo link that wraps each GraphQL operation in an OpenTelemetry span named by operation, so
  * traces read `graphql <operationName>` instead of an opaque `POST /api/graphql`, and so a UI query
@@ -18,6 +20,11 @@ import { SpanStatusCode, context, trace } from '@opentelemetry/api';
 const tracer = trace.getTracer('datahub-web-react-graphql');
 
 export const otelOperationLink = new ApolloLink((operation, forward) => {
+    // Poll ticks opt out of the span — see `apolloPolling.ts`.
+    if (shouldSkipTracingSpan(operation.getContext())) {
+        return forward(operation);
+    }
+
     const operationName = operation.operationName || 'anonymous';
     // root: true — each GraphQL operation is its own trace, never nested under a sibling operation
     // that happens to be active when this one starts. The fetch span still nests under this span via

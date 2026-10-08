@@ -186,6 +186,7 @@ com.sun.mail:jakarta.mail:2.0.2=onnxRuntimeVariant,productionRuntimeClasspath,ru
 com.sun.mail:javax.mail:1.6.2=onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.sun.mail:mailapi:1.6.2=onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.tdunning:t-digest:3.2=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.tngtech.archunit:archunit:1.4.2=testCompileClasspath,testRuntimeClasspath
 com.typesafe:config:1.4.1=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 commons-cli:commons-cli:1.0=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 commons-codec:commons-codec:1.18.0=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

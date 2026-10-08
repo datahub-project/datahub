@@ -388,42 +388,6 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
-          label: "Ontology",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "What is an Ontology?",
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/overview",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/relating-glossary-terms",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/querying-your-ontology",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/custom-relationships",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/sparql-api",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
           label: "Compliance Forms",
           type: "category",
           collapsed: true,
@@ -582,6 +546,42 @@ module.exports = {
               type: "doc",
               id: "docs/features/feature-guides/scoped-mcp-servers",
               className: "saasOnly",
+            },
+            {
+              label: "Ontology",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "What is an Ontology?",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/overview",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/querying-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/custom-relationships",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/sparql-api",
+                  className: "saasOnly",
+                },
+              ],
             },
           ],
         },
@@ -952,6 +952,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
@@ -1705,6 +1706,7 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
+        "docs/community",
         "docs/slack",
         { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
@@ -1712,6 +1714,8 @@ module.exports = {
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
+        "docs/ecosystem",
+        "ADOPTERS",
         "docs/rfc",
         {
           type: "category",
@@ -1727,6 +1731,11 @@ module.exports = {
     },
     {
       "Release History": ["releases", "docs/how/updating-datahub"],
+    },
+    {
+      type: "doc",
+      label: "FAQ",
+      id: "docs/faq",
     },
 
     // "Candidates for Deprecation": [

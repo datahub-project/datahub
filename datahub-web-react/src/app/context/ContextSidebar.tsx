@@ -143,7 +143,7 @@ export default function ContextSidebar({
         return decodeUrn(match.params.urn);
     }, [entityRegistry, isEntityProfile, location.pathname]);
 
-    const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
+    const { canCreate: canCreateDocuments, canManage: canManageDocuments } = useContextDocumentsPermissions();
 
     useDebounce(() => setDebouncedQuery(searchInput), 300, [searchInput]);
 
@@ -410,7 +410,8 @@ export default function ContextSidebar({
 
     const headerActions = (
         <>
-            {canCreateDocuments && (
+            {/* Import is authorized by Manage Documents, not the create privilege. */}
+            {canManageDocuments && (
                 <ImportDocumentsButton onSuccess={handleImportSuccess} parentDocumentUrn={importParentDocumentUrn} />
             )}
             <Tooltip

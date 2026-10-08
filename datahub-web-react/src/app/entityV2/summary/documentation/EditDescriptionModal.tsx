@@ -36,6 +36,8 @@ interface Props {
     handleDescriptionUpdate: () => Promise<void>;
     emptyDescriptionText: string;
     closeModal: () => void;
+    /** Bumped by the parent when the description arrives after the editor has mounted. */
+    contentKey?: number;
 }
 
 export default function EditDescriptionModal({
@@ -44,6 +46,7 @@ export default function EditDescriptionModal({
     handleDescriptionUpdate,
     emptyDescriptionText,
     closeModal,
+    contentKey = 0,
 }: Props) {
     const { t } = useTranslation('entity.profile.summary');
     const { t: tc } = useTranslation('common.actions');
@@ -83,6 +86,7 @@ export default function EditDescriptionModal({
             ]}
         >
             <StyledEditor
+                key={contentKey}
                 content={updatedDescription}
                 placeholder={emptyDescriptionText}
                 hideHighlightToolbar

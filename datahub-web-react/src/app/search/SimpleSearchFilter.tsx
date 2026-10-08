@@ -1,4 +1,5 @@
-import { DownOutlined, UpOutlined } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
@@ -48,11 +49,11 @@ const ExpandButton = styled(Button)`
     }
 `;
 
-const StyledUpOutlined = styled(UpOutlined)`
+const StyledUpOutlined = styled(CaretUp)`
     font-size: 10px;
 `;
 
-const StyledDownOutlined = styled(DownOutlined)`
+const StyledDownOutlined = styled(CaretDown)`
     font-size: 10px;
 `;
 

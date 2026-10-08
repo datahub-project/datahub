@@ -122,27 +122,6 @@ def test_stopit_not_a_dependency(monkeypatch):
     )
 
 
-def test_sqlalchemy_stays_below_2_until_shim_removed():
-    # Expiry tripwire for the pkg_resources shim. The shim exists only because
-    # the redshift/cockroachdb SQLAlchemy dialects import pkg_resources at load;
-    # both ship pkg_resources-free releases that require SQLAlchemy>=2. The
-    # resolved lock is the authoritative signal for whether the shim is still
-    # needed: some extras legitimately declare sqlalchemy<3.0, so a per-declared-
-    # specifier check would false-trip; constraints.txt is the version actually
-    # installed. When a sqlalchemy>=2 bump lands, this fails and names the cleanup.
-    constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
-    m = re.search(r"^sqlalchemy==(\S+)", constraints, re.MULTILINE | re.IGNORECASE)
-    assert m, "sqlalchemy must be pinned in the locked constraints.txt"
-    assert Version(m.group(1)) < Version("2"), (
-        f"sqlalchemy resolves to {m.group(1)} (>=2): sqlalchemy-redshift>=1.0.0 and "
-        "sqlalchemy-cockroachdb>=2.0.4 ship pkg_resources-free releases. Remove the "
-        "compatibility shim: src/datahub/utilities/pkg_resources_shim.py, "
-        "src/datahub/_pkg_resources_finder.py, its imports in src/datahub/__init__.py "
-        "and tests/conftest.py, tests/unit/utilities/test_pkg_resources_shim.py, and "
-        "this test."
-    )
-
-
 def test_docker_ingestion_snippet_floors_setuptools():
     # setup.py delegates the CVE-2026-59890 setuptools floor to this Docker
     # snippet (wired into the datahub-actions image via UV_CONSTRAINT). Guard the

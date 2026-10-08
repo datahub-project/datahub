@@ -1,4 +1,4 @@
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
@@ -7,6 +7,7 @@ import { TestConnectionResult } from '@app/ingest/source/builder/RecipeForm/Test
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { FAILURE, RUNNING, yamlToJson } from '@app/ingest/source/utils';
 import { Button } from '@src/alchemy-components';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -47,9 +48,11 @@ function TestConnectionButton(props: Props) {
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);
@@ -111,7 +114,7 @@ function TestConnectionButton(props: Props) {
     return (
         <>
             <Button variant="outline" type="button" onClick={testConnection}>
-                <CheckCircleOutlined />
+                <CheckCircle />
                 Test Connection
             </Button>
             {isModalVisible && (

@@ -45,7 +45,10 @@ class BigqueryTableIdentifier:
     table: str
 
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
-    _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
+    DEFAULT_BQ_SHARDED_TABLE_SUFFIX: ClassVar[str] = "_yyyymmdd"
+    # Overwritten from config by BigQueryIdentifierBuilder. ClassVar, not a field:
+    # it is shared process-wide state, so it must stay out of __init__/__eq__/__hash__.
+    _BQ_SHARDED_TABLE_SUFFIX: ClassVar[str] = DEFAULT_BQ_SHARDED_TABLE_SUFFIX
 
     @staticmethod
     def extract_base_table_name(

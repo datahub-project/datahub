@@ -9,4 +9,9 @@ enum IconLibrary {
    * Material UI
    */
    MATERIAL
+
+  /**
+   * Phosphor Icons
+   */
+   PHOSPHOR
 }
