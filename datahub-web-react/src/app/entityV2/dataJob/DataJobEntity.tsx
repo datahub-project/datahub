@@ -12,36 +12,115 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { Preview } from '@app/entityV2/dataJob/preview/Preview';
-import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarDataJobTransformationLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { SidebarTitleActionType, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
 import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
+
+const RunsTab = lazyProfileComponent('RunsTab', () =>
+    import('@app/entityV2/dataJob/tabs/RunsTab').then((module) => ({
+        default: module.RunsTab,
+    })),
+);
+const EntityProfile = lazyProfileComponent('EntityProfile', () =>
+    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
+        default: module.EntityProfile,
+    })),
+);
+const SidebarAboutSection = lazyProfileComponent('SidebarAboutSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection').then((module) => ({
+        default: module.SidebarAboutSection,
+    })),
+);
+const SidebarApplicationSection = lazyProfileComponent('SidebarApplicationSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection').then((module) => ({
+        default: module.SidebarApplicationSection,
+    })),
+);
+const DataProductSection = lazyProfileComponent(
+    'DataProductSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection'),
+);
+const SidebarDomainSection = lazyProfileComponent('SidebarDomainSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection').then((module) => ({
+        default: module.SidebarDomainSection,
+    })),
+);
+const SidebarLineageSection = lazyProfileComponent(
+    'SidebarLineageSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection'),
+);
+const SidebarOwnerSection = lazyProfileComponent('SidebarOwnerSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection').then((module) => ({
+        default: module.SidebarOwnerSection,
+    })),
+);
+const SidebarQueryOperationsSection = lazyProfileComponent(
+    'SidebarQueryOperationsSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection'),
+);
+const SidebarEntityHeader = lazyProfileComponent(
+    'SidebarEntityHeader',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
+);
+const SidebarGlossaryTermsSection = lazyProfileComponent('SidebarGlossaryTermsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection').then((module) => ({
+        default: module.SidebarGlossaryTermsSection,
+    })),
+);
+const SidebarDataJobTransformationLogicSection = lazyProfileComponent('SidebarDataJobTransformationLogicSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection').then((module) => ({
+        default: module.SidebarDataJobTransformationLogicSection,
+    })),
+);
+const SidebarTagsSection = lazyProfileComponent('SidebarTagsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection').then((module) => ({
+        default: module.SidebarTagsSection,
+    })),
+);
+const StatusSection = lazyProfileComponent(
+    'StatusSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection'),
+);
+const SidebarNotesSection = lazyProfileComponent(
+    'SidebarNotesSection',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
+);
+const SidebarStructuredProperties = lazyProfileComponent(
+    'SidebarStructuredProperties',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarStructuredProperties'),
+);
+const DocumentationTab = lazyProfileComponent('DocumentationTab', () =>
+    import('@app/entityV2/shared/tabs/Documentation/DocumentationTab').then((module) => ({
+        default: module.DocumentationTab,
+    })),
+);
+const DataJobFlowTab = lazyProfileComponent('DataJobFlowTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/DataJobFlowTab').then((module) => ({
+        default: module.DataJobFlowTab,
+    })),
+);
+const IncidentTab = lazyProfileComponent('IncidentTab', () =>
+    import('@app/entityV2/shared/tabs/Incident/IncidentTab').then((module) => ({
+        default: module.IncidentTab,
+    })),
+);
+const LineageTab = lazyProfileComponent('LineageTab', () =>
+    import('@app/entityV2/shared/tabs/Lineage/LineageTab').then((module) => ({
+        default: module.LineageTab,
+    })),
+);
+const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
+    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
+        default: module.PropertiesTab,
+    })),
+);
 
 const getPlatformForDataJob = (data?: DataJob | null) => {
     return data?.platform || data?.dataFlow?.platform;

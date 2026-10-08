@@ -9,34 +9,90 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
-import GlossaryRelatedEntity from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity';
-import GlossayRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms';
 import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineage/types';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
+
+const GlossaryRelatedEntity = lazyProfileComponent(
+    'GlossaryRelatedEntity',
+    () => import('@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity'),
+);
+const GlossayRelatedTerms = lazyProfileComponent(
+    'GlossayRelatedTerms',
+    () => import('@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms'),
+);
+const EntityProfile = lazyProfileComponent('EntityProfile', () =>
+    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
+        default: module.EntityProfile,
+    })),
+);
+const SidebarAboutSection = lazyProfileComponent('SidebarAboutSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection').then((module) => ({
+        default: module.SidebarAboutSection,
+    })),
+);
+const SidebarApplicationSection = lazyProfileComponent('SidebarApplicationSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection').then((module) => ({
+        default: module.SidebarApplicationSection,
+    })),
+);
+const SidebarDomainSection = lazyProfileComponent('SidebarDomainSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection').then((module) => ({
+        default: module.SidebarDomainSection,
+    })),
+);
+const SidebarOwnerSection = lazyProfileComponent('SidebarOwnerSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection').then((module) => ({
+        default: module.SidebarOwnerSection,
+    })),
+);
+const SidebarEntityHeader = lazyProfileComponent(
+    'SidebarEntityHeader',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
+);
+const SidebarTagsSection = lazyProfileComponent('SidebarTagsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection').then((module) => ({
+        default: module.SidebarTagsSection,
+    })),
+);
+const StatusSection = lazyProfileComponent(
+    'StatusSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection'),
+);
+const SidebarNotesSection = lazyProfileComponent(
+    'SidebarNotesSection',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
+);
+const SidebarStructuredProperties = lazyProfileComponent(
+    'SidebarStructuredProperties',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarStructuredProperties'),
+);
+const SchemaTab = lazyProfileComponent('SchemaTab', () =>
+    import('@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab').then((module) => ({
+        default: module.SchemaTab,
+    })),
+);
+const DocumentationTab = lazyProfileComponent('DocumentationTab', () =>
+    import('@app/entityV2/shared/tabs/Documentation/DocumentationTab').then((module) => ({
+        default: module.DocumentationTab,
+    })),
+);
+const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
+    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
+        default: module.PropertiesTab,
+    })),
+);
+const SummaryTab = lazyProfileComponent('SummaryTab', () => import('@app/entityV2/summary/SummaryTab'));
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EDIT_GLOSSARY,

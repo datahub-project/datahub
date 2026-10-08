@@ -9,12 +9,8 @@ import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/schemaField/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineage/types';
@@ -24,6 +20,30 @@ import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
 
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@types';
+
+const EntityProfile = lazyProfileComponent('EntityProfile', () =>
+    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
+        default: module.EntityProfile,
+    })),
+);
+const SidebarEntityHeader = lazyProfileComponent(
+    'SidebarEntityHeader',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
+);
+const SidebarNotesSection = lazyProfileComponent(
+    'SidebarNotesSection',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
+);
+const LineageTab = lazyProfileComponent('LineageTab', () =>
+    import('@app/entityV2/shared/tabs/Lineage/LineageTab').then((module) => ({
+        default: module.LineageTab,
+    })),
+);
+const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
+    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
+        default: module.PropertiesTab,
+    })),
+);
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
 

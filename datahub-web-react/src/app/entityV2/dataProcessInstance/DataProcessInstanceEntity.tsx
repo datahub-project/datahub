@@ -8,17 +8,37 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import Preview from '@app/entityV2/dataProcessInstance/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { SidebarTitleActionType, getDataProduct, getFirstSubType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
-import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
 
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { DataProcessInstance, EntityType, Entity as GraphQLEntity, SearchResult } from '@types';
+
+const EntityProfile = lazyProfileComponent('EntityProfile', () =>
+    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
+        default: module.EntityProfile,
+    })),
+);
+const SidebarEntityHeader = lazyProfileComponent(
+    'SidebarEntityHeader',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
+);
+const LineageTab = lazyProfileComponent('LineageTab', () =>
+    import('@app/entityV2/shared/tabs/Lineage/LineageTab').then((module) => ({
+        default: module.LineageTab,
+    })),
+);
+const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
+    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
+        default: module.PropertiesTab,
+    })),
+);
+const DataProcessInstanceSummary = lazyProfileComponent(
+    'DataProcessInstanceSummary',
+    () => import('@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary'),
+);
 
 const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(

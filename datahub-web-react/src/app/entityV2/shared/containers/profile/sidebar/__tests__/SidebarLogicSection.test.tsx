@@ -8,7 +8,7 @@ import {
     SidebarDatasetViewDefinitionSection,
     SidebarQueryLogicSection,
 } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { dataset3, mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 

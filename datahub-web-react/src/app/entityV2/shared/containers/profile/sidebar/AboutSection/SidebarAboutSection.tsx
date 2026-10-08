@@ -11,7 +11,7 @@ import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/Ab
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';

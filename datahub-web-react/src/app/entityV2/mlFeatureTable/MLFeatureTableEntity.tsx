@@ -10,31 +10,91 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlFeatureTable/preview/Preview';
-import Sources from '@app/entityV2/mlFeatureTable/profile/Sources';
-import MlFeatureTableFeatures from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '@types';
+
+const Sources = lazyProfileComponent('Sources', () => import('@app/entityV2/mlFeatureTable/profile/Sources'));
+const MlFeatureTableFeatures = lazyProfileComponent(
+    'MlFeatureTableFeatures',
+    () => import('@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures'),
+);
+const EntityProfile = lazyProfileComponent('EntityProfile', () =>
+    import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
+        default: module.EntityProfile,
+    })),
+);
+const SidebarAboutSection = lazyProfileComponent('SidebarAboutSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection').then((module) => ({
+        default: module.SidebarAboutSection,
+    })),
+);
+const SidebarApplicationSection = lazyProfileComponent('SidebarApplicationSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection').then((module) => ({
+        default: module.SidebarApplicationSection,
+    })),
+);
+const DataProductSection = lazyProfileComponent(
+    'DataProductSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection'),
+);
+const SidebarDomainSection = lazyProfileComponent('SidebarDomainSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection').then((module) => ({
+        default: module.SidebarDomainSection,
+    })),
+);
+const SidebarOwnerSection = lazyProfileComponent('SidebarOwnerSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection').then((module) => ({
+        default: module.SidebarOwnerSection,
+    })),
+);
+const SidebarEntityHeader = lazyProfileComponent(
+    'SidebarEntityHeader',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader'),
+);
+const SidebarGlossaryTermsSection = lazyProfileComponent('SidebarGlossaryTermsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection').then((module) => ({
+        default: module.SidebarGlossaryTermsSection,
+    })),
+);
+const SidebarTagsSection = lazyProfileComponent('SidebarTagsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection').then((module) => ({
+        default: module.SidebarTagsSection,
+    })),
+);
+const StatusSection = lazyProfileComponent(
+    'StatusSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection'),
+);
+const SidebarNotesSection = lazyProfileComponent(
+    'SidebarNotesSection',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarNotesSection'),
+);
+const SidebarStructuredProperties = lazyProfileComponent(
+    'SidebarStructuredProperties',
+    () => import('@app/entityV2/shared/sidebarSection/SidebarStructuredProperties'),
+);
+const DocumentationTab = lazyProfileComponent('DocumentationTab', () =>
+    import('@app/entityV2/shared/tabs/Documentation/DocumentationTab').then((module) => ({
+        default: module.DocumentationTab,
+    })),
+);
+const IncidentTab = lazyProfileComponent('IncidentTab', () =>
+    import('@app/entityV2/shared/tabs/Incident/IncidentTab').then((module) => ({
+        default: module.IncidentTab,
+    })),
+);
+const PropertiesTab = lazyProfileComponent('PropertiesTab', () =>
+    import('@app/entityV2/shared/tabs/Properties/PropertiesTab').then((module) => ({
+        default: module.PropertiesTab,
+    })),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
