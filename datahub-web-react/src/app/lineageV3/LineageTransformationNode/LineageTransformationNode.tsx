@@ -1,11 +1,11 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Popover } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
@@ -31,6 +31,14 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 40;
 
@@ -139,12 +147,12 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
