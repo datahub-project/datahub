@@ -270,6 +270,8 @@ public class DocumentMapper {
                             null, asset.getAsset()));
                     return assetInfo;
                   })
+              // Skip assets of entity types the registry doesn't know (e.g. after a rollback).
+              .filter(assetInfo -> assetInfo.getAsset() != null)
               .collect(java.util.stream.Collectors.toList()));
     }
 

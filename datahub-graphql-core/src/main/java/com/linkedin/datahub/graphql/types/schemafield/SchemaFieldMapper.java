@@ -47,6 +47,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Urn entityUrn = entityResponse.getUrn();
     final SchemaFieldEntity result = this.mapSchemaFieldUrn(context, entityUrn);
+    if (result.getParent() == null) {
+      // SchemaFieldEntity.parent is non-null; a field whose parent is of an entity type GraphQL
+      // can't map (e.g. added by a newer version before a rollback) resolves to no entity.
+      return null;
+    }
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<SchemaFieldEntity> mappingHelper = new MappingHelper<>(aspectMap, result);

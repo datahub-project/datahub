@@ -103,6 +103,7 @@ public class EntityIncidentsResolver
                 entityResult.stream()
                     .filter(Objects::nonNull)
                     .map(i -> IncidentMapper.map(context, i))
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

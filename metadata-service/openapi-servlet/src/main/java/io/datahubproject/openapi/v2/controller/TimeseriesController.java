@@ -23,6 +23,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -91,7 +92,8 @@ public class TimeseriesController {
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
-    AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+    AspectSpec aspectSpec =
+        RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
