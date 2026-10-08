@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -43,6 +44,7 @@ import java.net.URISyntaxException;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -134,6 +136,24 @@ public class EntityResourceTest {
     Task<DeleteEntityResponse> task = entityResource.deleteEntity(urn.toString(), null, null, null);
 
     assertNotNull(task);
+  }
+
+  @Test
+  public void testSearchAcrossOnlyUnknownEntityTypesDoesNotSearchEveryType() throws Exception {
+    // Every requested type is unknown to the registry (e.g. after a rollback): the search must not
+    // fall back to searching every entity type.
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of());
+    setSearchService(entityResource, searchService);
+
+    Task<SearchResult> task =
+        entityResource.searchAcrossEntities(
+            new String[] {"entityFromNewerBuild"}, "*", null, null, null, 0, 10, null, null);
+
+    assertNotNull(task);
+    verify(searchService, never())
+        .searchAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), anyInt(), any(), any());
   }
 
   /**
@@ -469,6 +489,13 @@ public class EntityResourceTest {
             any(),
             eq(0),
             eq(10));
+  }
+
+  private static void setSearchService(EntityResource entityResource, SearchService searchService)
+      throws Exception {
+    Field field = EntityResource.class.getDeclaredField("searchService");
+    field.setAccessible(true);
+    field.set(entityResource, searchService);
   }
 
   private static void setEntitySearchService(
