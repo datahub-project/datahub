@@ -3830,3 +3830,48 @@ def test_run_that_ingested_no_tables_falls_back_to_recipe_patterns(
     assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
     assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
     assert _dataset_subjects(workunits) == [{_INGESTED_URN, _NOT_INGESTED_URN}]
+
+
+def test_pattern_fallback_keeps_tables_with_dotted_identifiers() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query_with_lineage(
+                    "SELECT * FROM main.`schema.with.dots`.orders",
+                    "q1",
+                    sources=["main.`schema.with.dots`.orders"],
+                ),
+                _query_with_lineage(
+                    "SELECT * FROM main.`schema.with.dots`.invoices",
+                    "q2",
+                    sources=["main.`schema.with.dots`.invoices"],
+                ),
+            ]
+        ),
+        {
+            "include_tables": False,
+            "include_views": False,
+            "table_pattern": {"deny": [".*\\.invoices"]},
+        },
+    )
+
+    workunits = list(ex.get_usage_workunits(set()))
+
+    assert _total_sql_queries(
+        workunits, _dataset_urn("main.schema.with.dots.orders")
+    ) == [1]
+    assert not _total_sql_queries(
+        workunits, _dataset_urn("main.schema.with.dots.invoices")
+    )
+
+
+def test_pattern_fallback_treats_empty_catalogs_as_unrestricted() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()),
+        {"include_tables": False, "include_views": False, "catalogs": []},
+    )
+
+    workunits = list(ex.get_usage_workunits(set()))
+
+    assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
+    assert _total_sql_queries(workunits, _NOT_INGESTED_URN) == [2]

@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, Set, TypeVar
+from typing import Callable, Iterable, List, Optional, Set, Tuple, TypeVar
 
 from databricks.sdk.service.sql import QueryStatementType
 
@@ -17,7 +17,6 @@ from datahub.ingestion.source.unity.proxy_types import (
     Query,
     TableReference,
     escape_unity_name,
-    qualified_table_name,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
@@ -67,6 +66,18 @@ def _is_system_table(catalog: str, schema: str) -> bool:
     # The system catalog and each catalog's information_schema hold Databricks
     # metadata views, which are datasets only when a recipe ingests them.
     return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == _INFORMATION_SCHEMA
+
+
+def _split_table_name(full_name: str) -> Optional[Tuple[str, str, str]]:
+    parts = split_databricks_identifier(full_name)
+    if parts is None or len(parts) != 3:
+        return None
+    return parts[0], parts[1], parts[2]
+
+
+def _is_system_table_name(full_name: str) -> bool:
+    parts = _split_table_name(full_name)
+    return parts is not None and _is_system_table(parts[0], parts[1])
 
 
 @dataclass(eq=False)
@@ -151,8 +162,8 @@ class UnityCatalogUsageExtractor:
         return CorpUserUrn.from_string(self.user_urn_builder(query.user_name))
 
     def _full_name_to_urn(self, full_name: str) -> Optional[UrnStr]:
-        parts = split_databricks_identifier(full_name)
-        if parts is None or len(parts) != 3:
+        parts = _split_table_name(full_name)
+        if parts is None:
             logger.debug("Skipping unexpected table full name: %s", full_name)
             self.report.num_lineage_tables_unresolvable += 1
             self.report.lineage_tables_unresolvable_sample.append(full_name)
@@ -187,30 +198,29 @@ class UnityCatalogUsageExtractor:
         # usage-only recipe) falls back to the recipe's filter patterns instead.
         if locally_discovered:
             return lambda name: name.lower() in locally_discovered
-        return self._is_allowed_by_patterns
+        # Like the source's catalog listing, an empty catalogs list is unrestricted.
+        catalogs = {c.lower() for c in self.config.catalogs or []}
+        return lambda name: self._is_allowed_by_patterns(name, catalogs)
 
-    def _is_allowed_by_patterns(self, name: str) -> bool:
-        # Applies the same catalogs / catalog_pattern / schema_pattern / table_pattern
-        # checks the source uses when listing tables, against the escaped catalog and
-        # schema ids it builds (the deprecated include_metastore prefix is not known
-        # here, so patterns written for it do not match).
-        parts = split_databricks_identifier(name)
-        if parts is None or len(parts) != 3:
+    def _is_allowed_by_patterns(self, name: str, catalogs: Set[str]) -> bool:
+        # Applies the catalogs / catalog_pattern / schema_pattern / table_pattern checks
+        # the source uses when listing tables, against the escaped ids it builds (the
+        # deprecated include_metastore prefix is not known here). The name comes from a
+        # dataset URN, which no longer quotes identifiers, so a catalog or schema
+        # containing dots cannot be told apart from the next part: catalog and schema
+        # filters use the leading parts, and table_pattern sees the full name, which
+        # is the same string the source matches when listing tables.
+        parts = name.split(".")
+        if len(parts) < 3:
             return False
-        catalog, schema, table = parts
-        if self.config.catalogs is not None and catalog.lower() not in {
-            c.lower() for c in self.config.catalogs
-        }:
-            return False
-        catalog_id = escape_unity_name(catalog)
+        catalog_id = escape_unity_name(parts[0])
         return (
-            self.config.catalog_pattern.allowed(catalog_id)
+            (not catalogs or parts[0].lower() in catalogs)
+            and self.config.catalog_pattern.allowed(catalog_id)
             and self.config.schema_pattern.allowed(
-                f"{catalog_id}.{escape_unity_name(schema)}"
+                f"{catalog_id}.{escape_unity_name(parts[1])}"
             )
-            and self.config.table_pattern.allowed(
-                qualified_table_name(catalog, schema, table)
-            )
+            and self.config.table_pattern.allowed(name)
         )
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
@@ -421,7 +431,6 @@ class UnityCatalogUsageExtractor:
             return
 
         if self._can_use_preparsed_query(query):
-            system_skipped_before = self.report.num_lineage_tables_system_skipped
             preparsed_queries = self._to_preparsed_queries(query)
             if preparsed_queries:
                 for preparsed in preparsed_queries:
@@ -441,17 +450,17 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
-            # No lineage name produced a URN. When every name was a system /
-            # information_schema table this run did not ingest, the query is a
+            # No lineage name produced a URN, so none of them is an ingested table.
+            # When every name is a system / information_schema table, the query is a
             # metadata read with nothing to attribute usage to, and sqlglot would
             # find the same tables.
-            num_lineage_names = len(query.source_table_full_names) + len(
-                query.target_table_full_names
-            )
-            num_system_skipped = (
-                self.report.num_lineage_tables_system_skipped - system_skipped_before
-            )
-            if num_system_skipped == num_lineage_names:
+            if all(
+                _is_system_table_name(name)
+                for name in (
+                    *query.source_table_full_names,
+                    *query.target_table_full_names,
+                )
+            ):
                 self.report.num_queries_skipped_system_tables_only += 1
                 logger.debug(
                     "Usage query skipped: system-table lineage names only system "

@@ -145,6 +145,30 @@ class TestUnityCatalogSource:
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_hive_metastore_view_lineage_resolves_schemas_from_graph(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """View lineage may look up tables this run did not ingest in DataHub, while
+        the usage resolver stays local."""
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": True,
+            }
+        )
+        graph = MagicMock()
+        source = UnityCatalogSource.create(
+            config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        assert source.sql_parsing_aggregator is not None
+        assert source.sql_parsing_aggregator._schema_resolver.graph is graph
+        assert source.sql_parser_schema_resolver.graph is None
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
     def test_source_config_page_size_available_to_source(
         self, mock_hive_proxy, mock_unity_proxy, config_with_page_size
     ):

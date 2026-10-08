@@ -396,6 +396,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: SchemaResolver
+    view_lineage_schema_resolver: Optional[SchemaResolver] = None
     platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
         None
     )
@@ -540,14 +541,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.hive_metastore_catalog_found = True
 
                 if self.config.include_table_lineage:
-                    # Reuse the resolver created unconditionally in __init__; do
-                    # not overwrite it so UC tables registered before this point
-                    # are preserved.
+                    # View lineage resolves column schemas for tables this run did
+                    # not ingest lazily from the graph, which is bounded by the
+                    # view definitions; every processed table is registered here as
+                    # well. Usage keeps the local-only sql_parser_schema_resolver,
+                    # whose lookups would scale with query history.
+                    self.view_lineage_schema_resolver = SchemaResolver(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        graph=self.ctx.graph,
+                    )
                     self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
-                        schema_resolver=self.sql_parser_schema_resolver,
+                        schema_resolver=self.view_lineage_schema_resolver,
                         generate_lineage=True,
                         generate_queries=False,
                         generate_usage_statistics=False,
@@ -962,12 +971,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         table.ref, self.notebooks[str(notebook_id)]
                     )
 
-        # Register every processed table's schema so that the SQL parsing
-        # aggregator (used for both hive-metastore view lineage and UC usage)
-        # can resolve unqualified / partial table references in queries.
+        # Register every processed table's schema so that UC usage and
+        # hive-metastore view lineage can resolve unqualified / partial table
+        # references in queries.
         self.sql_parser_schema_resolver.add_schema_metadata(
             dataset_urn, schema_metadata
         )
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
         # Hive-metastore views also need their definitions fed to the lineage
         # aggregator so view lineage can be derived via SQL parsing.
         if (
@@ -2855,6 +2868,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.close()
         if self._schema_resolver_provider:
             self._schema_resolver_provider.close()
 
