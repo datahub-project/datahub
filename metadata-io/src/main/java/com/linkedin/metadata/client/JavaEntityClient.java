@@ -47,6 +47,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -100,6 +101,35 @@ public class JavaEntityClient implements EntityClient {
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
+  // Null for the system client and where ReliableHardDeleteFactory is not scanned.
+  @Nullable private final ReliableHardDelete reliableHardDelete;
+
+  public JavaEntityClient(
+      final EntityService<?> entityService,
+      final DeleteEntityService deleteEntityService,
+      final EntitySearchService entitySearchService,
+      final CachingEntitySearchService cachingEntitySearchService,
+      final SearchService searchService,
+      final LineageSearchService lineageSearchService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final RollbackService rollbackService,
+      final EventProducer eventProducer,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
+    this(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        entityClientConfig,
+        metricUtils,
+        null);
+  }
 
   @Override
   @Nullable
@@ -634,6 +664,10 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
+    if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
+      reliableHardDelete.delete(opContext, urn);
+      return;
+    }
     entityService.deleteUrn(opContext, urn);
   }
 

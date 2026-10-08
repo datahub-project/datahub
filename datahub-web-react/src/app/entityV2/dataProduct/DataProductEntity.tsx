@@ -1,7 +1,9 @@
-import { AppstoreOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -155,7 +157,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
                 component: SummaryTab,
-                icon: ReadOutlined,
+                icon: BookOpen,
             },
             {
                 name: i18next.t('entity.types:tab.outputPorts'),
@@ -168,13 +170,13 @@ export class DataProductEntity implements Entity<DataProduct> {
                     return entityData?.entities?.total;
                 },
                 component: DataProductEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
                 // Data products show the explorer only, without the impact analysis tab — as data flows do
                 component: DAGTab,
-                icon: PartitionOutlined,
+                icon: TreeStructure,
                 supportsFullsize: true,
                 display: {
                     visible: (_, _1) => this.appconfig().config.featureFlags.dataProductLineageEnabled,
@@ -184,7 +186,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };

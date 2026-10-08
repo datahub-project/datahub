@@ -1,4 +1,4 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -15,8 +15,6 @@ import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
 import ActorPill from '@src/app/sharedV2/owners/ActorPill';
 import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
-
-import ExternalLink from '@images/link-out.svg?react';
 
 const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
@@ -39,7 +37,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
         `}
 `;
 
-const StyledIcon = styled(Icon)`
+const StyledIcon = styled(ArrowSquareOut)`
     margin-left: 6px;
 `;
 
@@ -163,7 +161,7 @@ export default function StructuredPropertyValue({
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
                     <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
-                        <StyledIcon component={ExternalLink} />
+                        <StyledIcon size={12} />
                     </Link>
                 </EntityWrapper>
             );

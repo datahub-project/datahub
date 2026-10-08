@@ -1,7 +1,7 @@
-import { PartitionOutlined, WarningOutlined } from '@ant-design/icons';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -106,7 +106,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 {
                     name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
@@ -123,7 +123,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
-                    icon: WarningOutlined,
+                    icon: Warning,
                     component: IncidentTab,
                     getCount: (_, mlModel) => {
                         return mlModel?.mlModel?.activeIncidents?.total;
