@@ -127,7 +127,8 @@ With this config, `gs://my-bucket/events/run_123/part-0001.json` is recorded as 
 
 - `include` must contain `{table}` and start with `s3://`, `gs://`, or `/` for local paths. Azure path specs are not supported yet.
 - Local-path specs apply to files declared as Airflow Assets or manual `inlets`/`outlets`. OpenLineage `file` references are skipped before collapsing unless `capture_ol_file_datasets = true`.
-- `exclude`, `tables_filter_pattern`, and `include_hidden_folders` behave as they do in the storage sources.
+- `exclude` and `tables_filter_pattern` behave as they do in the storage sources.
+- Hidden folders (names starting with `.` or `_`) are checked at the `{table}` level: a hidden table folder is not collapsed unless `include_hidden_folders` is set. Hidden staging paths below a table, such as `_temporary/` or `_SUCCESS`, are folded into that table, because a task writing there is writing the table.
 - The specs apply to every inlet and outlet: OpenLineage, Airflow Assets, and manual `inlets`/`outlets`. They need `normalize_object_storage_urns = true` (the default), because the bucket must be part of the name.
 - Collapsing runs before `dataset_filter_str`, so filter patterns see the table name.
 
