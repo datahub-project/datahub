@@ -73,10 +73,23 @@ describe('read-only editor', () => {
         expect(mention).toHaveAttribute('data-datahub-mention-urn', 'urn:li:corpuser:alice');
         expect(mention).toHaveTextContent('@Alice');
 
-        expect(screen.getByRole('link', { name: 'report.pdf' })).toHaveAttribute(
-            'href',
-            '/openapi/v1/files/report.pdf',
-        );
+        const fileNode = screen.getByTestId('file-node-report.pdf');
+        expect(fileNode).toHaveAttribute('data-file-url', '/openapi/v1/files/report.pdf');
+        expect(fileNode).toHaveAttribute('data-file-name', 'report.pdf');
+        expect(fileNode).toHaveTextContent('report.pdf');
+        expect(screen.getByTitle('report.pdf')).toHaveAttribute('src', '/openapi/v1/files/report.pdf');
+    });
+
+    it('does not open protocol-relative links in a new tab', () => {
+        const html = toReadOnlyHtml('[elsewhere](//example.com/path)');
+        expect(html).not.toContain('href="//example.com/path"');
+        expect(html).not.toContain("href='//example.com/path'");
+    });
+
+    it('keeps a same-origin path link', () => {
+        const html = toReadOnlyHtml('[docs](/docs/page)');
+        expect(html).toContain('href="/docs/page"');
+        expect(html).toContain('target="_blank"');
     });
 
     it('strips active content from the read-only html', () => {
