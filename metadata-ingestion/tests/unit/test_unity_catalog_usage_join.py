@@ -2,7 +2,7 @@ import pathlib
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -227,7 +227,13 @@ def _query(text: str, qid: str = "s1") -> Query:
     )
 
 
-def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtractor:
+def _dataset_urn(name: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{name},PROD)"
+
+
+def _extractor(
+    config: Union[MagicMock, UnityCatalogSourceConfig], proxy: MagicMock
+) -> UnityCatalogUsageExtractor:
     # MagicMock attributes are truthy; set explicit defaults for newer bool flags.
     if isinstance(config.skip_sqlglot_when_system_table_lineage_missing, MagicMock):
         config.skip_sqlglot_when_system_table_lineage_missing = False
@@ -242,9 +248,7 @@ def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtracto
     ex.config = config
     ex.report = UnityCatalogReport()
     ex.proxy = proxy
-    ex.table_urn_builder = lambda ref: (
-        f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
-    )
+    ex.table_urn_builder = lambda ref: _dataset_urn(ref.qualified_table_name)
     ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
     ex.platform = "databricks"
     ex.schema_resolver = SchemaResolver(
@@ -1559,7 +1563,7 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
     assert "databricks_pii_access" in redaction_warnings[0].message
 
 
-def test_redacted_preparsed_without_resolvable_urns_not_counted_as_sqlglot() -> None:
+def test_redacted_preparsed_without_usable_lineage_not_counted_as_sqlglot() -> None:
     """When preparsed lineage is present in system.access.table_lineage but its
     references can't be turned into dataset URNs (e.g. malformed names), a
     non-redacted query correctly falls back to sqlglot. A redacted query on the
@@ -2876,7 +2880,7 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     ex.report = UnityCatalogReport()
 
     quoted = "main.`schema.with.dots`.orders"
-    expected_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,main.schema.with.dots.orders,PROD)"
+    expected_urn = _dataset_urn("main.schema.with.dots.orders")
 
     # A well-formed name this run did not ingest still becomes a URN, built from
     # the split parts rather than the raw backtick-quoted string.
@@ -2896,17 +2900,19 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     assert ex.report.num_lineage_tables_unresolvable == 0
 
 
-_NOT_INGESTED_URN = "urn:li:dataset:(urn:li:dataPlatform:databricks,other_catalog.finance.invoices,PROD)"
+_NOT_INGESTED_URN = _dataset_urn("other_catalog.finance.invoices")
 
 
-def test_full_name_to_urn_returns_registered_urn_for_ingested_table() -> None:
+@pytest.mark.parametrize("full_name", ["main.sales.orders", "system.access.audit"])
+def test_full_name_to_urn_returns_registered_urn_for_ingested_table(
+    full_name: str,
+) -> None:
     ex = _extractor(MagicMock(), MagicMock())
-    _register_tables(ex, ["main.sales.orders"])
+    _register_tables(ex, [full_name])
 
-    assert ex._full_name_to_urn("main.sales.orders") == (
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,main.sales.orders,PROD)"
-    )
+    assert ex._full_name_to_urn(full_name) == _dataset_urn(full_name)
     assert ex.report.num_lineage_tables_not_ingested == 0
+    assert ex.report.num_lineage_tables_system_skipped == 0
 
 
 def test_full_name_to_urn_builds_urn_for_table_not_ingested() -> None:
@@ -2938,16 +2944,6 @@ def test_full_name_to_urn_drops_system_tables_not_ingested(full_name: str) -> No
     assert ex._full_name_to_urn(full_name) is None
     assert ex.report.num_lineage_tables_system_skipped == 1
     assert ex.report.num_lineage_tables_not_ingested == 0
-
-
-def test_full_name_to_urn_keeps_ingested_system_table() -> None:
-    ex = _extractor(MagicMock(), MagicMock())
-    _register_tables(ex, ["system.access.audit"])
-
-    assert ex._full_name_to_urn("system.access.audit") == (
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,system.access.audit,PROD)"
-    )
-    assert ex.report.num_lineage_tables_system_skipped == 0
 
 
 def _system_tables_extractor() -> UnityCatalogUsageExtractor:
@@ -3015,9 +3011,7 @@ def test_lineage_with_ingested_system_table_stays_preparsed() -> None:
     )
 
     preparsed = aggregator.add_preparsed_query.call_args.args[0]
-    assert preparsed.upstreams == [
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,system.access.audit,PROD)"
-    ]
+    assert preparsed.upstreams == [_dataset_urn("system.access.audit")]
     assert ex.report.num_queries_skipped_system_tables_only == 0
 
 
@@ -3649,31 +3643,10 @@ def test_corrupt_cached_audit_log_discarded_and_refetched(
 
 
 # ---------------------------------------------------------------------------
-# is_allowed_table scope tests
-# ---------------------------------------------------------------------------
-
-
-def test_allowed_table_predicate_accepts_only_ingested_tables() -> None:
-    predicate = UnityCatalogUsageExtractor._make_allowed_table_predicate(
-        {"main.sales.orders"}
-    )
-
-    assert predicate("main.sales.orders")
-    assert predicate("MAIN.SALES.ORDERS")
-    assert not predicate("other_catalog.finance.invoices")
-
-
-def test_allowed_table_predicate_allows_nothing_when_nothing_ingested() -> None:
-    predicate = UnityCatalogUsageExtractor._make_allowed_table_predicate(set())
-
-    assert not predicate("main.sales.orders")
-
-
-# ---------------------------------------------------------------------------
 # Tables not ingested by this run, through the real aggregator
 # ---------------------------------------------------------------------------
 
-_INGESTED_URN = "urn:li:dataset:(urn:li:dataPlatform:databricks,main.sales.orders,PROD)"
+_INGESTED_URN = _dataset_urn("main.sales.orders")
 _INGESTED_REF = TableReference(
     metastore=None, catalog="main", schema="sales", table="orders"
 )
@@ -3693,16 +3666,7 @@ def _real_usage_extractor(proxy: MagicMock) -> UnityCatalogUsageExtractor:
             "include_operational_stats": False,
         }
     )
-    return UnityCatalogUsageExtractor(
-        config=config,
-        report=UnityCatalogReport(),
-        proxy=proxy,
-        table_urn_builder=lambda ref: (
-            f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
-        ),
-        user_urn_builder=lambda u: f"urn:li:corpuser:{u}",
-        schema_resolver=SchemaResolver(platform="databricks", env="PROD"),
-    )
+    return _extractor(config, proxy)
 
 
 def _cross_catalog_proxy() -> MagicMock:

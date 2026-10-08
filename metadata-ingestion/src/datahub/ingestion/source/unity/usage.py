@@ -86,7 +86,7 @@ class UnityCatalogUsageExtractor:
 
     def _build_aggregator(
         self,
-        is_allowed_table: Optional[Callable[[str], bool]] = None,
+        is_allowed_table: Callable[[str], bool],
     ) -> SqlParsingAggregator:
         # UnityCatalogSourceConfig extends BaseUsageConfig so self.config satisfies
         # the usage_config parameter type.
@@ -192,19 +192,6 @@ class UnityCatalogUsageExtractor:
         return self._use_system_tables_join() and query.has_system_table_lineage
 
     @staticmethod
-    def _is_system_tables_only(query: Query) -> bool:
-        names = [*query.source_table_full_names, *query.target_table_full_names]
-        if not names:
-            return False
-        for name in names:
-            parts = split_databricks_identifier(name)
-            if parts is None or len(parts) != 3:
-                return False
-            if not _is_system_table(parts[0], parts[1]):
-                return False
-        return True
-
-    @staticmethod
     def _statement_type_label(query: Query) -> str:
         if query.statement_type is None:
             return "unknown"
@@ -305,6 +292,8 @@ class UnityCatalogUsageExtractor:
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
+        if not upstreams and not targets:
+            return []
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
@@ -391,11 +380,9 @@ class UnityCatalogUsageExtractor:
             return
 
         if self._can_use_preparsed_query(query):
+            unresolvable_before = self.report.num_lineage_tables_unresolvable
             preparsed_queries = self._to_preparsed_queries(query)
-            if preparsed_queries and (
-                any(p.upstreams for p in preparsed_queries)
-                or any(p.downstream for p in preparsed_queries)
-            ):
+            if preparsed_queries:
                 for preparsed in preparsed_queries:
                     aggregator.add_preparsed_query(preparsed)
                 self.report.num_queries_preparsed_from_lineage += 1
@@ -413,10 +400,11 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
-            # Lineage that names only system / information_schema tables this run
-            # did not ingest is a metadata read: there is nothing to attribute usage
-            # to, and sqlglot would find the same tables.
-            if self._is_system_tables_only(query):
+            # No lineage name produced a URN. Unless one was malformed, every name
+            # was a system / information_schema table this run did not ingest: a
+            # metadata read with nothing to attribute usage to, and sqlglot would
+            # find the same tables.
+            if self.report.num_lineage_tables_unresolvable == unresolvable_before:
                 self.report.num_queries_skipped_system_tables_only += 1
                 logger.debug(
                     "Usage query skipped: system-table lineage names only system "
@@ -437,7 +425,7 @@ class UnityCatalogUsageExtractor:
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
             logger.debug(
                 "Usage query fell back to sqlglot: system-table lineage present but "
-                "no resolvable dataset URNs "
+                "no usable dataset URNs "
                 "(statement_id=%s statement_type=%s "
                 "lineage_sources=%s lineage_targets=%s preview=%r)",
                 query.query_id,
@@ -657,23 +645,6 @@ class UnityCatalogUsageExtractor:
                     log=False,
                 )
 
-    @staticmethod
-    def _make_allowed_table_predicate(
-        locally_discovered: Set[str],
-    ) -> Callable[[str], bool]:
-        """Build the is_allowed_table predicate for the usage aggregator.
-
-        Only tables this run ingested are allowed, so usage statistics and
-        operations are never written for datasets another recipe owns. Tables from
-        other catalogs still reach the aggregator, as query subjects. An empty set
-        allows nothing: the aggregator treats a missing predicate as allow-all.
-        """
-
-        def _is_allowed_table(name: str) -> bool:
-            return name.lower() in locally_discovered
-
-        return _is_allowed_table
-
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -683,7 +654,13 @@ class UnityCatalogUsageExtractor:
         # form, so we use it directly — using DatasetUrn.name here would include the
         # platform_instance prefix when one is configured, causing a mismatch.
         locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
-        is_allowed_table = self._make_allowed_table_predicate(locally_discovered)
+
+        # Only tables this run ingested are allowed, so usage statistics and
+        # operations are never written for datasets another recipe owns; tables from
+        # other catalogs still reach the aggregator as query subjects. An empty set
+        # allows nothing, whereas omitting the predicate would allow every table.
+        def is_allowed_table(name: str) -> bool:
+            return name.lower() in locally_discovered
 
         # Databricks query history has no per-query session catalog/schema (unlike
         # Snowflake), so we can't derive a per-query default_db.  When the recipe
