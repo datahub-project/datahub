@@ -5,6 +5,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
+import { DeleteViewConfirmationModal } from '@app/entityV2/view/menu/DeleteViewConfirmationModal';
 import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import { ViewSelectPopoverContent } from '@app/entityV2/view/select/ViewSelectPopoverContent';
 import { renderSelectedView } from '@app/entityV2/view/select/renderSelectedView';
@@ -140,11 +141,14 @@ export const ViewSelect = () => {
         setHoverViewUrn,
         onClickEditView,
         onClickPreviewView,
+        onClickDeleteView,
         onClear,
         onSelectView,
         selectedViewName,
         viewBuilderDisplayState,
         onCloseViewBuilder,
+        viewToDelete,
+        onCloseDeleteConfirmation,
     } = useViewsSelectContext();
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -180,6 +184,7 @@ export const ViewSelect = () => {
                                         setHoverViewUrn,
                                         onClickEditView,
                                         onClickPreviewView,
+                                        onClickDeleteView,
                                         onClickClear: onClear,
                                         onSelectView,
                                     })}
@@ -196,6 +201,7 @@ export const ViewSelect = () => {
                                         setHoverViewUrn,
                                         onClickEditView,
                                         onClickPreviewView,
+                                        onClickDeleteView,
                                         onClickClear: onClear,
                                         onSelectView,
                                     })}
@@ -224,6 +230,7 @@ export const ViewSelect = () => {
                         onCancel={onCloseViewBuilder}
                     />
                 )}
+                <DeleteViewConfirmationModal view={viewToDelete} onClose={onCloseDeleteConfirmation} />
             </ViewSelectContainer>
         </>
     );

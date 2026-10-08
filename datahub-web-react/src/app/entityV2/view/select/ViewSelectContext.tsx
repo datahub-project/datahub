@@ -38,6 +38,9 @@ type ViewSelectContextType = {
     setHoverViewUrn: (viewUrn: string) => void;
     onClickEditView: (view: DataHubView) => void;
     onClickPreviewView: (view: DataHubView) => void;
+    onClickDeleteView: (view: DataHubView) => void;
+    viewToDelete: DataHubView | undefined;
+    onCloseDeleteConfirmation: () => void;
     onClear: () => void;
     onSelectView: (viewUrn: string) => void;
     selectedViewName: string;
@@ -67,6 +70,9 @@ const DEFAULT_CONTEXT: ViewSelectContextType = {
     setHoverViewUrn: () => {},
     onClickEditView: () => {},
     onClickPreviewView: () => {},
+    onClickDeleteView: () => {},
+    viewToDelete: undefined,
+    onCloseDeleteConfirmation: () => {},
     onClear: () => {},
     onSelectView: () => {},
     selectedViewName: '',
@@ -109,6 +115,7 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
     const [selectedUrn, setSelectedUrn] = useState<string | undefined>(
         userContext.localState?.selectedViewUrn || undefined,
     );
+    const [viewToDelete, setViewToDelete] = useState<DataHubView | undefined>(undefined);
     const [hoverViewUrn, setHoverViewUrn] = useState<string | undefined>(undefined);
     const [privateView, setPrivateView] = useState<boolean>(true);
     const [publicView, setPublicView] = useState<boolean>(true);
@@ -257,6 +264,10 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         });
     };
 
+    const onClickDeleteView = (view: DataHubView) => setViewToDelete(view);
+
+    const onCloseDeleteConfirmation = () => setViewToDelete(undefined);
+
     const onClear = () => {
         setSelectedUrn(undefined);
         setSelectedView('');
@@ -313,6 +324,9 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
                 setHoverViewUrn,
                 onClickEditView,
                 onClickPreviewView,
+                onClickDeleteView,
+                viewToDelete,
+                onCloseDeleteConfirmation,
                 onClear,
                 onSelectView,
                 selectedViewName,

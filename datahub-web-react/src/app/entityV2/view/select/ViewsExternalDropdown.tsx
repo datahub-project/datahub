@@ -2,6 +2,7 @@ import { Dropdown, zIndices } from '@components';
 import React, { useEffect } from 'react';
 
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
+import { DeleteViewConfirmationModal } from '@app/entityV2/view/menu/DeleteViewConfirmationModal';
 import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import ViewsExternalDropdownContent from '@app/entityV2/view/select/ViewsExternalDropdownContent';
 import { convertViewToBuilderState } from '@app/entityV2/view/utils';
@@ -12,7 +13,14 @@ interface Props {
 }
 
 export default function ViewsExternalDropdown({ disabled, className, children }: React.PropsWithChildren<Props>) {
-    const { isInternalOpen, updateOpenState, viewBuilderDisplayState, onCloseViewBuilder } = useViewsSelectContext();
+    const {
+        isInternalOpen,
+        updateOpenState,
+        viewBuilderDisplayState,
+        onCloseViewBuilder,
+        viewToDelete,
+        onCloseDeleteConfirmation,
+    } = useViewsSelectContext();
 
     // Automatically close the dropdown on resize to avoid the dropdown's misalignment
     useEffect(() => {
@@ -47,6 +55,7 @@ export default function ViewsExternalDropdown({ disabled, className, children }:
                     onCancel={onCloseViewBuilder}
                 />
             )}
+            <DeleteViewConfirmationModal view={viewToDelete} onClose={onCloseDeleteConfirmation} />
         </>
     );
 }
