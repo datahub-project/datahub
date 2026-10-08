@@ -74,6 +74,21 @@ public class UnknownEntityUrnStripperTest {
     assertTrue(data.containsKey("owner"));
   }
 
+  @Test
+  public void testReferencesUnknownEntityTypeDetectsWithoutChangingTheAspect() {
+    DataMap unknownRoot = new DataMap(Map.of("owner", UNKNOWN, "label", "x"));
+    DataMap unknownNested =
+        new DataMap(Map.of("owner", KNOWN, "byName", new DataMap(Map.of("a", UNKNOWN))));
+    DataMap known = new DataMap(Map.of("owner", KNOWN, "label", UNKNOWN));
+
+    assertTrue(
+        UnknownEntityUrnStripper.referencesUnknownEntityType(record(unknownRoot), registry()));
+    assertTrue(
+        UnknownEntityUrnStripper.referencesUnknownEntityType(record(unknownNested), registry()));
+    assertFalse(UnknownEntityUrnStripper.referencesUnknownEntityType(record(known), registry()));
+    assertEquals(unknownNested.getDataMap("byName").size(), 1);
+  }
+
   private static RecordTemplate record(DataMap data) {
     return new RecordTemplate(data, SCHEMA) {};
   }

@@ -29,6 +29,7 @@ public class OwnerMapper {
 
   public static final OwnerMapper INSTANCE = new OwnerMapper();
 
+  @Nullable
   public static Owner map(
       @Nullable QueryContext context,
       @Nonnull final com.linkedin.common.Owner owner,
@@ -36,6 +37,7 @@ public class OwnerMapper {
     return INSTANCE.apply(context, owner, entityUrn);
   }
 
+  @Nullable
   public Owner apply(
       @Nullable QueryContext context,
       @Nonnull final com.linkedin.common.Owner owner,

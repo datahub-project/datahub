@@ -37,12 +37,14 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
 
   public static final SchemaFieldMapper INSTANCE = new SchemaFieldMapper();
 
+  @Nullable
   public static SchemaFieldEntity map(
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
+  @Nullable
   public SchemaFieldEntity apply(
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Urn entityUrn = entityResponse.getUrn();

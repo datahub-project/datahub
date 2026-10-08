@@ -107,7 +107,8 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                               if (annotation.getEntityTypes().stream()
                                       .noneMatch(
                                           entityType -> entityType.equals(urn.getEntityType()))
-                                  && !storedValues.contains(itemEntry.getKey(), urnStr)) {
+                                  && !storedValues.contains(
+                                      itemEntry.getKey(), fieldPath, urnStr)) {
                                 return Map.entry(
                                     itemEntry.getKey(),
                                     AspectValidationException.forItem(

@@ -12,6 +12,7 @@ public class MetadataAttributionMapper
 
   public static final MetadataAttributionMapper INSTANCE = new MetadataAttributionMapper();
 
+  @Nullable
   public static MetadataAttribution map(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.MetadataAttribution metadata) {
@@ -19,6 +20,7 @@ public class MetadataAttributionMapper
   }
 
   @Override
+  @Nullable
   public MetadataAttribution apply(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.MetadataAttribution input) {
