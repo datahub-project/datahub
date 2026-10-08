@@ -136,6 +136,7 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
             StructuredPropertiesClass.ASPECT_NAME,
             "add",
             path=("properties", property.propertyUrn),
+            array_primary_keys={"properties": ["propertyUrn"]},
             value=property,
         )
         return self
