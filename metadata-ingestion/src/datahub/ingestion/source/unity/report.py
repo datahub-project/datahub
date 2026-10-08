@@ -46,6 +46,12 @@ class UnityCatalogReport(SQLSourceReport):
     lineage_tables_unresolvable_sample: LossyList[str] = field(
         default_factory=LossyList
     )
+    num_lineage_tables_not_ingested: int = 0
+    lineage_tables_not_ingested_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_tables_system_skipped: int = 0
+    num_queries_skipped_system_tables_only: int = 0
     num_lineage_row_field_read_errors: int = 0
     num_usage_query_fetch_failures: int = 0
 

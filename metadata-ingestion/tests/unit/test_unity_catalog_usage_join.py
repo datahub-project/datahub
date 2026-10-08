@@ -1556,7 +1556,7 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
 
 def test_redacted_preparsed_without_resolvable_urns_not_counted_as_sqlglot() -> None:
     """When preparsed lineage is present in system.access.table_lineage but its
-    references can't be resolved to dataset URNs (e.g. tables not ingested), a
+    references can't be turned into dataset URNs (e.g. malformed names), a
     non-redacted query correctly falls back to sqlglot. A redacted query on the
     same branch cannot fall back — it must be dropped silently rather than
     misreported as a sqlglot-fallback query.
@@ -1571,7 +1571,7 @@ def test_redacted_preparsed_without_resolvable_urns_not_counted_as_sqlglot() -> 
 
     ex._add_query_to_aggregator(
         aggregator,
-        _query_with_lineage("<REDACTED>", "s1", sources=["unregistered.s.t"]),
+        _query_with_lineage("<REDACTED>", "s1", sources=["not_a_valid_name"]),
         default_db=None,
     )
 
@@ -2871,24 +2871,82 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     ex.report = UnityCatalogReport()
 
     quoted = "main.`schema.with.dots`.orders"
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,main.schema.with.dots.orders,PROD)"
+    )
 
-    # A well-formed name that is not in the schema resolver (i.e. not ingested by
-    # this recipe) is unresolvable: resolution is signalled by SchemaInfo, which is
-    # only present for known tables.
-    assert ex._full_name_to_urn(quoted) is None
-    assert ex.report.num_lineage_tables_unresolvable == 1
+    # A well-formed name this run did not ingest still becomes a URN, built from
+    # the split parts rather than the raw backtick-quoted string.
+    assert ex._full_name_to_urn(quoted) == expected_urn
+    assert ex.report.num_lineage_tables_not_ingested == 1
+    assert ex.report.num_lineage_tables_unresolvable == 0
 
-    # Once registered, the quoted identifier still parses to the right URN and
-    # resolves without recounting it as unresolvable.
+    # Once registered, the quoted identifier resolves to the registered URN and is
+    # no longer counted as not ingested.
     synthesized = ex.schema_resolver.resolve_table_parts(
         database="main", db_schema="schema.with.dots", table="orders"
     )[0]
     ex.schema_resolver.add_raw_schema_info(synthesized, {"id": "int"})
 
-    urn = ex._full_name_to_urn(quoted)
-    assert urn == synthesized
-    assert "main.schema.with.dots.orders" in urn
-    assert ex.report.num_lineage_tables_unresolvable == 1
+    assert ex._full_name_to_urn(quoted) == synthesized == expected_urn
+    assert ex.report.num_lineage_tables_not_ingested == 1
+    assert ex.report.num_lineage_tables_unresolvable == 0
+
+
+_NOT_INGESTED_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,other_catalog.finance.invoices,PROD)"
+)
+
+
+def test_full_name_to_urn_returns_registered_urn_for_ingested_table() -> None:
+    ex = _extractor(MagicMock(), MagicMock())
+    _register_tables(ex, ["main.sales.orders"])
+
+    assert ex._full_name_to_urn("main.sales.orders") == (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,main.sales.orders,PROD)"
+    )
+    assert ex.report.num_lineage_tables_not_ingested == 0
+
+
+def test_full_name_to_urn_builds_urn_for_table_not_ingested() -> None:
+    ex = _extractor(MagicMock(), MagicMock())
+
+    for _ in range(3):
+        assert (
+            ex._full_name_to_urn("other_catalog.finance.invoices") == _NOT_INGESTED_URN
+        )
+
+    assert ex.report.num_lineage_tables_not_ingested == 3
+    assert (
+        "other_catalog.finance.invoices" in ex.report.lineage_tables_not_ingested_sample
+    )
+    assert ex.report.num_lineage_tables_unresolvable == 0
+
+
+@pytest.mark.parametrize(
+    "full_name",
+    [
+        "system.access.table_lineage",
+        "main.information_schema.columns",
+        "Main.INFORMATION_SCHEMA.tables",
+    ],
+)
+def test_full_name_to_urn_drops_system_tables_not_ingested(full_name: str) -> None:
+    ex = _extractor(MagicMock(), MagicMock())
+
+    assert ex._full_name_to_urn(full_name) is None
+    assert ex.report.num_lineage_tables_system_skipped == 1
+    assert ex.report.num_lineage_tables_not_ingested == 0
+
+
+def test_full_name_to_urn_keeps_ingested_system_table() -> None:
+    ex = _extractor(MagicMock(), MagicMock())
+    _register_tables(ex, ["system.access.audit"])
+
+    assert ex._full_name_to_urn("system.access.audit") == (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,system.access.audit,PROD)"
+    )
+    assert ex.report.num_lineage_tables_system_skipped == 0
 
 
 def test_preparsed_fingerprint_falls_back_to_statement_id(

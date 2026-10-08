@@ -54,6 +54,15 @@ _STATEMENT_TYPE_TO_QUERY_TYPE = {
     QueryStatementType.REPLACE: QueryType.CREATE_TABLE_AS_SELECT,
 }
 
+_SYSTEM_CATALOG = "system"
+_INFORMATION_SCHEMA = "information_schema"
+
+
+def _is_system_table(catalog: str, schema: str) -> bool:
+    # The system catalog and each catalog's information_schema hold Databricks
+    # metadata views, which are datasets only when a recipe ingests them.
+    return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == _INFORMATION_SCHEMA
+
 
 @dataclass(eq=False)
 class UnityCatalogUsageExtractor:
@@ -144,24 +153,24 @@ class UnityCatalogUsageExtractor:
             self.report.lineage_tables_unresolvable_sample.append(full_name)
             return None
         catalog, schema, table = parts
-        # resolve_table_parts always returns a (synthesized) URN; the SchemaInfo is
-        # the resolution signal. It is None when the table is not in the schema
-        # resolver cache, i.e. not one this recipe ingested. Treating those as
-        # unresolvable keeps preparsed usage scoped to known datasets and lets the
-        # caller fall back to sqlglot instead of emitting confident lineage to a
-        # possibly-nonexistent URN.
+        # Tables this run ingested are registered in the resolver under the URN they
+        # were emitted with; a SchemaInfo marks the hit.
         urn, schema_info = self.schema_resolver.resolve_table_parts(
             database=catalog, db_schema=schema, table=table
         )
-        if schema_info is None:
-            logger.debug(
-                "Could not resolve lineage table name to a known dataset: %s",
-                full_name,
-            )
-            self.report.num_lineage_tables_unresolvable += 1
-            self.report.lineage_tables_unresolvable_sample.append(full_name)
+        if schema_info is not None:
+            return urn
+        if _is_system_table(catalog, schema):
+            self.report.num_lineage_tables_system_skipped += 1
             return None
-        return urn
+        # A table this run did not ingest still becomes a URN, built the same way as
+        # an ingested one, so queries spanning catalogs keep it as a subject.
+        # is_allowed_table limits usage and operations to ingested tables.
+        self.report.num_lineage_tables_not_ingested += 1
+        self.report.lineage_tables_not_ingested_sample.append(full_name)
+        return self.table_urn_builder(
+            TableReference(metastore=None, catalog=catalog, schema=schema, table=table)
+        )
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
         urns: List[UrnStr] = []
