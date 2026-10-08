@@ -7,6 +7,7 @@ Used to scale-test multi-project (glob manifest_path) dbt ingestion:
 """
 
 import argparse
+import json
 import logging
 import shutil
 from concurrent.futures import ThreadPoolExecutor
@@ -59,7 +60,13 @@ def _iter_objects(templates: Dict[str, str], count: int) -> Iterator[Tuple[str, 
     for index in range(count):
         name = project_name(index)
         for filename, text in templates.items():
-            yield f"{name}/{filename}", text.replace(_PROJECT_TOKEN, name)
+            content = text.replace(_PROJECT_TOKEN, name)
+            if filename == "manifest.json":
+                # dbt >= 1.6 records metadata.project_name; glob mode derives each project's platform_instance from it
+                data = json.loads(content)
+                data["metadata"]["project_name"] = name
+                content = json.dumps(data)
+            yield f"{name}/{filename}", content
 
 
 def _make_s3_client(profile: Optional[str]) -> "S3Client":

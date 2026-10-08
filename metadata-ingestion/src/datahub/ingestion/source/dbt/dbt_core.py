@@ -1220,7 +1220,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     if project.project_name is None:
                         raise ValueError(
                             "manifest has no metadata.project_name, which names this "
-                            "project's platform instance"
+                            "project's platform instance; multi-project ingestion needs "
+                            "artifacts from dbt 1.6 or newer, which record it"
                         )
                     if project.project_name in seen_project_names:
                         raise ValueError(
