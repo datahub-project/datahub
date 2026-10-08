@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
 import { BreadcrumbItemType } from '@components/components/Breadcrumb/types';
 
-import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import IngestionSourceNavigationButtons from '@app/ingestV2/source/multiStepBuilder/IngestionSourceNavigationButtons';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -76,7 +75,6 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
         <PageLayout
             title={currentStep?.label}
             subTitle={currentStep?.subTitle}
-            rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
             topBreadcrumb={breadCrumb}
             topRightContent={<IngestionSourceNavigationButtons />}
         >

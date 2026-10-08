@@ -4,10 +4,12 @@ import pathlib
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, Set
+from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import sqlglot
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt, model_validator
+from sqlglot.tokens import Token, TokenType
 from typing_extensions import NotRequired, TypedDict
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
@@ -56,7 +58,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.sql_parsing.sqlglot_utils import get_dialect, get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -873,28 +875,110 @@ def _build_user_filter(
     return result
 
 
+# `TEMP` and `TEMPORARY` both tokenize as `TokenType.TEMPORARY`; AGGREGATE is
+# not a keyword token, so it is matched by text.
+_AGGREGATE = "AGGREGATE"
+_TEMP_FUNCTION_HEADS: List[List[Union[TokenType, str]]] = [
+    [TokenType.CREATE, TokenType.TEMPORARY, TokenType.FUNCTION],
+    [TokenType.CREATE, TokenType.TEMPORARY, _AGGREGATE, TokenType.FUNCTION],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        TokenType.FUNCTION,
+    ],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        _AGGREGATE,
+        TokenType.FUNCTION,
+    ],
+]
+_FUNCTION_WORD_RE = re.compile(r"\bFUNCTION\b", re.IGNORECASE)
+_STATEMENT_SEPARATOR = ";"
+
+
 def _extract_query_text(row: BigQueryJob) -> str:
     # We wrap select statements in a CTE to make them parseable as DML statement.
     # This is a workaround to support the case where the user runs a query and inserts the result into a table.
-    # NOTE This will result in showing modified query instead of original query in DataHub UI
+    # NOTE This and the temp-function removal below result in showing modified query instead of original query in DataHub UI
     # Alternatively, this support needs to be added more natively in aggregator.add_observed_query
+    destination = row["destination_table"]
     if (
-        row["statement_type"] == "SELECT"
-        and row["destination_table"]
-        and not row["destination_table"]["table_id"].startswith("anon")
+        row["statement_type"] != "SELECT"
+        or not destination
+        or destination["table_id"].startswith("anon")
     ):
-        table_name = BigqueryTableIdentifier(
-            row["destination_table"]["project_id"],
-            row["destination_table"]["dataset_id"],
-            row["destination_table"]["table_id"],
-        ).raw_table_name()
-        query = f"""CREATE TABLE `{table_name}` AS
+        return _strip_temp_functions(row["query"], strip_semicolons=False)
+    table_name = BigqueryTableIdentifier(
+        destination["project_id"],
+        destination["dataset_id"],
+        destination["table_id"],
+    ).raw_table_name()
+    query = _strip_temp_functions(row["query"], strip_semicolons=True)
+    return f"""CREATE TABLE `{table_name}` AS
                 (
-                    {row["query"]}
+                    {query}
                 )"""
-    else:
-        query = row["query"]
-    return query
+
+
+def _strip_temp_functions(query: str, *, strip_semicolons: bool) -> str:
+    """Remove temp-function statements, and top-level semicolons if asked; keep all other text.
+
+    Returns the text unchanged unless it is one statement plus optional temp functions.
+    """
+    if _STATEMENT_SEPARATOR not in query:
+        return query
+    # Unwrapped text changes only if it defines a temp function.
+    if not strip_semicolons and not _FUNCTION_WORD_RE.search(query):
+        return query
+    # split_statements would cut `UNNEST(x) AS e WITH OFFSET` into two statements.
+    try:
+        tokens = get_dialect(BigQueryIdentifierBuilder.platform).tokenize(query)
+    except (ValueError, TypeError, sqlglot.errors.SqlglotError):
+        return query
+
+    statements: List[List[Token]] = [[]]
+    for token in tokens:
+        statements[-1].append(token)
+        if token.token_type == TokenType.SEMICOLON:
+            statements.append([])
+
+    removed: List[Tuple[int, int]] = []
+    main_statements = 0
+    for statement in statements:
+        if _is_temp_function(statement):
+            removed.append((statement[0].start, statement[-1].end))
+            continue
+        if any(token.token_type != TokenType.SEMICOLON for token in statement):
+            main_statements += 1
+        if strip_semicolons:
+            removed += [
+                (token.start, token.end)
+                for token in statement
+                if token.token_type == TokenType.SEMICOLON
+            ]
+    if main_statements != 1:
+        return query
+
+    kept: List[str] = []
+    position = 0
+    for start, end in removed:
+        kept.append(query[position:start])
+        position = end + 1
+    kept.append(query[position:])
+    return "".join(kept)
+
+
+def _is_temp_function(statement: List[Token]) -> bool:
+    head = [
+        _AGGREGATE if token.text.upper() == _AGGREGATE else token.token_type
+        for token in statement[:6]
+    ]
+    return any(head[: len(form)] == form for form in _TEMP_FUNCTION_HEADS)
 
 
 def _job_labels_to_custom_properties(
