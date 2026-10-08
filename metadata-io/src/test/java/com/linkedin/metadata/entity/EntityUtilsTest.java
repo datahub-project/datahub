@@ -188,7 +188,7 @@ public class EntityUtilsTest {
             "{\"a\":1}");
 
     assertTrue(
-        EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), unknownAspect)
+        EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), unknownAspect, false)
             .isEmpty());
   }
 

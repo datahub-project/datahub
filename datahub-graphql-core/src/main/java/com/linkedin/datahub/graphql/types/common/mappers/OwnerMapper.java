@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

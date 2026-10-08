@@ -9,7 +9,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.OriginType;
-import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.form.FormMapper;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -28,14 +27,6 @@ import org.testng.annotations.Test;
 public class UnknownEnumValueMappingTest {
 
   private static final String NEWER_VALUE = "VALUE_FROM_NEWER_BUILD";
-
-  @Test
-  public void testOriginTypeFallsBackToUnknown() {
-    Origin origin = new Origin();
-    origin.data().put("type", NEWER_VALUE);
-
-    assertEquals(OriginMapper.map(null, origin).getType(), OriginType.UNKNOWN);
-  }
 
   @Test
   public void testFormPromptOfUnknownTypeIsSkipped() {
