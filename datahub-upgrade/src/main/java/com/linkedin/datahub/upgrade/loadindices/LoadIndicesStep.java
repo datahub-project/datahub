@@ -292,9 +292,12 @@ public class LoadIndicesStep implements UpgradeStep {
                       }
 
                       if (!mclBatch.isEmpty()) {
+                        final int ignoredBeforeWrite = result.ignored;
                         writeBatchWithRetry(opContext, mclBatch, result, reportFunction);
-                        // Only rows actually indexed count; skipped ones are reported separately.
-                        int aspectsProcessed = mclBatch.size();
+                        // Only rows actually indexed count: rows skipped before the write and
+                        // events the write gave up on are reported separately.
+                        int aspectsProcessed =
+                            mclBatch.size() - (result.ignored - ignoredBeforeWrite);
                         totalProcessed[0] += aspectsProcessed;
 
                         // Log the last URN of every batch for resume capability

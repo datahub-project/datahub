@@ -38,6 +38,8 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -505,6 +507,44 @@ public class RollbackServiceTest {
             eq(true),
             eq(lastOfFirstPage),
             eq(MAX_SEARCH_RESULTS));
+  }
+
+  @Test
+  public void testRollbackIngestion_PageReadFailureIsNotReportedAsRolledBack()
+      throws AuthenticationException {
+    // A page that can't be read must fail the rollback, not end it as if every row had been seen.
+    List<AspectRowSummary> firstPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      firstPage.add(
+          new AspectRowSummary()
+              .setUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t" + i + ",PROD)")
+              .setAspectName("status")
+              .setRunId(TEST_RUN_ID)
+              .setKeyAspect(false));
+    }
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(firstPage);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            notNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenThrow(new UncheckedIOException(new IOException("search unavailable")));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, List.of()));
+
+    assertThrows(
+        UncheckedIOException.class,
+        () -> rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null));
+
+    verify(mockEntityService, never())
+        .ingestProposal(eq(operationContext), any(), any(), anyBoolean());
   }
 
   @Test

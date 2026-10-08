@@ -2,9 +2,11 @@ package com.linkedin.metadata.systemmetadata;
 
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_ASPECT;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_REMOVED;
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_RUNID;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_URN;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
@@ -16,6 +18,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -231,7 +234,13 @@ public class ESSystemMetadataDAO {
 
   /**
    * Rows of a run sorted by urn, aspect, after the given (urn, aspect) position (keyset paging).
+   * Pass both {@code afterUrn} and {@code afterAspect} (the last row of the previous page), or
+   * neither for the first page.
+   *
+   * @throws UncheckedIOException if the page can't be read: an empty page would end the caller's
+   *     scan as if every row had been seen.
    */
+  @Nonnull
   public SearchResponse findByRunIdAfter(
       @Nonnull OperationContext opContext,
       @Nonnull String runId,
@@ -239,35 +248,40 @@ public class ESSystemMetadataDAO {
       @Nullable String afterUrn,
       @Nullable String afterAspect,
       int size) {
+    Preconditions.checkArgument(
+        (afterUrn == null) == (afterAspect == null),
+        "Pass both afterUrn and afterAspect, or neither");
     final BoolQueryBuilder query =
-        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("runId", runId));
+        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(FIELD_RUNID, runId));
     if (!includeSoftDeleted) {
-      query.mustNot(QueryBuilders.termQuery("removed", "true"));
+      query.mustNot(QueryBuilders.termQuery(FIELD_REMOVED, "true"));
     }
-    if (afterUrn != null && afterAspect != null) {
+    if (afterUrn != null) {
       query.filter(
           QueryBuilders.boolQuery()
-              .should(QueryBuilders.rangeQuery("urn").gt(afterUrn))
+              .should(QueryBuilders.rangeQuery(FIELD_URN).gt(afterUrn))
               .should(
                   QueryBuilders.boolQuery()
-                      .filter(QueryBuilders.termQuery("urn", afterUrn))
-                      .filter(QueryBuilders.rangeQuery("aspect").gt(afterAspect)))
+                      .filter(QueryBuilders.termQuery(FIELD_URN, afterUrn))
+                      .filter(QueryBuilders.rangeQuery(FIELD_ASPECT).gt(afterAspect)))
               .minimumShouldMatch(1));
     }
     final SearchSourceBuilder source =
         new SearchSourceBuilder()
             .query(query)
-            .sort("urn", SortOrder.ASC)
-            .sort("aspect", SortOrder.ASC)
+            .sort(FIELD_URN, SortOrder.ASC)
+            .sort(FIELD_ASPECT, SortOrder.ASC)
             .size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
     final SearchRequest searchRequest = new SearchRequest().source(source);
     searchRequest.indices(indexName(opContext));
     try {
       return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
-      log.error("Error while searching run {} after {}/{}.", runId, afterUrn, afterAspect, e);
+      throw new UncheckedIOException(
+          String.format(
+              "Failed to read system metadata of run %s after %s/%s", runId, afterUrn, afterAspect),
+          e);
     }
-    return null;
   }
 
   public SearchResponse scroll(

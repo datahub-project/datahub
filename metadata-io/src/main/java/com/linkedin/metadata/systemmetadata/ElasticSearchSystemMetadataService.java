@@ -70,7 +70,7 @@ public class ElasticSearchSystemMetadataService
   public static final String FIELD_URN = "urn";
   public static final String FIELD_ASPECT = "aspect";
   public static final String FIELD_REMOVED = "removed";
-  private static final String FIELD_RUNID = "runId";
+  public static final String FIELD_RUNID = "runId";
   public static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
   private static final String FIELD_REGISTRY_VERSION = "registryVersion";

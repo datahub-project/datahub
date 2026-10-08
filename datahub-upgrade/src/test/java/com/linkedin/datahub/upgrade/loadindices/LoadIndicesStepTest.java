@@ -265,6 +265,39 @@ public class LoadIndicesStepTest {
     verify(mockUpdateIndicesService, atLeastOnce()).flush();
   }
 
+  @Test
+  public void testProcessAllDataDirectlyDoesNotCountEventsTheWriteGaveUpOn() throws Exception {
+    // The three seeded rows convert, but every write fails: they are ignored, not processed.
+    doThrow(new RuntimeException("index unavailable"))
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership");
+
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    LoadIndicesResult result =
+        (LoadIndicesResult)
+            method.invoke(
+                loadIndicesStep,
+                mockOperationContext,
+                args,
+                (java.util.function.Function<String, Void>) msg -> null);
+
+    verify(mockUpdateIndicesService, atLeastOnce()).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 3);
+    assertEquals(result.rowsProcessed, 0);
+  }
+
   /**
    * Registers an aspect whose data-template class cannot be resolved, so conversion fails. An
    * aspect missing from the registry is skipped instead (rows written by a newer version).
