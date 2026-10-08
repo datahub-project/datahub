@@ -1,0 +1,23 @@
+# One standalone NiFi, for test_nifi_probe_integration.py: the probe reads only
+# the process group tree, so the cluster, ZooKeeper and SFTP services of the
+# ingestion suite are not needed. An ephemeral host port and its own container
+# name keep it clear of that suite.
+services:
+  nifi_probe:
+    image: apache/nifi:1.22.0
+    container_name: nifi_probe
+    hostname: nifi_probe
+    environment:
+      NIFI_SENSITIVE_PROPS_KEY: admin@datahub
+      NIFI_WEB_HTTP_PORT: 9443
+    volumes:
+      - ./setup/conf:/opt/nifi/tmp:ro
+    entrypoint:
+      - bash
+      - -c
+      - |
+        cp /opt/nifi/tmp/flow.xml.gz /opt/nifi/nifi-current/conf/flow.xml.gz
+        /opt/nifi/scripts/start.sh &
+        sleep infinity
+    ports:
+      - "9443"
