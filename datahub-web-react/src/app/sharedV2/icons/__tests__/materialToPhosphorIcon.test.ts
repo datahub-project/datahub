@@ -22,12 +22,16 @@ describe('resolvePhosphorIconName', () => {
         expect(resolvePhosphorIconName('Fullscreen')).toBe('CornersOut');
     });
 
+    it('passes through known Phosphor names when library is Material/missing', () => {
+        // Domains often keep iconLibrary=MATERIAL after a Phosphor pick; still render the glyph.
+        expect(resolvePhosphorIconName('UserCircle')).toBe('UserCircle');
+        expect(resolvePhosphorIconName('Shapes')).toBe('Shapes');
+        expect(resolvePhosphorIconName('Buildings')).toBe('Buildings');
+    });
+
     it('falls back to the default for unmapped Material / legacy names', () => {
         expect(resolvePhosphorIconName('TotallyFakeIconOutlined')).toBe(DEFAULT_PHOSPHOR_ICON);
         expect(resolvePhosphorIconName('TotallyFakeIcon')).toBe(DEFAULT_PHOSPHOR_ICON);
-        // Phosphor names without a Material synonym are not pass-through here —
-        // resolveDisplayIconName short-circuits true Phosphor-library values first.
-        expect(resolvePhosphorIconName('UserCircle')).toBe(DEFAULT_PHOSPHOR_ICON);
     });
 
     it('keeps ChangeHistory mapped to ClockCounterClockwise', () => {

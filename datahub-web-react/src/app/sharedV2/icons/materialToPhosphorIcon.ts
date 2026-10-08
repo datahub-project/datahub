@@ -1,9 +1,14 @@
+import { PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+
 /**
  * Maps legacy Material UI icon names (stored on displayProperties) to Phosphor
  * component names for render-time display. New picks use IconLibrary.PHOSPHOR.
  */
 
 export const DEFAULT_PHOSPHOR_ICON = 'Shapes';
+
+/** Known Phosphor component names — used so already-migrated names still render when library is Material/missing. */
+const PHOSPHOR_ICON_SET: ReadonlySet<string> = new Set(PHOSPHOR_ICONS);
 
 const MATERIAL_TO_PHOSPHOR: Record<string, string> = {
     AccessTime: 'Clock',
@@ -1265,8 +1270,13 @@ export function resolvePhosphorIconName(storedName: string | null | undefined): 
     if (mappedBase) {
         return mappedBase;
     }
-    // Unmapped Material / legacy names (with or without a style suffix) should not be
-    // handed to the Phosphor lazy loader — they render as missing glyphs. Phosphor library
-    // values never reach this helper (see resolveDisplayIconName).
+    // Already a Phosphor name (common when library is still MATERIAL/missing after a pick).
+    if (PHOSPHOR_ICON_SET.has(name)) {
+        return name;
+    }
+    if (base !== name && PHOSPHOR_ICON_SET.has(base)) {
+        return base;
+    }
+    // Truly unknown Material / legacy names — stable glyph instead of a missing icon.
     return DEFAULT_PHOSPHOR_ICON;
 }
