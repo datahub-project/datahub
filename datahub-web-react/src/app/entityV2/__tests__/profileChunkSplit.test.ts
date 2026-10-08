@@ -59,10 +59,11 @@ function resolveImport(spec: string, fromFile: string): string | undefined {
     if (!base) {
         return undefined;
     }
+    const resolvedBase = base;
 
     return firstExisting([
-        ...EXTENSIONS.map((extension) => `${base}${extension}`),
-        ...EXTENSIONS.map((extension) => join(base, `index${extension}`)),
+        ...EXTENSIONS.map((extension) => `${resolvedBase}${extension}`),
+        ...EXTENSIONS.map((extension) => join(resolvedBase, `index${extension}`)),
     ]);
 }
 

@@ -111,7 +111,7 @@ export function useGlossaryActiveTabPath(): string {
 
 export function useEntityQueryParams() {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const response: Record<string, boolean> = {};
+    const response = {};
     if (isHideSiblingMode) {
         response[SEPARATE_SIBLINGS_URL_PARAM] = true;
     }

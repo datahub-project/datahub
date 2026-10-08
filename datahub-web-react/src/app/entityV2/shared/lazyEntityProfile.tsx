@@ -15,27 +15,31 @@ const ProfileFallback = styled.div`
  * modules stay out of the logged-in shell. Search and home only need icons and preview cards.
  * The import() call site must stay in the entity module with a literal path; Rollup will not
  * split a path that is hidden inside this helper.
+ *
+ * Props stay loose so the wrapper assigns to the tab and sidebar component slots. The function
+ * name is the display name because sidebars use the component function itself as a React key.
  */
-export function lazyProfileComponent<P extends object>(
+export function lazyProfileComponent(
     displayName: string,
-    loader: () => Promise<{ default: React.ComponentType<P> }>,
-): React.ComponentType<P> {
+    loader: () => Promise<{ default: React.ComponentType<any> }>,
+): React.FunctionComponent<any> {
     const LazyComponent = React.lazy(loader);
-
-    function ProfileComponent(props: P) {
-        return (
-            <Suspense
-                fallback={
-                    <ProfileFallback>
-                        <Loader />
-                    </ProfileFallback>
-                }
-            >
-                <LazyComponent {...props} />
-            </Suspense>
-        );
-    }
-
+    const wrappers: Record<string, React.FunctionComponent<any>> = {
+        [displayName](props) {
+            return (
+                <Suspense
+                    fallback={
+                        <ProfileFallback>
+                            <Loader />
+                        </ProfileFallback>
+                    }
+                >
+                    <LazyComponent {...props} />
+                </Suspense>
+            );
+        },
+    };
+    const ProfileComponent = wrappers[displayName];
     ProfileComponent.displayName = displayName;
     return ProfileComponent;
 }
