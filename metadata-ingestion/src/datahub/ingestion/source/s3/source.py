@@ -2,7 +2,6 @@ import dataclasses
 import functools
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
@@ -322,16 +321,7 @@ class S3Source(StatefulIngestionSourceBase):
             # capabilities of smart_open.
             file = smart_open(table_data.full_path, "rb")
 
-        extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
-
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+        extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
         inferrer = self._get_inferrer(extension, table_data.content_type)
