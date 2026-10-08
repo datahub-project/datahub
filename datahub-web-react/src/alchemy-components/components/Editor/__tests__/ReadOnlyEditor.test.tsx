@@ -87,6 +87,23 @@ describe('read-only editor', () => {
         expect(html).not.toContain("href='//example.com/path'");
     });
 
+    it.each(['\t', '\n', '\r'])('does not treat a slash split by %j as a same-origin link', (breakChar) => {
+        const html = toReadOnlyHtml(`<a href="/${breakChar}/example.com/path">elsewhere</a>`);
+        expect(html).not.toContain('example.com');
+        expect(html).not.toContain('target="_blank"');
+        expect(html).toContain('elsewhere');
+    });
+
+    it('does not download a file url that a tab turns into another host', () => {
+        const html = toReadOnlyHtml(
+            '<span class="file-node" data-file-url="/\t/example.com/openapi/v1/files/secret.pdf" data-file-name="secret"></span>',
+        );
+        expect(html).not.toContain('file-node');
+        expect(html).not.toContain('data-file-url');
+        expect(html).not.toContain('example.com');
+        expect(html).toContain('secret');
+    });
+
     it('does not treat a backslash path as a same-origin link', () => {
         const html = toReadOnlyHtml('<a href="/\\example.com/path">elsewhere</a>');
         expect(html).not.toContain('example.com');

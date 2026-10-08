@@ -10,9 +10,15 @@ import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/
 // already dropped javascript: URLs.
 const SAFE_HREF = /^(https?:|mailto:|\/(?!\/)|#)/i;
 
-/** Browsers treat `\` as `/` in URLs, so `/\host` is protocol-relative `//host`. */
+/**
+ * Browsers treat `\` as `/`, and strip tab, newline, and carriage return before
+ * parsing. `/\host` and `/<tab>/host` are both protocol-relative `//host`.
+ */
 function normalizeHref(href: string): string {
-    return href.trim().replace(/\\/g, '/');
+    return href
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/[\t\n\r]/g, '');
 }
 
 function isSafeHref(href: string): boolean {
