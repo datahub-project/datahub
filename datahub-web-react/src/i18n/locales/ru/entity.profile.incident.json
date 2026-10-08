@@ -46,7 +46,7 @@
     "modal.raiseButton": "Создать",
     "modal.title": "Создать инцидент",
     "modal.titleRequired": "Требуется заголовок.",
-    "modal.typePlaceholder": "Свежесть",
+    "modal.typePlaceholder": "Актуальность",
     "permission.noEditIncidents": "У вас нет прав изменять инциденты для этого ассета.",
     "priority.critical": "Критический",
     "priority.high": "Высокий",
@@ -96,7 +96,7 @@
     "type.custom": "Пользовательский",
     "type.dataset": "Другое",
     "type.field": "Столбец",
-    "type.freshness": "Свежесть",
+    "type.freshness": "Актуальность",
     "type.operational": "Операционный",
     "type.schema": "Схема",
     "type.volume": "Объём"
