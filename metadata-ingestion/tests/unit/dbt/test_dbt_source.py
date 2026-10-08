@@ -2548,34 +2548,6 @@ def test_dbt_core_load_exposures():
     assert exposures[0].name == "test_exposure"
 
 
-def test_dbt_cloud_load_exposures():
-    """Test that DBTCloudSource.load_exposures returns stored exposures."""
-    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
-
-    config_dict = {
-        "account_id": "123456",
-        "project_id": "1234567",
-        "job_id": "999999",
-        "token": "test_token",
-        "target_platform": "postgres",
-    }
-    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
-
-    source = object.__new__(DBTCloudSource)
-    source.config = config
-    source._exposures = [
-        DBTExposure(
-            name="cloud_exposure",
-            unique_id="exposure.cloud.cloud_exposure",
-            type="dashboard",
-        )
-    ]
-
-    exposures = source.load_exposures()
-    assert len(exposures) == 1
-    assert exposures[0].name == "cloud_exposure"
-
-
 def test_create_exposure_mcps_basic():
     """Test create_exposure_mcps using real DBTCoreSource to get actual coverage."""
     ctx = PipelineContext(run_id="test-run-id")

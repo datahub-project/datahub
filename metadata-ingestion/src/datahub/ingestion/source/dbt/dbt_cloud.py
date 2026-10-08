@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -38,7 +38,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetricsParse,
     DBTNode,
+    DBTProject,
     DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
@@ -689,7 +691,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
         return filtered_job_ids
 
-    def load_nodes(self) -> List[DBTNode]:
+    def _fetch_nodes_and_exposures(self) -> Tuple[List[DBTNode], List[DBTExposure]]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
         # jobs that do a full / mostly full build of the project, and will
@@ -706,7 +708,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
                 logger.warning("No jobs discovered in auto-discovery mode")
-                return []
+                return [], []
             run_id = None  # Always use latest run in auto-discovery
         else:
             assert self.config.job_id is not None
@@ -780,7 +782,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         break
 
         # Parse exposures
-        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+        exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
         # Track semantic model count
         semantic_model_count = sum(
@@ -796,7 +798,25 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         for node in nodes:
             node.artifact_props = artifact_props
 
-        return nodes
+        return nodes, exposures
+
+    def load_projects(self) -> Iterator[DBTProject]:
+        nodes, exposures = self._fetch_nodes_and_exposures()
+        yield DBTProject(
+            nodes=nodes,
+            exposures=exposures,
+            # dbt Cloud's Discovery API exposes no top-level metrics block;
+            # see report_metric_source_limitations.
+            metrics=DBTMetricsParse(),
+            platform_instance=self.config.platform_instance,
+            # No manifest metadata; the semantic-model path infers the project
+            # name from the nodes' packageName.
+            project_name=None,
+            manifest_path=None,
+            artifact_props={"account_id": str(self.config.account_id)},
+            catalog_generated_at=None,
+            manifest_generated_at=None,
+        )
 
     def _extract_code_fields(
         self, node: Dict, materialization: Optional[str]

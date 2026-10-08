@@ -213,7 +213,10 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        project = next(source.load_projects())
+        assert project.artifact_props == {"account_id": "123456"}
+        assert project.platform_instance == source.config.platform_instance
+        nodes = project.nodes
 
         # Assertions
         # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
@@ -290,7 +293,7 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
         assert len(nodes) == 4
@@ -329,7 +332,7 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         # mock_graphql_response fixture returns 1 model + 1 semantic model per job
         assert len(nodes) == 2
@@ -372,7 +375,7 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         assert len(nodes) == 0
 
@@ -404,7 +407,7 @@ class TestExplicitModeComparison:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        source.load_nodes()
+        next(source.load_projects())
 
         # Verify run_id=999 was used in all GraphQL calls
         for call in mock_graphql.call_args_list:
@@ -442,7 +445,7 @@ class TestExplicitModeComparison:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        source.load_nodes()
+        next(source.load_projects())
 
         # Verify run_id=None was used (latest run)
         for call in mock_graphql.call_args_list:
@@ -473,7 +476,7 @@ class TestExplicitModeComparison:
         ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
         source_explicit = DBTCloudSource(config_explicit, ctx)
 
-        nodes_explicit = source_explicit.load_nodes()
+        nodes_explicit = next(source_explicit.load_projects()).nodes
 
         # Auto-discovery mode
         mock_get_envs.return_value = [
@@ -493,7 +496,7 @@ class TestExplicitModeComparison:
         )
         source_auto = DBTCloudSource(config_auto, ctx)
 
-        nodes_auto = source_auto.load_nodes()
+        nodes_auto = next(source_auto.load_projects()).nodes
 
         # Verify metadata differences
         # Note: Based on the diff, job_id was removed from additional_metadata
@@ -533,7 +536,7 @@ class TestMetadataConsistency:
         )
         ctx_explicit = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_explicit = DBTCloudSource(config_explicit, ctx_explicit)
-        nodes_explicit = source_explicit.load_nodes()
+        nodes_explicit = next(source_explicit.load_projects()).nodes
 
         # Reset mock call count
         mock_graphql.reset_mock()
@@ -556,7 +559,7 @@ class TestMetadataConsistency:
         )
         ctx_auto = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_auto = DBTCloudSource(config_auto, ctx_auto)
-        nodes_auto = source_auto.load_nodes()
+        nodes_auto = next(source_auto.load_projects()).nodes
 
         # Verify both modes produce the same nodes
         assert len(nodes_explicit) == len(nodes_auto)
@@ -629,7 +632,7 @@ class TestAutoDiscoveryWithPatterns:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        source.load_nodes()
+        next(source.load_projects())
 
         # Should only query jobs 1001 and 1002
         job_ids_queried = {
@@ -677,7 +680,7 @@ class TestAutoDiscoveryWithPatterns:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        source.load_nodes()
+        next(source.load_projects())
 
         # Should query jobs 100 and 300, but not 200
         job_ids_queried = {
@@ -709,7 +712,7 @@ class TestAutoDiscoveryErrorHandling:
 
         # Should raise the error
         with pytest.raises(ValueError, match="Environment API error"):
-            source.load_nodes()
+            next(source.load_projects())
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
@@ -735,7 +738,7 @@ class TestAutoDiscoveryErrorHandling:
 
         # Should raise the error
         with pytest.raises(ValueError, match="Jobs API error"):
-            source.load_nodes()
+            next(source.load_projects())
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
@@ -768,7 +771,7 @@ class TestAutoDiscoveryErrorHandling:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         # Should have no nodes
         assert len(nodes) == 0
@@ -808,7 +811,7 @@ class TestSourceFreshnessExtraction:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         # Should have 2 source nodes
         assert len(nodes) == 2
@@ -847,7 +850,7 @@ class TestSourceFreshnessExtraction:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes = source.load_nodes()
+        nodes = next(source.load_projects()).nodes
 
         # Verify freshness extracted
         source_nodes = [n for n in nodes if n.node_type == "source"]
