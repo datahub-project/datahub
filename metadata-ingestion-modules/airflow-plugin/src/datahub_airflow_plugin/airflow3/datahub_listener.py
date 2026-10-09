@@ -431,6 +431,7 @@ class DataHubListener:
         self._dataset_filter = DatasetFilter(
             pattern=config.dataset_pattern,
             bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
+            capture_bigquery_temp_datasets=config.capture_bigquery_temp_datasets,
         )
 
     def _get_emitter(self):

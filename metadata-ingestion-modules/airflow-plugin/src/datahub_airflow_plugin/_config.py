@@ -105,9 +105,13 @@ class DatahubLineageConfig(ConfigModel):
     # Airflow Assets or manual inlets/outlets are always kept.
     capture_ol_file_datasets: bool = False
 
-    # BigQuery datasets starting with this prefix are hidden or anonymous
-    # (query results, scripts, sessions) and are dropped, matching the BigQuery
-    # source's temp_table_dataset_prefix. Empty keeps them.
+    # If false (default), BigQuery tables in hidden or anonymous datasets (query
+    # results, scripts, sessions) are dropped. A boolean rather than an empty
+    # prefix, because managed Airflow (e.g. MWAA) rejects empty config values.
+    capture_bigquery_temp_datasets: bool = False
+
+    # Dataset-name prefix that marks those hidden datasets, matching the
+    # BigQuery source's temp_table_dataset_prefix.
     bigquery_temp_table_dataset_prefix: str = "_"
 
     log_level: Optional[str]
@@ -220,6 +224,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     capture_ol_file_datasets = conf.get(
         "datahub", "capture_ol_file_datasets", fallback=False
     )
+    capture_bigquery_temp_datasets = conf.get(
+        "datahub", "capture_bigquery_temp_datasets", fallback=False
+    )
     bigquery_temp_table_dataset_prefix = conf.get(
         "datahub", "bigquery_temp_table_dataset_prefix", fallback="_"
     )
@@ -251,6 +258,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         dataset_pattern=dataset_pattern,
         normalize_object_storage_urns=normalize_object_storage_urns,
         capture_ol_file_datasets=capture_ol_file_datasets,
+        capture_bigquery_temp_datasets=capture_bigquery_temp_datasets,
         bigquery_temp_table_dataset_prefix=bigquery_temp_table_dataset_prefix,
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,

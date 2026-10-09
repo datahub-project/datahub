@@ -24,10 +24,12 @@ def _filter_key(dataset_urn: DatasetUrn) -> str:
 class DatasetFilter:
     pattern: AllowDenyPattern
     bigquery_temp_table_dataset_prefix: str
+    capture_bigquery_temp_datasets: bool = False
 
     def is_noop(self) -> bool:
-        return (
-            self.pattern.is_allow_all() and not self.bigquery_temp_table_dataset_prefix
+        return self.pattern.is_allow_all() and (
+            self.capture_bigquery_temp_datasets
+            or not self.bigquery_temp_table_dataset_prefix
         )
 
     def allowed(self, dataset_urn: DatasetUrn) -> bool:
@@ -37,7 +39,7 @@ class DatasetFilter:
 
     def _is_bigquery_temp(self, dataset_urn: DatasetUrn) -> bool:
         prefix = self.bigquery_temp_table_dataset_prefix
-        if not prefix:
+        if self.capture_bigquery_temp_datasets or not prefix:
             return False
         if dataset_urn.get_data_platform_urn().platform_name != BIGQUERY_PLATFORM:
             return False

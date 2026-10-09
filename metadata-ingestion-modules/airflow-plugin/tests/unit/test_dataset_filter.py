@@ -94,7 +94,7 @@ def test_allow_all_leaves_datajob_untouched() -> None:
     assert datajob.outlets == [OUTPUT]
 
 
-def test_bigquery_hidden_datasets_dropped_unless_prefix_cleared() -> None:
+def test_bigquery_hidden_datasets_dropped_unless_captured() -> None:
     hidden = [
         DatasetUrn("bigquery", "my_project._6f2a9c.anon"),
         DatasetUrn("bigquery", "my_project._script7a1.tmp"),
@@ -108,12 +108,13 @@ def test_bigquery_hidden_datasets_dropped_unless_prefix_cleared() -> None:
     apply_dataset_filter(datajob, DENY)
     assert datajob.inlets == [named, KEPT]
 
-    # Clearing the prefix keeps hidden datasets. Use a real pattern so the
-    # filter actually runs instead of short-circuiting as a no-op.
+    # capture_bigquery_temp_datasets keeps them while the prefix stays set. Use
+    # a real pattern so the filter runs instead of short-circuiting as a no-op.
     datajob = _datajob(inlets=[*hidden, KEPT, TMP_FILE], outlets=[OUTPUT])
     keep_hidden = DatasetFilter(
         pattern=AllowDenyPattern(deny=[r"file:.*"]),
-        bigquery_temp_table_dataset_prefix="",
+        bigquery_temp_table_dataset_prefix="_",
+        capture_bigquery_temp_datasets=True,
     )
     apply_dataset_filter(datajob, keep_hidden)
     assert datajob.inlets == [*hidden, KEPT]
