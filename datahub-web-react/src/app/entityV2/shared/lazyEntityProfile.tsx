@@ -57,6 +57,12 @@ function ProfileChunkFallback() {
     );
 }
 
+type ChunkModule = { default: React.ComponentType<any> };
+
+export type LazyProfileComponent = React.FunctionComponent<any> & {
+    preload: () => Promise<ChunkModule>;
+};
+
 /**
  * Profile tabs, sidebars, and embedded profiles are rendered through this wrapper so their
  * modules stay out of the logged-in shell. Search and home only need icons and preview cards.
@@ -65,12 +71,19 @@ function ProfileChunkFallback() {
  *
  * Props stay loose so the wrapper assigns to the tab and sidebar component slots. Sidebars key
  * sections by displayName, so each wrapper sets that to the component name.
+ *
+ * `preload` starts that same import. The wrapper always renders the lazy component, so a
+ * later parent render keeps the mounted section instead of swapping in another element type.
  */
-export function lazyProfileComponent(
-    displayName: string,
-    loader: () => Promise<{ default: React.ComponentType<any> }>,
-): React.FunctionComponent<any> {
-    const LazyComponent = React.lazy(loader);
+export function lazyProfileComponent(displayName: string, loader: () => Promise<ChunkModule>): LazyProfileComponent {
+    let pending: Promise<ChunkModule> | undefined;
+
+    function load() {
+        pending ??= loader();
+        return pending;
+    }
+
+    const LazyComponent = React.lazy(load);
 
     function ProfileComponent(props: any) {
         return (
@@ -88,6 +101,5 @@ export function lazyProfileComponent(
         );
     }
 
-    ProfileComponent.displayName = displayName;
-    return ProfileComponent;
+    return Object.assign(ProfileComponent, { displayName, preload: load });
 }

@@ -3,11 +3,16 @@ import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { Routes } from '@app/Routes';
+import { EmbeddedProfile, SidebarEntityHeader } from '@app/entityV2/shared/profileChunks';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 test('renders embed page properly', async () => {
-    const { getByText } = render(
+    // The dataset name is rendered inside these React.lazy chunks. Load them before render
+    // so findByText only has to wait for the GraphQL mock to resolve.
+    await Promise.all([EmbeddedProfile.preload(), SidebarEntityHeader.preload()]);
+
+    const { findByText } = render(
         <MockedProvider mocks={mocks} addTypename={false}>
             <TestPageContainer initialEntries={['/embed/dataset/urn:li:dataset:3']}>
                 <Routes />
@@ -15,7 +20,7 @@ test('renders embed page properly', async () => {
         </MockedProvider>,
     );
 
-    await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+    expect(await findByText('Yet Another Dataset')).toBeInTheDocument();
 }, 30_000);
 
 test('shows 404 for missing mfe route when some mfes are active', async () => {

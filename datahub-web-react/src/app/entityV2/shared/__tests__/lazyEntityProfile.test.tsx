@@ -27,6 +27,45 @@ describe('lazyProfileComponent', () => {
         expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
     });
 
+    it('renders the preloaded chunk', async () => {
+        const LazySection = lazyProfileComponent('ExampleSection', () =>
+            Promise.resolve({ default: () => <div>Loaded profile section</div> }),
+        );
+
+        await LazySection.preload();
+
+        renderProfile(<LazySection />);
+        expect(await screen.findByText('Loaded profile section')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
+    });
+
+    it('keeps the loaded section mounted when its parent re-renders', async () => {
+        let mounts = 0;
+        const LazySection = lazyProfileComponent('ExampleSection', () =>
+            Promise.resolve({
+                default: function Section() {
+                    React.useEffect(() => {
+                        mounts += 1;
+                    }, []);
+                    return <div>Loaded profile section</div>;
+                },
+            }),
+        );
+
+        const { rerender } = renderProfile(<LazySection />);
+        expect(await screen.findByText('Loaded profile section')).toBeInTheDocument();
+        const mountsAfterLoad = mounts;
+
+        rerender(
+            <CustomThemeProvider>
+                <LazySection />
+            </CustomThemeProvider>,
+        );
+
+        expect(screen.getByText('Loaded profile section')).toBeInTheDocument();
+        expect(mounts).toBe(mountsAfterLoad);
+    });
+
     it('asks for a page reload when the profile chunk fails', async () => {
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         const LazySection = lazyProfileComponent('BrokenSection', () => Promise.reject(new Error('chunk failed')));
