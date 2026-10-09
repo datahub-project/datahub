@@ -478,7 +478,10 @@ export const IntroduceYourselfMainContent = () => {
                                     </SelectTag>
                                 ))
                             )}
-                            {overflowPlatformCount > 0 && <OverflowTag>{overflowPlatformCount}+</OverflowTag>}
+                            {overflowPlatformCount > 0 && (
+                                // eslint-disable-next-line i18next/no-literal-string -- visual truncation indicator, not translatable UI text
+                                <OverflowTag>{overflowPlatformCount}+</OverflowTag>
+                            )}
                         </PlatformTags>
                         <DropdownCaret size={16} $open={isPlatformDropdownOpen} />
                     </PlatformSelectTrigger>

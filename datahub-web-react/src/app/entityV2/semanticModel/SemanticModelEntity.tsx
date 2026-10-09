@@ -7,25 +7,33 @@ import React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import SemanticModelPreview from '@app/entityV2/semanticModel/preview/SemanticModelPreview';
-import { DefinitionTab } from '@app/entityV2/semanticModel/profile/DefinitionTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    EntityProfile,
+    LineageTab,
+    PropertiesTab,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetSemanticModelQuery } from '@graphql/semanticModel.generated';
 import { EntityType, SearchResult, SemanticModel } from '@types';
+
+const DefinitionTab = lazyProfileComponent('DefinitionTab', () =>
+    import('@app/entityV2/semanticModel/profile/DefinitionTab').then((module) => ({
+        default: module.DefinitionTab,
+    })),
+);
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE]);
 
