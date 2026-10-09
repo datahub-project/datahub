@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Optional, TypedDict
 
@@ -27,6 +28,16 @@ class CommitInfo(TypedDict):
     pr: Optional[str]
     url: Optional[str]  # commit page, when the repo URL is known
     pr_url: Optional[str]
+
+
+# Finding labels that name one aspect, as opposed to a list such as
+# "a, b, c +2 more" or an event label such as "Evt (event)".
+_SINGLE_ASPECT_RE = re.compile(r"\w+")
+
+
+def single_aspect(label: Optional[str]) -> Optional[str]:
+    """`label` if it names exactly one aspect, else None."""
+    return label if label and _SINGLE_ASPECT_RE.fullmatch(label) else None
 
 
 VERDICT_FEASIBLE = "feasible_as_is"

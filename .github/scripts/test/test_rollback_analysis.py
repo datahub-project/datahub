@@ -977,6 +977,24 @@ class TestMainTargetDefault:
             cli.main(["--current", "a", "--target", "b", "--output", out, "--repo-url", "https://github.com/o/given"])
             assert run.call_args.args[2] == "https://github.com/o/given"
 
+    def test_schema_diff_reaches_both_outputs(self, tmp_path):
+        out = tmp_path / "report.md"
+        diff = {"aspects_added": [{"aspect": "newAspect", "entities": ["dataset"]}]}
+        with patch.object(pipeline, "run", return_value=([_finding()], "abc1234567", "def1234567")), \
+             patch.object(pipeline, "schema_diff", return_value=diff):
+            cli.main(["--current", "a", "--target", "b", "--output", str(out), "--json"])
+        assert "| `newAspect` | ❌ missing | ✅ added | `dataset` |" in out.read_text()
+        assert json.loads((tmp_path / "report.json").read_text())["schema_diff"] == diff
+
+    def test_unavailable_schema_diff_is_reported(self, tmp_path, capsys):
+        out = tmp_path / "report.md"
+        with patch.object(pipeline, "run", return_value=([_finding()], "abc1234567", "def1234567")), \
+             patch.object(pipeline, "schema_diff", return_value=None):
+            cli.main(["--current", "a", "--target", "b", "--output", str(out), "--json"])
+        assert "schema diff skipped" in capsys.readouterr().err
+        assert "## Schema Diff (N vs N-1)\n\n_Not available:" in out.read_text()
+        assert "error" in json.loads((tmp_path / "report.json").read_text())["schema_diff"]
+
     def test_json_report_never_overwrites_markdown(self, tmp_path):
         out = tmp_path / "report"
         with patch.object(
@@ -2060,6 +2078,11 @@ class TestN1Summary:
 
 
 class TestSchemaDiff:
+    def test_single_aspect_labels(self):
+        assert model.single_aspect("moreInfo") == "moreInfo"
+        assert model.single_aspect("a, b, c +2 more") is None
+        assert model.single_aspect("Evt (event)") is None
+
     def test_lists_only_differences(self):
         reg_n1 = "entities:\n  - name: dataset\n    keyAspect: datasetKey\n    aspects:\n      - status\n"
         reg_n = (reg_n1 + "      - forms\n      - dataProducts\n"

@@ -113,6 +113,10 @@ def main(argv: Optional[list[str]] = None) -> None:
         print(f"Warning: {warning}", file=sys.stderr)
 
     diff = pipeline.schema_diff(args.current, args.target, findings)
+    if diff is None:
+        error = "couldn't read the entity registry or PDL files at both refs"
+        print(f"Warning: schema diff skipped: {error}", file=sys.stderr)
+        diff = {"error": error}
     md = report.render_rollback_report(
         findings, args.current, args.target, current_sha, target_sha, warning, diff
     )

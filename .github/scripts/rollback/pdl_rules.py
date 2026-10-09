@@ -664,56 +664,43 @@ def classify_pdl_for_rollback(
     if current_content and not target_content:
         owners = entity_owners(aspect_name, current, target, read)
         restore = "The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+        names = ", ".join(f"`{e}`" for e in owners.new)
         if owners.new and not owners.existing:
-            names = ", ".join(f"`{e}`" for e in owners.new)
-            findings.append(
-                _finding(
-                    origin,
-                    model.EXPECTED_LOSS,
-                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
-                    "New file in N",
-                    f"part of {names}, an entity type new in N",
-                    subject=", ".join(owners.new),
-                    detail=(
-                        f"{names} is new in N, so N-1 can't read, write or index these "
-                        "entities at all: its APIs return not found or unknown "
-                        f"entity, and GraphQL returns null. {restore}"
-                    ),
-                )
+            note = f"part of {names}, an entity type new in N"
+            explain = (
+                f"{names} is new in N, so N-1 can't read, write or index these "
+                "entities at all: its APIs return not found or unknown "
+                "entity, and GraphQL returns null."
             )
-            return findings
-        if owners.new:
-            names = ", ".join(f"`{e}`" for e in owners.new)
+        elif owners.new:
             existing = ", ".join(f"`{e}`" for e in owners.existing)
-            findings.append(
-                _finding(
-                    origin,
-                    model.EXPECTED_LOSS,
-                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
-                    "New file in N",
-                    f"part of {names}, an entity type new in N, and of existing entity types",
-                    subject=", ".join(owners.new),
-                    detail=(
-                        f"N-1 reads {existing} entities without this aspect; only "
-                        "requests that name it fail. But "
-                        f"{names} is new in N, so N-1 can't read, write or index those "
-                        f"entities at all. {restore}"
-                    ),
-                )
+            note = f"part of {names}, an entity type new in N, and of existing entity types"
+            explain = (
+                f"N-1 reads {existing} entities without this aspect; only "
+                "requests that name it fail. But "
+                f"{names} is new in N, so N-1 can't read, write or index those "
+                "entities at all."
             )
-            return findings
+        else:
+            note = "absent in N-1 (N-1 rejects writes to it)"
+            explain = (
+                "N-1 reads these entities without this aspect, so its UI and "
+                "normal API reads work; only requests that name this aspect, "
+                "such as scripts or clients built for N, fail."
+            )
         findings.append(
             _finding(
                 origin,
                 model.EXPECTED_LOSS,
-                model.impact(model.OK, model.FAILS, model.LOSS_NO),
-                "New file in N",
-                "absent in N-1 (N-1 rejects writes to it)",
-                detail=(
-                    "N-1 reads these entities without this aspect, so its UI and "
-                    "normal API reads work; only requests that name this aspect, "
-                    f"such as scripts or clients built for N, fail. {restore}"
+                model.impact(
+                    model.API_FAILS if owners.new else model.OK,
+                    model.FAILS,
+                    model.LOSS_NO,
                 ),
+                "New file in N",
+                note,
+                subject=", ".join(owners.new) or None,
+                detail=f"{explain} {restore}",
             )
         )
         return findings
@@ -1178,13 +1165,7 @@ def schema_diff(
     for f in findings:
         if f.dimension not in (model.DIM_PDL_SCHEMA, model.DIM_SCHEMA_VERSION):
             continue
-        own = (
-            f.aspect_name
-            if f.aspect_name
-            and ", " not in f.aspect_name
-            and "more" not in f.aspect_name
-            else None
-        )
+        own = model.single_aspect(f.aspect_name)
         for aspect in ([own] if own else []) + list(f.affected_aspects):
             if aspect in ver_n and aspect in ver_t:
                 changes.setdefault(aspect, []).append(f)

@@ -96,13 +96,7 @@ def _n1_summary(findings: list[model.RollbackFinding]) -> list[str]:
     def where(f: model.RollbackFinding) -> list[str]:
         # A nested record's row shows a shortened list of the aspects using it;
         # an aspect's own row names it, plus any aspects that embed it.
-        own = (
-            f.aspect_name
-            if f.aspect_name
-            and ", " not in f.aspect_name
-            and "more" not in f.aspect_name
-            else None
-        )
+        own = model.single_aspect(f.aspect_name)
         return ([own] if own else []) + list(f.affected_aspects)
 
     def new_entity(f: model.RollbackFinding) -> bool:
@@ -347,7 +341,14 @@ def render_rollback_report(
     if reindex_findings:
         lines.extend(_render_reindex_section(reindex_findings))
 
-    if diff:
+    if diff and diff.get("error"):
+        lines += [
+            "## Schema Diff (N vs N-1)",
+            "",
+            f"_Not available: {diff['error']}_",
+            "",
+        ]
+    elif diff:
         lines.extend(_render_schema_diff(diff, current, target))
 
     return "\n".join(lines) + "\n"
