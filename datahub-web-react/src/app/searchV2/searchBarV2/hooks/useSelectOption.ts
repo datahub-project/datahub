@@ -6,7 +6,7 @@ import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig } from '@app/useAppConfig';
 import analytics, { Event, EventType } from '@src/app/analytics';
-import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/entityData';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { FacetFilterInput } from '@src/types.generated';

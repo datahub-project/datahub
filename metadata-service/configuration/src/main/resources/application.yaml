@@ -1647,6 +1647,13 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  deleteOrphanedDocumentChildren:
+    # One-time soft-delete of live documents whose parent is soft-deleted or missing.
+    # Calls DocumentService.deleteDocument, so nested documents under each orphan go too.
+    enabled: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_ENABLED:true}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_REPROCESS:false}
+    batchSize: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_BATCH_SIZE:1000}
   viewEntityQueriesPrivilege:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
