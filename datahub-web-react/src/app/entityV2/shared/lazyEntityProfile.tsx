@@ -63,13 +63,15 @@ function ProfileChunkFallback() {
  * The import() call site must stay next to a literal path; Rollup will not split a variable path
  * hidden inside this helper.
  *
- * Props stay loose so the wrapper assigns to the tab and sidebar component slots. Sidebars key
- * sections by displayName, so each wrapper sets that to the component name.
+ * The wrapper is typed as the component it loads, so callers keep its real props and generics
+ * (e.g. inline `tabs` passed to `EntityProfile` are checked against `EntityTab`). Loaded components
+ * must be plain function components: the wrapper forwards no refs and copies no statics. Sidebars
+ * key sections by displayName, so each wrapper sets that to the component name.
  */
-export function lazyProfileComponent(
+export function lazyProfileComponent<C extends React.FunctionComponent<any>>(
     displayName: string,
-    loader: () => Promise<{ default: React.ComponentType<any> }>,
-): React.FunctionComponent<any> {
+    loader: () => Promise<{ default: C }>,
+): C {
     const LazyComponent = React.lazy(loader);
 
     function ProfileComponent(props: any) {
@@ -89,5 +91,6 @@ export function lazyProfileComponent(
     }
 
     ProfileComponent.displayName = displayName;
-    return ProfileComponent;
+    // Props are forwarded unchanged, so the wrapper can stand in for the loaded component.
+    return ProfileComponent as unknown as C;
 }

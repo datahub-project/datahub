@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -46,7 +47,7 @@ export function getLineageUrl(
     location: ReturnType<typeof useLocation>,
     entityRegistry: EntityRegistry,
 ) {
-    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
+    return `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.LINEAGE}${location.search}`;
 }
 
 export function useGetLineageUrl(urn?: string, type?: EntityType) {

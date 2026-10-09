@@ -14,6 +14,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { ChartPreview } from '@app/entityV2/chart/preview/ChartPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -146,6 +147,7 @@ export class ChartEntity implements Entity<Chart> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ChartSummaryTab,
                 icon: SUMMARY_TAB_ICON,
                 display: showSummaryTab
@@ -162,6 +164,7 @@ export class ChartEntity implements Entity<Chart> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -169,6 +172,7 @@ export class ChartEntity implements Entity<Chart> {
                 : []),
             {
                 name: i18next.t('entity.types:chart.fieldsTab'),
+                path: EntityTabPath.FIELDS,
                 component: InputFieldsTab,
                 icon: Layout,
                 display: {
@@ -178,6 +182,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -191,6 +196,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -200,11 +206,13 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:dashboard.namePlural'),
+                path: EntityTabPath.DASHBOARDS,
                 component: ChartDashboardsTab,
                 icon: Gauge,
                 display: {
@@ -214,6 +222,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 getCount: (_, chart, loading) => {
                     return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                 },

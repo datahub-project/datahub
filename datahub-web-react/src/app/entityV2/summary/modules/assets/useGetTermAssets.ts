@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { FIELD_GLOSSARY_TERMS_FILTER_NAME, GLOSSARY_TERMS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -69,7 +70,7 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
     );
 
     const navigateToAssetsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Assets`);
+        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.RELATED_ASSETS}`);
     };
 
     return { originEntities, entities, loading, error, total, fetchAssets, navigateToAssetsTab };
