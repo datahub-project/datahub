@@ -3,6 +3,7 @@ import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useIsEmbeddedProfile } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -110,7 +111,8 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
     const code = showFormatted ? formattedLogic || statement : statement;
     const codeLanguage = language?.toLowerCase() ?? DEFAULT_LANGUAGE;
     const onLanguageChange = (value: string) => setShowFormatted(value === FORMATTED_OPTION);
-    const openFullProfile = () => window.open(`${externalUrl}/View Definition`, '_blank', 'noopener,noreferrer');
+    const openFullProfile = () =>
+        window.open(`${externalUrl}/${EntityTabPath.VIEW_DEFINITION}`, '_blank', 'noopener,noreferrer');
 
     return (
         <SidebarSection

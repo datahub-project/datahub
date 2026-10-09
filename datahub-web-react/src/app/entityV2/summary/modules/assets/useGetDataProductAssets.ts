@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -65,7 +66,7 @@ export const useGetDataProductAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH
     );
 
     const navigateToAssetsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Assets`);
+        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.ASSETS}`);
     };
 
     return { originEntities, entities, loading, error, total, fetchAssets, navigateToAssetsTab };

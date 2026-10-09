@@ -13,6 +13,7 @@ import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/RelatedTerm
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -151,6 +152,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.summary'),
+                          path: EntityTabPath.SUMMARY,
                           component: SummaryTab,
                           id: 'asset-summary-tab',
                       },
@@ -160,6 +162,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: FileText,
                       },
@@ -167,12 +170,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 : []),
             {
                 name: i18next.t('entity.types:shared.relatedAssets'),
+                path: EntityTabPath.RELATED_ASSETS,
                 getCount: useGlossaryRelatedAssetsTabCount,
                 component: GlossaryRelatedEntity,
                 icon: SquaresFour,
             },
             {
                 name: i18next.t('entity.types:glossaryTerm.schemaTab'),
+                path: EntityTabPath.SCHEMA,
                 component: SchemaTab,
                 icon: Columns,
                 properties: {
@@ -187,6 +192,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             },
             {
                 name: i18next.t('entity.types:glossaryTerm.relatedTermsTab'),
+                path: EntityTabPath.RELATED_TERMS,
                 getCount: (entityData, _, loading) => {
                     const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
                         return acc + (entityData?.[curr]?.total || 0);
@@ -198,6 +204,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },

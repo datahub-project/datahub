@@ -275,6 +275,7 @@ export const EntityProfile = <T, U>({
     const autoRenderTabs: EntityTab[] =
         entityData?.autoRenderAspects?.map((aspect) => ({
             name: aspect.renderSpec?.displayName || aspect.aspectName,
+            path: aspect.renderSpec?.displayName || aspect.aspectName,
             component: () => (
                 <DynamicTab
                     renderSpec={aspect.renderSpec}
