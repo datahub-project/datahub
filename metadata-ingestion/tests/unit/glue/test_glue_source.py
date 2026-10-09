@@ -556,6 +556,9 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
 
     assert upstreams == []
     assert source.report.num_resource_link_self_referential == 1
+    assert "Resource link owner catalog not mapped" in [
+        w.title for w in source.report.warnings
+    ]
 
 
 CONSUMER_LINK_URN = (
@@ -1496,6 +1499,52 @@ def test_database_resource_link_without_catalog_mapping_keeps_link_urn():
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
         "consumer_inst.test-database.transactions,PROD)"
     ]
+
+
+def test_database_resource_link_same_name_unmapped_owner_warns_once():
+    # Common setup: the link database has the owner's name. Without the owner in
+    # catalog_to_platform_instance every table resolves to its own URN, so no lineage is emitted;
+    # the run report must say so, as one grouped entry rather than one per table.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    second_table = copy.deepcopy(tables_response["TableList"][0])
+    second_table["Name"] = "orders"
+    tables_response["TableList"].append(second_table)
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases_response, {})
+        glue_stubber.add_response(
+            "get_tables", tables_response, {"DatabaseName": "test-database"}
+        )
+        _, tables = source.get_all_databases_and_tables()
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+
+    for name in ("transactions", "orders"):
+        link_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:glue,"
+            f"consumer_inst.test-database.{name},PROD)"
+        )
+        assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_self_referential == 2
+
+    unmapped = [
+        w
+        for w in source.report.warnings
+        if w.title == "Resource link owner catalog not mapped"
+    ]
+    assert len(unmapped) == 1
+    assert len(unmapped[0].context) == 2
 
 
 def test_database_resource_link_preserves_existing_target_table():

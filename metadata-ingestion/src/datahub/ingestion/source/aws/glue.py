@@ -870,12 +870,17 @@ class GlueSource(StatefulIngestionSourceBase):
         if owner_urn == dataset_urn:
             # No catalog mapping resolved the owner to a distinct instance and the link/target names
             # coincide, so the owner URN is the dataset's own URN — a self-upstream edge is
-            # meaningless. Counted so an operator can see cross-account links that produced no
-            # lineage because their owning catalog wasn't mapped in catalog_to_platform_instance.
+            # meaningless. A database-level link hits this for every table it exposes, so surface
+            # it as a warning (grouped by title/message) rather than only a debug log.
             self.report.num_resource_link_self_referential += 1
-            logger.debug(
-                f"Skipping self-referential resource-link lineage for {dataset_urn} "
-                f"(no catalog mapping for target {target.get('CatalogId')})"
+            self.report.warning(
+                title="Resource link owner catalog not mapped",
+                message="A Lake Formation resource link's owning catalog is not in "
+                "catalog_to_platform_instance, so the shared table resolves to the link's own URN "
+                "and no upstream lineage or owner schema is emitted for it. Add the owning "
+                "account (arn:<partition>:glue:<region>:<account_id>) to "
+                "catalog_to_platform_instance.",
+                context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
             return []
 
