@@ -14,7 +14,7 @@ describe('lazyProfileComponent', () => {
         const LazySection = lazyProfileComponent(
             'ExampleSection',
             () =>
-                new Promise((resolve) => {
+                new Promise<{ default: React.ComponentType }>((resolve) => {
                     resolveChunk = resolve;
                 }),
         );
