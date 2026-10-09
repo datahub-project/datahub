@@ -87,7 +87,6 @@ function AddRelatedTermsModal(props: Props) {
     }
 
     const [termSearch, { data: termSearchData }] = useGetSearchResultsLazyQuery();
-    const termSearchResults = termSearchData?.search?.searchResults || [];
 
     const handleSearch = (text: string) => {
         const trimmed = text.trim();
@@ -108,14 +107,14 @@ function AddRelatedTermsModal(props: Props) {
 
     const options: TermOption[] = useMemo(
         () =>
-            termSearchResults
+            (termSearchData?.search?.searchResults || [])
                 .filter((result) => result?.entity?.urn !== entityDataUrn)
                 .map((result: SearchResult) => ({
                     value: result.entity.urn,
                     label: entityRegistry.getDisplayName(result.entity.type, result.entity),
                     entity: result.entity,
                 })),
-        [termSearchResults, entityDataUrn, entityRegistry],
+        [termSearchData?.search?.searchResults, entityDataUrn, entityRegistry],
     );
 
     const combinedOptions: TermOption[] = useMemo(() => {
@@ -157,11 +156,7 @@ function AddRelatedTermsModal(props: Props) {
         (option: TermOption) => (
             <SearchResultContainer>
                 {option.entity && <ParentEntities parentEntities={getParentEntities(option.entity) || []} />}
-                <GlossaryTermPill
-                    name={option.label}
-                    color={generateTermColor(option.value)}
-                    variant="borderless"
-                />
+                <GlossaryTermPill name={option.label} color={generateTermColor(option.value)} variant="borderless" />
             </SearchResultContainer>
         ),
         [generateTermColor],
