@@ -341,6 +341,23 @@ def gen_containers(
         )
         yield parent_container_mcp.as_workunit()
 
+    # dataPlatformInstance goes right after the Container aspect, so that the
+    # container is created with its instance stored and policies scoped by
+    # platform instance apply to its later writes. In a source pipeline,
+    # EnsureDataPlatformInstanceFirstProcessor also moves it ahead of the
+    # Container aspect once browse paths have been generated.
+    yield MetadataChangeProposalWrapper(
+        entityUrn=f"{container_urn}",
+        aspect=DataPlatformInstance(
+            platform=f"{make_data_platform_urn(container_key.platform)}",
+            instance=(
+                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+                if container_key.instance
+                else None
+            ),
+        ),
+    ).as_workunit()
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         aspect=ContainerProperties(
@@ -364,18 +381,6 @@ def gen_containers(
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         aspect=StatusClass(removed=False),
-    ).as_workunit()
-
-    yield MetadataChangeProposalWrapper(
-        entityUrn=f"{container_urn}",
-        aspect=DataPlatformInstance(
-            platform=f"{make_data_platform_urn(container_key.platform)}",
-            instance=(
-                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
-                if container_key.instance
-                else None
-            ),
-        ),
     ).as_workunit()
 
     # Set subtype
