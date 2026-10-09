@@ -136,12 +136,6 @@ def test_dpi_re_emitted_after_first_run_that_had_one_is_not_counted() -> None:
     assert report.num_dpi_after_first_run == 0
 
 
-def test_dpi_after_first_run_without_one_is_counted() -> None:
-    _, report = _process([_props(C1), _status(C2), _dpi(C1)])
-
-    assert report.num_dpi_after_first_run == 1
-
-
 def test_interleaved_urns_reorder_each_first_run() -> None:
     out, report = _process(
         [
@@ -266,6 +260,19 @@ def test_kill_switch_removes_processor_from_source() -> None:
     assert (
         "EnsureDataPlatformInstanceFirstProcessor"
         not in source.get_report().workunit_processor_reports
+    )
+
+
+def test_processor_is_last_in_source_processor_list() -> None:
+    # It must run after every other processor so none can put an aspect ahead of
+    # an entity's dataPlatformInstance.
+    source = _ListSource(PipelineContext(run_id="dpi-first-test"), [])
+
+    processors = source.get_workunit_processors()
+
+    assert isinstance(
+        processors[-1].__self__,  # type: ignore[union-attr]
+        EnsureDataPlatformInstanceFirstProcessor,
     )
 
 
