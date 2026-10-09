@@ -57,6 +57,12 @@ function ProfileChunkFallback() {
     );
 }
 
+type ChunkModule = { default: React.ComponentType<any> };
+
+export type LazyProfileComponent = React.FunctionComponent<any> & {
+    preload: () => Promise<ChunkModule>;
+};
+
 /**
  * Profile tabs, sidebars, and embedded profiles are rendered through this wrapper so their
  * modules stay out of the logged-in shell. Search and home only need icons and preview cards.
@@ -65,14 +71,33 @@ function ProfileChunkFallback() {
  *
  * Props stay loose so the wrapper assigns to the tab and sidebar component slots. Sidebars key
  * sections by displayName, so each wrapper sets that to the component name.
+ *
+ * `preload` starts that same import. Await it before rendering through the wrapper; once
+ * the module has loaded, the wrapper renders it directly.
  */
-export function lazyProfileComponent(
-    displayName: string,
-    loader: () => Promise<{ default: React.ComponentType<any> }>,
-): React.FunctionComponent<any> {
-    const LazyComponent = React.lazy(loader);
+export function lazyProfileComponent(displayName: string, loader: () => Promise<ChunkModule>): LazyProfileComponent {
+    let pending: Promise<ChunkModule> | undefined;
+    let Resolved: React.ComponentType<any> | undefined;
+
+    function load() {
+        pending ??= loader().then((module) => {
+            Resolved = module.default;
+            return module;
+        });
+        return pending;
+    }
+
+    const LazyComponent = React.lazy(load);
 
     function ProfileComponent(props: any) {
+        if (Resolved) {
+            return (
+                <ProfileChunkBoundary>
+                    <Resolved {...props} />
+                </ProfileChunkBoundary>
+            );
+        }
+
         return (
             <ProfileChunkBoundary>
                 <Suspense
@@ -88,6 +113,5 @@ export function lazyProfileComponent(
         );
     }
 
-    ProfileComponent.displayName = displayName;
-    return ProfileComponent;
+    return Object.assign(ProfileComponent, { displayName, preload: load });
 }
