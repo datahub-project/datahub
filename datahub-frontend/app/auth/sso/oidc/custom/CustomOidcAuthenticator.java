@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.Credentials;
@@ -238,11 +239,11 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
         tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
 
+        final long exchangeStartedAtNanos = System.nanoTime();
         final HTTPResponse httpResponse = tokenHttpRequest.send();
-        logger.debug(
-            "Token response: status={}, content={}",
-            httpResponse.getStatusCode(),
-            httpResponse.getContent());
+        logger.info(
+            "OIDC code-for-token exchange completed in {} ms",
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - exchangeStartedAtNanos));
 
         final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
         if (response instanceof TokenErrorResponse) {
