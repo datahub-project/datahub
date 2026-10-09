@@ -21,7 +21,6 @@ const InfoRow = styled.div`
 `;
 
 const INFO_ITEM_WIDTH_PX = '150px';
-// eslint-disable-next-line i18next/no-literal-string -- route tab name identifier, not UI text
 
 export const SidebarViewDefinitionSection = () => {
     const { t } = useTranslation('entity.shared.containers');

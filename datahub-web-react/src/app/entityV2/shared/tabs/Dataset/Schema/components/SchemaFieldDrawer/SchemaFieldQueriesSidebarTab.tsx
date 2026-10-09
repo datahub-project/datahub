@@ -17,8 +17,6 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
-/* eslint-disable-next-line i18next/no-literal-string -- route identifier, not UI text */
-
 interface Props {
     properties: {
         fieldPath: string;
