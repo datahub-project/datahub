@@ -19,6 +19,7 @@ from datahub.api.entities.external.lake_formation_external_entites import (
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
@@ -487,7 +488,9 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target():
     # cross-account glue:GetTable with CatalogId=None (which would surface as a misleading
     # permissions warning).
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
-    del databases_response["DatabaseList"][0]["TargetDatabase"]["CatalogId"]
+    databases_response["DatabaseList"][0]["TargetDatabase"] = {
+        "DatabaseName": "test-database"
+    }
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     del tables_response["TableList"][0]["CatalogId"]
     del tables_response["TableList"][0]["StorageDescriptor"]
@@ -1438,7 +1441,7 @@ def test_ignore_resource_links_filters_table_level_links(
 def _ingest_database_resource_link(
     catalog_to_platform_instance: Dict[str, Dict[str, str]],
     tables_response: Optional[Dict[str, Any]] = None,
-) -> Tuple[GlueSource, List[Dict], List[Any]]:
+) -> Tuple[GlueSource, List[Dict], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
     # DatabaseName and no TargetTable.
@@ -1471,7 +1474,7 @@ def _ingest_database_resource_link(
     return source, tables, wus
 
 
-def _upstream_urns(wus: List[Any], dataset_urn: str) -> List[str]:
+def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
     return [
         upstream.dataset
         for wu in wus
