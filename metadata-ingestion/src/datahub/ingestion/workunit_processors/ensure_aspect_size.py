@@ -117,18 +117,6 @@ def _patch_with_operations(
     )
 
 
-def _largest_fitting_operation_count(
-    mcp: MetadataChangeProposalClass,
-    operations: List[JsonPatchOperation],
-    max_bytes: int,
-) -> int:
-    def fits(count: int) -> bool:
-        chunk = _patch_with_operations(mcp, operations[:count])
-        return _serialized_mcp_size(chunk) <= max_bytes
-
-    return _largest_fitting_prefix(operations, fits)
-
-
 def _chunk_patch(
     mcp: MetadataChangeProposalClass,
     operations: List[JsonPatchOperation],
@@ -141,9 +129,14 @@ def _chunk_patch(
     chunks: List[MetadataChangeProposalClass] = []
     num_dropped_oversized = 0
     offset = 0
+
+    def fits(count: int) -> bool:
+        chunk = _patch_with_operations(mcp, operations[offset : offset + count])
+        return _serialized_mcp_size(chunk) <= max_bytes
+
     while offset < len(operations) and len(chunks) < max_chunks:
         remaining = operations[offset:]
-        count = _largest_fitting_operation_count(mcp, remaining, max_bytes)
+        count = _largest_fitting_prefix(remaining, fits)
         if count == 0:
             num_dropped_oversized += 1
             offset += 1

@@ -272,21 +272,7 @@ def get_rest_emitter_batch_max_payload_length() -> int:
 
 def get_upstream_lineage_patch_max_chunks() -> int:
     """Maximum number of MCPs an oversized upstreamLineage patch is split into."""
-    raw = os.getenv("DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS", "").strip()
-    if not raw:
-        return 1
-    try:
-        max_chunks = int(raw)
-    except ValueError:
-        max_chunks = 0
-    if max_chunks <= 0:
-        logger.warning(
-            "Invalid DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS=%r; expected a positive integer, "
-            "falling back to 1.",
-            raw,
-        )
-        return 1
-    return max_chunks
+    return max(1, _get_int_env("DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS", 1))
 
 
 def get_emit_mode() -> Optional[str]:

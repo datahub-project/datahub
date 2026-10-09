@@ -111,11 +111,17 @@ def test_get_upstream_lineage_patch_max_chunks() -> None:
         assert get_upstream_lineage_patch_max_chunks() == 8
 
 
-@pytest.mark.parametrize("value", ["0", "invalid"])
-def test_get_upstream_lineage_patch_max_chunks_falls_back_on_invalid_values(
-    value: str,
-) -> None:
+def test_get_upstream_lineage_patch_max_chunks_rejects_invalid_values() -> None:
     with patch.dict(
-        os.environ, {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": value}, clear=True
+        os.environ, {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": "0"}, clear=True
     ):
         assert get_upstream_lineage_patch_max_chunks() == 1
+    with (
+        patch.dict(
+            os.environ,
+            {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": "invalid"},
+            clear=True,
+        ),
+        pytest.raises(ValueError),
+    ):
+        get_upstream_lineage_patch_max_chunks()
