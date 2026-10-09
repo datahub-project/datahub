@@ -10,6 +10,7 @@ import {
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -17,7 +18,6 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
-const INCIDENTS_TAB_NAME = 'Incidents';
 
 export default function RaiseIncidentMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
@@ -49,7 +49,7 @@ export default function RaiseIncidentMenuAction() {
                                     entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    INCIDENTS_TAB_NAME,
+                                    EntityTabPath.INCIDENTS,
                                 )}`,
                             );
                         }, 3000);

@@ -9,6 +9,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import SemanticModelPreview from '@app/entityV2/semanticModel/preview/SemanticModelPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -123,6 +124,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: SummaryTab,
                 properties: {
                     hideEditDescription: true,
@@ -130,14 +132,17 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             },
             {
                 name: i18next.t('entity.types:tab.definition'),
+                path: EntityTabPath.DEFINITION,
                 component: DefinitionTab,
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
             },
             {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
             },
         ];

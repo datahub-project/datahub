@@ -22,6 +22,7 @@ import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -195,6 +196,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.summary'),
+                          path: EntityTabPath.SUMMARY,
                           component: SummaryTab,
                           icon: SUMMARY_TAB_ICON,
                       },
@@ -202,12 +204,14 @@ export class DatasetEntity implements Entity<Dataset> {
                 : []),
             {
                 name: i18next.t('common.labels:columns'),
+                path: EntityTabPath.COLUMNS,
                 component: SchemaTab,
                 icon: Layout,
                 getCount: useGetColumnTabCount,
             },
             {
                 name: i18next.t('entity.types:dataset.viewDefinitionTab'),
+                path: EntityTabPath.VIEW_DEFINITION,
                 component: ViewDefinitionTab,
                 icon: Code,
                 display: {
@@ -228,6 +232,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -235,6 +240,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 : []),
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -244,11 +250,13 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
             },
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {
@@ -258,6 +266,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
                 getCount: (_, dataset: GetDatasetQuery) => {
@@ -272,6 +281,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.queries'),
+                path: EntityTabPath.QUERIES,
                 component: QueriesTab,
                 icon: Terminal,
                 display: {
@@ -281,6 +291,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:dataset.statsTab'),
+                path: EntityTabPath.STATS,
                 component: StatsTabWrapper,
                 icon: ChartLine,
                 display: {
@@ -294,11 +305,13 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: getQualityTabName(),
+                path: EntityTabPath.QUALITY,
                 component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 icon: CheckCircle,
             },
             {
                 name: getGovernanceTabName(),
+                path: EntityTabPath.GOVERNANCE,
                 icon: ShieldCheck,
                 component: GovernanceTab,
                 getCount: (_, dataset) => {
@@ -309,6 +322,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.runs'), // TODO: Rename this to DatasetRunsTab.
+                path: EntityTabPath.RUNS,
                 component: OperationsTab,
                 display: {
                     visible: (_, dataset: GetDatasetQuery) => {
@@ -321,6 +335,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dataset) => {

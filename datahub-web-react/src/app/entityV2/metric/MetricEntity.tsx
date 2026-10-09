@@ -8,6 +8,7 @@ import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.util
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import {
     EntityProfile,
@@ -99,6 +100,7 @@ export class MetricEntity implements Entity<Metric> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: SummaryTab,
                 properties: {
                     hideEditDescription: true,
@@ -106,10 +108,12 @@ export class MetricEntity implements Entity<Metric> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
             },
             {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
             },
         ];

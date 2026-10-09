@@ -15,6 +15,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { DashboardPreview } from '@app/entityV2/dashboard/preview/DashboardPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -151,11 +152,13 @@ export class DashboardEntity implements Entity<Dashboard> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: DashboardChartsTab,
                 icon: SquaresFour,
                 display: {
@@ -167,6 +170,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:dataset.namePlural'),
+                path: EntityTabPath.DATASETS,
                 component: DashboardDatasetsTab,
                 icon: Table,
                 display: {
@@ -178,6 +182,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -185,6 +190,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 : []),
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {
@@ -194,6 +200,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -207,6 +214,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -216,11 +224,13 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dashboard) => {

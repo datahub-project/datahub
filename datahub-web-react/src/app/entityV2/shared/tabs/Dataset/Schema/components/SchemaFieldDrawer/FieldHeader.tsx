@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import NullableLabel, {
     PartitioningKeyLabel,
     PrimaryKeyLabel,
@@ -117,7 +118,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                                 `${entityRegistry.getEntityUrl(
                                     expandedField.schemaFieldEntity?.type,
                                     (expandedField.schemaFieldEntity?.urn as string) || '',
-                                )}/Lineage`
+                                )}/${EntityTabPath.LINEAGE}`
                             }
                         >
                             {displayName.split(FIELD_PATH_SEPARATOR).pop()}

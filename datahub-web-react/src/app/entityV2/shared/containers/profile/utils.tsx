@@ -60,8 +60,8 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
     if (match && match[1]) {
         const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
-        return routedTab;
+        // Fall back to the display name so links built from translated names before tabs had a path keep working.
+        return tabs.find((tab) => tab.path === selectedTabPath) || tabs.find((tab) => tab.name === selectedTabPath);
     }
     // No match found!
     return undefined;

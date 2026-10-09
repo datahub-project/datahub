@@ -232,6 +232,38 @@ export enum EntityProfileTab {
     SUMMARY_TAB = 'SUMMARY_TAB',
 }
 
+/**
+ * Stable URL segments that identify entity profile tabs (`EntityTab.path`). Tab display names are
+ * translated, so always link to a tab by one of these values, never by its name.
+ */
+export enum EntityTabPath {
+    ACCESS = 'Access',
+    ASSETS = 'Assets',
+    COLUMNS = 'Columns',
+    CONTENTS = 'Contents',
+    DASHBOARDS = 'Dashboards',
+    DATA_PRODUCTS = 'Data Products',
+    DATASETS = 'Datasets',
+    DEFINITION = 'Definition',
+    DOCUMENTATION = 'Documentation',
+    FIELDS = 'Fields',
+    GOVERNANCE = 'Governance',
+    INCIDENTS = 'Incidents',
+    LINEAGE = 'Lineage',
+    OUTPUT_PORTS = 'Output Ports',
+    PREVIEW = 'Preview',
+    PROPERTIES = 'Properties',
+    QUALITY = 'Quality',
+    QUERIES = 'Queries',
+    RELATED_ASSETS = 'Related Assets',
+    RELATED_TERMS = 'Related Terms',
+    RUNS = 'Runs',
+    SCHEMA = 'Schema',
+    STATS = 'Stats',
+    SUMMARY = 'Summary',
+    VIEW_DEFINITION = 'View Definition',
+}
+
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
