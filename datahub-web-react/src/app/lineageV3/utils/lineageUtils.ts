@@ -1,27 +1,11 @@
 import { useLocation } from 'react-router-dom';
 
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';
-
-export function downgradeV2FieldPath(fieldPath: string): string;
-export function downgradeV2FieldPath(fieldPath?: string | null) {
-    if (!fieldPath) {
-        return fieldPath;
-    }
-
-    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
-
-    // strip out all annotation segments
-    return cleanedFieldPath
-        .split('.')
-        .map((segment) => (segment.startsWith('[') ? null : segment))
-        .filter(Boolean)
-        .join('.');
-}
 
 export function processDocumentationString(docString): string {
     if (!docString) {

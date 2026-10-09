@@ -12,7 +12,8 @@ import {
     parseColumnRef,
     setDefault,
 } from '@app/lineageV3/common';
-import { downgradeV2FieldPath, getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 
