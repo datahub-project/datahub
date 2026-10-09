@@ -2014,7 +2014,9 @@ class TestSchemaDiff:
         assert diff["aspects_changed"] == [{"aspect": "status", "schema_version": [1, 2],
                                             "changes": ["added field `x`"], "worst_risk": "expected_loss"}]
         md = "\n".join(report._render_schema_diff(diff))
-        assert "### Entities added in N (1)" in md and "| `status` | v1 → v2 | added field `x` | expected_loss |" in md
+        assert "### Entities only in N (1): added in N, missing in N-1" in md
+        assert "| `feedback` | ❌ missing | ✅ added | `feedbackKey` |" in md
+        assert "| `status` | v1 | v2 | added field `x` | expected_loss |" in md
 
     def test_nested_field_changes_are_shortened(self):
         assert report._short_change("in `Rec`: Added field `f` (via includes `X`)") == "added field `Rec.f`"

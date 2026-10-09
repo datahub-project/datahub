@@ -342,7 +342,7 @@ def render_rollback_report(
         lines.extend(_render_reindex_section(reindex_findings))
 
     if diff:
-        lines.extend(_render_schema_diff(diff))
+        lines.extend(_render_schema_diff(diff, current, target))
 
     return "\n".join(lines) + "\n"
 
@@ -484,63 +484,74 @@ def _short_change(change: str) -> str:
     return f"{verb.lower()} field `{record + '.' if record else ''}{field}`"
 
 
-def _render_schema_diff(diff: dict) -> list[str]:
+def _render_schema_diff(
+    diff: dict, current: str = "N", target: str = "N-1"
+) -> list[str]:
     """Entities and aspects that differ between N-1 and N; empty tables are left out."""
+    n, n1 = f"N (`{current}`)", f"N-1 (`{target}`)"
     lines = [
         "## Schema Diff (N vs N-1)",
         "",
-        "_Entities and aspects added, removed or changed in N, from `entity-registry.yml` "
-        "and the PDL files of both releases. Differences only._",
+        f"_**N** = `{current}`, the release you roll back from. **N-1** = `{target}`, "
+        "the release you roll back to. From `entity-registry.yml` and the PDL files of "
+        "both; only differences are listed._",
         "",
     ]
+    start = len(lines)
     if diff.get("entities_added"):
         lines += [
-            f"### Entities added in N ({len(diff['entities_added'])})",
+            f"### Entities only in N ({len(diff['entities_added'])}): added in N, missing in N-1",
             "",
-            "| Entity | Key aspect | Aspects |",
-            "| --- | --- | --- |",
+            f"| Entity | In {n1} | In {n} | Key aspect | Aspects in N |",
+            "| --- | --- | --- | --- | --- |",
         ]
         lines += [
-            f"| `{e['entity']}` | {'`' + e['key_aspect'] + '`' if e['key_aspect'] else '—'} "
-            f"| {_cell_list(e['aspects'])} |"
+            f"| `{e['entity']}` | ❌ missing | ✅ added "
+            f"| {'`' + e['key_aspect'] + '`' if e['key_aspect'] else '—'} | {_cell_list(e['aspects'])} |"
             for e in diff["entities_added"]
         ]
         lines.append("")
     if diff.get("entities_removed"):
         lines += [
-            f"### Entities removed in N ({len(diff['entities_removed'])})",
+            f"### Entities only in N-1 ({len(diff['entities_removed'])}): removed in N",
             "",
-            "| Entity |",
-            "| --- |",
+            f"| Entity | In {n1} | In {n} |",
+            "| --- | --- | --- |",
         ]
-        lines += [f"| `{e}` |" for e in diff["entities_removed"]]
+        lines += [
+            f"| `{e}` | ✅ present | ❌ removed |" for e in diff["entities_removed"]
+        ]
         lines.append("")
     if diff.get("aspects_added"):
         lines += [
-            f"### Aspects added in N ({len(diff['aspects_added'])})",
+            f"### Aspects only in N ({len(diff['aspects_added'])}): added in N, missing in N-1",
             "",
-            "| Aspect | On entities |",
-            "| --- | --- |",
+            f"| Aspect | In {n1} | In {n} | On entities (in N) |",
+            "| --- | --- | --- | --- |",
         ]
         lines += [
-            f"| `{a['aspect']}` | {_cell_list(a['entities'])} |"
+            f"| `{a['aspect']}` | ❌ missing | ✅ added | {_cell_list(a['entities'])} |"
             for a in diff["aspects_added"]
         ]
         lines.append("")
     if diff.get("aspects_removed"):
         lines += [
-            f"### Aspects removed in N ({len(diff['aspects_removed'])})",
+            f"### Aspects only in N-1 ({len(diff['aspects_removed'])}): removed in N",
             "",
-            "| Aspect |",
-            "| --- |",
+            f"| Aspect | In {n1} | In {n} |",
+            "| --- | --- | --- |",
         ]
-        lines += [f"| `{a}` |" for a in diff["aspects_removed"]]
+        lines += [
+            f"| `{a}` | ✅ present | ❌ removed |" for a in diff["aspects_removed"]
+        ]
         lines.append("")
     if diff.get("entity_aspects_changed"):
         lines += [
-            "### Existing aspects added to or removed from entities",
+            "### Existing aspects attached to different entities",
             "",
-            "| Entity | Aspects added | Aspects removed |",
+            "_The aspect exists in both releases; N attaches it to an entity N-1 doesn't, or the reverse._",
+            "",
+            "| Entity | Aspects on it in N only (added) | Aspects on it in N-1 only (removed) |",
             "| --- | --- | --- |",
         ]
         lines += [
@@ -550,14 +561,13 @@ def _render_schema_diff(diff: dict) -> list[str]:
         lines.append("")
     if diff.get("aspects_changed"):
         lines += [
-            f"### Aspects changed ({len(diff['aspects_changed'])})",
+            f"### Aspects in both, changed in N ({len(diff['aspects_changed'])})",
             "",
-            "| Aspect | Schema version (N-1 → N) | What changed | Worst risk |",
-            "| --- | --- | --- | --- |",
+            f"| Aspect | schemaVersion in {n1} | schemaVersion in {n} | What N changed | Worst risk |",
+            "| --- | --- | --- | --- | --- |",
         ]
         for a in diff["aspects_changed"]:
             old, new = a["schema_version"]
-            version = f"v{old} → v{new}" if old != new else f"v{old}"
             items = [_short_change(c) for c in a["changes"]]
             what = (
                 _table_cell(
@@ -567,10 +577,10 @@ def _render_schema_diff(diff: dict) -> list[str]:
                 or "no field-level change found"
             )
             lines.append(
-                f"| `{a['aspect']}` | {version} | {what} | {a['worst_risk']} |"
+                f"| `{a['aspect']}` | v{old} | v{new}{'' if old != new else ' (same)'} | {what} | {a['worst_risk']} |"
             )
         lines.append("")
-    return lines if len(lines) > 5 else []
+    return lines if len(lines) > start else []
 
 
 def render_json_report(
