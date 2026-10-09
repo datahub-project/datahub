@@ -59,11 +59,7 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
 
     return (
         <>
-            <CreateButton
-                onClick={() => setIsCreateModalVisible(true)}
-                variant="text"
-                icon={{ icon: Plus }}
-            >
+            <CreateButton onClick={() => setIsCreateModalVisible(true)} variant="text" icon={{ icon: Plus }}>
                 {t('secret.createButton')}
             </CreateButton>
             {isCreateModalVisible && (
