@@ -12,7 +12,11 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     make_assertion_from_test,
 )
-from datahub.metadata.schema_classes import AssertionSourceTypeClass
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionSourceTypeClass,
+    UpstreamLineageClass,
+)
 
 # Distinct from the schema's unknown-time sentinel. These must not leak into lineage.
 _MANIFEST_GENERATED_AT_MS = 1_700_000_000_000
@@ -60,7 +64,7 @@ def _source_node() -> DBTNode:
     return node
 
 
-def _assert_unknown_lineage_time(lineage) -> None:
+def _assert_unknown_lineage_time(lineage: UpstreamLineageClass) -> None:
     assert lineage.upstreams
     for upstream in lineage.upstreams:
         assert upstream.auditStamp is not None
@@ -185,8 +189,8 @@ def test_assertion_info_is_stable_across_emits() -> None:
         upstream_urn,
     )
 
-    assert first.aspect is not None
-    assert second.aspect is not None
+    assert isinstance(first.aspect, AssertionInfoClass)
+    assert isinstance(second.aspect, AssertionInfoClass)
     assert first.aspect.to_obj() == second.aspect.to_obj()
     assert first.aspect.source is not None
     assert first.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
