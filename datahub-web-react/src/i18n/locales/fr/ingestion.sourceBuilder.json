@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Continuer la configuration",
     "multiStep.builder.discard.description": "Si vous quittez maintenant, votre configuration sera perdue. Vous pouvez continuer la configuration ou quitter et recommencer plus tard",
     "multiStep.builder.discard.title": "Vous avez des modifications non enregistrées",
-    "multiStep.chat.placeholder": "Espace réservé pour le chat IA",
     "multiStep.connection.addOwners": "Ajouter des propriétaires",
     "multiStep.connection.advancedSettings": "Paramètres avancés",
     "multiStep.connection.cannotChangeSourceType": "Il n'est pas possible de modifier le type de source d'une source d'ingestion existante",

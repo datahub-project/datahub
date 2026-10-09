@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 
 import { EntityType } from '@types';
 

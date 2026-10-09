@@ -574,8 +574,8 @@ Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fiel
 **Shared search fields on Search V3:**
 
 Search V3 full-text search and autocomplete read a few shared `_search` fields instead of every searchable field.
-Only these fields are analyzed; the fields under their own names (and under `_aspects`) are keywords, numbers, dates
-and booleans for filters, facets and sorts. Each searchable string field copies into:
+These are the only full-text fields; the fields under their own names (and under `_aspects`) are keywords, numbers,
+dates and booleans for filters, facets and sorts, except the root browse paths, which keep their path analyzers. Each searchable string field copies into:
 
 - the field its `searchLabel` or `entityFieldName` names, for example `_search.entityName` or `_search.qualifiedName`;
 - otherwise, for the fields that name no label, the shared field DataHub declares for its search field name:

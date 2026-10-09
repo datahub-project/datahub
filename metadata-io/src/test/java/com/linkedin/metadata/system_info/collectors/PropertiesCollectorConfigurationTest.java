@@ -950,6 +950,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.datasetAliases.delayMs",
           "systemUpdate.datasetAliases.enabled",
           "systemUpdate.datasetAliases.reprocess.enabled",
+          "systemUpdate.deleteOrphanedDocumentChildren.reprocess.enabled",
           "systemUpdate.domainDescription.batchSize",
           "systemUpdate.domainDescription.delayMs",
           "systemUpdate.domainDescription.enabled",

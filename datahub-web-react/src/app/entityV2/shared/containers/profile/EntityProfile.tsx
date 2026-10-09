@@ -17,13 +17,13 @@ import {
 } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import {
     defaultTabDisplayConfig,
-    getEntityPath,
     getOnboardingStepIdsForEntityType,
     useFinalSidebarTabs,
     useRoutedTab,
