@@ -1,5 +1,5 @@
-import { Modal, message } from 'antd';
-import { useState } from 'react';
+import { toast } from '@components';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
@@ -7,6 +7,7 @@ import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHa
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
 import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -30,9 +31,9 @@ function useDeleteEntity(
     skipWait?: boolean,
 ) {
     const { t } = useTranslation('entity.shared.entityDropdown');
-    const { t: tc } = useTranslation('common.actions');
     const { reloadByKeyType } = useReloadableContext();
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
+    const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
     const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
@@ -48,10 +49,7 @@ function useDeleteEntity(
                     entityType: type,
                 });
                 if (!hideMessage && !skipWait) {
-                    message.loading({
-                        content: t('delete.loading'),
-                        duration: 2,
-                    });
+                    toast.loading(t('delete.loading'), { duration: 2 });
                 }
 
                 if (type === EntityType.Domain) {
@@ -71,12 +69,12 @@ function useDeleteEntity(
                             }));
                         }
                         if (!hideMessage) {
-                            message.success({
-                                content: t('delete.success', {
+                            toast.success(
+                                t('delete.success', {
                                     entityName: entityRegistry.getEntityName(type),
                                 }),
-                                duration: 2,
-                            });
+                                { duration: 2 },
+                            );
                         }
 
                         // Reload modules
@@ -126,30 +124,34 @@ function useDeleteEntity(
                 );
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('delete.error', { errorMessage: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('delete.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
     }
 
     function onDeleteEntity() {
-        Modal.confirm({
-            title: t('delete.confirmTitle', {
+        setIsDeleteModalVisible(true);
+    }
+
+    const DeleteConfirmationModal = (
+        <ConfirmationModal
+            isOpen={isDeleteModalVisible}
+            handleClose={() => setIsDeleteModalVisible(false)}
+            handleConfirm={() => {
+                setIsDeleteModalVisible(false);
+                handleDeleteEntity();
+            }}
+            modalTitle={t('delete.confirmTitle', {
                 entityName:
                     (entityData && entityRegistry.getDisplayName(type, entityData)) ||
                     entityRegistry.getEntityName(type),
-            }),
-            content: t('delete.confirmContent', { entityName: entityRegistry.getEntityName(type) }),
-            onOk() {
-                handleDeleteEntity();
-            },
-            onCancel() {},
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
-    }
+            })}
+            modalText={t('delete.confirmContent', { entityName: entityRegistry.getEntityName(type) })}
+            isDeleteModal
+        />
+    );
 
-    return { onDeleteEntity, hasBeenDeleted };
+    return { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal };
 }
 
 export default useDeleteEntity;

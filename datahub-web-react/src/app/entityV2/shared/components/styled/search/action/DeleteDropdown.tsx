@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -32,18 +32,17 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('searchActions.delete.success'), duration: 2 });
+                    toast.success(t('searchActions.delete.success'), { duration: 2 });
                     setTimeout(() => refetch?.(), 3000);
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('searchActions.delete.error', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urns, e, {
+                    content: t('searchActions.delete.error', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 

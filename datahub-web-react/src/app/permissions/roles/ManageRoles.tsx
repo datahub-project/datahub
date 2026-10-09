@@ -1,4 +1,4 @@
-import { Avatar, Button, Modal, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@components';
+import { Avatar, Button, Modal, Pagination, Pill, SearchBar, Table, Text, Tooltip, toast } from '@components';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,6 @@ import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
 import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
@@ -107,6 +106,12 @@ export const ManageRoles = () => {
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
+    useEffect(() => {
+        if (rolesError) {
+            toast.error(t('roles.loadError'), { duration: 3, key: 'manage-roles-load-error' });
+        }
+    }, [rolesError, t]);
+
     const totalRoles = rolesData?.listRoles?.total || 0;
     const roles = useMemo(() => rolesData?.listRoles?.roles || [], [rolesData]);
     const onViewRole = (role: DataHubRole) => {
@@ -141,7 +146,7 @@ export const ManageRoles = () => {
                         roleUrn: focusRole?.urn,
                         userUrns: actorUrns,
                     });
-                    showToastMessage(ToastType.SUCCESS, t('roles.assignSuccess'), 2);
+                    toast.success(t('roles.assignSuccess'), { duration: 2 });
                     setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
@@ -149,7 +154,7 @@ export const ManageRoles = () => {
                 }
             })
             .catch((e) => {
-                showToastMessage(ToastType.ERROR, t('roles.assignError', { error: e.message || '' }), 3);
+                toast.error(t('roles.assignError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 resetRoleState();
@@ -286,7 +291,6 @@ export const ManageRoles = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesError && showToastMessage(ToastType.ERROR, t('roles.loadError'), 3)}
             <SearchBar
                 placeholder={t('searchRolesPlaceholder')}
                 value={query || ''}

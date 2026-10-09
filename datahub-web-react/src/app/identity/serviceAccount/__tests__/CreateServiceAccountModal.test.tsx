@@ -9,6 +9,22 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 // Mock the GraphQL mutation
 const mockCreateServiceAccount = vi.fn();
 
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
+
 vi.mock('@graphql/auth.generated', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@graphql/auth.generated')>();
     return {
@@ -28,18 +44,6 @@ vi.mock('@app/identity/serviceAccount/cacheUtils', () => ({
 }));
 
 // Mock antd message
-vi.mock('antd', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('antd')>();
-    return {
-        ...actual,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-            destroy: vi.fn(),
-        },
-    };
-});
-
 describe('CreateServiceAccountModal', () => {
     const defaultProps = {
         visible: true,
