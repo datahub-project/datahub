@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
@@ -137,3 +138,39 @@ def test_list_warehouse_tables_404_yields_nothing() -> None:
 
     assert list(client.list_warehouse_tables("ws-1", "wh-1")) == []
     client.report.report_error.assert_not_called()
+
+
+def _http_error_without_response() -> requests.exceptions.HTTPError:
+    error = requests.exceptions.HTTPError("no response")
+    error.response = None
+    return error
+
+
+def test_list_schemas_without_response_does_not_read_status() -> None:
+    client = _client()
+    schema_resp = MagicMock()
+    schema_resp.raise_for_status.side_effect = _http_error_without_response()
+    client._session.get.return_value = schema_resp
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        list(
+            client._list_schemas_via_onelake_api("ws-1", "lh-1", item_label="lakehouse")
+        )
+
+    client.report.report_error.assert_called_once()
+
+
+def test_list_tables_per_schema_without_response_does_not_read_status() -> None:
+    client = _client()
+    table_resp = MagicMock()
+    table_resp.raise_for_status.side_effect = _http_error_without_response()
+    client._session.get.return_value = table_resp
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        list(
+            client._list_tables_per_schema_via_onelake_api(
+                "ws-1", "lh-1", "dbo", item_label="lakehouse"
+            )
+        )
+
+    client.report.report_error.assert_called_once()

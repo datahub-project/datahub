@@ -284,7 +284,11 @@ class OneLakeClient(BaseFabricClient):
                     yield schema_name
 
         except requests.exceptions.HTTPError as e:
-            if missing_ok and e.response is not None and e.response.status_code == 404:
+            if e.response is None:
+                self.report.report_error()
+                logger.error(f"Failed to list schemas for {item_label} {item_id}: {e}")
+                raise
+            if missing_ok and e.response.status_code == 404:
                 logger.warning(
                     f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
                     "(404). Tables will not be listed for this item."
@@ -347,6 +351,12 @@ class OneLakeClient(BaseFabricClient):
                     )
 
         except requests.exceptions.HTTPError as e:
+            if e.response is None:
+                self.report.report_error()
+                logger.error(
+                    f"Failed to list tables in schema {schema_name} for {item_label} {item_id}: {e}"
+                )
+                raise
             self.report.report_error()
             logger.error(
                 f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}: {e.response.text}"
