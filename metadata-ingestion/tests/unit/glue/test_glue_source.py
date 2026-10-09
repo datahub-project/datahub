@@ -1295,14 +1295,21 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     assert source.report.num_resource_link_schema_from_glue == 1
 
 
-@pytest.mark.parametrize(
-    "ignore_resource_links, all_databases_and_tables_result",
-    [
-        (True, ([], [])),
-        (False, ([resource_link_database], target_database_tables)),
-    ],
-)
-def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+def _expected_database_link_tables() -> List[Dict[str, Any]]:
+    expected = copy.deepcopy(target_database_tables)
+    for table in expected:
+        table["TargetTable"] = {
+            "CatalogId": "432143214321",
+            "DatabaseName": "test-database",
+            "Name": table["Name"],
+        }
+        table["DatabaseName"] = "resource-link-test-database"
+        table["CatalogId"] = "123412341234"
+    return expected
+
+
+@pytest.mark.parametrize("ignore_resource_links", [True, False])
+def test_ignore_resource_links(ignore_resource_links: bool) -> None:
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -1311,19 +1318,27 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         ),
     )
 
+    # Stubber hands back the response objects themselves and get_tables_from_database
+    # rewrites tables in place, so pass copies to keep the shared stubs pristine.
     with Stubber(source.glue_client) as glue_stubber:
         glue_stubber.add_response(
             "get_databases",
-            get_databases_response_with_resource_link,
+            copy.deepcopy(get_databases_response_with_resource_link),
             {},
         )
         glue_stubber.add_response(
             "get_tables",
-            get_tables_response_for_target_database,
+            copy.deepcopy(get_tables_response_for_target_database),
             {"DatabaseName": "resource-link-test-database"},
         )
 
-        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+        databases, tables = source.get_all_databases_and_tables()
+
+    if ignore_resource_links:
+        assert (databases, tables) == ([], [])
+    else:
+        assert databases == [resource_link_database]
+        assert tables == _expected_database_link_tables()
 
 
 @pytest.mark.parametrize(
