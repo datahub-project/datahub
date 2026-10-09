@@ -3,7 +3,7 @@ import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
     StructuredReport,

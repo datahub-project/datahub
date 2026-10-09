@@ -1,5 +1,5 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { EntityType, StructuredPropertiesEntry } from '@types';

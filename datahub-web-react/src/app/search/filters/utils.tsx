@@ -3,9 +3,9 @@ import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { IconStyleType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,

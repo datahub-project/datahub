@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
@@ -148,8 +147,6 @@ interface Props {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
-    previewType?: PreviewType;
-    onCardClick?: (any: any) => any;
 }
 
 export const SearchResults = ({
@@ -172,8 +169,6 @@ export const SearchResults = ({
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
-    previewType,
-    onCardClick,
 }: Props) => {
     const { t } = useTranslation('search');
     const showSearchFiltersV2 = useIsSearchV2();
@@ -301,8 +296,6 @@ export const SearchResults = ({
                                                     setSelectedEntities={setSelectedEntities}
                                                     suggestions={suggestions}
                                                     pageNumber={page}
-                                                    previewType={previewType}
-                                                    onCardClick={onCardClick}
                                                     setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                                 />
                                                 {totalResults > 0 && (

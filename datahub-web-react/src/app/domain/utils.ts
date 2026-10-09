@@ -1,6 +1,6 @@
 import { ApolloClient } from '@apollo/client';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ListDomainsDocument, ListDomainsQuery } from '@graphql/domain.generated';

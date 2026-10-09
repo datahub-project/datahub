@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, QuickFilter } from '@types';

@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { getParentDomains } from '@app/domain/utils';
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
 
