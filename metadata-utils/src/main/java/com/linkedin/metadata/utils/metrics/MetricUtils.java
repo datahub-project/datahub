@@ -180,6 +180,16 @@ public class MetricUtils {
   }
 
   /**
+   * Register a counter once so the write path can {@link Counter#increment()} without building tag
+   * strings. Tags are formatted only during this call.
+   */
+  public Counter registerCounter(String metricName, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    return micrometerCounterCache.computeIfAbsent(
+        cacheKey, key -> registry.counter(metricName, tags));
+  }
+
+  /**
    * Record a timer measurement using Micrometer metrics library.
    *
    * @param metricName The name of the metric

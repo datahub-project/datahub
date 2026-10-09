@@ -86,6 +86,23 @@ public interface SystemAspect extends ReadItem {
   SystemAspect setDatabaseAspect(@Nonnull SystemAspect databaseAspect);
 
   /**
+   * True when this write matched under a configured semantic no-op rule and the stored aspect body
+   * was kept. Default false so aspects that never go through that comparison stay unchanged.
+   */
+  default boolean isSemanticNoOp() {
+    return false;
+  }
+
+  /**
+   * @param semanticNoOp whether the stored body was kept by semantic comparison
+   * @return this aspect
+   */
+  @Nonnull
+  default SystemAspect setSemanticNoOp(boolean semanticNoOp) {
+    return this;
+  }
+
+  /**
    * Get the operation context associated with this aspect operation. Used for passing validation
    * context and pending deletion requests through the call stack.
    *

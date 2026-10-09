@@ -19,4 +19,7 @@ public class EntityServiceConfiguration {
   // consumers (MCL -> platform events -> event actions) can preserve the sync
   // QoS of derived writes. Gated by DATAHUB_HONOR_SYNC_INGEST_FLAG.
   private boolean syncIngestStamping = false;
+
+  /** Startup-bound aspect/path comparison. Disabled, with no rules, unless a deployment opts in. */
+  private SemanticNoOpConfiguration semanticNoOp = new SemanticNoOpConfiguration();
 }
