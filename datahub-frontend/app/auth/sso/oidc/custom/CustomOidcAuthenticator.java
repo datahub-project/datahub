@@ -239,19 +239,26 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
         tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
 
+        HTTPResponse httpResponse = null;
         final long exchangeStartedAtNanos = System.nanoTime();
-        final HTTPResponse httpResponse = tokenHttpRequest.send();
-        logger.info(
-            "OIDC code-for-token exchange completed in {} ms",
-            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - exchangeStartedAtNanos));
+        try {
+          httpResponse = tokenHttpRequest.send();
 
-        final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
-        if (response instanceof TokenErrorResponse) {
-          throw new TechnicalException(
-              "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
+          final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
+          if (response instanceof TokenErrorResponse) {
+            throw new TechnicalException(
+                "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
+          }
+          logger.debug("Token response successful");
+          return (OIDCTokenResponse) response;
+        } finally {
+          // Timeouts throw before a response exists. Log the duration either way, and the status
+          // when the IdP answered, without the body (it contains access and ID tokens).
+          logger.info(
+              "OIDC code-for-token exchange completed in {} ms status={}",
+              TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - exchangeStartedAtNanos),
+              httpResponse == null ? "none" : httpResponse.getStatusCode());
         }
-        logger.debug("Token response successful");
-        return (OIDCTokenResponse) response;
 
       } catch (IOException | ParseException | TechnicalException e) {
         if (attempt == maxAttempts) {

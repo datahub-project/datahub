@@ -41,13 +41,16 @@ public class SsoManagerProviderCacheTest {
             "http://localhost:8080/auth/getSsoSettings",
             httpClient);
 
-    final String settings = ssoSettingsJson("test-client");
-    final String updatedSettings = ssoSettingsJson("test-client-updated");
+    final String settings = ssoSettingsJson("test-client", "https://datahub.example.com");
+    final String updatedClient =
+        ssoSettingsJson("test-client-updated", "https://datahub.example.com");
+    final String updatedBaseUrl =
+        ssoSettingsJson("test-client-updated", "https://other.example.com");
 
     try (MockedStatic<EntityUtils> entityUtils = mockStatic(EntityUtils.class)) {
       entityUtils
           .when(() -> EntityUtils.toString(any(HttpEntity.class)))
-          .thenReturn(settings, settings, updatedSettings);
+          .thenReturn(settings, settings, updatedClient, updatedBaseUrl);
 
       assertTrue(ssoManager.isSsoEnabled());
       final SsoProvider<?> first = ssoManager.getSsoProvider();
@@ -61,6 +64,10 @@ public class SsoManagerProviderCacheTest {
       final SsoProvider<?> third = ssoManager.getSsoProvider();
       assertNotNull(third);
       assertNotSame(first, third);
+
+      assertTrue(ssoManager.isSsoEnabled());
+      final SsoProvider<?> fourth = ssoManager.getSsoProvider();
+      assertNotSame(third, fourth);
     }
   }
 
@@ -74,17 +81,17 @@ public class SsoManagerProviderCacheTest {
     return response;
   }
 
-  private static String ssoSettingsJson(final String clientId) {
+  private static String ssoSettingsJson(final String clientId, final String baseUrl) {
     return String.format(
         """
         {
-          "baseUrl": "https://datahub.example.com",
+          "baseUrl": "%s",
           "oidcEnabled": true,
           "clientId": "%s",
           "clientSecret": "test-secret",
           "discoveryUri": "https://idp.example.com/.well-known/openid-configuration"
         }
         """,
-        clientId);
+        baseUrl, clientId);
   }
 }

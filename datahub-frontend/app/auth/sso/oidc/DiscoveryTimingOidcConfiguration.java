@@ -8,9 +8,9 @@ import org.pac4j.oidc.metadata.IOidcOpMetadataResolver;
 import org.pac4j.oidc.metadata.OidcOpMetadataResolver;
 
 /**
- * Times the IdP discovery read. Pac4j loads the document in {@link
- * OidcOpMetadataResolver#retrieveMetadata()} while the client is initialized. Later {@code load()}
- * calls return that cached document and are not the network read.
+ * Times discovery-document reads. Pac4j performs the read in {@link
+ * OidcOpMetadataResolver#retrieveMetadata()}, both while the client is initialized and later when
+ * {@code load()} decides the resource has changed.
  */
 @Slf4j
 class DiscoveryTimingOidcConfiguration extends OidcConfiguration {
