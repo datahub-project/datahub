@@ -1333,7 +1333,6 @@ dev = [
     "Deprecated<2.0.0",
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
-    "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",
@@ -1527,7 +1526,6 @@ docs = [
     "Deprecated<2.0.0",
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
-    "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",
@@ -1981,6 +1979,14 @@ datahub = ["py.typed", "constraints.txt"]
 # ===== TOOL CONFIGURATION =====
 
 [tool.uv]
+# Lock resolution is 3.11–3.13 (CI, Docker, bundled venvs). Published
+# requires-python stays >=3.10; extras that pull unstructured still fail
+# closed on 3.10 at pip install. Without this, uv lock --check tries to
+# solve those extras (and [dev]/[docs]) on 3.10. Cap below 3.14 to match
+# unstructured / onnxruntime wheel availability.
+environments = [
+    "python_full_version >= '3.11' and python_full_version < '3.14'",
+]
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
