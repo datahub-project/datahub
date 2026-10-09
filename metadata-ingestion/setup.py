@@ -565,6 +565,16 @@ confluence_common = {
     "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
+google_drive_common = {
+    "google-api-python-client>=2.0.0,<3.0.0",
+    "google-auth>=2.0.0,<3.0.0",
+    # HTML-to-markdown fallback when a Google Doc's markdown export fails
+    "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation when fetching semantic search config
+    # from older DataHub servers (same reason as confluence).
+    "graphql-core>=3.0.0,<4.0.0",
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -881,6 +891,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "google-drive": google_drive_common,
     "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
@@ -963,12 +974,15 @@ all_exclude_plugins: Set[str] = {
     # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
     # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
     # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
-    # or [unstructured]. Managed ingestion still maps source type to those extras.
-    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
+    # [google-drive], or [unstructured]. Managed ingestion still maps source type to
+    # those extras.
+    # The full ingestion image re-adds them:
+    # [all,datahub-documents,notion,confluence,google-drive].
     "datahub-documents",
     "unstructured",
     "notion",
     "confluence",
+    "google-drive",
 }
 
 mypy_stubs = {
@@ -1063,6 +1077,7 @@ base_dev_requirements = {
             "cockroachdb",
             "confluence",
             "cube",
+            "google-drive",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -1227,6 +1242,7 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",

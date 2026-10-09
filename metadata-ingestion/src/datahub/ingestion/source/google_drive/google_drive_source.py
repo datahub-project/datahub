@@ -1,0 +1,694 @@
+import hashlib
+import json
+import logging
+from datetime import datetime
+from functools import partial
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+
+from googleapiclient.discovery import Resource
+
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+from datahub.ingestion.source.google_drive.constants import (
+    DOCUMENT_ENTITY_TYPE,
+    ELEMENT_TYPE_NARRATIVE_TEXT,
+    EXCESS_BLANK_LINES_RE,
+    EXTRACTION_ALGO_VERSION,
+    FAILURE_NOT_FOUND,
+    FAILURE_TOO_LARGE,
+    FOLDER_SUBTYPE,
+    INLINE_DATA_IMAGE_RE,
+    MIME_FOLDER,
+    PLATFORM,
+    PROP_CONTENT_HASH,
+    PROP_DRIVE_ID,
+    PROP_EXTRACTION_ALGO_VERSION,
+    PROP_FILE_ID,
+    PROP_FOLDER_PATH,
+    PROP_INGEST_FINGERPRINT,
+    PROP_LAST_MODIFYING_USER,
+    PROP_MIME_TYPE,
+    PROP_PARENT_ID,
+    PROP_VERSION,
+    REFERENCE_DATA_IMAGE_RE,
+    REFERENCE_IMAGE_USE_RE,
+)
+from datahub.ingestion.source.google_drive.google_drive_client import (
+    GoogleDriveClient,
+)
+from datahub.ingestion.source.google_drive.google_drive_config import (
+    GoogleDriveSourceConfig,
+)
+from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
+    build_browse_path_v2,
+    make_document_id,
+    make_document_urn,
+    resolve_parent_urn,
+)
+from datahub.ingestion.source.google_drive.google_drive_report import (
+    GoogleDriveSourceReport,
+)
+from datahub.ingestion.source.google_drive.models import (
+    DocumentRef,
+    DriveFile,
+    DriveTree,
+    FolderNode,
+)
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.unstructured.chunking_config import (
+    DataHubConnectionConfig,
+    DocumentChunkingSourceConfig,
+)
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    SkipMarkerReadError,
+    compute_source_text_sha256,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    DocumentInfoClass,
+    DocumentStateClass,
+    OwnershipTypeClass,
+    StatusClass,
+)
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sdk.document import Document
+from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
+
+OwnerTuple = Tuple[CorpUserUrn, str]
+
+
+def clean_markdown(text: str) -> str:
+    """Normalise exported markdown before it is stored and embedded.
+
+    Any change here must bump EXTRACTION_ALGO_VERSION so already-ingested documents
+    are re-exported with the new cleaning.
+    """
+    text = INLINE_DATA_IMAGE_RE.sub(r"![\1]()", text)
+    data_refs = {m.group(1) for m in REFERENCE_DATA_IMAGE_RE.finditer(text)}
+    text = REFERENCE_DATA_IMAGE_RE.sub("", text)
+    if data_refs:
+        text = REFERENCE_IMAGE_USE_RE.sub(
+            lambda m: f"![{m.group(1)}]()" if m.group(2) in data_refs else m.group(0),
+            text,
+        )
+    text = text.replace("\r\n", "\n")
+    text = EXCESS_BLANK_LINES_RE.sub("\n\n", text)
+    return text.strip()
+
+
+def compute_content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@platform_name("Google Drive", id=PLATFORM)
+@config_class(GoogleDriveSourceConfig)
+@support_status(SupportStatus.ALPHA)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default via `extract_owners`")
+class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
+    """Ingest Google Docs from Google Drive folders and shared drives as DataHub
+    Document entities, preserving the folder hierarchy."""
+
+    platform = PLATFORM
+
+    def __init__(
+        self,
+        config: GoogleDriveSourceConfig,
+        ctx: PipelineContext,
+        drive_service: Optional[Resource] = None,
+    ):
+        super().__init__(config, ctx)  # type: ignore[arg-type]
+        self.config = config
+        self.report: GoogleDriveSourceReport = GoogleDriveSourceReport()
+        self.client = GoogleDriveClient(config, self.report, service=drive_service)
+        self.chunking_source = DocumentChunkingSource(
+            ctx=ctx,
+            config=DocumentChunkingSourceConfig(
+                datahub=DataHubConnectionConfig(),
+                chunking=config.chunking,
+                embedding=config.embedding,
+                max_documents=config.max_documents,
+            ),
+            standalone=False,
+            graph=ctx.graph,
+        )
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
+        self._ingest_fingerprint = self._compute_ingest_fingerprint()
+        self._soft_deleted_cache: Optional[Set[str]] = None
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "GoogleDriveSource":
+        config = GoogleDriveSourceConfig.model_validate(config_dict)
+        return cls(config, ctx)
+
+    def get_excluded_workunit_processors(self):
+        # The manual handler below lets unchanged documents that are skipped without
+        # emitting be registered as still present, so they are not soft-deleted.
+        return [AutoStaleEntityRemovalProcessor]
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
+
+    def _compute_ingest_fingerprint(self) -> str:
+        """Hash of everything besides the Drive file itself that shapes the output.
+
+        Stored on each document; a mismatch forces a re-export, so config changes such
+        as switching the import mode take effect without manual intervention.
+        """
+        payload = json.dumps(
+            {
+                "algo": EXTRACTION_ALGO_VERSION,
+                "import_mode": str(self.config.document_import_mode),
+                "parent_document_urn": self.config.parent_document_urn,
+                "create_root_documents": self.config.create_root_documents,
+                "extract_owners": self.config.extract_owners,
+                "platform_instance": self.config.platform_instance,
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._log_authenticated_user()
+
+        roots = self._resolve_roots()
+        if not roots:
+            return
+
+        tree = self.client.walk(roots)
+        logger.info(
+            "Discovered %d folders and %d Google Docs under %d root(s)",
+            len(tree.folders),
+            len(tree.documents),
+            len(roots),
+        )
+
+        for folder in tree.folders.values():
+            if folder.is_root and not self.config.create_root_documents:
+                continue
+            try:
+                yield from self._emit_folder(folder, tree)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to ingest Drive folder",
+                    message="A folder document could not be built; documents beneath "
+                    "it are still ingested.",
+                    context=f"folder_id={folder.id}, path={folder.path}",
+                    exc=e,
+                )
+
+        for ref in tree.documents:
+            try:
+                yield from self._process_document(ref, tree)
+            except Exception as e:
+                if self.report.num_documents_limit_reached:
+                    raise
+                self.report.documents_failed += 1
+                self.report.failed_documents.append(ref.file.id)
+                self.report.warning(
+                    title="Failed to ingest Google Doc",
+                    message="A Google Doc could not be ingested.",
+                    context=f"file_id={ref.file.id}, title={ref.file.name}",
+                    exc=e,
+                )
+                if not self.config.continue_on_failure:
+                    raise
+
+    def _log_authenticated_user(self) -> None:
+        try:
+            email = self.client.get_authenticated_email()
+            logger.info("Authenticated to Google Drive as %s", email)
+        except Exception as e:
+            logger.debug("Could not determine authenticated Drive user: %s", e)
+
+    def _resolve_roots(self) -> List[FolderNode]:
+        roots: List[FolderNode] = []
+        for root_id in self.config.root_folder_ids:
+            self.report.roots_scanned += 1
+            try:
+                roots.append(self.client.get_root(root_id))
+            except Exception as e:
+                self.report.roots_failed += 1
+                self.report.failure(
+                    title="Drive root not accessible",
+                    message="A configured root folder could not be read. Share it with "
+                    "the service account's client_email, or set delegated_user to a "
+                    "user who can access it.",
+                    context=f"root_folder_id={root_id}",
+                    exc=e,
+                )
+        return roots
+
+    def _emit_folder(
+        self, folder: FolderNode, tree: DriveTree
+    ) -> Iterable[MetadataWorkUnit]:
+        parent_folder = tree.folders.get(folder.parent_id) if folder.parent_id else None
+        parent_urn = resolve_parent_urn(
+            parent_folder,
+            self.config.create_root_documents,
+            self.config.parent_document_urn,
+        )
+        custom_properties = {
+            PROP_FILE_ID: folder.id,
+            PROP_MIME_TYPE: MIME_FOLDER,
+            PROP_FOLDER_PATH: folder.path,
+            PROP_PARENT_ID: folder.parent_id or "",
+        }
+        if folder.drive_id:
+            custom_properties[PROP_DRIVE_ID] = folder.drive_id
+
+        doc = self._build_document(
+            file_id=folder.id,
+            title=folder.title,
+            text="",
+            external_url=folder.web_view_link or "",
+            parent_urn=parent_urn,
+            custom_properties=custom_properties,
+            subtype=FOLDER_SUBTYPE,
+        )
+        self._attach_common_aspects(doc, parent_folder, tree)
+        self.report.folders_emitted += 1
+        yield from doc.as_workunits()
+
+    def _process_document(
+        self, ref: DocumentRef, tree: DriveTree
+    ) -> Iterable[MetadataWorkUnit]:
+        file = ref.file
+        urn = make_document_urn(file.id)
+        folder = tree.folders[ref.folder_id]
+
+        if self._is_unchanged(urn, file, folder):
+            self.report.documents_skipped_unchanged += 1
+            self.stale_entity_removal_handler.add_entity_to_state(
+                DOCUMENT_ENTITY_TYPE, urn
+            )
+            yield from self._resurrect_if_soft_deleted(urn)
+            return
+
+        result = self.client.export_markdown(file.id)
+        if result.used_html_fallback:
+            self.report.documents_html_fallback += 1
+        if result.text is None:
+            self.report.documents_export_failed += 1
+            if result.failure_reason == FAILURE_TOO_LARGE:
+                self.report.warning(
+                    title="Google Doc too large to export",
+                    message="Google Drive refuses to export documents over 10 MB; "
+                    "the document was skipped.",
+                    context=f"file_id={file.id}, title={file.name}",
+                )
+            else:
+                self.report.warning(
+                    title="Google Doc export failed",
+                    message="The document could not be exported as markdown or HTML "
+                    "and was skipped.",
+                    context=f"file_id={file.id}, reason={result.failure_reason}",
+                )
+            # A document that vanished or outgrew the export limit is left to stale
+            # removal; any other (possibly transient) failure keeps what DataHub has.
+            if result.failure_reason not in (FAILURE_NOT_FOUND, FAILURE_TOO_LARGE):
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    DOCUMENT_ENTITY_TYPE, urn
+                )
+            return
+
+        text = clean_markdown(result.text)
+        if (self.config.skip_empty_documents and not text) or len(
+            text
+        ) < self.config.min_text_length:
+            self.report.documents_skipped_empty += 1
+            return
+
+        embedding_workunits, embedding_ok, limit_error = self._embed(urn, file, text)
+
+        custom_properties = self._document_properties(
+            file, folder, text, embedding_ok=embedding_ok
+        )
+        doc = self._build_document(
+            file_id=file.id,
+            title=file.name,
+            text=text,
+            external_url=file.web_view_link or "",
+            parent_urn=resolve_parent_urn(
+                folder,
+                self.config.create_root_documents,
+                self.config.parent_document_urn,
+            ),
+            custom_properties=custom_properties,
+            owners=self._owners(file),
+            created_time=file.created_time,
+            last_modified_time=file.modified_time,
+        )
+        self._attach_common_aspects(doc, folder, tree)
+        self.report.documents_emitted += 1
+        yield from doc.as_workunits()
+        yield from embedding_workunits
+        if limit_error is not None:
+            self.report.num_documents_limit_reached = True
+            raise limit_error
+
+    def _embed(
+        self, urn: str, file: DriveFile, text: str
+    ) -> Tuple[List[MetadataWorkUnit], bool, Optional[RuntimeError]]:
+        """Run chunking/embedding before the document is emitted.
+
+        Returns the embedding workunits, whether embedding succeeded, and the
+        max_documents error to re-raise after the document itself has been emitted.
+        Embedding outcome is recorded on the document (see _document_properties) so
+        that a failed embedding is retried on the next run instead of being skipped as
+        unchanged.
+        """
+        workunits: List[MetadataWorkUnit] = []
+        elements = [
+            {
+                "type": ELEMENT_TYPE_NARRATIVE_TEXT,
+                "text": text,
+                "metadata": {
+                    "file_id": file.id,
+                    "title": file.name,
+                    "url": file.web_view_link or "",
+                },
+            }
+        ]
+        try:
+            for wu in self.chunking_source.process_elements_inline(
+                document_urn=urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(text),
+            ):
+                workunits.append(wu)
+        except SkipMarkerReadError as e:
+            logger.warning("Skip marker deferred for %s: %s", urn, e)
+            return workunits, False, None
+        except RuntimeError as e:
+            if self.chunking_source.report.num_documents_limit_reached:
+                return workunits, True, e
+            self._report_embedding_deferred(file, e)
+            return workunits, False, None
+        except Exception as e:
+            self._report_embedding_deferred(file, e)
+            return workunits, False, None
+        return workunits, True, None
+
+    def _report_embedding_deferred(self, file: DriveFile, exc: Exception) -> None:
+        self.report.warning(
+            title="Embedding generation deferred",
+            message="The document was ingested without embeddings; they will be "
+            "retried on the next run.",
+            context=f"file_id={file.id}, title={file.name}",
+            exc=exc,
+        )
+
+    def _is_unchanged(self, urn: str, file: DriveFile, folder: FolderNode) -> bool:
+        if not self.ctx.graph or not file.version:
+            return False
+        try:
+            info = self.ctx.graph.get_aspect(urn, DocumentInfoClass)
+        except Exception as e:
+            logger.debug("Could not load %s for change detection: %s", urn, e)
+            return False
+        if info is None or not info.customProperties:
+            return False
+        props = info.customProperties
+        return (
+            props.get(PROP_VERSION) == file.version
+            and props.get(PROP_INGEST_FINGERPRINT) == self._ingest_fingerprint
+            and props.get(PROP_PARENT_ID) == folder.id
+            and info.title == file.name
+        )
+
+    def _soft_deleted_urns(self) -> Set[str]:
+        if self._soft_deleted_cache is not None:
+            return self._soft_deleted_cache
+        urns: Set[str] = set()
+        if self.ctx.graph:
+            try:
+                urns = set(
+                    self.ctx.graph.get_urns_by_filter(
+                        entity_types=[DOCUMENT_ENTITY_TYPE],
+                        platform=PLATFORM,
+                        platform_instance=self.config.platform_instance,
+                        status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                    )
+                )
+            except Exception as e:
+                # Only costs resurrection of unchanged documents restored from trash.
+                logger.debug("Could not list soft-deleted documents: %s", e)
+        self._soft_deleted_cache = urns
+        return urns
+
+    def _resurrect_if_soft_deleted(self, urn: str) -> Iterable[MetadataWorkUnit]:
+        if urn not in self._soft_deleted_urns():
+            return
+        self.report.documents_resurrected += 1
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+
+    def _document_properties(
+        self, file: DriveFile, folder: FolderNode, text: str, embedding_ok: bool
+    ) -> Dict[str, str]:
+        properties = {
+            PROP_FILE_ID: file.id,
+            PROP_MIME_TYPE: file.mime_type,
+            PROP_FOLDER_PATH: folder.path,
+            PROP_PARENT_ID: folder.id,
+            # An empty version makes the next run treat the document as changed, which
+            # retries embeddings that failed during this run.
+            PROP_VERSION: (file.version or "") if embedding_ok else "",
+            PROP_INGEST_FINGERPRINT: self._ingest_fingerprint,
+            PROP_CONTENT_HASH: compute_content_hash(text),
+            PROP_EXTRACTION_ALGO_VERSION: EXTRACTION_ALGO_VERSION,
+        }
+        if file.drive_id:
+            properties[PROP_DRIVE_ID] = file.drive_id
+        if file.last_modifying_user and file.last_modifying_user.email_address:
+            properties[PROP_LAST_MODIFYING_USER] = (
+                file.last_modifying_user.email_address
+            )
+        return properties
+
+    def _owners(self, file: DriveFile) -> Optional[List[OwnerTuple]]:
+        if not self.config.extract_owners:
+            return None
+        owners: List[OwnerTuple] = []
+        seen: Set[str] = set()
+        for owner in file.owners:
+            email = owner.email_address
+            if email and email not in seen:
+                seen.add(email)
+                owners.append((CorpUserUrn(email), OwnershipTypeClass.TECHNICAL_OWNER))
+        return owners or None
+
+    def _build_document(
+        self,
+        file_id: str,
+        title: str,
+        text: str,
+        external_url: str,
+        parent_urn: Optional[str],
+        custom_properties: Dict[str, str],
+        subtype: Optional[str] = None,
+        owners: Optional[List[OwnerTuple]] = None,
+        created_time: Optional[datetime] = None,
+        last_modified_time: Optional[datetime] = None,
+    ) -> Document:
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(
+                id=make_document_id(file_id),
+                title=title,
+                text=text,
+                status=DocumentStateClass.PUBLISHED,
+                subtype=subtype,
+                parent_document=parent_urn,
+                owners=owners,
+                custom_properties=custom_properties,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
+        return Document.create_external_document(
+            id=make_document_id(file_id),
+            title=title,
+            platform=PLATFORM,
+            external_url=external_url,
+            external_id=file_id,
+            text=text,
+            status=DocumentStateClass.PUBLISHED,
+            subtype=subtype,
+            parent_document=parent_urn,
+            owners=owners,
+            custom_properties=custom_properties,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
+        )
+
+    def _attach_common_aspects(
+        self, doc: Document, parent_folder: Optional[FolderNode], tree: DriveTree
+    ) -> None:
+        instance = self.config.platform_instance
+        doc._set_aspect(
+            DataPlatformInstanceClass(
+                platform=make_data_platform_urn(PLATFORM),
+                instance=make_dataplatform_instance_urn(PLATFORM, instance)
+                if instance
+                else None,
+            )
+        )
+        try:
+            browse_path = build_browse_path_v2(
+                parent_folder,
+                tree.folders,
+                self.config.create_root_documents,
+                self.config.parent_document_urn,
+            )
+            if browse_path:
+                doc._set_aspect(browse_path)
+        except Exception as e:
+            self.report.warning(
+                title="Browse path generation failed",
+                message="The document was emitted without a browse path.",
+                context=f"urn={doc.urn}",
+                exc=e,
+            )
+        # Drive is the source of truth: an item that exists again in Drive must not
+        # stay soft-deleted from an earlier run.
+        doc._set_aspect(StatusClass(removed=False))
+
+    def get_report(self) -> GoogleDriveSourceReport:
+        chunking_report = self.chunking_source.report
+        self.report.num_documents_with_embeddings = (
+            chunking_report.num_documents_with_embeddings
+        )
+        self.report.num_embedding_failures = chunking_report.num_embedding_failures
+        self.report.embedding_failures = LossyList()
+        for failure in chunking_report.embedding_failures:
+            self.report.embedding_failures.append(failure)
+        return self.report
+
+    @staticmethod
+    def _test_semantic_search_capability(
+        config: GoogleDriveSourceConfig,
+    ) -> CapabilityReport:
+        try:
+            resolved = DocumentChunkingSource.resolve_embedding_config(
+                config.embedding, None
+            )
+            return DocumentChunkingSource.test_embedding_capability(resolved)
+        except ValueError as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=str(e),
+                mitigation_message="Fix the embedding configuration or enable "
+                "semantic search on the DataHub server.",
+            )
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Failed to resolve embedding configuration: {e}",
+                mitigation_message="Check the embedding configuration.",
+            )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        try:
+            config = GoogleDriveSourceConfig.model_validate(config_dict)
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config: {e}",
+            )
+
+        try:
+            client = GoogleDriveClient(config, GoogleDriveSourceReport())
+            client.get_authenticated_email()
+        except Exception as e:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Failed to authenticate to Google Drive: {e}",
+                    mitigation_message="Verify the service account key, that the "
+                    "Google Drive API is enabled in its GCP project, and (when using "
+                    "delegated_user) that domain-wide delegation grants the "
+                    "https://www.googleapis.com/auth/drive.readonly scope.",
+                )
+            )
+
+        inaccessible: List[str] = []
+        for root_id in config.root_folder_ids:
+            try:
+                client.get_root(root_id)
+            except Exception as e:
+                inaccessible.append(f"{root_id} ({e.__class__.__name__})")
+
+        capability_report: Dict[Union[SourceCapability, str], CapabilityReport] = {
+            "Semantic Search": GoogleDriveSource._test_semantic_search_capability(
+                config
+            )
+        }
+        if inaccessible:
+            share_with = (
+                config.credential.client_email
+                if config.credential
+                else "the authenticated account"
+            )
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason="Cannot access root folder(s): "
+                    + ", ".join(inaccessible),
+                    mitigation_message=f"Share these folders with {share_with}, "
+                    "or set delegated_user to a user who can access them.",
+                ),
+                capability_report=capability_report,
+            )
+        return TestConnectionReport(
+            basic_connectivity=CapabilityReport(capable=True),
+            capability_report=capability_report,
+        )
