@@ -25,7 +25,7 @@ Changing the authentication mode does **not** reset your ingestion cursor, linea
 
 Key-pair auth needs no MFA, no IdP, and no interactive browser, which makes it the best fit for ingestion that runs on a schedule.
 
-If your ingestion already runs on AWS, Azure or GCP, workload identity federation removes the key as well; see the [Snowflake connector guide](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake#authentication) for the setup.
+If your ingestion already runs on AWS, Azure or GCP, workload identity federation is the better fit, because it removes the key as well; see the [Snowflake connector guide](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake#authentication) for the setup.
 
 ## What you will need
 

@@ -359,6 +359,18 @@ def test_snowflake_uri_workload_identity_without_username():
     )
 
 
+def test_snowflake_uri_workload_identity_drops_leftover_password():
+    # A password left over from a password recipe must not end up in the URL,
+    # which the profiler logs at DEBUG.
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "username": "user", "password": "leftover"}
+    )
+
+    url = config.get_sql_alchemy_url()
+    assert "leftover" not in url
+    assert url.startswith("snowflake://user@acctname?")
+
+
 def test_options_contain_connect_args():
     config = SnowflakeV2Config.model_validate(default_config_dict)
     connect_args = config.get_options().get("connect_args")

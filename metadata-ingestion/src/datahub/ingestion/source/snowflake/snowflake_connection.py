@@ -313,10 +313,18 @@ class SnowflakeConnectionConfig(ConfigModel):
             )
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        # Workload identity never uses a password, so a leftover one from a password
+        # recipe must not end up in the URL (the profiler logs it at DEBUG).
+        password = (
+            self.password.get_secret_value()
+            if self.password
+            and self.authentication_type != "WORKLOAD_IDENTITY_AUTHENTICATOR"
+            else None
+        )
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
-            self.password.get_secret_value() if self.password else None,
+            password,
             self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -459,6 +467,12 @@ class SnowflakeConnectionConfig(ConfigModel):
         )
 
     def get_key_pair_connection(self) -> NativeSnowflakeConnection:
+        return self._get_authenticator_connection()
+
+    def _get_authenticator_connection(self) -> NativeSnowflakeConnection:
+        # Shared by the auth types whose credential travels in connect_args or is
+        # obtained by the connector itself (key pair, workload identity): no password
+        # or token is passed here.
         connect_args = self.get_options()["connect_args"]
 
         return snowflake.connector.connect(
@@ -506,16 +520,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         elif self.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR":
             # No password, key or token is sent: the connector obtains a short-lived
             # attestation from the cloud's instance-metadata service.
-            return snowflake.connector.connect(
-                user=self.username,
-                account=self.account_id,
-                warehouse=self.warehouse,
-                role=self.role,
-                authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
-                application=_APPLICATION_NAME,
-                host=f"{self.account_id}.{self.snowflake_domain}",
-                **connect_args,
-            )
+            return self._get_authenticator_connection()
         elif self.authentication_type == "EXTERNAL_BROWSER_AUTHENTICATOR":
             return snowflake.connector.connect(
                 user=self.username,
