@@ -53,6 +53,7 @@ type Props = {
 export default function ViewResetTokenModal({ open, userUrn, username, onClose }: Props) {
     const { t } = useTranslation('entity.identity');
     const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
@@ -107,7 +108,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                             size="sm"
                             onClick={() => {
                                 navigator.clipboard.writeText(inviteLink);
-                                toast.success(t('inviteToken.copiedSuccess'));
+                                toast.success(tf('copiedSuccess'));
                             }}
                         >
                             {tc('copy')}
