@@ -63,7 +63,9 @@ def annotation_specs(normalized: Optional[str]) -> Optional[dict[str, dict]]:
     if not isinstance(value, dict):
         return None
     if value and all(isinstance(k, str) and k.startswith("/") for k in value):
-        return {k: v for k, v in value.items() if isinstance(v, dict)}
+        if not all(isinstance(v, dict) for v in value.values()):
+            return None
+        return dict(value)
     return {"": value}
 
 

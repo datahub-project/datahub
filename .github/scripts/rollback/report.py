@@ -108,7 +108,9 @@ def _n1_summary(findings: list[model.RollbackFinding]) -> list[str]:
     def new_entity(f: model.RollbackFinding) -> bool:
         return "entity type new in N" in f.summary
 
-    entities = [f.subject for f in schema if new_entity(f) and f.subject]
+    entities = [
+        e for f in schema if new_entity(f) and f.subject for e in f.subject.split(", ")
+    ]
     read_fails = [
         a
         for f in schema
@@ -199,7 +201,11 @@ def _removed_item(f: model.RollbackFinding) -> str:
     qualified = f"{f.record}.{f.subject}" if f.record else f.subject
     if body.startswith("New file in N"):
         if "entity type new in N" in f.summary:
-            return f"the whole `{f.subject}` entity (new in N)"
+            entities = f.subject.split(", ")
+            whole = f"the whole {_names(entities)} {'entities' if len(entities) > 1 else 'entity'} (new in N)"
+            return (
+                f"the whole aspect, and {whole}" if "existing" in f.summary else whole
+            )
         return "the whole aspect"
     if body.startswith("Added field"):
         return f"field `{qualified}`"

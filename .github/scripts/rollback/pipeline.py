@@ -114,16 +114,19 @@ def set_upgrade_step_impact(
             if a not in n1_aspects:
                 # N-1 reads entities without an aspect it doesn't know; only an
                 # entity type that is new in N can't be read at all.
-                new_entities = pdl_rules.new_entity_types(
-                    a, current, target, rac.file_at
-                )
-                reads.append(model.API_FAILS if new_entities else model.OK)
+                owners = pdl_rules.entity_owners(a, current, target, rac.file_at)
+                reads.append(model.API_FAILS if owners.new else model.OK)
                 writes.append(model.FAILS)
-                notes.append(
-                    f"`{a}` (part of the new entity type {', '.join(new_entities)})"
-                    if new_entities
-                    else f"`{a}` (not in N-1, which reads its entities without it)"
-                )
+                if owners.new and not owners.existing:
+                    note = f"part of the new entity type {', '.join(owners.new)}"
+                elif owners.new:
+                    note = (
+                        "not in N-1; also part of the new entity type "
+                        f"{', '.join(owners.new)}"
+                    )
+                else:
+                    note = "not in N-1, which reads its entities without it"
+                notes.append(f"`{a}` ({note})")
                 continue
             related = _aspect_changes(findings, a)
             reads += [f.read_impact for f in related] or [model.OK]

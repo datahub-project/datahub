@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import bump_schema_versions as bsv
 import report_aspect_changes as rac
@@ -127,6 +127,7 @@ _QUERY_ONLY_SEARCH_KEYS = {
     "hasValuesFilterNameOverride",
     "weightsPerFieldValue",
     "includeQueryEmptyAggregation",
+    "enableAutocomplete",
 }
 
 
@@ -172,15 +173,15 @@ def _relationship_findings(
     changed_keys: set[str] = set()
     for path in sorted(set(cur) | set(tgt)):
         c, t = cur.get(path), tgt.get(path)
-        if t and not c:
+        if c is None and t is not None:
             findings.append(
                 _relationship_removed(origin, name, t.get("name", "?"), record)
             )
-        elif c and not t:
+        elif t is None and c is not None:
             findings.append(
                 _relationship_added(origin, name, c.get("name", "?"), record)
             )
-        else:
+        elif c is not None and t is not None:
             # N-1 validates writes against its own target types, renamed or not.
             gained |= types(c) - types(t)
             if c.get("name") != t.get("name"):
@@ -661,9 +662,10 @@ def classify_pdl_for_rollback(
     origin = model.Origin(path, aspect_name, pr, author)
 
     if current_content and not target_content:
-        new_entities = new_entity_types(aspect_name, current, target, read)
-        if new_entities:
-            names = ", ".join(f"`{e}`" for e in new_entities)
+        owners = entity_owners(aspect_name, current, target, read)
+        restore = "The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+        if owners.new and not owners.existing:
+            names = ", ".join(f"`{e}`" for e in owners.new)
             findings.append(
                 _finding(
                     origin,
@@ -671,11 +673,31 @@ def classify_pdl_for_rollback(
                     model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
                     "New file in N",
                     f"part of {names}, an entity type new in N",
-                    subject=new_entities[0],
+                    subject=", ".join(owners.new),
                     detail=(
                         f"{names} is new in N, so N-1 can't read, write or index these "
                         "entities at all: its APIs return not found or unknown "
-                        "entity, and GraphQL returns null. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+                        f"entity, and GraphQL returns null. {restore}"
+                    ),
+                )
+            )
+            return findings
+        if owners.new:
+            names = ", ".join(f"`{e}`" for e in owners.new)
+            existing = ", ".join(f"`{e}`" for e in owners.existing)
+            findings.append(
+                _finding(
+                    origin,
+                    model.EXPECTED_LOSS,
+                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+                    "New file in N",
+                    f"part of {names}, an entity type new in N, and of existing entity types",
+                    subject=", ".join(owners.new),
+                    detail=(
+                        f"N-1 reads {existing} entities without this aspect; only "
+                        "requests that name it fail. But "
+                        f"{names} is new in N, so N-1 can't read, write or index those "
+                        f"entities at all. {restore}"
                     ),
                 )
             )
@@ -690,7 +712,7 @@ def classify_pdl_for_rollback(
                 detail=(
                     "N-1 reads these entities without this aspect, so its UI and "
                     "normal API reads work; only requests that name this aspect, "
-                    "such as scripts or clients built for N, fail. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+                    f"such as scripts or clients built for N, fail. {restore}"
                 ),
             )
         )
@@ -742,17 +764,24 @@ def classify_pdl_for_rollback(
     return findings
 
 
-def new_entity_types(
+class EntityOwners(NamedTuple):
+    new: list[str]  # entity types new in N
+    existing: list[str]  # entity types N-1 also has
+
+
+def entity_owners(
     aspect_name: str, current: str, target: str, read: repo.Reader
-) -> list[str]:
-    """Entity types holding `aspect_name` in N, when none of them exist in N-1.
-    Empty if the aspect belongs to an existing entity or a registry is missing."""
+) -> EntityOwners:
+    """Entity types holding `aspect_name` in N, split by whether N-1 has them.
+    Both empty if a registry is missing."""
     reg_n = pdl_parser.entity_registry(read(current, pdl_parser.ENTITY_REGISTRY) or "")
     reg_t = pdl_parser.entity_registry(read(target, pdl_parser.ENTITY_REGISTRY) or "")
+    if not reg_t:
+        return EntityOwners([], [])
     owners = sorted(e for e, aspects in reg_n.items() if aspect_name in aspects)
-    if not reg_t or not owners or any(e in reg_t for e in owners):
-        return []
-    return owners
+    return EntityOwners(
+        [e for e in owners if e not in reg_t], [e for e in owners if e in reg_t]
+    )
 
 
 def aspects_using(
@@ -1053,7 +1082,8 @@ def refine_relationship_findings(
     the relationships that aspect builds, then adds that aspect's, aspect by
     aspect in name order. So when two aspects build the same relationship, the
     last one restored replaces the other's edges."""
-    todo = [f for f in findings if f.rel_change]
+    # Event-only rows keep their own classification: no aspect builds edges.
+    todo = [f for f in findings if f.rel_change and f.dimension == model.DIM_PDL_SCHEMA]
     if not todo:
         return
     registry = pdl_parser.entity_registry(
@@ -1063,7 +1093,10 @@ def refine_relationship_findings(
     if not rels:
         return
     for f in todo:
-        aspects = set(f.affected_aspects or ([f.aspect_name] if f.aspect_name else []))
+        # The changed aspect itself plus any aspects that embed it.
+        aspects = set(f.affected_aspects) | (
+            {f.aspect_name} if f.aspect_name else set()
+        )
         siblings = {b for asps in registry.values() if asps & aspects for b in asps}
 
         def builders(rel: Optional[str], include_own: bool) -> list[str]:

@@ -86,8 +86,10 @@ def first_parent_changes(
     return changes
 
 
+# scp-style (git@host:owner/repo) or URL-style (https, ssh, git) remotes.
 _REMOTE_RE = re.compile(
-    r"^(?:git@([^:]+):|https?://(?:[^@/]+@)?([^/]+)/)(.+?)(?:\.git)?/?$"
+    r"^(?:git@([^:]+):|(?:https?|ssh|git)://(?:[^@/]+@)?([^/:]+)(?::\d+)?/)"
+    r"(.+?)(?:\.git)?/?$"
 )
 
 

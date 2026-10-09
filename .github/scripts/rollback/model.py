@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from typing import Optional, TypedDict
 
 
 SAFE = "safe"
@@ -20,6 +20,14 @@ DIM_REINDEX = "reindex"
 DIM_SCHEMA_VERSION = "schema_version"
 # A type used by Kafka events but by no stored aspect.
 DIM_EVENT_SCHEMA = "event_schema"
+
+
+class CommitInfo(TypedDict):
+    sha: str
+    pr: Optional[str]
+    url: Optional[str]  # commit page, when the repo URL is known
+    pr_url: Optional[str]
+
 
 VERDICT_FEASIBLE = "feasible_as_is"
 VERDICT_EXPECTED_LOSS = "feasible_with_expected_loss"
@@ -61,9 +69,8 @@ class RollbackFinding:
     read_impact: Optional[str] = None
     write_impact: Optional[str] = None
     data_loss: Optional[str] = None
-    # Commits on N's first-parent history that changed this file, newest first:
-    # [{"sha": ..., "pr": ... or None, "url": ... or None}].
-    commits: list[dict] = field(default_factory=list)
+    # Commits on N's first-parent history that changed this file, newest first.
+    commits: list[CommitInfo] = field(default_factory=list)
     # Structure behind `summary`, used to render the report; not in the JSON.
     subject: Optional[str] = None  # the field, member, type or class changed
     record: Optional[str] = None  # nested record that holds `subject`

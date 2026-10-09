@@ -768,10 +768,11 @@ class TestRenderJsonReport:
         assert data["summary"]["total"] == 0
 
     def test_internal_fields_stay_out_of_json(self):
-        f = _finding(subject="bar", record="Foo", hop="v1→v2")
+        f = _finding(subject="bar", record="Foo", hop="v1→v2",
+                     relationship="OwnedBy", rel_change="renamed", rel_new="AdminOf")
         raw = report.render_json_report([f], "v2.0", "v1.0", "abc1234567", "def1234567")
         keys = set(json.loads(raw)["findings"][0])
-        assert not keys & {"subject", "record", "hop"}
+        assert not keys & {"subject", "record", "hop", "relationship", "rel_change", "rel_new"}
         assert {"summary", "read_impact", "affected_aspects"} <= keys
 
 
@@ -966,6 +967,15 @@ class TestMainTargetDefault:
         resolve.assert_not_called()
         assert run.call_args.args[:2] == ("abc123", "v1.1.0")
 
+
+    def test_repo_url_flag_overrides_detection(self, tmp_path):
+        out = str(tmp_path / "report.md")
+        with patch.object(repo, "repo_url", return_value="https://github.com/o/detected"), \
+             patch.object(pipeline, "run", return_value=([], "abc1234567", "def1234567")) as run:
+            cli.main(["--current", "a", "--target", "b", "--output", out])
+            assert run.call_args.args[2] == "https://github.com/o/detected"
+            cli.main(["--current", "a", "--target", "b", "--output", out, "--repo-url", "https://github.com/o/given"])
+            assert run.call_args.args[2] == "https://github.com/o/given"
 
     def test_json_report_never_overwrites_markdown(self, tmp_path):
         out = tmp_path / "report"
@@ -1369,7 +1379,7 @@ class TestEmbeddedAspectChanges:
 
 
 class TestRelationshipAndIncludes:
-    def test_relationship_change_requires_attention(self):
+    def test_removed_relationship_is_rebuilt_by_restore_indices(self):
         n1 = _ASPECT_V1.replace("bar: int", '@Relationship = { "name": "OwnedBy", "entityTypes": [ "corpuser" ] }\n  bar: int')
         with patch.object(rac, "file_at", _mock_file_at({("N", "test.pdl"): _ASPECT_V1, ("N-1", "test.pdl"): n1})), \
              patch.object(rac, "pr_numbers_for_file", return_value=[]), \
@@ -1423,6 +1433,12 @@ class TestUpgradeStepImpact:
         assert (step.read_impact, step.write_impact, step.data_loss) == ("ok", "fails", "no")
         assert "`dataProducts` (not in N-1, which reads its entities without it)" in step.detail
         assert "dataHubUpgradeResult" not in step.detail
+
+    def test_aspect_of_new_entity_type_fails_reads(self):
+        with patch.object(pdl_rules, "entity_owners", return_value=pdl_rules.EntityOwners(["feedback"], [])):
+            step = self._run({"feedbackInfo"}, set(), [])
+        assert step.read_impact == model.API_FAILS
+        assert "`feedbackInfo` (part of the new entity type feedback)" in step.detail
 
     def test_unchanged_known_aspect_is_ok(self):
         step = self._run({"aliases"}, {"aliases"}, [])
@@ -1687,31 +1703,39 @@ class TestMainRecord:
         assert rdef is not None and rdef["includes"] == {"Base"} and set(rdef["fields"]) == {"x"}
 
 
-class TestRelationshipRules:
-    def _rel(self, cur, tgt):
-        origin = model.Origin("p", "a", None, None)
-        return pdl_rules._relationship_findings(
-            origin, "f", pdl_parser.normalized_annotation(cur), pdl_parser.normalized_annotation(tgt), None
-        )
+def _rel(cur, tgt):
+    origin = model.Origin("p", "a", None, None)
+    return pdl_rules._relationship_findings(
+        origin, "f", pdl_parser.normalized_annotation(cur), pdl_parser.normalized_annotation(tgt), None
+    )
 
+
+class TestRelationshipRules:
     def test_gained_target_type_is_expected_loss_and_writes_fail(self):
-        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset", "chart" ] }',
+        [f] = _rel('{ "name": "On", "entityTypes": [ "dataset", "chart" ] }',
                         '{ "name": "On", "entityTypes": [ "dataset" ] }')
         assert f.risk == model.EXPECTED_LOSS and f.write_impact == model.FAILS
         assert "`chart`" in f.summary and "restore-indices doesn't remove" in f.detail
 
-    def test_gained_type_with_other_change_also_needs_attention(self):
-        risks = {f.risk for f in self._rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
+    def test_gained_type_with_renamed_relationship(self):
+        risks = {f.risk for f in _rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
                                            '{ "name": "On", "entityTypes": [ "dataset" ] }')}
         assert risks == {model.EXPECTED_LOSS, model.SAFE}
 
     def test_relationship_added_in_n_leaves_extra_edges(self):
-        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }', None)
+        [f] = _rel('{ "name": "On", "entityTypes": [ "dataset" ] }', None)
         assert f.risk == model.REQUIRES_ATTENTION and "never updates or removes them" in f.detail
         assert (f.relationship, f.rel_change) == ("On", "added")
 
+    def test_empty_path_spec_does_not_crash(self):
+        kinds = {f.rel_change for f in _rel('{ "/*": { "name": "On", "entityTypes": [ "dataset" ] } }', '{ "/x": {} }')}
+        assert kinds == {"added", "removed"}
+
+    def test_non_dict_path_setting_is_unreadable(self):
+        assert pdl_parser.annotation_specs('{"/*": "OwnedBy"}') is None
+
     def test_relationship_removed_in_n_is_rebuilt_by_restore_indices(self):
-        [f] = self._rel(None, '{ "name": "On", "entityTypes": [ "dataset" ] }')
+        [f] = _rel(None, '{ "name": "On", "entityTypes": [ "dataset" ] }')
         assert f.risk == model.SAFE and pdl_rules.RESTORE_REBUILDS in f.detail
 
 
@@ -1737,7 +1761,8 @@ class TestCommitLinks:
         monkeypatch.setenv("GITHUB_REPOSITORY", "acme/fork")
         assert repo.repo_url() == "https://github.com/acme/fork"
         monkeypatch.delenv("GITHUB_SERVER_URL")
-        for remote in ("git@github.com:acme/fork.git", "https://token@github.com/acme/fork.git"):
+        for remote in ("git@github.com:acme/fork.git", "https://token@github.com/acme/fork.git",
+                       "ssh://git@github.com:22/acme/fork.git", "git://github.com/acme/fork.git"):
             with patch.object(repo, "git", return_value=remote + "\n"):
                 assert repo.repo_url() == "https://github.com/acme/fork"
 
@@ -1811,6 +1836,19 @@ class TestNewEntityTypes:
         assert "skips these rows one by one" in f.detail and f.read_impact == model.OK
         assert "only requests that name this aspect" in f.detail
 
+    def test_aspect_on_new_and_existing_entities_says_both(self):
+        reg_n = _REGISTRY_N.replace("      - newDatasetAspect", "      - newDatasetAspect\n      - feedbackInfo")
+        pdl = 'namespace com.linkedin.test\n@Aspect = { "name": "feedbackInfo" }\nrecord R {\n  a: string\n}\n'
+        files = {("N", "a.pdl"): pdl, ("N", _REG): reg_n, ("N-1", _REG): _REGISTRY_N1}
+        with _mock_repo(files):
+            [f] = pdl_rules.classify_pdl_for_rollback("a.pdl", "N", "N-1")
+        assert f.read_impact == model.API_FAILS and "N-1 reads `dataset` entities" in f.detail
+        assert report._removed_item(f) == "the whole aspect, and the whole `feedback` entity (new in N)"
+
+    def test_removed_item_names_every_new_entity(self):
+        f = _finding(summary="New file in N — part of `a`, `b`, an entity type new in N", subject="a, b")
+        assert report._removed_item(f) == "the whole `a`, `b` entities (new in N)"
+
 
 _MXE = "metadata-models/src/main/pegasus/com/linkedin/mxe/"
 _EVT_TYPE_V1 = "namespace com.linkedin.mxe\nenum EvtType {\n  A\n}\n"
@@ -1840,29 +1878,23 @@ class TestEventSchemaChanges:
 
 
 class TestRelationshipKinds:
-    def _rel(self, cur, tgt):
-        origin = model.Origin("p", "a", None, None)
-        return pdl_rules._relationship_findings(
-            origin, "f", pdl_parser.normalized_annotation(cur), pdl_parser.normalized_annotation(tgt), None
-        )
-
     def test_only_islineage_changed_is_safe(self):
-        [f] = self._rel('{ "name": "ModeledBy", "entityTypes": [ "semanticModel" ] }',
+        [f] = _rel('{ "name": "ModeledBy", "entityTypes": [ "semanticModel" ] }',
                         '{ "name": "ModeledBy", "entityTypes": [ "semanticModel" ], "isLineage": true }')
         assert f.risk == model.SAFE and "`isLineage`" in f.summary
 
     def test_narrowed_target_types_are_safe(self):
-        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }',
+        [f] = _rel('{ "name": "On", "entityTypes": [ "dataset" ] }',
                         '{ "name": "On", "entityTypes": [ "dataset", "chart" ] }')
         assert f.risk == model.SAFE
 
     def test_path_keyed_relationship_removed(self):
-        [f] = self._rel(None, '{ "/*": { "name": "Contains", "entityTypes": [ "dataset" ], "isLineage": true } }')
+        [f] = _rel(None, '{ "/*": { "name": "Contains", "entityTypes": [ "dataset" ], "isLineage": true } }')
         assert f.rel_change == "removed" and f.relationship == "Contains"
         assert f.risk == model.SAFE and pdl_rules.RESTORE_REBUILDS in f.detail
 
     def test_renamed_keeps_old_name_for_restore(self):
-        [f] = self._rel('{ "name": "DownstreamOfV2" }', '{ "name": "DownstreamOf" }')
+        [f] = _rel('{ "name": "DownstreamOfV2" }', '{ "name": "DownstreamOf" }')
         assert (f.rel_change, f.relationship, f.rel_new) == ("renamed", "DownstreamOf", "DownstreamOfV2")
         assert f.risk == model.SAFE
 
@@ -1882,36 +1914,38 @@ _OWNER = ('namespace com.linkedin.x\nrecord Owner {\n  @Relationship = { "name":
           '  owner: string\n}\n')
 
 
+def _refine(f, pdls):
+    with patch.object(rac, "file_at", lambda ref, path: _GROUP_REGISTRY if path.endswith("entity-registry.yml") else ""), \
+         patch.object(pdl_rules, "_all_pdls_at", return_value=pdls):
+        pdl_rules.refine_relationship_findings([f], "N-1")
+    return f
+
+
 class TestRestoreIndicesForSharedRelationships:
-    def _refine(self, f, pdls):
-        with patch.object(rac, "file_at", lambda ref, path: _GROUP_REGISTRY if path.endswith("entity-registry.yml") else ""), \
-             patch.object(pdl_rules, "_all_pdls_at", return_value=pdls):
-            pdl_rules.refine_relationship_findings([f], "N-1")
-        return f
 
     def _removed(self):
         return pdl_rules._relationship_removed(model.Origin("p", "corpGroupInfo", None, None), "admins", "OwnedBy", None)
 
     def test_restore_does_not_rebuild_when_another_aspect_builds_the_same_edges(self):
-        f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
+        f = _refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
                                            _PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
         assert f.risk == model.REQUIRES_ATTENTION and "`ownership`" in f.detail
         assert (f.read_impact, f.data_loss) == (model.STALE, model.LOSS_GRAPH_ONLY)
         assert "the last one replacing the others" in f.detail
 
     def test_restore_rebuilds_when_no_other_aspect_builds_them(self):
-        f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
+        f = _refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
                                            _PL + "Ownership.pdl": _OWNERSHIP.replace("Owner]", "string]")})
         assert pdl_rules.RESTORE_REBUILDS in f.detail
 
     def test_added_relationship_known_to_n1_shows_extra_edges(self):
         f = pdl_rules._relationship_added(model.Origin("p", "corpGroupInfo", None, None), "leads", "OwnedBy", None)
-        self._refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        _refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
         assert f.risk == model.REQUIRES_ATTENTION and f.read_impact == model.STALE and "extra edges" in f.detail
 
     def test_added_relationship_unknown_to_n1_is_safe(self):
         f = pdl_rules._relationship_added(model.Origin("p", "corpGroupInfo", None, None), "leads", "LedBy", None)
-        self._refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        _refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
         assert f.risk == model.SAFE and "views don't show them" in f.detail
 
 
@@ -1935,6 +1969,10 @@ class TestSearchKinds:
     def test_query_only_settings_are_safe(self):
         [f] = self._search('{ "fieldType": "TEXT", "boostScore": 2.0 }', '{ "fieldType": "TEXT", "boostScore": 1.0 }')
         assert f.risk == model.SAFE and "`boostScore`" in f.summary
+
+    def test_autocomplete_only_is_query_time(self):
+        [f] = self._search('{ "fieldType": "TEXT", "enableAutocomplete": true }', '{ "fieldType": "TEXT" }')
+        assert f.risk == model.SAFE and not f.reindex_required
 
     def test_mapping_change_keeps_n_mapping_after_rollback(self):
         [f] = self._search('{ "fieldType": "KEYWORD" }', '{ "fieldType": "TEXT" }')
@@ -1963,12 +2001,30 @@ class TestSearchDefaults:
 
 
 
+class TestRefineScope:
+    def test_event_rows_keep_their_classification(self):
+        f = pdl_rules._relationship_added(model.Origin("p", "corpGroupInfo", None, None), "admins", "OwnedBy", None)
+        f.dimension, f.risk, f.aspect_name = model.DIM_EVENT_SCHEMA, model.REQUIRES_ATTENTION, "Evt (event)"
+        _refine(f, {_PL + "CorpGroupInfo.pdl": _GROUP_INFO})
+        assert f.risk == model.REQUIRES_ATTENTION
+
+    def test_embedded_aspect_is_not_its_own_other_builder(self):
+        # ownership embeds corpGroupInfo; nothing else builds OwnedBy.
+        f = pdl_rules._relationship_removed(model.Origin("p", "corpGroupInfo", None, None), "admins", "OwnedBy", None)
+        f.affected_aspects = ["ownership"]
+        assert _refine(f, {_PL + "CorpGroupInfo.pdl": _GROUP_INFO}).risk == model.SAFE
+
+    def test_embedded_aspect_still_checks_its_own_entity(self):
+        f = pdl_rules._relationship_removed(model.Origin("p", "corpGroupInfo", None, None), "admins", "OwnedBy", None)
+        f.affected_aspects = ["someEmbedder"]
+        _refine(f, {_PL + "CorpGroupInfo.pdl": _GROUP_INFO, _PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        assert f.risk == model.REQUIRES_ATTENTION and "`ownership`" in f.detail
+
+
 class TestRolledBackRenamedRelationship:
     def test_new_name_n1_builds_elsewhere_shows_extra_edges(self):
         f = pdl_rules._relationship_renamed(model.Origin("p", "corpGroupInfo", None, None), "admins", "AdminOf", "OwnedBy", None)
-        with patch.object(rac, "file_at", lambda ref, path: _GROUP_REGISTRY if path.endswith("entity-registry.yml") else ""), \
-             patch.object(pdl_rules, "_all_pdls_at", return_value={_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER}):
-            pdl_rules.refine_relationship_findings([f], "N-1")
+        _refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
         assert f.risk == model.REQUIRES_ATTENTION and "extra edges" in f.detail
 
 
@@ -1989,6 +2045,18 @@ class TestN1Summary:
         assert "- **Read:** works, except entities whose records use N's new values or lack a field N-1 requires (`docInfo`) and the new entity type `feedback`." in text
         assert "`incidentInfo`, `incidentActivityEvent`" in text and "`feedbackInfo`" not in text.split("Write")[1].split("Data loss")[0]
         assert "N's new field is dropped when N-1 saves those records. N's new aspects and entity types stay in the database." in text
+
+
+    def test_graph_only_and_not_analysed_lines(self):
+        findings = [
+            _finding(risk=model.REQUIRES_ATTENTION, aspect_name="corpGroupInfo",
+                     summary="Graph relationship `OwnedBy` removed from `admins`", **model.impact("ok, stale", "ok", "graph only")),
+            _finding(risk=model.REQUIRES_ATTENTION, dimension=model.DIM_EVENT_SCHEMA, aspect_name="Evt (event)",
+                     summary="Enum `E`: added value `X`", **model.impact("not analysed", "not analysed", "not analysed")),
+        ]
+        text = "\n".join(report._n1_summary(findings))
+        assert "some graph edges from `corpGroupInfo` are missing until N-1 saves those records" in text
+        assert "- **Not analysed:** 1 item" in text
 
 
 class TestSchemaDiff:
