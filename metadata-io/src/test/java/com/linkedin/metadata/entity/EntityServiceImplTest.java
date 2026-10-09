@@ -5,6 +5,7 @@ import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -73,8 +74,10 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.common.AttributeKey;
@@ -2247,5 +2250,85 @@ public class EntityServiceImplTest {
     verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  // Verified on a mocked MetricUtils: its Micrometer meter caches are static and keyed by name +
+  // tags only, so real registries would leak meters between tests with identical tags.
+  @Test
+  public void testExternalIngestProposalMetricsTaggedBySyncAndAsync() {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext externalContext =
+        mockIngestMetricsContext(externalRequestContext("urn:li:corpuser:ingest-bot"), metrics);
+    AspectsBatch batch = mockBatchOfSize(3);
+
+    EntityServiceImpl.recordExternalIngestProposalMetrics(externalContext, batch, false);
+    EntityServiceImpl.recordExternalIngestProposalMetrics(externalContext, batch, true);
+    EntityServiceImpl.recordExternalIngestProposalMetrics(externalContext, batch, true);
+
+    String[] syncTags = externalTags("sync");
+    String[] asyncTags = externalTags("async");
+    verify(metrics).incrementMicrometer(MetricUtils.DATAHUB_INGEST_PROPOSAL_COUNT, 1, syncTags);
+    verify(metrics, times(2))
+        .incrementMicrometer(MetricUtils.DATAHUB_INGEST_PROPOSAL_COUNT, 1, asyncTags);
+    verify(metrics, times(2))
+        .recordDistribution(MetricUtils.DATAHUB_INGEST_PROPOSAL_BATCH_SIZE, 3L, asyncTags);
+  }
+
+  @Test
+  public void testIngestProposalMetricsSkippedWithoutRequestContext() {
+    // Internal writes run on the system context (no request context). In particular the MCE
+    // consumer re-ingests async MCPs that way; counting it would double count the async call.
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext systemContext = mockIngestMetricsContext(null, metrics);
+
+    EntityServiceImpl.recordExternalIngestProposalMetrics(systemContext, mockBatchOfSize(1), false);
+
+    verify(metrics, never()).incrementMicrometer(any(), anyDouble(), any(String[].class));
+    verify(metrics, never()).recordDistribution(any(), anyLong(), any(String[].class));
+  }
+
+  @Test
+  public void testIngestProposalMetricsFailureDoesNotPropagate() {
+    MetricUtils failingMetrics = mock(MetricUtils.class);
+    doThrow(new IllegalStateException("registry failure"))
+        .when(failingMetrics)
+        .incrementMicrometer(any(), anyDouble(), any(String[].class));
+    OperationContext externalContext =
+        mockIngestMetricsContext(
+            externalRequestContext("urn:li:corpuser:ingest-bot"), failingMetrics);
+
+    EntityServiceImpl.recordExternalIngestProposalMetrics(
+        externalContext, mockBatchOfSize(1), true);
+  }
+
+  private static String[] externalTags(String mode) {
+    return new String[] {
+      "mode", mode,
+      "request_api", "restli",
+      "agent_class", "ingestion",
+      "actor_class", "regular"
+    };
+  }
+
+  private static OperationContext mockIngestMetricsContext(
+      RequestContext requestContext, MetricUtils metricUtils) {
+    OperationContext context = mock(OperationContext.class);
+    when(context.getRequestContext()).thenReturn(requestContext);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+    return context;
+  }
+
+  private static RequestContext externalRequestContext(String actorUrn) {
+    RequestContext requestContext = mock(RequestContext.class);
+    when(requestContext.getRequestAPI()).thenReturn(RequestContext.RequestAPI.RESTLI);
+    when(requestContext.getAgentClass()).thenReturn(AgentClass.INGESTION);
+    when(requestContext.getActorUrn()).thenReturn(actorUrn);
+    return requestContext;
+  }
+
+  private static AspectsBatch mockBatchOfSize(int size) {
+    AspectsBatch batch = mock(AspectsBatch.class);
+    doReturn(Collections.nCopies(size, mock(MCPItem.class))).when(batch).getItems();
+    return batch;
   }
 }

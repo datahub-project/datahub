@@ -37,6 +37,16 @@ public class MetricUtils {
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
   public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
 
+  /**
+   * Externally originated ingestProposal calls (Rest.li, OpenAPI, GraphQL). Tags: mode
+   * (sync|async), request_api, agent_class, actor_class.
+   */
+  public static final String DATAHUB_INGEST_PROPOSAL_COUNT = "datahub.ingest.proposal.count";
+
+  /** Batch size distribution for {@link #DATAHUB_INGEST_PROPOSAL_COUNT}; same tags. */
+  public static final String DATAHUB_INGEST_PROPOSAL_BATCH_SIZE =
+      "datahub.ingest.proposal.batch_size";
+
   /** Human login attempts (success/failure). Tags: outcome, login_source, denial_reason. */
   public static final String DATAHUB_LOGIN = "datahub.login";
 

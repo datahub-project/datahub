@@ -103,6 +103,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.usage.UsageActorClass;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -2245,6 +2246,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    recordExternalIngestProposalMetrics(opContext, aspectsBatch, async);
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {
@@ -2279,6 +2281,44 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Records sync vs async volume and batch size for externally originated calls only. Internal
+   * writes run on the system context with no request context: in particular the MCE consumer
+   * re-enters with async=false to apply async MCPs, so counting it would double count those calls.
+   */
+  @VisibleForTesting
+  static void recordExternalIngestProposalMetrics(
+      @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, boolean async) {
+    final RequestContext requestContext = opContext.getRequestContext();
+    if (requestContext == null) {
+      return;
+    }
+    try {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils -> {
+                String[] tags = {
+                  "mode",
+                  async ? "async" : "sync",
+                  "request_api",
+                  requestContext.getRequestAPI().toMetricLabel(),
+                  "agent_class",
+                  requestContext.getAgentClass().toMetricLabel(),
+                  "actor_class",
+                  UsageActorClass.fromActorUrn(requestContext.getActorUrn()).dimensionValue()
+                };
+                metricUtils.incrementMicrometer(MetricUtils.DATAHUB_INGEST_PROPOSAL_COUNT, 1, tags);
+                metricUtils.recordDistribution(
+                    MetricUtils.DATAHUB_INGEST_PROPOSAL_BATCH_SIZE,
+                    aspectsBatch.getItems().size(),
+                    tags);
+              });
+    } catch (RuntimeException e) {
+      log.warn("Failed to record ingestProposal metrics", e);
+    }
   }
 
   /**

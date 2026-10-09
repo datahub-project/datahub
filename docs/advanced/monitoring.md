@@ -693,6 +693,19 @@ Together, these metrics help identify where delays occur:
 - Low Kafka queue time but high hook latency: Bottleneck in processing or persistence
 - Both high: System-wide performance issues
 
+## Ingest Proposal Sync vs Async Metrics
+
+Emitted by GMS for each externally originated `ingestProposal` call (Rest.li `ingestProposal` / `ingestProposalBatch`, OpenAPI writes, and GraphQL mutations) to measure sync vs async ingest volume.
+
+**Metrics:**
+
+- `datahub.ingest.proposal.count` - Counter, incremented once per call
+- `datahub.ingest.proposal.batch_size` - Distribution of the number of proposals per call
+
+**Tags (both metrics):** `mode` (`sync` | `async`), `request_api`, `agent_class`, `actor_class` (`system` | `regular`)
+
+Only calls that carry a request context are counted. Internal writes are excluded, including the MCE consumer applying async proposals (which would otherwise double count each async call as a later sync call) and writes made by MCL hooks.
+
 ## Aspect Size Validation Metrics
 
 Emitted on all aspect writes (REST, GraphQL, MCP) to track sizes and detect oversized aspects.
