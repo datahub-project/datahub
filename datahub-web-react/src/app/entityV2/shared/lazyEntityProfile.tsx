@@ -60,7 +60,7 @@ function ProfileChunkFallback() {
 type ChunkModule<C> = { default: C };
 
 /** The loaded component, plus `preload` to start its import ahead of the first render. */
-export type LazyProfileComponent<C extends React.ComponentType<any>> = C & {
+export type LazyProfileComponent<C extends React.FunctionComponent<any>> = C & {
     preload: () => Promise<ChunkModule<C>>;
 };
 
@@ -78,7 +78,7 @@ export type LazyProfileComponent<C extends React.ComponentType<any>> = C & {
  * `preload` starts that same import. The wrapper always renders the lazy component, so a
  * later parent render keeps the mounted section instead of swapping in another element type.
  */
-export function lazyProfileComponent<C extends React.ComponentType<any>>(
+export function lazyProfileComponent<C extends React.FunctionComponent<any>>(
     displayName: string,
     loader: () => Promise<ChunkModule<C>>,
 ): LazyProfileComponent<C> {
