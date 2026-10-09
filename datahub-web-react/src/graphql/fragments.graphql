@@ -1925,6 +1925,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditQueries
     canEditEmbed
     canManageEntity
+    canDeleteEntity
     canManageChildren
     canEditProperties
     canViewDatasetUsage

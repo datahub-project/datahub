@@ -193,13 +193,17 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
-    // Document-specific: canManageEntity includes ability to delete/move documents
+    // Document-specific: editing controls moves; deletion is resolved in addCommonPrivileges.
     result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
     return result;
   }
 
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
+    result.setCanDeleteEntity(
+        Constants.DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())
+            ? AuthorizationUtils.canDeleteDocument(urn, context)
+            : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(
         AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
