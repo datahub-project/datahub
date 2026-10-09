@@ -462,6 +462,28 @@ class TestAutoDiscoverProjectsAndJobs:
 
         assert len(job_ids) == 0
 
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_no_discovered_jobs_reports_failure(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """Zero eligible jobs must be a report failure, so stale-entity removal
+        does not soft-delete everything previously ingested."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [DBTCloudJob(id=100, generate_docs=False)]
+
+        source = self._create_source_with_autodiscovery(require_generate_docs=True)
+        # PATCH (the default) needs a graph; OVERRIDE lets get_workunits run standalone.
+        source.config.write_semantics = "OVERRIDE"
+        workunits = list(source.get_workunits())
+
+        assert workunits == []
+        assert len(source.report.failures) == 1
+
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
     def test_auto_discover_environment_api_failure(
         self,
