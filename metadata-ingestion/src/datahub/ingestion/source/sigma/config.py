@@ -363,6 +363,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # once per Data Model.
     data_model_join_key_partner_unresolved: int = 0
     data_model_join_key_partner_unmapped: int = 0
+    # `[JoinElement/Owner/Column]` refs resolved to the element joined in, not
+    # the join element. One that does not resolve is dropped and counted as
+    # the first-slash split would be.
+    data_model_element_fgl_join_chain_resolved: int = 0
     # Data Models whose /spec could not be fetched (see the warning for why),
     # and those whose /spec did not match the shape the parser expects, so
     # their union edges may be incomplete until the connector is updated.

@@ -8685,3 +8685,68 @@ def test_sigma_ingest_data_models_join_keys(pytestconfig, tmp_path, requests_moc
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_join_keys.json",
     )
+
+
+def _get_mock_join_chain_dm_api() -> Dict[str, Dict]:
+    """The join-key Data Model plus an element that reads the join element and
+    references side B's key through it as ``[Join/Side/Column]``."""
+    dm_id = "aa000000-0000-0000-0000-000000000003"
+    base = "https://aws-api.sigmacomputing.com/v2"
+    consumer = "joinConsumer"
+    api = _get_mock_join_dm_api()
+    api[f"{base}/dataModels/{dm_id}/elements"]["json"]["entries"].append(
+        {"elementId": consumer, "name": "Orders Report", "type": "table", "columns": []}
+    )
+    api[f"{base}/dataModels/{dm_id}/columns"]["json"]["entries"].append(
+        {
+            "columnId": "colC",
+            "elementId": consumer,
+            "name": "Order Id",
+            "label": "Order Id",
+            "formula": "[Orders Joined/Orders B/Order Id]",
+        }
+    )
+    api[f"{base}/dataModels/{dm_id}/lineage"]["json"]["entries"].append(
+        {"elementId": consumer, "type": "element", "sourceIds": ["joinElem01"]}
+    )
+    api[f"{base}/dataModels/{dm_id}/spec"]["json"]["pages"][0]["elements"].append(
+        {
+            "id": consumer,
+            "kind": "table",
+            "source": {"kind": "table", "elementId": "joinElem01"},
+        }
+    )
+    for listing in ("elements", "columns", "lineage"):
+        body = api[f"{base}/dataModels/{dm_id}/{listing}"]["json"]
+        body["total"] = len(body["entries"])
+    return api
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_join_chain(pytestconfig, tmp_path, requests_mock):
+    """A ``[Join/Side/Column]`` ref reaches side B's column rather than being
+    dropped as a column the join element lacks; side B becomes an upstream of
+    the element, and the join key adds side A's key as it does for any edge
+    reaching a key through the join."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+    register_mock_api(
+        request_mock=requests_mock, override_data=_get_mock_join_chain_dm_api()
+    )
+
+    output_path = f"{tmp_path}/sigma_join_chain_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_drift_detected == 0
+    assert report.data_model_element_fgl_join_chain_resolved == 1
+    assert report.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_join_chain.json",
+    )
