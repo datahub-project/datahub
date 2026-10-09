@@ -330,8 +330,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
                     return timedSearch(opContext, searchRequest, entityUrns.size());
                   } catch (Exception e) {
-                    log.error("Search query failed", e);
-                    throw new ESQueryException("Search query failed:", e);
+                    log.error("Search query failed for slice {}", sliceId, e);
+                    throw new ESQueryException("Search query failed for slice " + sliceId, e);
                   }
                 },
                 MetricUtils.DROPWIZARD_NAME,
@@ -422,11 +422,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         // Get search_after for next page
         searchAfter = hits[hits.length - 1].getSortValues();
       }
-    } catch (LineageTimeoutException e) {
+    } catch (LineageTimeoutException | ESQueryException e) {
       // Rethrow untouched: processSliceFutures rethrows a bare RuntimeException cause as-is, so the
       // distinct type reaches getImpactLineage's catch (which records the timeout on the cascade)
-      // and the GraphQL/Rest.li mappers without a wrapper. The generic catch below would also log
-      // an error-level stack trace for an expected outcome.
+      // and the GraphQL/Rest.li mappers without a wrapper. ESQueryException covers strict-mode
+      // shard failures and search failures; both messages name the slice, and search failures are
+      // logged where they are thrown. The generic catch below would log a second stack trace.
       throw e;
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);

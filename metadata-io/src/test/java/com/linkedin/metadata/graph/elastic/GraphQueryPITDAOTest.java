@@ -913,9 +913,11 @@ public class GraphQueryPITDAOTest {
 
   @Test
   public void testGetImpactLineageShardFailureThrowsInStrictMode() {
-    expectThrows(
-        RuntimeException.class,
-        () -> runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, false));
+    ESQueryException e =
+        expectThrows(
+            ESQueryException.class,
+            () -> runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, false));
+    Assert.assertTrue(e.getMessage().contains("1 of 3 shards failed"), e.getMessage());
   }
 
   /**
