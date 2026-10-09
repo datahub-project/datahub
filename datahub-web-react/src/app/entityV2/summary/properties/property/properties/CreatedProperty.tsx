@@ -6,9 +6,8 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { Popover } from '@src/alchemy-components';
-
-import { Document, DocumentSourceType, EntityType } from '@types';
 
 const DATE_TIME_FORMAT = 'll LTS';
 const DATE_FORMAT = 'll';
@@ -24,23 +23,10 @@ const DateWithTooltip = styled.span`
 
 export default function CreatedProperty(props: PropertyComponentProps) {
     const { entityData, entityType, loading } = useEntityContext();
+    const entityRegistry = useEntityRegistryV2();
 
-    // Different entities store created timestamp in different locations
-    let createdTimestamp: number | undefined;
-
-    if (entityType === EntityType.Document) {
-        const document = entityData as Document;
-        const created = document?.info?.created?.time;
-        const lastModified = document?.info?.lastModified?.time;
-        // For external documents, only show created if it predates lastModified.
-        // If created >= lastModified the connector likely defaulted to ingestion time.
-        const isExternal = document?.info?.source?.sourceType === DocumentSourceType.External;
-        if (!isExternal || (created && lastModified && created < lastModified)) {
-            createdTimestamp = created;
-        }
-    } else {
-        createdTimestamp = entityData?.properties?.createdOn?.time;
-    }
+    const createdTimestamp =
+        entityRegistry.getCreatedTime(entityType, entityData) ?? entityData?.properties?.createdOn?.time;
 
     const renderCreated = (timestamp: number) => {
         return (
