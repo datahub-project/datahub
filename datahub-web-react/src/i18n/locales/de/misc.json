@@ -190,6 +190,7 @@
     "marketplace.home": "Datenprodukte – Startseite",
     "marketplace.applicationFilter.placeholder": "Anwendungen filtern",
     "marketplace.createTooltip": "Datenprodukt erstellen",
+    "marketplace.cardAssets_one": "{{count}} Asset",
     "marketplace.cardAssets_other": "{{count}} Assets",
     "marketplace.cardDeprecated": "Veraltet",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",
