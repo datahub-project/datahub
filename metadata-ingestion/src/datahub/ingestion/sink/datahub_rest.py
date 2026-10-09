@@ -31,6 +31,7 @@ from datahub.emitter.rest_emitter import (
     _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
+    ChunkedEmitError,
     DataHubRestEmitter,
     EmitMode,
     RestSinkEndpoint,
@@ -67,11 +68,49 @@ logger = logging.getLogger(__name__)
 _DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 
 # Isolation does one HTTP round trip per record, each with its own retry ladder, so a
-# systemic failure (an expired auth token, a model mismatch, an outage) turns "the batch
-# failed" into max_per_batch sequential failures per rejected batch. Once this many
-# consecutive isolation passes recover nothing, stop paying that cost and let the batch
-# exception propagate as it did before per-record isolation existed.
+# systemic client error (a permission denial, a model mismatch) turns "the batch failed"
+# into max_per_batch sequential failures per rejected batch. Once this many
+# consecutive isolation passes recover nothing, stop paying that cost and fail the
+# records that did not land with the batch error.
 _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS = 3
+
+# Client errors that say nothing about which record is at fault: auth, request timeout
+# and throttling fail every record alike.
+_NON_RECORD_CLIENT_ERRORS = {401, 408, 429}
+
+_Event = Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+
+
+def _not_landed_events(
+    events_by_record: List[List[_Event]], error: BaseException
+) -> List[List[_Event]]:
+    """Per record, the events emit_mcps had not got accepted when it raised `error`."""
+    if not isinstance(error, ChunkedEmitError):
+        return [list(events) for events in events_by_record]
+    not_landed = set(error.not_landed_indices)
+    pending: List[List[_Event]] = []
+    offset = 0
+    for events in events_by_record:
+        pending.append(
+            [event for i, event in enumerate(events, start=offset) if i in not_landed]
+        )
+        offset += len(events)
+    return pending
+
+
+def _is_record_attributable(error: BaseException) -> bool:
+    """Whether the server rejected the batch for its content, so re-sending each record
+    alone can find the culprit. Outages, throttling and connection failures are not:
+    isolating them only multiplies retries against a server that is already failing."""
+    if not isinstance(error, OperationalError):
+        return False
+    response = getattr(error.__cause__, "response", None)
+    status = getattr(response, "status_code", None) or error.info.get("status")
+    return (
+        isinstance(status, int)
+        and 400 <= status < 500
+        and status not in _NON_RECORD_CLIENT_ERRORS
+    )
 
 
 class RestSinkMode(ConfigEnum):
@@ -454,21 +493,14 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         events = [event for group in events_by_record for event in group]
 
         try:
-            # emit_mcps chunks internally by payload size. If a later chunk fails after
-            # earlier chunks already landed, isolation below re-emits those
-            # already-succeeded records too, since it only sees the whole call failed.
-            # Server-side no-op detection on the duplicate emit makes this harmless; it
-            # just inflates "recovered" with records that were never actually lost.
             trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
         except Exception as batch_error:
             if len(events_by_record) <= 1:
                 # Nothing to isolate: the single record's error is already precise.
                 raise
-            if self._isolation_suppressed:
-                with self._isolation_lock:
-                    self.report.batches_rejected_while_isolation_suppressed += 1
-                raise
-            raise self._isolate_batch_failures(events_by_record) from batch_error
+            raise self._recover_rejected_batch(
+                events_by_record, batch_error
+            ) from batch_error
 
         num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
@@ -479,35 +511,62 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
 
+    def _recover_rejected_batch(
+        self, events_by_record: List[List[_Event]], batch_error: Exception
+    ) -> BatchItemFailures:
+        # None = written. Records whose chunk the server already accepted stay None and
+        # are never re-sent: re-applying a landed PATCH or CREATE is not safe. Every
+        # other record starts out failed with the batch error.
+        pending = _not_landed_events(events_by_record, batch_error)
+        outcomes: List[Optional[BaseException]] = [
+            batch_error if events else None for events in pending
+        ]
+
+        if self._isolation_suppressed:
+            with self._isolation_lock:
+                self.report.batches_rejected_while_isolation_suppressed += 1
+            return BatchItemFailures(outcomes)
+        if not _is_record_attributable(batch_error):
+            return BatchItemFailures(outcomes)
+
+        return self._isolate_batch_failures(pending, outcomes)
+
     def _isolate_batch_failures(
         self,
-        events_by_record: List[
-            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
-        ],
+        pending: List[List[_Event]],
+        outcomes: List[Optional[BaseException]],
     ) -> BatchItemFailures:
         # The server rejects a batch as a unit, so a single invalid record fails every
         # record batched with it. Re-emitting one record at a time attributes the failure
-        # to the record that caused it and lets the rest through.
+        # to the record that caused it and lets the rest through. Only events that have
+        # not landed are re-emitted; records left unattempted keep their outcome.
         self.report.batches_rejected += 1
-        self.report.records_isolated_after_batch_rejection += len(events_by_record)
 
-        outcomes: List[Optional[BaseException]] = []
-        for events in events_by_record:
+        attempted = 0
+        recovered = 0
+        for index, events in enumerate(pending):
+            if not events:
+                continue
+            if self._isolation_suppressed:
+                # Another worker tripped the circuit breaker mid-pass.
+                break
+            attempted += 1
+            self.report.records_isolated_after_batch_rejection += 1
             try:
                 self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
             except Exception as e:
-                outcomes.append(e)
+                outcomes[index] = e
             else:
-                outcomes.append(None)
+                outcomes[index] = None
+                recovered += 1
                 self.report.records_recovered_after_batch_rejection += 1
 
-        recovered = sum(1 for outcome in outcomes if outcome is None)
         logger.info(
             "Batch of %d rejected; isolation recovered %d record(s) and identified "
             "%d genuine failure(s)",
-            len(events_by_record),
+            attempted,
             recovered,
-            len(outcomes) - recovered,
+            attempted - recovered,
         )
 
         newly_suppressed = False

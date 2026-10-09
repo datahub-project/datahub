@@ -2,7 +2,8 @@ import contextlib
 import json
 import threading
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from typing import List, Optional, Union
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -11,7 +12,7 @@ import time_machine
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+from datahub.emitter.rest_emitter import ChunkedEmitError, DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS,
@@ -414,7 +415,7 @@ class TestDataHubRestSinkBatchEmission:
 
     def test_emit_batch_wrapper_logs_when_batches_split(self, caplog):
         """Test that _emit_batch_wrapper logs info when emit_mcps returns multiple chunks."""
-        from unittest.mock import MagicMock, PropertyMock, patch
+        from unittest.mock import MagicMock, PropertyMock
 
         from datahub.emitter.response_helper import TraceData
         from datahub.ingestion.sink.datahub_rest import (
@@ -498,7 +499,7 @@ def test_rest_sink_config_accepts_client_config_dump():
     assert cfg.server == "http://localhost:8080"
 
 
-def _make_sink(mock_emitter: MagicMock) -> DatahubRestSink:
+def _make_sink(mock_emitter: Union[MagicMock, DatahubRestEmitter]) -> DatahubRestSink:
     sink = DatahubRestSink.__new__(DatahubRestSink)
     sink._emitter_thread_local = threading.local()
     sink._emitter_thread_local.emitter = mock_emitter
@@ -515,6 +516,19 @@ def _status_mcp(name: str) -> MetadataChangeProposalWrapper:
         entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:foo,{name},PROD)",
         aspect=models.StatusClass(removed=False),
     )
+
+
+def _scripted_emitter(*outcomes: Optional[Exception]) -> MagicMock:
+    """An emitter whose successive emit_mcps calls raise the given errors (None = accepted)."""
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = [
+        outcome if outcome is not None else [MagicMock()] for outcome in outcomes
+    ]
+    return mock_emitter
+
+
+def _chunked(error: OperationalError, not_landed: List[int]) -> ChunkedEmitError:
+    return ChunkedEmitError(error.message, error.info, not_landed)
 
 
 def test_emit_batch_wrapper_isolates_the_record_that_caused_the_rejection():
@@ -574,7 +588,9 @@ def test_emit_batch_wrapper_isolation_when_every_record_fails():
     it proves no single record was at fault.
     """
     records = [_status_mcp(f"rec{i}") for i in range(3)]
-    error = OperationalError("forbidden", {"message": "403 Client Error: Forbidden"})
+    error = OperationalError(
+        "forbidden", {"status": 403, "message": "403 Client Error: Forbidden"}
+    )
 
     mock_emitter = MagicMock()
     mock_emitter.emit_mcps.side_effect = error
@@ -630,7 +646,9 @@ def test_isolation_stops_after_consecutive_zero_recovery_batches(caplog):
     """A systemic failure (e.g. an expired token) must not turn one rejected batch
     into max_per_batch sequential failures forever; isolation should give up."""
     records = [_status_mcp(f"rec{i}") for i in range(3)]
-    error = OperationalError("forbidden", {"message": "403 Client Error: Forbidden"})
+    error = OperationalError(
+        "forbidden", {"status": 403, "message": "403 Client Error: Forbidden"}
+    )
 
     mock_emitter = MagicMock()
     mock_emitter.emit_mcps.side_effect = error
@@ -645,8 +663,10 @@ def test_isolation_stops_after_consecutive_zero_recovery_batches(caplog):
 
     mock_emitter.emit_mcps.reset_mock()
     with caplog.at_level("WARNING"):
-        with pytest.raises(OperationalError):
+        with pytest.raises(BatchItemFailures) as exc_info:
             sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [error, error, error]
 
     # Only the single failed batch call — no per-record isolation attempts.
     assert mock_emitter.emit_mcps.call_count == 1
@@ -682,3 +702,164 @@ def test_isolation_continues_when_a_pass_recovers_at_least_one_record():
     # recovered each time.
     assert sink.report.batches_rejected == passes
     assert sink.report.batches_rejected_while_isolation_suppressed == 0
+
+
+def test_isolation_skips_records_whose_chunk_already_landed():
+    """Re-emitting a landed chunk re-applies PATCH and CREATE writes, so only records
+    that did not land may be re-sent."""
+    records = [_status_mcp(f"rec{i}") for i in range(4)]
+    record_error = OperationalError("record rejected", {"status": 422})
+    mock_emitter = _scripted_emitter(
+        _chunked(OperationalError("rejected", {"status": 422}), [2, 3]),
+        record_error,
+        None,
+    )
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [None, None, record_error, None]
+    sent = [call.args[0] for call in mock_emitter.emit_mcps.call_args_list]
+    assert sent[1:] == [[records[2]], [records[3]]]
+    assert sink.report.records_isolated_after_batch_rejection == 2
+    assert sink.report.records_recovered_after_batch_rejection == 1
+
+
+def test_isolation_resends_only_the_unlanded_part_of_a_split_record():
+    """A chunk boundary can fall inside an MCE's MCPs; its landed half is not re-sent."""
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,mce,PROD)",
+            aspects=[
+                models.StatusClass(removed=False),
+                models.DatasetPropertiesClass(name="mce"),
+            ],
+        )
+    )
+    good = _status_mcp("good")
+    # Flattened events: [mce/status, mce/datasetProperties, good]; the first landed.
+    mock_emitter = _scripted_emitter(
+        _chunked(OperationalError("rejected", {"status": 422}), [1, 2]), None, None
+    )
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(mce,), (good,)])
+
+    assert exc_info.value.outcomes == [None, None]
+    sent = [call.args[0] for call in mock_emitter.emit_mcps.call_args_list]
+    assert [[event.aspectName for event in call] for call in sent[1:]] == [
+        ["datasetProperties"],
+        ["status"],
+    ]
+
+
+def test_suppressed_isolation_still_credits_records_that_landed():
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    error = _chunked(OperationalError("rejected", {"status": 422}), [1, 2])
+    mock_emitter = _scripted_emitter(error)
+    sink = _make_sink(mock_emitter)
+    sink._isolation_suppressed = True
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [None, error, error]
+    assert mock_emitter.emit_mcps.call_count == 1
+    assert sink.report.batches_rejected_while_isolation_suppressed == 1
+
+
+def _http_error(status: int) -> OperationalError:
+    response = requests.Response()
+    response.status_code = status
+    error = OperationalError("rejected", {"message": "no status in the body"})
+    error.__cause__ = requests.HTTPError(response=response)
+    return error
+
+
+@pytest.mark.parametrize(
+    "batch_error",
+    [
+        pytest.param(OperationalError("throttled", {"status": 429}), id="429"),
+        pytest.param(OperationalError("unavailable", {"status": 503}), id="503"),
+        pytest.param(OperationalError("unauthorized", {"status": 401}), id="401"),
+        pytest.param(OperationalError("timeout", {"status": 408}), id="408"),
+        pytest.param(_http_error(500), id="500-from-cause"),
+        pytest.param(
+            OperationalError("unreachable", {"message": "Connection refused"}),
+            id="no-status",
+        ),
+        pytest.param(RuntimeError("unexpected"), id="not-operational"),
+    ],
+)
+def test_isolation_skipped_when_the_rejection_is_not_record_attributable(
+    batch_error: Exception,
+) -> None:
+    """An outage or throttle fails every record alike; re-sending each one with its own
+    retry ladder would only stall the run."""
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    mock_emitter = _scripted_emitter(batch_error)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [batch_error, batch_error, batch_error]
+    assert mock_emitter.emit_mcps.call_count == 1
+    assert sink.report.batches_rejected == 0
+
+
+def test_isolation_skipped_still_credits_records_that_landed():
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    error = _chunked(OperationalError("unavailable", {"status": 503}), [2])
+    mock_emitter = _scripted_emitter(error)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [None, None, error]
+    assert mock_emitter.emit_mcps.call_count == 1
+
+
+def test_isolation_runs_for_a_client_error_status_read_from_the_http_cause():
+    records = [_status_mcp(f"rec{i}") for i in range(2)]
+    mock_emitter = _scripted_emitter(_http_error(400), None, None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [None, None]
+    assert mock_emitter.emit_mcps.call_count == 3
+
+
+def test_isolation_stops_emitting_once_suppressed_mid_pass():
+    """Another worker can trip the circuit breaker while this pass is running; the
+    remaining records then fail with the batch error instead of being re-sent."""
+    records = [_status_mcp(f"rec{i}") for i in range(4)]
+    batch_error = OperationalError("rejected", {"status": 422})
+    record_error = OperationalError("record rejected", {"status": 422})
+    mock_emitter = MagicMock()
+    sink = _make_sink(mock_emitter)
+
+    def emit_mcps(events, emit_mode=None):
+        if len(events) > 1:
+            raise batch_error
+        sink._isolation_suppressed = True
+        raise record_error
+
+    mock_emitter.emit_mcps.side_effect = emit_mcps
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [
+        record_error,
+        batch_error,
+        batch_error,
+        batch_error,
+    ]
+    assert mock_emitter.emit_mcps.call_count == 2
+    assert sink.report.records_isolated_after_batch_rejection == 1
