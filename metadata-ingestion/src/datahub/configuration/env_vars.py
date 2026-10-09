@@ -485,6 +485,11 @@ def get_sql_agg_skip_joins() -> bool:
     return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
 
 
+def get_ingest_disable_dpi_first() -> bool:
+    """Keep each entity's aspects in source order instead of sending dataPlatformInstance first (default: False)."""
+    return os.getenv("DATAHUB_INGEST_DISABLE_DPI_FIRST", "").lower() in ("true", "1")
+
+
 def get_sql_parse_cache_size() -> int:
     """SQL parse result cache size (number of entries)."""
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
