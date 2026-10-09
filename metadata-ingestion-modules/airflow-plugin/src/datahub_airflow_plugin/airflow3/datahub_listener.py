@@ -429,7 +429,7 @@ class DataHubListener:
         self._datajob_holder: Dict[str, DataJob] = {}
 
         self._dataset_filter = DatasetFilter(
-            pattern=config.dataset_filter_pattern,
+            pattern=config.dataset_pattern,
             bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
         )
 

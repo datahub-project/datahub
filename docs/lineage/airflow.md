@@ -75,7 +75,7 @@ enabled = True  # default
 | log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                                                 |
 | debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                                                  |
 | dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                                                            |
-| dataset_filter_str                 | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string matched against `<platform>:<name>` of every inlet and outlet. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).                                                                           |
+| dataset_pattern                    | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string matched against `<platform>:<name>` of every inlet and outlet. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).                                                                           |
 | normalize_object_storage_urns      | true                 | Map OpenLineage S3, GCS, Azure and DBFS paths to the `s3`, `gcs`, `abs` and `dbfs` platforms and keep the bucket in the name, so they match datasets from DataHub's storage sources and the Spark agent. Set to `false` to keep the pre-1.8 URNs.         |
 | capture_ol_file_datasets           | false                | Keep `file` datasets that operators report through OpenLineage. These are usually scratch paths on the worker, such as `/tmp/tmpab12/out.csv`, so they are skipped by default. Files declared as Airflow Assets or manual inlets/outlets are always kept. |
 | bigquery_temp_table_dataset_prefix | \_                   | Drop BigQuery tables in datasets that start with this prefix: hidden and anonymous datasets that hold query results, scripts and sessions. Matches the BigQuery source's `temp_table_dataset_prefix`. Set to an empty value to keep them.                 |
@@ -96,17 +96,17 @@ The plugin leaves out two kinds of datasets that never link tasks together:
 - `file` datasets that operators report through OpenLineage, which are scratch paths on the worker. Set `capture_ol_file_datasets = true` to keep them. Files you declare as Airflow Assets or manual `inlets`/`outlets` are always kept.
 - BigQuery tables in hidden datasets (names starting with `_`), which hold anonymous query results, scripts and sessions. Change the prefix with `bigquery_temp_table_dataset_prefix`, or set it to an empty value to keep them.
 
-To drop other datasets, such as a temporary bucket, set `dataset_filter_str`. `dag_filter_str` drops whole DAGs; this drops individual inlets and outlets. Each pattern is a regular expression, case-insensitive, matched from the start of `<platform>:<name>`, for example `gcs:my-bucket/path/file` or `bigquery:my_project.my_dataset.my_table`. End each pattern with `.*` to match everything under a prefix. The key leaves out the environment, so a pattern applies to every `cluster`. If a dataset URN carries a platform instance, which only manually declared inlets/outlets can, the instance is part of the name: `bigquery:my_instance.my_project.my_dataset.my_table`. Denied datasets are removed from the task's inlets and outlets, its runs and its column-level lineage, and are never created in DataHub.
+To drop other datasets, such as a temporary bucket, set `dataset_pattern`. `dag_filter_str` drops whole DAGs; this drops individual inlets and outlets. Each pattern is a regular expression, case-insensitive, matched from the start of `<platform>:<name>`, for example `gcs:my-bucket/path/file` or `bigquery:my_project.my_dataset.my_table`. End each pattern with `.*` to match everything under a prefix. The key leaves out the environment, so a pattern applies to every `cluster`. If a dataset URN carries a platform instance, which only manually declared inlets/outlets can, the instance is part of the name: `bigquery:my_instance.my_project.my_dataset.my_table`. Denied datasets are removed from the task's inlets and outlets, its runs and its column-level lineage, and are never created in DataHub.
 
 ```ini title="airflow.cfg"
 [datahub]
-dataset_filter_str = {"deny": ["gcs:my-tmp-bucket/.*", "s3:my-scratch-bucket/.*"]}
+dataset_pattern = {"deny": ["gcs:my-tmp-bucket/.*", "s3:my-scratch-bucket/.*"]}
 ```
 
-On managed Airflow, such as Amazon MWAA or Google Cloud Composer, set the same value as the `datahub.dataset_filter_str` configuration override or as an environment variable:
+On managed Airflow, such as Amazon MWAA or Google Cloud Composer, set the same value as the `datahub.dataset_pattern` configuration override or as an environment variable:
 
 ```bash
-AIRFLOW__DATAHUB__DATASET_FILTER_STR='{"deny": ["gcs:my-tmp-bucket/.*", "s3:my-scratch-bucket/.*"]}'
+AIRFLOW__DATAHUB__DATASET_PATTERN='{"deny": ["gcs:my-tmp-bucket/.*", "s3:my-scratch-bucket/.*"]}'
 ```
 
 ## Automatic lineage extraction
@@ -647,7 +647,7 @@ breaking changes below, see [Updating DataHub](../how/updating-datahub.md).
 _Changes_
 
 - OpenLineage references to S3, GCS, Azure (`abfs`, `wasb`) and DBFS paths now use the same platform and name as DataHub's storage sources and the Spark agent: `gs://my-bucket` plus `path/file` becomes `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/file,PROD)` instead of a `gs` dataset without the bucket. Set `normalize_object_storage_urns = false` to keep the old URNs for OpenLineage references; the Asset changes below do not depend on it. Airflow Assets on `abfs://` and `abfss://` now use the `abs` platform instead of `adls`. See [Updating DataHub](../how/updating-datahub.md).
-- New `dataset_filter_str` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
+- New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default (`bigquery_temp_table_dataset_prefix`).
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
 
