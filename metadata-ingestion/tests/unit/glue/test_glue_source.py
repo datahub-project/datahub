@@ -1465,8 +1465,9 @@ def _ingest_database_resource_link(
             {"DatabaseName": "resource-link-test-database"},
         )
         _, tables = source.get_all_databases_and_tables()
-
-    wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+        # Generate inside the Stubber so any Glue call made while building workunits (e.g. a
+        # cross-account get_table for a schemaless link) hits the stub, never real AWS.
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
     return source, tables, wus
 
 
