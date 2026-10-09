@@ -11,8 +11,8 @@ from tests.test_helpers.docker_helpers import wait_for_port
 def mssql_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mssql"
     # Before compose: the bind mount is ${MSSQL_TLS_DIR}, and pytds recipes
-    # read ${MSSQL_CAFILE}. forceencryption rejects a client that doesn't
-    # present this cert as its trust anchor.
+    # read ${MSSQL_CAFILE}. The client trusts this CA. forceencryption is
+    # what rejects a plaintext login.
     prepare_mssql_tls(test_resources_dir)
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "sql-server"

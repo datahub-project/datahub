@@ -14,8 +14,9 @@ services:
       - "5500"  # Oracle Enterprise Manager Express
     volumes:
       - ./startup:/opt/oracle/scripts/startup
-      # The startup script writes ewallet.pem here for the client. The
-      # directory has to exist on the host before compose starts.
+      # The startup script, running as oracle, writes ewallet.pem and a ready
+      # file here. The test creates the directory and makes it writable by
+      # that uid before compose starts.
       - ${ORACLE_TLS_DIR}:/opt/oracle/tls
     healthcheck:
       test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]

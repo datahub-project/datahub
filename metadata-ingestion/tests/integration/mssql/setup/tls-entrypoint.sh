@@ -23,4 +23,10 @@ EOF
 chmod 644 "$cert_dir/server.crt" /var/opt/mssql/mssql.conf
 chmod 600 "$cert_dir/server.key"
 
+# The image CMD is /opt/mssql/bin/sqlservr. Compose does not keep it when
+# entrypoint is overridden, and launch_sqlservr.sh treats an empty "$@" as
+# a command that has already finished.
+if [ "$#" -eq 0 ]; then
+    set -- /opt/mssql/bin/sqlservr
+fi
 exec /opt/mssql/bin/launch_sqlservr.sh "$@"

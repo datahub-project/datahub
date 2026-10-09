@@ -130,8 +130,9 @@ def write_self_signed_cert(directory: Path, common_name: str = "localhost") -> P
     server_csr.unlink(missing_ok=True)
 
     # The database container runs as a different uid and only sees this
-    # directory through a bind mount, so the files have to be world-readable.
-    # The keys are per-run test keys.
-    for path in (ca_key, ca_cert, server_key, server_cert):
+    # directory through a bind mount. The leaf key and the certificates have
+    # to be world-readable. The CA key does not: the server never reads it.
+    for path in (ca_cert, server_key, server_cert):
         path.chmod(0o644)
+    ca_key.chmod(0o600)
     return ca_cert

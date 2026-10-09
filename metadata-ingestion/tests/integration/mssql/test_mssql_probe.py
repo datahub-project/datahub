@@ -46,26 +46,30 @@ _STORED_PROCEDURES = ".stored_procedures"
 
 
 def _config(**extra: object) -> Dict[str, object]:
+    return {
+        "host_port": f"localhost:{os.environ['MSSQL_PORT']}",
+        "username": "sa",
+        "password": sa_password(),
+        **extra,
+    }
+
+
+def _with_pytds_tls(config: Dict[str, object]) -> Dict[str, object]:
     # pytds stays plaintext unless cafile is set, and forceencryption rejects
     # that. cafile is the CA that signed the server cert; CN/SAN is localhost.
-    raw_options = extra.pop("options", {})
+    # pyodbc rejects these kwargs, so the mssql-odbc probe must not get them.
+    raw_options = config.get("options", {})
     options: Dict[str, object] = (
         dict(raw_options) if isinstance(raw_options, dict) else {}
     )
-    raw_connect_args = options.pop("connect_args", {})
+    raw_connect_args = options.get("connect_args", {})
     connect_args: Dict[str, object] = (
         dict(raw_connect_args) if isinstance(raw_connect_args, dict) else {}
     )
     connect_args.setdefault("cafile", os.environ["MSSQL_CAFILE"])
     connect_args.setdefault("validate_host", True)
     options["connect_args"] = connect_args
-    return {
-        "host_port": f"localhost:{os.environ['MSSQL_PORT']}",
-        "username": "sa",
-        "password": sa_password(),
-        "options": options,
-        **extra,
-    }
+    return {**config, "options": options}
 
 
 def _run(
@@ -74,11 +78,14 @@ def _run(
     source_type: str = "mssql",
     **kwargs: object,
 ) -> Dict[str, object]:
+    resolved = dict(config) if config is not None else _config()
+    if source_type == "mssql":
+        resolved = _with_pytds_tls(resolved)
     return dict(
         run_probe_method(
             source_type=source_type,
             command=command,
-            config_dict=config if config is not None else _config(),
+            config_dict=resolved,
             kwargs=dict(kwargs),
         ).to_dict()
     )

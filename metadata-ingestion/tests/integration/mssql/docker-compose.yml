@@ -8,6 +8,10 @@ services:
     # not match the machine name, and pytds checks the same name.
     hostname: localhost
     entrypoint: ["/bin/bash", "/setup/tls-entrypoint.sh"]
+    # Replacing the entrypoint drops the image CMD. launch_sqlservr.sh
+    # backgrounds "$@" and waits on it; with no arguments that wait returns
+    # immediately and the container exits 0 without starting sqlservr.
+    command: ["/opt/mssql/bin/sqlservr"]
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "test!Password"

@@ -1,19 +1,24 @@
 # Enable TCPS on 2484. Sourced by the image's runUserScripts.sh, so this
 # file must not change the caller's shell options. The subshell isolates
-# `set -e`; a failure exits runUserScripts and the test times out on 2484
-# instead of connecting in plaintext.
+# `set -e`. It is not the condition of an `if`: bash turns errexit off for
+# that whole subshell, and a later successful lsnrctl would hide a failed
+# orapki. A failure exits runUserScripts. The test waits for the ready file
+# written below, instead of connecting in plaintext.
+#
+# The image user is oracle, not root. chown and `su oracle` fail for that
+# user. The wallet is created here, so it is already owned by oracle, and
+# lsnrctl runs as the current user.
 #
 # TCP stays on 127.0.0.1 only. PMON registers services over TCP, and a
 # TCPS-only listener never learns the PDB service. Loopback is not published,
 # so the test process cannot open a plaintext connection.
 
-if ! (
+(
     set -euo pipefail
 
     WALLET=/opt/oracle/oradata/tls-wallet
     WALLET_PWD=WalletPass1
     NET_ADMIN="${ORACLE_BASE_HOME:-$ORACLE_HOME}/network/admin"
-    ORACLE_GROUP="$(id -gn oracle)"
     # These are symlinks into oradata/dbconfig. Edit the targets so a later
     # sed -i cannot replace the symlink with a new file the listener ignores.
     LISTENER=$(readlink -f "$NET_ADMIN/listener.ora")
@@ -42,7 +47,6 @@ if ! (
         -dn "CN=localhost" \
         -cert /opt/oracle/tls/wallet/ewallet.pem
 
-    chown -R "oracle:${ORACLE_GROUP}" "$WALLET"
     chmod 700 "$WALLET"
     chmod 644 /opt/oracle/tls/wallet/ewallet.pem
 
@@ -83,12 +87,12 @@ SSL_CLIENT_AUTHENTICATION = FALSE
 EOF
     fi
 
-    su oracle -p -c "$ORACLE_HOME/bin/lsnrctl stop" || true
-    su oracle -p -c "$ORACLE_HOME/bin/lsnrctl start"
+    "$ORACLE_HOME/bin/lsnrctl" stop || true
+    "$ORACLE_HOME/bin/lsnrctl" start
 
     ready=0
     for _ in $(seq 1 60); do
-        if su oracle -p -c "$ORACLE_HOME/bin/lsnrctl status" | grep -q XEPDB1; then
+        if "$ORACLE_HOME/bin/lsnrctl" status | grep -q XEPDB1; then
             ready=1
             break
         fi
@@ -96,10 +100,15 @@ EOF
     done
     if [ "$ready" -ne 1 ]; then
         echo "listener did not register XEPDB1" >&2
-        su oracle -p -c "$ORACLE_HOME/bin/lsnrctl status" >&2 || true
+        "$ORACLE_HOME/bin/lsnrctl" status >&2 || true
         exit 1
     fi
-); then
+    # 2484 accepts connections at lsnrctl start, before PMON registers
+    # XEPDB1. The test waits for this file instead of the port.
+    touch /opt/oracle/tls/ready
+)
+status=$?
+if [ "$status" -ne 0 ]; then
     echo "Failed to enable Oracle TCPS" >&2
-    exit 1
+    exit "$status"
 fi
