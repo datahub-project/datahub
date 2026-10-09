@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Ajouter une nouvelle valeur à la liste autorisée",
     "allowedValues.anyValueAllowed": "Toute valeur de type <type>{{valueType}}</type> sera autorisée",
     "allowedValues.descriptionPlaceholder": "Fournir une description",
+    "allowedValues.descriptionTooltip": "Ajouter une description",
+    "allowedValues.dragTooltip": "Faire glisser pour réorganiser",
     "allowedValues.editExistingTooltip": "La modification des valeurs autorisées existantes n'est pas permise",
     "allowedValues.fieldTooltip": "Définir l'ensemble des valeurs valides pour cette propriété. Si aucune n'est fournie, toute valeur sera autorisée",
+    "allowedValues.hideDescriptionTooltip": "Masquer la description",
     "allowedValues.removeTooltip": "Retirer de la liste des valeurs autorisées",
     "allowedValues.title": "Valeurs autorisées",
     "allowedValues.updateButton": "Mettre à jour les valeurs autorisées",
@@ -33,6 +36,7 @@
     "appliesTo.title": "S'applique à",
     "appliesTo.titleCapitalized": "S'applique à",
     "appliesTo.tooltip": "Sélectionner les types d'entités auxquels cette propriété peut être ajoutée",
+    "badgeReplaceError": "Propriété structurée enregistrée, mais le badge d'asset n'a pas pu être mis à jour.",
     "create.nameError": "Veuillez saisir le nom",
     "create.namePlaceholder": "Fournir un nom",
     "create.propertyType": "Type de propriété",
@@ -64,6 +68,7 @@
     "page.subtitle": "Créer et gérer des propriétés personnalisées pour vos assets de données",
     "page.title": "Propriétés structurées",
     "permissionTooltip": "Vous devez disposer de l'autorisation de gérer les propriétés structurées. Demandez à votre administrateur DataHub.",
+    "table.allowedPlatformsColumn": "Plateformes",
     "table.confirmDeleteText": "Voulez-vous vraiment supprimer? La suppression retirera cette propriété structurée de tous les assets sur lesquels elle se trouve actuellement.",
     "table.confirmDeleteTitle": "Confirmer la suppression",
     "table.copyUrn": "Copier l'URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Types d'entités",
     "table.noPropertiesYet": "Aucune propriété pour le moment!",
     "table.noSearchResults": "Aucun résultat de recherche!",
+    "table.typeColumn": "Type",
     "updateError": "Échec de la mise à jour de la propriété structurée.",
     "updateSuccess": "Propriété structurée mise à jour!",
     "valueType.dateDescription": "Une date spécifique",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Une valeur de type chaîne de caractères",
     "valueType.textLabel": "Texte",
     "valueType.textListDescription": "Une liste de valeurs de type chaîne de caractères",
-    "valueType.textListLabel": "Texte - Liste"
+    "valueType.textListLabel": "Texte - Liste",
+    "viewTitle": "Afficher la propriété structurée"
 }
