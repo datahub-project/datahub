@@ -24,6 +24,8 @@ Database rows that cannot be parsed into a metadata change proposal are counted 
 
 This file is diagnostic, not replayable: since no valid metadata change proposal could be built from these rows in the first place, they cannot be re-ingested as-is. Use it to find and fix the underlying data, then re-run ingestion.
 
+By default the file is named `parse-errors-{run_id}.jsonl` and is written to the working directory of the ingestion process; set `parse_error_log.filename` to choose another path. Each line holds the raw database row, including its metadata JSON, which may contain sensitive data, so treat the file accordingly. This covers the database reader only; rows read from Kafka are not written to it.
+
 Set `parse_error_log.enabled: false` to turn this off.
 
 #### Performance

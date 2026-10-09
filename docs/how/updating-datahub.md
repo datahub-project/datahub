@@ -184,7 +184,7 @@ Requirements:
 
 ### Other Notable Changes
 
-- **(Ingestion / DataHub source)** The `datahub` source (used for DataHub-to-DataHub migrations) now writes rows it cannot parse to a `parse-errors-{run_id}.jsonl` file, in addition to counting them in the run report as before. This makes it possible to find and fix the specific rows that were dropped during a migration. **Action:** none required; set `parse_error_log.enabled: false` in the source config to turn this off.
+- **(Ingestion / DataHub source)** The `datahub` source (used for DataHub-to-DataHub migrations) now writes rows it cannot parse to a `parse-errors-{run_id}.jsonl` file in the process working directory, in addition to counting them in the run report as before. This makes it possible to find and fix the specific rows that were dropped during a migration. Each line contains the raw row (including its metadata JSON, which may be sensitive); this applies to the database reader only, not Kafka. **Action:** none required; set `parse_error_log.filename` to write elsewhere, or `parse_error_log.enabled: false` to turn this off.
 
 - **(Frontend / Domain icons)** The domain (and glossary) icon picker now saves Phosphor icons (`IconLibrary.PHOSPHOR`) instead of Material UI. Existing `displayProperties.icon` values with `iconLibrary: MATERIAL` keep working: the UI maps Material icon names to Phosphor equivalents at render time. New picks are stored as Phosphor component names with `style: regular`. **Action:** none; re-save an icon only if you want the stored library/name updated to Phosphor.
 
