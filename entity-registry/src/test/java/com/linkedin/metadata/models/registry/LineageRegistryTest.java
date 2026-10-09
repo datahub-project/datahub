@@ -38,11 +38,9 @@ public class LineageRegistryTest {
     List<LineageRegistry.EdgeInfo> upstreamEdges =
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.UPSTREAM);
 
-    // Verify. This change adds a `repository` entity to the test registry for the first
-    // time (needed to exercise dataJob/dataFlow's new repositoryLineage edges), which also
-    // surfaces repository's own pre-existing RepositoryProduces edge to dataset. Not a
-    // behavior change for dataset -- a previously under-represented entity is now present
-    // in this hand-picked fixture.
+    // Verify. The fixture now adds `repository`, and dataJob/dataFlow register the
+    // new repositoryLineage aspect, so dataset's edge set gains repository's own
+    // RepositoryProduces edge plus dataJob/dataFlow's RepositoryProduces edges.
     assertEquals(upstreamEdges.size(), 7);
     assertTrue(
         upstreamEdges.contains(

@@ -780,16 +780,10 @@ public class LineageServiceTest {
     Mockito.verify(_mockClient, Mockito.times(1))
         .ingestProposal(any(OperationContext.class), eq(dataJobProposal), eq(false));
 
-    final RepositoryLineage expectedRepositoryLineage =
-        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1));
-    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
-    repositoryProposal.setEntityUrn(datajobUrn1);
-    repositoryProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
-    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
-    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expectedRepositoryLineage));
-    repositoryProposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1)));
   }
 
   // Existing repositoryLineage has repo1 and repo2; removing repo1 should leave only repo2.
@@ -822,16 +816,10 @@ public class LineageServiceTest {
     _lineageService.updateDataJobUpstreamLineage(
         opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    final RepositoryLineage expectedRepositoryLineage =
-        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn2));
-    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
-    repositoryProposal.setEntityUrn(datajobUrn1);
-    repositoryProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
-    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
-    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expectedRepositoryLineage));
-    repositoryProposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn2)));
   }
 
   // No repository urn involved at all -- the repositoryLineage aspect should never be read or
@@ -871,16 +859,10 @@ public class LineageServiceTest {
                     Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(proposal.getAspectName())),
             eq(false));
 
-    final RepositoryLineage expectedRepositoryLineage =
-        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1));
-    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
-    repositoryProposal.setEntityUrn(datajobUrn1);
-    repositoryProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
-    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
-    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expectedRepositoryLineage));
-    repositoryProposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1)));
   }
 
   @Test
@@ -931,16 +913,22 @@ public class LineageServiceTest {
     _lineageService.updateDataFlowUpstreamLineage(
         opContext, dataFlowUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    final RepositoryLineage expectedRepositoryLineage =
-        createRepositoryLineage(dataFlowUrn1, Collections.singletonList(repositoryUrn1));
-    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
-    repositoryProposal.setEntityUrn(dataFlowUrn1);
-    repositoryProposal.setEntityType(Constants.DATA_FLOW_ENTITY_NAME);
-    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
-    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expectedRepositoryLineage));
-    repositoryProposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+    verifyRepositoryLineageProposal(
+        dataFlowUrn1,
+        Constants.DATA_FLOW_ENTITY_NAME,
+        createRepositoryLineage(dataFlowUrn1, Collections.singletonList(repositoryUrn1)));
+  }
+
+  @Test
+  public void testFailUpdateDataFlowUpstreamLineageWithInvalidRemoveEdge() throws Exception {
+    final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn1);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataFlowUpstreamLineage(
+                opContext, dataFlowUrn1, Collections.emptyList(), upstreamUrnsToRemove, actorUrn));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -969,6 +957,19 @@ public class LineageServiceTest {
         () ->
             _lineageService.updateDataFlowUpstreamLineage(
                 opContext, dataFlowUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
+  }
+
+  /** Asserts exactly one repositoryLineage UPSERT carrying {@code expected} was ingested. */
+  private void verifyRepositoryLineageProposal(
+      Urn entityUrn, String entityType, RepositoryLineage expected) throws Exception {
+    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
+    repositoryProposal.setEntityUrn(entityUrn);
+    repositoryProposal.setEntityType(entityType);
+    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
+    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expected));
+    repositoryProposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
   }
 
   private RepositoryLineage createRepositoryLineage(Urn entityUrn, List<Urn> inputEdgesToAdd) {

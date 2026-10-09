@@ -671,8 +671,9 @@ public class LineageService {
    * upstream urns are split out and written to the separate repositoryLineage aspect. The
    * dataJobInputOutput aspect is only touched when a dataset or dataJob upstream is involved, the
    * same way dataset lineage leaves its own aspect alone for a metrics-only edit: a repository-only
-   * edit must not rewrite job IO, create an empty dataJobInputOutput where none existed, or let an
-   * IO ingest failure block the repositoryLineage write.
+   * edit must not rewrite job IO or create an empty dataJobInputOutput where none existed. A mixed
+   * edit fails fast if the dataJobInputOutput ingest fails, like every other method in this class,
+   * so the caller gets a clear failure to retry rather than a half-applied edit.
    */
   public void updateDataJobUpstreamLineage(
       @Nonnull OperationContext opContext,
@@ -708,6 +709,17 @@ public class LineageService {
         actor);
   }
 
+  private static void requireRepositoryUrns(@Nonnull final List<Urn> urns) {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to remove an upstream from a dataFlow that isn't a repository. Upstream urn: %s",
+                urn));
+      }
+    }
+  }
+
   /**
    * Updates DataFlow lineage by writing to the repositoryLineage aspect. DataFlow has no
    * dataset/dataJob-shaped input/output aspect, so Repository is its only valid upstream type.
@@ -720,6 +732,9 @@ public class LineageService {
       @Nonnull final Urn actor)
       throws Exception {
     validateDataFlowUpstreamUrns(opContext, upstreamUrnsToAdd);
+    // Removals are type-checked only: an edge to a repository that has since been hard-deleted
+    // must stay removable, so no existence check here.
+    requireRepositoryUrns(upstreamUrnsToRemove);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
@@ -775,9 +790,9 @@ public class LineageService {
 
   /**
    * Builds an MCP of RepositoryLineage.inputEdges for a dataJob or dataFlow entity. Reads the
-   * entity's existing repositoryLineage aspect (if any) and merges in new edges rather than
-   * replacing the whole aspect, so a concurrent writer's edges aren't dropped -- same
-   * merge-not-replace pattern as the dataset/dataJob edge helpers above.
+   * entity's existing repositoryLineage aspect (if any) and merges the requested edges into it
+   * rather than replacing the whole aspect -- same read-merge-upsert pattern as the dataset/dataJob
+   * edge helpers above.
    */
   @Nonnull
   private MetadataChangeProposal buildRepositoryLineageProposal(
