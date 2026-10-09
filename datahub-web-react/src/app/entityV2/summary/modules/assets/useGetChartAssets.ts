@@ -3,7 +3,7 @@ import { useHistory } from 'react-router';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 import { Entity, EntityType } from '@types';
@@ -11,7 +11,7 @@ import { Entity, EntityType } from '@types';
 export const useGetChartAssets = () => {
     const { urn, entityType, loading: entityLoading } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const chart = useBaseEntity<GetChartQuery>()?.chart;
 
     const originEntities = useMemo(() => {

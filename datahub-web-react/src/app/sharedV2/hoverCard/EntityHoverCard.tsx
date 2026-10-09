@@ -25,7 +25,7 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@src/utils/runtimeBasePath';
 
@@ -85,7 +85,7 @@ type Props = {
 export default function EntityHoverCard({ entity, propagationDetails, ownershipRole }: Props) {
     const { t } = useTranslation('common.labels');
     const { t: tTypes } = useTranslation('entity.types');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
 

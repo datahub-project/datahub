@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
@@ -45,7 +45,7 @@ export const useGetChildDataProducts = (initialCount = MAX_ASSETS_TO_FETCH) => {
         onCompleted: () => onReloadingFinished?.(),
     });
 
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const originEntities = useMemo(
         () => data?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [],
         [data?.searchAcrossEntities?.searchResults],

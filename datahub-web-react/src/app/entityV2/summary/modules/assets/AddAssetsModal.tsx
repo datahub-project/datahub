@@ -7,7 +7,7 @@ import { useEntityContext, useEntityData, useRefetch } from '@app/entity/shared/
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
@@ -22,7 +22,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const { entityType, urn } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
     const refetch = useRefetch();
 

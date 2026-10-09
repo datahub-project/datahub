@@ -59,7 +59,7 @@ import {
     STRING_TYPE_URN,
     URN_TYPE_URN,
 } from '@src/app/shared/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
 
@@ -760,7 +760,7 @@ export function useElementDimensions(ref) {
 }
 
 export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (filter.entity) {
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);

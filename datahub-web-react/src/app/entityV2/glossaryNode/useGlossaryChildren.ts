@@ -11,7 +11,7 @@ import {
 } from '@app/glossaryV2/glossarySidebarFilters/glossarySidebarSort';
 import { DEFAULT_GLOSSARY_CHILDREN_COUNT } from '@app/glossaryV2/utils';
 import { mergeUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
@@ -25,7 +25,7 @@ interface Props {
 }
 
 export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverride }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { sortSelection } = useGlossarySidebarFilters();
     const sort = sortOverride ?? sortSelection ?? DEFAULT_GLOSSARY_SIDEBAR_SORT;
     const {

@@ -8,7 +8,3 @@ import { EntityRegistryContext } from '@src/entityRegistryContext';
 export function useEntityRegistry() {
     return useContext(EntityRegistryContext);
 }
-
-export function useEntityRegistryV2() {
-    return useContext(EntityRegistryContext);
-}

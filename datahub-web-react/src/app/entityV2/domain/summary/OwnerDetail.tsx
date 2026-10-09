@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Owner } from '@types';
 
@@ -29,7 +29,7 @@ interface Props {
 }
 
 const OwnerDetail = ({ owner }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const ownerName = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
     const ownerPictureLink =

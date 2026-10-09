@@ -26,10 +26,6 @@ vi.mock('../../../useEntityRegistry', () => ({
         getIcon: mockGetIcon,
         getEntityUrl: vi.fn().mockReturnValue('/entity/test'),
     }),
-    useEntityRegistryV2: () => ({
-        getIcon: mockGetIcon,
-        getEntityUrl: vi.fn().mockReturnValue('/entity/test'),
-    }),
 }));
 
 function emptyFilters(): LineageEntity['filters'] {

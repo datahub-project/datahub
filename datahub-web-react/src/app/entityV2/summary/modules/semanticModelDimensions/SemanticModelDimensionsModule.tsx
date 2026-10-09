@@ -29,7 +29,7 @@ import ModulePillRow from '@app/homeV3/module/components/ModulePillRow';
 import ModuleSecondaryText from '@app/homeV3/module/components/ModuleSecondaryText';
 import { ModuleProps } from '@app/homeV3/module/types';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Dataset } from '@types';
 
@@ -80,7 +80,7 @@ const DatasetName = styled(ModuleEntityName)`
 
 export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { templateType } = usePageTemplateContext();
     const { datasets, loading } = useAllSemanticModelMemberDatasets();
 

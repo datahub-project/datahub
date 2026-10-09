@@ -31,7 +31,7 @@ import {
 import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -57,7 +57,7 @@ export default function useColumnHighlighting(
     columnHighlightedEdges: ColumnHighlightedEdges;
 } {
     const { selectedColumn, hoveredColumn, selectedNode, hoveredNode } = sources;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const { setEdges } = useReactFlow();
     const { showLineageFilterNodes } = useAppConfig().config.featureFlags;

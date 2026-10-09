@@ -7,7 +7,7 @@ import styled from 'styled-components';
 
 import DomainItemMenu from '@app/domainV2/DomainItemMenu';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Maybe, Ownership } from '@types';
 
@@ -53,7 +53,7 @@ export function DomainNameColumn(logoIcon: JSX.Element, t: TFunction<'governance
 }
 
 export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (!ownership) {
         return null;

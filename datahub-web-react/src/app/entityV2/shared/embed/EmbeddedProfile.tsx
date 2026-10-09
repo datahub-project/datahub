@@ -11,7 +11,7 @@ import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/uti
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { TabContextType } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Exact } from '@types';
 
@@ -47,7 +47,7 @@ interface Props<T> {
 }
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const {
         entityData,
         rootEntityData,

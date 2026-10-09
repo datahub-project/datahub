@@ -30,7 +30,6 @@ vi.mock('@app/useEntityRegistry', async () => {
             getDisplayName: mockGetDisplayName,
             getEntityName: vi.fn().mockReturnValue('Tag'),
         }),
-        useEntityRegistryV2: actual.useEntityRegistryV2,
     };
 });
 

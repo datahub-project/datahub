@@ -18,7 +18,6 @@ const mockEntityRegistry = {
 
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 const renderWithProviders = (ui: React.ReactElement) =>
