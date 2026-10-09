@@ -1408,6 +1408,12 @@ class BigQuerySchemaGenerator:
         ):
             self.external_tables[dataset_urn] = table
 
+        # Sent first so the table is created with its instance stored and policies
+        # scoped by platform instance apply to its later writes.
+        yield self.get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn, project_id=project_id
+        )
+
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=status
@@ -1461,10 +1467,6 @@ class BigQuerySchemaGenerator:
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        yield self.get_dataplatform_instance_aspect(
-            dataset_urn=dataset_urn, project_id=project_id
-        )
-
         subTypes = SubTypes(typeNames=sub_types)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subTypes

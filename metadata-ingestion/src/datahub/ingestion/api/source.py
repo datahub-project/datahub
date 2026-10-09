@@ -635,7 +635,6 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoStatusAspectProcessor,
             AutoWorkunitsReporterProcessor,
             EnsureAspectSizeProcessor,
-            EnsureDataPlatformInstanceFirstProcessor,
             ValidateDuplicateSchemaFieldPathsProcessor,
             ValidateEmptySchemaFieldPathsProcessor,
             ValidateInputFieldsProcessor,
@@ -686,10 +685,6 @@ class Source(Closeable, metaclass=ABCMeta):
             ValidateInputFieldsProcessor,
             EnsureAspectSizeProcessor,
             AutoStaleEntityRemovalProcessor,
-            # Last, so no processor above can put another aspect ahead of an
-            # entity's dataPlatformInstance, and so AutoBrowsePathV2Processor still
-            # sees each container's parent Container aspect first.
-            EnsureDataPlatformInstanceFirstProcessor,
         ]
 
         # Convert processor classes to names for comparison

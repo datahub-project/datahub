@@ -345,9 +345,7 @@ def gen_containers(
 
     # dataPlatformInstance goes right after the Container aspect, so that the
     # container is created with its instance stored and policies scoped by
-    # platform instance apply to its later writes. In a source pipeline,
-    # EnsureDataPlatformInstanceFirstProcessor also moves it ahead of the
-    # Container aspect once browse paths have been generated.
+    # platform instance apply to its later writes.
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         aspect=DataPlatformInstance(
