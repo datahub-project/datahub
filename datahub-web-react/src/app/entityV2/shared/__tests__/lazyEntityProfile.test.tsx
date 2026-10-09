@@ -27,6 +27,18 @@ describe('lazyProfileComponent', () => {
         expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
     });
 
+    it('renders the chunk immediately after preload', async () => {
+        const LazySection = lazyProfileComponent('ExampleSection', () =>
+            Promise.resolve({ default: () => <div>Loaded profile section</div> }),
+        );
+
+        await LazySection.preload();
+
+        renderProfile(<LazySection />);
+        expect(screen.getByText('Loaded profile section')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Loading...')).not.toBeInTheDocument();
+    });
+
     it('asks for a page reload when the profile chunk fails', async () => {
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         const LazySection = lazyProfileComponent('BrokenSection', () => Promise.reject(new Error('chunk failed')));
