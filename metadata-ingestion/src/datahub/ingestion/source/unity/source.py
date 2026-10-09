@@ -87,6 +87,7 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.genie_diagnostics import log_genie_spaces
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -585,15 +586,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.log_genie_spaces:
-            from datahub.ingestion.source.unity.genie_diagnostics import (
-                log_genie_spaces,
-            )
-
             with self.report.new_stage("Genie diagnostics"):
-                log_genie_spaces(
-                    api_client=self.unity_catalog_api_proxy.genie_diagnostics_client,
-                    report=self.report,
-                )
+                log_genie_spaces(proxy=self.unity_catalog_api_proxy, report=self.report)
 
         with self.report.new_stage("Ingestion Setup"):
             wait_on_warehouse = None

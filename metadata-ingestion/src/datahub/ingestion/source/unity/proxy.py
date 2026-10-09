@@ -11,6 +11,7 @@ from contextlib import closing
 from datetime import datetime
 from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
+from urllib.parse import quote
 
 import cachetools
 import yaml
@@ -85,6 +86,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 # It is enough to keep the cache size to 1, since we only process one catalog at a time
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
+
+GENIE_SPACES_PATH = "/api/2.0/genie/spaces"
 
 
 # Import and apply the proxy patch from separate module
@@ -313,7 +316,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = workspace_client
-        self.genie_diagnostics_client = workspace_client.api_client
         self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
@@ -1195,6 +1197,24 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 exc_info=True,
             )
             return []
+
+    def list_genie_spaces_raw(self, page_token: Optional[str] = None) -> object:
+        """List Genie spaces as raw JSON, keeping fields the SDK models drop."""
+        query = {"page_token": page_token} if page_token else {}
+        return self._workspace_client.api_client.do(
+            "GET", GENIE_SPACES_PATH, query=query
+        )
+
+    def get_genie_space_raw(self, space_id: str) -> object:
+        """Get a Genie space with its serialized definition as raw JSON.
+
+        `include_serialized_space` requires CAN EDIT on the space.
+        """
+        return self._workspace_client.api_client.do(
+            "GET",
+            f"{GENIE_SPACES_PATH}/{quote(space_id, safe='')}",
+            query={"include_serialized_space": True},
+        )
 
     def table_lineage(
         self,

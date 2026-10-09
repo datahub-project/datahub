@@ -1,16 +1,14 @@
 import json
 import logging
-from typing import Dict, Set
-from urllib.parse import quote
+from typing import Optional, Set
 
-from databricks.sdk.core import ApiClient
 from databricks.sdk.errors import DatabricksError, PermissionDenied, Unauthenticated
 
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 logger = logging.getLogger(__name__)
 
-GENIE_SPACES_PATH = "/api/2.0/genie/spaces"
 LOG_CHUNK_SIZE = 12000
 
 
@@ -57,15 +55,15 @@ def _log_error(
     )
 
 
-def log_genie_spaces(api_client: ApiClient, report: UnityCatalogReport) -> None:
-    query: Dict[str, str] = {}
+def log_genie_spaces(proxy: UnityCatalogApiProxy, report: UnityCatalogReport) -> None:
+    page_token: Optional[str] = None
     seen_tokens: Set[str] = set()
     seen_spaces: Set[str] = set()
     pages = exported = failures = 0
     listing_complete = False
     try:
         while True:
-            page = api_client.do("GET", GENIE_SPACES_PATH, query=query)
+            page = proxy.list_genie_spaces_raw(page_token=page_token)
             pages += 1
             _log_response("list", str(pages), page)
             if not isinstance(page, dict) or not isinstance(
@@ -86,11 +84,7 @@ def log_genie_spaces(api_client: ApiClient, report: UnityCatalogReport) -> None:
                     continue
                 seen_spaces.add(space_id)
                 try:
-                    detail = api_client.do(
-                        "GET",
-                        f"{GENIE_SPACES_PATH}/{quote(space_id, safe='')}",
-                        query={"include_serialized_space": True},
-                    )
+                    detail = proxy.get_genie_space_raw(space_id)
                     _log_response("detail", space_id, detail)
                     exported += 1
                 except Exception as error:
@@ -103,7 +97,7 @@ def log_genie_spaces(api_client: ApiClient, report: UnityCatalogReport) -> None:
             if not isinstance(token, str) or token in seen_tokens:
                 raise ValueError("Invalid or repeated Genie page token")
             seen_tokens.add(token)
-            query = {"page_token": token}
+            page_token = token
     except Exception as error:
         failures += 1
         _log_error("list", str(pages + 1), error, report)
