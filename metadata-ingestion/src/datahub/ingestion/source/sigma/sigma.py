@@ -2828,6 +2828,75 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _try_emit_join_chain_fgl(
+        self,
+        *,
+        ref: BracketRef,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        downstream_field: str,
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> bool:
+        """``[JoinElement/.../Owner/Column]``: a column of an element joined into
+        a sibling join element this element reads. True when an edge was added.
+
+        The first segment must name exactly one sibling, listed by /lineage as
+        an upstream of this element. Every later segment but the column must
+        name exactly one element the join element's /lineage lists as a
+        source, and the last of those must have the column. The owner is
+        reached through the join, so /lineage never lists it for this element;
+        it is added as an upstream. Only names are compared, and relationships
+        are not ingested, so ``[Element/Relationship/Column]`` stays unresolved
+        unless the relationship shares a joined element's name.
+        """
+        join_eids = [
+            eid
+            for eid in element_name_to_eids.get(ref.segments[0].lower(), [])
+            if eid != element.elementId
+        ]
+        if (
+            len(join_eids) != 1
+            or elementId_to_dataset_urn.get(join_eids[0])
+            not in entity_level_upstream_urns
+        ):
+            return False
+        join = next(e for e in data_model.elements if e.elementId == join_eids[0])
+        joined_eids = {
+            sid for sid in join.source_ids if sid in elementId_to_dataset_urn
+        }
+        owner_eid = None
+        for name in ref.segments[1:-1]:
+            matches = [
+                eid
+                for eid in element_name_to_eids.get(name.lower(), [])
+                if eid in joined_eids
+            ]
+            if len(matches) != 1:
+                return False
+            owner_eid = matches[0]
+        assert owner_eid is not None
+        owner_urn = elementId_to_dataset_urn[owner_eid]
+        column = urn_to_cols.get(owner_urn, {}).get(ref.segments[-1].lower())
+        if column is None:
+            return False
+        upstream_field = builder.make_schema_field_urn(owner_urn, column)
+        if (downstream_field, upstream_field) not in emitted_pairs:
+            self._append_intra_dm_fgl(
+                downstream_field=downstream_field,
+                upstream_field=upstream_field,
+                fgls=fgls,
+                emitted_pairs=emitted_pairs,
+            )
+            self.reporter.data_model_element_fgl_join_chain_resolved += 1
+        discovered_upstreams.add(owner_urn)
+        return True
+
     def _get_dm_spec_index(self, data_model: SigmaDataModel) -> DataModelSpecIndex:
         """The Data Model's /spec index, fetched once per run.
 
@@ -3197,6 +3266,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
                     # are not cross-Dataset lineage; skip.
+                    continue
+
+                # The first-slash split reads the join element and a column
+                # path it does not have; an unresolved chain falls through to
+                # it, which drops and counts the ref.
+                if len(ref.segments) >= 3 and self._try_emit_join_chain_fgl(
+                    ref=ref,
+                    element=element,
+                    data_model=data_model,
+                    element_name_to_eids=element_name_to_eids,
+                    elementId_to_dataset_urn=elementId_to_dataset_urn,
+                    entity_level_upstream_urns=entity_level_upstream_urns,
+                    urn_to_cols=urn_to_cols,
+                    downstream_field=downstream_field,
+                    fgls=fgls,
+                    emitted_pairs=emitted_pairs,
+                    discovered_upstreams=discovered_upstreams,
+                ):
                     continue
 
                 candidate_eids = element_name_to_eids.get(ref.source.lower(), [])

@@ -1650,3 +1650,79 @@ def test_an_unlisted_key_partner_becomes_an_upstream() -> None:
     )
 
     assert _urn("b") in discovered
+
+
+def _build_chain(
+    source: SigmaSource,
+    formula: str,
+    *,
+    join_sources: List[str] | None = None,
+    listed: Set[str] | None = None,
+    discovered: Set[str] | None = None,
+) -> list:
+    """C reads join element J, which joins A and B; A2 is a second "A" that J
+    does not join."""
+    join = _element(
+        "j", "J", [_column("j-k", "k", None)], source_ids=join_sources or ["a", "b"]
+    )
+    elements = [
+        join,
+        _upstream_element("a", "A", ["x"]),
+        _upstream_element("b", "B", ["y"]),
+        _upstream_element("a2", "A", ["x"]),
+    ]
+    return _build(
+        source,
+        _element("c", "C", [_column("c-x", "x", formula)], source_ids=["j"]),
+        element_name_to_eids={"j": ["j"], "a": ["a", "a2"], "b": ["b"]},
+        elementId_to_dataset_urn={e.elementId: _urn(e.elementId) for e in elements},
+        entity_level_upstream_urns={_urn("j")} if listed is None else listed,
+        upstream_elements=elements,
+        discovered_upstreams=discovered,
+    )
+
+
+@pytest.mark.parametrize("formula", ["[J/A/x]", "[j/a/X]", "[J/B/A/x]"])
+def test_a_join_chain_ref_reaches_the_joined_element(formula: str) -> None:
+    source = _source()
+    discovered: Set[str] = set()
+
+    lineages = _build_chain(source, formula, discovered=discovered)
+
+    assert [fgl.upstreams for fgl in lineages] == [
+        [builder.make_schema_field_urn(_urn("a"), "x")]
+    ]
+    assert discovered == {_urn("a")}
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+
+
+@pytest.mark.parametrize(
+    "formula, join_sources, listed",
+    [
+        # The middle segment names a relationship, not a joined element.
+        ("[J/Rel/x]", None, None),
+        # The joined element lacks the column.
+        ("[J/B/x]", None, None),
+        # The element's /lineage does not list the join element.
+        ("[J/A/x]", None, {_urn("a")}),
+        # Both "A"s are joined, so the name does not pick one.
+        ("[J/A/x]", ["a", "a2"], None),
+    ],
+)
+def test_an_unresolved_join_chain_adds_no_edge(
+    formula: str, join_sources: List[str] | None, listed: Set[str] | None
+) -> None:
+    source = _source()
+    discovered: Set[str] = set()
+
+    lineages = _build_chain(
+        source,
+        formula,
+        join_sources=join_sources,
+        listed=listed,
+        discovered=discovered,
+    )
+
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
