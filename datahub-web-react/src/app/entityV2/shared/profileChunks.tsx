@@ -40,7 +40,7 @@ export const EntityProfile = lazyProfileComponent('EntityProfile', () =>
     import('@app/entityV2/shared/containers/profile/EntityProfile').then((module) => ({
         default: module.EntityProfile,
     })),
-);
+) as unknown as typeof import('@app/entityV2/shared/containers/profile/EntityProfile').EntityProfile;
 
 export const IncidentTab = lazyProfileComponent('IncidentTab', () =>
     import('@app/entityV2/shared/tabs/Incident/IncidentTab').then((module) => ({

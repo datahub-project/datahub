@@ -12,6 +12,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/mlFeature/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -102,27 +103,32 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.featureTables'),
+                    path: EntityTabPath.FEATURE_TABLES,
                     component: FeatureTableTab,
                     icon: Infinity,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, mlFeature) => {
