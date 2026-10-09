@@ -31,14 +31,15 @@ def _log_response(operation: str, identifier: str, response: object) -> None:
 def _log_error(
     operation: str, identifier: str, error: Exception, report: UnityCatalogReport
 ) -> None:
-    status = (
-        "permission_denied"
-        if isinstance(error, (PermissionDenied, Unauthenticated))
-        else "request_failed"
-    )
-    code = (
-        error.error_code if isinstance(error, DatabricksError) else type(error).__name__
-    )
+    if isinstance(error, PermissionDenied):
+        status = "permission_denied"
+    elif isinstance(error, Unauthenticated):
+        status = "unauthenticated"
+    else:
+        status = "request_failed"
+    # The SDK leaves error_code unset when it cannot parse the error body.
+    error_code = error.error_code if isinstance(error, DatabricksError) else None
+    code = error_code or type(error).__name__
     # Do not dump exception messages or request headers, which may contain
     # credentials or unrelated response content from proxies.
     logger.warning(
@@ -48,8 +49,14 @@ def _log_error(
         status,
         code,
     )
+    # A separate message keeps list failures in their own report entry, so
+    # context sampling across many per-space failures cannot drop them.
     report.warning(
-        message="Genie diagnostic request failed",
+        message=(
+            "Genie space listing incomplete"
+            if operation == "list"
+            else "Genie space detail request failed"
+        ),
         context=f"{operation} {identifier}: {status} ({code})",
         log=False,
     )
@@ -60,12 +67,13 @@ def log_genie_spaces(proxy: UnityCatalogApiProxy, report: UnityCatalogReport) ->
     seen_tokens: Set[str] = set()
     seen_spaces: Set[str] = set()
     pages = exported = failures = 0
+    page_number = 1
     listing_complete = False
     try:
         while True:
             page = proxy.list_genie_spaces_raw(page_token=page_token)
             pages += 1
-            _log_response("list", str(pages), page)
+            _log_response("list", str(page_number), page)
             if not isinstance(page, dict) or not isinstance(
                 page.get("spaces", []), list
             ):
@@ -98,9 +106,10 @@ def log_genie_spaces(proxy: UnityCatalogApiProxy, report: UnityCatalogReport) ->
                 raise ValueError("Invalid or repeated Genie page token")
             seen_tokens.add(token)
             page_token = token
+            page_number += 1
     except Exception as error:
         failures += 1
-        _log_error("list", str(pages + 1), error, report)
+        _log_error("list", str(page_number), error, report)
     logger.info(
         "Genie diagnostic summary: pages=%d visible_spaces=%d details=%d failures=%d listing_complete=%s. "
         "Counts reflect only spaces visible to the authenticated principal.",

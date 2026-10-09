@@ -68,20 +68,42 @@ def test_paginated_raw_responses_and_large_exports(
 
 
 @pytest.mark.parametrize(
-    "error", [PermissionDenied("private failure"), Unauthenticated("private failure")]
+    "error, status",
+    [
+        (PermissionDenied("private failure"), "permission_denied"),
+        (Unauthenticated("private failure"), "unauthenticated"),
+    ],
 )
 def test_list_permission_failure_is_not_empty_result(
-    error: Exception, caplog: pytest.LogCaptureFixture
+    error: Exception, status: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     proxy = Mock(spec=UnityCatalogApiProxy)
     proxy.list_genie_spaces_raw.side_effect = error
     report = UnityCatalogReport()
     with caplog.at_level(logging.INFO):
         log_genie_spaces(proxy, report)
-    assert "permission_denied" in caplog.text
+    # No error_code in the body, so the exception class identifies the failure.
+    assert f"status={status} error_code={type(error).__name__}" in caplog.text
     assert "failures=1 listing_complete=False" in caplog.text
     assert "private failure" not in caplog.text
     assert report.warnings
+
+
+def test_list_failure_names_its_page_and_keeps_its_own_report_entry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    proxy = Mock(spec=UnityCatalogApiProxy)
+    proxy.list_genie_spaces_raw.side_effect = [
+        {"spaces": [{"space_id": "denied"}], "next_page_token": "next"},
+        {"spaces": "invalid"},
+    ]
+    proxy.get_genie_space_raw.side_effect = [PermissionDenied("denied")]
+    report = UnityCatalogReport()
+    with caplog.at_level(logging.INFO):
+        log_genie_spaces(proxy, report)
+    assert "Genie diagnostic list id=2 status=request_failed" in caplog.text
+    assert "list id=3" not in caplog.text
+    assert len(report.warnings) == 2
 
 
 def test_detail_denied_preserves_list_metadata_and_continues(
