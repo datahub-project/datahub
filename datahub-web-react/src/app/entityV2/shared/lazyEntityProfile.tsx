@@ -68,7 +68,7 @@ function ProfileChunkFallback() {
  * must be plain function components: the wrapper forwards no refs and copies no statics. Sidebars
  * key sections by displayName, so each wrapper sets that to the component name.
  */
-export function lazyProfileComponent<C extends React.ComponentType<any>>(
+export function lazyProfileComponent<C extends React.FunctionComponent<any>>(
     displayName: string,
     loader: () => Promise<{ default: C }>,
 ): C {

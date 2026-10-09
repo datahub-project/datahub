@@ -10,11 +10,11 @@ function renderProfile(node: React.ReactNode) {
 
 describe('lazyProfileComponent', () => {
     it('shows a loader until the profile chunk resolves', async () => {
-        let resolveChunk: (value: { default: React.ComponentType }) => void = () => undefined;
+        let resolveChunk: (value: { default: React.FunctionComponent }) => void = () => undefined;
         const LazySection = lazyProfileComponent(
             'ExampleSection',
             () =>
-                new Promise<{ default: React.ComponentType }>((resolve) => {
+                new Promise<{ default: React.FunctionComponent }>((resolve) => {
                     resolveChunk = resolve;
                 }),
         );
