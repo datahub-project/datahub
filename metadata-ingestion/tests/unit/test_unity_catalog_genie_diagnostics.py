@@ -15,6 +15,10 @@ from datahub.ingestion.source.unity.genie_diagnostics import (
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.utilities.logging_manager import (
+    BASE_LOGGING_FORMAT,
+    IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH,
+)
 
 
 def test_proxy_quotes_space_id_and_requests_serialized_space() -> None:
@@ -64,6 +68,11 @@ def test_paginated_raw_responses_and_large_exports(
     ]
     assert all(len(chunk) <= LOG_CHUNK_SIZE for chunk in chunks)
     assert json.loads("".join(chunks)) == detail
+    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
+    assert all(
+        len(formatter.format(record)) <= IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH
+        for record in caplog.records
+    )
     assert "visible_spaces=2 details=2 failures=0 listing_complete=True" in caplog.text
 
 
