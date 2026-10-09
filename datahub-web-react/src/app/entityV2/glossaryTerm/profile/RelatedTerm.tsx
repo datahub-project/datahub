@@ -43,7 +43,7 @@ function RelatedTerm(props: Props) {
     if (data) {
         displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, data.glossaryTerm);
     }
-    const { onRemove } = useRemoveRelatedTerms(urn, relationshipType, displayName);
+    const { onRemove, removeConfirmationModal } = useRemoveRelatedTerms(urn, relationshipType, displayName);
 
     if (loading) return null;
 
@@ -56,6 +56,7 @@ function RelatedTerm(props: Props) {
                     {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 </Profile>
             </SearchCardContext.Provider>
+            {removeConfirmationModal}
         </ListItem>
     );
 }

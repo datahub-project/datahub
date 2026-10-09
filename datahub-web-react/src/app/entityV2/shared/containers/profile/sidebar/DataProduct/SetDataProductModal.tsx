@@ -1,6 +1,6 @@
-import { Empty, Select, Tag, message } from 'antd';
+import { Loader, Modal, SimpleSelect, Text, toast } from '@components';
 import debounce from 'lodash/debounce';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -15,11 +15,9 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Loader, Modal, Text } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
-import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchAddToDataProductsMutation, useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
@@ -31,6 +29,11 @@ const LoadingWrapper = styled.div`
     margin: 5px;
 `;
 
+const OptionContent = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 interface Props {
     urns: string[];
     currentDataProducts: DataProduct[];
@@ -38,6 +41,10 @@ interface Props {
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
     setDataProducts?: (dataProducts: DataProduct[]) => void;
+}
+
+interface DataProductOption extends SelectOption {
+    entity?: DataProduct;
 }
 
 export default function SetDataProductModal({
@@ -58,8 +65,6 @@ export default function SetDataProductModal({
     const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(
         isMultipleDataProductsEnabled ? [] : currentDataProducts,
     );
-    const inputEl = useRef(null);
-    useAutoFocusInModal(inputEl);
     const { isInFormContext } = useEntityFormContext();
 
     const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -111,7 +116,7 @@ export default function SetDataProductModal({
     };
 
     const handleMutationSuccess = (successMessage: string) => {
-        message.success({ content: successMessage, duration: 3 });
+        toast.success(successMessage, { duration: 3 });
         if (isMultipleDataProductsEnabled) {
             // Combine with current data products to correcly show them together in entity sidebar
             const existingDataProductUrns = currentDataProducts.map((dp) => dp.urn);
@@ -132,13 +137,12 @@ export default function SetDataProductModal({
     };
 
     const handleMutationError = (e: any, errorMessage: string) => {
-        message.destroy();
-        message.error(
-            handleBatchError(urns, e, {
-                content: `${errorMessage} \n ${e.message || ''}`,
-                duration: 3,
-            }),
-        );
+        toast.destroy();
+        const { content, duration } = handleBatchError(urns, e, {
+            content: `${errorMessage} \n ${e.message || ''}`,
+            duration: 3,
+        });
+        toast.error(content, { duration });
     };
 
     function onOk() {
@@ -177,75 +181,36 @@ export default function SetDataProductModal({
         }
     }
 
-    function onSelectDataProduct(urn: string) {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-        const dataProduct = displayedDataProducts?.find((entity) => entity.urn === urn);
-        if (dataProduct) {
-            if (isMultipleDataProductsEnabled) {
-                setSelectedDataProducts((prev) => [...prev, dataProduct as DataProduct]);
-            } else {
-                setSelectedDataProducts([dataProduct as DataProduct]);
-            }
-        }
-    }
-
-    function onDeselect(urn: string) {
-        setSelectedDataProducts((prev) => prev.filter((dp) => dp.urn !== urn));
-    }
-
     // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#setDataProductButton',
     });
 
-    const tagRender = (tagRendererProps) => {
-        const { closable, onClose, value } = tagRendererProps;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        const dataProduct = selectedDataProducts.find((dp) => dp.urn === value);
-        return (
-            <Tag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
-                {dataProduct ? entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct) : value}
-            </Tag>
-        );
-    };
+    const options: DataProductOption[] = useMemo(
+        () =>
+            displayedDataProducts.map((result) => ({
+                value: result.urn,
+                label: entityRegistry.getDisplayName(EntityType.DataProduct, result),
+                entity: result as DataProduct,
+            })),
+        [displayedDataProducts, entityRegistry],
+    );
 
-    // FYI: In multiple mode, value should be urns since tagRender handles display.
-    // In single mode, value should be display names for proper rendering.
-    const selectValue = isMultipleDataProductsEnabled
-        ? selectedDataProducts.map((dp) => dp.urn)
-        : selectedDataProducts.map((dp) => entityRegistry.getDisplayName(EntityType.DataProduct, dp));
+    const selectedOptions: DataProductOption[] = useMemo(() => {
+        const byUrn = new Map(options.map((option) => [option.value, option]));
+        selectedDataProducts.forEach((dp) => {
+            if (!byUrn.has(dp.urn)) {
+                byUrn.set(dp.urn, {
+                    value: dp.urn,
+                    label: entityRegistry.getDisplayName(EntityType.DataProduct, dp),
+                    entity: dp,
+                });
+            }
+        });
+        return Array.from(byUrn.values());
+    }, [options, selectedDataProducts, entityRegistry]);
 
-    const loadingOption = {
-        label: (
-            <LoadingWrapper>
-                <Loader size="xs" />
-            </LoadingWrapper>
-        ),
-        value: 'loading',
-    };
-
-    const options = displayedDataProducts.map((result) => {
-        return {
-            label: (
-                <>
-                    <Text size="md">{entityRegistry.getDisplayName(EntityType.DataProduct, result)}</Text>
-                    <ContextPath
-                        entityType={EntityType.DataProduct}
-                        displayedEntityType={t('sidebar.dataProduct.entityTypeName')}
-                        parentEntities={getParentEntities(result as DataProduct, EntityType.DataProduct)}
-                        entityTitleWidth={200}
-                        numVisible={3}
-                    />
-                </>
-            ),
-            value: result.urn,
-        };
-    });
+    const values = selectedDataProducts.map((dp) => dp.urn);
 
     return (
         <Modal
@@ -273,30 +238,56 @@ export default function SetDataProductModal({
                 },
             ]}
         >
-            <Select
-                autoFocus
+            <SimpleSelect
                 showSearch
                 defaultOpen
-                filterOption={false}
-                mode={isMultipleDataProductsEnabled ? 'multiple' : undefined}
-                defaultActiveFirstOption={false}
+                filterResultsByQuery={false}
+                isMultiSelect={isMultipleDataProductsEnabled}
                 placeholder={t('sidebar.dataProduct.searchPlaceholder')}
-                onSelect={(urn: string) => onSelectDataProduct(urn)}
-                onDeselect={(urn: string) => onDeselect(urn)}
-                onSearch={handleSearch}
-                style={{ width: '100%' }}
-                ref={inputEl}
-                value={selectValue}
-                tagRender={isMultipleDataProductsEnabled ? tagRender : undefined}
-                options={loading ? [loadingOption] : options}
-                notFoundContent={
-                    !loading ? (
-                        <Empty
-                            description={t('sidebar.dataProduct.emptyText')}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            style={{ color: ANTD_GRAY[7] }}
-                        />
-                    ) : null
+                values={values}
+                onUpdate={(next) => {
+                    if (!isMultipleDataProductsEnabled) {
+                        const urn = next[0];
+                        const match = selectedOptions.find((option) => option.value === urn)?.entity;
+                        setSelectedDataProducts(match ? [match] : []);
+                        return;
+                    }
+                    const nextProducts = next
+                        .map((urn) => selectedOptions.find((option) => option.value === urn)?.entity)
+                        .filter((entity): entity is DataProduct => !!entity);
+                    setSelectedDataProducts(nextProducts);
+                }}
+                onSearchChange={handleSearch}
+                onClear={() => setSelectedDataProducts([])}
+                options={options}
+                combinedSelectedAndSearchOptions={selectedOptions}
+                isLoading={loading}
+                width="full"
+                showClear
+                renderCustomOptionText={(option) => (
+                    <OptionContent>
+                        <Text size="md">{option.label}</Text>
+                        {option.entity && (
+                            <ContextPath
+                                entityType={EntityType.DataProduct}
+                                displayedEntityType={t('sidebar.dataProduct.entityTypeName')}
+                                parentEntities={getParentEntities(option.entity, EntityType.DataProduct)}
+                                entityTitleWidth={200}
+                                numVisible={3}
+                            />
+                        )}
+                    </OptionContent>
+                )}
+                emptyState={
+                    loading ? (
+                        <LoadingWrapper>
+                            <Loader size="sm" />
+                        </LoadingWrapper>
+                    ) : (
+                        <Text size="sm" color="textSecondary">
+                            {t('sidebar.dataProduct.emptyText')}
+                        </Text>
+                    )
                 }
             />
         </Modal>

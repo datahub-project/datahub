@@ -1,5 +1,4 @@
-import { Editor, Modal } from '@components';
-import { message } from 'antd';
+import { Editor, Modal, toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -76,11 +75,8 @@ export default function EditDescriptionModal({
                     text: tc('publish'),
                     onClick: () => {
                         handleDescriptionUpdate().catch((e) => {
-                            message.destroy();
-                            message.error({
-                                content: t('documentation.updateError', { error: e.message || '' }),
-                                duration: 3,
-                            });
+                            toast.destroy();
+                            toast.error(t('documentation.updateError', { error: e.message || '' }), { duration: 3 });
                         });
                         closeModal();
                     },

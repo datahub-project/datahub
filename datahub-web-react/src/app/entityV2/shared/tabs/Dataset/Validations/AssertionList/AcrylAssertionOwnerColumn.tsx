@@ -1,7 +1,6 @@
-import { Avatar, Tooltip } from '@components';
+import { Avatar, Tooltip, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -159,11 +158,15 @@ export const AcrylAssertionOwnerColumn = ({ record, refetch }: Props) => {
                     },
                 });
             }
-            message.success(t('builder.details.ownersUpdated'), 2);
+            toast.success(t('builder.details.ownersUpdated'), { duration: 2 });
             setPopoverVisible(false);
             refetch?.();
         } catch (e) {
-            message.error(handleBatchError([record.urn], e, t('builder.details.failedUpdateOwners')));
+            const { content, duration } = handleBatchError([record.urn], e, {
+                content: t('builder.details.failedUpdateOwners'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         } finally {
             isSaving.current = false;
         }

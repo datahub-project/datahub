@@ -1,6 +1,5 @@
-import { Button, Tooltip } from '@components';
+import { Button, Tooltip, toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -83,7 +82,7 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
             // Reset to initial state when closing
             setSelectedUrns(initialSelectedUrns);
         } catch (error) {
-            message.error(t('document.updateRelatedEntitiesError'));
+            toast.error(t('document.updateRelatedEntitiesError'));
             console.error('Failed to update related entities:', error);
         }
     }, [selectedUrns, documentUrn, onConfirm, initialSelectedUrns, t]);
