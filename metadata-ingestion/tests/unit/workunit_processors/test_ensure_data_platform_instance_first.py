@@ -122,6 +122,19 @@ def test_dpi_in_later_run_is_left_in_place_and_counted() -> None:
     assert report.num_runs_reordered == 0
 
 
+def test_dpi_re_emitted_after_first_run_that_had_one_is_not_counted() -> None:
+    out, report = _process([_dpi(C1), _props(C1), _status(C2), _dpi(C1)])
+
+    assert len(out) == 4
+    assert report.num_dpi_after_first_run == 0
+
+
+def test_dpi_after_first_run_without_one_is_counted() -> None:
+    _, report = _process([_props(C1), _status(C2), _dpi(C1)])
+
+    assert report.num_dpi_after_first_run == 1
+
+
 def test_interleaved_urns_reorder_each_first_run() -> None:
     out, report = _process(
         [

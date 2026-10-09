@@ -1,7 +1,6 @@
 import itertools
-import logging
 from dataclasses import dataclass
-from typing import Iterable, Set
+from typing import Dict, Iterable
 
 from datahub.configuration.env_vars import get_ingest_disable_dpi_first
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,17 +15,16 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
 )
 
-logger = logging.getLogger(__name__)
-
 
 @dataclass
 class EnsureDataPlatformInstanceFirstProcessorReport(WorkunitProcessorReport):
     """Report for EnsureDataPlatformInstanceFirstProcessor metrics."""
 
     num_runs_reordered: int = 0
-    # dataPlatformInstance workunits that arrive in a later run than their entity's
-    # first one. The entity's earlier aspects are already on their way to the sink,
-    # so this processor can't put the instance first; the connector has to.
+    # dataPlatformInstance workunits in a later run of an entity whose first run had
+    # none. The entity's earlier aspects are already on their way to the sink, so
+    # this processor can't put the instance first; the connector has to. A later
+    # re-emit for an entity whose first run did have one is harmless, not counted.
     num_dpi_after_first_run: int = 0
 
 
@@ -52,8 +50,10 @@ class EnsureDataPlatformInstanceFirstProcessor(
     between. Writing dataPlatformInstance first makes it the creating aspect.
 
     Reorders only within the entity's first run of consecutive same-urn workunits,
-    so the buffer holds one run. The set of seen urns grows with the number of
-    entities, like AutoStatusAspectProcessor's.
+    so the buffer holds one run. The map of seen urns grows with the number of
+    entities, like AutoStatusAspectProcessor's. Like AutoBrowsePathV2Processor, a
+    run is buffered, so if the source raises mid-run the buffered workunits of that
+    run are not emitted.
     """
 
     @classmethod
@@ -61,15 +61,17 @@ class EnsureDataPlatformInstanceFirstProcessor(
         return not get_ingest_disable_dpi_first()
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        seen_urns: Set[str] = set()
+        # urn -> whether its first run contained a dataPlatformInstance
+        first_run_had_dpi: Dict[str, bool] = {}
         for urn, group in itertools.groupby(stream, key=MetadataWorkUnit.get_urn):
             run = list(group)
             dpis = [wu for wu in run if _is_dpi(wu)]
-            if urn in seen_urns:
-                self.report.num_dpi_after_first_run += len(dpis)
+            if urn in first_run_had_dpi:
+                if not first_run_had_dpi[urn]:
+                    self.report.num_dpi_after_first_run += len(dpis)
                 yield from run
                 continue
-            seen_urns.add(urn)
+            first_run_had_dpi[urn] = bool(dpis)
             if any(not _is_dpi(wu) for wu in run[: len(dpis)]):
                 self.report.num_runs_reordered += 1
                 yield from dpis
