@@ -542,8 +542,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Expand proposed domain URNs (including ancestors) and seed the request-scoped resource-spec
-   * cache so DOMAIN field matching uses those values.
+   * Expand proposed domain URNs (including ancestors) and record them as a request-scoped DOMAIN
+   * override so DOMAIN field matching uses those values.
    */
   public static void seedProposedDomainsForResourceSpec(
       @Nonnull OperationContext opContext,
