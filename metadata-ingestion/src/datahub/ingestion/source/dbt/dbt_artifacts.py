@@ -233,9 +233,10 @@ class ArtifactReader:
                     next_submit += 1
                 yield in_flight.pop(next_index).result()
         finally:
-            # Runs when the consumer closes the generator early too, so reads that
-            # have not started are dropped instead of pinning bytes until GC.
-            executor.shutdown(wait=True, cancel_futures=True)
+            # Also runs when the consumer closes the generator early. Submission is
+            # windowed, so nothing is ever queued: this waits for the in-flight
+            # reads and releases the pool instead of leaving it to GC.
+            executor.shutdown(wait=True)
 
     def maybe_prefetch(
         self, uri_groups: List[List[str]]

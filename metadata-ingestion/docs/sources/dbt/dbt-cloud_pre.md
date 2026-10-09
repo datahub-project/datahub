@@ -46,6 +46,6 @@ Automatically discovers and ingests metadata from all eligible jobs in a dbt Clo
 
 #### Platform Instance
 
-A dbt Cloud recipe ingests one dbt project. If you ingest more than one dbt project into DataHub, from dbt Cloud or dbt Core, set `platform_instance` in each recipe to that project's name (the `name:` in its `dbt_project.yml`). This keeps the dbt URNs of different projects distinct, including models from a package that several projects install, and it is the same value that dbt Core recipes and multi-project glob ingestion use, so the same project gets the same URNs whichever way it is ingested.
+A dbt Cloud recipe ingests one dbt project. If you ingest more than one dbt project into DataHub, from dbt Cloud or dbt Core, set `platform_instance` in each recipe to that project's name (the `name:` in its `dbt_project.yml`). This keeps the dbt URNs of different projects distinct, including models from a package that several projects install, and it is the same value that dbt Core recipes and multi-project glob ingestion use, so the same project gets the same dataset, assertion and semantic model URNs whichever way it is ingested. Query entities from `meta.queries` are the exception: under a glob their URNs also include the project name.
 
 If you only ever ingest one dbt project, `platform_instance` can be left unset. Choose the value before the first ingestion: changing it later changes every dbt URN of the project, and metadata curated in DataHub on the old entities is not carried over.

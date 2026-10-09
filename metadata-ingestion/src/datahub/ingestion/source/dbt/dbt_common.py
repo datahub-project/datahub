@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 import warnings
@@ -1825,6 +1826,20 @@ class DBTProject:
     artifact_props: Dict[str, str]
     catalog_generated_at: Optional[datetime]
     manifest_generated_at: Optional[str]
+
+
+def _query_id_prefix(platform_instance: Optional[str]) -> str:
+    """A query-id-safe prefix that stays distinct per dbt project name.
+
+    dbt project names may contain non-ASCII letters, which sanitizing would fold
+    together, so a sanitized name also carries a short hash of the original.
+    """
+    instance = platform_instance or ""
+    sanitized = _QUERY_URN_SANITIZE_PATTERN.sub("_", instance)
+    if sanitized == instance:
+        return instance
+    digest = hashlib.sha256(instance.encode()).hexdigest()[:8]
+    return f"{sanitized}_{digest}"
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -3682,13 +3697,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
                 sql_truncated = True
 
-            query_key = f"{node.dbt_name}_{query_name}"
+            query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
+                "_", f"{node.dbt_name}_{query_name}"
+            )
             if self._is_multi_project():
                 # Query urns carry no platform instance, so two projects installing
                 # the same package model would otherwise share one. Single-project
                 # ids stay unprefixed to keep existing urns stable.
-                query_key = f"{self._dbt_platform_instance}_{query_key}"
-            query_id = _QUERY_URN_SANITIZE_PATTERN.sub("_", query_key)
+                query_id = f"{_query_id_prefix(self._dbt_platform_instance)}_{query_id}"
             query_urn_str = QueryUrn(query_id).urn()
 
             # Skip duplicates (can occur when different names sanitize to same URN)

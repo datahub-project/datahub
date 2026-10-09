@@ -2963,6 +2963,39 @@ def test_load_run_results_with_test_and_model():
     assert model_node.model_performances[0].run_id == "inv-001"
 
 
+def test_load_run_results_malformed_result_attaches_nothing_from_the_file():
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-005",
+        },
+        "results": [
+            {
+                "unique_id": "model.project.my_model",
+                "status": "success",
+                "timing": [
+                    {
+                        "name": "execute",
+                        "started_at": "2024-01-01T00:00:03Z",
+                        "completed_at": "2024-01-01T00:00:05Z",
+                    }
+                ],
+            },
+            {"status": "success"},
+        ],
+    }
+    model_node = _make_dbt_node("model.project.my_model")
+
+    with pytest.raises(ValidationError):
+        load_run_results(
+            mock.MagicMock(), run_results_json, {model_node.dbt_name: model_node}
+        )
+
+    assert model_node.model_performances == []
+
+
 def test_load_run_results_failed_test():
     run_results_json = {
         "metadata": {

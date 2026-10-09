@@ -83,20 +83,31 @@ def test_prefetch_windows_submission_when_an_early_group_is_slow() -> None:
     assert yielded == [f"uri-{i}" for i in range(n)]
 
 
-def test_prefetch_close_cancels_reads_not_yet_started() -> None:
+def test_prefetch_close_waits_for_in_flight_reads_and_starts_no_more() -> None:
     reader = _reader()
     started: List[str] = []
+    release = threading.Event()
 
     def fake_read(uri: str, *args: object, **kwargs: object) -> bytes:
         started.append(uri)
+        if uri == "uri-1":
+            assert release.wait(timeout=5)
         return uri.encode()
 
     groups = [[f"uri-{i}"] for i in range(10)]
     with mock.patch.object(dbt_artifacts_module, "read_file_as_bytes", fake_read):
         prefetch = reader.prefetch_in_order(groups, concurrency=2)
         next(prefetch)
-        prefetch.close()
-    assert len(started) <= 2
+        closer = threading.Thread(target=prefetch.close)
+        closer.start()
+        closer.join(timeout=0.3)
+        # Still waiting on the in-flight read of uri-1.
+        assert closer.is_alive()
+        release.set()
+        closer.join(timeout=5)
+
+    assert not closer.is_alive()
+    assert started == ["uri-0", "uri-1"]
 
 
 @pytest.mark.parametrize(

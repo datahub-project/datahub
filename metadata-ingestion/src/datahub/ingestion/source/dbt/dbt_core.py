@@ -1009,8 +1009,11 @@ def load_run_results(
 
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
 
-    results = test_results_json.get("results", [])
-    for result in results:
+    # Parse every result before attaching any, so a file that fails partway
+    # leaves its nodes untouched.
+    test_results: List[Tuple[DBTNode, DBTTestResult]] = []
+    model_performances: List[Tuple[DBTNode, DBTModelPerformance]] = []
+    for result in test_results_json.get("results", []):
         run_result = DBTRunResult.model_validate(result)
         id = run_result.unique_id
 
@@ -1025,7 +1028,7 @@ def load_run_results(
                 continue
 
             assert test_node.test_info is not None
-            test_node.test_results.append(test_result)
+            test_results.append((test_node, test_result))
 
         else:
             model_performance = _parse_model_run(dbt_metadata, run_result)
@@ -1037,7 +1040,12 @@ def load_run_results(
                 logger.debug(f"Failed to find model node {id} in the catalog")
                 continue
 
-            model_node.model_performances.append(model_performance)
+            model_performances.append((model_node, model_performance))
+
+    for test_node, test_result in test_results:
+        test_node.test_results.append(test_result)
+    for model_node, model_performance in model_performances:
+        model_node.model_performances.append(model_performance)
 
 
 def _check_project_name(

@@ -16,7 +16,12 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.object_store_files import ObjectNotFoundError
-from datahub.ingestion.source.dbt.dbt_common import DBTMetricsParse, DBTNode, DBTProject
+from datahub.ingestion.source.dbt.dbt_common import (
+    DBTMetricsParse,
+    DBTNode,
+    DBTProject,
+    _query_id_prefix,
+)
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
 from datahub.metadata.schema_classes import (
@@ -77,7 +82,8 @@ def test_http_url_with_a_globbed_path_still_warns() -> None:
     source = _make_source()
 
     assert source._expand_glob_path("https://host/*/manifest.json") == []
-    assert source.report.warnings
+    (warning,) = source.report.warnings
+    assert "https://host/*/manifest.json" in " ".join(warning.context)
 
 
 def test_http_glob_warning_keeps_the_query_string_out_of_the_report() -> None:
@@ -912,6 +918,11 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
     assert "s3://bucket/project_b/sources.json" in requested
     assert "MainThread" not in reader_threads
     assert source.report.failures == []
+    # The missing key is reported as absence for that project, which still loads.
+    assert any(
+        "s3://bucket/project_b/manifest.json" in " ".join(w.context)
+        for w in source.report.warnings
+    )
 
 
 @pytest.mark.parametrize("artifact", ["catalog.json", "sources.json"])
@@ -1561,3 +1572,8 @@ def test_unparseable_catalog_generated_at_warns(tmp_path: pathlib.Path) -> None:
 
     assert project.catalog_generated_at is None
     assert any("not a timestamp" in " ".join(w.context) for w in source.report.warnings)
+
+
+def test_query_id_prefix_keeps_non_ascii_project_names_distinct() -> None:
+    assert _query_id_prefix("analytics") == "analytics"
+    assert _query_id_prefix("datos_año") != _query_id_prefix("datos_aõo")
