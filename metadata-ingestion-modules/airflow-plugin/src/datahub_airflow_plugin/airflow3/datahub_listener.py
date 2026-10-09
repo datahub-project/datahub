@@ -69,6 +69,7 @@ from datahub_airflow_plugin._constants import (
 )
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
+from datahub_airflow_plugin._path_specs import DatasetPathMapper
 from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
@@ -433,6 +434,8 @@ class DataHubListener:
             bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
             capture_bigquery_temp_datasets=config.capture_bigquery_temp_datasets,
         )
+
+        self._path_mapper = DatasetPathMapper(config.path_specs)
 
     def _get_emitter(self):
         """
@@ -1109,6 +1112,8 @@ class DataHubListener:
             sorted(set(datajob.upstream_urns), key=lambda x: str(x))
         )
 
+        # Collapse first so the filter sees the table names users write patterns for.
+        self._path_mapper.apply(datajob)
         apply_dataset_filter(datajob, self._dataset_filter)
 
         # Write all other OL facets as DataHub properties

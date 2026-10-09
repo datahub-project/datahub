@@ -807,6 +807,11 @@ oracle = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
+path-spec = [
+    "parse>=1.19.0,<2.0.0",
+    "wcmatch<11.0.0",
+]
+
 pinecone = [
     "pinecone-client>=3.0.0,<6.0.0",
 ]

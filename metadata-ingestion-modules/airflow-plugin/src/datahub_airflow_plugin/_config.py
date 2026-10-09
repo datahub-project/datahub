@@ -3,11 +3,13 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from airflow.configuration import conf
-from pydantic import Field
+from pydantic import Field, TypeAdapter, field_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub_airflow_plugin._path_specs import DatasetPathMapper
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +115,17 @@ class DatahubLineageConfig(ConfigModel):
     # Dataset-name prefix that marks those hidden datasets, matching the
     # BigQuery source's temp_table_dataset_prefix.
     bigquery_temp_table_dataset_prefix: str = "_"
+
+    # Storage-source style path specs (`s3://`, `gs://` or absolute local paths)
+    # whose `{table}` folder replaces any file or run folder beneath it, so the
+    # per-run paths a task touches collapse into one dataset per table.
+    path_specs: List[PathSpec] = Field(default_factory=list)
+
+    @field_validator("path_specs")
+    @classmethod
+    def _validate_path_specs(cls, v: List[PathSpec]) -> List[PathSpec]:
+        DatasetPathMapper(v)
+        return v
 
     log_level: Optional[str]
     debug_emitter: bool
@@ -230,6 +243,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     bigquery_temp_table_dataset_prefix = conf.get(
         "datahub", "bigquery_temp_table_dataset_prefix", fallback="_"
     )
+    path_specs = TypeAdapter(List[PathSpec]).validate_json(
+        conf.get("datahub", "path_specs", fallback="[]")
+    )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
 
@@ -260,6 +276,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_ol_file_datasets=capture_ol_file_datasets,
         capture_bigquery_temp_datasets=capture_bigquery_temp_datasets,
         bigquery_temp_table_dataset_prefix=bigquery_temp_table_dataset_prefix,
+        path_specs=path_specs,
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
         emit_mode=emit_mode,
