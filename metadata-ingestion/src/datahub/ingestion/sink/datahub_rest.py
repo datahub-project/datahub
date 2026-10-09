@@ -162,10 +162,14 @@ class DataHubRestSinkReport(SinkReport):
     async_batches_prepared: int = 0
     async_batches_split: int = 0
 
-    # Batch rejection is all-or-nothing server-side, so a rejected batch is re-emitted
-    # one record at a time to find the records that actually caused it. "recovered"
-    # counts records that would have been silently lost before this behaviour existed.
+    # Batch rejection is all-or-nothing server-side, so a batch rejected for its content
+    # (a record-attributable 4xx) is re-emitted one record at a time to find the records
+    # that actually caused it; batches_rejected counts those. "recovered" counts records
+    # that would have been silently lost before this behaviour existed.
     batches_rejected: int = 0
+    # Multi-record batches failed by throttling, a server error, auth or the connection:
+    # not isolated, since every record would fail alike.
+    batches_rejected_not_record_attributable: int = 0
     records_isolated_after_batch_rejection: int = 0
     records_recovered_after_batch_rejection: int = 0
     # Incremented once isolation trips off (see _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS)
@@ -424,28 +428,29 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
+                # One batch error can be shared by every record in the batch, so the
+                # per-record details go on a copy, never on the shared e.info.
+                info = dict(e.info)
                 # trim exception stacktraces in all cases when reporting
-                if "stackTrace" in e.info:
+                if "stackTrace" in info:
                     with contextlib.suppress(Exception):
-                        e.info["stackTrace"] = "\n".join(
-                            e.info["stackTrace"].split("\n")[:3]
+                        info["stackTrace"] = "\n".join(
+                            info["stackTrace"].split("\n")[:3]
                         )
-                        e.info["message"] = e.info.get("message", "").split("\n")[0][
-                            :200
-                        ]
+                        info["message"] = info.get("message", "").split("\n")[0][:200]
 
                 # Include information about the entity that failed.
                 record_urn = _get_urn(record_envelope)
                 if record_urn:
-                    e.info["urn"] = record_urn
+                    info["urn"] = record_urn
                 if workunit_id := record_envelope.metadata.get("workunit_id"):
-                    e.info["workunit_id"] = workunit_id
+                    info["workunit_id"] = workunit_id
 
                 if not self.treat_errors_as_warnings:
-                    self.report.report_failure({"error": e.message, "info": e.info})
+                    self.report.report_failure({"error": e.message, "info": info})
                 else:
-                    self.report.report_warning({"warning": e.message, "info": e.info})
-                write_callback.on_failure(record_envelope, e, e.info)
+                    self.report.report_warning({"warning": e.message, "info": info})
+                write_callback.on_failure(record_envelope, e, info)
             else:
                 logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
@@ -527,6 +532,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.report.batches_rejected_while_isolation_suppressed += 1
             return BatchItemFailures(outcomes)
         if not _is_record_attributable(batch_error):
+            with self._isolation_lock:
+                self.report.batches_rejected_not_record_attributable += 1
             return BatchItemFailures(outcomes)
 
         return self._isolate_batch_failures(pending, outcomes)
@@ -556,6 +563,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
             except Exception as e:
                 outcomes[index] = e
+                if not _is_record_attributable(e):
+                    # The server stopped attributing failures (an outage, throttling):
+                    # the remaining records would fail alike, so keep the batch error.
+                    break
             else:
                 outcomes[index] = None
                 recovered += 1

@@ -1,3 +1,4 @@
+import concurrent.futures
 import contextlib
 import json
 import threading
@@ -13,6 +14,7 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import ChunkedEmitError, DatahubRestEmitter, EmitMode
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS,
@@ -808,6 +810,7 @@ def test_isolation_skipped_when_the_rejection_is_not_record_attributable(
     assert exc_info.value.outcomes == [batch_error, batch_error, batch_error]
     assert mock_emitter.emit_mcps.call_count == 1
     assert sink.report.batches_rejected == 0
+    assert sink.report.batches_rejected_not_record_attributable == 1
 
 
 def test_isolation_skipped_still_credits_records_that_landed():
@@ -863,3 +866,41 @@ def test_isolation_stops_emitting_once_suppressed_mid_pass():
     ]
     assert mock_emitter.emit_mcps.call_count == 2
     assert sink.report.records_isolated_after_batch_rejection == 1
+
+
+def test_isolation_stops_when_the_server_starts_failing_mid_pass():
+    """An outage that begins during isolation fails every remaining record alike, so
+    re-sending each with its own retry ladder would only stall the run."""
+    records = [_status_mcp(f"rec{i}") for i in range(4)]
+    batch_error = OperationalError("rejected", {"status": 422})
+    outage = OperationalError("unavailable", {"status": 503})
+    mock_emitter = _scripted_emitter(batch_error, outage)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [outage, batch_error, batch_error, batch_error]
+    assert mock_emitter.emit_mcps.call_count == 2
+
+
+def test_shared_batch_error_reports_each_record_with_its_own_urn():
+    """One batch error fanned out to several records must not leak the last record's
+    URN into every report entry."""
+    sink = _make_sink(MagicMock())
+    sink.treat_errors_as_warnings = False
+    sink.report.pending_requests = 2
+    shared = OperationalError("rejected", {"status": 422})
+    future: concurrent.futures.Future = concurrent.futures.Future()
+    future.set_exception(shared)
+    write_callback = MagicMock()
+
+    for name in ("a", "b"):
+        envelope = RecordEnvelope(_status_mcp(name), metadata={})
+        sink._write_done_callback(envelope, write_callback, future)
+
+    assert [failure["info"]["urn"] for failure in sink.report.failures] == [
+        _status_mcp("a").entityUrn,
+        _status_mcp("b").entityUrn,
+    ]
+    assert "urn" not in shared.info
