@@ -273,6 +273,12 @@ def _add_redshift_query_tag(query: str) -> str:
     return tag_comment + query
 
 
+def is_shared_database(db: Optional[RedshiftDatabase]) -> bool:
+    """Whether `db` (get_database_details' answer) is a datashare consumer,
+    whose objects are read from svv_redshift_* rather than pg_class."""
+    return db is not None and db.is_shared_database()
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
@@ -403,13 +409,16 @@ class RedshiftDataDictionary:
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
         extract_ownership: bool = False,
+        enrich: bool = True,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
+        """`enrich=False` skips enrich_tables (svv_table_info joined to
+        stl_insert), leaving size, row count and last-altered unset."""
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_tables = self.enrich_tables(conn)
+        enriched_tables = self.enrich_tables(conn) if enrich else None
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
@@ -479,7 +488,11 @@ class RedshiftDataDictionary:
                 )
 
                 materialized = False
-                if schema in enriched_tables and table_name in enriched_tables[schema]:
+                if (
+                    enriched_tables is not None
+                    and schema in enriched_tables
+                    and table_name in enriched_tables[schema]
+                ):
                     if enriched_tables[schema][table_name].is_materialized:
                         materialized = True
 
@@ -519,7 +532,11 @@ class RedshiftDataDictionary:
         last_altered: Optional[datetime] = None
         size_in_bytes: Optional[int] = None
         rows_count: Optional[int] = None
-        if schema in enriched_tables and table_name in enriched_tables[schema]:
+        if enriched_tables is None:
+            # Enrichment was skipped (enrich=False), so a missing entry says
+            # nothing about the table being empty: leave the stats unset.
+            pass
+        elif schema in enriched_tables and table_name in enriched_tables[schema]:
             if (
                 last_accessed := enriched_tables[schema][table_name].last_accessed
             ) is not None:

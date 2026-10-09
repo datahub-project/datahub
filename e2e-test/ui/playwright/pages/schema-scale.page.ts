@@ -106,10 +106,10 @@ export class SchemaScalePage extends BasePage {
   /** Properties are grouped by namespace and collapsed; expand one group by its name. */
   async expandDrawerPropertyGroup(namespace: string, timeout: number): Promise<void> {
     this.logger?.step('expandDrawerPropertyGroup', { namespace });
-    // The row's accessible name is "right <namespace> (<count>)"; the chevron is the toggle.
+    // Phosphor expand caret (replaces Ant img[name=right]).
     await this.fieldDrawer
       .getByRole('row', { name: new RegExp(`\\b${namespace} \\(\\d+\\)`) })
-      .getByRole('img', { name: 'right' })
+      .getByTestId('schema-expand-icon-right')
       .click({ timeout });
   }
 

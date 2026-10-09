@@ -5,12 +5,24 @@ import re
 import typing
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
-from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pyathena.sqlalchemy.rest import AthenaRestDialect
 from pydantic import model_validator
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
@@ -46,7 +58,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLCommonConfig,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -75,6 +90,9 @@ except ImportError:
     def override(f: _F, /) -> _F:
         return f
 
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +367,35 @@ class CustomAthenaRestDialect(AthenaRestDialect):
         return detected_col_type(*args)
 
 
+class AthenaProbeReadFailed(Exception):
+    """The dialect could not read something and would have returned it as empty.
+
+    Not a ValueError: nothing is wrong with the caller's arguments, the source
+    could not be read, which is the exit code that says so.
+    """
+
+
+class _ProbeReportRaisesInsteadOfWarning:
+    """The report substitute the probe hands CustomAthenaRestDialect.
+
+    Signature matches the SQLSourceReport.warning call the dialect makes. An
+    ingestion run records the warning and emits what it could; a probe has
+    nowhere to record it and no partial answer worth giving, so it raises.
+    """
+
+    def warning(
+        self,
+        message: str,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[object] = None,
+    ) -> None:
+        detail = f"{message} ({context})" if context else message
+        raise AthenaProbeReadFailed(detail) from exc
+
+
 class AthenaConfig(SQLCommonConfig):
     scheme: HiddenFromDocs[str] = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
@@ -464,6 +511,32 @@ class AthenaConfig(SQLCommonConfig):
                 "duration_seconds": str(self.aws_role_assumption_duration),
             },
         )
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return (
+            super()
+            .probe_engine_settings(budget)
+            .followed_by(self._use_ingestions_dialect)
+        )
+
+    def _use_ingestions_dialect(self, engine: Any) -> None:
+        # Same substitution get_inspectors() makes, and for the same reason: the
+        # stock PyAthena dialect omits ICEBERG from get_table_names (so S3 Tables
+        # go missing) and does not unpack the complex types Athena reports as DDL
+        # strings. A probe on the stock dialect would answer differently from the
+        # ingestion it exists to predict.
+        dialect = CustomAthenaRestDialect()
+        # A report has to be wired, and it has to be one that raises. Leaving it
+        # None looks harmless because every use is guarded -- but the guarded use
+        # is the S3 Tables fallback's failure path, which logs, warns and returns
+        # an empty list. Its own comment says why that matters: missing IAM
+        # permissions and expired credentials then look identical to an empty
+        # schema. Reporting "no tables" when the truth is "could not read" is the
+        # single confusion this interface exists to prevent, and a probe has no
+        # ingestion report to carry the gap into, so here the warning is the
+        # failure.
+        dialect._report = _ProbeReportRaisesInsteadOfWarning()  # type: ignore[assignment]
+        engine.dialect = dialect
 
 
 @dataclass
@@ -909,9 +982,9 @@ class AthenaSource(SQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:

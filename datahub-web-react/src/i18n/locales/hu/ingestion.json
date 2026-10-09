@@ -47,6 +47,7 @@
     "executions.someHidden": "Egyes végrehajtások rejtve lehetnek",
     "executions.summaryAborted": "A betöltési feladat a munkavégző újraindulása miatt megszakadt.",
     "executions.summaryCancelled": "A betöltés megszakítva.",
+    "executions.summaryDuplicate": "Az adatbetöltési feladat megszakadt, mert a feladat egy vagy több másik példánya már létezik.",
     "executions.summaryFailure": "A betöltés nem fejeződött be, vagy hibákkal fejeződött be.",
     "executions.summaryRollbackFailed": "A betöltés visszagörgetése sikertelen.",
     "executions.summaryRolledBack": "A betöltés visszagörgetve.",

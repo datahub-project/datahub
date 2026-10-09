@@ -39,6 +39,26 @@ Routing is driven by `OperationContext` and `PrimaryStorageResolver`:
 Consumers and jobs that construct their own `OperationContext` should use `ReadPreference.PRIMARY`
 when read-your-writes matters (for example ingestion paths).
 
+Replica lag is environment-specific. Aurora readers are often milliseconds behind; a Cloud SQL replica
+can fall minutes behind. These paths always read **primary**, so they do not depend on that lag:
+
+- Stateful access-token revocation. The revocation flag lives in the Hazelcast map
+  `datahubAccessTokenRevoked` (5-minute TTL, no near cache). Create and revoke publish to every GMS,
+  and the next read sees them, without changing near-cache invalidation for other maps. A cache miss
+  reloads `exists` from primary, so a replica miss is never stored as "revoked". The map is not the
+  entity-client cache.
+- Aspect validation (`AspectsBatchImpl.build`) and pre-commit checks.
+- Read-modify-write before a mutation (`EntityUtils.getAspectFromEntity` and the structured-property
+  and secret update reads that build the next write).
+
+Ordinary browse and GET aspect reads still use the replica when `ReadPreference` is `READ`. They can
+be stale by however far behind the replica is. A cached miss expires after 5 seconds even when the
+hit TTL is longer, so a replica miss of `structuredPropertyKey` does not stick for its 1-day hit TTL.
+"Entities not searchable after ingest" is Elasticsearch indexing delay, not this read pool.
+
+On GMS the embedded Hazelcast node starts for token revocation even when the entity graph cache is
+off.
+
 ## Ebean (MySQL / PostgreSQL)
 
 Enable on GMS when `entityService.impl` is `ebean` (default):

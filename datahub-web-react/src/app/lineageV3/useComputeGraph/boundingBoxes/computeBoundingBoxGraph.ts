@@ -25,6 +25,7 @@ import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/boundingBoxes/
 import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/boundingBoxes/revealedEdges';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
+import { hideOrphanedNodes } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
 
 import { EntityType, LineageDirection } from '@types';
@@ -166,7 +167,14 @@ export default function computeBoundingBoxGraph(
               return displayedNodes.filter((node) => keep.has(node.id));
           })()
         : displayedNodes;
-    const displayedIds = new Set(shownNodes.map((node) => node.id));
+
+    // Hide nodes with no lineage for data products
+    const shownFilteredNodes =
+        rootType === EntityType.DataProduct
+            ? hideOrphanedNodes(shownNodes, urn, groups.get(urn)?.memberUrns ?? new Set(), nodes, adjacencyList)
+            : shownNodes;
+
+    const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));
 
     // Step 2 (+ 4): Lay out the displayed members within each bounding box, sizing it
     assignQueriesToGroups(groups, revealedGraphStore, displayedIds);
@@ -216,7 +224,7 @@ export default function computeBoundingBoxGraph(
         box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn));
         box.group.queryUrns.forEach((query) => setDefault(displayedMembership, query, []).push(box.group.urn));
     });
-    const freeNodes = shownNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
+    const freeNodes = shownFilteredNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
     const displayedFreeIds = new Set(freeNodes.map((node) => node.id));
 
     // Step 3: Position bounding boxes and free nodes together, based on the lineage between them,

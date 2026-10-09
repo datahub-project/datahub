@@ -1,4 +1,4 @@
-import LaunchIcon from '@mui/icons-material/Launch';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -65,7 +65,7 @@ export default function ExternalLink({ href, label, onClick, className, isEntity
                 $isEntityPageHeader={isEntityPageHeader}
             >
                 <IconWrapper>
-                    <LaunchIcon fontSize="inherit" />
+                    <ArrowSquareOut size="1em" />
                 </IconWrapper>
                 <LabelWrapper ref={measuredRef}>{label}</LabelWrapper>
             </Link>

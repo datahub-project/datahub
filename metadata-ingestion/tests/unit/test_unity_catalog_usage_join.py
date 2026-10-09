@@ -1,8 +1,9 @@
 import pathlib
+import re
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Iterator, List, Optional
+from typing import Callable, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -2023,11 +2024,13 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     query_sql = captured["query"]
     assert "tl2.statement_id" in query_sql
     assert "system.access.table_lineage tl2" in query_sql
-    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
-    assert "^MAIN$" not in query_sql
+    assert "tl2.source_table_catalog RLIKE ?" in query_sql
+    assert "tl2.target_table_catalog RLIKE ?" in query_sql
+    assert "^main$" not in query_sql
     assert len(captured["params"]) == 8
-    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
+    assert captured["params"][6:] == ("(?iu)^main$", "(?iu)^main$")
+    assert "%s" not in query_sql
+    assert query_sql.count("?") == len(captured["params"])
 
 
 def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
@@ -2057,9 +2060,9 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
         )
 
     query_sql = captured["query"]
-    assert "NOT RLIKE %s" in query_sql
-    assert "^SYSTEM$" not in query_sql
-    assert captured["params"][6:] == ("^SYSTEM$", "^SYSTEM$")
+    assert "NOT RLIKE ?" in query_sql
+    assert "^system$" not in query_sql
+    assert captured["params"][6:] == ("(?iu)^system$", "(?iu)^system$")
 
 
 def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
@@ -2479,7 +2482,7 @@ def test_build_catalog_column_filter_binds_patterns_with_special_chars() -> None
         "tl2.source_table_catalog",
         AllowDenyPattern(allow=["^main'catalog$"], deny=[], ignoreCase=False),
     )
-    assert "RLIKE %s" in sql
+    assert "RLIKE ?" in sql
     assert "^main'catalog$" not in sql
     assert params == ["^main'catalog$"]
 
@@ -2511,8 +2514,8 @@ def test_get_query_history_catalog_pushdown_binds_pattern_params() -> None:
         )
 
     assert malicious_pattern not in captured["query"]
-    assert "RLIKE %s" in captured["query"]
-    assert malicious_pattern.upper() in captured["params"]
+    assert "RLIKE ?" in captured["query"]
+    assert f"(?iu){malicious_pattern}" in captured["params"]
 
 
 def test_usage_statement_types_select_only_when_ops_disabled() -> None:
@@ -2771,8 +2774,38 @@ def test_build_catalog_column_filter_respects_ignore_case_false() -> None:
         AllowDenyPattern(allow=["^Main$"], deny=[], ignoreCase=False),
     )
     assert "UPPER" not in sql
-    assert "RLIKE %s" in sql
+    assert "RLIKE ?" in sql
     assert params == ["^Main$"]
+
+
+def test_build_catalog_column_filter_ignore_case_preserves_regex_escapes() -> None:
+    """ignoreCase must not upper-case the pattern text: that flips \\d to \\D."""
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
+
+    _, params = _build_catalog_column_filter(
+        "tl2.source_table_catalog",
+        AllowDenyPattern(allow=[r"^prod_\d+$"], deny=[], ignoreCase=True),
+    )
+    (bound_pattern,) = params
+    assert re.search(bound_pattern, "PROD_2024")
+    assert re.search(bound_pattern, "prod_2024")
+
+
+def test_build_catalog_column_filter_ignore_case_folds_unicode() -> None:
+    """Java's (?i) folds ASCII only; (?u) is needed to match Python's re.IGNORECASE.
+
+    Python's re already folds Unicode under (?i), so it cannot reproduce the
+    Databricks-side difference. Assert the flag instead.
+    """
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
+
+    _, params = _build_catalog_column_filter(
+        "tl2.source_table_catalog",
+        AllowDenyPattern(allow=["^über$"], deny=[], ignoreCase=True),
+    )
+    assert params == ["(?iu)^über$"]
 
 
 def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
@@ -2800,9 +2833,9 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
         )
 
     query_sql = captured["query"]
-    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
-    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
+    assert "tl2.source_table_catalog RLIKE ?" in query_sql
+    assert "tl2.target_table_catalog RLIKE ?" in query_sql
+    assert captured["params"][6:] == ("(?iu)^main$", "(?iu)^main$")
 
 
 def test_aggregate_parse_failure_warning() -> None:
@@ -3481,3 +3514,90 @@ def test_corrupt_cached_audit_log_discarded_and_refetched(
     assert not any("Usage extraction failed" in t for t in failure_titles), (
         "corrupt cache must not surface as a run failure; it should re-fetch"
     )
+
+
+# ---------------------------------------------------------------------------
+# is_allowed_table graph fallback tests
+# ---------------------------------------------------------------------------
+
+
+def _build_is_allowed(
+    locally_discovered: set, graph: Optional[MagicMock] = None
+) -> Callable[[str], bool]:
+    """Replicate the _is_allowed_table closure from get_usage_workunits."""
+    resolver = SchemaResolver(
+        platform="databricks", platform_instance=None, env="PROD", graph=graph
+    )
+    for name in locally_discovered:
+        resolver.add_schema_metadata(
+            f"urn:li:dataset:(urn:li:dataPlatform:databricks,{name},PROD)",
+            MagicMock(),
+        )
+
+    def _is_allowed_table(name: str) -> bool:
+        if name.lower() in locally_discovered:
+            return True
+        if resolver.graph is not None:
+            urn, schema_info = resolver.resolve_table_parts(
+                database=None, db_schema=None, table=name
+            )
+            return schema_info is not None
+        return False
+
+    return _is_allowed_table
+
+
+def test_is_allowed_local_table_always_passes():
+    predicate = _build_is_allowed({"cat.sch.tbl"})
+    assert predicate("cat.sch.tbl") is True
+
+
+def test_is_allowed_remote_table_rejected_without_graph():
+    predicate = _build_is_allowed({"cat.sch.tbl"})
+    assert predicate("other_cat.sch.remote") is False
+
+
+def _mock_graph_with_schema(urn: str, has_schema: bool) -> MagicMock:
+    """Build a mock DataHubGraph whose get_entities returns the right shape."""
+    from datahub.metadata.schema_classes import SchemaMetadataClass
+
+    graph = MagicMock()
+    if has_schema:
+        mock_aspect = SchemaMetadataClass(
+            schemaName="test",
+            platform="urn:li:dataPlatform:databricks",
+            hash="",
+            version=0,
+            platformSchema=MagicMock(),
+            fields=[],
+        )
+        graph.get_entities.return_value = {
+            urn: {SchemaMetadataClass.ASPECT_NAME: (mock_aspect, None)}
+        }
+    else:
+        graph.get_entities.return_value = {urn: {}}
+    return graph
+
+
+def test_is_allowed_remote_table_accepted_when_graph_has_schema():
+    urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,other_cat.sch.remote,PROD)"
+    graph = _mock_graph_with_schema(urn, has_schema=True)
+    predicate = _build_is_allowed({"cat.sch.tbl"}, graph=graph)
+    assert predicate("other_cat.sch.remote") is True
+
+
+def test_is_allowed_remote_table_rejected_when_graph_has_no_schema():
+    urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,other_cat.sch.remote,PROD)"
+    graph = _mock_graph_with_schema(urn, has_schema=False)
+    predicate = _build_is_allowed({"cat.sch.tbl"}, graph=graph)
+    assert predicate("other_cat.sch.remote") is False
+
+
+def test_is_allowed_graph_result_is_cached():
+    """Second call for the same table must not hit the graph again."""
+    urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,other_cat.sch.remote,PROD)"
+    graph = _mock_graph_with_schema(urn, has_schema=True)
+    predicate = _build_is_allowed({"cat.sch.tbl"}, graph=graph)
+    assert predicate("other_cat.sch.remote") is True
+    assert predicate("other_cat.sch.remote") is True
+    assert graph.get_entities.call_count == 1

@@ -1,4 +1,4 @@
-import { AppstoreOutlined } from '@ant-design/icons';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -62,7 +62,7 @@ export const AssetsSection = () => {
         <AssetsSectionWrapper>
             <StyledHeaderWrapper>
                 <SummaryTabHeaderTitle
-                    icon={<AppstoreOutlined />}
+                    icon={<SquaresFour />}
                     title={t('shared.assetsCountTitle', { count: contentsCount })}
                 />
                 <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>

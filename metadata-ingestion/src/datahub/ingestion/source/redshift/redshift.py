@@ -47,7 +47,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.config import RedshiftConfig, dataset_name
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
 from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
@@ -60,6 +60,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
+    is_shared_database,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
@@ -425,9 +426,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Processing db {database}")
 
         self.db = self.data_dictionary.get_database_details(connection, database)
-        self.report.is_shared_database = (
-            self.db is not None and self.db.is_shared_database()
-        )
+        self.report.is_shared_database = is_shared_database(self.db)
         with self.report.new_stage(METADATA_EXTRACTION):
             self.db_tables[database] = defaultdict()
             self.db_views[database] = defaultdict()
@@ -681,7 +680,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftTable,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
+        # str() preserves the prior f-string's behavior verbatim if schema is
+        # ever unset (renders the literal "None"), while satisfying
+        # dataset_name's str parameter -- table.schema is Optional[str] here
+        # only for dataclass-default reasons; every real table has one.
+        datahub_dataset_name = dataset_name(database, str(table.schema), table.name)
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
@@ -696,11 +699,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _process_view(
         self, table: RedshiftView, database: str, schema: RedshiftSchema
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = f"{database}.{schema.name}.{table.name}"
+        datahub_dataset_name = dataset_name(database, schema.name, table.name)
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
-        if not self.config.table_pattern.allowed(datahub_dataset_name):
+        # cache_tables_and_views kept only views view_pattern allows, so this
+        # drops the ones table_pattern refuses.
+        if not self.config.view_allowed(datahub_dataset_name):
             self.report.report_dropped(datahub_dataset_name)
             return
 
@@ -965,7 +970,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_tables[database][schema] = []
             for table in tables[schema]:
                 if self.config.table_pattern.allowed(
-                    f"{database}.{schema}.{table.name}"
+                    dataset_name(database, schema, table.name)
                 ):
                     self.db_tables[database][schema].append(table)
                     self.report.table_cached[f"{database}.{schema}"] = (
@@ -993,7 +998,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             self.db_views[database][schema] = []
             for view in views[schema]:
-                if self.config.view_pattern.allowed(f"{database}.{schema}.{view.name}"):
+                if self.config.view_pattern.allowed(
+                    dataset_name(database, schema, view.name)
+                ):
                     self.db_views[database][schema].append(view)
                     self.report.view_cached[f"{database}.{schema}"] = (
                         self.report.view_cached.get(f"{database}.{schema}", 0) + 1

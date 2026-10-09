@@ -1,4 +1,4 @@
-import { GlobalOutlined } from '@ant-design/icons';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Button, Tag as CustomTag, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -106,7 +106,7 @@ export default function EditBusinessAttributeModal({
             urn: defaultValue.urn,
             component: (
                 <div>
-                    <GlobalOutlined />
+                    <Globe />
                     <AttributeName>{defaultValue?.properties?.name}</AttributeName>
                 </div>
             ),
@@ -137,7 +137,7 @@ export default function EditBusinessAttributeModal({
                 name={displayName}
             >
                 <div>
-                    <GlobalOutlined />
+                    <Globe />
                     <AttributeName>{displayName}</AttributeName>
                 </div>
             </Select.Option>
@@ -181,7 +181,7 @@ export default function EditBusinessAttributeModal({
                 selectedUrn,
                 component: (
                     <div>
-                        <GlobalOutlined />
+                        <Globe />
                         <AttributeName>{selectedSearchOption?.props?.name}</AttributeName>
                     </div>
                 ),
@@ -192,7 +192,7 @@ export default function EditBusinessAttributeModal({
         }
     };
 
-    // When a Tag or term search result is deselected, remove the urn from the Owners
+    // When a business attribute search result is deselected, remove its urn from the selection
     const onDeselectValue = (selectedUrn: string) => {
         setUrn(urn === selectedUrn ? '' : urn);
         setInputValue('');
@@ -293,7 +293,7 @@ export default function EditBusinessAttributeModal({
             selectedUrn,
             component: (
                 <div>
-                    <GlobalOutlined />
+                    <Globe />
                     <AttributeName>{displayName}</AttributeName>
                 </div>
             ),

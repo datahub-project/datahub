@@ -1,5 +1,6 @@
 package modules;
 
+import auth.metrics.PlayHttpServerMetrics;
 import com.google.inject.AbstractModule;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigRenderOptions;
@@ -8,12 +9,13 @@ import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import play.Environment;
 
-/** Module to dump configuration on application startup */
+/** Binds startup hooks: configuration dump and Play HTTP pool metrics. */
 public class StartupModule extends AbstractModule {
 
   @Override
   protected void configure() {
     bind(ConfigDumper.class).asEagerSingleton();
+    bind(PlayHttpServerMetrics.class).asEagerSingleton();
   }
 
   @Slf4j

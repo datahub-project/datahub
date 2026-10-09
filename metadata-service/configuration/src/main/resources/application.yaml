@@ -423,11 +423,13 @@ datahub:
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
+  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Writes of one reference removal during a hard delete, the first included, before a failure caused by concurrent edits is reported (reliableHardDelete only); at least 1
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
     applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
+  syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -641,11 +643,16 @@ cassandra:
     datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
 # PostgreSQL optional SqlSetup (pgQueue).
-# postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
-# (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
-# The JDBC URL path selects the database only.
+# postgres.schema / DATAHUB_POSTGRES_SCHEMA: Ebean/metadata tables (default public). SqlSetup
+# CREATE SCHEMA (unless CREATE_SCHEMA=false) and search_path use this value. GMS and MCE copy a
+# non-public schema onto the Ebean JDBC URL as currentSchema so runtime reads the same schema.
+# Default public does not rewrite a URL that omits currentSchema. A URL currentSchema whose
+# first entry names a different schema fails startup. A list such as dhub,public is kept when
+# its first entry matches. pgQueue uses postgres.pgQueue.schema only (default queue)—queue DDL never
+# lands in postgres.schema unless you explicitly set both to the same value. The JDBC URL
+# path selects the database only.
 postgres:
-  schema: public
+  schema: ${DATAHUB_POSTGRES_SCHEMA:public}
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:
     cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}
@@ -697,9 +704,6 @@ postgres:
       aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
     # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
     topics:
-      datahubUpgradeHistory:
-        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
-        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
       failedMetadataChangeProposal:
         maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
       metadataChangeProposal:
@@ -821,6 +825,16 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+      # Optional HTTP proxy for this cluster only. An explicit host wins; otherwise JVM
+      # http(s).proxyHost / http.nonProxyHosts are honored when useSystemProxyProperties is true.
+      # Apache HttpAsyncClientBuilder.useSystemProperties() is never called.
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST:${ELASTICSEARCH_PROXY_HOST:}}
+        port: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT:${ELASTICSEARCH_PROXY_PORT:}}
+        scheme: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME:${ELASTICSEARCH_PROXY_SCHEME:http}}
+        username: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME:${ELASTICSEARCH_PROXY_USERNAME:}}
+        password: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD:${ELASTICSEARCH_PROXY_PASSWORD:}}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
     # Optional second cluster. Its engine is resolved independently — an unset shim block
     # auto-detects rather than copying primary's engineType, since primary may be pinned to an
     # older version.
@@ -854,6 +868,13 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST:}
+        port: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT:}
+        scheme: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME:http}
+        username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME:}
+        password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD:}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
 
   # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
   # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately
@@ -886,6 +907,9 @@ elasticsearch:
       # Semantic (kNN) search reads document vectors from V3 indices instead of the V2 semantic
       # indices. Independent of keywordReadEnabled; turn on once V3 holds the document embeddings.
       semanticReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED:false}
+      # Full-text keyword search reranks document rows with kNN scores from the V3 document index,
+      # keeping every other row where keyword search put it. Needs V3 keyword and semantic reads.
+      hybridReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
@@ -1059,7 +1083,21 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     # numShards / numReplicas are per-cluster sizing; see clusters.<name>.index.
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
+    # Fallback copied into entity, graph, and system-metadata refresh intervals below.
+    # Timeseries and usage do not follow this value.
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}
+    # Two levels: a seconds field per index service, then entities / aspects overrides.
+    # A higher interval delays search visibility of writes. Timeseries and usage are not
+    # interactive search, so they default to 60s. Everything else stays at 3s.
+    refreshIntervals:
+      entitySeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      graphSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      systemMetadataSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS:${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3}}
+      timeseriesSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS:60}
+      usageSeconds: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS:60}
+      # JSON objects, e.g. {"dataset": 10} and {"datasetProfile": 60}. Null when unset.
+      entities: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES:#{null}}
+      aspects: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS:#{null}}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
@@ -1081,6 +1119,8 @@ elasticsearch:
     waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    # Bounded pool for refresh_interval and other non-reindex settings updates.
+    maxConcurrentSettingsUpdates: ${ELASTICSEARCH_BUILD_INDICES_MAX_CONCURRENT_SETTINGS_UPDATES:8}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
     # Cost-based reindexing configuration (P=2 enhancements)
@@ -1170,14 +1210,16 @@ elasticsearch:
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
     # Default entity types when callers omit types. No code baseline — configure via YAML/env.
     # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    # When editing these lists, also update the mirrored DEFAULT_*_ENTITY_TYPES constants in
+    # EntityTypeListConfig.java (metadata-service/configuration); tests seed SearchContext from them.
     defaultEntityTypes:
-      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel}
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel,api}
       add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
 
     # Default entity types for autocomplete-across-entities when callers omit types.
     autocompleteEntityTypes:
-      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel}
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel,api}
       add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
 
@@ -1253,14 +1295,6 @@ kafka:
       pollEnabled: true
       partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
       replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-
-    datahubUpgradeHistory:
-      name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      displayName: DataHubUpgradeHistory_v1
-      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
-      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-      configProperties:
-        retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
@@ -1531,6 +1565,7 @@ systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+  # Unused: GMS/MAE/MCE no longer wait on DataHubUpgradeHistory_v1. Binding kept so existing Helm values are no-ops.
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
   cdcMode: ${SYSTEM_UPDATE_CDC_MODE:false}
   bootstrap:
@@ -1589,10 +1624,14 @@ systemUpdate:
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
   dataProductAssets:
-    # First-time population of asset-side dataProducts is driven by dataProductProperties
-    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
-    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    # First-time (and repair) population of asset-side dataProducts: scan stored
+    # dataProductProperties and invoke DataProductAssetsSideEffect via RESTATE MCLs
+    # (not a no-op parent upsert). Skips once the versioned upgrade marker SUCCEEDED
+    # unless reprocess.enabled is set.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT:0}
     reprocess:
       enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:
@@ -1812,6 +1851,10 @@ structuredProperties:
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
+  # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+  # (stock default false). A put-mapping does not backfill already-indexed documents.
+  copyToMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
   # When true, persist oversized string-backed SP values in SQL but omit them from search documents.
   # Default false: StructuredPropertiesValidator rejects those writes (HTTP 422).
@@ -1903,6 +1946,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
@@ -1917,6 +1961,7 @@ featureFlags:
   parentNodesBatchLoadEnabled: ${PARENT_NODES_BATCH_LOAD_ENABLED:true} # If enabled, `parentNodes` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   parentContainersBatchLoadEnabled: ${PARENT_CONTAINERS_BATCH_LOAD_ENABLED:true} # If enabled, `parentContainers` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   graphQLAspectOptimizationEnabled: ${GRAPHQL_ASPECT_OPTIMIZATION_ENABLED:true} # If enabled, GraphQL entity hydration fetches only the aspects required by the selected fields (schema-driven aspect mapping); disable to fetch the full default aspect set per entity (legacy behavior)
+  reliableHardDelete: ${RELIABLE_HARD_DELETE_ENABLED:false} # If enabled, a whole-entity hard delete (Rest.li delete, OpenAPI entity delete, GraphQL type-specific deletes) deletes only what existed when the request arrived; disable for the previous delete behavior
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
   browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
@@ -2059,7 +2104,7 @@ graphQL:
     # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
     maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)
