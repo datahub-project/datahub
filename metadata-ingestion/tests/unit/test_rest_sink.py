@@ -535,6 +535,12 @@ def _chunked(error: OperationalError, not_landed: List[int]) -> ChunkedEmitError
     return ChunkedEmitError(error.message, error.info, not_landed)
 
 
+def _rejected(message: str, info: dict) -> ChunkedEmitError:
+    """A failed send as emit_mcps raises it, with none of the call's events landed (the
+    indices cover every call these tests make)."""
+    return ChunkedEmitError(message, info, list(range(100)))
+
+
 _JOB = "urn:li:dataJob:(urn:li:dataFlow:(mysql,inst.db.stored_procedures,PROD),proc)"
 _CONTAINER = "urn:li:container:0123456789abcdef"
 _DENIAL_PREFIX = "User urn:li:corpuser:svc_ingest is unauthorized to modify entity: "
@@ -545,7 +551,7 @@ def _denial(*urns: str, entry_status: int = 403) -> OperationalError:
     message = _DENIAL_PREFIX + ", ".join(
         f"HttpStatus: {entry_status} Urn: {urn}" for urn in urns
     )
-    return OperationalError(
+    return _rejected(
         f"Unable to emit metadata to DataHub GMS: {message}",
         {
             "exceptionClass": "com.linkedin.restli.server.RestLiServiceException",
@@ -567,8 +573,8 @@ def test_emit_batch_wrapper_isolates_the_record_that_caused_the_rejection():
     poison = _status_mcp("poison")
     good2 = _status_mcp("good2")
 
-    batch_error = OperationalError("batch rejected", {"status": 422})
-    poison_error = OperationalError("record rejected", {"status": 422})
+    batch_error = _rejected("batch rejected", {"status": 422})
+    poison_error = _rejected("record rejected", {"status": 422})
 
     def emit_mcps(events, emit_mode=None):
         if len(events) > 1:
@@ -597,7 +603,7 @@ def test_emit_batch_wrapper_isolates_the_record_that_caused_the_rejection():
 def test_emit_batch_wrapper_does_not_isolate_a_single_record_batch():
     """With one record the error is already precise, so re-emitting it is pure waste."""
     poison = _status_mcp("poison")
-    poison_error = OperationalError("record rejected", {"status": 422})
+    poison_error = _rejected("record rejected", {"status": 422})
 
     mock_emitter = MagicMock()
     mock_emitter.emit_mcps.side_effect = poison_error
@@ -618,7 +624,7 @@ def test_emit_batch_wrapper_isolation_when_every_record_fails():
     it proves no single record was at fault.
     """
     records = [_status_mcp(f"rec{i}") for i in range(3)]
-    error = OperationalError(
+    error = _rejected(
         "forbidden", {"status": 403, "message": "403 Client Error: Forbidden"}
     )
 
@@ -655,7 +661,7 @@ def test_emit_batch_wrapper_isolation_keeps_an_mce_record_whole():
 
     def emit_mcps(events, emit_mode=None):
         if len(events) > 2:  # the whole batch: 2 MCPs from the MCE + 1 MCP
-            raise OperationalError("batch rejected", {"status": 422})
+            raise _rejected("batch rejected", {"status": 422})
         single_record_calls.append(list(events))
         return [MagicMock()]
 
@@ -676,7 +682,7 @@ def test_isolation_stops_after_consecutive_zero_recovery_batches(caplog):
     """A systemic failure (e.g. an expired token) must not turn one rejected batch
     into max_per_batch sequential failures forever; isolation should give up."""
     records = [_status_mcp(f"rec{i}") for i in range(3)]
-    error = OperationalError(
+    error = _rejected(
         "forbidden", {"status": 403, "message": "403 Client Error: Forbidden"}
     )
 
@@ -710,11 +716,11 @@ def test_isolation_continues_when_a_pass_recovers_at_least_one_record():
     unlucky run of partial failures never trips the circuit breaker."""
     poison = _status_mcp("poison")
     good = _status_mcp("good")
-    poison_error = OperationalError("record rejected", {"status": 422})
+    poison_error = _rejected("record rejected", {"status": 422})
 
     def emit_mcps(events, emit_mode=None):
         if len(events) > 1:
-            raise OperationalError("batch rejected", {"status": 422})
+            raise _rejected("batch rejected", {"status": 422})
         if events[0] is poison:
             raise poison_error
         return [MagicMock()]
@@ -738,7 +744,7 @@ def test_isolation_skips_records_whose_chunk_already_landed():
     """Re-emitting a landed chunk re-applies PATCH and CREATE writes, so only records
     that did not land may be re-sent."""
     records = [_status_mcp(f"rec{i}") for i in range(4)]
-    record_error = OperationalError("record rejected", {"status": 422})
+    record_error = _rejected("record rejected", {"status": 422})
     mock_emitter = _scripted_emitter(
         _chunked(OperationalError("rejected", {"status": 422}), [2, 3]),
         record_error,
@@ -803,7 +809,7 @@ def test_suppressed_isolation_still_credits_records_that_landed():
 def _http_error(status: int) -> OperationalError:
     response = requests.Response()
     response.status_code = status
-    error = OperationalError("rejected", {"message": "no status in the body"})
+    error = _rejected("rejected", {"message": "no status in the body"})
     error.__cause__ = requests.HTTPError(response=response)
     return error
 
@@ -811,16 +817,15 @@ def _http_error(status: int) -> OperationalError:
 @pytest.mark.parametrize(
     "batch_error",
     [
-        pytest.param(OperationalError("throttled", {"status": 429}), id="429"),
-        pytest.param(OperationalError("unavailable", {"status": 503}), id="503"),
-        pytest.param(OperationalError("unauthorized", {"status": 401}), id="401"),
-        pytest.param(OperationalError("timeout", {"status": 408}), id="408"),
+        pytest.param(_rejected("throttled", {"status": 429}), id="429"),
+        pytest.param(_rejected("unavailable", {"status": 503}), id="503"),
+        pytest.param(_rejected("unauthorized", {"status": 401}), id="401"),
+        pytest.param(_rejected("timeout", {"status": 408}), id="408"),
         pytest.param(_http_error(500), id="500-from-cause"),
         pytest.param(
-            OperationalError("unreachable", {"message": "Connection refused"}),
+            _rejected("unreachable", {"message": "Connection refused"}),
             id="no-status",
         ),
-        pytest.param(RuntimeError("unexpected"), id="not-operational"),
     ],
 )
 def test_isolation_skipped_when_the_rejection_is_not_record_attributable(
@@ -870,8 +875,8 @@ def test_isolation_stops_emitting_once_suppressed_mid_pass():
     """Another worker can trip the circuit breaker while this pass is running; the
     remaining records then fail with the batch error instead of being re-sent."""
     records = [_status_mcp(f"rec{i}") for i in range(4)]
-    batch_error = OperationalError("rejected", {"status": 422})
-    record_error = OperationalError("record rejected", {"status": 422})
+    batch_error = _rejected("rejected", {"status": 422})
+    record_error = _rejected("record rejected", {"status": 422})
     mock_emitter = MagicMock()
     sink = _make_sink(mock_emitter)
 
@@ -900,8 +905,8 @@ def test_isolation_stops_when_the_server_starts_failing_mid_pass():
     """An outage that begins during isolation fails every remaining record alike, so
     re-sending each with its own retry ladder would only stall the run."""
     records = [_status_mcp(f"rec{i}") for i in range(4)]
-    batch_error = OperationalError("rejected", {"status": 422})
-    outage = OperationalError("unavailable", {"status": 503})
+    batch_error = _rejected("rejected", {"status": 422})
+    outage = _rejected("unavailable", {"status": 503})
     mock_emitter = _scripted_emitter(batch_error, outage)
     sink = _make_sink(mock_emitter)
 
@@ -910,6 +915,62 @@ def test_isolation_stops_when_the_server_starts_failing_mid_pass():
 
     assert exc_info.value.outcomes == [outage, batch_error, batch_error, batch_error]
     assert mock_emitter.emit_mcps.call_count == 2
+
+
+def test_no_recovery_when_the_batch_error_is_not_a_failed_send():
+    """emit_mcps raises ChunkedEmitError for every failed send. Anything else (here the
+    trace wait of ASYNC_WAIT failing after every chunk was accepted) does not say which
+    records landed, so re-sending any of them could re-apply a landed PATCH or CREATE."""
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    error = _trace_wait_error()
+    mock_emitter = _scripted_emitter(error, None, None, None)
+    sink = _make_sink(mock_emitter)
+
+    # Raised as is, the shared path fails every record of the batch with it.
+    with pytest.raises(OperationalError) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value is error
+    assert mock_emitter.emit_mcps.call_count == 1
+    assert sink.report.batches_rejected == 0
+
+
+def _trace_wait_error() -> OperationalError:
+    """Not a failed send: what the ASYNC_WAIT trace wait raises after the send landed."""
+    response = requests.Response()
+    response.status_code = 404
+    error = OperationalError("trace lookup failed", {"message": "not found"})
+    error.__cause__ = requests.HTTPError(response=response)
+    return error
+
+
+def test_isolation_stops_when_a_resend_fails_after_it_was_sent():
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    batch_error = _rejected("rejected", {"status": 422})
+    trace_error = _trace_wait_error()
+    mock_emitter = _scripted_emitter(batch_error, trace_error, None, None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [trace_error, batch_error, batch_error]
+    assert mock_emitter.emit_mcps.call_count == 2
+
+
+def test_authorization_resend_that_fails_after_it_was_sent_is_not_resent_again():
+    a, job, b = _status_mcp("a"), _entity_mcp(_JOB), _status_mcp("b")
+    trace_error = _trace_wait_error()
+    mock_emitter = _scripted_emitter(_denial(_JOB), trace_error, None, None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(a,), (job,), (b,)])
+
+    outcomes = exc_info.value.outcomes
+    assert outcomes[0] is trace_error and outcomes[2] is trace_error
+    assert mock_emitter.emit_mcps.call_count == 2
+    assert sink.report.batches_rejected == 0
 
 
 def test_shared_batch_error_reports_each_record_with_its_own_urn():
@@ -1062,7 +1123,7 @@ def test_denial_naming_an_entity_outside_the_batch_falls_back_to_isolation():
     [
         # 401 and 5xx are not record-attributable, so the batch fails as a whole.
         pytest.param(
-            OperationalError(
+            _rejected(
                 "Unable to emit metadata to DataHub GMS",
                 {"message": "401 Client Error: Unauthorized"},
             ),
@@ -1071,7 +1132,7 @@ def test_denial_naming_an_entity_outside_the_batch_falls_back_to_isolation():
             id="401",
         ),
         pytest.param(
-            OperationalError(
+            _rejected(
                 "Unable to emit metadata to DataHub GMS: Actor is not active",
                 {"status": 403, "message": "Actor is not active"},
             ),
@@ -1080,7 +1141,7 @@ def test_denial_naming_an_entity_outside_the_batch_falls_back_to_isolation():
             id="other-403",
         ),
         pytest.param(
-            OperationalError(
+            _rejected(
                 "Unable to emit metadata to DataHub GMS: boom",
                 {"status": 500, "message": "boom"},
             ),
@@ -1107,9 +1168,9 @@ def test_other_rejections_do_not_take_the_authorization_fast_path(
 
 def test_failed_resend_falls_back_to_isolating_the_remainder():
     a, job, b = _status_mcp("a"), _entity_mcp(_JOB), _status_mcp("b")
-    b_error = OperationalError("record rejected", {"status": 422})
+    b_error = _rejected("record rejected", {"status": 422})
     mock_emitter = _scripted_emitter(
-        _denial(_JOB), OperationalError("rejected", {"status": 422}), None, b_error
+        _denial(_JOB), _rejected("rejected", {"status": 422}), None, b_error
     )
     sink = _make_sink(mock_emitter)
 
@@ -1128,7 +1189,7 @@ def test_failed_resend_falls_back_to_isolating_the_remainder():
 
 def test_failed_resend_on_an_outage_is_not_isolated():
     a, job, b = _status_mcp("a"), _entity_mcp(_JOB), _status_mcp("b")
-    outage = OperationalError("unavailable", {"status": 503})
+    outage = _rejected("unavailable", {"status": 503})
     mock_emitter = _scripted_emitter(_denial(_JOB), outage)
     sink = _make_sink(mock_emitter)
 

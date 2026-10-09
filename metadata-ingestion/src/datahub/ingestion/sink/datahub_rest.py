@@ -85,11 +85,9 @@ _Event = Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
 
 
 def _not_landed_events(
-    events_by_record: List[List[_Event]], error: BaseException
+    events_by_record: List[List[_Event]], error: ChunkedEmitError
 ) -> List[List[_Event]]:
     """Per record, the events emit_mcps had not got accepted when it raised `error`."""
-    if not isinstance(error, ChunkedEmitError):
-        return [list(events) for events in events_by_record]
     not_landed = set(error.not_landed_indices)
     pending: List[List[_Event]] = []
     offset = 0
@@ -203,8 +201,9 @@ class DataHubRestSinkReport(SinkReport):
     # that actually caused it; batches_rejected counts those. "recovered" counts records
     # that would have been silently lost before this behaviour existed.
     batches_rejected: int = 0
-    # Multi-record batches failed by throttling, a server error, auth or the connection:
-    # not isolated, since every record would fail alike.
+    # Multi-record batches, or the re-send after an authorization split, failed by
+    # throttling, a server error, auth or the connection: not isolated, since every
+    # record would fail alike.
     batches_rejected_not_record_attributable: int = 0
     records_isolated_after_batch_rejection: int = 0
     records_recovered_after_batch_rejection: int = 0
@@ -542,7 +541,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
         try:
             trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
-        except Exception as batch_error:
+        except ChunkedEmitError as batch_error:
+            # Only a failed send says which events landed. Any other error (the trace
+            # wait of ASYNC_WAIT, a serialization error) propagates as before and fails
+            # every record of the batch, since re-sending could re-apply landed writes.
             if len(events_by_record) <= 1:
                 # Nothing to isolate: the single record's error is already precise.
                 raise
@@ -560,7 +562,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
 
     def _recover_rejected_batch(
-        self, events_by_record: List[List[_Event]], batch_error: Exception
+        self, events_by_record: List[List[_Event]], batch_error: ChunkedEmitError
     ) -> BatchItemFailures:
         # None = written. Records whose chunk the server already accepted stay None and
         # are never re-sent: re-applying a landed PATCH or CREATE is not safe. Every
@@ -576,19 +578,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # has more proposals than denial entries (an UPSERT denied CREATE next to an
         # authorized PATCH, or a later chunk that was never sent), the denial does not
         # say which of them failed, so fall through to isolation.
-        error: Exception = batch_error
-        denied_counts = (
-            _parse_denied_urns(batch_error)
-            if isinstance(batch_error, OperationalError)
-            else None
-        )
+        error: ChunkedEmitError = batch_error
+        denied_counts = _parse_denied_urns(batch_error)
         pending_counts = Counter(
             event.entityUrn for events in pending for event in events
         )
-        if (
-            isinstance(batch_error, OperationalError)
-            and denied_counts is not None
-            and all(pending_counts[urn] == n for urn, n in denied_counts.items())
+        if denied_counts is not None and all(
+            pending_counts[urn] == n for urn, n in denied_counts.items()
         ):
             pending, resend_error = self._apply_authorization_denial(
                 pending, outcomes, batch_error, set(denied_counts)
@@ -617,11 +613,12 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         outcomes: List[Optional[BaseException]],
         batch_error: OperationalError,
         denied: Set[str],
-    ) -> Tuple[List[List[_Event]], Optional[Exception]]:
+    ) -> Tuple[List[List[_Event]], Optional[ChunkedEmitError]]:
         """Fail the records of denied entities, then re-send everything else once.
 
         Updates `outcomes` in place and returns the events still not written (aligned
-        with `outcomes`) and the re-send's error, or ([], None) when nothing is left.
+        with `outcomes`) and the re-send's error, or ([], None) when nothing is left to
+        recover.
         """
         actor = str(batch_error.info.get("message")).partition(_AUTHZ_DENIAL_MARKER)[0]
         remaining: List[List[_Event]] = []
@@ -660,13 +657,19 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             return [], None
         try:
             self.emitter.emit_mcps(resend, emit_mode=self._gms_emit_mode)
-        except Exception as resend_error:
+        except ChunkedEmitError as resend_error:
             still_pending = _not_landed_events(remaining, resend_error)
             for index, events in enumerate(remaining):
                 if events:
                     # Part of a chunked re-send may have landed; never re-send it.
                     outcomes[index] = resend_error if still_pending[index] else None
             return still_pending, resend_error
+        except Exception as resend_error:
+            # Not a failed send, so any of it may have landed: fail it all, re-send none.
+            for index, events in enumerate(remaining):
+                if events:
+                    outcomes[index] = resend_error
+            return [], None
         for index, events in enumerate(remaining):
             if events:
                 outcomes[index] = None
@@ -681,7 +684,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # record batched with it. Re-emitting one record at a time attributes the failure
         # to the record that caused it and lets the rest through. Only events that have
         # not landed are re-emitted; records left unattempted keep their outcome.
-        self.report.batches_rejected += 1
+        with self._isolation_lock:
+            self.report.batches_rejected += 1
 
         attempted = 0
         recovered = 0
@@ -692,19 +696,23 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 # Another worker tripped the circuit breaker mid-pass.
                 break
             attempted += 1
-            self.report.records_isolated_after_batch_rejection += 1
+            with self._isolation_lock:
+                self.report.records_isolated_after_batch_rejection += 1
             try:
                 self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
             except Exception as e:
                 outcomes[index] = e
-                if not _is_record_attributable(e):
-                    # The server stopped attributing failures (an outage, throttling):
-                    # the remaining records would fail alike, so keep the batch error.
+                if not isinstance(e, ChunkedEmitError) or not _is_record_attributable(
+                    e
+                ):
+                    # Not a failed send, or the server stopped attributing failures (an
+                    # outage, throttling): the remaining records keep the batch error.
                     break
             else:
                 outcomes[index] = None
                 recovered += 1
-                self.report.records_recovered_after_batch_rejection += 1
+                with self._isolation_lock:
+                    self.report.records_recovered_after_batch_rejection += 1
 
         logger.info(
             "Batch of %d rejected; isolation recovered %d record(s) and identified "
