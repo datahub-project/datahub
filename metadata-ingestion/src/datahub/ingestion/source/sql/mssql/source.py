@@ -2020,10 +2020,10 @@ class SQLServerSource(SQLAlchemySource):
                         yield workunit
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # Must run after AutoLowercaseUrns and AutoResolveLineageUrns, which need the
-        # typed upsert aspect, and appending is a source's only insertion point. So
-        # the report counts the pre-patch upsert; AutoSystemMetadata.stamp is appended
-        # later still, so patches are stamped.
+        # Must run after AutoLowercaseUrns, which needs the typed upsert aspect, and
+        # appending is a source's only insertion point. So the report counts the
+        # pre-patch upsert; AutoSystemMetadata.stamp is appended later still, so
+        # patches are stamped.
         #
         # The natural home is AutoIncrementalLineageProcessor, which is gated on this
         # same flag and does exactly this for UpstreamLineageClass. Kept here to bound
