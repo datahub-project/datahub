@@ -47,7 +47,8 @@ class EnsureDataPlatformInstanceFirstProcessor(
     When another aspect creates the entity, the entity exists without an instance
     until the dataPlatformInstance write lands, and if those writes go out in
     separate requests the instance-scoped policy can't authorize the ones in
-    between. Writing dataPlatformInstance first makes it the creating aspect.
+    between. Writing dataPlatformInstance first makes it the creating aspect. Stored metadata
+    is unchanged for sources that emit one instance value per entity.
 
     Reorders only within the entity's first run of consecutive same-urn workunits,
     so the buffer holds one run. The map of seen urns grows with the number of

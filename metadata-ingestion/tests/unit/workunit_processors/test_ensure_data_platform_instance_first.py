@@ -4,6 +4,8 @@ from itertools import zip_longest
 from typing import Iterable, List, Tuple
 from unittest import mock
 
+import pytest
+
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -216,9 +218,10 @@ def test_raw_mcp_dpi_is_moved() -> None:
     assert out[0] is raw_dpi
 
 
-def test_kill_switch_disables_processor() -> None:
+@pytest.mark.parametrize("value", ["true", "1"])
+def test_kill_switch_disables_processor(value: str) -> None:
     ctx = mock.MagicMock()
-    with mock.patch.dict(os.environ, {"DATAHUB_INGEST_DISABLE_DPI_FIRST": "true"}):
+    with mock.patch.dict(os.environ, {"DATAHUB_INGEST_DISABLE_DPI_FIRST": value}):
         assert EnsureDataPlatformInstanceFirstProcessor.should_enable(ctx) is False
     with mock.patch.dict(os.environ, {}):
         os.environ.pop("DATAHUB_INGEST_DISABLE_DPI_FIRST", None)

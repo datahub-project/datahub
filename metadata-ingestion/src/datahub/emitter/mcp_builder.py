@@ -331,6 +331,8 @@ def gen_containers(
 
     container_urn = container_key.as_urn()
 
+    # A child container deliberately keeps the parent Container aspect first, so
+    # browse paths stay correct when sources interleave containers across threads.
     if parent_container_key:  # Yield Container aspect first for auto_browse_path_v2
         parent_container_urn = make_container_urn(guid=parent_container_key.guid())
 
