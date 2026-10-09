@@ -72,7 +72,6 @@ def emit_dataset_profiles(
                 },
             )
         )
-        report.report_entity_profiled(target.dataset_name)
 
     if not requests:
         return
@@ -113,6 +112,7 @@ def emit_dataset_profiles(
             platform_instance,
             env,
         )
+        report.report_entity_profiled(dataset_name)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=profile,

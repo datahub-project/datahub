@@ -101,3 +101,48 @@ def test_profile_pattern_skips_table_without_calling_profiler() -> None:
     assert workunits == []
     assert report.entities_profiled == 0
     assert report.filtered
+
+
+def test_failed_profile_does_not_count_as_profiled() -> None:
+    report = FabricOneLakeSourceReport()
+    target = FabricProfileTarget(
+        schema_name="dbo",
+        table_name="orders",
+        dataset_name="ws-1.wh-1.dbo.orders",
+    )
+
+    def _generate(requests, max_workers, platform=None, profiler_args=None):
+        yield requests[0], None
+
+    profiler = MagicMock()
+    profiler.generate_profiles.side_effect = _generate
+    profiler_cls = MagicMock(return_value=profiler)
+    fake_module = types.ModuleType(
+        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+    )
+    fake_module.SQLAlchemyProfiler = profiler_cls  # type: ignore[attr-defined]
+    module_name = fake_module.__name__
+    previous = sys.modules.get(module_name)
+    sys.modules[module_name] = fake_module
+    try:
+        workunits = list(
+            emit_dataset_profiles(
+                engine=MagicMock(),
+                report=report,
+                profiling=ProfilingConfig(enabled=True),
+                profile_pattern=AllowDenyPattern.allow_all(),
+                targets=[target],
+                platform="fabric-onelake",
+                env="PROD",
+                platform_instance=None,
+                field_path_transform=lambda name: name,
+            )
+        )
+    finally:
+        if previous is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+
+    assert workunits == []
+    assert report.entities_profiled == 0

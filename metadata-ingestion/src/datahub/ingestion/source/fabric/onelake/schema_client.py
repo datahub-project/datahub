@@ -51,6 +51,7 @@ _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
 )
 
+
 def _extract_endpoint_host_from_connection_string(conn_str: str) -> Optional[str]:
     """Extract Fabric SQL Analytics Endpoint hostname from a connection string.
 
