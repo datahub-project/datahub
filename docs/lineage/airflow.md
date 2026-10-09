@@ -80,7 +80,7 @@ enabled = True  # default
 | capture_ol_file_datasets           | false                | Keep `file` datasets that operators report through OpenLineage. These are usually scratch paths on the worker, such as `/tmp/tmpab12/out.csv`, so they are skipped by default. Files declared as Airflow Assets or manual inlets/outlets are always kept. |
 | capture_bigquery_temp_datasets     | false                | Keep BigQuery tables in hidden and anonymous datasets, which hold query results, scripts and sessions. They are dropped by default.                                                                                                                       |
 | bigquery_temp_table_dataset_prefix | \_                   | Dataset-name prefix that marks those hidden datasets. Matches the BigQuery source's `temp_table_dataset_prefix`.                                                                                                                                          |
-| path_specs_str                     | []                   | JSON list of path specs whose `{table}` folder replaces any file or run folder beneath it. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).                                                                                   |
+| path_specs                     | []                   | JSON list of path specs whose `{table}` folder replaces any file or run folder beneath it. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).                                                                                   |
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                                                          |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                                                          |
 | emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.                               |
@@ -113,11 +113,11 @@ AIRFLOW__DATAHUB__DATASET_PATTERN='{"deny": ["gcs:my-tmp-bucket/.*", "s3:my-scra
 
 #### Collapsing file paths into tables
 
-Tasks often read and write individual files or per-run folders, such as `gs://my-bucket/events/run_123/part-0001.json`. By default each one becomes its own dataset. Set `path_specs_str` to map them onto the table folder that DataHub's S3 or GCS source ingests instead, using the same `path_specs` syntax as those sources. The folder marked `{table}` becomes the dataset, and every file, partition, or run folder beneath it is folded into it.
+Tasks often read and write individual files or per-run folders, such as `gs://my-bucket/events/run_123/part-0001.json`. By default each one becomes its own dataset. Set `path_specs` to map them onto the table folder that DataHub's S3 or GCS source ingests instead, using the same `path_specs` syntax as those sources. The folder marked `{table}` becomes the dataset, and every file, partition, or run folder beneath it is folded into it.
 
 ```ini title="airflow.cfg"
 [datahub]
-path_specs_str = [
+path_specs = [
     {"include": "gs://my-bucket/{table}"},
     {"include": "s3://my-other-bucket/raw/*/{table}/*.parquet", "exclude": ["s3://my-other-bucket/raw/tmp/**"]}
   ]
@@ -130,7 +130,7 @@ With this config, `gs://my-bucket/events/run_123/part-0001.json` is recorded as 
 - `exclude` and `tables_filter_pattern` behave as they do in the storage sources.
 - Hidden folders (names starting with `.` or `_`) are checked at the `{table}` level: a hidden table folder is not collapsed unless `include_hidden_folders` is set. Hidden staging paths below a table, such as `_temporary/` or `_SUCCESS`, are folded into that table, because a task writing there is writing the table.
 - The specs apply to every inlet and outlet: OpenLineage, Airflow Assets, and manual `inlets`/`outlets`. They need `normalize_object_storage_urns = true` (the default), because the bucket must be part of the name.
-- Collapsing runs before `dataset_filter_str`, so filter patterns see the table name.
+- Collapsing runs before `dataset_pattern`, so filter patterns see the table name.
 
 ## Automatic lineage extraction
 
@@ -673,7 +673,7 @@ _Changes_
 - New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default; set `capture_bigquery_temp_datasets = true` to keep them.
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
-- New `path_specs_str` option to fold per-file and per-run paths into their table folder, using the S3 and GCS sources' `path_specs` syntax. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).
+- New `path_specs` option to fold per-file and per-run paths into their table folder, using the S3 and GCS sources' `path_specs` syntax. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).
 
 ### Versions 1.7.0 through 1.7.0.10
 
