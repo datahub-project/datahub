@@ -7,7 +7,7 @@
     "passIncidents": "Активных инцидентов нет",
     "summaryHealthy": "Этот ассет в порядке",
     "summaryUnhealthy": "С этим ассетом могут быть проблемы",
-    "typeAssertions": "Проверки (assertions)",
+    "typeAssertions": "Проверки",
     "typeIncidents": "Инциденты",
     "typeTests": "Тесты",
     "warnAssertions": "С некоторыми проверками есть проблемы.",

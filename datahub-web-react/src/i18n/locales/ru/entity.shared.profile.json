@@ -18,11 +18,11 @@
     "notes.title": "Заметки",
     "notes.todayAt": "Сегодня в {{time}}",
     "notes.yesterdayAt": "Вчера в {{time}}",
-    "sidebar.aboutTitle": "О проекте",
+    "sidebar.aboutTitle": "Описание",
     "sidebar.groupsTitle": "Группы",
     "sidebar.moreCount": "+ ещё {{count}}",
     "sidebar.ownerOfTitle": "Владелец",
     "summary.addDocumentation": "Добавить документацию",
-    "summary.createdByTitle": "Создано",
+    "summary.createdByTitle": "Автор",
     "summary.documentationTitle": "Документация"
 }
