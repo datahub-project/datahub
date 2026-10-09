@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import RUN_REPORTER_RECORD_KEY, PipelineContext
 from datahub.ingestion.api.sink import Sink
 from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProvider,
@@ -15,6 +15,7 @@ from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceInfoClass,
     ExecutionRequestInputClass,
+    ExecutionRequestResultClass,
 )
 
 
@@ -287,3 +288,18 @@ def test_on_completion_masks_report_and_summary() -> None:
         "source": {"failures": ["pw=***REDACTED:DB_PASS***"]}
     }
     SecretRegistry.reset_instance()
+
+
+def test_records_sent_through_the_sink_are_marked() -> None:
+    provider, ctx, mock_sink = _make_provider("normal-cli-run-id")
+
+    provider.on_start(ctx)  # ctx.graph is None, so this goes through the sink too
+    provider.on_completion(status="SUCCESS", report={}, ctx=ctx)
+
+    envelopes = [c.args[0] for c in mock_sink.write_record_async.call_args_list]
+    assert [type(e.record.aspect) for e in envelopes] == [
+        DataHubIngestionSourceInfoClass,
+        ExecutionRequestInputClass,
+        ExecutionRequestResultClass,
+    ]
+    assert all(e.metadata[RUN_REPORTER_RECORD_KEY] is True for e in envelopes)

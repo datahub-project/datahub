@@ -22,6 +22,11 @@ class RecordEnvelope(Generic[T]):
     metadata: dict
 
 
+# RecordEnvelope.metadata key set on records written by the ingestion run reporter,
+# so sinks can tell a run report from the metadata being ingested.
+RUN_REPORTER_RECORD_KEY = "run_reporter_record"
+
+
 class ControlRecord:
     """A marker class to indicate records that are control signals from the framework"""
 

@@ -14,7 +14,11 @@ from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import EmitMode
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.common import (
+    RUN_REPORTER_RECORD_KEY,
+    PipelineContext,
+    RecordEnvelope,
+)
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.run.pipeline_config import PipelineConfig
@@ -239,7 +243,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             self.sink.write_record_async(
                 RecordEnvelope(
                     record=mcp,
-                    metadata={},
+                    metadata={RUN_REPORTER_RECORD_KEY: True},
                 ),
                 NoopWriteCallback(),
             )
