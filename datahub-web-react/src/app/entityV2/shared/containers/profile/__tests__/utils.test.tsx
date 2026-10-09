@@ -145,8 +145,8 @@ describe('useRoutedTab', () => {
         expect(renderAt('/dataset/urn:li:dataset:test/Columns')?.path).toBe('Columns');
     });
 
-    it('falls back to the display name for links built from translated names', () => {
-        expect(renderAt('/dataset/urn:li:dataset:test/Kolumner')?.path).toBe('Columns');
+    it('does not match a tab by its translated display name', () => {
+        expect(renderAt('/dataset/urn:li:dataset:test/Kolumner')).toBeUndefined();
     });
 
     it('returns undefined for an unknown tab', () => {
