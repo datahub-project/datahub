@@ -12,6 +12,7 @@ from datahub.ingestion.source.datahub.datahub_database_reader import (
     VersionOrderer,
 )
 from datahub.ingestion.source.datahub.datahub_source import DataHubSource
+from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 
 
@@ -370,8 +371,6 @@ def test_soft_deleted_urns_query_uses_dialect_aware_json_extraction(mock_reader)
 
 def test_parse_row_quarantines_unparseable_rows(tmp_path):
     """A row that cannot be parsed must be recorded, not just counted."""
-    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
-
     path = tmp_path / "parse-errors.jsonl"
     quarantine = QuarantineWriter(str(path))
 
@@ -401,8 +400,6 @@ def test_parse_row_quarantines_unparseable_rows(tmp_path):
 
 def test_quarantine_state_surfaced_in_report(tmp_path):
     """The report must reflect quarantine activity, not just a log line."""
-    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
-
     path = tmp_path / "parse-errors.jsonl"
     quarantine = QuarantineWriter(str(path))
 
@@ -430,8 +427,6 @@ def test_quarantine_state_surfaced_in_report(tmp_path):
 
 def test_quarantine_state_empty_on_clean_run(tmp_path):
     """A run that drops nothing must not advertise a quarantine file."""
-    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
-
     path = tmp_path / "parse-errors.jsonl"
     quarantine = QuarantineWriter(str(path))
     reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
@@ -447,8 +442,6 @@ def test_quarantine_state_empty_on_clean_run(tmp_path):
 def test_quarantine_disable_is_surfaced_as_a_report_warning(tmp_path):
     """An unrecoverable quarantine write failure must show up in the run summary,
     not just the writer's own log line."""
-    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
-
     path = tmp_path / "no-such-dir" / "parse-errors.jsonl"
     quarantine = QuarantineWriter(str(path))
 
@@ -516,3 +509,23 @@ def test_parse_error_log_default_filename_includes_run_id():
     assert source.quarantine is not None
     assert source.quarantine.filename == "parse-errors-my-run-id.jsonl"
     source.close()
+
+
+def test_source_close_closes_quarantine_writer(tmp_path):
+    path = tmp_path / "parse-errors.jsonl"
+    config = DataHubSourceConfig.model_validate(
+        {"pull_from_datahub_api": True, "parse_error_log": {"filename": str(path)}}
+    )
+    ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+    ctx.graph = MagicMock()
+    source = DataHubSource(config, ctx)
+    assert source.quarantine is not None
+    source.quarantine.write({"urn": "u"}, "boom")
+    assert source.quarantine._file is not None
+
+    source.close()
+
+    assert source.quarantine._file is None
+    assert source.quarantine.disabled
+    source.quarantine.write({"urn": "late"}, "boom")
+    assert len(path.read_text(encoding="utf-8").strip().split("\n")) == 1
