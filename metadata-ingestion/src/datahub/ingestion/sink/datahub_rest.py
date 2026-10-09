@@ -36,7 +36,11 @@ from datahub.emitter.rest_emitter import (
     RestSinkEndpoint,
 )
 from datahub.emitter.token_provider import TokenProviderAuth
-from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
+from datahub.ingestion.api.common import (
+    RUN_REPORTER_RECORD_KEY,
+    RecordEnvelope,
+    WorkUnit,
+)
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
     Sink,
@@ -140,6 +144,19 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     # This shouldn't happen super frequently, but just adding a fallback of generating
     # a UUID so that we don't do any partitioning.
     return str(uuid.uuid4())
+
+
+# Statuses with which a refused run-report write is logged instead of failing the run:
+# the token may ingest metadata without the privileges to record ingestion runs.
+_RUN_REPORT_DENIED_STATUSES = (401, 403)
+
+
+def _http_status(e: OperationalError) -> Optional[int]:
+    cause = e.__cause__
+    if isinstance(cause, requests.HTTPError) and cause.response is not None:
+        return cause.response.status_code
+    status = e.info.get("status")
+    return status if isinstance(status, int) else None
 
 
 def _resolve_gms_emit_mode(
@@ -377,7 +394,21 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 if workunit_id := record_envelope.metadata.get("workunit_id"):
                     e.info["workunit_id"] = workunit_id
 
-                if not self.treat_errors_as_warnings:
+                status = _http_status(e)
+                if (
+                    record_envelope.metadata.get(RUN_REPORTER_RECORD_KEY)
+                    and status in _RUN_REPORT_DENIED_STATUSES
+                ):
+                    # Not a report warning either, so --strict-warnings isn't tripped.
+                    logger.warning(
+                        "The ingestion run report was not saved to DataHub: writing %s "
+                        "was refused with HTTP %s. The ingested metadata is not affected. "
+                        "To record CLI runs, see the --no-default-report section of the "
+                        "CLI docs.",
+                        record_urn,
+                        status,
+                    )
+                elif not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:
                     self.report.report_warning({"warning": e.message, "info": e.info})
@@ -386,6 +417,19 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
+
+    def _emit_inline(
+        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
+    ) -> None:
+        """Emit one record on the calling thread, with the same outcome handling as the executors."""
+        future: concurrent.futures.Future = concurrent.futures.Future()
+        try:
+            self._emit_wrapper(record_envelope.record, emit_mode=self._gms_emit_mode)
+            future.set_result(None)
+        except Exception as e:
+            future.set_exception(e)
+        self.report.pending_requests += 1
+        self._write_done_callback(record_envelope, write_callback, future)
 
     def _emit_wrapper(
         self,
@@ -462,6 +506,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 )
                 self.report.pending_requests += 1
             elif self.config.mode == RestSinkMode.ASYNC_BATCH:
+                if record_envelope.metadata.get(RUN_REPORTER_RECORD_KEY):
+                    # A batch is accepted or rejected as a whole, so a refused run
+                    # report would fail every metadata record batched with it.
+                    self._emit_inline(record_envelope, write_callback)
+                    return
                 assert isinstance(self.executor, BatchPartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
                 self.executor.submit(
