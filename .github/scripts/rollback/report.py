@@ -135,6 +135,12 @@ def render_rollback_report(
         f"**Target (N-1):** `{target}` (sha: `{target_sha[:10]}`)  ",
         f"**Generated:** {generated}",
         "",
+        (
+            "_Assumes the rollback runs N-1's system-update with a new "
+            "`DATAHUB_REVISION`, so its blocking step re-applies N-1's index mappings, "
+            "and then restore-indices._"
+        ),
+        "",
     ]
     if warning:
         lines += [f"> ⚠️ **Warning:** {warning}", ""]

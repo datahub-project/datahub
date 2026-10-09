@@ -72,6 +72,7 @@ class RollbackFinding:
     # whether N "removed", "renamed" or "added" it on this field.
     relationship: Optional[str] = None
     rel_change: Optional[str] = None
+    rel_new: Optional[str] = None  # the new name, for a renamed relationship
 
     @property
     def change(self) -> str:
@@ -79,7 +80,7 @@ class RollbackFinding:
         return self.summary.split(" — ")[0]
 
 
-_INTERNAL_FIELDS = {"subject", "record", "hop", "relationship", "rel_change"}
+_INTERNAL_FIELDS = {"subject", "record", "hop", "relationship", "rel_change", "rel_new"}
 
 
 def public_dict(f: RollbackFinding) -> dict:
@@ -101,7 +102,6 @@ class Origin:
 OK = "ok"
 API_FAILS = "API fails"
 UI_API_FAILS = "UI/API fails"
-RESTORE_FAILS = "restore-indices fails"
 MAY_TRUNCATE = "ok, may truncate"
 STALE = "ok, stale"
 FAILS = "fails"
@@ -111,10 +111,9 @@ LOSS_NO = "no"
 LOSS_IF_OUT_OF_RANGE = "if out of range"
 LOSS_FRACTIONS = "drops fractions"
 LOSS_PRECISION = "rounds large values"
-# The stored record is intact, but graph edges or search documents derived
-# from it are missing or stale until the record is re-indexed.
+# The stored record is intact, but graph edges derived from it are missing
+# or stale until N-1 saves the record again.
 LOSS_GRAPH_ONLY = "graph only"
-LOSS_SEARCH_ONLY = "search only"
 # Unranked: the impact isn't known, so `worst` lets these win.
 UNKNOWN = "unknown"
 NOT_ANALYSED = "not analysed"
@@ -136,7 +135,7 @@ def compute_verdict(findings: list[RollbackFinding]) -> str:
 
 
 # Worst first.
-READ_SEVERITY = [API_FAILS, UI_API_FAILS, RESTORE_FAILS, MAY_TRUNCATE, STALE, OK]
+READ_SEVERITY = [API_FAILS, UI_API_FAILS, MAY_TRUNCATE, STALE, OK]
 WRITE_SEVERITY = [FAILS, DROPS_NEW_FIELD, OK]
 LOSS_SEVERITY = [
     LOSS_YES,
@@ -144,7 +143,6 @@ LOSS_SEVERITY = [
     LOSS_IF_OUT_OF_RANGE,
     LOSS_PRECISION,
     LOSS_GRAPH_ONLY,
-    LOSS_SEARCH_ONLY,
     LOSS_NO,
 ]
 

@@ -113,7 +113,9 @@ def type_change_finding(
     )
 
 
-RESTORE_REBUILDS = "Restore-indices on N-1 rebuilds them from the stored records."
+RESTORE_REBUILDS = (
+    "The rollback's restore-indices rebuilds the N-1 edges from the stored records."
+)
 # @Searchable settings that only shape queries. Each version builds queries
 # from its own registry, so a change here needs nothing after rollback.
 _QUERY_ONLY_SEARCH_KEYS = {
@@ -235,17 +237,14 @@ def _relationship_removed(
 ) -> model.RollbackFinding:
     f = _finding(
         origin,
-        model.REQUIRES_ATTENTION,
-        model.impact(model.STALE, model.OK, model.LOSS_GRAPH_ONLY),
+        model.SAFE,
+        model.impact(model.OK, model.OK, model.LOSS_NO),
         f"Graph relationship `{rel}` removed from `{name}`",
         subject=name,
         record=record,
         detail=(
-            f"N doesn't build `{rel}` edges from this field, so after rollback the "
-            "graph lacks edges for values N added and keeps edges for values N "
-            "removed; the stored records are intact. N-1 corrects a record's edges "
-            f"the next time it saves it. {RESTORE_REBUILDS} Records N wrote without "
-            "values in this field get no edges."
+            f"N doesn't build `{rel}` edges from this field. {RESTORE_REBUILDS} "
+            "Records N wrote without values in this field get no edges."
         ),
     )
     f.relationship, f.rel_change = rel, "removed"
@@ -257,19 +256,18 @@ def _relationship_renamed(
 ) -> model.RollbackFinding:
     f = _finding(
         origin,
-        model.REQUIRES_ATTENTION,
-        model.impact(model.STALE, model.OK, model.LOSS_GRAPH_ONLY),
+        model.SAFE,
+        model.impact(model.OK, model.OK, model.LOSS_NO),
         f"Graph relationship on `{name}` renamed `{old}` → `{new}`",
         subject=name,
         record=record,
         detail=(
-            f"N builds these edges as `{new}` instead of `{old}`, so after rollback "
-            f"N-1's `{old}` edges are missing for values N added or changed, and N's "
-            f"`{new}` edges stay in the graph. N-1 corrects a record's `{old}` edges "
-            f"the next time it saves it. {RESTORE_REBUILDS}"
+            f"N builds these edges as `{new}` instead of `{old}`. {RESTORE_REBUILDS} "
+            f"N's `{new}` edges stay in the graph, but N-1 doesn't build or query "
+            f"`{new}` for this entity."
         ),
     )
-    f.relationship, f.rel_change = old, "renamed"
+    f.relationship, f.rel_change, f.rel_new = old, "renamed", new
     return f
 
 
@@ -385,17 +383,17 @@ def _search_findings(
             findings.append(
                 _finding(
                     origin,
-                    model.REQUIRES_ATTENTION,
-                    model.impact(model.STALE, model.OK, model.LOSS_SEARCH_ONLY),
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
                     summary,
                     subject=name,
                     record=record,
                     detail=(
-                        f"{what}, so N-1's search and filters on N-1's field miss "
-                        "records N added or changed. N-1's mapping for it is still in "
-                        "the index, since a field N stops indexing keeps its mapping. "
-                        "Restore-indices on N-1 fills it back in from the stored "
-                        "records; records N wrote without a value stay without one."
+                        f"{what}. N-1's mapping for its field is still in the index, "
+                        "since a field N stops indexing keeps its mapping, and the "
+                        "rollback's restore-indices rebuilds it in every document from "
+                        "the stored records. Records N wrote without a value have "
+                        "nothing to index."
                     ),
                 )
             )
@@ -420,18 +418,20 @@ def _search_findings(
             findings.append(
                 _finding(
                     origin,
-                    model.REQUIRES_ATTENTION,
+                    model.SAFE,
                     model.impact(model.OK, model.OK, model.LOSS_NO),
                     f"Search mapping changed on `{name}`",
+                    "the rollback reindexes it",
                     subject=name,
                     record=record,
                     detail=(
                         "N built the search index with a different mapping for this "
-                        "field. N-1's system-update sees the difference but skips the "
-                        "index, because it already built it before the upgrade, even "
-                        "with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true; search "
-                        "keeps N's mapping. To rebuild it, delete N-1's "
-                        "BuildIndicesIncremental upgrade result and re-run system-update."
+                        "field. With a new DATAHUB_REVISION, the blocking step of N-1's "
+                        "system-update reindexes it to N-1's mapping, which adds time "
+                        "to the rollback for this index, and restore-indices then "
+                        "fills the documents. With the same revision it skips the "
+                        "index, because it built it before the upgrade, and search "
+                        "keeps N's mapping."
                     ),
                     reindex_required=True,
                 )
@@ -668,17 +668,14 @@ def classify_pdl_for_rollback(
                 _finding(
                     origin,
                     model.EXPECTED_LOSS,
-                    model.impact(model.RESTORE_FAILS, model.FAILS, model.LOSS_NO),
+                    model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
                     "New file in N",
                     f"part of {names}, an entity type new in N",
                     subject=new_entities[0],
                     detail=(
                         f"{names} is new in N, so N-1 can't read, write or index these "
                         "entities at all: its APIs return not found or unknown "
-                        "entity, and GraphQL returns null. N-1's restore-indices "
-                        "skips the whole batch these rows are in, valid rows "
-                        "included, without reporting an error, unless N-1 itself "
-                        "has a fix that ignores unknown aspects."
+                        "entity, and GraphQL returns null. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
                     ),
                 )
             )
@@ -687,15 +684,12 @@ def classify_pdl_for_rollback(
             _finding(
                 origin,
                 model.EXPECTED_LOSS,
-                model.impact(model.RESTORE_FAILS, model.FAILS, model.LOSS_NO),
+                model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
                 "New file in N",
                 "absent in N-1 (N-1 rejects writes to it)",
                 detail=(
-                    "N-1 can't read or write this aspect; its entities' other "
-                    "aspects read normally. N-1's restore-indices skips the whole "
-                    "batch these rows are in, valid rows included, without reporting "
-                    "an error, unless N-1 itself has a fix that ignores unknown "
-                    "aspects."
+                    "N-1 can't read or write this aspect; reading its entities "
+                    "returns their other aspects as usual. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
                 ),
             )
         )
@@ -1051,12 +1045,13 @@ def _relationships_by_aspect(contents: dict[str, str]) -> dict[str, set[str]]:
 def refine_relationship_findings(
     findings: list[model.RollbackFinding], target: str
 ) -> None:
-    """Say what restore-indices does for each relationship N removed, renamed or
-    added, which depends on N-1's other aspects of the same entity. N-1's
-    restore-indices re-indexes with FORCE_INDEXING: for each aspect it deletes
-    all of the entity's outgoing edges of the relationships that aspect builds,
-    then adds that aspect's. So when two aspects build the same relationship,
-    the one restored last replaces the other's edges."""
+    """Classify relationships N removed, renamed or added by what the
+    rollback's restore-indices leaves behind, which depends on N-1's other
+    aspects of the same entity. Restore-indices re-indexes with
+    FORCE_INDEXING: per aspect it deletes all of the entity's outgoing edges of
+    the relationships that aspect builds, then adds that aspect's, aspect by
+    aspect in name order. So when two aspects build the same relationship, the
+    last one restored replaces the other's edges."""
     todo = [f for f in findings if f.rel_change]
     if not todo:
         return
@@ -1069,33 +1064,40 @@ def refine_relationship_findings(
     for f in todo:
         aspects = set(f.affected_aspects or ([f.aspect_name] if f.aspect_name else []))
         siblings = {b for asps in registry.values() if asps & aspects for b in asps}
-        others = sorted(
-            b for b in siblings - aspects if f.relationship in rels.get(b, ())
-        )
-        own = sorted(a for a in aspects if f.relationship in rels.get(a, ()))
-        rel = f"`{f.relationship}`"
-        if f.rel_change in ("removed", "renamed") and others:
-            names = ", ".join(f"`{o}`" for o in others)
-            f.detail = (f.detail or "").replace(
-                RESTORE_REBUILDS,
-                f"Restore-indices won't: N-1 also builds {rel} edges for this entity "
-                f"from {names}, and restore-indices rebuilds all of an entity's {rel} "
-                "edges from each aspect in turn, so the last one restored replaces "
-                "the others.",
+
+        def builders(rel: Optional[str], include_own: bool) -> list[str]:
+            pool = siblings if include_own else siblings - aspects
+            return sorted(b for b in pool if rel in rels.get(b, ()))
+
+        if f.rel_change in ("removed", "renamed") and builders(f.relationship, False):
+            others = ", ".join(f"`{o}`" for o in builders(f.relationship, False))
+            rel = f"`{f.relationship}`"
+            f.risk = model.REQUIRES_ATTENTION
+            f.read_impact, f.data_loss = model.STALE, model.LOSS_GRAPH_ONLY
+            f.detail = (
+                f"N doesn't build {rel} edges from this field. N-1 also builds {rel} "
+                f"edges for this entity from {others}, and the rollback's "
+                f"restore-indices rebuilds an entity's {rel} edges from each aspect in "
+                "turn, the last one replacing the others. So edges that only this "
+                f"field gives are missing after the rollback wherever {others} also "
+                f"has {rel} edges, not only for records N changed. The stored records "
+                "are intact; N-1 restores the edges when it next saves each record."
             )
-        elif f.rel_change == "added" and (others or own):
-            sources = ", ".join(f"`{a}`" for a in sorted(set(others) | set(own)))
+        new = f.rel_new if f.rel_change == "renamed" else f.relationship
+        if f.rel_change in ("added", "renamed") and builders(new, True):
+            sources = ", ".join(f"`{a}`" for a in builders(new, True))
+            f.risk = model.REQUIRES_ATTENTION
             f.read_impact = model.STALE
             f.detail = (
-                f"{f.detail} N-1 also builds {rel} edges for this entity, so N's show "
-                "up in its relationship and lineage views as extra edges. "
-                f"Restore-indices of {sources} on N-1 removes them, since it rebuilds "
-                f"all of the entity's {rel} edges."
+                f"{f.detail} N-1 also builds `{new}` edges for this entity (from "
+                f"{sources}), so N's show up in its relationship and lineage views as "
+                "extra edges. The rollback's restore-indices replaces them on entities "
+                f"where N-1 builds `{new}` edges itself; elsewhere they stay."
             )
         elif f.rel_change == "added":
             f.risk = model.SAFE
             f.detail = (
-                f"{f.detail} N-1 has no {rel} relationship for this entity, so its "
+                f"{f.detail} N-1 has no `{new}` relationship for this entity, so its "
                 "views don't show them."
             )
 

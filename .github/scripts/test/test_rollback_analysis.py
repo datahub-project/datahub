@@ -1376,8 +1376,8 @@ class TestRelationshipAndIncludes:
              patch.object(rac, "last_author_for_file", return_value=None):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
         [rel] = [f for f in findings if f.summary.startswith("Graph relationship `OwnedBy` removed from `bar`")]
-        assert rel.risk == model.REQUIRES_ATTENTION
-        assert (rel.read_impact, rel.write_impact, rel.data_loss) == ("ok, stale", "ok", "graph only")
+        # No other aspect builds OwnedBy here, so the rollback's restore-indices rebuilds it.
+        assert rel.risk == model.SAFE and pdl_rules.RESTORE_REBUILDS in rel.detail
 
     def test_new_include_adds_its_fields(self):
         n1 = _ASPECT_V1
@@ -1417,9 +1417,9 @@ class TestUpgradeStepImpact:
             pipeline.set_upgrade_step_impact([step, *findings], "N", "N-1")
         return step
 
-    def test_aspect_unknown_to_n1_breaks_restore_indices(self):
+    def test_aspect_unknown_to_n1_fails_on_n1(self):
         step = self._run({"dataProducts", "dataHubUpgradeResult"}, {"dataHubUpgradeResult"}, [])
-        assert (step.read_impact, step.write_impact, step.data_loss) == ("restore-indices fails", "fails", "no")
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("API fails", "fails", "no")
         assert "`dataProducts` (not in N-1)" in step.detail
         assert "dataHubUpgradeResult" not in step.detail
 
@@ -1702,7 +1702,7 @@ class TestRelationshipRules:
     def test_gained_type_with_other_change_also_needs_attention(self):
         risks = {f.risk for f in self._rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
                                            '{ "name": "On", "entityTypes": [ "dataset" ] }')}
-        assert risks == {model.EXPECTED_LOSS, model.REQUIRES_ATTENTION}
+        assert risks == {model.EXPECTED_LOSS, model.SAFE}
 
     def test_relationship_added_in_n_leaves_extra_edges(self):
         [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }', None)
@@ -1711,7 +1711,7 @@ class TestRelationshipRules:
 
     def test_relationship_removed_in_n_is_rebuilt_by_restore_indices(self):
         [f] = self._rel(None, '{ "name": "On", "entityTypes": [ "dataset" ] }')
-        assert f.risk == model.REQUIRES_ATTENTION and "rebuilds them" in f.detail
+        assert f.risk == model.SAFE and pdl_rules.RESTORE_REBUILDS in f.detail
 
 
 class TestCommitLinks:
@@ -1806,7 +1806,8 @@ class TestNewEntityTypes:
 
     def test_new_aspect_of_an_existing_entity_keeps_aspect_wording(self):
         f = self._new_aspect("newDatasetAspect")
-        assert "entity type new in N" not in f.summary and "other aspects read normally" in f.detail
+        assert "entity type new in N" not in f.summary and "returns their other aspects as usual" in f.detail
+        assert "skips these rows one by one" in f.detail and f.read_impact == model.API_FAILS
 
 
 _MXE = "metadata-models/src/main/pegasus/com/linkedin/mxe/"
@@ -1856,11 +1857,12 @@ class TestRelationshipKinds:
     def test_path_keyed_relationship_removed(self):
         [f] = self._rel(None, '{ "/*": { "name": "Contains", "entityTypes": [ "dataset" ], "isLineage": true } }')
         assert f.rel_change == "removed" and f.relationship == "Contains"
-        assert f.data_loss == model.LOSS_GRAPH_ONLY and pdl_rules.RESTORE_REBUILDS in f.detail
+        assert f.risk == model.SAFE and pdl_rules.RESTORE_REBUILDS in f.detail
 
     def test_renamed_keeps_old_name_for_restore(self):
         [f] = self._rel('{ "name": "DownstreamOfV2" }', '{ "name": "DownstreamOf" }')
-        assert (f.rel_change, f.relationship, f.data_loss) == ("renamed", "DownstreamOf", "graph only")
+        assert (f.rel_change, f.relationship, f.rel_new) == ("renamed", "DownstreamOf", "DownstreamOfV2")
+        assert f.risk == model.SAFE
 
 
 _GROUP_REGISTRY = """entities:
@@ -1891,8 +1893,9 @@ class TestRestoreIndicesForSharedRelationships:
     def test_restore_does_not_rebuild_when_another_aspect_builds_the_same_edges(self):
         f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
                                            _PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
-        assert "Restore-indices won't" in f.detail and "`ownership`" in f.detail
-        assert pdl_rules.RESTORE_REBUILDS not in f.detail
+        assert f.risk == model.REQUIRES_ATTENTION and "`ownership`" in f.detail
+        assert (f.read_impact, f.data_loss) == (model.STALE, model.LOSS_GRAPH_ONLY)
+        assert "the last one replacing the others" in f.detail
 
     def test_restore_rebuilds_when_no_other_aspect_builds_them(self):
         f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
@@ -1924,7 +1927,7 @@ class TestSearchKinds:
 
     def test_removed_leaves_search_documents_without_the_field(self):
         [f] = self._search(None, '{ "/*": { "fieldName": "datasets", "fieldType": "URN" } }')
-        assert f.risk == model.REQUIRES_ATTENTION and f.data_loss == model.LOSS_SEARCH_ONLY
+        assert f.risk == model.SAFE and "restore-indices rebuilds it" in f.detail
         assert not f.reindex_required
 
     def test_query_only_settings_are_safe(self):
@@ -1933,7 +1936,7 @@ class TestSearchKinds:
 
     def test_mapping_change_keeps_n_mapping_after_rollback(self):
         [f] = self._search('{ "fieldType": "KEYWORD" }', '{ "fieldType": "TEXT" }')
-        assert f.risk == model.REQUIRES_ATTENTION and f.reindex_required and "system-update" in f.detail
+        assert f.risk == model.SAFE and f.reindex_required and "new DATAHUB_REVISION" in f.detail
 
 
 class TestSearchDefaults:
@@ -1954,4 +1957,14 @@ class TestSearchDefaults:
     def test_renamed_search_field_names_both(self):
         [f] = self._search('{ "fieldName": "fieldAssertionType", "fieldType": "KEYWORD" }', "{}")
         assert f.summary == "Search field renamed on `type`: `type` → `fieldAssertionType`"
-        assert f.data_loss == model.LOSS_SEARCH_ONLY
+        assert f.risk == model.SAFE
+
+
+
+class TestRolledBackRenamedRelationship:
+    def test_new_name_n1_builds_elsewhere_shows_extra_edges(self):
+        f = pdl_rules._relationship_renamed(model.Origin("p", "corpGroupInfo", None, None), "admins", "AdminOf", "OwnedBy", None)
+        with patch.object(rac, "file_at", lambda ref, path: _GROUP_REGISTRY if path.endswith("entity-registry.yml") else ""), \
+             patch.object(pdl_rules, "_all_pdls_at", return_value={_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER}):
+            pdl_rules.refine_relationship_findings([f], "N-1")
+        assert f.risk == model.REQUIRES_ATTENTION and "extra edges" in f.detail

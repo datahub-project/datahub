@@ -110,7 +110,7 @@ def set_upgrade_step_impact(
         reads, writes, losses, notes = [], [], [], []
         for a in aspects:
             if a not in n1_aspects:
-                reads.append(model.RESTORE_FAILS)
+                reads.append(model.API_FAILS)
                 writes.append(model.FAILS)
                 notes.append(f"`{a}` (not in N-1)")
                 continue
