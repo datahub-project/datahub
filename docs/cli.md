@@ -204,6 +204,38 @@ By default, the cli sends an ingestion report to DataHub, which allows you to se
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --no-default-report
 ```
 
+The run report is written with the same token as the metadata. Recording a run writes the ingestion source
+`urn:li:dataHubIngestionSource:cli-<id>` and one execution request per run. Creating that ingestion source requires
+the **Manage Metadata Ingestion** privilege. If DataHub refuses these writes with HTTP 401 or 403, `datahub ingest`
+logs a warning and carries on: the metadata is still ingested, and neither the exit code nor `--strict-warnings` is
+affected. The run just doesn't appear in the UI.
+
+To show the runs of a token without **Manage Metadata Ingestion**, an admin creates the ingestion source once, then
+grants the token's user:
+
+- **Edit Entity** on that ingestion source, and
+- **Create Entity** and **Edit Entity** on entities of type `dataHubExecutionRequest`. This lets the token write any
+  run record, not only its own.
+
+`<id>` is derived from the recipe, so it is the same on every run. It is the MD5 hash of a JSON object that holds the
+source `type`, plus the recipe's `pipeline_name` and the source's `platform_instance` when the recipe sets them.
+Compute it with the function the CLI uses:
+
+```python
+from datahub.emitter.mce_builder import datahub_guid
+
+# Leave out pipeline_name or platform_instance if the recipe doesn't set them.
+key = {"type": "mysql", "pipeline_name": "team_a__mysql", "platform_instance": "team_a"}
+print("urn:li:dataHubIngestionSource:cli-" + datahub_guid(key))
+```
+
+Then create the source with an admin token. The next run overwrites these fields with the real recipe details.
+
+```shell
+echo '{"name": "[CLI] mysql (team_a) [team_a__mysql]", "type": "mysql", "config": {"recipe": "", "executorId": "__datahub_cli_"}}' > source-info.json
+datahub put --urn "urn:li:dataHubIngestionSource:cli-<id>" -a dataHubIngestionSourceInfo -d source-info.json
+```
+
 The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
 
 ```yaml
