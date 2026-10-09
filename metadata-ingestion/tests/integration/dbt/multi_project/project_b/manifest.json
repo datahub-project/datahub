@@ -145,6 +145,60 @@
         "name": "sha256",
         "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    "model.shared_pkg.dim_date": {
+      "unique_id": "model.shared_pkg.dim_date",
+      "name": "dim_date",
+      "alias": "dim_date",
+      "database": "analytics_db",
+      "schema": "customers",
+      "resource_type": "model",
+      "package_name": "shared_pkg",
+      "path": "dim_date.sql",
+      "original_file_path": "models/dim_date.sql",
+      "config": {
+        "materialized": "table",
+        "tags": [],
+        "meta": {
+          "queries": [
+            {
+              "name": "Recent dates",
+              "sql": "select date_day from dim_date where date_day >= current_date - 7"
+            }
+          ]
+        }
+      },
+      "description": "Date dimension from a package both projects install.",
+      "columns": {
+        "date_day": {
+          "name": "date_day",
+          "description": "Calendar day.",
+          "data_type": "date",
+          "meta": {},
+          "tags": []
+        }
+      },
+      "meta": {
+        "queries": [
+          {
+            "name": "Recent dates",
+            "sql": "select date_day from dim_date where date_day >= current_date - 7"
+          }
+        ]
+      },
+      "tags": [],
+      "depends_on": {
+        "nodes": [],
+        "macros": []
+      },
+      "compiled": true,
+      "compiled_code": "select 1",
+      "raw_code": "select 1",
+      "language": "sql",
+      "checksum": {
+        "name": "sha256",
+        "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   },
   "sources": {

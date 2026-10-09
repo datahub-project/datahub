@@ -4,14 +4,14 @@ Runs the dbt source in-process and drains its workunits, reporting wall-clock,
 workunits/sec, peak memory, and the source's multi-project counters.
 
     # Algorithmic scalability sweep against an in-process S3 mock (self-seeding):
-    python -m tests.performance.dbt.test_dbt_multi_project --moto --sizes 3,10,100
+    python -m tests.performance.dbt.bench_dbt_multi_project --moto --sizes 3,10,100
 
     # Real-world throughput against a bucket seeded via seed_projects:
-    python -m tests.performance.dbt.test_dbt_multi_project \
+    python -m tests.performance.dbt.bench_dbt_multi_project \
         --manifest-glob "s3://bucket/prefix/*/manifest.json" --profile my-profile
 
     # Emit a recipe for a manual end-to-end run against a live DataHub instance:
-    python -m tests.performance.dbt.test_dbt_multi_project \
+    python -m tests.performance.dbt.bench_dbt_multi_project \
         --manifest-glob "s3://bucket/prefix/*/manifest.json" --emit-recipe dbt_perf.yml
 """
 
@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Tuple
 import boto3
 import humanfriendly
 import psutil
+from moto import mock_aws
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
@@ -79,8 +80,6 @@ def run_ingestion(
 def run_moto_sweep(
     sizes: List[int], include_run_results: bool
 ) -> List[Tuple[str, RunResult]]:
-    from moto import mock_aws
-
     results: List[Tuple[str, RunResult]] = []
     with mock_aws():
         boto3.client("s3", region_name=_MOTO_REGION).create_bucket(Bucket=_MOTO_BUCKET)

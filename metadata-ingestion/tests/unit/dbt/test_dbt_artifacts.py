@@ -1,14 +1,12 @@
 import threading
-from typing import Any, Dict, List, Optional
+from typing import List
 from unittest import mock
 
 import pytest
 
 import datahub.ingestion.source.dbt.dbt_artifacts as dbt_artifacts_module
-from datahub.ingestion.source.dbt.dbt_artifacts import (
-    ArtifactReader,
-    is_missing_file_error,
-)
+from datahub.ingestion.source.common.object_store_files import ObjectNotFoundError
+from datahub.ingestion.source.dbt.dbt_artifacts import ArtifactReader, is_glob_pattern
 
 
 def _reader(concurrency: int = 2) -> ArtifactReader:
@@ -17,33 +15,9 @@ def _reader(concurrency: int = 2) -> ArtifactReader:
     )
 
 
-def _object_store_error(
-    code: Optional[str] = None,
-    status: Optional[int] = None,
-    with_response: bool = True,
-) -> ValueError:
-    """Mimic read_file_as_bytes: a generic ValueError whose __cause__ is the client error."""
-    cause = Exception("client error")
-    if with_response:
-        response: Dict[str, Any] = {}
-        if code is not None:
-            response["Error"] = {"Code": code}
-        if status is not None:
-            response["ResponseMetadata"] = {"HTTPStatusCode": status}
-        cause.response = response  # type: ignore[attr-defined]
-    err = ValueError("Failed to read s3://bucket/key from object store")
-    err.__cause__ = cause
-    return err
-
-
 def test_prefetch_reraises_worker_memory_error() -> None:
-    """A MemoryError inside a prefetch worker must fail fast, not be captured.
-
-    The worker catches Exception to hand ordinary read failures back for the main
-    thread to re-raise at the original call site, but MemoryError is an Exception
-    subclass: capturing it let the other workers keep reading objects into an
-    already-exhausted process. It must propagate through .result() instead.
-    """
+    """A MemoryError in a prefetch worker propagates, unlike ordinary read failures,
+    which are captured and re-raised at the main-thread call site."""
     reader = _reader()
     groups = [["uri-0"], ["uri-1"]]
 
@@ -109,21 +83,50 @@ def test_prefetch_windows_submission_when_an_early_group_is_slow() -> None:
     assert yielded == [f"uri-{i}" for i in range(n)]
 
 
+def test_prefetch_close_cancels_reads_not_yet_started() -> None:
+    reader = _reader()
+    started: List[str] = []
+
+    def fake_read(uri: str, *args: object, **kwargs: object) -> bytes:
+        started.append(uri)
+        return uri.encode()
+
+    groups = [[f"uri-{i}"] for i in range(10)]
+    with mock.patch.object(dbt_artifacts_module, "read_file_as_bytes", fake_read):
+        prefetch = reader.prefetch_in_order(groups, concurrency=2)
+        next(prefetch)
+        prefetch.close()
+    assert len(started) <= 2
+
+
 @pytest.mark.parametrize(
-    "err, missing",
+    "err", [FileNotFoundError(2, "missing"), ObjectNotFoundError("missing")]
+)
+def test_load_optional_json_absent_file_is_none(err: Exception) -> None:
+    assert _reader().load_optional_json("p", {"p": err}, optional=True) is None
+    with pytest.raises(FileNotFoundError):
+        _reader().load_optional_json("p", {"p": err}, optional=False)
+
+
+def test_load_optional_json_ambiguous_failure_raises() -> None:
+    # Not proof of absence (permissions, throttling), so never read as "no file".
+    with pytest.raises(ValueError):
+        _reader().load_optional_json(
+            "p", {"p": ValueError("AccessDenied")}, optional=True
+        )
+
+
+@pytest.mark.parametrize(
+    "path, is_glob",
     [
-        (FileNotFoundError(2, "No such file or directory"), True),
-        (_object_store_error(code="NoSuchKey"), True),
-        (_object_store_error(code="NotFound"), True),
-        # S3-compatible stores may report only the status, with no error code.
-        (_object_store_error(status=404), True),
-        (_object_store_error(code="AccessDenied", status=403), False),
-        (_object_store_error(with_response=False), False),
-        (ValueError("no cause at all"), False),
-        (None, False),
+        ("/dbt/*/manifest.json", True),
+        ("s3://bucket/*/manifest.json", True),
+        ("/dbt/manifest.json", False),
+        # A literal glob character is escaped, never inferred from the filesystem.
+        ("/dbt/[[]prod]/manifest.json", True),
+        ("https://host/manifest.json?X-Amz-Signature=abc", False),
+        ("https://host/*/manifest.json", True),
     ],
 )
-def test_is_missing_file_error_classification(
-    err: Optional[BaseException], missing: bool
-) -> None:
-    assert is_missing_file_error(err) is missing
+def test_is_glob_pattern(path: str, is_glob: bool) -> None:
+    assert is_glob_pattern(path) == is_glob

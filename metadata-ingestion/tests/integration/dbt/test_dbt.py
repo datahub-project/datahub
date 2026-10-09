@@ -432,7 +432,9 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
     # multi-project facts: both projects in one run, per-project platform
     # instances derived from project_name, sibling catalogs resolved beside each
     # manifest, a raw source declared by both projects, project_b consuming a
-    # project_a model as a source, and one semantic model + metric per project.
+    # project_a model as a source, one semantic model + metric per project, a
+    # shared-package model whose meta.queries must yield one query per project,
+    # and a run_results file whose test result lands on project_a's assertion.
     config = DbtTestConfig(
         "dbt-multi-project-glob",
         "dbt_test_multi_project_glob.json",
@@ -441,6 +443,9 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
             "manifest_path": f"{test_resources_dir}/multi_project/*/manifest.json",
             "catalog_path": None,
             "sources_path": None,
+            "run_results_paths": [
+                f"{test_resources_dir}/multi_project/*/run_results.json"
+            ],
             "emit_semantic_model_entities": True,
         },
     )

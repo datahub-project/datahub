@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 from urllib.parse import urlparse
 
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -24,65 +24,32 @@ logger = logging.getLogger(__name__)
 def is_glob_pattern(path: str) -> bool:
     """Whether a configured artifact path should be glob-expanded rather than read as-is.
 
-    Deliberately narrower than has_glob_characters, because two shapes carry those
-    characters without being patterns, and expanding either one matches nothing -
-    which would turn a previously working recipe into a run that quietly ingests
-    no assets.
-
-    An HTTP(S) URL's `?` opens its query string, which is where a presigned URL
-    carries its signature, so only the URL's path component can make it a pattern.
-    And a local file or directory may simply be named with them: `dbt[prod]` is a
-    legitimate directory name that fnmatch reads as a character class matching
-    nothing, so a path that already resolves literally is read literally.
-
-    The literal-path check does not extend to object stores: os.path.exists is
-    always False for an s3:// or gs:// URI, so those keep expanding. Recognising an
-    object key that literally contains glob characters would need an existence
-    probe against the store per path.
+    Purely syntactic, so the config validator gives the same verdict on every host.
+    An HTTP(S) URL's `?` opens its query string, where a presigned URL carries its
+    signature, so only the URL's path can make it a pattern. A literal `*?[]` in a
+    local or object-store path is escaped as `[*]`, `[?]` or `[[]`.
     """
     if is_http_uri(path):
         return has_glob_characters(urlparse(path).path)
-    if not has_glob_characters(path):
-        return False
-    return not os.path.exists(path)
+    return has_glob_characters(path)
+
+
+def redact_url_query(path: str) -> str:
+    """Drop an HTTP(S) URL's query string, where a presigned URL carries its signature."""
+    if not is_http_uri(path):
+        return path
+    parsed = urlparse(path)
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
 
 def sibling_artifact_path(manifest_path: str, filename: str) -> str:
-    """Resolve an artifact that sits beside the manifest.
+    """Resolve an artifact in the manifest's own target/ directory.
 
-    dbt writes manifest.json, catalog.json, and sources.json into a single
-    target/ directory, so co-location is dbt's own layout rather than a
-    convention we impose. os.path.dirname is used to strip the filename because
-    it recognises both separators, so a backslash path from glob.glob on Windows
-    resolves as correctly as a POSIX path. The result is always rejoined with a
-    forward slash, which every OS accepts and which object-store URIs require.
+    os.path.dirname handles both separators (Windows glob results); the forward
+    slash rejoin works on every OS and is what object-store URIs require.
     """
     prefix = os.path.dirname(manifest_path)
     return f"{prefix}/{filename}" if prefix else filename
-
-
-_NOT_FOUND_ERROR_CODES = {"NoSuchKey", "NoSuchBucket", "NotFound", "404"}
-
-
-def is_missing_file_error(err: Optional[BaseException]) -> bool:
-    """Whether a failed artifact read definitely means the file is not there.
-
-    A local read raises FileNotFoundError. Object-store reads all surface as the
-    same generic ValueError from read_file_as_bytes, but that wrapper preserves the
-    original botocore ClientError as __cause__, whose error code separates a
-    missing key from a genuinely ambiguous failure (permissions, throttling,
-    network). Without this split, an estate where many projects never run
-    `dbt docs generate` reports a benign absence as an alarming infrastructure
-    fault, once per project, on every run.
-    """
-    if isinstance(err, FileNotFoundError):
-        return True
-    response = getattr(getattr(err, "__cause__", None), "response", None)
-    if not isinstance(response, dict):
-        return False
-    code = str(response.get("Error", {}).get("Code", ""))
-    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-    return code in _NOT_FOUND_ERROR_CODES or status == 404
 
 
 def load_file_as_json(
@@ -91,9 +58,7 @@ def load_file_as_json(
     gcs_connection: Optional[GCSConnectionConfig] = None,
 ) -> Dict:
     raw = read_file_as_bytes(uri, aws_connection, gcs_connection)
-    # Hand json.loads the raw bytes: it sniffs the BOM and picks UTF-8/16/32
-    # accordingly (RFC 4627), matching the old requests.json() behaviour a
-    # forced decode("utf-8") had regressed on BOM-prefixed manifests.
+    # json.loads on raw bytes sniffs the BOM and picks UTF-8/16/32 (RFC 4627).
     return json.loads(raw)
 
 
@@ -176,13 +141,10 @@ def expand_glob_path(
             connection_field="gcs_connection",
         )
     elif is_http_uri(path):
-        # A presigned URL carries its signature in the query string; name the URL
-        # without it so the report never records a credential.
-        parsed = urlparse(path)
         report.warning(
             title="Glob patterns not supported for HTTP(S) URIs",
             message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
-            context=f"{parsed.scheme}://{parsed.netloc}{parsed.path}",
+            context=redact_url_query(path),
         )
         return []
     else:
@@ -200,13 +162,11 @@ def expand_glob_path(
         return local_paths
 
 
-class ArtifactReader:
-    """Reads dbt artifacts, optionally ahead of the consumer on a bounded pool.
+Prefetched = Dict[str, Union[bytes, Exception]]
 
-    `prefetched` holds the bytes (or the exception the read raised) for the
-    group currently being consumed, keyed by URI. It is filled and consumed on
-    the main thread only.
-    """
+
+class ArtifactReader:
+    """Reads dbt artifacts, optionally ahead of the consumer on a bounded pool."""
 
     def __init__(
         self,
@@ -217,49 +177,42 @@ class ArtifactReader:
         self.aws_connection = aws_connection
         self.gcs_connection = gcs_connection
         self.concurrency = concurrency
-        self.prefetched: Dict[str, Union[bytes, Exception]] = {}
 
-    def load_json(self, uri: str) -> Dict:
-        """Load one artifact, preferring bytes prefetched by prefetch_in_order.
+    def load_json(self, uri: str, prefetched: Optional[Prefetched] = None) -> Dict:
+        """Load one artifact, preferring bytes already fetched by prefetch_in_order.
 
         A prefetched Exception is the exact exception the inline read would have
         raised (workers only capture, they never classify), so re-raising it here
-        keeps is_missing_file_error and per-project failure isolation unchanged.
+        keeps error handling identical to an inline read.
         """
-        prefetched = self.prefetched.pop(uri, None)
-        if prefetched is None:
+        fetched = prefetched.pop(uri, None) if prefetched is not None else None
+        if fetched is None:
             return load_file_as_json(uri, self.aws_connection, self.gcs_connection)
-        if isinstance(prefetched, Exception):
-            raise prefetched
+        if isinstance(fetched, Exception):
+            raise fetched
         # json.loads on raw bytes sniffs the BOM, matching load_file_as_json.
-        return json.loads(prefetched)
+        return json.loads(fetched)
 
-    def _fetch_group(
-        self, index: int, uris: List[str]
-    ) -> Tuple[int, Dict[str, Union[bytes, Exception]]]:
-        # Runs on a worker thread: fetch only - never parse, classify, or touch
-        # self.report. A failed read hands its exception back for the main thread
-        # to re-raise at the original call site.
-        fetched: Dict[str, Union[bytes, Exception]] = {}
+    def _fetch_group(self, uris: List[str]) -> Prefetched:
+        # Runs on a worker thread: fetch only, never parse or report. A failed read
+        # hands its exception back for the main thread to re-raise at the call site.
+        fetched: Prefetched = {}
         for uri in uris:
             try:
                 fetched[uri] = read_file_as_bytes(
                     uri, self.aws_connection, self.gcs_connection
                 )
             except MemoryError:
-                # Exhausted memory is systemic, not a per-file failure to capture and
-                # replay: let it propagate so .result() re-raises it on the main thread
-                # and load_projects fails instead of skipping the project. Groups already
-                # in flight still finish their reads (the executor waits for them on
-                # exit), but no further groups are started.
+                # Systemic, not a per-file failure: .result() re-raises it on the
+                # main thread so the run fails instead of skipping the project.
                 raise
             except Exception as e:
                 fetched[uri] = e
-        return index, fetched
+        return fetched
 
     def prefetch_in_order(
         self, uri_groups: List[List[str]], concurrency: int
-    ) -> Iterator[Dict[str, Union[bytes, Exception]]]:
+    ) -> Generator[Prefetched, None, None]:
         """Fetch each group's files on a bounded pool, yielding groups in input order.
 
         Submission is windowed to at most `concurrency` groups ahead of the
@@ -268,58 +221,44 @@ class ArtifactReader:
         executor would instead let a slow early group hold every later group's
         already-fetched bytes in a reorder buffer that grows with the whole run.
         """
-        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        executor = ThreadPoolExecutor(max_workers=concurrency)
+        try:
             in_flight: Dict[int, Future] = {}
             next_submit = 0
             for next_index in range(len(uri_groups)):
                 while next_submit < len(uri_groups) and len(in_flight) < concurrency:
                     in_flight[next_submit] = executor.submit(
-                        self._fetch_group,
-                        next_submit,
-                        uri_groups[next_submit],
+                        self._fetch_group, uri_groups[next_submit]
                     )
                     next_submit += 1
-                _, fetched = in_flight.pop(next_index).result()
-                yield fetched
+                yield in_flight.pop(next_index).result()
+        finally:
+            # Runs when the consumer closes the generator early too, so reads that
+            # have not started are dropped instead of pinning bytes until GC.
+            executor.shutdown(wait=True, cancel_futures=True)
 
     def maybe_prefetch(
         self, uri_groups: List[List[str]]
-    ) -> Optional[Iterator[Dict[str, Union[bytes, Exception]]]]:
+    ) -> Optional[Generator[Prefetched, None, None]]:
         concurrency = min(self.concurrency, len(uri_groups))
         if concurrency <= 1:
             return None
         return self.prefetch_in_order(uri_groups, concurrency)
 
     def load_optional_json(
-        self, path: Optional[str], *, optional: bool
-    ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
-        """Load catalog.json or sources.json, tolerating absence when optional.
+        self, path: str, prefetched: Optional[Prefetched], *, optional: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Load catalog.json or sources.json.
 
-        Returns (json, None) if path is None or the load succeeded. If the load
-        fails, returns (None, exception) when optional is True (a
-        glob-derived sibling guess) and re-raises when False (an
-        explicitly-configured path is a real misconfiguration). A file that
-        exists but cannot be decoded or parsed always raises either way - only
-        "not found" is ever treated as absence. The caught exception is handed back so the
-        caller can classify it with is_missing_file_error.
+        Returns None only when `optional` and the file definitely does not exist.
+        Every other failure raises: a corrupt file, and also a read that failed for
+        a reason that does not establish absence (permissions, throttling,
+        network), since treating that as "no catalog" would overwrite schemas with
+        manifest-only columns or, with only_include_if_in_catalog, drop the project.
         """
-        if path is None:
-            return None, None
         try:
-            return self.load_json(path), None
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # A file that exists but cannot be decoded is corrupt, never missing.
-            # UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError,
-            # so without naming it here invalid UTF-8 was caught below and reported
-            # as "no catalog file found" - silently ingesting the project with no
-            # column metadata.
-            raise
-        except (OSError, ValueError) as e:
-            # OSError, not just FileNotFoundError: a local read also raises
-            # PermissionError or IsADirectoryError, and on an object store the
-            # identical fault arrives as a ValueError from read_file_as_bytes. Both
-            # must reach the caller's warn-and-continue path, or the same fault
-            # fails the whole project locally while only warning on S3/GCS.
+            return self.load_json(path, prefetched)
+        except FileNotFoundError:
             if not optional:
                 raise
-            return None, e
+            return None

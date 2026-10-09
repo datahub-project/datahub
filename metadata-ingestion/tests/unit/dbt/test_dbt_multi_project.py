@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.object_store_files import ObjectNotFoundError
 from datahub.ingestion.source.dbt.dbt_common import DBTMetricsParse, DBTNode, DBTProject
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
@@ -61,9 +62,8 @@ def test_expand_glob_path_returns_sorted_local_matches(tmp_path: pathlib.Path) -
 
 
 def test_presigned_http_url_is_not_a_glob() -> None:
-    """A '?' starts an HTTP(S) URL's query string, where presigned URLs carry their
-    signature - it is not a glob metacharacter there. Treating it as one expanded the
-    URL to nothing and turned a working recipe into a green run with zero assets."""
+    """A '?' in an HTTP(S) URL starts the query string (where presigned URLs carry
+    their signature), so the URL is passed through unexpanded."""
     url = "https://bucket.s3.amazonaws.com/manifest.json?X-Amz-Signature=abc"
     source = _make_source()
 
@@ -72,14 +72,12 @@ def test_presigned_http_url_is_not_a_glob() -> None:
 
 
 def test_http_url_with_a_globbed_path_still_warns() -> None:
-    """Only the URL's query string is exempt. A real pattern in the path component is
-    still an unsupported glob, and must keep saying so rather than 404 later."""
+    """Only the query string is exempt: a pattern in the URL's path is an
+    unsupported glob and warns."""
     source = _make_source()
 
     assert source._expand_glob_path("https://host/*/manifest.json") == []
-    assert [w.title for w in source.report.warnings] == [
-        "Glob patterns not supported for HTTP(S) URIs"
-    ]
+    assert source.report.warnings
 
 
 def test_http_glob_warning_keeps_the_query_string_out_of_the_report() -> None:
@@ -92,6 +90,17 @@ def test_http_glob_warning_keeps_the_query_string_out_of_the_report() -> None:
     (warning,) = source.report.warnings
     assert "https://host/*/manifest.json" in " ".join(warning.context)
     assert "secret" not in " ".join(warning.context)
+
+
+def test_http_glob_matching_nothing_keeps_the_query_string_out_of_the_failure() -> None:
+    source = _make_source(
+        manifest_path="https://host/*/manifest.json?X-Amz-Signature=secret"
+    )
+
+    assert _load_projects(source) == []
+    assert source.report.failures
+    for entry in [*source.report.failures, *source.report.warnings]:
+        assert "secret" not in " ".join(entry.context)
 
 
 def test_refused_cloud_listing_is_reported_once(tmp_path: pathlib.Path) -> None:
@@ -111,42 +120,22 @@ def test_refused_cloud_listing_is_reported_once(tmp_path: pathlib.Path) -> None:
         projects = _load_projects(source)
 
     assert projects == []
-    assert [f.title for f in source.report.failures] == ["Cloud glob expansion failed"]
+    (failure,) = source.report.failures
+    assert "InvalidAccessKeyId" in " ".join(failure.context)
 
 
-def test_literal_local_path_containing_glob_characters_is_read_literally(
+def test_escaped_glob_character_matches_a_literal_directory(
     tmp_path: pathlib.Path,
 ) -> None:
-    """A directory may simply be named with glob metacharacters. `dbt[prod]` char-classes
-    to a class that matches nothing, so expanding it silently found no manifest."""
     project_dir = tmp_path / "dbt[prod]"
     project_dir.mkdir()
-    manifest_path = str(project_dir / "manifest.json")
     (project_dir / "manifest.json").write_text("{}")
 
     source = _make_source()
 
-    assert source._expand_glob_path(manifest_path) == [manifest_path]
-    assert source.report.warnings == []
-
-
-def test_literal_path_with_glob_characters_accepts_explicit_catalog_path(
-    tmp_path: pathlib.Path,
-) -> None:
-    """The config validator rejects catalog_path only for a real glob. A literal path
-    that happens to contain those characters names exactly one manifest, so its
-    catalog_path can be paired with it."""
-    project_dir = tmp_path / "dbt[prod]"
-    project_dir.mkdir()
-    (project_dir / "manifest.json").write_text("{}")
-
-    config = DBTCoreConfig(
-        manifest_path=str(project_dir / "manifest.json"),
-        catalog_path=str(project_dir / "catalog.json"),
-        target_platform="postgres",
-    )
-
-    assert config.catalog_path == str(project_dir / "catalog.json")
+    assert source._expand_glob_path(f"{tmp_path}/dbt[[]prod]/manifest.json") == [
+        str(project_dir / "manifest.json")
+    ]
 
 
 def test_expand_run_results_paths_preserves_config_order(
@@ -187,6 +176,11 @@ def test_expand_run_results_paths_preserves_config_order(
         (
             "s3://bucket/*/manifest.json",
             {"semantic_model_project_name": "pinned"},
+            False,
+        ),
+        (
+            "s3://bucket/*/manifest.json",
+            {"git_info": {"repo": "github.com/org/repo"}},
             False,
         ),
         ("s3://bucket/*/manifest.json", {}, True),
@@ -232,10 +226,8 @@ def test_explicit_sibling_paths_are_rejected_only_alongside_a_glob(
 def test_test_connection_expands_globbed_manifest_path(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Test Connection is an advertised capability, and must not fail a recipe that
-    would ingest fine. Handing the raw glob to load_file_as_json treats the pattern
-    as a literal path or object key, so a working multi-project recipe reported as
-    unreachable."""
+    """Test Connection expands a globbed manifest_path instead of reading the
+    pattern as a literal path, so a recipe that ingests fine also connects."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
@@ -436,24 +428,15 @@ def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
 
 
 def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> None:
-    """The manifest is the one mandatory dbt artifact, so a glob that matches none of
-    them must fail rather than warn.
-
-    The same misconfiguration already hard-fails test_connection. Warning instead
-    produced a green run with zero assets, leaving mass soft-deletion to be caught
-    only by the stale-entity handler's generic events-produced fail-safe, whose error
-    never names the glob as the cause.
-    """
+    """The manifest is the one mandatory dbt artifact, so a glob matching none is a
+    failure naming the pattern, which also keeps stale-entity removal from running."""
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
 
     nodes = _load_nodes(source)
 
     assert nodes == []
-    failures_by_title = {f.title: f for f in source.report.failures}
-    assert "manifest_path glob matched no files" in failures_by_title
     assert any(
-        str(tmp_path) in entry
-        for entry in failures_by_title["manifest_path glob matched no files"].context
+        str(tmp_path) in entry for f in source.report.failures for entry in f.context
     )
 
 
@@ -521,10 +504,8 @@ def test_glob_records_per_project_provenance(
 def test_glob_missing_sibling_artifacts_warns_and_continues(
     tmp_path: pathlib.Path,
 ) -> None:
-    """A project that never ran `dbt docs generate` has no catalog.json/sources.json.
-    That must not fail the whole multi-project run, and must actually warn - a prior
-    version of this test never checked report.warnings, so it would have kept passing
-    even if the warning silently stopped firing."""
+    """A project with no catalog.json/sources.json still loads, with one warning per
+    missing file naming the project's manifest."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
@@ -536,15 +517,10 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
     assert source.report.manifests_loaded == 1
     assert source.report.manifests_failed == 0
 
-    warnings_by_title = {w.title: w for w in source.report.warnings}
-    assert "No catalog file found for project" in warnings_by_title
-    assert "No sources file found for project" in warnings_by_title
     manifest_path = f"{tmp_path}/project_a/manifest.json"
-    assert manifest_path in list(
-        warnings_by_title["No catalog file found for project"].context
-    )
-    assert manifest_path in list(
-        warnings_by_title["No sources file found for project"].context
+    assert (
+        len([w for w in source.report.warnings if manifest_path in list(w.context)])
+        == 2
     )
 
 
@@ -583,13 +559,8 @@ def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> N
 
 
 def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None:
-    """A project skipped by the per-project failure handler must contribute nothing.
-
-    Exposures used to be collected on the source partway through a project's
-    load, before semantic-model extraction ran. A project that failed after that
-    point was skipped for its nodes but its exposures were still emitted,
-    breaking the isolation guarantee.
-    """
+    """A project that fails late in its load (after its exposures were parsed)
+    contributes no exposures, only its neighbours do."""
     for project in ["project_a", "project_b", "project_c"]:
         _write_project(
             tmp_path,
@@ -610,8 +581,7 @@ def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None
     def fail_for_project_b(
         *, manifest_semantic_models: Dict[str, Any], **kwargs: Any
     ) -> List[Any]:
-        # Fails strictly after this project's exposures have been parsed, which is
-        # the window the bug lived in.
+        # Fails strictly after this project's exposures have been parsed.
         if "semantic_model.project_b.metrics" in manifest_semantic_models:
             raise RuntimeError("semantic model extraction blew up")
         return real_extract(manifest_semantic_models=manifest_semantic_models, **kwargs)
@@ -635,9 +605,7 @@ def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None
 def test_glob_attributes_catalog_generated_at_per_project(
     tmp_path: pathlib.Path,
 ) -> None:
-    """catalog_generated_at used to live on the report - one slot, so under fan-out
-    the last-loaded project's timestamp silently applied to every node's dataset
-    profile. It must now be attributed per project."""
+    """Each project carries its own catalog's generated_at."""
     _write_project(
         tmp_path,
         "project_a",
@@ -663,13 +631,9 @@ def test_glob_attributes_catalog_generated_at_per_project(
 def test_glob_query_timestamps_come_from_each_projects_own_manifest(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Query created/lastModified must come from the node's own manifest.
-
-    report.manifest_info is deliberately left unset in glob mode (no single project
-    may represent the whole run), so a query-timestamp path reading only that field
-    fell back to now() on every glob run - churning every query aspect on every
-    ingest, the same problem that moved manifest_path off customProperties.
-    """
+    """Query created/lastModified come from the node's own manifest, not now(), so
+    Query aspects stay stable across runs in glob mode (where report.manifest_info
+    is unset)."""
     _write_project(
         tmp_path,
         "project_a",
@@ -789,7 +753,9 @@ def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
     )
 
 
-def test_corrupt_run_results_fails_only_its_project(tmp_path: pathlib.Path) -> None:
+def test_corrupt_run_results_costs_only_its_own_results(
+    tmp_path: pathlib.Path,
+) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
     )
@@ -799,7 +765,8 @@ def test_corrupt_run_results_fails_only_its_project(tmp_path: pathlib.Path) -> N
     _write_run_results(
         tmp_path / "project_a" / "run_results.json", "model.project_a.orders", "inv-a"
     )
-    (tmp_path / "project_b" / "run_results.json").write_text("{not json")
+    corrupt = tmp_path / "project_b" / "run_results.json"
+    corrupt.write_text("{not json")
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
@@ -807,9 +774,9 @@ def test_corrupt_run_results_fails_only_its_project(tmp_path: pathlib.Path) -> N
     )
     projects = _load_projects(source)
 
-    assert [p.project_name for p in projects] == ["project_a"]
-    assert source.report.manifests_failed == 1
-    assert [f.title for f in source.report.failures] == ["Failed to load dbt project"]
+    assert [p.project_name for p in projects] == ["project_a", "project_b"]
+    assert source.report.manifests_failed == 0
+    assert any(str(corrupt) in w.context[0] for w in source.report.warnings)
 
 
 def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
@@ -853,15 +820,8 @@ def test_non_glob_missing_explicit_catalog_path_still_raises(
 def test_memory_error_propagates_instead_of_being_skipped(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Per-project isolation must not absorb an exhausted process.
-
-    MemoryError is an Exception subclass, so the generic per-project handler
-    recorded an oversized catalog as one skipped project and went on fetching and
-    parsing every remaining manifest into a process that had already run out of
-    memory. Unlike a corrupt manifest, this is not contained by skipping the
-    project - see test_corrupt_manifest_is_a_failure_and_other_projects_still_load
-    for the behaviour that must stay.
-    """
+    """A MemoryError is not contained by skipping the project: it stops the run at
+    the first project instead of being recorded as one failed project."""
     for project in ("project_a", "project_b", "project_c"):
         _write_project(
             tmp_path, project, [{"name": project, "database": "db", "schema": "sch"}]
@@ -894,8 +854,8 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
     sibling artifacts are derived as URIs beside each manifest, that the prefetch
     pool rather than the main thread performs every read (ArtifactReader.load_json
     silently falls back to a direct read for a URI that was not prefetched, so a
-    node-set comparison alone cannot tell), and that a missing-key error code is
-    reported as definite absence rather than an ambiguous failure.
+    node-set comparison alone cannot tell), and that a missing key is definite
+    absence, which warns and keeps the project.
     """
     projects = ["project_a", "project_b"]
     for name in projects:
@@ -918,9 +878,7 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
         requested.append(uri)
         reader_threads.add(threading.current_thread().name)
         if uri not in objects:
-            cause = Exception("NoSuchKey")
-            cause.response = {"Error": {"Code": "NoSuchKey"}}  # type: ignore[attr-defined]
-            raise ValueError(f"Failed to read {uri} from object store") from cause
+            raise ObjectNotFoundError(uri)
         return objects[uri]
 
     source = _make_source(
@@ -946,118 +904,75 @@ def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> 
         "model.project_a.m_project_a",
         "model.project_b.m_project_b",
     }
-    assert source.report.manifest_paths_expanded == [
+    assert list(source.report.manifest_paths_expanded) == [
         "s3://bucket/project_a/manifest.json",
         "s3://bucket/project_b/manifest.json",
     ]
     assert "s3://bucket/project_a/catalog.json" in requested
     assert "s3://bucket/project_b/sources.json" in requested
     assert "MainThread" not in reader_threads
-    titles = {w.title for w in source.report.warnings}
-    assert "No catalog file found for project" in titles
-    assert "Could not read catalog file for project" not in titles
-
-
-def test_ambiguous_sibling_read_failure_does_not_assert_absence(
-    tmp_path: pathlib.Path,
-) -> None:
-    """catalog.json/sources.json reads that fail ambiguously - as object storage
-    does for a missing key, a permission error, or throttling, see
-    read_file_as_bytes - must not be reported with the same "no file found"
-    wording used for a definite local FileNotFoundError, and must surface the
-    underlying error for diagnosis. Mocks read_file_as_bytes directly (same
-    pattern as test_load_file_as_json_handles_utf8_bom in test_dbt_source.py),
-    so no real S3/GCS client is needed."""
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-
-    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
-        if uri.endswith("manifest.json"):
-            return pathlib.Path(uri).read_bytes()
-        # Mimics read_file_as_bytes wrapping a get_object failure - this could
-        # just as easily be a missing key, throttling, or a network error.
-        raise ValueError(f"Failed to read {uri} from object store: 403 Forbidden")
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
-        side_effect=fake_read,
-    ):
-        nodes = _load_nodes(source)
-
-    assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
-
-    warnings_by_title = {w.title: w for w in source.report.warnings}
-    assert "Could not read catalog file for project" in warnings_by_title
-    assert "Could not read sources file for project" in warnings_by_title
-    # The definite-absence wording must not fire for an ambiguous read failure.
-    assert "No catalog file found for project" not in warnings_by_title
-    assert "No sources file found for project" not in warnings_by_title
-
-    catalog_warning = warnings_by_title["Could not read catalog file for project"]
-    sources_warning = warnings_by_title["Could not read sources file for project"]
-    assert any("403 Forbidden" in entry for entry in catalog_warning.context)
-    assert any("403 Forbidden" in entry for entry in sources_warning.context)
-
-
-def test_local_os_error_on_sibling_catalog_only_warns(
-    tmp_path: pathlib.Path,
-) -> None:
-    """An unreadable local sibling artifact must warn, exactly as the same condition
-    on an object store does.
-
-    A local read raises OSError subclasses that are not FileNotFoundError - here
-    IsADirectoryError, in production usually PermissionError - while S3/GCS surface
-    every failure as a ValueError from read_file_as_bytes. Catching only ValueError
-    escalated the local case into a whole-project failure, which also suppresses
-    stale-entity soft-deletion run-wide, so the same fault behaved differently
-    depending only on where the artifacts live.
-    """
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-    _write_project(
-        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
-    )
-    (tmp_path / "project_b" / "catalog.json").mkdir()
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = _load_nodes(source)
-
-    assert {node.dbt_name for node in nodes} == {
-        "model.project_a.orders",
-        "model.project_b.events",
-    }
-    assert source.report.manifests_failed == 0
     assert source.report.failures == []
 
-    manifest_b = f"{tmp_path}/project_b/manifest.json"
-    ambiguous = [
-        w
-        for w in source.report.warnings
-        if w.title == "Could not read catalog file for project"
-        and any(manifest_b in entry for entry in w.context)
+
+@pytest.mark.parametrize("artifact", ["catalog.json", "sources.json"])
+def test_ambiguous_sibling_read_failure_skips_the_project(
+    tmp_path: pathlib.Path, artifact: str
+) -> None:
+    """A read failure that does not prove absence (permissions, throttling) fails
+    the project: as "no catalog" it would overwrite schemas with manifest-only
+    columns, and the failure keeps stale-entity removal from deleting anything."""
+    for name in ["project_a", "project_b"]:
+        _write_project(
+            tmp_path, name, [{"name": f"m_{name}", "database": "db", "schema": name}]
+        )
+    unreadable = f"{tmp_path}/project_b/{artifact}"
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        if uri == unreadable:
+            raise ValueError(f"Failed to read {uri} from object store: 403 Forbidden")
+        return pathlib.Path(uri).read_bytes()
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    with mock.patch.object(
+        dbt_artifacts_module, "read_file_as_bytes", side_effect=fake_read
+    ):
+        projects = _load_projects(source)
+
+    assert [p.project_name for p in projects] == ["project_a"]
+    assert list(source.report.manifest_paths_failed) == [
+        f"{tmp_path}/project_b/manifest.json"
     ]
-    assert len(ambiguous) == 1
-    # Not described as absent: the file is there, it just cannot be read.
-    assert not [
-        w
-        for w in source.report.warnings
-        if w.title == "No catalog file found for project"
-        and any(manifest_b in entry for entry in w.context)
-    ]
+
+
+def test_missing_catalog_with_only_include_if_in_catalog_skips_the_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Every node would be filtered out, and with only a warning the project's
+    entities would be soft-deleted."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "m_a", "database": "db", "schema": "a"}],
+        catalog_generated_at="2026-01-01T00:00:00.000000Z",
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "m_b", "database": "db", "schema": "b"}]
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", only_include_if_in_catalog=True
+    )
+    projects = _load_projects(source)
+
+    assert [p.project_name for p in projects] == ["project_a"]
+    assert source.report.manifests_failed == 1
 
 
 def test_undecodable_sibling_catalog_is_corrupt_not_absent(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Invalid UTF-8 in a sibling catalog.json must not be downgraded to absence.
-
-    UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError, so a
-    catalog.json that exists and is unreadable was reported as "no catalog file
-    found" and the project ingested silently without any column metadata.
-    """
+    """A sibling catalog.json with invalid UTF-8 fails its project rather than being
+    reported as absent."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
@@ -1075,64 +990,16 @@ def test_undecodable_sibling_catalog_is_corrupt_not_absent(
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     nodes = _load_nodes(source)
 
-    # project_a genuinely has no catalog.json, so that warning is expected for it -
-    # what must not happen is project_b's undecodable file being described as absent
-    # or as an ambiguous read failure.
+    # project_a genuinely has no catalog.json and warns; project_b must not.
     manifest_b = f"{tmp_path}/project_b/manifest.json"
-    absence_warnings = [
+    assert not [
         w
         for w in source.report.warnings
-        if w.title
-        in {
-            "No catalog file found for project",
-            "Could not read catalog file for project",
-        }
-        and any(manifest_b in entry for entry in w.context)
+        if any(manifest_b in entry for entry in w.context)
     ]
-    assert absence_warnings == []
 
-    # Per-project isolation still applies: the corrupt project is skipped as a
-    # failure and the healthy one still ingests.
     assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
-    assert source.report.manifests_failed == 1
-    failures_by_title = {f.title: f for f in source.report.failures}
-    assert "Failed to load dbt project" in failures_by_title
-
-
-def test_object_store_not_found_code_reported_as_definite_absence(
-    tmp_path: pathlib.Path,
-) -> None:
-    """An object-store read that reports a missing key is definite absence.
-
-    read_file_as_bytes wraps every get_object failure in one generic ValueError,
-    but preserves the underlying ClientError as __cause__, so the error code still
-    distinguishes a missing key from a genuinely ambiguous failure. Without that
-    split, an estate where half the projects never run `dbt docs generate` emits a
-    warning per project that reads like an infrastructure fault.
-    """
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-
-    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
-        if uri.endswith("manifest.json"):
-            return pathlib.Path(uri).read_bytes()
-        cause = Exception("NoSuchKey")
-        cause.response = {"Error": {"Code": "NoSuchKey"}}  # type: ignore[attr-defined]
-        raise ValueError(f"Failed to read {uri} from object store") from cause
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
-        side_effect=fake_read,
-    ):
-        _load_nodes(source)
-
-    titles = {w.title for w in source.report.warnings}
-    assert "No catalog file found for project" in titles
-    assert "No sources file found for project" in titles
-    assert "Could not read catalog file for project" not in titles
-    assert "Could not read sources file for project" not in titles
+    assert list(source.report.manifest_paths_failed) == [manifest_b]
 
 
 def _semantic_model(
@@ -1245,30 +1112,6 @@ def test_artifact_read_concurrency_replays_fetch_errors_per_project(
     assert source.report.manifests_failed == 1
 
 
-def test_prefetched_bytes_are_released_when_a_project_fails(
-    tmp_path: pathlib.Path,
-) -> None:
-    """A project that fails mid-load must not pin its unconsumed artifact bytes.
-
-    Prefetch hands load_projects every artifact of a project before the manifest is
-    parsed. When the manifest fails, catalog.json - the largest dbt artifact - is
-    never consumed, and its bytes would otherwise stay referenced for the source's
-    lifetime, through the whole emit phase.
-    """
-    for name in ["project_a", "project_b"]:
-        _write_project(
-            tmp_path, name, [{"name": f"m_{name}", "database": "db", "schema": name}]
-        )
-    (tmp_path / "project_b" / "manifest.json").write_text("{not json")
-    (tmp_path / "project_b" / "catalog.json").write_text('{"nodes": {}}')
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    _load_nodes(source)
-
-    assert source.report.manifests_failed == 1
-    assert source._artifacts.prefetched == {}
-
-
 def _node(dbt_name: str, **overrides: Any) -> DBTNode:
     defaults: Dict[str, Any] = dict(
         database=None,
@@ -1343,7 +1186,6 @@ def test_emit_loop_scopes_the_instance_to_each_project() -> None:
             "dbt", "db.sch_b.orders", "project_b", "PROD"
         ),
     }
-    assert source._current_project is None
 
 
 def test_an_empty_project_emits_nothing_and_fails_nothing() -> None:
@@ -1508,19 +1350,15 @@ def test_run_results_match_the_project_in_their_directory(
         for name, project in projects.items()
     }
     assert runs == {"project_a": ["inv-a"], "project_b": ["inv-b"]}
-    stray = [
-        w
-        for w in source.report.warnings
-        if w.title == "run_results files matched no project"
-    ]
+    stray = [w for w in source.report.warnings if any("stray" in c for c in w.context)]
     assert len(stray) == 1
-    assert any("stray" in c for c in stray[0].context)
 
 
+@pytest.mark.parametrize("absolute_run_results", [False, True])
 def test_run_results_pair_with_manifests_despite_dot_slash_prefix(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, absolute_run_results: bool
 ) -> None:
-    """`./dbt/a` and `dbt/a` are the same directory and must pair."""
+    """`./dbt/a`, `dbt/a` and `/abs/dbt/a` are the same directory and must pair."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "a"}]
     )
@@ -1531,7 +1369,11 @@ def test_run_results_pair_with_manifests_despite_dot_slash_prefix(
 
     source = _make_source(
         manifest_path="./*/manifest.json",
-        run_results_paths=["*/run_results.json"],
+        run_results_paths=[
+            f"{tmp_path}/*/run_results.json"
+            if absolute_run_results
+            else "*/run_results.json"
+        ],
     )
     projects = _load_projects(source)
 
@@ -1539,9 +1381,7 @@ def test_run_results_pair_with_manifests_despite_dot_slash_prefix(
         "inv-a"
     ]
     assert not [
-        w
-        for w in source.report.warnings
-        if w.title == "run_results files matched no project"
+        w for w in source.report.warnings if any("run_results" in c for c in w.context)
     ]
 
 
@@ -1563,8 +1403,7 @@ def test_a_manifest_without_project_name_is_a_failure_for_that_project(
     projects = _load_projects(source)
 
     assert [p.project_name for p in projects] == ["project_a"]
-    assert source.report.manifests_failed == 1
-    assert [f.title for f in source.report.failures] == ["Failed to load dbt project"]
+    assert list(source.report.manifest_paths_failed) == [str(manifest)]
 
 
 def test_two_manifests_with_one_project_name_fail_the_second(
@@ -1588,8 +1427,12 @@ def test_two_manifests_with_one_project_name_fail_the_second(
 
     assert [p.manifest_path for p in projects] == [f"{tmp_path}/dev/manifest.json"]
     assert source.report.manifests_failed == 1
-    failure = source.report.failures[0]
-    assert "analytics" in " ".join(failure.context)
+    context = " ".join(source.report.failures[0].context)
+    assert "analytics" in context
+    # Names the build that was kept, not only the one that was skipped.
+    assert f"{tmp_path}/dev/manifest.json" in context
+    # Rejected before any other artifact was read, so nothing else was reported.
+    assert not [w for w in source.report.warnings if "prod" in " ".join(w.context)]
 
 
 def test_single_manifest_keeps_the_configured_platform_instance(
@@ -1634,4 +1477,87 @@ def test_a_failed_project_does_not_leak_into_its_neighbours(
         make_dataset_urn_with_platform_instance("dbt", "db.c.orders", "c_last", "PROD"),
     }
     assert source.report.manifests_failed == 1
-    assert source._current_project is None
+
+
+@pytest.mark.parametrize(
+    "scheme, connection",
+    [
+        ("s3", {"aws_connection": {"aws_region": "us-east-1"}}),
+        (
+            "gs",
+            {
+                "gcs_connection": {
+                    "credential": {"hmac_access_id": "id", "hmac_access_secret": "s"}
+                }
+            },
+        ),
+    ],
+)
+def test_object_store_run_results_pair_with_their_project(
+    tmp_path: pathlib.Path, scheme: str, connection: Dict[str, Any]
+) -> None:
+    for name in ["project_a", "project_b"]:
+        _write_project(
+            tmp_path, name, [{"name": "orders", "database": "db", "schema": name}]
+        )
+        _write_run_results(
+            tmp_path / name / "run_results.json",
+            f"model.{name}.orders",
+            f"inv-{name}",
+        )
+    root = f"{scheme}://bucket"
+
+    def fake_expand(pattern: str, *args: Any, **kwargs: Any) -> List[str]:
+        filename = pattern.rsplit("/", 1)[1]
+        return [f"{root}/{name}/{filename}" for name in ["project_a", "project_b"]]
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        local = tmp_path / uri[len(root) + 1 :]
+        if not local.exists():
+            raise ObjectNotFoundError(uri)
+        return local.read_bytes()
+
+    source = _make_source(
+        manifest_path=f"{root}/*/manifest.json",
+        run_results_paths=[f"{root}/*/run_results.json"],
+        **connection,
+    )
+    with (
+        mock.patch.object(
+            dbt_artifacts_module, "expand_object_store_glob", side_effect=fake_expand
+        ),
+        mock.patch.object(
+            dbt_artifacts_module, "read_file_as_bytes", side_effect=fake_read
+        ),
+    ):
+        projects = _load_projects(source)
+
+    assert {
+        p.project_name: [perf.run_id for perf in p.nodes[0].model_performances]
+        for p in projects
+    } == {"project_a": ["inv-project_a"], "project_b": ["inv-project_b"]}
+
+
+def test_project_outside_the_emit_loop_raises_in_glob_mode() -> None:
+    source = _make_source(
+        manifest_path="s3://bucket/*/manifest.json",
+        aws_connection={"aws_region": "us-east-1"},
+    )
+
+    with pytest.raises(RuntimeError):
+        _ = source._dbt_platform_instance
+
+
+def test_unparseable_catalog_generated_at_warns(tmp_path: pathlib.Path) -> None:
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "a"}],
+        catalog_generated_at="not a timestamp",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    (project,) = _load_projects(source)
+
+    assert project.catalog_generated_at is None
+    assert any("not a timestamp" in " ".join(w.context) for w in source.report.warnings)

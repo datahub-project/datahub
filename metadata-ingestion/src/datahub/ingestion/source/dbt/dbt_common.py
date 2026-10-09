@@ -1803,7 +1803,7 @@ class DBTMetricsParse:
     unreadable: List[Tuple[str, Exception]] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class DBTProject:
     """One dbt project, the unit that is loaded and emitted independently.
 
@@ -2380,16 +2380,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             aspect=OwnershipClass(owners=aggregated_owners),
         )
 
+    def _is_multi_project(self) -> bool:
+        """Whether one run emits several projects, each under its own instance."""
+        return False
+
     @property
     def _project(self) -> DBTProject:
         """The project being emitted, or a single-project view of the config.
 
-        ponytail: loop-scoped state instead of threading the project through
-        every emit method. Holds because emit is a sequential generator; pass
-        the project explicitly if emit is ever parallelised.
+        Loop-scoped rather than threaded through every emit method, which holds
+        because emit is a sequential generator.
         """
         if self._current_project is not None:
             return self._current_project
+        if self._is_multi_project():
+            # The config carries no instance in multi-project mode, so a fallback
+            # would mint urns without the project's instance.
+            raise RuntimeError("no dbt project is being emitted")
         return DBTProject(
             nodes=[],
             exposures=[],
@@ -3675,9 +3682,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
                 sql_truncated = True
 
-            query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
-                "_", f"{node.dbt_name}_{query_name}"
-            )
+            query_key = f"{node.dbt_name}_{query_name}"
+            if self._is_multi_project():
+                # Query urns carry no platform instance, so two projects installing
+                # the same package model would otherwise share one. Single-project
+                # ids stay unprefixed to keep existing urns stable.
+                query_key = f"{self._dbt_platform_instance}_{query_key}"
+            query_id = _QUERY_URN_SANITIZE_PATTERN.sub("_", query_key)
             query_urn_str = QueryUrn(query_id).urn()
 
             # Skip duplicates (can occur when different names sanitize to same URN)

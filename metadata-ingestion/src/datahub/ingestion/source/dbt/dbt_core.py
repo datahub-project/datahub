@@ -38,10 +38,11 @@ from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.dbt.dbt_artifacts import (
     ArtifactReader,
+    Prefetched,
     expand_glob_path,
     is_glob_pattern,
-    is_missing_file_error,
     load_file_as_json,
+    redact_url_query,
     sibling_artifact_path,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
@@ -71,6 +72,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     parse_freshness_criteria,
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +81,15 @@ logger = logging.getLogger(__name__)
 class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
-    run_results_paths_expanded: Optional[List[str]] = None
+    run_results_paths_expanded: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
     manifests_loaded: int = 0
     manifests_failed: int = 0
-    manifest_paths_expanded: Optional[List[str]] = None
+    manifest_paths_expanded: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+    manifest_paths_failed: LossyList[str] = dataclasses.field(default_factory=LossyList)
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -132,6 +139,7 @@ class DBTCoreConfig(DBTCommonConfig):
     artifact_read_concurrency: int = Field(
         default=8,
         ge=1,
+        le=64,
         description="Number of parallel reads used to fetch dbt artifact files when manifest_path "
         "is a glob pattern. Peak memory grows with concurrency (roughly concurrency x the largest "
         "project's raw artifact bytes), so lower this for estates with very large manifest or "
@@ -160,7 +168,9 @@ class DBTCoreConfig(DBTCommonConfig):
 
     git_info: Optional[GitReference] = Field(
         None,
-        description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
+        description="Reference to your git location to enable easy navigation from DataHub to your dbt files. "
+        "Rejected when manifest_path is a glob pattern, since each project's file paths are relative to its "
+        "own project root, so one repository location would link every other project to the wrong file.",
     )
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
@@ -202,6 +212,7 @@ class DBTCoreConfig(DBTCommonConfig):
                 ("sources_path", self.sources_path),
                 ("platform_instance", self.platform_instance),
                 ("semantic_model_project_name", self.semantic_model_project_name),
+                ("git_info", self.git_info),
             )
             if value is not None
         ]
@@ -212,7 +223,8 @@ class DBTCoreConfig(DBTCommonConfig):
                 "many manifests. When manifest_path is a glob, catalog.json and "
                 "sources.json are read from each matched manifest's own directory, and "
                 "each project's platform_instance (which also names its semantic model) "
-                "is its manifest's project_name."
+                "is its manifest's project_name. git_info would link every project's "
+                "files against one repository root."
             )
         return self
 
@@ -220,13 +232,13 @@ class DBTCoreConfig(DBTCommonConfig):
 def _artifact_directory(path: str) -> str:
     """Directory key used to pair run_results files with a manifest.
 
-    Local paths are normalised so `./dbt/a` and `dbt/a` pair; object-store
+    Local paths are made absolute so `./dbt/a`, `dbt/a` and `/cwd/dbt/a` pair;
     URIs are left alone, since normpath would mangle the scheme.
     """
     directory = os.path.dirname(path)
     if "://" in path:
         return directory
-    return os.path.normpath(directory)
+    return os.path.abspath(directory)
 
 
 def get_columns(
@@ -1028,6 +1040,40 @@ def load_run_results(
             model_node.model_performances.append(model_performance)
 
 
+def _check_project_name(
+    project_name: Optional[str], ingested_project_names: Dict[str, str]
+) -> None:
+    if not project_name:
+        raise ValueError(
+            "manifest has no metadata.project_name, which names this "
+            "project's platform instance; multi-project ingestion needs "
+            "artifacts from dbt 1.6 or newer, which record it"
+        )
+    kept = ingested_project_names.get(project_name)
+    if kept is not None:
+        raise ValueError(
+            f"project_name {project_name!r} was already ingested from {kept}, "
+            "which is kept; this manifest is skipped. Until only one matched "
+            "manifest has this project_name, this failure blocks stale-entity "
+            "removal for every project on every run."
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class _ProjectArtifactPaths:
+    manifest: str
+    catalog: Optional[str]
+    sources: Optional[str]
+    run_results: List[str]
+
+    def all(self) -> List[str]:
+        return [
+            path
+            for path in (self.manifest, self.catalog, self.sources, *self.run_results)
+            if path is not None
+        ]
+
+
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
 @support_status(SupportStatus.GA)
@@ -1057,10 +1103,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
-            # A globbed manifest_path has to be expanded before anything can read
-            # it - the pattern itself is neither a file nor an object key. One
-            # matched manifest is enough: this validates credentials and
-            # reachability, not every project the glob will pick up.
+            # One matched manifest is enough to validate credentials and
+            # reachability; the pattern itself is not a readable path.
             expansion_report = DBTCoreReport()
             manifest_paths = expand_glob_path(
                 source_config.manifest_path,
@@ -1069,12 +1113,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 report=expansion_report,
             )
             if not manifest_paths:
-                # Expansion yields nothing both when the object store refused the
-                # request - bad credentials, a missing bucket, a throttled listing -
-                # and when it succeeded over a prefix that holds no manifests. Those
-                # are different things to go fix, so the recorded failure detail is
-                # surfaced rather than flattened into "matched no files", which
-                # sends an operator looking in the wrong place.
+                # Surface why expansion failed (bad credentials, missing bucket)
+                # rather than reporting it as an empty match.
                 expansion_failures = [
                     f"{failure.message}: {'; '.join(failure.context)}"
                     for failure in expansion_report.failures
@@ -1117,82 +1157,74 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     def _expand_run_results_paths(self) -> List[str]:
         expanded_paths: List[str] = []
         for path in self.config.run_results_paths:
-            # Config order is preserved: each glob is already sorted internally, and
-            # run_results files are appended per node, so the user's declared order
-            # (typically successive dbt invocations) is meaningful.
+            # Config order is kept: run_results are appended per node in the order
+            # of successive dbt invocations.
             expanded_paths.extend(self._expand_glob_path(path))
         return expanded_paths
 
     @staticmethod
     def _group_run_results_by_directory(paths: List[str]) -> Dict[str, List[str]]:
-        # os.path.dirname strips the last segment on both separators, so an
-        # object-store URI and a Windows path group the same way as
-        # sibling_artifact_path resolves them. Config order is preserved
-        # within a directory.
+        # Config order is preserved within a directory.
         grouped: Dict[str, List[str]] = {}
         for path in paths:
             grouped.setdefault(_artifact_directory(path), []).append(path)
         return grouped
 
+    def _is_multi_project(self) -> bool:
+        return is_glob_pattern(self.config.manifest_path)
+
     def load_projects(self) -> Iterator[DBTProject]:
-        multi_project = is_glob_pattern(self.config.manifest_path)
+        multi_project = self._is_multi_project()
         failures_before = len(self.report.failures)
         manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
         if multi_project:
-            self.report.manifest_paths_expanded = manifest_paths
+            self.report.manifest_paths_expanded.extend(manifest_paths)
             if not manifest_paths:
                 if len(self.report.failures) > failures_before:
                     # Expansion already reported why (a refused listing, a missing
-                    # connection); a second "matched no files" failure would send
-                    # the operator looking at the pattern instead of the cause.
+                    # connection); a second failure would point at the pattern instead.
                     return
-                # The manifest is the one mandatory dbt artifact - a missing literal
-                # manifest_path already raises - so a pattern that matches none of
-                # them is a failure, matching test_connection on the same recipe. As
-                # a warning this produced a green run with zero assets, and left mass
-                # soft-deletion to the stale-entity handler's generic fail-safe, whose
-                # error never names the glob. A failure suppresses soft-deletion here.
+                # The manifest is the one mandatory dbt artifact, so matching none is
+                # a failure, which also keeps stale-entity removal from soft-deleting
+                # everything.
                 self.report.failure(
                     title="manifest_path glob matched no files",
                     message="The globbed manifest_path matched no manifests, so no "
                     "dbt project could be ingested. Check the pattern and that the "
                     "artifacts it points at exist.",
-                    context=self.config.manifest_path,
+                    context=redact_url_query(self.config.manifest_path),
                 )
                 return
 
         run_results_paths = self._expand_run_results_paths()
-        if run_results_paths:
-            self.report.run_results_paths_expanded = run_results_paths
+        self.report.run_results_paths_expanded.extend(run_results_paths)
         run_results_by_dir = self._group_run_results_by_directory(run_results_paths)
 
-        project_paths: List[Tuple[str, Optional[str], Optional[str], List[str]]] = []
+        projects: List[_ProjectArtifactPaths] = []
         for manifest_path in manifest_paths:
             if multi_project:
-                # No existence probe: pass the sibling guess straight through and let
-                # _load_project's single load site handle absence. Probing first
-                # would read and parse catalog.json/sources.json twice per project -
-                # for wide schemas catalog.json is the largest dbt artifact, and at
-                # this feature's scale (many projects, often on S3) that doubles the
-                # dominant cost of the run.
-                catalog_path: Optional[str] = sibling_artifact_path(
-                    manifest_path, "catalog.json"
-                )
-                sources_path: Optional[str] = sibling_artifact_path(
-                    manifest_path, "sources.json"
-                )
-                # A run_results file belongs to the project whose manifest
-                # shares its directory, dbt's own target/ layout.
-                run_results = run_results_by_dir.pop(
-                    _artifact_directory(manifest_path), []
+                # dbt writes every artifact into one target/ directory. Siblings are
+                # not probed for existence: _load_project's single read handles
+                # absence, so catalog.json (the largest artifact) is read once.
+                projects.append(
+                    _ProjectArtifactPaths(
+                        manifest=manifest_path,
+                        catalog=sibling_artifact_path(manifest_path, "catalog.json"),
+                        sources=sibling_artifact_path(manifest_path, "sources.json"),
+                        run_results=run_results_by_dir.pop(
+                            _artifact_directory(manifest_path), []
+                        ),
+                    )
                 )
             else:
-                catalog_path = self.config.catalog_path
-                sources_path = self.config.sources_path
-                run_results = run_results_paths
-            project_paths.append(
-                (manifest_path, catalog_path, sources_path, run_results)
-            )
+                projects.append(
+                    _ProjectArtifactPaths(
+                        manifest=manifest_path,
+                        catalog=self.config.catalog_path,
+                        sources=self.config.sources_path,
+                        run_results=run_results_paths,
+                    )
+                )
 
         if multi_project and run_results_by_dir:
             self.report.warning(
@@ -1205,88 +1237,58 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
 
         # Overlap the per-project artifact reads (the dominant cost on object
-        # stores) while keeping processing order, reporting, and error
-        # classification identical to the sequential path.
-        prefetched = (
-            self._artifacts.maybe_prefetch(
-                [
-                    [
-                        path
-                        for path in (manifest, catalog, sources, *runs)
-                        if path is not None
-                    ]
-                    for manifest, catalog, sources, runs in project_paths
-                ]
-            )
+        # stores) while keeping processing order and reporting sequential.
+        prefetch = (
+            self._artifacts.maybe_prefetch([paths.all() for paths in projects])
             if multi_project
             else None
         )
-
-        # project_name -> manifest_path, to refuse a second build of one project:
-        # the name is the platform instance, so two would share every urn.
-        seen_project_names: Dict[str, str] = {}
-        for manifest_path, catalog_path, sources_path, run_results in project_paths:
-            if prefetched is not None:
-                self._artifacts.prefetched = next(prefetched)
-            try:
-                project = self._load_project(
-                    manifest_path,
-                    catalog_path,
-                    sources_path,
-                    run_results,
-                    multi_project=multi_project,
-                )
-                if multi_project:
-                    if not project.project_name:
-                        raise ValueError(
-                            "manifest has no metadata.project_name, which names this "
-                            "project's platform instance; multi-project ingestion needs "
-                            "artifacts from dbt 1.6 or newer, which record it"
-                        )
-                    if project.project_name in seen_project_names:
-                        raise ValueError(
-                            f"project_name {project.project_name!r} is also claimed by "
-                            f"{seen_project_names[project.project_name]}; two builds of "
-                            "one project cannot be ingested in one run"
-                        )
-                    seen_project_names[project.project_name] = manifest_path
-            except MemoryError:
-                # Per-project isolation exists to contain one project's bad artifacts.
-                # Exhausted memory is not contained by it: every remaining project
-                # would be fetched and parsed into the same exhausted process, so
-                # continuing produces a run that is slower and no more complete.
-                raise
-            except Exception as e:
-                # In single-project mode, a bad manifest fails the run exactly as it
-                # always has. In glob mode, one broken project shouldn't take down
-                # ingestion of every other matched project.
-                if not multi_project:
+        # project_name -> manifest_path of the build that was ingested under it.
+        ingested_project_names: Dict[str, str] = {}
+        try:
+            for paths in projects:
+                prefetched = next(prefetch) if prefetch is not None else None
+                try:
+                    project = self._load_project(
+                        paths,
+                        prefetched,
+                        multi_project=multi_project,
+                        ingested_project_names=ingested_project_names,
+                    )
+                except MemoryError:
+                    # Per-project isolation contains one project's bad artifacts, not
+                    # an exhausted process that every remaining project would share.
                     raise
-                self.report.manifests_failed += 1
-                self.report.failure(
-                    title="Failed to load dbt project",
-                    message="Failed to load one dbt project matched by the globbed manifest_path; skipping it",
-                    context=f"{manifest_path}: {e}",
-                    exc=e,
-                )
-                continue
-            finally:
-                # A project that failed before consuming every artifact would
-                # otherwise pin its leftover bytes (catalog.json is the largest dbt
-                # artifact) for the source's lifetime, through the whole emit phase.
-                self._artifacts.prefetched = {}
-
-            self.report.manifests_loaded += 1
-            yield project
+                except Exception as e:
+                    if not multi_project:
+                        raise
+                    # A failure, not a warning: it keeps stale-entity removal from
+                    # soft-deleting the skipped project's entities.
+                    self.report.manifests_failed += 1
+                    self.report.manifest_paths_failed.append(paths.manifest)
+                    self.report.failure(
+                        title="Failed to load dbt project",
+                        message="Failed to load one dbt project matched by the "
+                        "globbed manifest_path; skipping it",
+                        context=paths.manifest,
+                        exc=e,
+                    )
+                    continue
+                if project.project_name is not None:
+                    ingested_project_names[project.project_name] = paths.manifest
+                self.report.manifests_loaded += 1
+                yield project
+        finally:
+            if prefetch is not None:
+                prefetch.close()
 
     def _load_project(
         self,
-        manifest_path: str,
-        catalog_path: Optional[str],
-        sources_path: Optional[str],
-        run_results_paths: List[str],
+        paths: _ProjectArtifactPaths,
+        prefetched: Optional[Prefetched],
         *,
         multi_project: bool,
+        ingested_project_names: Dict[str, str],
     ) -> DBTProject:
         """Load one project's manifest/catalog/sources/run_results.
 
@@ -1296,29 +1298,34 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         (True: a sibling artifact simply not existing is expected and warns;
         the instance is the manifest's project_name).
         """
-        dbt_manifest_json = self._artifacts.load_json(manifest_path)
+        dbt_manifest_json = self._artifacts.load_json(paths.manifest, prefetched)
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         # Read separately from report.manifest_info, whose "unknown" default
         # must never reach a semanticModel or metric urn.
         project_name: Optional[str] = dbt_manifest_metadata.get("project_name")
-        if not multi_project:
+        if multi_project:
+            # Checked before any other artifact is read, so a rejected project
+            # leaves nothing behind in the report.
+            _check_project_name(project_name, ingested_project_names)
+        else:
             # manifest_info/catalog_info are single report-level fields, so in glob
-            # mode "last project wins" would misrepresent the whole run as one
-            # project's data. manifest_paths_expanded already lists every project.
+            # mode "last project wins" would misrepresent the run as one project.
             self.report.manifest_info = dict(
                 generated_at=dbt_manifest_metadata.get("generated_at", "unknown"),
                 dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_manifest_metadata.get("project_name", "unknown"),
             )
 
-        dbt_catalog_json, catalog_load_error = self._artifacts.load_optional_json(
-            catalog_path, optional=multi_project
+        dbt_catalog_json = (
+            self._artifacts.load_optional_json(
+                paths.catalog, prefetched, optional=multi_project
+            )
+            if paths.catalog is not None
+            else None
         )
         dbt_catalog_metadata = None
-        # This project's catalog generated_at, stamped onto each node below
-        # (per-project, like artifact_props) rather than kept on the report, since
-        # the report has only one slot and a multi-project run has one catalog per
-        # project.
+        # Stamped onto this project's profiles; the report has one slot, a
+        # multi-project run has one catalog per project.
         catalog_generated_at: Optional[datetime] = None
         if dbt_catalog_json is not None:
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
@@ -1332,65 +1339,52 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             if generated_at_str := dbt_catalog_metadata.get("generated_at"):
                 try:
                     catalog_generated_at = parse_dbt_timestamp(generated_at_str)
-                except Exception:
-                    logger.debug(
-                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                except Exception as e:
+                    self.report.warning(
+                        title="Could not parse catalog generated_at",
+                        message="Profile timestamps for this project fall back to "
+                        "the ingestion time, so they change on every run.",
+                        context=f"{paths.manifest}: {generated_at_str}",
+                        exc=e,
                     )
-        elif catalog_path is None:
+        elif paths.catalog is None:
             self.report.warning(
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
-        elif is_missing_file_error(catalog_load_error):
-            # catalog_path was a glob-derived sibling guess, and the file is
-            # definitely not there - a project that never ran `dbt docs generate`.
+        elif self.config.only_include_if_in_catalog:
+            # Every node would be filtered out and, with only a warning, the
+            # project's previously ingested entities soft-deleted.
+            raise ValueError(
+                "this project has no catalog.json beside its manifest, and "
+                "only_include_if_in_catalog would filter out every node"
+            )
+        else:
             self.report.warning(
                 title="No catalog file found for project",
                 message="This dbt project has no catalog.json beside its manifest; "
                 "some metadata, particularly schema information, will be missing.",
-                context=manifest_path,
-            )
-        else:
-            # catalog_path was a glob-derived sibling guess, and the read failed
-            # for a reason that does not establish absence - permissions,
-            # throttling, a transient network error - so don't claim the file is
-            # missing.
-            self.report.warning(
-                title="Could not read catalog file for project",
-                message="Failed to read this project's catalog.json, and the failure "
-                "does not indicate the file is absent (e.g. permissions, throttling, "
-                "network). Some metadata, particularly schema information, will be "
-                "missing.",
-                context=f"{manifest_path}: {catalog_load_error}",
+                context=paths.manifest,
             )
 
-        dbt_sources_json, sources_load_error = self._artifacts.load_optional_json(
-            sources_path, optional=multi_project
-        )
         sources_invocation_id = None
         sources_results: List[Dict[str, Any]] = []
-        if dbt_sources_json is not None:
-            sources_results = dbt_sources_json["results"]
-            sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
-                "invocation_id"
+        if paths.sources is not None:
+            dbt_sources_json = self._artifacts.load_optional_json(
+                paths.sources, prefetched, optional=multi_project
             )
-        elif sources_path is not None and is_missing_file_error(sources_load_error):
-            # sources_path was a glob-derived sibling guess, and the file is
-            # definitely not there - see the catalog.json warning above.
-            self.report.warning(
-                title="No sources file found for project",
-                message="This dbt project has no sources.json beside its manifest; "
-                "last-modified fields will not be populated.",
-                context=manifest_path,
-            )
-        elif sources_path is not None and sources_load_error is not None:
-            self.report.warning(
-                title="Could not read sources file for project",
-                message="Failed to read this project's sources.json, and the failure "
-                "does not indicate the file is absent (e.g. permissions, throttling, "
-                "network). Last-modified fields will not be populated.",
-                context=f"{manifest_path}: {sources_load_error}",
-            )
+            if dbt_sources_json is not None:
+                sources_results = dbt_sources_json["results"]
+                sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
+                    "invocation_id"
+                )
+            else:
+                self.report.warning(
+                    title="No sources file found for project",
+                    message="This dbt project has no sources.json beside its "
+                    "manifest; last-modified fields will not be populated.",
+                    context=paths.manifest,
+                )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
         manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
@@ -1475,8 +1469,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         manifest_generated_at = dbt_manifest_metadata.get("generated_at")
 
-        # If catalog_version is between 1.7.0 and 1.7.2, report a warning. This is
-        # per-project because a multi-project run can mix dbt versions across projects.
+        # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
         try:
             if (
                 catalog_version
@@ -1500,14 +1493,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 exc=e,
             )
 
-        if run_results_paths:
-            nodes_by_name = {node.dbt_name: node for node in nodes}
-            for run_results_path in run_results_paths:
-                load_run_results(
-                    self.config,
-                    self._artifacts.load_json(run_results_path),
-                    nodes_by_name,
-                )
+        if paths.run_results:
+            self._load_run_results_files(
+                paths.run_results, prefetched, nodes, multi_project=multi_project
+            )
 
         return DBTProject(
             nodes=nodes,
@@ -1517,11 +1506,40 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             if multi_project
             else self.config.platform_instance,
             project_name=project_name,
-            manifest_path=manifest_path,
+            manifest_path=paths.manifest,
             artifact_props=artifact_props,
             catalog_generated_at=catalog_generated_at,
             manifest_generated_at=manifest_generated_at,
         )
+
+    def _load_run_results_files(
+        self,
+        run_results_paths: List[str],
+        prefetched: Optional[Prefetched],
+        nodes: List[DBTNode],
+        *,
+        multi_project: bool,
+    ) -> None:
+        nodes_by_name = {node.dbt_name: node for node in nodes}
+        for run_results_path in run_results_paths:
+            try:
+                run_results_json = self._artifacts.load_json(
+                    run_results_path, prefetched
+                )
+                load_run_results(self.config, run_results_json, nodes_by_name)
+            except MemoryError:
+                raise
+            except Exception as e:
+                if not multi_project:
+                    raise
+                # One bad file costs its own results, not the whole project.
+                self.report.warning(
+                    title="Failed to load run_results file",
+                    message="This project is ingested without the test results "
+                    "and model performance from this file.",
+                    context=run_results_path,
+                    exc=e,
+                )
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = super()._filter_nodes(all_nodes)

@@ -920,23 +920,11 @@ def test_extract_dbt_entities() -> None:
         target_platform="dummy",
     )
     source = DBTCoreSource(config, ctx)
-    nodes = source._load_project(
-        config.manifest_path,
-        config.catalog_path,
-        config.sources_path,
-        [],
-        multi_project=False,
-    ).nodes
+    nodes = next(source.load_projects()).nodes
     assert all(node.database is not None for node in nodes)
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
-    nodes = source._load_project(
-        config.manifest_path,
-        config.catalog_path,
-        config.sources_path,
-        [],
-        multi_project=False,
-    ).nodes
+    nodes = next(source.load_projects()).nodes
     assert all(node.database is None for node in nodes)
 
 
@@ -3062,9 +3050,14 @@ def test_load_run_results_unknown_node_skipped():
             },
         ],
     }
-    config = mock.MagicMock()
+    other_node = _make_dbt_node("model.project.other_model")
     # No matching node: the result is dropped rather than raising.
-    load_run_results(config, run_results_json, {})
+    load_run_results(
+        mock.MagicMock(), run_results_json, {other_node.dbt_name: other_node}
+    )
+
+    assert other_node.model_performances == []
+    assert other_node.test_results == []
 
 
 def test_load_file_as_json_s3():
