@@ -1375,8 +1375,9 @@ class TestRelationshipAndIncludes:
              patch.object(rac, "pr_numbers_for_file", return_value=[]), \
              patch.object(rac, "last_author_for_file", return_value=None):
             findings = pdl_rules.classify_pdl_for_rollback("test.pdl", "N", "N-1")
-        rel = [f for f in findings if f.summary.startswith("Graph relationship changed on `bar`")]
-        assert len(rel) == 1 and rel[0].risk == model.REQUIRES_ATTENTION
+        [rel] = [f for f in findings if f.summary.startswith("Graph relationship `OwnedBy` removed from `bar`")]
+        assert rel.risk == model.REQUIRES_ATTENTION
+        assert (rel.read_impact, rel.write_impact, rel.data_loss) == ("ok, stale", "ok", "graph only")
 
     def test_new_include_adds_its_fields(self):
         n1 = _ASPECT_V1
@@ -1699,13 +1700,14 @@ class TestRelationshipRules:
         assert "`chart`" in f.summary and "restore-indices doesn't remove" in f.detail
 
     def test_gained_type_with_other_change_also_needs_attention(self):
-        risks = [f.risk for f in self._rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
-                                           '{ "name": "On", "entityTypes": [ "dataset" ] }')]
-        assert risks == [model.EXPECTED_LOSS, model.REQUIRES_ATTENTION]
+        risks = {f.risk for f in self._rel('{ "name": "OnV2", "entityTypes": [ "dataset", "chart" ] }',
+                                           '{ "name": "On", "entityTypes": [ "dataset" ] }')}
+        assert risks == {model.EXPECTED_LOSS, model.REQUIRES_ATTENTION}
 
     def test_relationship_added_in_n_leaves_extra_edges(self):
         [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }', None)
-        assert f.risk == model.REQUIRES_ATTENTION and "doesn't remove them" in f.detail
+        assert f.risk == model.REQUIRES_ATTENTION and "never updates or removes them" in f.detail
+        assert (f.relationship, f.rel_change) == ("On", "added")
 
     def test_relationship_removed_in_n_is_rebuilt_by_restore_indices(self):
         [f] = self._rel(None, '{ "name": "On", "entityTypes": [ "dataset" ] }')
@@ -1832,3 +1834,124 @@ class TestEventSchemaChanges:
         with _mock_repo(files, (t, e, asp)):
             [f] = pdl_rules.analyze_nested_changes("N", "N-1", [t])
         assert f.dimension == model.DIM_PDL_SCHEMA and f.aspect_name == "usesEvt"
+
+
+class TestRelationshipKinds:
+    def _rel(self, cur, tgt):
+        origin = model.Origin("p", "a", None, None)
+        return pdl_rules._relationship_findings(
+            origin, "f", pdl_parser.normalized_annotation(cur), pdl_parser.normalized_annotation(tgt), None
+        )
+
+    def test_only_islineage_changed_is_safe(self):
+        [f] = self._rel('{ "name": "ModeledBy", "entityTypes": [ "semanticModel" ] }',
+                        '{ "name": "ModeledBy", "entityTypes": [ "semanticModel" ], "isLineage": true }')
+        assert f.risk == model.SAFE and "`isLineage`" in f.summary
+
+    def test_narrowed_target_types_are_safe(self):
+        [f] = self._rel('{ "name": "On", "entityTypes": [ "dataset" ] }',
+                        '{ "name": "On", "entityTypes": [ "dataset", "chart" ] }')
+        assert f.risk == model.SAFE
+
+    def test_path_keyed_relationship_removed(self):
+        [f] = self._rel(None, '{ "/*": { "name": "Contains", "entityTypes": [ "dataset" ], "isLineage": true } }')
+        assert f.rel_change == "removed" and f.relationship == "Contains"
+        assert f.data_loss == model.LOSS_GRAPH_ONLY and pdl_rules.RESTORE_REBUILDS in f.detail
+
+    def test_renamed_keeps_old_name_for_restore(self):
+        [f] = self._rel('{ "name": "DownstreamOfV2" }', '{ "name": "DownstreamOf" }')
+        assert (f.rel_change, f.relationship, f.data_loss) == ("renamed", "DownstreamOf", "graph only")
+
+
+_GROUP_REGISTRY = """entities:
+  - name: corpGroup
+    keyAspect: corpGroupKey
+    aspects:
+      - corpGroupInfo
+      - ownership
+"""
+_PL = "metadata-models/src/main/pegasus/com/linkedin/x/"
+_GROUP_INFO = ('namespace com.linkedin.x\n@Aspect = { "name": "corpGroupInfo" }\nrecord CorpGroupInfo {\n'
+               '  @Relationship = { "/*": { "name": "OwnedBy", "entityTypes": [ "corpuser" ] } }\n  admins: array[string]\n}\n')
+_OWNERSHIP = 'namespace com.linkedin.x\n@Aspect = { "name": "ownership" }\nrecord Ownership {\n  owners: array[Owner]\n}\n'
+_OWNER = ('namespace com.linkedin.x\nrecord Owner {\n  @Relationship = { "name": "OwnedBy", "entityTypes": [ "corpuser" ] }\n'
+          '  owner: string\n}\n')
+
+
+class TestRestoreIndicesForSharedRelationships:
+    def _refine(self, f, pdls):
+        with patch.object(rac, "file_at", lambda ref, path: _GROUP_REGISTRY if path.endswith("entity-registry.yml") else ""), \
+             patch.object(pdl_rules, "_all_pdls_at", return_value=pdls):
+            pdl_rules.refine_relationship_findings([f], "N-1")
+        return f
+
+    def _removed(self):
+        return pdl_rules._relationship_removed(model.Origin("p", "corpGroupInfo", None, None), "admins", "OwnedBy", None)
+
+    def test_restore_does_not_rebuild_when_another_aspect_builds_the_same_edges(self):
+        f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
+                                           _PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        assert "Restore-indices won't" in f.detail and "`ownership`" in f.detail
+        assert pdl_rules.RESTORE_REBUILDS not in f.detail
+
+    def test_restore_rebuilds_when_no_other_aspect_builds_them(self):
+        f = self._refine(self._removed(), {_PL + "CorpGroupInfo.pdl": _GROUP_INFO,
+                                           _PL + "Ownership.pdl": _OWNERSHIP.replace("Owner]", "string]")})
+        assert pdl_rules.RESTORE_REBUILDS in f.detail
+
+    def test_added_relationship_known_to_n1_shows_extra_edges(self):
+        f = pdl_rules._relationship_added(model.Origin("p", "corpGroupInfo", None, None), "leads", "OwnedBy", None)
+        self._refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        assert f.risk == model.REQUIRES_ATTENTION and f.read_impact == model.STALE and "extra edges" in f.detail
+
+    def test_added_relationship_unknown_to_n1_is_safe(self):
+        f = pdl_rules._relationship_added(model.Origin("p", "corpGroupInfo", None, None), "leads", "LedBy", None)
+        self._refine(f, {_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER})
+        assert f.risk == model.SAFE and "views don't show them" in f.detail
+
+
+class TestSearchKinds:
+    def _search(self, cur, tgt):
+        origin = model.Origin("p", "a", None, None)
+        def norm(v):
+            return {"Searchable": pdl_parser.normalized_annotation(v)} if v else {}
+
+        return pdl_rules._search_findings(origin, "f", norm(cur), norm(tgt), None)
+
+    def test_added_is_safe(self):
+        [f] = self._search('{ "fieldType": "TEXT" }', None)
+        assert f.risk == model.SAFE
+
+    def test_removed_leaves_search_documents_without_the_field(self):
+        [f] = self._search(None, '{ "/*": { "fieldName": "datasets", "fieldType": "URN" } }')
+        assert f.risk == model.REQUIRES_ATTENTION and f.data_loss == model.LOSS_SEARCH_ONLY
+        assert not f.reindex_required
+
+    def test_query_only_settings_are_safe(self):
+        [f] = self._search('{ "fieldType": "TEXT", "boostScore": 2.0 }', '{ "fieldType": "TEXT", "boostScore": 1.0 }')
+        assert f.risk == model.SAFE and "`boostScore`" in f.summary
+
+    def test_mapping_change_keeps_n_mapping_after_rollback(self):
+        [f] = self._search('{ "fieldType": "KEYWORD" }', '{ "fieldType": "TEXT" }')
+        assert f.risk == model.REQUIRES_ATTENTION and f.reindex_required and "system-update" in f.detail
+
+
+class TestSearchDefaults:
+    def _search(self, cur, tgt, field_type="string"):
+        origin = model.Origin("p", "a", None, None)
+        return pdl_rules._search_findings(
+            origin, "type", {"Searchable": pdl_parser.normalized_annotation(cur)},
+            {"Searchable": pdl_parser.normalized_annotation(tgt)}, None, field_type, field_type)
+
+    def test_spelling_out_the_default_is_not_a_change(self):
+        assert self._search('{ "fieldName": "type", "fieldType": "TEXT" }', "{}") == []
+        assert self._search('{ "fieldType": "COUNT" }', "{}", "int") == []
+
+    def test_explicit_type_differing_from_the_default_is_a_mapping_change(self):
+        [f] = self._search('{ "fieldType": "KEYWORD" }', "{}")
+        assert f.summary.startswith("Search mapping changed") and f.reindex_required
+
+    def test_renamed_search_field_names_both(self):
+        [f] = self._search('{ "fieldName": "fieldAssertionType", "fieldType": "KEYWORD" }', "{}")
+        assert f.summary == "Search field renamed on `type`: `type` → `fieldAssertionType`"
+        assert f.data_loss == model.LOSS_SEARCH_ONLY

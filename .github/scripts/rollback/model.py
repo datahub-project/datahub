@@ -68,6 +68,10 @@ class RollbackFinding:
     subject: Optional[str] = None  # the field, member, type or class changed
     record: Optional[str] = None  # nested record that holds `subject`
     hop: Optional[str] = None  # mutator version hop, e.g. "v1→v2"
+    # For relationship changes N-1 has to reconcile: the relationship name and
+    # whether N "removed", "renamed" or "added" it on this field.
+    relationship: Optional[str] = None
+    rel_change: Optional[str] = None
 
     @property
     def change(self) -> str:
@@ -75,7 +79,7 @@ class RollbackFinding:
         return self.summary.split(" — ")[0]
 
 
-_INTERNAL_FIELDS = {"subject", "record", "hop"}
+_INTERNAL_FIELDS = {"subject", "record", "hop", "relationship", "rel_change"}
 
 
 def public_dict(f: RollbackFinding) -> dict:
@@ -107,6 +111,10 @@ LOSS_NO = "no"
 LOSS_IF_OUT_OF_RANGE = "if out of range"
 LOSS_FRACTIONS = "drops fractions"
 LOSS_PRECISION = "rounds large values"
+# The stored record is intact, but graph edges or search documents derived
+# from it are missing or stale until the record is re-indexed.
+LOSS_GRAPH_ONLY = "graph only"
+LOSS_SEARCH_ONLY = "search only"
 # Unranked: the impact isn't known, so `worst` lets these win.
 UNKNOWN = "unknown"
 NOT_ANALYSED = "not analysed"
@@ -135,6 +143,8 @@ LOSS_SEVERITY = [
     LOSS_FRACTIONS,
     LOSS_IF_OUT_OF_RANGE,
     LOSS_PRECISION,
+    LOSS_GRAPH_ONLY,
+    LOSS_SEARCH_ONLY,
     LOSS_NO,
 ]
 

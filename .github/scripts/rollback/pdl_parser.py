@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from functools import cache, cached_property
 from typing import Optional
@@ -47,6 +48,33 @@ def without_entity_types(normalized: Optional[str]) -> Optional[str]:
         if normalized
         else normalized
     )
+
+
+def annotation_specs(normalized: Optional[str]) -> Optional[dict[str, dict]]:
+    """{path: settings} of a normalized @Relationship or @Searchable value:
+    path "" for a plain value, "/*" etc. for one keyed by path. Empty for no
+    annotation; None if it isn't readable JSON."""
+    if not normalized:
+        return {}
+    try:
+        value = json.loads(normalized)
+    except ValueError:
+        return None
+    if not isinstance(value, dict):
+        return None
+    if value and all(isinstance(k, str) and k.startswith("/") for k in value):
+        return {k: v for k, v in value.items() if isinstance(v, dict)}
+    return {"": value}
+
+
+def relationship_names(content: str) -> set[str]:
+    """Names of every @Relationship declared in a PDL file."""
+    names: set[str] = set()
+    text = repo.strip_comments(content)
+    for m in re.finditer(r"@Relationship\s*=\s*\{", text):
+        end = repo.skip_balanced(text, m.end() - 1) or len(text)
+        names.update(re.findall(r'"name"\s*:\s*"([^"]+)"', text[m.end() - 1 : end]))
+    return names
 
 
 def mapping_annotations(annotations: dict) -> dict[str, Optional[str]]:

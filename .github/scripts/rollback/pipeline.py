@@ -216,9 +216,11 @@ def combine_findings(
 ) -> None:
     """Stages that update findings from other dimensions' results, in place.
     Order matters: attribution sets the aspects each schema change reaches,
-    which the version-gap stage reads to find unexplained bumps; the mutator
-    and upgrade-step stages then read both."""
+    which the relationship stage needs to find other aspects of the same entity
+    and the version-gap stage needs to find unexplained bumps; the mutator and
+    upgrade-step stages then read all of them."""
     pdl_rules.attribute_embedded_aspect_changes(findings, current, target, pdl_paths)
+    pdl_rules.refine_relationship_findings(findings, target)
     flag_unexplained_version_gaps(findings)
     set_mutator_impact(findings)
     set_upgrade_step_impact(findings, current, target)

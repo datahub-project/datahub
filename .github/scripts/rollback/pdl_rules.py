@@ -113,6 +113,21 @@ def type_change_finding(
     )
 
 
+RESTORE_REBUILDS = "Restore-indices on N-1 rebuilds them from the stored records."
+# @Searchable settings that only shape queries. Each version builds queries
+# from its own registry, so a change here needs nothing after rollback.
+_QUERY_ONLY_SEARCH_KEYS = {
+    "queryByDefault",
+    "boostScore",
+    "addToFilters",
+    "addHasValuesToFilters",
+    "filterNameOverride",
+    "hasValuesFilterNameOverride",
+    "weightsPerFieldValue",
+    "includeQueryEmptyAggregation",
+}
+
+
 def _relationship_findings(
     origin: model.Origin,
     name: str,
@@ -120,30 +135,72 @@ def _relationship_findings(
     tgt_rel: Optional[str],
     record: Optional[str],
 ) -> list[model.RollbackFinding]:
-    """@Relationship changes on one field. N-1 rebuilds edges from stored
-    records by its own rule, but never deletes an edge its rule doesn't
-    produce, so N's extra edges outlive restore-indices."""
+    """@Relationship changes on one field, compared per path. Graph edges are
+    derived from the stored record, so these never fail reads or writes of the
+    record itself (except target types N-1 rejects); what differs is which
+    edges exist after rollback. Edges store only source, destination and
+    relationship name, so flags such as isLineage don't change them."""
     if cur_rel == tgt_rel:
         return []
-    findings: list[model.RollbackFinding] = []
-    gained = (
-        pdl_parser.relationship_entity_types(cur_rel)
-        - pdl_parser.relationship_entity_types(tgt_rel)
-        if cur_rel and tgt_rel
-        else set()
+    cur, tgt = (
+        pdl_parser.annotation_specs(cur_rel),
+        pdl_parser.annotation_specs(tgt_rel),
     )
+    if cur is None or tgt is None:
+        return [
+            _finding(
+                origin,
+                model.REQUIRES_ATTENTION,
+                model.impact(model.STALE, model.OK, model.LOSS_GRAPH_ONLY),
+                f"Graph relationship changed on `{name}`",
+                subject=name,
+                record=record,
+                detail=(
+                    "The relationship annotation couldn't be compared. Check the PR "
+                    "for which graph edges N builds differently from N-1."
+                ),
+            )
+        ]
+
+    def types(spec: dict) -> set[str]:
+        return set(spec.get("entityTypes") or [])
+
+    findings: list[model.RollbackFinding] = []
+    gained: set[str] = set()
+    changed_keys: set[str] = set()
+    for path in sorted(set(cur) | set(tgt)):
+        c, t = cur.get(path), tgt.get(path)
+        if t and not c:
+            findings.append(
+                _relationship_removed(origin, name, t.get("name", "?"), record)
+            )
+        elif c and not t:
+            findings.append(
+                _relationship_added(origin, name, c.get("name", "?"), record)
+            )
+        else:
+            # N-1 validates writes against its own target types, renamed or not.
+            gained |= types(c) - types(t)
+            if c.get("name") != t.get("name"):
+                findings.append(
+                    _relationship_renamed(
+                        origin, name, t.get("name", "?"), c.get("name", "?"), record
+                    )
+                )
+            else:
+                changed_keys |= {k for k in set(c) | set(t) if c.get(k) != t.get(k)}
     if gained:
-        types = ", ".join(f"`{t}`" for t in sorted(gained))
+        names = ", ".join(f"`{x}`" for x in sorted(gained))
         findings.append(
             _finding(
                 origin,
                 model.EXPECTED_LOSS,
                 model.impact(model.OK, model.FAILS, model.LOSS_NO),
-                f"Graph relationship on `{name}` gained target types {types}",
+                f"Graph relationship on `{name}` gained target types {names}",
                 subject=name,
                 record=record,
                 detail=(
-                    f"N-1's write validation rejects {types} URNs in this field, so "
+                    f"N-1's write validation rejects {names} URNs in this field, so "
                     "saving a record that holds one fails on N-1 until the URN is "
                     "removed from the aspect. N's graph edges to them stay until "
                     "then; restore-indices doesn't remove them. If N-1 has no such "
@@ -151,38 +208,234 @@ def _relationship_findings(
                 ),
             )
         )
-        if pdl_parser.without_entity_types(cur_rel) == pdl_parser.without_entity_types(
-            tgt_rel
-        ):
-            return findings
-    if not tgt_rel:
-        why = (
-            "N built graph edges for this field that N-1 doesn't expect. They stay "
-            "after rollback: restore-indices doesn't remove them, so relationship "
-            "and lineage views can show extra edges."
+    elif changed_keys and not findings:
+        keys = ", ".join(f"`{k}`" for k in sorted(changed_keys))
+        findings.append(
+            _finding(
+                origin,
+                model.SAFE,
+                model.impact(model.OK, model.OK, model.LOSS_NO),
+                f"Graph relationship on `{name}`: only {keys} changed",
+                "same edges in N and N-1",
+                subject=name,
+                record=record,
+                detail=(
+                    "Edges store only their source, destination and relationship "
+                    "name, which didn't change. N-1 applies its own settings, such "
+                    "as which relationships count as lineage, when it reads them, "
+                    "and every target type N writes is one N-1 accepts."
+                ),
+            )
         )
-    elif not cur_rel:
-        why = (
-            "N didn't build the graph edges N-1 expects for this field. Running "
-            "restore-indices on N-1 rebuilds them from the stored records."
-        )
-    else:
-        why = (
-            "N built graph edges for this field by its own @Relationship rule. "
-            "Restore-indices on N-1 adds the edges N-1's rule expects but doesn't "
-            "remove N's, so relationship and lineage views can show extra edges."
-        )
-    findings.append(
-        _finding(
-            origin,
-            model.REQUIRES_ATTENTION,
-            model.impact(model.OK, model.OK, model.LOSS_NO),
-            f"Graph relationship changed on `{name}`",
-            subject=name,
-            record=record,
-            detail=why,
-        )
+    return findings
+
+
+def _relationship_removed(
+    origin: model.Origin, name: str, rel: str, record: Optional[str]
+) -> model.RollbackFinding:
+    f = _finding(
+        origin,
+        model.REQUIRES_ATTENTION,
+        model.impact(model.STALE, model.OK, model.LOSS_GRAPH_ONLY),
+        f"Graph relationship `{rel}` removed from `{name}`",
+        subject=name,
+        record=record,
+        detail=(
+            f"N doesn't build `{rel}` edges from this field, so after rollback the "
+            "graph lacks edges for values N added and keeps edges for values N "
+            "removed; the stored records are intact. N-1 corrects a record's edges "
+            f"the next time it saves it. {RESTORE_REBUILDS} Records N wrote without "
+            "values in this field get no edges."
+        ),
     )
+    f.relationship, f.rel_change = rel, "removed"
+    return f
+
+
+def _relationship_renamed(
+    origin: model.Origin, name: str, old: str, new: str, record: Optional[str]
+) -> model.RollbackFinding:
+    f = _finding(
+        origin,
+        model.REQUIRES_ATTENTION,
+        model.impact(model.STALE, model.OK, model.LOSS_GRAPH_ONLY),
+        f"Graph relationship on `{name}` renamed `{old}` → `{new}`",
+        subject=name,
+        record=record,
+        detail=(
+            f"N builds these edges as `{new}` instead of `{old}`, so after rollback "
+            f"N-1's `{old}` edges are missing for values N added or changed, and N's "
+            f"`{new}` edges stay in the graph. N-1 corrects a record's `{old}` edges "
+            f"the next time it saves it. {RESTORE_REBUILDS}"
+        ),
+    )
+    f.relationship, f.rel_change = old, "renamed"
+    return f
+
+
+def _relationship_added(
+    origin: model.Origin, name: str, rel: str, record: Optional[str]
+) -> model.RollbackFinding:
+    f = _finding(
+        origin,
+        model.REQUIRES_ATTENTION,
+        model.impact(model.OK, model.OK, model.LOSS_NO),
+        f"Graph relationship `{rel}` added on `{name}`",
+        subject=name,
+        record=record,
+        detail=(
+            f"N built `{rel}` edges from this field. N-1 has no rule for this field, "
+            "so it never updates or removes them."
+        ),
+    )
+    f.relationship, f.rel_change = rel, "added"
+    return f
+
+
+def _default_search_type(type_text: str, path: str) -> str:
+    """The fieldType DataHub uses when @Searchable doesn't set one
+    (SearchableAnnotation.getDefaultFieldType), for the value at `path`."""
+    t = type_text.strip()
+    if path.endswith("/*") and t.startswith("array["):
+        t = t[len("array[") : -1].strip()
+    if t == "int":
+        return "COUNT"
+    if t in ("float", "double"):
+        return "DOUBLE"
+    return "KEYWORD" if t.startswith("map[") else "TEXT"
+
+
+def _effective_search(
+    specs: dict[str, dict], name: str, type_text: str
+) -> dict[str, dict]:
+    """@Searchable settings per path with DataHub's defaults filled in, so a
+    default spelled out explicitly isn't taken for a change."""
+    return {
+        path: {
+            "fieldName": name,
+            "fieldType": _default_search_type(type_text, path),
+            **spec,
+        }
+        for path, spec in specs.items()
+    }
+
+
+def _search_findings(
+    origin: model.Origin,
+    name: str,
+    cur_map: dict[str, Optional[str]],
+    tgt_map: dict[str, Optional[str]],
+    record: Optional[str],
+    cur_type: str = "string",
+    tgt_type: str = "string",
+) -> list[model.RollbackFinding]:
+    """@Searchable/@SearchableRef changes on one field, by kind. DataHub changes
+    an index mapping only for fields that differ or are new; a field N stopped
+    indexing keeps its mapping, so no reindex happens in either direction."""
+    findings: list[model.RollbackFinding] = []
+    for key in ("Searchable", "SearchableRef"):
+        c, t = cur_map.get(key), tgt_map.get(key)
+        if c == t:
+            continue
+        if not t:
+            findings.append(
+                _finding(
+                    origin,
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Search indexing added on `{name}`",
+                    "N's field stays in the index",
+                    subject=name,
+                    record=record,
+                    detail=(
+                        "N indexed this field. It stays in the search index after "
+                        "rollback, so N-1 searches still match N's values, but N-1 "
+                        "never updates it. Nothing else changes."
+                    ),
+                )
+            )
+            continue
+        cs, ts = pdl_parser.annotation_specs(c), pdl_parser.annotation_specs(t)
+        if key == "Searchable" and cs is not None and ts is not None:
+            cs, ts = (
+                _effective_search(cs, name, cur_type),
+                _effective_search(ts, name, tgt_type),
+            )
+        if cs is not None and ts is not None and c and cs == ts:
+            continue  # only defaults spelled out
+        changed = (
+            {
+                k
+                for path in set(cs) | set(ts)
+                for k in set(cs.get(path, {})) | set(ts.get(path, {}))
+                if cs.get(path, {}).get(k) != ts.get(path, {}).get(k)
+            }
+            if cs is not None and ts is not None and c
+            else None
+        )
+        if not c or (changed is not None and "fieldName" in changed):
+            if c:
+                old = sorted({s.get("fieldName") for s in ts.values()})
+                new = sorted({s.get("fieldName") for s in cs.values()})
+                summary = f"Search field renamed on `{name}`: `{', '.join(old)}` → `{', '.join(new)}`"
+                what = f"N indexed this field as `{', '.join(new)}` instead of `{', '.join(old)}`"
+            else:
+                summary = f"Search indexing removed from `{name}`"
+                what = "N indexed records without this field"
+            findings.append(
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.STALE, model.OK, model.LOSS_SEARCH_ONLY),
+                    summary,
+                    subject=name,
+                    record=record,
+                    detail=(
+                        f"{what}, so N-1's search and filters on N-1's field miss "
+                        "records N added or changed. N-1's mapping for it is still in "
+                        "the index, since a field N stops indexing keeps its mapping. "
+                        "Restore-indices on N-1 fills it back in from the stored "
+                        "records; records N wrote without a value stay without one."
+                    ),
+                )
+            )
+        elif changed is not None and changed <= _QUERY_ONLY_SEARCH_KEYS:
+            keys = ", ".join(f"`{k}`" for k in sorted(changed))
+            findings.append(
+                _finding(
+                    origin,
+                    model.SAFE,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Search settings changed on `{name}`: {keys}",
+                    "query-time only",
+                    subject=name,
+                    record=record,
+                    detail=(
+                        "These settings only shape queries, and each version builds "
+                        "queries from its own settings, so N-1 searches as before."
+                    ),
+                )
+            )
+        else:
+            findings.append(
+                _finding(
+                    origin,
+                    model.REQUIRES_ATTENTION,
+                    model.impact(model.OK, model.OK, model.LOSS_NO),
+                    f"Search mapping changed on `{name}`",
+                    subject=name,
+                    record=record,
+                    detail=(
+                        "N built the search index with a different mapping for this "
+                        "field. N-1's system-update sees the difference but skips the "
+                        "index, because it already built it before the upgrade, even "
+                        "with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true; search "
+                        "keeps N's mapping. To rebuild it, delete N-1's "
+                        "BuildIndicesIncremental upgrade result and re-run system-update."
+                    ),
+                    reindex_required=True,
+                )
+            )
     return findings
 
 
@@ -275,28 +528,17 @@ def diff_fields(
         if cur_t != tgt_t:
             findings.append(type_change_finding(origin, name, tgt_t, cur_t, record))
 
-        cur_map = pdl_parser.mapping_annotations(cur["annotations"])
-        tgt_map = pdl_parser.mapping_annotations(tgt["annotations"])
-        if cur_map != tgt_map:
-            findings.append(
-                _finding(
-                    origin,
-                    model.REQUIRES_ATTENTION,
-                    model.impact(model.OK, model.OK, model.LOSS_NO),
-                    f"Search mapping changed on `{name}`",
-                    subject=name,
-                    record=record,
-                    detail=(
-                        "N built the search index with a different mapping for this "
-                        "field. N-1's system-update sees the difference but skips the "
-                        "index, because it already built it before the upgrade, even "
-                        "with ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true; search "
-                        "keeps N's mapping. To rebuild it, delete N-1's "
-                        "BuildIndicesIncremental upgrade result and re-run system-update."
-                    ),
-                    reindex_required=True,
-                )
+        findings.extend(
+            _search_findings(
+                origin,
+                name,
+                pdl_parser.mapping_annotations(cur["annotations"]),
+                pdl_parser.mapping_annotations(tgt["annotations"]),
+                record,
+                cur["type"],
+                tgt["type"],
             )
+        )
 
         findings.extend(
             _relationship_findings(
@@ -781,6 +1023,81 @@ def _as_event_findings(
             "they don't know)."
         )
     return group
+
+
+def _relationships_by_aspect(contents: dict[str, str]) -> dict[str, set[str]]:
+    """{aspect name: relationship names it builds}, including those declared in
+    the records it reaches through field types and includes."""
+    by_fqn = {pdl_parser.fqn_of_path(p): c for p, c in contents.items()}
+    result: dict[str, set[str]] = {}
+    for fqn, content in by_fqn.items():
+        meta = pdl_parser.parse(content).aspect
+        if not (meta and meta.get("name")):
+            continue
+        seen, queue, names = {fqn}, [fqn], set()
+        while queue:
+            text = by_fqn.get(queue.pop())
+            if not text:
+                continue
+            names |= pdl_parser.relationship_names(text)
+            for dep in bsv.resolve_dependencies(text):
+                if dep not in seen:
+                    seen.add(dep)
+                    queue.append(dep)
+        result[meta["name"]] = names
+    return result
+
+
+def refine_relationship_findings(
+    findings: list[model.RollbackFinding], target: str
+) -> None:
+    """Say what restore-indices does for each relationship N removed, renamed or
+    added, which depends on N-1's other aspects of the same entity. N-1's
+    restore-indices re-indexes with FORCE_INDEXING: for each aspect it deletes
+    all of the entity's outgoing edges of the relationships that aspect builds,
+    then adds that aspect's. So when two aspects build the same relationship,
+    the one restored last replaces the other's edges."""
+    todo = [f for f in findings if f.rel_change]
+    if not todo:
+        return
+    registry = pdl_parser.entity_registry(
+        rac.file_at(target, pdl_parser.ENTITY_REGISTRY) or ""
+    )
+    rels = _relationships_by_aspect(_all_pdls_at(target)) if registry else {}
+    if not rels:
+        return
+    for f in todo:
+        aspects = set(f.affected_aspects or ([f.aspect_name] if f.aspect_name else []))
+        siblings = {b for asps in registry.values() if asps & aspects for b in asps}
+        others = sorted(
+            b for b in siblings - aspects if f.relationship in rels.get(b, ())
+        )
+        own = sorted(a for a in aspects if f.relationship in rels.get(a, ()))
+        rel = f"`{f.relationship}`"
+        if f.rel_change in ("removed", "renamed") and others:
+            names = ", ".join(f"`{o}`" for o in others)
+            f.detail = (f.detail or "").replace(
+                RESTORE_REBUILDS,
+                f"Restore-indices won't: N-1 also builds {rel} edges for this entity "
+                f"from {names}, and restore-indices rebuilds all of an entity's {rel} "
+                "edges from each aspect in turn, so the last one restored replaces "
+                "the others.",
+            )
+        elif f.rel_change == "added" and (others or own):
+            sources = ", ".join(f"`{a}`" for a in sorted(set(others) | set(own)))
+            f.read_impact = model.STALE
+            f.detail = (
+                f"{f.detail} N-1 also builds {rel} edges for this entity, so N's show "
+                "up in its relationship and lineage views as extra edges. "
+                f"Restore-indices of {sources} on N-1 removes them, since it rebuilds "
+                f"all of the entity's {rel} edges."
+            )
+        elif f.rel_change == "added":
+            f.risk = model.SAFE
+            f.detail = (
+                f"{f.detail} N-1 has no {rel} relationship for this entity, so its "
+                "views don't show them."
+            )
 
 
 def attribute_embedded_aspect_changes(
