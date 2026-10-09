@@ -3,7 +3,7 @@ import math
 import time
 from concurrent.futures import Future
 from datetime import timedelta
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import pytest
 
@@ -221,7 +221,7 @@ def test_batch_partition_executor_delivers_per_item_outcomes():
         if any(r is not None for r in results):
             raise BatchItemFailures(results)
 
-    def make_callback(task_id: str):
+    def make_callback(task_id: str) -> Callable[[Future], None]:
         def _callback(future: Future) -> None:
             outcomes[task_id] = future.exception()
 
@@ -249,7 +249,7 @@ def test_batch_partition_executor_falls_back_to_shared_future():
     def process_batch(batch):
         raise error
 
-    def make_callback(task_id: str):
+    def make_callback(task_id: str) -> Callable[[Future], None]:
         def _callback(future: Future) -> None:
             outcomes[task_id] = future.exception()
 
