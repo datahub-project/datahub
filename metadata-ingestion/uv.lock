@@ -906,6 +906,7 @@ fabric-data-factory = [
 fabric-onelake = [
     { name = "azure-identity" },
     { name = "cachetools" },
+    { name = "greenlet" },
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -2060,6 +2061,7 @@ requires-dist = [
     { name = "greenlet", marker = "extra == 'doris'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'dremio'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'druid'", specifier = "<4.0.0" },
+    { name = "greenlet", marker = "extra == 'fabric-onelake'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'fivetran'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'hana'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'hive'", specifier = "<4.0.0" },
