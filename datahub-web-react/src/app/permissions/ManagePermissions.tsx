@@ -97,8 +97,7 @@ export const ManagePermissions = () => {
         ];
     };
 
-    const enabledTabs = getTabs().filter((tab) => tab.display?.enabled() !== false);
-    const defaultTabPath = enabledTabs.length > 0 ? enabledTabs[0].path : '';
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
 
     return (
         <PageContainer>
