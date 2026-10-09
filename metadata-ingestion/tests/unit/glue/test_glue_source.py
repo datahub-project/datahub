@@ -481,6 +481,48 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
     assert source.report.num_resource_link_missing_target == 1
 
 
+def test_database_resource_link_without_owner_catalog_reports_missing_target():
+    # Neither TargetDatabase nor the table carries the owning CatalogId. The owner can't be
+    # identified, so the table must be reported as a missing target rather than attempting a
+    # cross-account glue:GetTable with CatalogId=None (which would surface as a misleading
+    # permissions warning).
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    del databases_response["DatabaseList"][0]["TargetDatabase"]["CatalogId"]
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["CatalogId"]
+    del tables_response["TableList"][0]["StorageDescriptor"]
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            tables_response,
+            {"DatabaseName": "resource-link-test-database"},
+        )
+        _, tables = source.get_all_databases_and_tables()
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_missing_target == 1
+    titles = [w.title for w in source.report.warnings]
+    assert "Resource link missing target identifiers" in titles
+    assert "Failed to read resource-link owner schema from Glue" not in titles
+
+
 def test_resource_link_upstream_merged_with_storage_lineage():
     # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
     # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE

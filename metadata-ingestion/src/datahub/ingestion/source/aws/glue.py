@@ -826,11 +826,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def _resource_link_owner_urn(self, target: Dict) -> Optional[str]:
         """URN of the table a resource link points at, stamped with the owning catalog's instance."""
+        catalog_id = target.get("CatalogId")
         database_name = target.get("DatabaseName")
         name = target.get("Name")
-        if not database_name or not name:
+        # Without the owning CatalogId the owner's instance can't be resolved (it would silently
+        # fall back to our own) and a cross-account glue:GetTable would fail parameter validation.
+        if not catalog_id or not database_name or not name:
             return None
-        owner = self._resolve_platform_instance(target.get("CatalogId"))
+        owner = self._resolve_platform_instance(catalog_id)
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=f"{database_name}.{name}",
@@ -860,9 +863,9 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_resource_link_missing_target += 1
             self.report.warning(
                 title="Resource link missing target identifiers",
-                message="A Lake Formation resource link's TargetTable is missing its database or "
-                "table name, so its cross-account upstream edge could not be built. The shared "
-                "table will be ingested without lineage back to its owner.",
+                message="A Lake Formation resource link's TargetTable is missing its catalog ID, "
+                "database or table name, so its cross-account upstream edge could not be built. "
+                "The shared table will be ingested without lineage back to its owner.",
                 context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
             )
             return []
