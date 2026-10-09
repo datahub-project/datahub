@@ -1,17 +1,17 @@
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
 import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
@@ -52,9 +52,13 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
         entityProperties: entityData,
     });
 
-    const links = entityData?.institutionalMemory?.elements || [];
+    const hasContent = useMemo(() => {
+        // Do not take into account links that shown in entity profile's header as they will not be shown
+        const links =
+            entityData?.institutionalMemory?.elements?.filter((link) => !link.settings?.showInAssetPreview) || [];
 
-    const hasContent = !!displayedDescription || links.length > 0;
+        return !!displayedDescription || links.length > 0;
+    }, [displayedDescription, entityData]);
 
     const canEditDescription = useDocumentationPermission();
 

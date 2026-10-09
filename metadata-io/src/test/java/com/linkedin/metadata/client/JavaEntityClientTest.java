@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -82,6 +83,60 @@ public class JavaEntityClientTest {
         _eventProducer,
         EntityClientConfig.builder().batchGetV2Size(1).build(),
         _metricUtils);
+  }
+
+  private JavaEntityClient getJavaEntityClient(ReliableHardDelete reliableHardDelete) {
+    return new JavaEntityClient(
+        _entityService,
+        _deleteEntityService,
+        _entitySearchService,
+        _cachingEntitySearchService,
+        _searchService,
+        _lineageSearchService,
+        _timeseriesAspectService,
+        rollbackService,
+        _eventProducer,
+        EntityClientConfig.builder().batchGetV2Size(1).build(),
+        _metricUtils,
+        reliableHardDelete);
+  }
+
+  @Test
+  void testDeleteEntityWithReliableHardDeleteOffDeletesInline() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableOff");
+    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
+    when(reliableHardDelete.isEnabled()).thenReturn(false);
+
+    getJavaEntityClient(reliableHardDelete).deleteEntity(opContext, urn);
+    getJavaEntityClient().deleteEntity(opContext, urn);
+
+    verify(_entityService, times(2)).deleteUrn(opContext, urn);
+    verify(reliableHardDelete, never()).delete(any(), any());
+  }
+
+  @Test
+  void testDeleteEntityWithReliableHardDeleteOnTakesReliablePath() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableOn");
+    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
+    when(reliableHardDelete.isEnabled()).thenReturn(true);
+
+    getJavaEntityClient(reliableHardDelete).deleteEntity(opContext, urn);
+
+    verify(reliableHardDelete).delete(opContext, urn);
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+  }
+
+  @Test
+  void testDeleteEntityReliableFailureDoesNotFallBackToInlineDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableFails");
+    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
+    when(reliableHardDelete.isEnabled()).thenReturn(true);
+    when(reliableHardDelete.delete(opContext, urn)).thenThrow(new IllegalStateException("failed"));
+
+    JavaEntityClient client = getJavaEntityClient(reliableHardDelete);
+
+    assertThrows(IllegalStateException.class, () -> client.deleteEntity(opContext, urn));
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
   }
 
   @Test

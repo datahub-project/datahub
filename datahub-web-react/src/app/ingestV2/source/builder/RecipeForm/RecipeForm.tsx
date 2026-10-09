@@ -1,5 +1,8 @@
-import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Collapse, Form, Typography, message } from 'antd';
 import i18next from 'i18next';
 import get from 'lodash/get';
@@ -51,7 +54,7 @@ const TestConnectionWrapper = styled.div`
     margin-top: 16px;
 `;
 
-const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
+const HeaderTooltipWrapper = styled(Question)`
     margin-left: 5px;
     font-size: 12px;
     color: ${(props) => props.theme.colors.icon};
@@ -214,7 +217,7 @@ function RecipeForm({
             <StyledCollapse defaultActiveKey="0">
                 <Collapse.Panel
                     forceRender
-                    header={<SectionHeader icon={<ApiOutlined />} text={t('recipeForm.connection.title')} />}
+                    header={<SectionHeader icon={<Plugs />} text={t('recipeForm.connection.title')} />}
                     key="0"
                 >
                     {visibleFields.map((field, i) => (
@@ -246,7 +249,7 @@ function RecipeForm({
                         forceRender
                         header={
                             <SectionHeader
-                                icon={<FilterOutlined />}
+                                icon={<Funnel />}
                                 text={t('recipeForm.filter.title')}
                                 sectionTooltip={filterSectionTooltip}
                             />
@@ -278,7 +281,7 @@ function RecipeForm({
                         forceRender
                         header={
                             <SectionHeader
-                                icon={<SettingOutlined />}
+                                icon={<Gear />}
                                 text={t('recipeForm.settings.title')}
                                 sectionTooltip={advancedSectionTooltip}
                             />

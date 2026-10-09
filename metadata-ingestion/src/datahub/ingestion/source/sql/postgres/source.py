@@ -25,13 +25,16 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import ranges
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
+
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 from typing_extensions import Annotated
 
@@ -68,7 +71,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+)
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -148,16 +154,6 @@ POLYGON = _make_postgres_type("POLYGON")
 CIRCLE = _make_postgres_type("CIRCLE")
 XML = _make_postgres_type("XML")
 LTREE = _make_postgres_type("LTREE")
-CITEXT = _make_postgres_type("CITEXT")
-# PG14+ multirange counterparts of the range types; SQLAlchemy only ships
-# these natively from 2.0, so under the current 1.4 pin they need placeholders
-# too (the setdefault below yields to the native types after an upgrade).
-INT4MULTIRANGE = _make_postgres_type("INT4MULTIRANGE")
-INT8MULTIRANGE = _make_postgres_type("INT8MULTIRANGE")
-NUMMULTIRANGE = _make_postgres_type("NUMMULTIRANGE")
-DATEMULTIRANGE = _make_postgres_type("DATEMULTIRANGE")
-TSMULTIRANGE = _make_postgres_type("TSMULTIRANGE")
-TSTZMULTIRANGE = _make_postgres_type("TSTZMULTIRANGE")
 
 # PostGIS types are reflected via the geoalchemy2 import above; map them so
 # their columns stop falling back to NullType. BytesTypeClass (not
@@ -172,7 +168,7 @@ for _vector_type in (VECTOR, HALFVEC, SPARSEVEC):
     register_custom_type(_vector_type, ArrayTypeClass)
 for _geometric_type in (POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE):
     register_custom_type(_geometric_type, BytesTypeClass)
-for _string_like_type in (XML, LTREE, CITEXT):
+for _string_like_type in (XML, LTREE):
     register_custom_type(_string_like_type, StringTypeClass)
 
 register_custom_type(custom_types.CIDR, StringTypeClass)
@@ -185,15 +181,11 @@ for _range_type in (
     custom_types.TSTZRANGE,
 ):
     register_custom_type(_range_type, StringTypeClass)
-for _multirange_type in (
-    INT4MULTIRANGE,
-    INT8MULTIRANGE,
-    NUMMULTIRANGE,
-    DATEMULTIRANGE,
-    TSMULTIRANGE,
-    TSTZMULTIRANGE,
-):
-    register_custom_type(_multirange_type, StringTypeClass)
+# SQLAlchemy's native INT4MULTIRANGE ... TSTZMULTIRANGE all derive from
+# AbstractMultiRange, and get_column_type matches with isinstance, so the base
+# class covers every multirange column. (CITEXT needs no entry: the native type
+# subclasses TEXT and is already mapped through types.String.)
+register_custom_type(ranges.AbstractMultiRange, StringTypeClass)
 
 # If the pgvector SQLAlchemy integration is installed, importing it registers
 # a full-featured `vector` type in ischema_names (it parses dimensions
@@ -209,8 +201,8 @@ except ImportError:
 # ischema_names is process-global state shared by every PGDialect subclass in
 # the process (CockroachDB, TimescaleDB, ... inherit these entries; Redshift
 # does not go through this source). setdefault instead of update so a real
-# type implementation registered by another library (pgvector above,
-# SQLAlchemy 2.0.7+'s own CITEXT, ...) is never clobbered by a placeholder.
+# type implementation registered by another library (e.g. pgvector above) is
+# never clobbered by a placeholder.
 #
 # Reflection precedence caveat: PGDialect._get_column_info consults
 # ischema_names *before* user-defined domains, so a domain named exactly like
@@ -229,13 +221,6 @@ for _type_name, _placeholder_type in {
     "circle": CIRCLE,
     "xml": XML,
     "ltree": LTREE,
-    "citext": CITEXT,
-    "int4multirange": INT4MULTIRANGE,
-    "int8multirange": INT8MULTIRANGE,
-    "nummultirange": NUMMULTIRANGE,
-    "datemultirange": DATEMULTIRANGE,
-    "tsmultirange": TSMULTIRANGE,
-    "tstzmultirange": TSTZMULTIRANGE,
 }.items():
     custom_types.base.ischema_names.setdefault(_type_name, _placeholder_type)
 
@@ -332,19 +317,15 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
             "(https://truststore.pki.rds.amazonaws.com/)"
         )
 
-    def probe_prepare_engine(self, engine: Any) -> None:
-        # Without this, an AWS_IAM recipe cannot be probed at all: the password
-        # is a token injected per connection, so a bare create_engine() has no
-        # credential to connect with.
-        self.install_rds_iam_auth(engine)
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return self.with_rds_iam(super().probe_engine_settings(budget))
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        # pg_catalog is named relation by relation, NOT allowed at schema level.
-        # It was a schema-level allow with three exclusions, and the comment
-        # beside it conceded the risk in as many words -- "the exclusions have to
-        # be complete, and nothing tells you when they are not". They were not,
-        # and the gap was worse than query text:
+        # pg_catalog is named relation by relation, NOT allowed at schema level:
+        # a schema-level allow needs a complete list of exclusions, nothing
+        # tells you when it is not, and what it would admit is worse than
+        # query text:
         #
         #   pg_stats, pg_statistic  -- most_common_vals and histogram_bounds are
         #     literal sampled values out of user columns. Not a WHERE-clause
@@ -539,24 +520,22 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
             )
         return self
 
-    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     def list_databases(self, conn: Connection) -> List[str]:
-        # Raw database listing shared with get_inspectors() below -- no
-        # database_pattern applied here; callers (get_inspectors() and the
-        # Database-level agent probe below) apply that themselves, so the two
-        # paths query the exact same rows instead of each re-deriving the
-        # listing SQL.
+        # The raw listing, before database_pattern, which the caller applies.
+        # PostgresQuery holds the listing SQL and the system databases it
+        # leaves out, so default_databases() below cannot drift from it.
         return PostgresQuery.list_databases(conn)
 
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     @classmethod
     def default_databases(cls) -> FrozenSet[str]:
         # Databases this source drops regardless of database_pattern -- Postgres
         # template databases and AWS RDS's internal admin database. Same shape
-        # as SQLCommonConfig.default_schemas() one level down: lets the
-        # Database-level probe below report one of these as
-        # excluded_by: "default_database" instead of it silently never
-        # appearing. Reuses PostgresQuery's own exclusion list so the probe
-        # and the query it mirrors cannot drift apart.
+        # as SQLCommonConfig.default_schemas() one level down: `probe filter`
+        # reports one of these as excluded_by: "default_database" rather than
+        # judging it against a pattern ingestion never applies to it. Reuses
+        # PostgresQuery's own exclusion list so the probe and the query it
+        # mirrors cannot drift apart.
         return frozenset(POSTGRES_SYSTEM_DATABASES)
 
 
@@ -658,6 +637,19 @@ class PostgresSource(SQLAlchemySource):
         """
         self.config.install_rds_iam_auth(engine)
 
+    def _get_engine_options(self) -> Dict[str, Any]:
+        # SQLAlchemy 2.0 autobegins a transaction on first use and has no
+        # 1.4-style autorollback, so on Postgres a single failed statement
+        # aborts the transaction and every later query on that connection
+        # fails with InFailedSqlTransaction until a rollback. Driver-level
+        # autocommit makes each read self-contained and avoids holding
+        # "idle in transaction" sessions for a whole run. Every connection
+        # this source opens (reflection, profiling via inspector.bind, sample
+        # data, lineage) comes from these engines. Nothing here relies on
+        # server-side cursors or on temp objects outliving a statement. A
+        # user-provided isolation_level in `options` wins.
+        return {"isolation_level": "AUTOCOMMIT", **self.config.options}
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
         url = self.config.get_sql_alchemy_url(
@@ -666,7 +658,7 @@ class PostgresSource(SQLAlchemySource):
 
         logger.debug(f"sql_alchemy_url={url}")
 
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(url, **self._get_engine_options())
         self._setup_rds_iam_event_listener(engine)
 
         with engine.connect() as conn:
@@ -680,12 +672,32 @@ class PostgresSource(SQLAlchemySource):
                         continue
 
                     url = self.config.get_sql_alchemy_url(database=db_name)
-                    db_engine = create_engine(url, **self.config.options)
+                    db_engine = create_engine(url, **self._get_engine_options())
                     self._setup_rds_iam_event_listener(db_engine)
 
                     with db_engine.connect() as conn:
                         inspector = inspect(conn)
                         yield inspector
+
+    def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
+        view_names = super()._get_view_names(inspector, schema)
+        # SQLAlchemy 1.4's PG get_view_names() also returned materialized
+        # views; 2.0 lists them only via get_materialized_view_names().
+        # Ingest them as views, as before.
+        try:
+            materialized_view_names = inspector.get_materialized_view_names(schema)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list materialized views",
+                message="Materialized views in this schema will not be ingested.",
+                context=schema,
+                exc=e,
+            )
+            return view_names
+        known = set(view_names)
+        return view_names + [
+            name for name in materialized_view_names if name not in known
+        ]
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
@@ -703,11 +715,13 @@ class PostgresSource(SQLAlchemySource):
     ) -> Dict[Tuple[str, str], List[str]]:
         data: List[ViewLineageEntry] = []
         with inspector.engine.connect() as conn:
-            results = conn.execute(VIEW_LINEAGE_QUERY)
+            results = conn.execute(text(VIEW_LINEAGE_QUERY))
             if results.returns_rows is False:
                 return {}
 
-            for row in results:
+            # .mappings() yields dict-like rows; SA 2.0 plain Row is not a Mapping,
+            # so model_validate() needs the mapping view.
+            for row in results.mappings():
                 data.append(ViewLineageEntry.model_validate(row))
 
         lineage_elements: Dict[Tuple[str, str], List[str]] = defaultdict(list)
@@ -870,7 +884,9 @@ class PostgresSource(SQLAlchemySource):
         try:
             with inspector.engine.connect() as conn:
                 for row in conn.execute(
-                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    text(
+                        """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    )
                 ):
                     self.profile_metadata_info.dataset_name_to_storage_bytes[
                         self.get_identifier(
@@ -895,7 +911,8 @@ class PostgresSource(SQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                """
+                text(
+                    """
                     SELECT
                         p.proname AS name,
                         l.lanname AS language,
@@ -910,9 +927,10 @@ class PostgresSource(SQLAlchemySource):
                         pg_language l ON l.oid = p.prolang
                     WHERE
                         p.prokind = 'p'
-                        AND n.nspname = %s;
-                """,
-                (schema,),
+                        AND n.nspname = :schema;
+                    """
+                ),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)

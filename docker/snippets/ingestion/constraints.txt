@@ -98,6 +98,12 @@ mlflow-skinny>=3.9.0,<4.0.0
 ujson>=5.12.1,<6
 # Pygments: CVE-2026-4539 (ReDoS in AdlLexer); fixed in 2.20.0.
 Pygments>=2.20.0
+# pypdf: GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS, fixed 6.10.2);
+# CVE-2026-103000 / GHSA-w23x-9jrw-r45c (alphabetical page-label DoS, fixed 6.19.0).
+# Transitive via unstructured-client; not in setup.py. Mirrored in
+# metadata-ingestion/pyproject.toml [tool.uv] constraint-dependencies.
+# Cap major until reviewed.
+pypdf>=6.19.0,<7.0.0
 # soupsieve: CVE-2026-49476, CVE-2026-49477 (memory exhaustion / ReDoS; 2.8.4),
 # CVE-2026-85999 (ReDoS RE_WS_END), CVE-2026-86000 (ReDoS IDENTIFIER/VALUE);
 # all fixed in 2.9.0. Transitive (beautifulsoup4); not in setup.py.

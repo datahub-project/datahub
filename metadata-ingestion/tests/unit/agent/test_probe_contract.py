@@ -14,11 +14,29 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+import difflib
+import inspect
+import re
+from pathlib import Path
+from typing import Annotated, Dict, Iterator, List, Optional, Set, Tuple
 
 import pytest
+from pydantic import Field
+from pydantic.fields import FieldInfo
 
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Enables,
+    Filters,
+    FiltersByRule,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.ingestion.agent.probe_methods import (
+    CLASS_CONFIG_HOOKS,
+    CONFIG_HOOKS,
+    PROVIDER_ATTRIBUTES,
     ProbeMethodSpec,
     ProbeProvider,
     _iter_specs,
@@ -26,7 +44,9 @@ from datahub.ingestion.agent.probe_methods import (
     config_class_for,
     probe_method,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.source.sql.sql_config import SQL_FAMILY_HOOKS
 
 # Parameter names that carry something a connector hands to an interpreter, a
 # filesystem or the network. A getter taking one of these must declare the
@@ -37,11 +57,6 @@ _PATHISH_PARAMS = frozenset({"path", "url", "uri", "endpoint", "route"})
 # Any parameter literally named `limit` bounds how much comes back, so it must be
 # declared for the framework to clamp it (probe_methods._bounded_kwargs).
 _LIMIT_PARAM = "limit"
-
-# Sources whose probe support is expected to exist, asserted separately so this
-# file cannot pass by scanning nothing. Both need only core dependencies, so they
-# load in any environment that can run the unit suite at all.
-_MUST_BE_SCANNED = ("postgres", "mysql")
 
 
 def _spec_of(fn: object) -> ProbeMethodSpec:
@@ -131,31 +146,17 @@ def test_the_scan_actually_reached_providers():
     # Guards the test above against passing vacuously: if plugin loading breaks,
     # _scan() finds nothing to check and every rule here trivially holds.
     _, scanned, broken, absent = _scan()
-    missing = [s for s in _MUST_BE_SCANNED if s not in scanned]
-    assert not missing, (
-        f"expected probe support on {missing} but the scan did not reach it; "
-        f"broken: {broken}; extras not installed: {absent}"
-    )
-    # A provider that fails to load was once only interpolated into the message
-    # above, so the scan could lose most of its providers with every guard
-    # still green. probe_provider_class imports the provider module lazily, so
-    # a provider whose import breaks leaves the *config* loadable -- and the
-    # count guard below does not catch it either, because one broken provider
-    # out of 33 still clears 25.
-    #
-    # Asserted on `broken` and not on `absent`: this file's own contract is
-    # that only _MUST_BE_SCANNED is guaranteed in a minimal environment, so
-    # requiring every provider to load would fail wherever an optional extra
-    # is not installed -- an environment fact, not a defect. Verified by
-    # hiding snowflake, google, confluent_kafka, databricks and pyhive: 18
-    # sources stop loading, all of them classified absent, none broken.
+    # probe_provider_class imports its provider lazily, so a provider whose
+    # import breaks leaves the config loadable, and one broken provider still
+    # clears the count below. Not asserted on `absent`: an optional extra
+    # that is not installed is a fact about the environment, not a defect.
     assert broken == [], (
         f"{len(broken)} providers are installed but could not be loaded, so "
         f"the gate scan silently skipped them: {broken}"
     )
     assert len(scanned) >= 25, (
         f"only {len(scanned)} providers scanned; the tripwire is inspecting "
-        "fewer sources than it should"
+        f"fewer sources than it should; extras not installed: {absent}"
     )
 
 
@@ -238,31 +239,23 @@ def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
     assert missing == {}, missing
 
 
-# Every hook the framework reads off a config by name. A method that looks like one
-# of these but is not exactly one is the failure this list exists to catch.
-_CONFIG_HOOKS = frozenset(
-    {
-        "probe_provider_class",
-        "probe_catalog_scope",
-        "probe_container_kind",
-        "probe_match_target",
-        "probe_filter_target",
-        "probe_schema_verdict_override",
-        "probe_prepare_engine",
-        "probe_unfiltered_kinds",
-        "probe_schema_needs_parent",
-        # Read by sqlalchemy_probe._container_normalizer: how a listed
-        # container is spelled for ingestion.
-        "probe_normalize_container",
-        # Read by filter_check: the containers above a kind, and the id a
-        # container is matched on when it is not the bare name.
-        "probe_ancestor_kinds",
-        "probe_container_match_target",
-        # Read by sqlalchemy_probe.for_config: the URL the probe dials when
-        # it differs from get_sql_alchemy_url().
-        "probe_sql_alchemy_url",
-    }
-)
+def _unread_probe_hooks(config_cls: type) -> Dict[str, List[str]]:
+    """class name -> its `probe_` attributes that no reader would ever call."""
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    known = CONFIG_HOOKS
+    if issubclass(config_cls, SQLCommonConfig):
+        known = known | SQL_FAMILY_HOOKS
+    unread: Dict[str, List[str]] = {}
+    for klass in config_cls.__mro__:
+        suspects = [
+            name
+            for name in vars(klass)
+            if name.startswith("probe_") and name not in known
+        ]
+        if suspects:
+            unread[klass.__name__] = sorted(suspects)
+    return unread
 
 
 def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
@@ -286,18 +279,212 @@ def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
             continue
         if config_cls is None:
             continue
-        for klass in config_cls.__mro__:
-            suspects = [
-                name
-                for name in vars(klass)
-                if name.startswith("probe_") and name not in _CONFIG_HOOKS
-            ]
-            if suspects:
-                unknown[klass.__name__] = sorted(suspects)
+        unknown.update(_unread_probe_hooks(config_cls))
     assert unknown == {}, (
         "these look like probe hooks but the framework reads none of them, so they "
-        f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}: {unknown}"
+        f"do nothing; expected one of {sorted(CONFIG_HOOKS)}, or on a "
+        f"SQLCommonConfig one of {sorted(SQL_FAMILY_HOOKS)}: {unknown}"
     )
+
+
+def test_a_sql_family_hook_is_read_only_on_a_sql_config():
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    class _Outside(ConfigModel):
+        def probe_normalize_container(self, name: str) -> str:
+            return name
+
+        def probe_match_targets(self) -> None:
+            return None
+
+    class _Inside(SQLCommonConfig):
+        def get_sql_alchemy_url(self) -> str:
+            return "sqlite://"
+
+        def probe_normalize_container(self, name: str) -> str:
+            return name
+
+        def probe_match_targets(self) -> None:
+            return None
+
+    assert _unread_probe_hooks(_Outside) == {
+        "_Outside": ["probe_match_targets", "probe_normalize_container"]
+    }
+    assert _unread_probe_hooks(_Inside) == {"_Inside": ["probe_match_targets"]}
+
+
+# How close a name must be to a provider attribute to count as a misspelling
+# of it: `probe_reports`, `sql_dialects`, `silence_loggers` are; `api_session`
+# and `api_headers`, which RestApiPassthrough defines, are not.
+_MISSPELLING_RATIO = 0.85
+
+
+def _unread_provider_attributes(provider_cls: type) -> Dict[str, List[str]]:
+    """class name -> attributes that look like provider attributes the
+    framework reads, but are none of them.
+
+    A probe command is exempt whatever its name (Mode's `probe_data_sources`):
+    the framework finds commands by their declaration, not their name.
+    """
+    unread: Dict[str, List[str]] = {}
+    for klass in provider_cls.__mro__:
+        if klass is object:
+            continue
+        suspects = [
+            name
+            for name, value in vars(klass).items()
+            if name not in PROVIDER_ATTRIBUTES
+            and not isinstance(
+                getattr(value, "__probe_command__", None), ProbeMethodSpec
+            )
+            and (
+                name.startswith("probe_")
+                or difflib.get_close_matches(
+                    name, PROVIDER_ATTRIBUTES, n=1, cutoff=_MISSPELLING_RATIO
+                )
+            )
+        ]
+        if suspects:
+            unread[klass.__name__] = sorted(suspects)
+    return unread
+
+
+def test_no_provider_declares_an_attribute_the_framework_will_never_read():
+    """A misspelled provider attribute is silence, like a misspelled hook.
+
+    The framework reads these by name (`getattr(provider, "probe_report")`),
+    so a provider exposing `probe_reports` reports its ingestion failures to
+    nobody: the read fails, and the probe answers "empty" for what it could
+    not read.
+    """
+    unread: Dict[str, List[str]] = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue  # covered by test_the_scan_actually_reached_providers
+        if provider_cls is not None:
+            unread.update(_unread_provider_attributes(provider_cls))
+    assert unread == {}, (
+        "these look like provider attributes but the framework reads none of "
+        f"them; expected one of {sorted(PROVIDER_ATTRIBUTES)}: {unread}"
+    )
+
+
+def test_the_provider_attribute_check_catches_a_misspelling():
+    class _Typos:
+        sql_dialects = "postgres"
+        silence_loggers = ("vendor.sdk",)
+        api_session = None
+
+        @property
+        def probe_reports(self) -> object:
+            return None
+
+        @probe_method(name="things")
+        def probe_things(self) -> List[str]:
+            """A command: found by its declaration, so its name is free."""
+            return []
+
+    assert _unread_provider_attributes(_Typos) == {
+        "_Typos": ["probe_reports", "silence_loggers", "sql_dialects"]
+    }
+
+
+def test_the_base_declares_every_provider_attribute_the_framework_reads():
+    from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+
+    missing = sorted(
+        name for name in PROVIDER_ATTRIBUTES if not hasattr(ProbeProviderBase, name)
+    )
+    assert missing == []
+    assert _unread_provider_attributes(ProbeProviderBase) == {}
+
+
+_GUIDE = (
+    Path(__file__).resolve().parents[3] / "docs" / "dev_guides" / "probe_interface.md"
+)
+_HOOK_REFERENCE_HEADING = "## Hook reference"
+# The first cell of a table row. Prose and other tables mention `probe_report`,
+# `probe_method` and friends, which are not config hooks.
+_HOOK_ROW = re.compile(r"^\|\s*`(probe_\w+)`", re.MULTILINE)
+
+
+def _documented_config_hooks(markdown: str) -> Set[str]:
+    """Hook names in the first column of the guide's hook reference table."""
+    start = markdown.find(f"\n{_HOOK_REFERENCE_HEADING}\n")
+    if start == -1:
+        raise ValueError(f"the guide has no '{_HOOK_REFERENCE_HEADING}' section")
+    body = markdown[start + len(_HOOK_REFERENCE_HEADING) + 2 :]
+    # "\n## " does not match "\n### ", so subsections stay in the section.
+    end = body.find("\n## ")
+    return set(_HOOK_ROW.findall(body if end == -1 else body[:end]))
+
+
+def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
+    """A hook missing from the guide is one a connector author cannot find. A
+    name the guide lists that the framework does not read is one they
+    implement for nothing.
+    """
+    documented = _documented_config_hooks(_GUIDE.read_text(encoding="utf-8"))
+    undocumented = sorted(CONFIG_HOOKS - documented)
+    unread = sorted(documented - CONFIG_HOOKS)
+    assert not undocumented and not unread, (
+        f"{_GUIDE.name} '{_HOOK_REFERENCE_HEADING}' and CONFIG_HOOKS disagree. "
+        f"In CONFIG_HOOKS but missing from the guide: {undocumented}. "
+        f"In the guide but not in CONFIG_HOOKS: {unread}."
+    )
+
+
+_SQL_FAMILY_HEADING = "### SQL-family hooks"
+
+
+def _documented_sql_family_hooks(markdown: str) -> Set[str]:
+    """Hook names in the first column of the guide's SQL-family section."""
+    start = markdown.find(f"\n{_SQL_FAMILY_HEADING}\n")
+    if start == -1:
+        raise ValueError(f"the guide has no '{_SQL_FAMILY_HEADING}' section")
+    body = markdown[start + len(_SQL_FAMILY_HEADING) + 2 :]
+    ends = [i for i in (body.find("\n## "), body.find("\n### ")) if i != -1]
+    return set(_HOOK_ROW.findall(body[: min(ends)] if ends else body))
+
+
+def test_the_guide_documents_exactly_the_sql_family_hooks():
+    documented = _documented_sql_family_hooks(_GUIDE.read_text(encoding="utf-8"))
+    assert documented == set(SQL_FAMILY_HOOKS), (
+        f"{_GUIDE.name} '{_SQL_FAMILY_HEADING}' and SQL_FAMILY_HOOKS disagree. "
+        f"Missing from the guide: {sorted(SQL_FAMILY_HOOKS - documented)}. "
+        f"Not in SQL_FAMILY_HOOKS: {sorted(documented - SQL_FAMILY_HOOKS)}."
+    )
+
+
+def test_only_the_hook_reference_table_counts_as_documentation():
+    markdown = "\n".join(
+        [
+            "# Guide",
+            "Prose naming `probe_report` and `probe_ancestor_kinds`.",
+            "",
+            _HOOK_REFERENCE_HEADING,
+            "",
+            "| Hook | Signature |",
+            "| --- | --- |",
+            "| `probe_provider_class` | `(cls) -> type`; see `probe_report` |",
+            "",
+            "### A subsection",
+            "",
+            "| `probe_unfiltered_kinds` | `(cls) -> Set[str]` |",
+            "",
+            "## Next section",
+            "",
+            "| `probe_match_target` | not in the reference |",
+        ]
+    )
+    assert _documented_config_hooks(markdown) == {
+        "probe_provider_class",
+        "probe_unfiltered_kinds",
+    }
+    with pytest.raises(ValueError):
+        _documented_config_hooks("# Guide\n\nNo reference here.\n")
 
 
 def test_the_tripwire_fires_on_an_undeclared_query_parameter():
@@ -451,19 +638,23 @@ def test_every_declared_kind_either_filters_or_says_it_does_not():
     was which. A source can now say `probe_unfiltered_kinds()`, so the list is
     replaced by the rule it was standing in for.
     """
+    from datahub.ingestion.agent.declarations import (
+        declared_rule_filtered_kinds,
+        declared_unfiltered_kinds,
+    )
     from datahub.ingestion.agent.introspect import (
         _pattern_field_for_config_class,
         declared_kinds_for_class,
-        declared_unfiltered_kinds,
     )
 
     silent: Dict[str, List[str]] = {}
     checked = 0
     for source_type, config_cls in _probe_capable_configs():
         unfiltered = declared_unfiltered_kinds(config_cls)
+        rule_kinds = declared_rule_filtered_kinds(config_cls)
         for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
             checked += 1
-            if kind in unfiltered:
+            if kind in unfiltered or kind in rule_kinds:
                 continue
             if _pattern_field_for_config_class(config_cls, kind) is None:
                 silent.setdefault(source_type, []).append(kind)
@@ -483,10 +674,8 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
     """Declaring "nothing filters this" while holding a field the resolver
     would find is a contradiction, and resolving it silently is how the two
     halves of this feature came to disagree in the first place."""
-    from datahub.ingestion.agent.introspect import (
-        _pattern_field_for_config_class,
-        declared_unfiltered_kinds,
-    )
+    from datahub.ingestion.agent.declarations import declared_unfiltered_kinds
+    from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
 
     contradictions = []
     checked = 0
@@ -500,14 +689,11 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
                     f"{field} would filter it"
                 )
     assert not contradictions, "\n  ".join(contradictions)
-    # The guard every sibling tripwire in this file has, and this one did not.
-    # _probe_capable_configs swallows a source that will not load and
-    # declared_unfiltered_kinds returns an empty set when a config cannot
-    # answer -- so if Mode drops out of the scan, the loop body never runs and
-    # "no contradictions" becomes a statement about nothing.
+    # _probe_capable_configs skips a source that will not load and
+    # declared_unfiltered_kinds is empty for a config that cannot answer, so
+    # without this an emptied scan would pass as "no contradictions".
     assert checked > 0, (
-        "no source declared an unfiltered kind, so this tripwire checked "
-        "nothing; Mode declares Dataset and Query (source/mode.py)"
+        "no source declared an unfiltered kind, so this tripwire checked nothing"
     )
 
 
@@ -558,6 +744,29 @@ def test_describe_and_probe_filter_agree_about_every_field():
     assert checked > 20, f"only {checked} fields reached"
 
 
+def _fields_leaning_on_the_name_convention(
+    source_type: str, config_cls: type
+) -> List[str]:
+    """The fields `describe` maps to a kind only through the `<kind>_pattern` guess.
+
+    A rule field (FiltersByRule) counts as explicit: the connector named it
+    for that kind, which is the opposite of a guess.
+    """
+    from datahub.ingestion.agent.config_fields import iter_config_fields
+    from datahub.ingestion.agent.declarations import (
+        declared_filter_kind,
+        declared_rule_filtered_kinds,
+    )
+    from datahub.ingestion.agent.introspect import _filter_kinds_by_field
+
+    explicit = {
+        path
+        for path, info in iter_config_fields(config_cls)
+        if declared_filter_kind(info) is not None
+    } | set(declared_rule_filtered_kinds(config_cls).values())
+    return sorted(set(_filter_kinds_by_field(source_type, config_cls)) - explicit)
+
+
 def test_no_connector_leans_on_the_name_convention():
     """Every kind an agent can ask about resolves through an explicit
     Filters(...), not through the `<kind>_pattern` name guess.
@@ -579,28 +788,15 @@ def test_no_connector_leans_on_the_name_convention():
     because inverting the convention across undeclared ones would report
     `procedure_pattern` and `profile_pattern` as hierarchy levels. So a source
     with a pattern field for a level it does not declare is outside this
-    assertion -- `mssql` and `hive-metastore` both have an unannotated
-    `database_pattern` and declare no Database kind, and `probe filter --kind
-    Database` resolves it by name on both. That is what introspect's
-    _warn_convention exists to surface at runtime, since no test here can.
+    assertion: `probe filter --kind` on that level resolves the field by name.
+    That is what introspect's _warn_convention exists to surface at runtime,
+    since no test here can.
     """
-    from datahub.ingestion.agent.introspect import (
-        _declared_filter_kind,
-        _filter_kinds_by_field,
-    )
-
     leaning = {}
     checked = 0
     for source_type, config_cls in _probe_capable_configs():
         checked += 1
-        explicit = {
-            name
-            for name, info in config_cls.model_fields.items()
-            if _declared_filter_kind(info) is not None
-        }
-        by_convention = sorted(
-            set(_filter_kinds_by_field(source_type, config_cls)) - explicit
-        )
+        by_convention = _fields_leaning_on_the_name_convention(source_type, config_cls)
         if by_convention:
             leaning[source_type] = by_convention
 
@@ -608,83 +804,76 @@ def test_no_connector_leans_on_the_name_convention():
         "these fields resolve only by the name convention:\n"
         f"  {leaning}\n"
         "Annotate each with Filters(...). Check first that it is the field "
-        "ingestion actually filters on -- BigQuery's guess found a deprecated "
-        "alias, and annotating that would have made the wrong field permanent."
+        "ingestion actually filters on: the guess can land on a deprecated "
+        "alias, and annotating that makes the wrong field permanent."
     )
     assert checked > 20, f"only {checked} probe-capable configs reached"
 
 
-def test_no_config_declares_a_catalog_scope_its_provider_overrides():
-    """Scope can be declared in two places, and the provider's wins.
+def test_no_config_declares_a_catalog_scope_its_provider_never_reads():
+    """The sql gate reads one scope: the provider's catalog_scope.
 
-    That is not drift to be tidied away: SnowflakeSummaryConfig is not a
-    SQLCommonConfig and cannot carry probe_catalog_scope, so the provider
-    attribute is the only place covering both Snowflake sources. Moving the
-    declaration onto the config would narrow snowflake-summary to
-    information_schema without a word.
-
-    What must not happen is *both*. A config that overrides probe_catalog_scope
-    while its provider sets catalog_scope has written dead code that reads as
-    live -- I added exactly that to snowflake_config.py, verified it correct in
-    isolation, and it did nothing; the only reason it surfaced was the CLI
-    reporting a relation count that did not match.
+    The SQLAlchemy provider sets it from the config's probe_catalog_scope,
+    because it serves every SQL-family dialect and the dialect's config is
+    the only thing that knows its catalog. A provider of its own declares
+    catalog_scope on its class (Snowflake's covers snowflake-summary, whose
+    config is not a SQLCommonConfig). A config overriding probe_catalog_scope
+    for any other provider has written a scope nothing reads.
     """
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+    from datahub.ingestion.source.sql.sqlalchemy_probe import (
+        SqlAlchemyMetadataProbe,
+    )
 
-    conflicts = []
+    unread = []
     checked = 0
-    for source_type in sorted(source_registry.mapping):
-        try:
-            provider_cls = _provider_class(source_type)
-        except Exception:
-            continue
-        if provider_cls is None or "catalog_scope" not in vars(provider_cls):
+    for source_type, config_cls in _sql_source_types().items():
+        declaring = next(
+            klass
+            for klass in config_cls.__mro__
+            if "probe_catalog_scope" in vars(klass)
+        )
+        if declaring is SQLCommonConfig:
             continue
         checked += 1
-        config_cls = config_class_for(source_type)
-        own = getattr(config_cls, "probe_catalog_scope", None)
-        base = getattr(SQLCommonConfig, "probe_catalog_scope", None)
-        if own is not None and base is not None and own.__func__ is not base.__func__:
-            conflicts.append(
+        provider_cls = _provider_class(source_type)
+        if provider_cls is None or not issubclass(
+            provider_cls, SqlAlchemyMetadataProbe
+        ):
+            unread.append(
                 f"{source_type}: {config_cls.__name__}.probe_catalog_scope is "
-                f"ignored because {provider_cls.__name__} sets catalog_scope"
+                f"never read by {getattr(provider_cls, '__name__', None)}"
             )
 
-    assert not conflicts, (
+    assert not unread, (
         "these configs declare a catalog scope nothing reads:\n  "
-        + "\n  ".join(conflicts)
-        + "\nDeclare it on the provider, or remove the provider's attribute."
+        + "\n  ".join(unread)
+        + "\nDeclare catalog_scope on the provider instead."
     )
-    assert checked >= 2, (
-        f"only {checked} providers declare catalog_scope; expected at least the "
-        "Snowflake and BigQuery ones, so this test is not scanning nothing"
+    assert checked >= 3, (
+        f"only {checked} SQL configs declare a catalog scope; expected at "
+        "least three, so this test is not scanning nothing"
     )
 
 
 def test_every_config_hook_matches_the_signature_the_framework_calls():
-    """Hooks are resolved by getattr, so mypy cannot see a signature drift.
-
-    That is not hypothetical: widening probe_schema_verdict_override with a
-    parent_path kwarg updated two implementations and left SQLCommonConfig's
-    base behind, breaking `probe filter --kind Schema` on every other SQL
-    source. The name-only check above passed throughout, because the name was
-    never the problem.
+    """Hooks are resolved by getattr, so mypy cannot see a signature drift:
+    widening a hook updates its overrides and can leave SQLCommonConfig's
+    base behind, breaking `probe filter` on every other SQL source while the
+    name-only check above passes.
     """
-    import inspect
-
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
     # Keyword arguments the framework passes, per hook. A hook must accept
     # every one of these -- by name, since every call site uses keywords.
     required_kwargs = {
-        "probe_schema_verdict_override": {"schema", "parent_path"},
-        # Widened with `database` when Snowflake and BigQuery turned out to
-        # be judging tables on `schema.entity` while ingestion matched three
-        # parts. Those two fixes landed in the framework, not as config
-        # overrides: walking the registry, the only implementations are the
-        # base and UnityCatalogSourceConfig. Earlier versions of this comment
-        # named Snowflake, Redshift and BigQuery, none of which override it.
+        "probe_validation_context": {"source_type"},
+        "probe_match_target": {"ctx"},
+        "probe_verdict_override": {"ctx"},
+        # `database` is the container above the schema, which an override
+        # whose recipe spans several databases needs from the caller.
         "probe_filter_target": {"schema", "entity", "warn", "database"},
+        "probe_ancestor_kinds": {"kind"},
     }
 
     problems = []
@@ -725,10 +914,9 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
 
     assert not problems, "\n  ".join(problems)
 
-    # Per hook, not a sum. `checked` totalled 3 across the two hooks -- one
-    # for probe_schema_verdict_override and two for probe_filter_target -- so
-    # `checked >= 3` was already satisfied without either hook having an
-    # override to check the base against, which is the case worth catching.
+    # Per hook, not a sum: a total is satisfied by one hook's implementers
+    # while another has no override to compare the base against, which is the
+    # case worth catching.
     for hook, found in implementers_by_hook.items():
         assert SQLCommonConfig in found, f"{hook}: the base was not checked"
     assert len(implementers_by_hook["probe_filter_target"]) >= 2, (
@@ -737,30 +925,56 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     )
 
 
-# --- which sources the framework qualifies, pinned for all of them ---------
-#
-# This exists because a regression got through that a test already covered.
-# The Redshift Table-level assertion in test_shared_identifier_functions
-# would have failed; it was not run. And the connector the change was FOR --
-# Hana -- had no Table-level test at all, nor did the other 24: the only
-# arity coverage was the four warehouses, so 25 sources could be wrong
-# without a single assertion noticing.
-#
-# Pinned as an exhaustive map rather than a rule, deliberately. A rule is
-# what keeps being wrong here -- "is there a FooSource in this file",
-# "which provider does it reuse" -- and each time the rule looked right in
-# isolation. A list fails loudly when a new connector registers, which is
-# the moment somebody should think about it.
+def _class_hook_problems(config_cls: type) -> List[str]:
+    """The CLASS_CONFIG_HOOKS `config_cls` declares as anything but a
+    classmethod or staticmethod. The framework calls them on the class, where
+    an instance method fails for want of `self` -- and only when called, so
+    `describe` or `probe methods` breaks while `probe filter` works."""
+    problems = []
+    for hook in CLASS_CONFIG_HOOKS:
+        try:
+            declared = inspect.getattr_static(config_cls, hook)
+        except AttributeError:
+            continue
+        if not isinstance(declared, (classmethod, staticmethod)):
+            problems.append(
+                f"{config_cls.__name__}.{hook} is a {type(declared).__name__}; "
+                f"the framework calls it on the class, so make it a classmethod"
+            )
+    return problems
 
-_QUALIFIES = {
-    # Not SQLAlchemy-backed: no get_identifier to ask, so the framework
-    # builds container.schema.entity itself.
-    "snowflake",
-    "bigquery",
-    # SQLAlchemy provider, but their Source is not a SQLAlchemySource. They
-    # say so with Qualifier on the field naming their container.
-    "redshift",
-}
+
+def test_every_class_called_hook_is_a_classmethod():
+    assert set(CLASS_CONFIG_HOOKS) <= CONFIG_HOOKS
+    problems: List[str] = []
+    declaring = 0
+    for _source_type, config_cls in _loaded_source_configs():
+        if any(hasattr(config_cls, hook) for hook in CLASS_CONFIG_HOOKS):
+            declaring += 1
+        problems.extend(_class_hook_problems(config_cls))
+    assert problems == [], "\n  ".join(problems)
+    assert declaring > 20, f"only {declaring} configs declare a class-called hook"
+
+
+def test_the_class_hook_check_catches_an_instance_method():
+    class _Instance(ConfigModel):
+        def probe_unfiltered_kinds(self) -> Set[str]:
+            return {"Dataset"}
+
+    class _Inherits(_Instance):
+        pass
+
+    class _Class(ConfigModel):
+        @classmethod
+        def probe_unfiltered_kinds(cls) -> Set[str]:
+            return {"Dataset"}
+
+    assert len(_class_hook_problems(_Instance)) == 1
+    assert len(_class_hook_problems(_Inherits)) == 1
+    assert _class_hook_problems(_Class) == []
+
+
+# --- across every registered SQL source -------------------------------------
 
 
 def _sql_source_types():
@@ -774,64 +988,13 @@ def _sql_source_types():
     return found
 
 
-def test_every_sql_source_agrees_about_its_own_identifier_arity():
-    """The probe must build the same number of parts the connector matches on.
-
-    Two ways to get this wrong, and this branch has shipped both:
-
-      too many   Hana was treated as fully qualified because HanaSource
-                 lives in hana/hana.py and its config in hana_config.py, so
-                 a filename match missed it. The probe told the caller to
-                 pass a database and then judged MYDB.MYSCHEMA.T1 -- three
-                 parts HanaSource never builds -- with no warning.
-
-      too few    Reading the declared provider instead fixed Hana and broke
-                 Redshift, whose Source is not a SQLAlchemySource but whose
-                 provider is SqlAlchemyMetadataProbe. Verdicts went from
-                 prod.public.orders to public.orders, i.e. inverted.
-    """
-    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
-
-    found = _sql_source_types()
-    assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
-
-    wrong = {}
-    for source_type, config_cls in found.items():
-        got = _matches_a_qualified_name(config_cls.model_construct())
-        expected = source_type in _QUALIFIES
-        if got != expected:
-            wrong[source_type] = (got, expected)
-
-    assert not wrong, (
-        "these sources disagree with the recorded arity. If a new connector "
-        "registered, decide which side it is on and add it to _QUALIFIES (or "
-        "not); if an existing one moved, something changed the signal:\n  "
-        + "\n  ".join(f"{k}: got {v[0]}, recorded {v[1]}" for k, v in wrong.items())
-    )
-
-
-def test_unity_catalog_is_qualified_by_its_own_override_not_the_framework():
-    """Unity is deliberately absent from _QUALIFIES. It declares
-    probe_filter_target, which returns None when no single catalog is pinned
-    -- a degrade the framework cannot express -- so it never reaches the
-    generic branch and does not need the flag."""
-    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-
-    assert (
-        UnityCatalogSourceConfig.probe_filter_target
-        is not SQLCommonConfig.probe_filter_target
-    )
-
-
 def test_no_sql_source_falls_back_to_the_bare_fqn():
     """The get_identifier shim must work for every registered SQL source.
 
-    A reviewer flagged that the shim builds the Source via __new__ and
-    hand-primes the attributes an override reads (mssql's current_database,
-    StarRocks's _current_catalog), so a NEW override reaching for state the
-    shim does not carry degrades to the plain fqn -- discoverable only at
-    runtime, on whichever connector nobody probed.
+    The shim builds the Source via __new__ and gives it only its config, so
+    an override reaching for state the shim does not carry degrades to the
+    plain fqn -- discoverable only at runtime, on whichever connector nobody
+    probed.
 
     The degrade is warned rather than silent, so it is a quality floor
     rather than a leak. This turns it into a build-time floor: all 29
@@ -930,97 +1093,239 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
     )
 
 
-def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
-    """`probe methods` must not say null where `probe run` says a kind.
-
-    `containers` returns Schemas on a three-tier source and Databases on a
-    two-tier one, so its kind comes from the recipe rather than the
-    decorator. That override lived on the provider *instance*, which only
-    the run path builds -- so `probe methods` advertised kind=null and an
-    agent could not learn what `probe filter --kind` to pass without first
-    running the command and reading the kind back.
-
-    Found by running it: against a live MySQL, `probe methods` reported
-    containers kind=null while `probe run containers` reported Database.
-
-    The fix moved the mapping to a connection-free classmethod both paths
-    call, so this asserts the two agree for every SQL source rather than
-    hardcoding Database -- postgres must still say Schema.
+def test_containers_reports_the_tier_every_sql_config_declares():
+    """`containers` lists schemas on a three-tier source and databases on a
+    two-tier one. `probe methods` and `probe run` report the kind from
+    probe_kind_overrides, while the ancestor chain `probe filter` judges
+    --parent with follows probe_container_kind, so the two must agree on
+    every SQL source.
     """
-    from datahub.ingestion.agent.probe_methods import (
-        _provider_class,
-        list_probe_methods,
-    )
-
-    common = {
-        "host_port": "host:1234",
-        "username": "u",
-        "password": "p",
-        "database": "DB",
-        "scheme": "postgresql",
-    }
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
 
     found = _sql_source_types()
     assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
 
     disagreed = {}
-    skipped: List[str] = []
     checked = 0
     for source_type, config_cls in found.items():
-        provider_cls = _provider_class(source_type)
-        overrides_for = getattr(provider_cls, "probe_kind_overrides", None)
-        if not callable(overrides_for):
-            continue
-        fields = set(getattr(config_cls, "model_fields", {}))
-        config_dict = {k: v for k, v in common.items() if k in fields}
-        try:
-            config = config_cls.model_validate(config_dict)
-            # What the run path would report.
-            expected = {k: str(v) for k, v in (overrides_for(config) or {}).items()}
-            # What the discovery path reports.
-            declared = {
-                spec.command: spec.kind
-                for spec in list_probe_methods(source_type, config_dict)
-            }
-        except Exception:
-            # This generic dict is not a valid recipe for every connector
-            # (athena wants aws_region, a work group and a result location).
-            # That is about the fixture, not about kind agreement -- skip it
-            # rather than report a disagreement that is not one.
-            skipped.append(source_type)
+        listed = {spec.command: spec.kind for spec in list_probe_methods(source_type)}
+        if "containers" not in listed:
+            # A SQL config with a provider of its own may have no
+            # `containers` command to report a kind for.
             continue
         checked += 1
-        for command, kind in expected.items():
-            if command not in declared:
-                # Not a skip. `expected` is what `probe run` would report and
-                # `declared` is what `probe methods` lists, so a command in
-                # one and not the other is the failure this test is named for
-                # -- an agent cannot discover the command at all, which is
-                # strictly worse than discovering it with the wrong kind.
-                # `continue` let that pass silently.
-                disagreed[source_type] = (
-                    f"{command}: run would report kind {kind!r} but methods "
-                    f"does not list the command at all"
-                )
-                continue
-            if declared[command] != kind:
-                disagreed[source_type] = (
-                    f"{command}: methods says {declared[command]!r}, "
-                    f"run would say {kind!r}"
-                )
+        tier = str(config_cls.probe_container_kind())
+        if listed["containers"] != tier:
+            disagreed[source_type] = (
+                f"probe methods says {listed['containers']!r}, "
+                f"probe_container_kind says {tier!r}"
+            )
 
-    # `skipped` is reported rather than asserted on: which connectors reject
-    # the generic recipe is a property of the fixture, not of kind agreement,
-    # so pinning the list would fail every time a connector gains a required
-    # field. It earns its place here -- when the scan does break, "only 3
-    # sources declared kind overrides" is unactionable without knowing which
-    # ones fell out on the way.
-    assert checked > 5, (
-        f"only {checked} sources declared kind overrides; scan broke. "
-        f"skipped as unfixturable: {sorted(skipped)}"
-    )
+    assert checked > 5, f"only {checked} SQL sources list containers; scan broke"
     assert not disagreed, (
-        "probe methods and probe run disagree about a command's kind, so an "
-        "agent reading methods cannot pick the right --kind:\n  "
+        "`containers` reports a kind its config's tier does not, so `probe filter` "
+        "would judge the wrong pattern:\n  "
         + "\n  ".join(f"{k}: {v}" for k, v in disagreed.items())
     )
+
+
+def test_every_config_declares_its_markers_as_the_probe_reads_them():
+    """The probe refuses a misdeclared config when it first reads it; this
+    finds one in-tree before a user's `probe filter` does."""
+    from datahub.ingestion.agent.declarations import (
+        declared_kind_enablers,
+        marker_problems,
+    )
+
+    problems: Dict[str, List[str]] = {}
+    declaring = 0
+    for source_type, config_cls in _loaded_source_configs():
+        found = marker_problems(config_cls)
+        if found:
+            problems[source_type] = found
+        elif declared_kind_enablers(config_cls):
+            declaring += 1
+    assert problems == {}, (
+        "these configs misdeclare a probe marker, so the probe refuses them "
+        "(exit 1). Fix each declaration as its message says; the rules are "
+        f"in declarations.marker_problems:\n  {problems}"
+    )
+    # The SQL family alone declares two: an emptied scan must not pass.
+    assert declaring > 20, f"only {declaring} configs declare Enables"
+
+
+def _rule_kinds_a_pattern_is_found_for(config_cls: type) -> List[str]:
+    """Rule-filtered kinds the `<kind>_pattern` name guess also finds a field
+    for. probe filter judges a rule kind by its rules and ignores any pattern,
+    so that field, which ingestion may well apply, never reaches a verdict. A
+    Filters-declared one is marker_problems' to refuse."""
+    from datahub.ingestion.agent.declarations import declared_rule_filtered_kinds
+    from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
+
+    problems = []
+    for kind in sorted(declared_rule_filtered_kinds(config_cls)):
+        pattern_field = _pattern_field_for_config_class(config_cls, kind)
+        if pattern_field is not None:
+            problems.append(
+                f"{config_cls.__name__}: '{kind}' is declared rule-filtered "
+                f"but also resolves to the pattern field '{pattern_field}'"
+            )
+    return problems
+
+
+def test_no_rule_filtered_kind_also_resolves_to_a_pattern():
+    problems = [
+        problem
+        for _source_type, config_cls in _probe_capable_configs()
+        for problem in _rule_kinds_a_pattern_is_found_for(config_cls)
+    ]
+    assert problems == [], (
+        "declare Filters on the pattern if ingestion applies it (and drop "
+        "FiltersByRule for that kind), or rename it off the `<kind>_pattern` "
+        f"convention if it filters something else:\n  {problems}"
+    )
+
+
+class _RulesAndPattern(ConfigModel):
+    path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+        default_factory=list
+    )
+    table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        return Verdict.include()
+
+
+def test_the_rule_kind_check_catches_a_pattern_found_by_name():
+    problems = _rule_kinds_a_pattern_is_found_for(_RulesAndPattern)
+    assert len(problems) == 1
+    assert "table_pattern" in problems[0]
+
+
+def test_describe_maps_a_rule_kind_to_its_rule_field_only(monkeypatch):
+    from datahub.ingestion.agent import introspect
+
+    monkeypatch.setattr(
+        introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
+    )
+    assert introspect._filter_kinds_by_field("fake-source", _RulesAndPattern) == {
+        "path_specs": "Table"
+    }
+
+
+def test_a_rule_field_is_not_mistaken_for_the_name_guess(monkeypatch):
+    from datahub.ingestion.agent import introspect
+
+    class _RulesOnly(ConfigModel):
+        path_specs: Annotated[List[str], FiltersByRule("Table")] = Field(
+            default_factory=list
+        )
+
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            return Verdict.include()
+
+    monkeypatch.setattr(
+        introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
+    )
+    assert _fields_leaning_on_the_name_convention("fake-source", _RulesOnly) == []
+
+
+_FIELD_MARKERS = (Filters, Enables, FiltersByRule, Qualifier)
+
+
+def _field_markers(info: FieldInfo) -> List[object]:
+    return [m for m in info.metadata if isinstance(m, _FIELD_MARKERS)]
+
+
+def _inherited_field(klass: type, name: str) -> Optional[FieldInfo]:
+    """`name` as klass would inherit it: from the nearest base declaring it."""
+    for base in klass.__mro__[1:]:
+        fields = getattr(base, "model_fields", None) or {}
+        if name in fields and name in inspect.get_annotations(base):
+            return fields[name]
+    return None
+
+
+def _dropped_markers(config_cls: type) -> List[str]:
+    """The markers a class in config_cls's MRO loses by redeclaring an
+    inherited field: pydantic replaces a redeclared field's metadata, so a
+    redeclaration that only changes a default drops the marker unseen.
+
+    A drop is deliberate where the class carries the marker on another field
+    (it moved) or hides the field from the docs (a deprecated alias that no
+    longer does the job).
+    """
+    from datahub.ingestion.agent.introspect import _is_hidden_field
+
+    problems = []
+    for klass in config_cls.__mro__:
+        fields = getattr(klass, "model_fields", None) or {}
+        for name in inspect.get_annotations(klass):
+            inherited = _inherited_field(klass, name)
+            if name not in fields or inherited is None:
+                continue
+            if _is_hidden_field(klass, name):
+                continue
+            kept = {
+                marker for info in fields.values() for marker in _field_markers(info)
+            }
+            lost = [m for m in _field_markers(inherited) if m not in kept]
+            if lost:
+                problems.append(
+                    f"{klass.__module__}.{klass.__qualname__}.{name} redeclares "
+                    f"an inherited field and drops {lost}"
+                )
+    return problems
+
+
+def test_no_config_drops_a_marker_by_redeclaring_its_field():
+    problems: Set[str] = set()
+    checked = 0
+    for _source_type, config_cls in _loaded_source_configs():
+        checked += 1
+        problems.update(_dropped_markers(config_cls))
+    assert sorted(problems) == [], (
+        "these fields lost a probe marker when redeclared. Repeat the marker "
+        "on the redeclaration, move it to the field that now does the job, or "
+        "hide the field (HiddenFromDocs) if it is a deprecated alias."
+    )
+    assert checked > 50, f"only {checked} configs reached"
+
+
+def test_the_redeclaration_check_catches_a_dropped_marker():
+    class _Base(ConfigModel):
+        include_things: Annotated[bool, Enables("Thing")] = True
+        thing_pattern: Annotated[AllowDenyPattern, Filters("Thing")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        legacy_pattern: Annotated[AllowDenyPattern, Filters("Box")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        old_pattern: Annotated[AllowDenyPattern, Filters("Crate")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    class _Redeclares(_Base):
+        include_things: bool = False
+        thing_pattern: Annotated[AllowDenyPattern, Filters("Thing")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        legacy_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+        box_pattern: Annotated[AllowDenyPattern, Filters("Box")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        old_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    problems = _dropped_markers(_Redeclares)
+    assert len(problems) == 1 and "include_things" in problems[0]
+
+
+def test_the_framework_reads_no_config_hook_outside_its_list():
+    from datahub.ingestion.agent.probe_methods import config_hook
+    from datahub.ingestion.agent.verdicts import ProbeInternalError
+
+    with pytest.raises(ProbeInternalError):
+        config_hook(object(), "probe_match_targets")
+    assert config_hook(object(), "probe_match_target") is None

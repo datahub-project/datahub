@@ -1,4 +1,5 @@
 import { Button, Drawer, Input, Menu, OverflowText, Pagination, Table, Text } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
@@ -10,7 +11,8 @@ import styled from 'styled-components';
 import { ItemType } from '@components/components/Menu/types';
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -19,12 +21,10 @@ import dayjs from '@utils/dayjs';
 import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
 import { FilterOperator } from '@types';
 
-import LinkOut from '@images/link-out.svg?react';
-
 const PAGE_SIZE = 10;
 const TIMESTAMP_FORMAT = 'MMMM D, YYYY h:mm A';
 
-const LinkOutIcon = styled(LinkOut)`
+const LinkOutIcon = styled(ArrowSquareOut)`
     width: 14px;
     height: 14px;
 `;
@@ -47,12 +47,19 @@ interface Props {
     open: boolean;
 }
 
+const VersionLabelCell = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     const { t } = useTranslation('entity.shared.versioning');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const { setDrawer } = useEntityContext();
+    const { urn: entityProfileUrn } = useEntityData();
 
     const columns = [
         {
@@ -103,13 +110,17 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                         ],
                     },
                 ],
+                searchFlags: { includeHiddenLifecycleStages: true },
             },
         },
     });
 
     const tableData = data?.versionSet?.versionsSearch?.searchResults?.map((version) => {
         const { urn, type } = version.entity;
-        const versionProperties = entityRegistry.getGenericEntityProperties(type, version.entity)?.versionProperties;
+        const genericProps = entityRegistry.getGenericEntityProperties(type, version.entity);
+        const versionProperties = genericProps?.versionProperties;
+        const status = genericProps?.status;
+        const isViewing = urn === entityProfileUrn;
         const items: ItemType[] = [
             {
                 type: 'item',
@@ -135,12 +146,20 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         return {
             urn,
             label: (
-                /* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */
-                <VersionPill
-                    label={versionProperties?.version?.versionTag || '<unlabeled>'}
-                    isLatest={versionProperties?.isLatest}
-                />
-                /* eslint-enable i18next/no-literal-string */
+                <VersionLabelCell>
+                    {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
+                    <VersionPill
+                        label={versionProperties?.version?.versionTag || '<unlabeled>'}
+                        isLatest={versionProperties?.isLatest}
+                    />
+                    {/* eslint-enable i18next/no-literal-string */}
+                    <LifecycleStageBadge lifecycleStage={status?.lifecycleStage} />
+                    {isViewing && (
+                        <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
+                            {t('viewing')}
+                        </Text>
+                    )}
+                </VersionLabelCell>
             ),
             comment: <OverflowText text={versionProperties?.comment || ''} />,
             createdAt: (

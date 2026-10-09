@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Continuar Configuração",
     "multiStep.builder.discard.description": "Sair agora descartará sua configuração. Você pode continuar a configuração ou sair e recomeçar depois",
     "multiStep.builder.discard.title": "Você tem alterações não salvas",
-    "multiStep.chat.placeholder": "Placeholder do chat com IA",
     "multiStep.connection.addOwners": "Adicionar Responsáveis",
     "multiStep.connection.advancedSettings": "Configurações Avançadas",
     "multiStep.connection.cannotChangeSourceType": "Não é possível alterar o tipo de fonte para uma fonte de ingestion existente",

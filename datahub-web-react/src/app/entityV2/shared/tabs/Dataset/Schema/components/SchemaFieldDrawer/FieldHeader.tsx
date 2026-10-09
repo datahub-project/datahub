@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -139,7 +139,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>
                 <CloseIcon onClick={() => setExpandedDrawerFieldPath(null)}>
-                    <CloseOutlined />
+                    <X />
                 </CloseIcon>
             </RightGroup>
         </FieldHeaderWrapper>

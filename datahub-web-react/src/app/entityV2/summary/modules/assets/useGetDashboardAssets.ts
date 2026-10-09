@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { GetDashboardQuery } from '@graphql/dashboard.generated';

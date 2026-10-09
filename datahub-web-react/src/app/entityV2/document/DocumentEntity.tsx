@@ -3,16 +3,22 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { DocumentProfile } from '@app/entityV2/document/DocumentProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import { EmbeddedProfile } from '@app/entityV2/shared/profileChunks';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { Document, EntityType, SearchResult } from '@types';
+
+const DocumentProfile = lazyProfileComponent('DocumentProfile', () =>
+    import('@app/entityV2/document/DocumentProfile').then((module) => ({
+        default: module.DocumentProfile,
+    })),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.COPY_URL,

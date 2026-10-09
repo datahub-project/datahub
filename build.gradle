@@ -253,6 +253,7 @@ project.ext.externalDependency = [
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
+    'commonsCollections4': 'org.apache.commons:commons-collections4:4.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
     'commonsText': 'org.apache.commons:commons-text:1.14.0',
     'bucket4jCore': "com.bucket4j:bucket4j_jdk17-core:$bucket4jVersion",

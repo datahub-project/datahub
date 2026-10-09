@@ -13,95 +13,43 @@
                         {
                           "terms" : {
                             "destination.urn" : [
-                              "urn:li:dataset:test-urn3",
-                              "urn:li:dataset:test-urn2",
-                              "urn:li:dataset:test-urn"
+                              "urn:li:chart:test-urn",
+                              "urn:li:chart:test-urn2",
+                              "urn:li:chart:test-urn3"
                             ],
                             "boost" : 1.0
                           }
                         },
                         {
-                          "term" : {
-                            "relationshipType" : {
-                              "value" : "DownstreamOf",
-                              "boost" : 1.0
-                            }
-                          }
-                        },
-                        {
-                          "terms" : {
-                            "source.entityType" : [
-                              "dataset"
+                          "bool" : {
+                            "should" : [
+                              {
+                                "bool" : {
+                                  "filter" : [
+                                    {
+                                      "term" : {
+                                        "relationshipType" : {
+                                          "value" : "Contains",
+                                          "boost" : 1.0
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "terms" : {
+                                        "source.entityType" : [
+                                          "dashboard"
+                                        ],
+                                        "boost" : 1.0
+                                      }
+                                    }
+                                  ],
+                                  "adjust_pure_negative" : true,
+                                  "boost" : 1.0
+                                }
+                              }
                             ],
-                            "boost" : 1.0
-                          }
-                        }
-                      ],
-                      "adjust_pure_negative" : true,
-                      "boost" : 1.0
-                    }
-                  },
-                  {
-                    "bool" : {
-                      "filter" : [
-                        {
-                          "terms" : {
-                            "destination.urn" : [
-                              "urn:li:dataset:test-urn3",
-                              "urn:li:dataset:test-urn2",
-                              "urn:li:dataset:test-urn"
-                            ],
-                            "boost" : 1.0
-                          }
-                        },
-                        {
-                          "term" : {
-                            "relationshipType" : {
-                              "value" : "RepositoryConsumes",
-                              "boost" : 1.0
-                            }
-                          }
-                        },
-                        {
-                          "terms" : {
-                            "source.entityType" : [
-                              "dataJob"
-                            ],
-                            "boost" : 1.0
-                          }
-                        }
-                      ],
-                      "adjust_pure_negative" : true,
-                      "boost" : 1.0
-                    }
-                  },
-                  {
-                    "bool" : {
-                      "filter" : [
-                        {
-                          "terms" : {
-                            "destination.urn" : [
-                              "urn:li:dataset:test-urn3",
-                              "urn:li:dataset:test-urn2",
-                              "urn:li:dataset:test-urn"
-                            ],
-                            "boost" : 1.0
-                          }
-                        },
-                        {
-                          "term" : {
-                            "relationshipType" : {
-                              "value" : "Consumes",
-                              "boost" : 1.0
-                            }
-                          }
-                        },
-                        {
-                          "terms" : {
-                            "source.entityType" : [
-                              "dataJob",
-                              "dashboard"
-                            ],
+                            "adjust_pure_negative" : true,
+                            "minimum_should_match" : "1",
                             "boost" : 1.0
                           }
                         }
@@ -125,26 +73,92 @@
                         {
                           "terms" : {
                             "destination.urn" : [
-                              "urn:li:chart:test-urn",
-                              "urn:li:chart:test-urn2",
-                              "urn:li:chart:test-urn3"
+                              "urn:li:dataset:test-urn3",
+                              "urn:li:dataset:test-urn2",
+                              "urn:li:dataset:test-urn"
                             ],
                             "boost" : 1.0
                           }
                         },
                         {
-                          "term" : {
-                            "relationshipType" : {
-                              "value" : "Contains",
-                              "boost" : 1.0
-                            }
-                          }
-                        },
-                        {
-                          "terms" : {
-                            "source.entityType" : [
-                              "dashboard"
+                          "bool" : {
+                            "should" : [
+                              {
+                                "bool" : {
+                                  "filter" : [
+                                    {
+                                      "term" : {
+                                        "relationshipType" : {
+                                          "value" : "Consumes",
+                                          "boost" : 1.0
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "terms" : {
+                                        "source.entityType" : [
+                                          "dashboard",
+                                          "dataJob"
+                                        ],
+                                        "boost" : 1.0
+                                      }
+                                    }
+                                  ],
+                                  "adjust_pure_negative" : true,
+                                  "boost" : 1.0
+                                }
+                              },
+                              {
+                                "bool" : {
+                                  "filter" : [
+                                    {
+                                      "term" : {
+                                        "relationshipType" : {
+                                          "value" : "DownstreamOf",
+                                          "boost" : 1.0
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "terms" : {
+                                        "source.entityType" : [
+                                          "dataset"
+                                        ],
+                                        "boost" : 1.0
+                                      }
+                                    }
+                                  ],
+                                  "adjust_pure_negative" : true,
+                                  "boost" : 1.0
+                                }
+                              },
+                              {
+                                "bool" : {
+                                  "filter" : [
+                                    {
+                                      "term" : {
+                                        "relationshipType" : {
+                                          "value" : "RepositoryConsumes",
+                                          "boost" : 1.0
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "terms" : {
+                                        "source.entityType" : [
+                                          "dataJob"
+                                        ],
+                                        "boost" : 1.0
+                                      }
+                                    }
+                                  ],
+                                  "adjust_pure_negative" : true,
+                                  "boost" : 1.0
+                                }
+                              }
                             ],
+                            "adjust_pure_negative" : true,
+                            "minimum_should_match" : "1",
                             "boost" : 1.0
                           }
                         }

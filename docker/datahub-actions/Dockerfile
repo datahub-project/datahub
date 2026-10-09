@@ -30,7 +30,7 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
 # current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
 # `apk add` whenever base packages need refreshing.
-ARG WOLFI_PKG_REFRESH=2026-08-31
+ARG WOLFI_PKG_REFRESH=2026-10-02
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk add --no-cache --update-cache \
@@ -55,6 +55,14 @@ RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
 
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python
+
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. sitecustomize restores it for this
+# interpreter and every venv created from it, including bundled ingestion
+# venvs built later and `uv venv --python` subprocesses. A .pth copied into
+# venvs that already exist does not cover those.
+COPY ./docker/snippets/openssl4_ssl_compat.py /tmp/openssl4_ssl_compat.py
+RUN python3 -c 'import pathlib, shutil, sysconfig; dest = pathlib.Path(sysconfig.get_path("stdlib")) / "sitecustomize.py"; shutil.copyfile("/tmp/openssl4_ssl_compat.py", dest)' \
+ && rm /tmp/openssl4_ssl_compat.py
 
 USER datahub
 WORKDIR $HOME

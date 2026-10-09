@@ -10,7 +10,7 @@ import {
     GetSearchResultsParams,
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
-import { useEntityQueryParams } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityQueryParams } from '@app/entityV2/shared/containers/profile/entityData';
 import { decodeComma } from '@app/entityV2/shared/utils';
 import {
     EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,

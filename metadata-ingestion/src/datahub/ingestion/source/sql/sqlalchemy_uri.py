@@ -55,14 +55,24 @@ def make_sqlalchemy_uri(
     if uri_opts:
         uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
 
-    return str(
-        URL.create(
-            drivername=scheme,
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=db,
-            query=uri_opts or {},
-        )
-    )
+    # str(URL) masks the password as "***" on SQLAlchemy 2.0 (its __str__ defaults
+    # to hide_password=True). Since this string is fed straight to create_engine(),
+    # we must render the real password — otherwise the engine connects with "***".
+    return URL.create(
+        drivername=scheme,
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=db,
+        query=uri_opts or {},
+    ).render_as_string(hide_password=False)
+
+
+def url_dialect_and_driver(url: str) -> Tuple[str, str]:
+    """The `dialect+driver` a SQLAlchemy URL names, lowercased; driver is ""
+    when the URL names none. Read from the string, so it never raises and
+    needs no dialect installed."""
+    head = url.split("://", 1)[0].lower()
+    dialect, _, driver = head.partition("+")
+    return dialect, driver

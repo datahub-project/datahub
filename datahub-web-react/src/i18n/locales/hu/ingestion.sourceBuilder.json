@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Beállítás folytatása",
     "multiStep.builder.discard.description": "A mostani kilépéssel elveti a konfigurációját. Folytathatja a beállítást, vagy kiléphet, és később újrakezdheti",
     "multiStep.builder.discard.title": "Nem mentett módosításai vannak",
-    "multiStep.chat.placeholder": "MI-csevegés helyőrzője",
     "multiStep.connection.addOwners": "Tulajdonosok hozzáadása",
     "multiStep.connection.advancedSettings": "Speciális beállítások",
     "multiStep.connection.cannotChangeSourceType": "Meglévő adatbetöltési forrás forrástípusa nem módosítható",
