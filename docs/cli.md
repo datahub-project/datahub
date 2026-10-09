@@ -213,9 +213,11 @@ affected. The run just doesn't appear in the UI.
 To show the runs of a token without **Manage Metadata Ingestion**, an admin creates the ingestion source once, then
 grants the token's user:
 
-- **Edit Entity** on that ingestion source, and
+- **Execute Entity** on that ingestion source (DataHub refuses the run's execution request without it),
 - **Create Entity** and **Edit Entity** on entities of type `dataHubExecutionRequest`. This lets the token write any
-  run record, not only its own.
+  run record, not only its own. Without **Edit Entity** the run is listed but its final status is not saved.
+- Optionally **Edit Entity** on that ingestion source, so the token can refresh the source record on each run. Without it the run
+  still appears, and each run logs one extra warning.
 
 `<id>` is derived from the recipe, so it is the same on every run. It is the MD5 hash of a JSON object that holds the
 source `type`, plus the recipe's `pipeline_name` and the source's `platform_instance` when the recipe sets them.
