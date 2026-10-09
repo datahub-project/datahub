@@ -938,9 +938,9 @@ def test_parse_denied_urns_splits_on_the_entry_token_not_on_commas():
     dataset = _status_mcp("a").entityUrn
     assert dataset is not None
     assert _parse_denied_urns(_denial(_JOB, dataset, _CONTAINER, _JOB)) == {
-        _JOB,
-        dataset,
-        _CONTAINER,
+        _JOB: 2,
+        dataset: 1,
+        _CONTAINER: 1,
     }
 
 
@@ -1195,3 +1195,57 @@ def test_denial_in_a_later_chunk_does_not_resend_the_chunk_that_landed(monkeypat
         [records[3].entityUrn],
     ]
     assert [o is None for o in exc_info.value.outcomes] == [True, True, False, True]
+
+
+def _patch_mcp(urn: str) -> models.MetadataChangeProposalClass:
+    return models.MetadataChangeProposalClass(
+        entityType="dataset",
+        entityUrn=urn,
+        changeType=models.ChangeTypeClass.PATCH,
+        aspectName="datasetProperties",
+        aspect=models.GenericAspectClass(
+            value=b'[{"op": "add", "path": "/description", "value": "d"}]',
+            contentType="application/json-patch+json",
+        ),
+    )
+
+
+def test_denial_listing_an_entity_fewer_times_than_its_proposals_falls_back_to_isolation():
+    """GMS authorizes each proposal on its own (an UPSERT of a new entity needs CREATE,
+    a PATCH only UPDATE), so one entry for a URN with two proposals does not say which
+    of them was denied."""
+    upsert = _status_mcp("a")
+    assert upsert.entityUrn is not None
+    patch_ = _patch_mcp(upsert.entityUrn)
+    other = _status_mcp("b")
+    upsert_denied = _denial(upsert.entityUrn)
+    mock_emitter = _scripted_emitter(
+        _denial(upsert.entityUrn), upsert_denied, None, None
+    )
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(upsert,), (patch_,), (other,)])
+
+    assert exc_info.value.outcomes == [upsert_denied, None, None]
+    assert mock_emitter.emit_mcps.call_count == 4
+    assert sink.report.batches_split_on_authorization_denial == 0
+    assert sink.report.batches_rejected == 1
+
+
+def test_denial_listing_every_proposal_of_an_entity_takes_the_fast_path():
+    upsert = _status_mcp("a")
+    assert upsert.entityUrn is not None
+    patch_ = _patch_mcp(upsert.entityUrn)
+    other = _status_mcp("b")
+    mock_emitter = _scripted_emitter(_denial(upsert.entityUrn, upsert.entityUrn), None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(upsert,), (patch_,), (other,)])
+
+    assert [o is None for o in exc_info.value.outcomes] == [False, False, True]
+    sent = [call.args[0] for call in mock_emitter.emit_mcps.call_args_list]
+    assert sent[1:] == [[other]]
+    assert sink.report.batches_split_on_authorization_denial == 1
+    assert sink.report.records_denied_by_authorization == 2

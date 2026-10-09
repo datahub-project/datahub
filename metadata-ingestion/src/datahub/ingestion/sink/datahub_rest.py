@@ -6,6 +6,7 @@ import logging
 import re
 import threading
 import uuid
+from collections import Counter
 from datetime import timedelta
 from enum import auto
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
@@ -111,8 +112,10 @@ _AUTHZ_DENIAL_ENTRY = re.compile(
 )
 
 
-def _parse_denied_urns(error: OperationalError) -> Optional[Set[str]]:
-    """The entities a batch was rejected for, if `error` is a per-entity write denial."""
+def _parse_denied_urns(error: OperationalError) -> Optional["Counter[str]"]:
+    """Per URN, how many proposals of the batch were denied, if `error` is a per-entity
+    write denial. GMS authorizes each (change type, urn) proposal separately and lists
+    one entry per denied proposal, so the same URN can appear more than once."""
     if error.info.get("status") != 403:
         return None
     _, marker, entries = str(error.info.get("message") or "").partition(
@@ -128,7 +131,7 @@ def _parse_denied_urns(error: OperationalError) -> Optional[Set[str]]:
         or ", ".join(f"HttpStatus: {s} Urn: {u}" for s, u in parsed) != entries
     ):
         return None
-    return {urn for _, urn in parsed}
+    return Counter(urn for _, urn in parsed)
 
 
 def _is_record_attributable(error: BaseException) -> bool:
@@ -568,21 +571,33 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ]
 
         # A per-entity authorization denial names the records at fault, so they can be
-        # failed without per-record isolation. Only trusted when every denied entity is
-        # among the records still to write; otherwise fall through to isolation.
+        # failed without per-record isolation. Denials are per proposal, so it is only
+        # trusted when every not-landed proposal for a denied URN was denied: if a URN
+        # has more proposals than denial entries (an UPSERT denied CREATE next to an
+        # authorized PATCH, or a later chunk that was never sent), the denial does not
+        # say which of them failed, so fall through to isolation.
         error: Exception = batch_error
+        denied_counts = (
+            _parse_denied_urns(batch_error)
+            if isinstance(batch_error, OperationalError)
+            else None
+        )
+        pending_counts = Counter(
+            event.entityUrn for events in pending for event in events
+        )
         if (
             isinstance(batch_error, OperationalError)
-            and (denied := _parse_denied_urns(batch_error)) is not None
-            and denied <= {event.entityUrn for events in pending for event in events}
+            and denied_counts is not None
+            and all(pending_counts[urn] == n for urn, n in denied_counts.items())
         ):
             pending, resend_error = self._apply_authorization_denial(
-                pending, outcomes, batch_error, denied
+                pending, outcomes, batch_error, set(denied_counts)
             )
             if resend_error is None:
                 return BatchItemFailures(outcomes)
             # Something besides the parsed denial is wrong with the remainder: isolate
             # it, under the same breaker and attributability rules as any rejection.
+            # A second denial on the resend is not split again; it is isolated too.
             error = resend_error
 
         if self._isolation_suppressed:
@@ -608,7 +623,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         Updates `outcomes` in place and returns the events still not written (aligned
         with `outcomes`) and the re-send's error, or ([], None) when nothing is left.
         """
-        self.report.batches_split_on_authorization_denial += 1
         actor = str(batch_error.info.get("message")).partition(_AUTHZ_DENIAL_MARKER)[0]
         remaining: List[List[_Event]] = []
         denied_records = 0
@@ -629,8 +643,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"Unable to emit metadata to DataHub GMS: {message}",
                 {**batch_error.info, "message": message},
             )
-            self.report.authorization_denied_urns.add(urn)
-        self.report.records_denied_by_authorization += denied_records
+        with self._isolation_lock:
+            self.report.batches_split_on_authorization_denial += 1
+            self.report.records_denied_by_authorization += denied_records
+            for urn in denied:
+                self.report.authorization_denied_urns.add(urn)
 
         resend = [event for events in remaining for event in events]
         logger.info(
