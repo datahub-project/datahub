@@ -89,7 +89,9 @@ def _discovered(
     schema_gen = source.bq_schema_extractor
 
     schema_api = MagicMock()
-    schema_api.list_tables.return_value = [_item(*o) for o in objects or OBJECTS]
+    schema_api.list_tables.return_value = [
+        _item(*o) for o in (OBJECTS if objects is None else objects)
+    ]
     schema_api.get_columns_for_dataset.return_value = {}
     schema_api.get_views_for_dataset.return_value = []
     schema_api.get_snapshots_for_dataset.return_value = []
