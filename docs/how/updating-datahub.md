@@ -49,6 +49,14 @@ Requirements:
 
 ### Breaking Changes
 
+- [#19473](https://github.com/datahub-project/datahub/pull/19473) **(Ingestion / dbt, custom subclasses only)** Recipes are unaffected. Code that subclasses `DBTSourceBase` or calls dbt source internals must change:
+
+  - The abstract `load_nodes()` is replaced by `load_projects()`, which yields one `DBTProject` (nodes, exposures, metrics and that project's platform instance) per dbt project. `load_exposures()` and `load_metrics()` are removed; return those on the `DBTProject` instead.
+  - `DBTCoreSource.loadManifestAndCatalog()` and `DBTCoreSource.load_file_as_json()` are removed. Use `datahub.ingestion.source.dbt.dbt_artifacts.load_file_as_json`.
+  - Report fields: `DBTSourceReport.catalog_generated_at` is removed (the timestamp is now per project); `duplicate_sources_dropped` and `duplicate_sources_references_updated` default to `0` instead of `None`; `DBTCoreReport.run_results_paths_expanded` is now a `LossyList` instead of an optional list.
+
+  **Action:** a subclass that implemented `load_nodes()` should implement `load_projects()` and yield one `DBTProject`.
+
 - [#20111](https://github.com/datahub-project/datahub/pull/20111) **(Ingestion / CLI)** The `datahub recipe` commands (`probe`, `test-connection`, `validate`), first shipped in 1.7.0.14, now report more failures on the exit code that says who has to act: **2** your input, **3** the source, **1** DataHub, the connector or a missing package. Scripts and agents that branch on these codes will see these changes:
 
   - **Now exit 2 (fix your input):** a name the source does not list, such as a table name in the wrong case or a Mode space that does not exist (these could come back as an empty result with exit 0); a `probe filter` `--name` or `--parent` that is masked as `***` because it equals a secret (it used to be judged); a recipe connection URL whose scheme names no installed SQLAlchemy dialect, or is not a URL (was 3); a `probe sql` query the database rejects as wrong, such as a misspelled column (SQLSTATE class 42, was 3); and a `probe sql` query holding a comment or an optimizer hint, which is now refused before it runs.
