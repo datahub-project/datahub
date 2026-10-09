@@ -12,6 +12,7 @@ import { NavLinks } from '@app/homeV2/layout/NavLinks';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
 
@@ -120,7 +121,7 @@ export const NavSidebar = () => {
                     <NavSkeleton />
                 ) : (
                     <>
-                        <Link to="/">
+                        <Link to={PageRoutes.HOME}>
                             <Icon data-testid="datahub-logo-svg">{appConfig.loaded ? logoComponent : undefined}</Icon>
                         </Link>
                         <NavLinks />

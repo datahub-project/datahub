@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 
 import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { PageRoutes } from '@conf/Global';
 
 // Mock react-router
 const mockUseLocation = vi.fn();
@@ -17,15 +18,15 @@ describe('useIsHomePage', () => {
         vi.restoreAllMocks();
     });
 
-    it('should return true when pathname is "/"', () => {
-        mockUseLocation.mockReturnValue({ pathname: '/' });
+    it('should return true when pathname is the Home route', () => {
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.HOME });
 
         const { result } = renderHook(() => useIsHomePage());
 
         expect(result.current).toBe(true);
     });
 
-    it('should return false when pathname is not "/"', () => {
+    it('should return false when pathname is not the Home route', () => {
         mockUseLocation.mockReturnValue({ pathname: '/search' });
 
         const { result } = renderHook(() => useIsHomePage());
@@ -82,7 +83,7 @@ describe('useIsHomePage', () => {
     });
 
     it('should memoize the result and not recompute when pathname stays the same', () => {
-        mockUseLocation.mockReturnValue({ pathname: '/' });
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.HOME });
 
         const { result, rerender } = renderHook(() => useIsHomePage());
 
@@ -97,7 +98,7 @@ describe('useIsHomePage', () => {
 
     it('should recompute when pathname changes', () => {
         // Start with home page
-        mockUseLocation.mockReturnValue({ pathname: '/' });
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.HOME });
 
         const { result, rerender } = renderHook(() => useIsHomePage());
 
@@ -110,7 +111,7 @@ describe('useIsHomePage', () => {
         expect(result.current).toBe(false);
 
         // Change back to home page
-        mockUseLocation.mockReturnValue({ pathname: '/' });
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.HOME });
         rerender();
 
         expect(result.current).toBe(true);
@@ -129,7 +130,8 @@ describe('useIsHomePage', () => {
             { pathname: '/browse', expected: false },
             { pathname: '/search', expected: false },
             { pathname: '/datasets', expected: false },
-            { pathname: '/', expected: true },
+            { pathname: '/', expected: false },
+            { pathname: PageRoutes.HOME, expected: true },
             { pathname: '/settings', expected: false },
             { pathname: '/profile', expected: false },
             { pathname: '/lineage', expected: false },
