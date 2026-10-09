@@ -1660,6 +1660,8 @@ def assert_same_patch_envelope(chunk: MetadataWorkUnit, wu: MetadataWorkUnit) ->
     assert chunk.metadata.aspectName == wu.metadata.aspectName
     assert chunk.metadata.aspect.contentType == wu.metadata.aspect.contentType
     assert chunk.metadata.systemMetadata == wu.metadata.systemMetadata
+    assert chunk.is_primary_source == wu.is_primary_source
+    assert chunk.treat_errors_as_warnings == wu.treat_errors_as_warnings
 
 
 def test_patch_that_fits_is_passed_through(processor):
@@ -1673,6 +1675,8 @@ def test_oversized_patch_is_split_into_ordered_chunks(processor):
     wu = lineage_patch_workunit(
         [f"upstream_{i}" for i in range(5)], columns=[f"col_{i}" for i in range(10)]
     )
+    wu.is_primary_source = False
+    wu.treat_errors_as_warnings = True
     processor.patch_size_constraint = serialized_size(wu) // 3
     processor.patch_max_chunks = 10
 
