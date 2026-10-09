@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 import warnings
@@ -12,6 +13,7 @@ from typing import (
     Any,
     Dict,
     Iterable,
+    Iterator,
     List,
     Literal,
     Mapping,
@@ -408,8 +410,8 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     lineage_upstreams_skipped_missing: int = 0
 
-    duplicate_sources_dropped: Optional[int] = None
-    duplicate_sources_references_updated: Optional[int] = None
+    duplicate_sources_dropped: int = 0
+    duplicate_sources_references_updated: int = 0
 
     # Query entity emission statistics
     num_queries_emitted: int = 0
@@ -420,9 +422,6 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     # Catalog stats extraction statistics
     catalog_stats_extracted: int = 0
     catalog_stats_skipped_no_data: int = 0
-
-    # Catalog generated_at timestamp (set by subclasses when loading catalog)
-    catalog_generated_at: Optional[datetime] = None
 
     # Exposure entity emission statistics
     num_exposures_emitted: int = 0
@@ -1805,6 +1804,44 @@ class DBTMetricsParse:
     unreadable: List[Tuple[str, Exception]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class DBTProject:
+    """One dbt project, the unit that is loaded and emitted independently.
+
+    Under a globbed manifest_path a run has many of these; dbt Cloud and a
+    single manifest_path have exactly one.
+    """
+
+    nodes: List[DBTNode]
+    exposures: List[DBTExposure]
+    metrics: DBTMetricsParse
+    # dbt-side platform instance for every urn this project emits. Under a
+    # glob it is the manifest's project_name, so two projects can never share
+    # a dbt urn, an assertion guid or a semanticModel urn.
+    platform_instance: Optional[str]
+    # manifest metadata.project_name. None for dbt Cloud, which infers it.
+    project_name: Optional[str]
+    manifest_path: Optional[str]
+    # Provenance written into customProperties of every node of this project.
+    artifact_props: Dict[str, str]
+    catalog_generated_at: Optional[datetime]
+    manifest_generated_at: Optional[str]
+
+
+def _query_id_prefix(platform_instance: Optional[str]) -> str:
+    """A query-id-safe prefix that stays distinct per dbt project name.
+
+    dbt project names may contain non-ASCII letters, which sanitizing would fold
+    together, so a sanitized name also carries a short hash of the original.
+    """
+    instance = platform_instance or ""
+    sanitized = _QUERY_URN_SANITIZE_PATTERN.sub("_", instance)
+    if sanitized == instance:
+        return instance
+    digest = hashlib.sha256(instance.encode()).hexdigest()[:8]
+    return f"{sanitized}_{digest}"
+
+
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     # initialize custom properties to node's meta props
     # (dbt-native node properties)
@@ -2008,21 +2045,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
-        # Cached timestamp for Query entities (ensures reproducible output)
-        self._query_timestamp_cache: Optional[int] = None
-        # Exposures loaded by subclass (manifest or dbt Cloud API)
-        self._exposures: List[DBTExposure] = []
-        # Top-level `metrics:` definitions, loaded by subclass. dbt Cloud
-        # leaves this empty - see report_metric_source_limitations.
-        self._metrics: DBTMetricsParse = DBTMetricsParse()
-        # dbt project name, part of the semanticModel/metric urns. Set by
-        # subclasses during load.
-        self._project_name: Optional[str] = None
+        # Query entity timestamps, cached per manifest generated_at string (ensures
+        # reproducible output). The None key holds the shared now() fallback.
+        self._query_timestamp_cache: Dict[Optional[str], int] = {}
         # Resolved once by _emit_semantic_model_entities; the report field of
         # the same meaning is descriptive only.
         self._emit_semantic_models: Optional[bool] = None
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
+        # The project whose entities are being emitted, set by the loop in
+        # get_workunits_internal. None outside that loop.
+        self._current_project: Optional[DBTProject] = None
         # Cache of container urn -> parent container urn, for target-platform
         # browse paths. Sibling tables share ancestors, so without this every
         # table in a schema re-reads that schema's and database's container.
@@ -2055,28 +2088,43 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return [AutoIncrementalLineageProcessor]
 
     def _get_query_timestamp(self) -> int:
-        """Get timestamp for Query entities, cached for reproducibility."""
-        if self._query_timestamp_cache is not None:
-            return self._query_timestamp_cache
+        """Timestamp for Query entities, taken from the current project's manifest.
 
-        manifest_info = getattr(self.report, "manifest_info", None)
-        if isinstance(manifest_info, dict):
-            generated_at = manifest_info.get("generated_at")
-            if generated_at and generated_at != "unknown":
+        Per-project rather than per-run: under a globbed manifest_path each project has
+        its own manifest.json with its own generated_at, and report.manifest_info is
+        deliberately unset there. Reading only that report field made every glob run
+        fall back to now(), churning each query's created/lastModified on every
+        ingest - the same aspect churn that moved manifest_path off customProperties.
+
+        The report field remains the fallback for projects without a manifest
+        timestamp (dbt Cloud), so the single-project path is unchanged.
+        """
+        generated_at = self._project.manifest_generated_at
+        if generated_at is None:
+            manifest_info = getattr(self.report, "manifest_info", None)
+            if isinstance(manifest_info, dict):
+                generated_at = manifest_info.get("generated_at")
+        key = generated_at if generated_at and generated_at != "unknown" else None
+
+        if key not in self._query_timestamp_cache:
+            timestamp: Optional[int] = None
+            if key is not None:
                 try:
-                    self._query_timestamp_cache = datetime_to_ts_millis(
-                        dateutil.parser.parse(generated_at)
-                    )
-                    return self._query_timestamp_cache
+                    timestamp = datetime_to_ts_millis(dateutil.parser.parse(key))
                 except (ValueError, TypeError) as e:
-                    logger.warning(
-                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                    logger.warning(f"Failed to parse manifest timestamp '{key}': {e}")
+            if timestamp is None:
+                # One fallback for the whole run, shared by every node that needs
+                # it, so queries stay mutually consistent within a run.
+                if None not in self._query_timestamp_cache:
+                    self._query_timestamp_cache[None] = datetime_to_ts_millis(
+                        datetime.now()
                     )
+                    self.report.query_timestamps_fallback_used = True
+                timestamp = self._query_timestamp_cache[None]
+            self._query_timestamp_cache[key] = timestamp
 
-        # Fallback to current time (manifest timestamp unavailable or unparseable)
-        self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
-        self.report.query_timestamps_fallback_used = True
-        return self._query_timestamp_cache
+        return self._query_timestamp_cache[key]
 
     def _upstream_exists_in_datahub(self, urn: str) -> bool:
         """Check whether an upstream URN exists in DataHub, with per-run caching.
@@ -2142,7 +2190,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_test_entity_mcps(
         self,
         test_nodes: List[DBTNode],
-        extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         action_processor = OperationProcessor(
@@ -2158,7 +2205,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 upstreams = get_upstreams_for_test(
                     test_node=node,
                     all_nodes_map=all_nodes_map,
-                    platform_instance=self.config.platform_instance,
+                    platform_instance=self._dbt_platform_instance,
                     environment=self.config.env,
                 )
 
@@ -2179,7 +2226,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 for k, v in {
                                     "platform": DBT_PLATFORM,
                                     "name": node.dbt_name,
-                                    "instance": self.config.platform_instance,
+                                    "instance": self._dbt_platform_instance,
                                     # Ideally we'd include the env unconditionally. However, we started out
                                     # not including env in the guid, so we need to maintain backwards compatibility
                                     # with existing PROD assertions.
@@ -2199,7 +2246,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     custom_props = {
                         "dbt_unique_id": node.dbt_name,
                         "dbt_test_upstream_unique_id": upstream_node_name,
-                        **extra_custom_props,
+                        **self._project.artifact_props,
                     }
 
                     if self.config.entities_enabled.can_emit_test_definitions:
@@ -2248,7 +2295,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_freshness_assertion_mcps(
         self,
         source_nodes: List[DBTNode],
-        extra_custom_props: Dict[str, str],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Create assertions for dbt freshness tests on source nodes."""
         for node in sorted(source_nodes, key=lambda n: n.dbt_name):
@@ -2259,7 +2305,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             try:
                 upstream_urn = node.get_urn(
                     target_platform=self.config.target_platform,
-                    data_platform_instance=self.config.platform_instance,
+                    data_platform_instance=self._dbt_platform_instance,
                     env=self.config.env,
                 )
 
@@ -2270,7 +2316,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             for k, v in {
                                 "platform": DBT_PLATFORM,
                                 "name": f"{node.dbt_name}_freshness",
-                                "instance": self.config.platform_instance,
+                                "instance": self._dbt_platform_instance,
                                 # Ideally we'd include the env unconditionally. However, we started out
                                 # not including env in the guid, so we need to maintain backwards compatibility
                                 # with existing PROD assertions.
@@ -2288,7 +2334,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 custom_props = {
                     "dbt_unique_id": node.dbt_name,
-                    **extra_custom_props,
+                    **self._project.artifact_props,
                 }
 
                 if self.config.entities_enabled.can_emit_test_definitions:
@@ -2349,23 +2395,48 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             aspect=OwnershipClass(owners=aggregated_owners),
         )
 
+    def _is_multi_project(self) -> bool:
+        """Whether one run emits several projects, each under its own instance."""
+        return False
+
+    @property
+    def _project(self) -> DBTProject:
+        """The project being emitted, or a single-project view of the config.
+
+        Loop-scoped rather than threaded through every emit method, which holds
+        because emit is a sequential generator.
+        """
+        if self._current_project is not None:
+            return self._current_project
+        if self._is_multi_project():
+            # The config carries no instance in multi-project mode, so a fallback
+            # would mint urns without the project's instance.
+            raise RuntimeError("no dbt project is being emitted")
+        return DBTProject(
+            nodes=[],
+            exposures=[],
+            metrics=DBTMetricsParse(),
+            platform_instance=self.config.platform_instance,
+            project_name=None,
+            manifest_path=None,
+            artifact_props={},
+            catalog_generated_at=None,
+            manifest_generated_at=None,
+        )
+
+    @property
+    def _dbt_platform_instance(self) -> Optional[str]:
+        return self._project.platform_instance
+
     @abstractmethod
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        # return dbt nodes (including semantic models) + global custom properties
+    def load_projects(self) -> Iterator[DBTProject]:
+        """Yield each dbt project to emit, one at a time."""
         raise NotImplementedError()
-
-    def load_exposures(self) -> List[DBTExposure]:
-        """Return dbt exposures. Subclasses populate self._exposures during load."""
-        return self._exposures
-
-    def load_metrics(self) -> DBTMetricsParse:
-        """Return dbt metrics. Subclasses populate self._metrics during load."""
-        return self._metrics
 
     def report_metric_source_limitations(self) -> None:
         """Report what this source cannot read from dbt's `metrics:` block.
 
-        Separate from `load_metrics` so the note is tied to a run that actually
+        Separate from loading so the note is tied to a run that actually
         emits semantic-model entities, rather than to the act of loading.
         """
 
@@ -2378,7 +2449,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for exposure in sorted(exposures, key=lambda e: e.unique_id):
             try:
                 exposure_urn = exposure.get_urn(
-                    platform_instance=self.config.platform_instance,
+                    platform_instance=self._dbt_platform_instance,
                 )
 
                 # Platform instance aspect
@@ -2410,7 +2481,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         upstream_urn = upstream_node.get_urn(
                             target_platform=DBT_PLATFORM,
                             env=self.config.env,
-                            data_platform_instance=self.config.platform_instance,
+                            data_platform_instance=self._dbt_platform_instance,
                         )
                         upstream_urns.append(upstream_urn)
                     else:
@@ -2522,9 +2593,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             instance=(
                 mce_builder.make_dataplatform_instance_urn(
                     mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                    self.config.platform_instance,
+                    self._dbt_platform_instance,
                 )
-                if self.config.platform_instance
+                if self._dbt_platform_instance
                 else None
             ),
         )
@@ -2539,18 +2610,37 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 "Using dbt with skip_missing_upstreams_in_lineage=True"
             )
 
-        all_nodes, additional_custom_props = self.load_nodes()
+        if (
+            not self.config.entities_enabled.can_emit_semantic_models
+            and self.config.emit_semantic_model_entities
+        ):
+            # Only when the recipe asked outright. An unset flag auto-enables
+            # on a capable server, so warning unconditionally would fire on
+            # every run of any recipe that turned semantic models off -
+            # including projects that have none.
+            self.report.warning(
+                title="emit_semantic_model_entities has no effect",
+                message="`entities_enabled.semantic_models` is not set to "
+                "YES, so no semanticModel or metric entities will be emitted "
+                "and no dataset will be annotated.",
+            )
 
+        for project in self.load_projects():
+            self._current_project = project
+            try:
+                yield from self._emit_project(project)
+            finally:
+                self._current_project = None
+
+    def _emit_project(
+        self, project: DBTProject
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+        all_nodes = project.nodes
         if self.config.convert_urns_to_lowercase:
             for node in all_nodes:
                 node.convert_urns_to_lowercase = True
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
-        additional_custom_props_filtered = {
-            key: value
-            for key, value in additional_custom_props.items()
-            if value is not None
-        }
 
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
@@ -2569,37 +2659,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
-        yield from self.create_dbt_platform_mces(
-            non_test_nodes,
-            additional_custom_props_filtered,
-            all_nodes_map,
-        )
+        yield from self.create_dbt_platform_mces(non_test_nodes, all_nodes_map)
 
         logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_target_platform_mces(non_test_nodes)
 
-        yield from self.create_test_entity_mcps(
-            test_nodes,
-            additional_custom_props_filtered,
-            all_nodes_map,
-        )
+        yield from self.create_test_entity_mcps(test_nodes, all_nodes_map)
 
-        yield from self.create_freshness_assertion_mcps(
-            non_test_nodes,
-            additional_custom_props_filtered,
-        )
+        yield from self.create_freshness_assertion_mcps(non_test_nodes)
 
-        # Load and emit exposures if enabled
-        if self.config.entities_enabled.can_emit_exposures:
-            exposures = self.load_exposures()
-            if exposures:
-                self.report.num_exposures_emitted = len(exposures)
-                for e in exposures:
-                    self.report.num_exposures_by_type[e.type] += 1
-                logger.info(
-                    f"Creating dbt exposure metadata for {len(exposures)} exposures"
-                )
-                yield from self.create_exposure_mcps(exposures, all_nodes_map)
+        exposures = project.exposures
+        if self.config.entities_enabled.can_emit_exposures and exposures:
+            self.report.num_exposures_emitted += len(exposures)
+            for e in exposures:
+                self.report.num_exposures_by_type[e.type] += 1
+            logger.info(
+                f"Creating dbt exposure metadata for {len(exposures)} exposures"
+            )
+            yield from self.create_exposure_mcps(exposures, all_nodes_map)
 
         # Layered on top of the datasets emitted above, never instead of them:
         # see _create_semantic_model_workunits.
@@ -2607,26 +2684,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             semantic_model_nodes = [
                 node for node in non_test_nodes if node.is_semantic_model()
             ]
+            parsed_metrics = project.metrics
             # Resolving the gate probes the server, so only do it once there is
             # something for it to gate.
-            parsed_metrics = self.load_metrics()
             if (
                 semantic_model_nodes
                 or parsed_metrics.metrics
                 or parsed_metrics.unreadable
             ) and self._emit_semantic_model_entities():
-                yield from self._create_semantic_model_workunits(semantic_model_nodes)
-        elif self.config.emit_semantic_model_entities:
-            # Only when the recipe asked outright. An unset flag auto-enables
-            # on a capable server, so warning unconditionally would fire on
-            # every run of any recipe that turned semantic models off -
-            # including projects that have none.
-            self.report.warning(
-                title="emit_semantic_model_entities has no effect",
-                message="`entities_enabled.semantic_models` is not set to "
-                "YES, so no semanticModel or metric entities will be emitted "
-                "and no dataset will be annotated.",
-            )
+                yield from self._create_semantic_model_workunits(
+                    project, semantic_model_nodes
+                )
 
     def _emit_semantic_model_entities(self) -> bool:
         """Resolve the tri-state semantic-model decision once, then cache it.
@@ -2684,7 +2752,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return decision.enabled
 
     def _resolve_semantic_model_project_name(
-        self, semantic_model_nodes: List[DBTNode]
+        self, project_name: Optional[str], semantic_model_nodes: List[DBTNode]
     ) -> Optional[str]:
         """Resolve the project name that becomes part of every new urn.
 
@@ -2694,8 +2762,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """
         if self.config.semantic_model_project_name:
             return self.config.semantic_model_project_name
-        if self._project_name:
-            return self._project_name
+        if project_name:
+            return project_name
 
         # dbt Cloud has no manifest metadata, but the Discovery API returns
         # packageName for semantic models, which is the project name for
@@ -2733,6 +2801,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def _create_semantic_model_workunits(
         self,
+        project: DBTProject,
         semantic_model_nodes: List[DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit the semanticModel/metric layer over the datasets already emitted.
@@ -2745,7 +2814,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         semanticModelProperties plus schemaField-anchored
         semanticFieldAnnotation aspects.
         """
-        parsed_metrics = self.load_metrics()
+        parsed_metrics = project.metrics
         self.report_metric_source_limitations()
         for unique_id, cause in parsed_metrics.unreadable:
             # Reported here rather than at parse time: this is the first point
@@ -2770,7 +2839,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             DbtSemanticModelMapper,
         )
 
-        project_name = self._resolve_semantic_model_project_name(semantic_model_nodes)
+        project_name = self._resolve_semantic_model_project_name(
+            project.project_name, semantic_model_nodes
+        )
         if project_name is None:
             # Reported as a failure, which makes this terminal by design: the
             # project name is urn identity, so guessing one would mint entities
@@ -2782,6 +2853,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             config=self.config,
             report=self.report,
             project_name=project_name,
+            platform_instance=project.platform_instance,
         )
         yield from mapper.emit(
             semantic_model_nodes=semantic_model_nodes,
@@ -2860,9 +2932,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """
         if not self.config.drop_duplicate_sources:
             return original_nodes
-
-        self.report.duplicate_sources_dropped = 0
-        self.report.duplicate_sources_references_updated = 0
 
         # Pass 1 - find all model names in the warehouse.
         warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
@@ -3312,7 +3381,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_dbt_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
-        additional_custom_props_filtered: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
@@ -3336,7 +3404,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 node_datahub_urn = node.get_urn(
                     DBT_PLATFORM,
                     self.config.env,
-                    self.config.platform_instance,
+                    self._dbt_platform_instance,
                 )
 
                 meta_aspects: Dict[str, Any] = {}
@@ -3353,7 +3421,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 aspects = self._generate_base_dbt_aspects(
                     node,
-                    additional_custom_props_filtered,
                     DBT_PLATFORM,
                     meta_aspects,
                     column_meta_aspects=column_meta_aspects,
@@ -3459,9 +3526,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     and self.config.entities_enabled.can_emit_catalog_stats
                 ):
                     if node.row_count is not None or node.size_in_bytes is not None:
-                        # Use catalog's generated_at timestamp if available, else fallback to now (UTC)
+                        # Use this node's own project's catalog generated_at timestamp
+                        # if available, else fallback to now (UTC).
                         profile_timestamp = (
-                            self.report.catalog_generated_at
+                            self._project.catalog_generated_at
                             or datetime.now(tz=timezone.utc)
                         )
                         dataset_profile = DatasetProfileClass(
@@ -3502,7 +3570,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         node_datahub_urn = node.get_urn(
             DBT_PLATFORM,
             self.config.env,
-            self.config.platform_instance,
+            self._dbt_platform_instance,
         )
 
         for model_performance in node.model_performances:
@@ -3599,7 +3667,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             queries = queries[:max_queries]
 
-        # Get timestamp (computed once from manifest, cached for reproducibility)
+        # Timestamp from the current project's manifest, cached for reproducibility
         query_timestamp = self._get_query_timestamp()
 
         seen_urns: Dict[str, str] = {}
@@ -3632,6 +3700,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
                 "_", f"{node.dbt_name}_{query_name}"
             )
+            if self._is_multi_project():
+                # Query urns carry no platform instance, so two projects installing
+                # the same package model would otherwise share one. Single-project
+                # ids stay unprefixed to keep existing urns stable.
+                query_id = f"{_query_id_prefix(self._dbt_platform_instance)}_{query_id}"
             query_urn_str = QueryUrn(query_id).urn()
 
             # Skip duplicates (can occur when different names sanitize to same URN)
@@ -3758,7 +3831,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     dbt_platform_urn = node.get_urn(
                         DBT_PLATFORM,
                         self.config.env,
-                        self.config.platform_instance,
+                        self._dbt_platform_instance,
                     )
 
                     # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
@@ -3794,7 +3867,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     upstream_dbt_urn = node.get_urn(
                         DBT_PLATFORM,
                         self.config.env,
-                        self.config.platform_instance,
+                        self._dbt_platform_instance,
                     )
 
                     upstreams_lineage_class = make_mapping_upstream_lineage(
@@ -4269,13 +4342,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return mce
 
     def _create_dataset_properties_aspect(
-        self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
+        self, node: DBTNode
     ) -> DatasetPropertiesClass:
         description = node.description
 
         custom_props = {
             **get_custom_properties(node),
-            **additional_custom_props_filtered,
+            **self._project.artifact_props,
         }
         dbt_properties = DatasetPropertiesClass(
             description=description,
@@ -4323,7 +4396,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
-        additional_custom_props_filtered: Dict[str, str],
         mce_platform: str,
         meta_aspects: Dict[str, Any],
         column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -4337,9 +4409,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         aspects: List[Any] = []
 
         # add dataset properties aspect
-        dbt_properties = self._create_dataset_properties_aspect(
-            node, additional_custom_props_filtered
-        )
+        dbt_properties = self._create_dataset_properties_aspect(node)
         aspects.append(dbt_properties)
 
         # add status aspect
@@ -4586,7 +4656,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         node_urn = node.get_urn(
             target_platform=DBT_PLATFORM,
             env=self.config.env,
-            data_platform_instance=self.config.platform_instance,
+            data_platform_instance=self._dbt_platform_instance,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -4610,13 +4680,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.target_platform,
                 self.config.target_platform_instance,
                 self.config.env,
-                self.config.platform_instance,
+                self._dbt_platform_instance,
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
                 return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
-                    dbt_platform_instance=self.config.platform_instance,
+                    dbt_platform_instance=self._dbt_platform_instance,
                     target_platform=self.config.target_platform,
                     target_platform_instance=self.config.target_platform_instance,
                     env=self.config.env,

@@ -271,6 +271,59 @@ source:
 
 To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.com/storage/docs/authentication/managing-hmackeys).
 
+#### Multi-Project Ingestion (glob patterns)
+
+If you run many independent dbt projects against the same target platform, `manifest_path` can be a glob pattern instead of a single file, so one ingestion recipe covers every matched project in a single run:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-bucket/dbt-artifacts/*/manifest.json"
+    run_results_paths:
+      - "s3://my-bucket/dbt-artifacts/*/run_results.json"
+    aws_connection:
+      aws_region: us-east-1
+    target_platform: postgres
+```
+
+Each match is loaded and ingested as an independent dbt project:
+
+- **`catalog.json` and `sources.json` are read from the same directory as the matched `manifest.json`**, so `catalog_path` and `sources_path` must not be set alongside a glob. A project with no `catalog.json` is ingested without catalog column types and statistics, with a warning; if `only_include_if_in_catalog` is set, that project is skipped instead, because every one of its nodes would be filtered out. A project with no `sources.json` is ingested without last-modified fields, with a warning. A catalog or sources file that exists but cannot be read (permissions, throttling, a network error) or is corrupt skips that project.
+- **`run_results` files are matched to the project whose manifest shares their directory.** A run_results file in a directory with no manifest is reported with a warning and attached to nothing. A run_results file that cannot be read is reported with a warning, and its project is ingested without those test results.
+- **A `source()` in one project that points at another project's model** connects through the shared warehouse dataset, exactly as it does with separate recipes.
+- **Semantic models and metrics** are emitted per project under that project's name. `semantic_model_project_name` must not be set with a glob.
+- **`git_info` must not be set with a glob**, because each project's file paths are relative to its own project root and one repository location would link them to the wrong files.
+- **A glob character that is part of a real path** is escaped with brackets: `[[]`, `[*]` or `[?]`. For example, a directory literally named `dbt[prod]` is written `dbt[[]prod]`.
+
+A project that fails to load is reported as a failure for that project only and listed under `manifest_paths_failed` in the run report, so every other matched project still ingests fully.
+
+##### The dbt project name is the platform instance
+
+Under a glob, each project's dbt `platform_instance` is its manifest's `metadata.project_name`, which is the `name:` in its `dbt_project.yml`. It cannot be set in the recipe. This keeps every dbt URN, assertion, query and semantic model distinct per project, even when two projects install the same dbt package or materialize the same table, and it matches the one-recipe-per-project setup described under [Multiple dbt projects](#multiple-dbt-projects). It also means multi-project ingestion needs artifacts from dbt 1.6 or newer, which record `metadata.project_name`; a manifest without it is reported as a failed project.
+
+**Renaming a dbt project changes all of its URNs.** After a rename, the project's datasets, assertions, queries, semantic models and metrics are ingested as new entities under the new name, and stale-entity removal soft-deletes the old ones. Metadata curated in DataHub on the old entities, such as descriptions, tags, glossary terms, owners and documentation, stays with the deleted entities and is not carried over. The warehouse datasets themselves are not affected, since their URNs do not include the dbt platform instance. If a project's identity in DataHub must survive renames, ingest it with its own recipe and a fixed `platform_instance` instead.
+
+**Two matched manifests with the same `project_name` cannot both be ingested.** This happens when the glob picks up two builds of one project (for example a production and a staging `target/`), or when two teams kept dbt's default project name. The first manifest in path order that loads successfully is ingested. Every other manifest with that name is reported as a failed project, and the failure names the manifest that was kept. Because it is a failure, stale-entity removal is skipped for every project on every run until it is resolved. To resolve it, narrow the glob so that it matches one build per project, or give the projects distinct names in `dbt_project.yml`, which is itself a rename as described above.
+
+**Migrating from one recipe per project.** If those recipes set `platform_instance` to the project name, dataset, assertion and semantic model URNs stay the same. Query entities from `meta.queries` are re-created, because under a glob their URNs also include the project name, which keeps a query on a shared package model distinct per project. If they used a different instance or none, the glob recipe mints new URNs. Stale-entity removal retires the old ones only for the recipe whose `pipeline_name` the glob recipe keeps; entities from the other retired pipelines must be cleaned up separately, for example with a final run of each with stale-entity removal enabled, or with `datahub delete`.
+
+:::caution Point the glob at a stable artifact location
+
+A project whose manifest is simply _absent_ when the glob is expanded is indistinguishable from a project that has been deleted, so its previously-ingested entities are soft-deleted. There is no warning for this: the run sees a smaller match set and succeeds, and the stale-entity fail-safe only trips when a large enough share of the estate disappears at once.
+
+The usual cause is a CI job rewriting `target/` in place, so a run that lists objects mid-upload sees a partial set. Point the glob at a location that is written atomically or is immutable once published — for example a per-run prefix that is only swapped in when complete — rather than at a directory being overwritten by a live build.
+
+The number of manifests actually matched is reported as `manifests_loaded`, and every matched path is listed under `manifest_paths_expanded`, so an unexpected drop is visible in the run report even though it is not flagged as an error.
+
+:::
+
+:::note A project that fails to load suppresses stale-entity removal for the run
+
+Any reported failure disables stale-entity soft-deletion for the entire run, across every project. This is deliberately the safe direction: a run with a reported problem should not delete metadata. Fix the failing project to restore cleanup for the others.
+
+:::
+
 ### Prerequisites
 
 The artifacts used by this source are:
