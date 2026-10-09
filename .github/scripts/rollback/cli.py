@@ -112,8 +112,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     if warning:
         print(f"Warning: {warning}", file=sys.stderr)
 
+    diff = pipeline.schema_diff(args.current, args.target, findings)
     md = report.render_rollback_report(
-        findings, args.current, args.target, current_sha, target_sha, warning
+        findings, args.current, args.target, current_sha, target_sha, warning, diff
     )
 
     if args.output:
@@ -131,6 +132,7 @@ def main(argv: Optional[list[str]] = None) -> None:
             current_sha,
             target_sha,
             warning,
+            diff,
         )
         Path(json_path).write_text(json_out, encoding="utf-8")
         print(f"JSON report written to {json_path}", file=sys.stderr)

@@ -1103,6 +1103,108 @@ def refine_relationship_findings(
             )
 
 
+_RISK_ORDER = [
+    model.BLOCKS_ROLLBACK,
+    model.REQUIRES_ATTENTION,
+    model.EXPECTED_LOSS,
+    model.SAFE,
+]
+
+
+def _aspect_versions(contents: dict[str, str]) -> dict[str, int]:
+    """{aspect name: schemaVersion} for every @Aspect PDL file."""
+    versions: dict[str, int] = {}
+    for content in contents.values():
+        meta = pdl_parser.parse(content).aspect
+        if meta and meta.get("name"):
+            versions[meta["name"]] = int(meta.get("schemaVersion") or 1)
+    return versions
+
+
+def schema_diff(
+    current: str, target: str, findings: list[model.RollbackFinding]
+) -> dict:
+    """Entities and aspects added, removed or changed between N-1 and N, from
+    entity-registry.yml and every PDL file at both refs. Differences only."""
+    reg_n = pdl_parser.entity_registry(
+        rac.file_at(current, pdl_parser.ENTITY_REGISTRY) or ""
+    )
+    reg_t = pdl_parser.entity_registry(
+        rac.file_at(target, pdl_parser.ENTITY_REGISTRY) or ""
+    )
+    ver_n, ver_t = (
+        _aspect_versions(_all_pdls_at(current)),
+        _aspect_versions(_all_pdls_at(target)),
+    )
+
+    def key_aspect(entity: str) -> Optional[str]:
+        keys = [a for a in reg_n.get(entity, ()) if a.endswith("Key")]
+        return keys[0] if len(keys) == 1 else None
+
+    changes: dict[str, list[model.RollbackFinding]] = {}
+    for f in findings:
+        if f.dimension not in (model.DIM_PDL_SCHEMA, model.DIM_SCHEMA_VERSION):
+            continue
+        own = (
+            f.aspect_name
+            if f.aspect_name
+            and ", " not in f.aspect_name
+            and "more" not in f.aspect_name
+            else None
+        )
+        for aspect in ([own] if own else []) + list(f.affected_aspects):
+            if aspect in ver_n and aspect in ver_t:
+                changes.setdefault(aspect, []).append(f)
+    for aspect in set(ver_n) & set(ver_t):
+        if ver_n[aspect] != ver_t[aspect]:
+            changes.setdefault(aspect, [])
+
+    def described(fs: list[model.RollbackFinding]) -> list[str]:
+        items = [f.change for f in fs if f.dimension == model.DIM_PDL_SCHEMA]
+        return list(dict.fromkeys(i[0].lower() + i[1:] for i in items))
+
+    return {
+        "entities_added": [
+            {"entity": e, "key_aspect": key_aspect(e), "aspects": sorted(reg_n[e])}
+            for e in sorted(set(reg_n) - set(reg_t))
+        ]
+        if reg_t
+        else [],
+        "entities_removed": sorted(set(reg_t) - set(reg_n)) if reg_n else [],
+        "aspects_added": [
+            {
+                "aspect": a,
+                "entities": sorted(e for e, asps in reg_n.items() if a in asps),
+            }
+            for a in sorted(set(ver_n) - set(ver_t))
+        ],
+        "aspects_removed": sorted(set(ver_t) - set(ver_n)),
+        "entity_aspects_changed": [
+            {
+                "entity": e,
+                "aspects_added": sorted(a for a in reg_n[e] - reg_t[e] if a in ver_t),
+                "aspects_removed": sorted(a for a in reg_t[e] - reg_n[e] if a in ver_n),
+            }
+            for e in sorted(set(reg_n) & set(reg_t))
+            if {a for a in reg_n[e] - reg_t[e] if a in ver_t}
+            or {a for a in reg_t[e] - reg_n[e] if a in ver_n}
+        ],
+        "aspects_changed": [
+            {
+                "aspect": a,
+                "schema_version": [ver_t[a], ver_n[a]],
+                "changes": described(changes[a]),
+                "worst_risk": min(
+                    (f.risk for f in changes[a]),
+                    key=_RISK_ORDER.index,
+                    default=model.SAFE,
+                ),
+            }
+            for a in sorted(changes)
+        ],
+    }
+
+
 def attribute_embedded_aspect_changes(
     findings: list[model.RollbackFinding],
     current: str,

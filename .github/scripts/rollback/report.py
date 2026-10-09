@@ -231,6 +231,7 @@ def render_rollback_report(
     current_sha: str,
     target_sha: str,
     warning: Optional[str] = None,
+    diff: Optional[dict] = None,
 ) -> str:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     verdict = model.compute_verdict(findings)
@@ -339,6 +340,9 @@ def render_rollback_report(
     reindex_findings = [f for f in findings if f.reindex_required]
     if reindex_findings:
         lines.extend(_render_reindex_section(reindex_findings))
+
+    if diff:
+        lines.extend(_render_schema_diff(diff))
 
     return "\n".join(lines) + "\n"
 
@@ -465,6 +469,110 @@ def _render_reindex_section(findings: list[model.RollbackFinding]) -> list[str]:
     return lines
 
 
+def _cell_list(items: list[str], limit: int = 8) -> str:
+    shown = ", ".join(f"`{i}`" for i in items[:limit])
+    return shown + (f" +{len(items) - limit} more" if len(items) > limit else "") or "—"
+
+
+def _short_change(change: str) -> str:
+    """ "in `Rec`: Added field `f` (via …)" -> "added field `Rec.f`"; other
+    changes are kept as written."""
+    m = re.match(r"(?i)^(?:in `([^`]+)`: )?(added|removed) field `([^`]+)`", change)
+    if not m:
+        return change
+    record, verb, field = m.groups()
+    return f"{verb.lower()} field `{record + '.' if record else ''}{field}`"
+
+
+def _render_schema_diff(diff: dict) -> list[str]:
+    """Entities and aspects that differ between N-1 and N; empty tables are left out."""
+    lines = [
+        "## Schema Diff (N vs N-1)",
+        "",
+        "_Entities and aspects added, removed or changed in N, from `entity-registry.yml` "
+        "and the PDL files of both releases. Differences only._",
+        "",
+    ]
+    if diff.get("entities_added"):
+        lines += [
+            f"### Entities added in N ({len(diff['entities_added'])})",
+            "",
+            "| Entity | Key aspect | Aspects |",
+            "| --- | --- | --- |",
+        ]
+        lines += [
+            f"| `{e['entity']}` | {'`' + e['key_aspect'] + '`' if e['key_aspect'] else '—'} "
+            f"| {_cell_list(e['aspects'])} |"
+            for e in diff["entities_added"]
+        ]
+        lines.append("")
+    if diff.get("entities_removed"):
+        lines += [
+            f"### Entities removed in N ({len(diff['entities_removed'])})",
+            "",
+            "| Entity |",
+            "| --- |",
+        ]
+        lines += [f"| `{e}` |" for e in diff["entities_removed"]]
+        lines.append("")
+    if diff.get("aspects_added"):
+        lines += [
+            f"### Aspects added in N ({len(diff['aspects_added'])})",
+            "",
+            "| Aspect | On entities |",
+            "| --- | --- |",
+        ]
+        lines += [
+            f"| `{a['aspect']}` | {_cell_list(a['entities'])} |"
+            for a in diff["aspects_added"]
+        ]
+        lines.append("")
+    if diff.get("aspects_removed"):
+        lines += [
+            f"### Aspects removed in N ({len(diff['aspects_removed'])})",
+            "",
+            "| Aspect |",
+            "| --- |",
+        ]
+        lines += [f"| `{a}` |" for a in diff["aspects_removed"]]
+        lines.append("")
+    if diff.get("entity_aspects_changed"):
+        lines += [
+            "### Existing aspects added to or removed from entities",
+            "",
+            "| Entity | Aspects added | Aspects removed |",
+            "| --- | --- | --- |",
+        ]
+        lines += [
+            f"| `{e['entity']}` | {_cell_list(e['aspects_added'])} | {_cell_list(e['aspects_removed'])} |"
+            for e in diff["entity_aspects_changed"]
+        ]
+        lines.append("")
+    if diff.get("aspects_changed"):
+        lines += [
+            f"### Aspects changed ({len(diff['aspects_changed'])})",
+            "",
+            "| Aspect | Schema version (N-1 → N) | What changed | Worst risk |",
+            "| --- | --- | --- | --- |",
+        ]
+        for a in diff["aspects_changed"]:
+            old, new = a["schema_version"]
+            version = f"v{old} → v{new}" if old != new else f"v{old}"
+            items = [_short_change(c) for c in a["changes"]]
+            what = (
+                _table_cell(
+                    "; ".join(items[:6])
+                    + (f"; +{len(items) - 6} more" if len(items) > 6 else "")
+                )
+                or "no field-level change found"
+            )
+            lines.append(
+                f"| `{a['aspect']}` | {version} | {what} | {a['worst_risk']} |"
+            )
+        lines.append("")
+    return lines if len(lines) > 5 else []
+
+
 def render_json_report(
     findings: list[model.RollbackFinding],
     current: str,
@@ -472,6 +580,7 @@ def render_json_report(
     current_sha: str,
     target_sha: str,
     warning: Optional[str] = None,
+    diff: Optional[dict] = None,
 ) -> str:
     verdict = model.compute_verdict(findings)
     data = {
@@ -495,5 +604,6 @@ def render_json_report(
             ),
         },
         "findings": [model.public_dict(f) for f in findings],
+        "schema_diff": diff,
     }
     return json.dumps(data, indent=2)

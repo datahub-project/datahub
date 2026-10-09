@@ -1989,3 +1989,33 @@ class TestN1Summary:
         assert "- **Read:** works, except entities whose records use N's new values or lack a field N-1 requires (`docInfo`) and the new entity type `feedback`." in text
         assert "`incidentInfo`, `incidentActivityEvent`" in text and "`feedbackInfo`" not in text.split("Write")[1].split("Data loss")[0]
         assert "N's new field is dropped when N-1 saves those records. N's new aspects and entity types stay in the database." in text
+
+
+class TestSchemaDiff:
+    def test_lists_only_differences(self):
+        reg_n1 = "entities:\n  - name: dataset\n    keyAspect: datasetKey\n    aspects:\n      - status\n"
+        reg_n = (reg_n1 + "      - forms\n      - dataProducts\n"
+                 "  - name: feedback\n    keyAspect: feedbackKey\n    aspects:\n      - feedbackInfo\n")
+        def aspect(name, version=1):
+            return f'namespace a\n@Aspect = {{ "name": "{name}", "schemaVersion": {version} }}\nrecord R {{\n  x: string\n}}\n'
+        n1 = {"s.pdl": aspect("status"), "f.pdl": aspect("forms"), "old.pdl": aspect("oldAspect")}
+        n = {"s.pdl": aspect("status", 2), "f.pdl": aspect("forms"), "d.pdl": aspect("dataProducts"),
+             "fi.pdl": aspect("feedbackInfo"), "fk.pdl": aspect("feedbackKey")}
+        changed = _finding(aspect_name="status", summary="Added field `x` — N-1 ignores unknown fields",
+                           risk=model.EXPECTED_LOSS)
+        with patch.object(rac, "file_at", lambda ref, path: reg_n if ref == "N" else reg_n1), \
+             patch.object(pdl_rules, "_all_pdls_at", lambda ref: n if ref == "N" else n1):
+            diff = pdl_rules.schema_diff("N", "N-1", [changed])
+        assert [e["entity"] for e in diff["entities_added"]] == ["feedback"]
+        assert diff["entities_added"][0]["key_aspect"] == "feedbackKey"
+        assert [a["aspect"] for a in diff["aspects_added"]] == ["dataProducts", "feedbackInfo", "feedbackKey"]
+        assert diff["aspects_removed"] == ["oldAspect"]
+        assert diff["entity_aspects_changed"] == [{"entity": "dataset", "aspects_added": ["forms"], "aspects_removed": []}]
+        assert diff["aspects_changed"] == [{"aspect": "status", "schema_version": [1, 2],
+                                            "changes": ["added field `x`"], "worst_risk": "expected_loss"}]
+        md = "\n".join(report._render_schema_diff(diff))
+        assert "### Entities added in N (1)" in md and "| `status` | v1 → v2 | added field `x` | expected_loss |" in md
+
+    def test_nested_field_changes_are_shortened(self):
+        assert report._short_change("in `Rec`: Added field `f` (via includes `X`)") == "added field `Rec.f`"
+        assert report._short_change("enum `E`: added value `V`") == "enum `E`: added value `V`"

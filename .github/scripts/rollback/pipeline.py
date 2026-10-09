@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 from typing import Optional
 
 import report_aspect_changes as rac
@@ -198,6 +200,17 @@ def attach_commits(
         ]
         prs = list(dict.fromkeys(pr for _, pr in changes if pr))
         f.pr_number = ", ".join(prs) or None
+
+
+def schema_diff(
+    current: str, target: str, findings: list[model.RollbackFinding]
+) -> Optional[dict]:
+    """Entity and aspect differences for the report's last section; None when
+    the refs can't be read."""
+    try:
+        return pdl_rules.schema_diff(current, target, findings)
+    except subprocess.CalledProcessError:
+        return None
 
 
 def collect_findings(
