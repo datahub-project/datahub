@@ -80,7 +80,7 @@ enabled = True  # default
 | capture_ol_file_datasets           | false                | Keep `file` datasets that operators report through OpenLineage. These are usually scratch paths on the worker, such as `/tmp/tmpab12/out.csv`, so they are skipped by default. Files declared as Airflow Assets or manual inlets/outlets are always kept. |
 | capture_bigquery_temp_datasets     | false                | Keep BigQuery tables in hidden and anonymous datasets, which hold query results, scripts and sessions. They are dropped by default.                                                                                                                       |
 | bigquery_temp_table_dataset_prefix | \_                   | Dataset-name prefix that marks those hidden datasets. Matches the BigQuery source's `temp_table_dataset_prefix`.                                                                                                                                          |
-| path_specs                     | []                   | JSON list of path specs whose `{table}` folder replaces any file or run folder beneath it. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).                                                                                   |
+| path_specs                         | []                   | JSON list of path specs whose `{table}` folder replaces any file or run folder beneath it. See [Collapsing file paths into tables](#collapsing-file-paths-into-tables).                                                                                   |
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                                                          |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                                                          |
 | emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.                               |
@@ -121,6 +121,12 @@ path_specs = [
     {"include": "gs://my-bucket/{table}"},
     {"include": "s3://my-other-bucket/raw/*/{table}/*.parquet", "exclude": ["s3://my-other-bucket/raw/tmp/**"]}
   ]
+```
+
+Amazon MWAA and Google Cloud Composer accept only single-line values, so put the whole list on one line when you set it as the `datahub.path_specs` configuration override or as an environment variable:
+
+```bash
+AIRFLOW__DATAHUB__PATH_SPECS='[{"include": "gs://my-bucket/{table}"}, {"include": "s3://my-other-bucket/raw/*/{table}/*.parquet", "exclude": ["s3://my-other-bucket/raw/tmp/**"]}]'
 ```
 
 With this config, `gs://my-bucket/events/run_123/part-0001.json` is recorded as `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events,PROD)`. Paths that match no spec keep their own dataset.
