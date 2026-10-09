@@ -49,7 +49,7 @@ def test_paginated_raw_responses_and_large_exports(
     }
     proxy.list_genie_spaces_raw.side_effect = [
         {"spaces": [{"space_id": "space/1"}], "next_page_token": "next"},
-        {"spaces": [{"space_id": "space-2"}]},
+        {"spaces": [{"space_id": "space/1"}, {}, {"space_id": "space-2"}]},
     ]
     proxy.get_genie_space_raw.side_effect = [
         detail,
@@ -60,6 +60,10 @@ def test_paginated_raw_responses_and_large_exports(
     assert proxy.list_genie_spaces_raw.call_args_list == [
         call(page_token=None),
         call(page_token="next"),
+    ]
+    assert proxy.get_genie_space_raw.call_args_list == [
+        call("space/1"),
+        call("space-2"),
     ]
     chunks = [
         record.getMessage().split(" payload=", 1)[1]
@@ -73,7 +77,7 @@ def test_paginated_raw_responses_and_large_exports(
         len(formatter.format(record)) <= IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH
         for record in caplog.records
     )
-    assert "visible_spaces=2 details=2 failures=0 listing_complete=True" in caplog.text
+    assert "visible_spaces=2 details=2 failures=1 listing_complete=True" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -147,6 +151,7 @@ def test_detail_denied_preserves_list_metadata_and_continues(
         [
             {"spaces": [], "next_page_token": "repeat"},
             {"spaces": [], "next_page_token": "repeat"},
+            {"spaces": []},
         ],
         [{"spaces": "invalid"}],
         [RuntimeError("private failure")],
