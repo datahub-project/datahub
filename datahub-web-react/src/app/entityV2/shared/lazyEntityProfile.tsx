@@ -72,32 +72,20 @@ export type LazyProfileComponent = React.FunctionComponent<any> & {
  * Props stay loose so the wrapper assigns to the tab and sidebar component slots. Sidebars key
  * sections by displayName, so each wrapper sets that to the component name.
  *
- * `preload` starts that same import. Await it before rendering through the wrapper; once
- * the module has loaded, the wrapper renders it directly.
+ * `preload` starts that same import. The wrapper always renders the lazy component, so a
+ * later parent render keeps the mounted section instead of swapping in another element type.
  */
 export function lazyProfileComponent(displayName: string, loader: () => Promise<ChunkModule>): LazyProfileComponent {
     let pending: Promise<ChunkModule> | undefined;
-    let Resolved: React.ComponentType<any> | undefined;
 
     function load() {
-        pending ??= loader().then((module) => {
-            Resolved = module.default;
-            return module;
-        });
+        pending ??= loader();
         return pending;
     }
 
     const LazyComponent = React.lazy(load);
 
     function ProfileComponent(props: any) {
-        if (Resolved) {
-            return (
-                <ProfileChunkBoundary>
-                    <Resolved {...props} />
-                </ProfileChunkBoundary>
-            );
-        }
-
         return (
             <ProfileChunkBoundary>
                 <Suspense
