@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -50,6 +49,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionSourceTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
@@ -2111,8 +2111,8 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
@@ -2171,8 +2171,8 @@ def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
     assert mcp.aspect.customAssertion.nativeType == "not_null_id"
     assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
 
 
 @pytest.mark.parametrize(
@@ -2370,8 +2370,8 @@ def test_make_assertion_from_freshness_warn_only() -> None:
     assert "error_after_count" not in mcp.aspect.customProperties
     assert "error_after_period" not in mcp.aspect.customProperties
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
     mcp.aspect.to_obj()
 
 
