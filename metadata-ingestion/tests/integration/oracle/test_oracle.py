@@ -94,29 +94,54 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     return filtered
 
 
-ORACLE_PORT = 1521  # Oracle listener port
+# TCPS. 1521 stays on container loopback for service registration and is
+# not published.
+ORACLE_PORT = 2484
+
+
+def _oracle_tls_connect_args(port: int) -> dict:
+    return {
+        "dsn": (
+            "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)"
+            f"(PORT={port}))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+        ),
+        # ewallet.pem in this directory is the self-signed server cert the
+        # container exported. Hostname match is off: orapki does not put a
+        # SAN on that cert, and the wallet still pins which cert we trust.
+        "wallet_location": os.environ["ORACLE_WALLET"],
+        "ssl_server_dn_match": False,
+    }
 
 
 @pytest.fixture(scope="module")
 def oracle_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
+    # Compose interpolates ORACLE_TLS_DIR when it starts, and the startup
+    # script writes ewallet.pem into the wallet dir before it opens 2484.
+    tls_dir = test_resources_dir / ".tls"
+    wallet_dir = tls_dir / "wallet"
+    wallet_dir.mkdir(parents=True, exist_ok=True)
+    mp = pytest.MonkeyPatch()
+    mp.setenv("ORACLE_TLS_DIR", str(tls_dir))
+    mp.setenv("ORACLE_WALLET", str(wallet_dir))
+    request.addfinalizer(mp.undo)
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "oracle"
     ) as docker_services:
+        # 2484 opens only after the startup SQL and the TCPS switch. Cold
+        # XE creation plus that script needs longer than the old TCP wait.
         wait_for_port(
             docker_services,
             "testoracle",
             ORACLE_PORT,
-            timeout=300,
+            timeout=600,
         )
 
         # The compose file exposes the listener port ephemerally, so a leaked
         # container from a prior run can never hold onto the port a fresh run
         # needs. Recipe ymls in this directory pick it up via ${ORACLE_PORT}.
         oracle_port = docker_services.port_for("testoracle", ORACLE_PORT)
-        mp = pytest.MonkeyPatch()
         mp.setenv("ORACLE_PORT", str(oracle_port))
-        request.addfinalizer(mp.undo)
 
         time.sleep(30)  # Extra time for setup scripts to complete
 
@@ -189,6 +214,7 @@ def test_oracle_test_connection(oracle_runner):
         "password": "example",
         "host_port": f"localhost:{oracle_runner}",
         "service_name": "XEPDB1",
+        "options": {"connect_args": _oracle_tls_connect_args(oracle_runner)},
     }
 
     report = OracleSource.test_connection(config_dict)

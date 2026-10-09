@@ -7,16 +7,19 @@ services:
       ORACLE_CHARACTERSET: AL32UTF8
     ports:
       # Ephemeral: letting Docker pick free host ports avoids colliding with
-      # a leaked container from a prior run. Neither port is baked into the
-      # container's own startup config, so ephemeral assignment is safe.
-      - "1521"
+      # a leaked container from a prior run. 2484 is TCPS. 1521 stays bound
+      # to loopback inside the container for service registration and is not
+      # published. Tests discover the host port via port_for(..., 2484).
+      - "2484"
       - "5500"  # Oracle Enterprise Manager Express
     volumes:
       - ./startup:/opt/oracle/scripts/startup
+      # The startup script writes ewallet.pem here for the client. The
+      # directory has to exist on the host before compose starts.
+      - ${ORACLE_TLS_DIR}:/opt/oracle/tls
     healthcheck:
       test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
       interval: 30s
       timeout: 30s
       retries: 30
       start_period: 240s
-    

@@ -46,10 +46,22 @@ _STORED_PROCEDURES = ".stored_procedures"
 
 
 def _config(**extra: object) -> Dict[str, object]:
+    # pytds stays plaintext unless cafile is set, and forceencryption rejects
+    # that. cafile is the CA that signed the server cert; CN/SAN is localhost.
+    raw_options = extra.pop("options", {})
+    options: Dict[str, object] = dict(raw_options) if isinstance(raw_options, dict) else {}
+    raw_connect_args = options.pop("connect_args", {})
+    connect_args: Dict[str, object] = (
+        dict(raw_connect_args) if isinstance(raw_connect_args, dict) else {}
+    )
+    connect_args.setdefault("cafile", os.environ["MSSQL_CAFILE"])
+    connect_args.setdefault("validate_host", True)
+    options["connect_args"] = connect_args
     return {
         "host_port": f"localhost:{os.environ['MSSQL_PORT']}",
         "username": "sa",
         "password": sa_password(),
+        "options": options,
         **extra,
     }
 
