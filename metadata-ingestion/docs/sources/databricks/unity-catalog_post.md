@@ -140,7 +140,11 @@ by default and does not emit Genie entities. Normal Unity Catalog ingestion stil
 The logs include descriptions, instructions, dataset identifiers, and other fields
 returned by Databricks. Treat the output as workspace metadata when sharing logs.
 Large responses use numbered chunks; concatenate the `payload=` values in order
-to reconstruct the original JSON response.
+to reconstruct the original JSON response. The ingestion run summary stored in
+DataHub keeps only the last 2,000 log lines, so a run that also ingests catalogs
+can push Genie lines out of it. For the complete output, run the recipe with the
+CLI and read the console output, or write it to a file with
+`datahub --log-file <path> ingest -c <recipe>`.
 
 The diagnostic requests `include_serialized_space=true`, which requires `CAN EDIT`
 on each space. Permission and other API failures are logged and included as report

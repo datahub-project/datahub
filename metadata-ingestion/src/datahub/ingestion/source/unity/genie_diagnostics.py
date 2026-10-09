@@ -6,10 +6,13 @@ from databricks.sdk.errors import DatabricksError, PermissionDenied, Unauthentic
 
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.logging_manager import IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH
 
 logger = logging.getLogger(__name__)
 
-LOG_CHUNK_SIZE = 12000
+# The run summary sent to DataHub truncates log lines longer than
+# IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH; leave room for the log prefix and space id.
+LOG_CHUNK_SIZE = IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH - 500
 
 
 def _log_response(operation: str, identifier: str, response: object) -> None:
