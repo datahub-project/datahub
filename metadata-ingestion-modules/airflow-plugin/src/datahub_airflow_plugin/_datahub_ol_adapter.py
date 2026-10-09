@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from openlineage.client.run import Dataset as OpenLineageDataset
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin._constants import FILE_PLATFORM, OL_FS_SCHEME_TO_PLATFORM
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,6 @@ OL_SCHEME_TWEAKS = {
     "sqlserver": "mssql",
     "awsathena": "athena",
 }
-
 
 # Fire the sanitiser warning at most once per worker process
 _warning_logged: bool = False
@@ -82,14 +82,36 @@ def _sanitize_ol_dataset_name(name: str) -> str:
     return sanitized
 
 
+def _fs_dataset_name(location: str, name: str, is_file: bool) -> str:
+    """Build a path dataset name the way the Java converter's HdfsPathDataset does.
+
+    OpenLineage splits a path into namespace (`s3://<bucket>`) and name (the
+    key). `location` is the namespace after the scheme: the bucket, container or
+    host, or nothing for `file:///`. Join it to the key with exactly one slash and
+    drop the trailing slash.
+    """
+    path = f"{location.rstrip('/')}/{name.lstrip('/')}".rstrip("/")
+    if is_file:
+        # Keep absolute paths absolute; `file:///` alone is the filesystem root.
+        return path or "/"
+    return path.lstrip("/")
+
+
 def translate_ol_to_datahub_urn(
-    ol_uri: "OpenLineageDataset", env: str = builder.DEFAULT_ENV
+    ol_uri: "OpenLineageDataset",
+    env: str = builder.DEFAULT_ENV,
+    normalize_object_storage: bool = True,
 ) -> str:
     """Translate OpenLineage dataset URI to DataHub URN.
 
     Args:
         ol_uri: OpenLineage dataset with namespace and name
         env: DataHub environment (default: PROD for backward compatibility)
+        normalize_object_storage: Map filesystem/object-store schemes (see
+            OL_FS_SCHEME_TO_PLATFORM) to DataHub platforms and keep the bucket in
+            the name, matching the Java converter and DataHub's S3/GCS/ABS
+            sources. When false, the scheme is used as the platform and the
+            bucket is dropped (the behaviour before this option existed).
 
     Returns:
         DataHub dataset URN string
@@ -98,6 +120,17 @@ def translate_ol_to_datahub_urn(
     name = _sanitize_ol_dataset_name(ol_uri.name)
 
     scheme, *rest = namespace.split("://", maxsplit=1)
+
+    # A bare namespace such as `file` has no `://` and keeps the name as is,
+    # which is also what the Java converter does. URI schemes are
+    # case-insensitive (RFC 3986), so `GS://` maps like `gs://`.
+    fs_platform = OL_FS_SCHEME_TO_PLATFORM.get(scheme.lower())
+    if normalize_object_storage and rest and fs_platform:
+        return builder.make_dataset_urn(
+            platform=fs_platform,
+            name=_fs_dataset_name(rest[0], name, is_file=fs_platform == FILE_PLATFORM),
+            env=env,
+        )
 
     platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
     return builder.make_dataset_urn(platform=platform, name=name, env=env)

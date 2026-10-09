@@ -10,20 +10,16 @@ from typing import Any, Iterable, List, Optional
 from urllib.parse import urlparse
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin._constants import FILE_PLATFORM, OL_FS_SCHEME_TO_PLATFORM
 from datahub_airflow_plugin.entities import _Entity
 
 logger = logging.getLogger(__name__)
 
-# URI scheme to DataHub platform mapping
+# URI scheme to DataHub platform mapping. Filesystem schemes come from the table
+# shared with the OpenLineage adapter so Assets and OpenLineage agree on platforms.
 URI_SCHEME_TO_PLATFORM = {
-    "s3": "s3",
-    "s3a": "s3",
-    "gs": "gcs",
-    "gcs": "gcs",
-    "file": "file",
+    **OL_FS_SCHEME_TO_PLATFORM,
     "hdfs": "hdfs",
-    "abfs": "adls",
-    "abfss": "adls",
     "postgresql": "postgres",
     "mysql": "mysql",
     "bigquery": "bigquery",
@@ -116,6 +112,10 @@ def translate_airflow_asset_to_urn(
             # injects for netloc-only URIs (e.g. iceberg://catalog → stored as
             # iceberg://catalog/ → name should be "catalog", not "catalog/").
             name = f"{parsed.netloc}{parsed.path}".strip("/")
+        elif scheme == FILE_PLATFORM:
+            # `file:///tmp/x` is an absolute path; keep the leading slash so the
+            # URN matches OpenLineage file references and the Java converter.
+            name = parsed.path.rstrip("/")
         else:
             name = parsed.path.strip("/")
     else:

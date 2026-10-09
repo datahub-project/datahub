@@ -6,6 +6,7 @@ from typing import Any, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from openlineage.client.run import Dataset as OpenLineageDataset
 
 import datahub_airflow_plugin.airflow3.datahub_listener as listener_mod
 from datahub_airflow_plugin.airflow3.datahub_listener import DataHubListener
@@ -376,3 +377,33 @@ class TestOnStarting:
         ):
             # Must not raise — on_starting runs synchronously on Airflow startup.
             DataHubListener.on_starting(stub, TaskRunnerMarker())
+
+
+class TestTranslateOlDatasets:
+    """OpenLineage `file` references are worker-local scratch paths by default."""
+
+    @staticmethod
+    def _translate(capture_ol_file_datasets: bool) -> List[str]:
+        stub: Any = SimpleNamespace(
+            config=SimpleNamespace(
+                cluster="PROD",
+                normalize_object_storage_urns=True,
+                capture_ol_file_datasets=capture_ol_file_datasets,
+            )
+        )
+        datasets = [
+            OpenLineageDataset(namespace="file", name="/tmp/tmpab12/out.csv"),
+            OpenLineageDataset(namespace="gs://my-bucket", name="events/part-0.json"),
+        ]
+        return DataHubListener._translate_ol_datasets(stub, datasets, "Input")
+
+    def test_skips_file_references_by_default(self) -> None:
+        assert self._translate(capture_ol_file_datasets=False) == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)"
+        ]
+
+    def test_keeps_file_references_when_enabled(self) -> None:
+        assert self._translate(capture_ol_file_datasets=True) == [
+            "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/out.csv,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)",
+        ]
