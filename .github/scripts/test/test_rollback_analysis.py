@@ -1419,8 +1419,9 @@ class TestUpgradeStepImpact:
 
     def test_aspect_unknown_to_n1_fails_on_n1(self):
         step = self._run({"dataProducts", "dataHubUpgradeResult"}, {"dataHubUpgradeResult"}, [])
-        assert (step.read_impact, step.write_impact, step.data_loss) == ("API fails", "fails", "no")
-        assert "`dataProducts` (not in N-1)" in step.detail
+        # N-1 reads entities without an aspect it doesn't know; writing it fails.
+        assert (step.read_impact, step.write_impact, step.data_loss) == ("ok", "fails", "no")
+        assert "`dataProducts` (not in N-1, which reads its entities without it)" in step.detail
         assert "dataHubUpgradeResult" not in step.detail
 
     def test_unchanged_known_aspect_is_ok(self):
@@ -1806,8 +1807,9 @@ class TestNewEntityTypes:
 
     def test_new_aspect_of_an_existing_entity_keeps_aspect_wording(self):
         f = self._new_aspect("newDatasetAspect")
-        assert "entity type new in N" not in f.summary and "returns their other aspects as usual" in f.detail
-        assert "skips these rows one by one" in f.detail and f.read_impact == model.API_FAILS
+        assert "entity type new in N" not in f.summary and "reads these entities without this aspect" in f.detail
+        assert "skips these rows one by one" in f.detail and f.read_impact == model.OK
+        assert "only requests that name this aspect" in f.detail
 
 
 _MXE = "metadata-models/src/main/pegasus/com/linkedin/mxe/"
@@ -1968,3 +1970,22 @@ class TestRolledBackRenamedRelationship:
              patch.object(pdl_rules, "_all_pdls_at", return_value={_PL + "Ownership.pdl": _OWNERSHIP, _PL + "Owner.pdl": _OWNER}):
             pdl_rules.refine_relationship_findings([f], "N-1")
         assert f.risk == model.REQUIRES_ATTENTION and "extra edges" in f.detail
+
+
+
+class TestN1Summary:
+    def test_summary_matches_the_rows(self):
+        findings = [
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="docInfo", summary="Enum `T`: added value `X` — N-1 doesn't know it",
+                     **model.impact("UI/API fails", "fails", "no")),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="incidentInfo", affected_aspects=["incidentActivityEvent"],
+                     summary="Graph relationship on `entities` gained target types `x`", **model.impact("ok", "fails", "no")),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="a", summary="Added field `f` — N-1 ignores unknown fields",
+                     **model.impact("ok", model.DROPS_NEW_FIELD, "no")),
+            _finding(risk=model.EXPECTED_LOSS, aspect_name="feedbackInfo", subject="feedback",
+                     summary="New file in N — part of `feedback`, an entity type new in N", **model.impact("API fails", "fails", "no")),
+        ]
+        text = "\n".join(report._n1_summary(findings))
+        assert "- **Read:** works, except entities whose records use N's new values or lack a field N-1 requires (`docInfo`) and the new entity type `feedback`." in text
+        assert "`incidentInfo`, `incidentActivityEvent`" in text and "`feedbackInfo`" not in text.split("Write")[1].split("Data loss")[0]
+        assert "N's new field is dropped when N-1 saves those records. N's new aspects and entity types stay in the database." in text

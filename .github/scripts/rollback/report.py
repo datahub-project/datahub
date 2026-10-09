@@ -80,6 +80,118 @@ def _verdict_details(findings: list[model.RollbackFinding]) -> list[str]:
     return lines
 
 
+def _names(items: list[str], limit: int = 6) -> str:
+    unique = list(dict.fromkeys(items))
+    shown = ", ".join(f"`{x}`" for x in unique[:limit])
+    return shown + (f" +{len(unique) - limit} more" if len(unique) > limit else "")
+
+
+def _n1_summary(findings: list[model.RollbackFinding]) -> list[str]:
+    """What N-1 can read, write and lose after the rollback, built from the
+    rows' impact columns so it always matches them."""
+    schema = [f for f in findings if f.dimension == model.DIM_PDL_SCHEMA]
+    if not schema:
+        return []
+
+    def where(f: model.RollbackFinding) -> list[str]:
+        # A nested record's row shows a shortened list of the aspects using it;
+        # an aspect's own row names it, plus any aspects that embed it.
+        own = (
+            f.aspect_name
+            if f.aspect_name
+            and ", " not in f.aspect_name
+            and "more" not in f.aspect_name
+            else None
+        )
+        return ([own] if own else []) + list(f.affected_aspects)
+
+    def new_entity(f: model.RollbackFinding) -> bool:
+        return "entity type new in N" in f.summary
+
+    entities = [f.subject for f in schema if new_entity(f) and f.subject]
+    read_fails = [
+        a
+        for f in schema
+        if f.read_impact in (model.API_FAILS, model.UI_API_FAILS) and not new_entity(f)
+        for a in where(f)
+    ]
+    write_fails = [
+        a
+        for f in schema
+        if f.write_impact == model.FAILS and not f.summary.startswith("New file in N")
+        for a in where(f)
+    ]
+
+    read = "works"
+    if read_fails or entities:
+        parts = []
+        if read_fails:
+            parts.append(
+                f"entities whose records use N's new values or lack a field N-1 requires ({_names(read_fails)})"
+            )
+        if entities:
+            kind = "types" if len(set(entities)) > 1 else "type"
+            parts.append(f"the new entity {kind} {_names(entities)}")
+        read += ", except " + " and ".join(parts)
+    write = "works for data valid under N-1's schema"
+    if write_fails:
+        write += (
+            f"; fails for records holding N-only values or targets in {_names(write_fails)}, "
+            "until those values are removed (or the aspect is deleted and re-emitted)"
+        )
+
+    losses = []
+    dropped = [f for f in schema if f.write_impact == model.DROPS_NEW_FIELD]
+    if dropped:
+        losses.append(
+            f"N's {len(dropped)} new fields are dropped when N-1 saves those records"
+            if len(dropped) > 1
+            else "N's new field is dropped when N-1 saves those records"
+        )
+    numbers = [
+        a
+        for f in schema
+        if f.data_loss
+        in (model.LOSS_IF_OUT_OF_RANGE, model.LOSS_FRACTIONS, model.LOSS_PRECISION)
+        for a in where(f)
+    ]
+    if numbers:
+        losses.append(f"numbers may be truncated or rounded in {_names(numbers)}")
+    removed = [a for f in schema if f.data_loss == model.LOSS_YES for a in where(f)]
+    if removed:
+        losses.append(f"values of fields N removed are gone in {_names(removed)}")
+    graph = [
+        a for f in schema if f.data_loss == model.LOSS_GRAPH_ONLY for a in where(f)
+    ]
+    if graph:
+        losses.append(
+            f"some graph edges from {_names(graph)} are missing until N-1 saves those records"
+        )
+    loss = "; ".join(losses) if losses else "none"
+    if any(f.summary.startswith("New file in N") for f in schema):
+        loss += ". N's new aspects and entity types stay in the database"
+
+    lines = [
+        "**On N-1 after the rollback:**",
+        "",
+        f"- **Read:** {read}.",
+        f"- **Write:** {write}.",
+        f"- **Data loss:** {loss}.",
+    ]
+    unknown = [
+        f
+        for f in findings
+        if model.NOT_ANALYSED in (f.read_impact, f.write_impact, f.data_loss)
+        or model.UNKNOWN in (f.read_impact, f.write_impact, f.data_loss)
+    ]
+    if unknown:
+        lines.append(
+            f"- **Not analysed:** {len(unknown)} item{'s' if len(unknown) > 1 else ''} "
+            "whose effect the tool can't determine; see Requires Attention."
+        )
+    return lines + [""]
+
+
 def _removed_item(f: model.RollbackFinding) -> str:
     """Short name for what an expected-loss finding removes, e.g.
     "field `Rec.f`", "enum value `E.V`", "the whole aspect"."""
@@ -151,6 +263,7 @@ def render_rollback_report(
         "",
         *_verdict_details(findings),
         "",
+        *_n1_summary(findings),
         (
             f"**Summary:** {len(findings)} changes analyzed · "
             f"{len(safe)} safe · {len(loss)} expected loss · "

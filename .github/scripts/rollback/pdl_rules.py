@@ -661,7 +661,7 @@ def classify_pdl_for_rollback(
     origin = model.Origin(path, aspect_name, pr, author)
 
     if current_content and not target_content:
-        new_entities = _new_entity_types(aspect_name, current, target, read)
+        new_entities = new_entity_types(aspect_name, current, target, read)
         if new_entities:
             names = ", ".join(f"`{e}`" for e in new_entities)
             findings.append(
@@ -684,12 +684,13 @@ def classify_pdl_for_rollback(
             _finding(
                 origin,
                 model.EXPECTED_LOSS,
-                model.impact(model.API_FAILS, model.FAILS, model.LOSS_NO),
+                model.impact(model.OK, model.FAILS, model.LOSS_NO),
                 "New file in N",
                 "absent in N-1 (N-1 rejects writes to it)",
                 detail=(
-                    "N-1 can't read or write this aspect; reading its entities "
-                    "returns their other aspects as usual. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+                    "N-1 reads these entities without this aspect, so its UI and "
+                    "normal API reads work; only requests that name this aspect, "
+                    "such as scripts or clients built for N, fail. The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
                 ),
             )
         )
@@ -741,7 +742,7 @@ def classify_pdl_for_rollback(
     return findings
 
 
-def _new_entity_types(
+def new_entity_types(
     aspect_name: str, current: str, target: str, read: repo.Reader
 ) -> list[str]:
     """Entity types holding `aspect_name` in N, when none of them exist in N-1.
