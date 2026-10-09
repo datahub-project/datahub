@@ -9,6 +9,7 @@ import requests
 import time_machine
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -19,6 +20,8 @@ from datahub.ingestion.sink.datahub_rest import (
 )
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
+_REPORTER_URN = "urn:li:dataHubIngestionSource:cli-0123456789abcdef0123456789abcdef"
+_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)"
 
 FROZEN_TIME = 1618987484580
 basicAuditStamp = models.AuditStampClass(
@@ -492,3 +495,31 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+@pytest.mark.parametrize(
+    "status,body",
+    [
+        pytest.param(
+            403, {"json": {"status": 403, "message": "unauthorized"}}, id="403-json"
+        ),
+        pytest.param(401, {"text": "<html>Unauthorized</html>"}, id="401-non-json"),
+    ],
+)
+def test_emitter_http_error_keeps_http_cause(requests_mock, status, body):
+    requests_mock.post(
+        f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal",
+        status_code=status,
+        **body,
+    )
+    emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=_REPORTER_URN, aspect=models.StatusClass(removed=False)
+    )
+
+    with pytest.raises(OperationalError) as exc_info:
+        emitter.emit(mcp)
+
+    cause = exc_info.value.__cause__
+    assert isinstance(cause, requests.HTTPError)
+    assert cause.response.status_code == status
