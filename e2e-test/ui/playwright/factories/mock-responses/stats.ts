@@ -596,14 +596,28 @@ export async function setupEmptyDatasetForStats(
   });
 }
 
-/** Mocks complete stats for charts (profile, usage, and timeseries data) */
-export async function setupChartsData(apiMock: ApiMocker, timestamp: number, datasetUrn: string): Promise<void> {
-  const sampleProfile = getSampleProfile(timestamp);
-  const sampleUsageStats = getSampleUsageStats(timestamp);
-  await buildDatasetMock(apiMock, datasetUrn, sampleProfile, DEFAULT_PRIVILEGES);
-  await mockDataProfiles(apiMock, [sampleProfile]);
+/**
+ * Mocks complete stats for charts (profile, usage, and timeseries data).
+ *
+ * `oldestTimestamp` is the oldest profile and usage point, which drives the
+ * time-range options. `latestTimestamp` is the newest profile, which drives the
+ * default time range; it defaults to the oldest so a dataset with a single old
+ * profile can be mocked by passing one timestamp.
+ */
+export async function setupChartsData(
+  apiMock: ApiMocker,
+  oldestTimestamp: number,
+  datasetUrn: string,
+  latestTimestamp: number = oldestTimestamp,
+): Promise<void> {
+  const latestProfile = getSampleProfile(latestTimestamp);
+  const profiles =
+    latestTimestamp === oldestTimestamp ? [latestProfile] : [latestProfile, getSampleProfile(oldestTimestamp)];
+  const sampleUsageStats = getSampleUsageStats(oldestTimestamp);
+  await buildDatasetMock(apiMock, datasetUrn, latestProfile, DEFAULT_PRIVILEGES);
+  await mockDataProfiles(apiMock, profiles);
   await mockUsageStats(apiMock, sampleUsageStats);
-  await mockTimeseriesCapability(apiMock, timestamp);
+  await mockTimeseriesCapability(apiMock, oldestTimestamp);
 }
 
 /** Mocks charts with empty historical profile data (tests empty state UI) */
