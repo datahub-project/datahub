@@ -3,11 +3,12 @@ import contextlib
 import dataclasses
 import functools
 import logging
+import re
 import threading
 import uuid
 from datetime import timedelta
 from enum import auto
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 import pydantic
 import requests
@@ -52,6 +53,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.lossy_collections import LossySet
 from datahub.utilities.partition_executor import (
     BatchItemFailures,
     BatchPartitionExecutor,
@@ -96,6 +98,37 @@ def _not_landed_events(
         )
         offset += len(events)
     return pending
+
+
+# The REST.li batch endpoint rejects the whole request when the token may not write
+# some of its entities, and names every denied entity in one message:
+#   User <actor> is unauthorized to modify entity: HttpStatus: 403 Urn: <urn>, HttpStatus: 403 Urn: <urn>
+# URNs contain ", " themselves, so an entry ends where the next entry's token starts,
+# not at the separator.
+_AUTHZ_DENIAL_MARKER = " is unauthorized to modify entity: "
+_AUTHZ_DENIAL_ENTRY = re.compile(
+    r"HttpStatus: (\d+) Urn: (.+?)(?=, HttpStatus: \d+ Urn: |$)", re.DOTALL
+)
+
+
+def _parse_denied_urns(error: OperationalError) -> Optional[Set[str]]:
+    """The entities a batch was rejected for, if `error` is a per-entity write denial."""
+    if error.info.get("status") != 403:
+        return None
+    _, marker, entries = str(error.info.get("message") or "").partition(
+        _AUTHZ_DENIAL_MARKER
+    )
+    parsed = _AUTHZ_DENIAL_ENTRY.findall(entries)
+    # Anything that does not re-render to the exact message (a truncated message, a
+    # changed format, a non-403 entry) is not trusted to say which records to fail.
+    if (
+        not marker
+        or not parsed
+        or any(status != "403" for status, _ in parsed)
+        or ", ".join(f"HttpStatus: {s} Urn: {u}" for s, u in parsed) != entries
+    ):
+        return None
+    return {urn for _, urn in parsed}
 
 
 def _is_record_attributable(error: BaseException) -> bool:
@@ -175,6 +208,13 @@ class DataHubRestSinkReport(SinkReport):
     # Incremented once isolation trips off (see _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS)
     # so a systemic failure doesn't silently drop out of batches_rejected.
     batches_rejected_while_isolation_suppressed: int = 0
+    # A batch rejected only because the token may not write some of its entities is
+    # split once: those entities' records fail and the rest is re-sent in one call.
+    batches_split_on_authorization_denial: int = 0
+    records_denied_by_authorization: int = 0
+    authorization_denied_urns: LossySet[str] = dataclasses.field(
+        default_factory=LossySet
+    )
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -527,16 +567,93 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             batch_error if events else None for events in pending
         ]
 
+        # A per-entity authorization denial names the records at fault, so they can be
+        # failed without per-record isolation. Only trusted when every denied entity is
+        # among the records still to write; otherwise fall through to isolation.
+        error: Exception = batch_error
+        if (
+            isinstance(batch_error, OperationalError)
+            and (denied := _parse_denied_urns(batch_error)) is not None
+            and denied <= {event.entityUrn for events in pending for event in events}
+        ):
+            pending, resend_error = self._apply_authorization_denial(
+                pending, outcomes, batch_error, denied
+            )
+            if resend_error is None:
+                return BatchItemFailures(outcomes)
+            # Something besides the parsed denial is wrong with the remainder: isolate
+            # it, under the same breaker and attributability rules as any rejection.
+            error = resend_error
+
         if self._isolation_suppressed:
             with self._isolation_lock:
                 self.report.batches_rejected_while_isolation_suppressed += 1
             return BatchItemFailures(outcomes)
-        if not _is_record_attributable(batch_error):
+        if not _is_record_attributable(error):
             with self._isolation_lock:
                 self.report.batches_rejected_not_record_attributable += 1
             return BatchItemFailures(outcomes)
 
         return self._isolate_batch_failures(pending, outcomes)
+
+    def _apply_authorization_denial(
+        self,
+        pending: List[List[_Event]],
+        outcomes: List[Optional[BaseException]],
+        batch_error: OperationalError,
+        denied: Set[str],
+    ) -> Tuple[List[List[_Event]], Optional[Exception]]:
+        """Fail the records of denied entities, then re-send everything else once.
+
+        Updates `outcomes` in place and returns the events still not written (aligned
+        with `outcomes`) and the re-send's error, or ([], None) when nothing is left.
+        """
+        self.report.batches_split_on_authorization_denial += 1
+        actor = str(batch_error.info.get("message")).partition(_AUTHZ_DENIAL_MARKER)[0]
+        remaining: List[List[_Event]] = []
+        denied_records = 0
+        for index, events in enumerate(pending):
+            urn = next(
+                (event.entityUrn for event in events if event.entityUrn in denied),
+                None,
+            )
+            if urn is None:
+                remaining.append(events)
+                continue
+            remaining.append([])
+            denied_records += 1
+            # One error per record: the done callback writes the record's urn into
+            # error.info, so a shared error would name the same entity everywhere.
+            message = f"{actor}{_AUTHZ_DENIAL_MARKER}HttpStatus: 403 Urn: {urn}"
+            outcomes[index] = OperationalError(
+                f"Unable to emit metadata to DataHub GMS: {message}",
+                {**batch_error.info, "message": message},
+            )
+            self.report.authorization_denied_urns.add(urn)
+        self.report.records_denied_by_authorization += denied_records
+
+        resend = [event for events in remaining for event in events]
+        logger.info(
+            "Batch rejected for authorization: %d record(s) denied, re-sending %d "
+            "event(s) once",
+            denied_records,
+            len(resend),
+        )
+        if not resend:
+            return [], None
+        try:
+            self.emitter.emit_mcps(resend, emit_mode=self._gms_emit_mode)
+        except Exception as resend_error:
+            still_pending = _not_landed_events(remaining, resend_error)
+            for index, events in enumerate(remaining):
+                if events:
+                    # Part of a chunked re-send may have landed; never re-send it.
+                    outcomes[index] = resend_error if still_pending[index] else None
+            return still_pending, resend_error
+        for index, events in enumerate(remaining):
+            if events:
+                outcomes[index] = None
+        return [], None
 
     def _isolate_batch_failures(
         self,

@@ -4,7 +4,7 @@ import json
 import threading
 from datetime import datetime, timezone
 from typing import List, Optional, Union
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
@@ -12,6 +12,7 @@ import time_machine
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import OperationalError
+from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import ChunkedEmitError, DatahubRestEmitter, EmitMode
 from datahub.ingestion.api.common import RecordEnvelope
@@ -22,6 +23,7 @@ from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSinkConfig,
     DataHubRestSinkReport,
     RestSinkMode,
+    _parse_denied_urns,
 )
 from datahub.utilities.partition_executor import BatchItemFailures
 
@@ -533,6 +535,32 @@ def _chunked(error: OperationalError, not_landed: List[int]) -> ChunkedEmitError
     return ChunkedEmitError(error.message, error.info, not_landed)
 
 
+_JOB = "urn:li:dataJob:(urn:li:dataFlow:(mysql,inst.db.stored_procedures,PROD),proc)"
+_CONTAINER = "urn:li:container:0123456789abcdef"
+_DENIAL_PREFIX = "User urn:li:corpuser:svc_ingest is unauthorized to modify entity: "
+
+
+def _denial(*urns: str, entry_status: int = 403) -> OperationalError:
+    """What DataHubRestEmitter raises when the token may not write some entities of a batch."""
+    message = _DENIAL_PREFIX + ", ".join(
+        f"HttpStatus: {entry_status} Urn: {urn}" for urn in urns
+    )
+    return OperationalError(
+        f"Unable to emit metadata to DataHub GMS: {message}",
+        {
+            "exceptionClass": "com.linkedin.restli.server.RestLiServiceException",
+            "message": message,
+            "status": 403,
+        },
+    )
+
+
+def _entity_mcp(urn: str) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=models.StatusClass(removed=False)
+    )
+
+
 def test_emit_batch_wrapper_isolates_the_record_that_caused_the_rejection():
     """One invalid record must not take the valid records batched with it down."""
     good1 = _status_mcp("good1")
@@ -904,3 +932,266 @@ def test_shared_batch_error_reports_each_record_with_its_own_urn():
         _status_mcp("b").entityUrn,
     ]
     assert "urn" not in shared.info
+
+
+def test_parse_denied_urns_splits_on_the_entry_token_not_on_commas():
+    dataset = _status_mcp("a").entityUrn
+    assert dataset is not None
+    assert _parse_denied_urns(_denial(_JOB, dataset, _CONTAINER, _JOB)) == {
+        _JOB,
+        dataset,
+        _CONTAINER,
+    }
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(
+            OperationalError(
+                "x",
+                {
+                    "status": 401,
+                    "message": _DENIAL_PREFIX + f"HttpStatus: 403 Urn: {_JOB}",
+                },
+            ),
+            id="401",
+        ),
+        pytest.param(
+            OperationalError("x", {"status": 403, "message": "Actor is not active"}),
+            id="other-403",
+        ),
+        pytest.param(_denial(_CONTAINER, entry_status=500), id="non-403-entry"),
+        pytest.param(
+            OperationalError("x", {"status": 403, "message": _DENIAL_PREFIX}),
+            id="empty-list",
+        ),
+        pytest.param(
+            OperationalError(
+                "x", {"status": 403, "message": _DENIAL_PREFIX + "HttpStatus: 403 Urn"}
+            ),
+            id="truncated",
+        ),
+        pytest.param(OperationalError("x", {"status": 403}), id="no-message"),
+    ],
+)
+def test_parse_denied_urns_rejects_anything_but_a_complete_per_entity_denial(
+    error: OperationalError,
+) -> None:
+    assert _parse_denied_urns(error) is None
+
+
+def test_authorization_denial_fails_only_denied_records_and_resends_the_rest_once_in_order():
+    a_status = _status_mcp("a")
+    a_props = MetadataChangeProposalWrapper(
+        entityUrn=a_status.entityUrn, aspect=models.DatasetPropertiesClass(name="a")
+    )
+    job = _entity_mcp(_JOB)
+    container = _entity_mcp(_CONTAINER)
+    b_status = _status_mcp("b")
+    records = [a_status, job, a_props, container, b_status]
+    mock_emitter = _scripted_emitter(_denial(_JOB, _CONTAINER), None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert [o is None for o in exc_info.value.outcomes] == [
+        True,
+        False,
+        True,
+        False,
+        True,
+    ]
+    sent = [call.args[0] for call in mock_emitter.emit_mcps.call_args_list]
+    # Exactly one resend, with the allowed events in their original order, so the two
+    # aspects of entity "a" still arrive in the order the source produced them.
+    assert sent[1:] == [[a_status, a_props, b_status]]
+    assert sink.report.batches_split_on_authorization_denial == 1
+    assert sink.report.records_denied_by_authorization == 2
+    assert set(sink.report.authorization_denied_urns) == {_JOB, _CONTAINER}
+    assert sink.report.batches_rejected == 0
+
+
+def test_each_denied_record_gets_its_own_error_naming_its_entity():
+    """The done callback writes the record's urn into error.info, so a shared error
+    object would make every report entry name the same entity."""
+    container_status = _entity_mcp(_CONTAINER)
+    container_props = MetadataChangeProposalWrapper(
+        entityUrn=_CONTAINER, aspect=models.ContainerPropertiesClass(name="c")
+    )
+    job = _entity_mcp(_JOB)
+    allowed = _status_mcp("ok")
+    sink = _make_sink(_scripted_emitter(_denial(_CONTAINER, _CONTAINER, _JOB), None))
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper(
+            [(container_status,), (container_props,), (job,), (allowed,)]
+        )
+
+    outcomes = exc_info.value.outcomes
+    denied = [o for o in outcomes[:3] if isinstance(o, OperationalError)]
+    assert len(denied) == 3
+    assert len({id(error) for error in denied}) == 3
+    assert [error.info["status"] for error in denied] == [403, 403, 403]
+    assert denied[0].message.endswith(f"HttpStatus: 403 Urn: {_CONTAINER}")
+    assert denied[2].message.endswith(f"HttpStatus: 403 Urn: {_JOB}")
+    assert outcomes[3] is None
+
+
+def test_denial_naming_an_entity_outside_the_batch_falls_back_to_isolation():
+    """If the server renders a URN differently from the client, the fast path cannot
+    tell which records were denied, so it must not guess."""
+    records = [_status_mcp("a"), _status_mcp("b")]
+    mock_emitter = _scripted_emitter(
+        _denial("urn:li:dataset:(urn:li:dataPlatform:foo,elsewhere,PROD)"), None, None
+    )
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert exc_info.value.outcomes == [None, None]
+    assert mock_emitter.emit_mcps.call_count == 3
+    assert sink.report.batches_split_on_authorization_denial == 0
+    assert sink.report.batches_rejected == 1
+
+
+@pytest.mark.parametrize(
+    "batch_error,expected_calls,expected_isolations",
+    [
+        # 401 and 5xx are not record-attributable, so the batch fails as a whole.
+        pytest.param(
+            OperationalError(
+                "Unable to emit metadata to DataHub GMS",
+                {"message": "401 Client Error: Unauthorized"},
+            ),
+            1,
+            0,
+            id="401",
+        ),
+        pytest.param(
+            OperationalError(
+                "Unable to emit metadata to DataHub GMS: Actor is not active",
+                {"status": 403, "message": "Actor is not active"},
+            ),
+            4,
+            1,
+            id="other-403",
+        ),
+        pytest.param(
+            OperationalError(
+                "Unable to emit metadata to DataHub GMS: boom",
+                {"status": 500, "message": "boom"},
+            ),
+            1,
+            0,
+            id="500",
+        ),
+    ],
+)
+def test_other_rejections_do_not_take_the_authorization_fast_path(
+    batch_error: OperationalError, expected_calls: int, expected_isolations: int
+) -> None:
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    mock_emitter = _scripted_emitter(batch_error, None, None, None)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures):
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert mock_emitter.emit_mcps.call_count == expected_calls
+    assert sink.report.batches_split_on_authorization_denial == 0
+    assert sink.report.batches_rejected == expected_isolations
+
+
+def test_failed_resend_falls_back_to_isolating_the_remainder():
+    a, job, b = _status_mcp("a"), _entity_mcp(_JOB), _status_mcp("b")
+    b_error = OperationalError("record rejected", {"status": 422})
+    mock_emitter = _scripted_emitter(
+        _denial(_JOB), OperationalError("rejected", {"status": 422}), None, b_error
+    )
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(a,), (job,), (b,)])
+
+    outcomes = exc_info.value.outcomes
+    assert outcomes[0] is None
+    assert isinstance(outcomes[1], OperationalError)
+    assert outcomes[2] is b_error
+    sent = [call.args[0] for call in mock_emitter.emit_mcps.call_args_list]
+    assert sent[1:] == [[a, b], [a], [b]]
+    assert sink.report.batches_split_on_authorization_denial == 1
+    assert sink.report.batches_rejected == 1
+
+
+def test_failed_resend_on_an_outage_is_not_isolated():
+    a, job, b = _status_mcp("a"), _entity_mcp(_JOB), _status_mcp("b")
+    outage = OperationalError("unavailable", {"status": 503})
+    mock_emitter = _scripted_emitter(_denial(_JOB), outage)
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(a,), (job,), (b,)])
+
+    outcomes = exc_info.value.outcomes
+    assert outcomes[0] is outage and outcomes[2] is outage
+    assert isinstance(outcomes[1], OperationalError) and outcomes[1] is not outage
+    assert mock_emitter.emit_mcps.call_count == 2
+    assert sink.report.batches_rejected == 0
+    assert sink.report.batches_rejected_not_record_attributable == 1
+
+
+def test_authorization_fast_path_still_runs_when_isolation_is_suppressed():
+    a, job = _status_mcp("a"), _entity_mcp(_JOB)
+    mock_emitter = _scripted_emitter(_denial(_JOB), None)
+    sink = _make_sink(mock_emitter)
+    sink._isolation_suppressed = True
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(a,), (job,)])
+
+    assert exc_info.value.outcomes[0] is None
+    assert isinstance(exc_info.value.outcomes[1], OperationalError)
+    assert mock_emitter.emit_mcps.call_count == 2
+    assert sink.report.batches_rejected_while_isolation_suppressed == 0
+
+
+def test_denial_in_a_later_chunk_does_not_resend_the_chunk_that_landed(monkeypatch):
+    """End to end through the real REST.li emitter: chunk 1 lands, chunk 2 is denied
+    for one entity, and only chunk 2's allowed record is re-sent."""
+    monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2)
+    emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+    records = [
+        _status_mcp("c1a"),
+        _status_mcp("c1b"),
+        _entity_mcp(_JOB),
+        _status_mcp("c2b"),
+    ]
+    ok = Mock(spec=requests.Response)
+    ok.status_code = 200
+    ok.headers = {}
+    script: List[Union[requests.Response, Exception]] = [ok, _denial(_JOB), ok]
+
+    def emit_generic(url: str, payload: str, method: str = "POST") -> requests.Response:
+        outcome = script.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    sink = _make_sink(emitter)
+    with patch.object(emitter, "_emit_generic", side_effect=emit_generic) as mock_emit:
+        with pytest.raises(BatchItemFailures) as exc_info:
+            sink._emit_batch_wrapper([(record,) for record in records])
+
+    sent = [
+        [p["entityUrn"] for p in json.loads(call.args[1])["proposals"]]
+        for call in mock_emit.call_args_list
+    ]
+    assert sent == [
+        [records[0].entityUrn, records[1].entityUrn],
+        [_JOB, records[3].entityUrn],
+        [records[3].entityUrn],
+    ]
+    assert [o is None for o in exc_info.value.outcomes] == [True, True, False, True]
