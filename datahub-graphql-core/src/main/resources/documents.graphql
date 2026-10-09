@@ -642,6 +642,15 @@ input SearchDocumentsInput {
   domains: [String!]
 
   """
+  Optional domain-existence filter for sidebar grouping.
+  - true: only documents that have a domain assigned
+  - false: only documents with no domain (Unassigned)
+  - null / omitted: no existence filter (default)
+  When both this and `domains` are set, both conditions apply (AND).
+  """
+  hasDomain: Boolean
+
+  """
   Optional list of related asset URNs to filter by (ANDed with other filters).
   Returns documents that are related to ANY of the provided asset URNs.
   """
