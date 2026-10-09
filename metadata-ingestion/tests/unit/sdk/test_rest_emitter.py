@@ -1,5 +1,7 @@
+import copy
 import json
 import os
+import pickle
 import time
 import warnings
 from datetime import timedelta
@@ -46,6 +48,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECT_NAMES,
     KEY_ASPECTS,
     ChangeTypeClass,
+    MetadataChangeProposalClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
@@ -3091,6 +3094,10 @@ class TestChunkedEmitError:
         assert error.message == rejection.message
         assert error.info == rejection.info
         assert str(error) == str(rejection)
+        for clone in (pickle.loads(pickle.dumps(error)), copy.copy(error)):
+            assert type(clone) is ChunkedEmitError
+            assert str(clone) == str(error)
+            assert clone.not_landed_indices == [2, 3, 4]
 
     def test_openapi_reports_noncontiguous_positions(self, monkeypatch):
         monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 1)
@@ -3128,3 +3135,70 @@ class TestChunkedEmitError:
         ]
         assert sent == [mcps[0].entityUrn, mcps[2].entityUrn]
         assert exc_info.value.not_landed_indices == [1, 2]
+
+    def test_restli_first_chunk_failure_reports_every_position(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        mcps = [
+            self._status(f"urn:li:dataset:(urn:li:dataPlatform:mysql,t{i},PROD)")
+            for i in range(3)
+        ]
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=self._rejection()
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        assert mock_emit.call_count == 1
+        assert exc_info.value.not_landed_indices == [0, 1, 2]
+
+    def test_cause_is_the_original_transport_error(self):
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        http_error = requests.HTTPError("422 Client Error")
+        rejection = self._rejection()
+        rejection.__cause__ = http_error
+
+        with patch.object(emitter, "_emit_generic", side_effect=rejection):
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(
+                    [
+                        self._status(
+                            "urn:li:dataset:(urn:li:dataPlatform:mysql,t0,PROD)"
+                        )
+                    ],
+                    emit_mode=EmitMode.SYNC_PRIMARY,
+                )
+
+        assert exc_info.value.__cause__ is http_error
+        assert exc_info.value.__context__ is rejection
+
+    def test_openapi_omits_mcps_that_map_to_no_request(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 1)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+        # An UPSERT without an aspect produces no OpenAPI request.
+        no_request = MetadataChangeProposalClass(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,t1,PROD)",
+            aspectName="status",
+        )
+        mcps: List[
+            Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]
+        ] = [
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t0,PROD)"),
+            no_request,
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t2,PROD)"),
+        ]
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=self._rejection()
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        assert mock_emit.call_count == 1
+        assert exc_info.value.not_landed_indices == [0, 2]

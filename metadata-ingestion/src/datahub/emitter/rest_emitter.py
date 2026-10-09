@@ -491,6 +491,10 @@ class ChunkedEmitError(OperationalError):
         self.args = (message, info)
         self.not_landed_indices = not_landed_indices
 
+    def __reduce__(self) -> Tuple[Any, ...]:
+        # BaseException rebuilds from self.args, which omits not_landed_indices.
+        return (type(self), (self.message, self.info, self.not_landed_indices))
+
 
 class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
@@ -1057,6 +1061,8 @@ class DataHubRestEmitter(Closeable, Emitter):
                     url, payload=_Chunk.join(chunk), method=method
                 )
             except OperationalError as chunk_error:
+                # Keep __cause__ as the transport error callers saw before;
+                # chunk_error stays reachable as __context__.
                 raise ChunkedEmitError(
                     chunk_error.message,
                     chunk_error.info,
@@ -1065,7 +1071,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                         for _, _, unsent in sends[chunk_index - 1 :]
                         for item in unsent.items
                     ),
-                ) from chunk_error
+                ) from chunk_error.__cause__ or chunk_error
             data = (
                 extract_trace_data(
                     response, warn_on_missing=self._should_trace(emit_mode)
@@ -1174,7 +1180,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     chunk_error.message,
                     chunk_error.info,
                     list(range(sent, len(mcps))),
-                ) from chunk_error
+                ) from chunk_error.__cause__ or chunk_error
             sent += len(mcp_chunk)
             data = (
                 extract_trace_data_from_mcps(
