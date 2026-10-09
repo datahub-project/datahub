@@ -3,7 +3,9 @@ package io.datahubproject.metadata.context;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -13,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +46,16 @@ public class AuthorizationContext implements ContextInterface {
   @Builder.Default
   private final ConcurrentHashMap<EntitySpec, ResolvedEntitySpec> sessionResourceSpecCache =
       new ConcurrentHashMap<>();
+
+  /**
+   * Request-scoped field overrides layered on top of normally resolved resource specs, so a write
+   * can be evaluated against the values it proposes (e.g. an entity's first domains) without hiding
+   * the entity's other stored attributes. Kept apart from {@link #sessionResourceSpecCache}, which
+   * only ever holds real resolutions.
+   */
+  @Builder.Default
+  private final ConcurrentHashMap<EntitySpec, Map<EntityFieldType, FieldResolver>>
+      sessionResourceFieldOverrides = new ConcurrentHashMap<>();
 
   /**
    * Request-scoped cache of session actor identity (groups + direct roles). Populated once per

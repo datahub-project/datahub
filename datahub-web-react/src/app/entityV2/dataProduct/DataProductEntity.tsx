@@ -8,35 +8,53 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';
-import { OutputPortsTab } from '@app/entityV2/dataProduct/OutputPortsTab';
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import { SidebarViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DAGTab,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
+
+const DataProductEntitiesTab = lazyProfileComponent('DataProductEntitiesTab', () =>
+    import('@app/entityV2/dataProduct/DataProductEntitiesTab').then((module) => ({
+        default: module.DataProductEntitiesTab,
+    })),
+);
+const OutputPortsTab = lazyProfileComponent('OutputPortsTab', () =>
+    import('@app/entityV2/dataProduct/OutputPortsTab').then((module) => ({
+        default: module.OutputPortsTab,
+    })),
+);
+const SidebarViewDefinitionSection = lazyProfileComponent('SidebarViewDefinitionSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection').then(
+        (module) => ({
+            default: module.SidebarViewDefinitionSection,
+        }),
+    ),
+);
 
 const OutputPortsTabIcon = () => <Export size={14} />;
 
