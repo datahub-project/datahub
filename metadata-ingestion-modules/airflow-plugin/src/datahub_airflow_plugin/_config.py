@@ -244,7 +244,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "bigquery_temp_table_dataset_prefix", fallback="_"
     )
     path_specs = TypeAdapter(List[PathSpec]).validate_json(
-        conf.get("datahub", "path_specs_str", fallback="[]")
+        conf.get("datahub", "path_specs", fallback="[]")
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)

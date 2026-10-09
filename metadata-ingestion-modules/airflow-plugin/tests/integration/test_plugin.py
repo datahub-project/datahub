@@ -637,7 +637,7 @@ class DagTestCase:
     enable_datajob_lineage: bool = True
     cluster: Optional[str] = None
 
-    # Extra [datahub] plugin options, e.g. {"path_specs_str": "[...]"}.
+    # Extra [datahub] plugin options, e.g. {"path_specs": "[...]"}.
     datahub_config: Dict[str, str] = dataclasses.field(default_factory=dict)
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
@@ -666,7 +666,7 @@ test_cases = [
         platform_instance=PLATFORM_INSTANCE,
         test_variant="_path_specs",
         datahub_config={
-            "path_specs_str": json.dumps(
+            "path_specs": json.dumps(
                 [
                     {"include": "s3://my-bucket/{table}/*.parquet"},
                     {"include": "gs://analytics-bucket/{table}"},
