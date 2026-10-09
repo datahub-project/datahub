@@ -1,9 +1,11 @@
 import json
+import logging
 from typing import Any, Dict, List, Set, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.configuration.common import OperationalError
 from datahub.ingestion.api.common import RUN_REPORTER_RECORD_KEY, PipelineContext
 from datahub.ingestion.api.sink import Sink
 from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
@@ -303,3 +305,30 @@ def test_records_sent_through_the_sink_are_marked() -> None:
         ExecutionRequestResultClass,
     ]
     assert all(e.metadata[RUN_REPORTER_RECORD_KEY] is True for e in envelopes)
+
+
+def _start_with_failing_graph(status: int, caplog: pytest.LogCaptureFixture) -> None:
+    provider, ctx, _ = _make_provider("normal-cli-run-id")
+    ctx.graph = MagicMock()
+    ctx.graph.emit_mcp.side_effect = OperationalError(
+        "denied", {"status": status, "message": "denied"}
+    )
+    with caplog.at_level(logging.WARNING):
+        provider.on_start(ctx)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_on_start_refused_run_report_is_a_warning(
+    status: int, caplog: pytest.LogCaptureFixture
+) -> None:
+    _start_with_failing_graph(status, caplog)
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert str(status) in warnings[0].getMessage()
+    assert warnings[0].exc_info is None
+
+
+def test_on_start_other_errors_still_raise(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(OperationalError):
+        _start_with_failing_graph(500, caplog)

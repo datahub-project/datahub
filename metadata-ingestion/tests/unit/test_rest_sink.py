@@ -14,7 +14,11 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
-from datahub.ingestion.api.common import RUN_REPORTER_RECORD_KEY, RecordEnvelope
+from datahub.ingestion.api.common import (
+    RUN_REPORTER_RECORD_KEY,
+    RecordEnvelope,
+    http_status,
+)
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
@@ -22,7 +26,6 @@ from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSinkConfig,
     DataHubRestSinkReport,
     RestSinkMode,
-    _http_status,
 )
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
@@ -644,7 +647,7 @@ def test_denial_detected_from_info_status_without_http_cause():
     # An error re-raised per record may lose the HTTPError but keeps GMS's body.
     error = OperationalError("denied", {"status": 403, "message": "denied"})
 
-    assert _http_status(error) == 403
+    assert http_status(error) == 403
 
 
 def test_async_batch_sends_reporter_record_on_its_own():

@@ -8,6 +8,7 @@ from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
     IgnorableError,
+    OperationalError,
     redact_raw_config,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
@@ -15,9 +16,12 @@ from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import (
+    RUN_REPORT_DENIED_STATUSES,
     RUN_REPORTER_RECORD_KEY,
     PipelineContext,
     RecordEnvelope,
+    http_status,
+    log_run_report_refused,
 )
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -238,7 +242,13 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         )
 
         if try_sync and self.ctx.graph:
-            self.ctx.graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+            try:
+                self.ctx.graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+            except OperationalError as e:
+                status = http_status(e)
+                if status not in RUN_REPORT_DENIED_STATUSES:
+                    raise
+                log_run_report_refused(str(entity_urn), status)
         else:
             self.sink.write_record_async(
                 RecordEnvelope(

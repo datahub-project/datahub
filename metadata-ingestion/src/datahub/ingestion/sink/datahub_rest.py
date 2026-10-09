@@ -37,9 +37,12 @@ from datahub.emitter.rest_emitter import (
 )
 from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.common import (
+    RUN_REPORT_DENIED_STATUSES,
     RUN_REPORTER_RECORD_KEY,
     RecordEnvelope,
     WorkUnit,
+    http_status,
+    log_run_report_refused,
 )
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -144,19 +147,6 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     # This shouldn't happen super frequently, but just adding a fallback of generating
     # a UUID so that we don't do any partitioning.
     return str(uuid.uuid4())
-
-
-# Statuses with which a refused run-report write is logged instead of failing the run:
-# the token may ingest metadata without the privileges to record ingestion runs.
-_RUN_REPORT_DENIED_STATUSES = (401, 403)
-
-
-def _http_status(e: OperationalError) -> Optional[int]:
-    cause = e.__cause__
-    if isinstance(cause, requests.HTTPError) and cause.response is not None:
-        return cause.response.status_code
-    status = e.info.get("status")
-    return status if isinstance(status, int) else None
 
 
 def _resolve_gms_emit_mode(
@@ -394,20 +384,12 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 if workunit_id := record_envelope.metadata.get("workunit_id"):
                     e.info["workunit_id"] = workunit_id
 
-                status = _http_status(e)
+                status = http_status(e)
                 if (
                     record_envelope.metadata.get(RUN_REPORTER_RECORD_KEY)
-                    and status in _RUN_REPORT_DENIED_STATUSES
+                    and status in RUN_REPORT_DENIED_STATUSES
                 ):
-                    # Not a report warning either, so --strict-warnings isn't tripped.
-                    logger.warning(
-                        "The ingestion run report was not saved to DataHub: writing %s "
-                        "was refused with HTTP %s. The ingested metadata is not affected. "
-                        "To record CLI runs, see the --no-default-report section of the "
-                        "CLI docs.",
-                        record_urn,
-                        status,
-                    )
+                    log_run_report_refused(record_urn, status)
                 elif not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:

@@ -204,6 +204,29 @@ By default, the cli sends an ingestion report to DataHub, which allows you to se
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --no-default-report
 ```
 
+The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
+
+```yaml
+source:
+  # source configs
+
+sink:
+  # sink configs
+
+# Add configuration for the datahub reporter
+reporting:
+  - type: datahub
+    config:
+      report_recipe: false
+
+# Optional log to put failed JSONs into a file
+# Helpful in case you are trying to debug some issue with specific ingestion failing
+failure_log:
+  enabled: false
+  log_config:
+    filename: ./path/to/failure.json
+```
+
 The run report is written with the same token as the metadata. Recording a run writes the ingestion source
 `urn:li:dataHubIngestionSource:cli-<id>` and one execution request per run. Creating that ingestion source requires
 the **Manage Metadata Ingestion** privilege. If DataHub refuses these writes with HTTP 401 or 403, `datahub ingest`
@@ -237,29 +260,6 @@ Then create the source with an admin token. The next run overwrites these fields
 ```shell
 echo '{"name": "[CLI] mysql (team_a) [team_a__mysql]", "type": "mysql", "config": {"recipe": "", "executorId": "__datahub_cli_"}}' > source-info.json
 datahub put --urn "urn:li:dataHubIngestionSource:cli-<id>" -a dataHubIngestionSourceInfo -d source-info.json
-```
-
-The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
-
-```yaml
-source:
-  # source configs
-
-sink:
-  # sink configs
-
-# Add configuration for the datahub reporter
-reporting:
-  - type: datahub
-    config:
-      report_recipe: false
-
-# Optional log to put failed JSONs into a file
-# Helpful in case you are trying to debug some issue with specific ingestion failing
-failure_log:
-  enabled: false
-  log_config:
-    filename: ./path/to/failure.json
 ```
 
 #### ingest --record (Beta)
