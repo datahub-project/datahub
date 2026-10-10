@@ -3800,6 +3800,44 @@
       "platform_name": "Qlik Sense",
       "support_status": "ALPHA"
     },
+    "qualytics": {
+      "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Qualytics container and field profiles, when emit_profiles is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Quality check descriptions become assertion descriptions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled via datastore_to_platform_map",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.qualytics.source.QualyticsSource",
+      "platform_id": "qualytics",
+      "platform_name": "Qualytics",
+      "support_status": "BETA"
+    },
     "quicksight": {
       "capabilities": [
         {

@@ -53,6 +53,7 @@ import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
+import qualyticsLogo from '@images/qualyticslogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
@@ -143,6 +144,8 @@ const MONGO_DB = 'mongodb';
 const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
 export const MONTECARLO = 'montecarlo';
 export const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
+export const QUALYTICS = 'qualytics';
+export const QUALYTICS_URN = `urn:li:dataPlatform:${QUALYTICS}`;
 const MSSQL = 'mssql';
 const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
@@ -274,6 +277,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MONTECARLO_URN]: montecarloLogo,
+    [QUALYTICS_URN]: qualyticsLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [NOTION_URN]: notionLogo,

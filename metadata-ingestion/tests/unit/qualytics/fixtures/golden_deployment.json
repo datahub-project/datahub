@@ -1,0 +1,612 @@
+{
+  "_comment": [
+    "A synthetic Qualytics deployment for the golden-file test. Shaped to exercise",
+    "every branch the connector has, because a golden file is only worth as much as",
+    "the input behind it:",
+    "  - all three store types (jdbc, dfs, native)",
+    "  - a platform resolved by explicit map AND one resolved by inference",
+    "  - a platform rename (postgresql -> postgres) and a native suffix strip",
+    "  - table, view and file containers",
+    "  - a passing check and a failing check with an anomaly",
+    "  - a mapped rule type and one this build has never seen",
+    "Values are invented, not captured from any real deployment.",
+    "Extended so the golden file exercises views, expression logic, range parameters and multiple anomalies -- see the note in test_golden.py."
+  ],
+  "version": "20260909-74dac74",
+  "recipe": {
+    "base_url": "https://acme.qualytics.io/api",
+    "token": "not-a-real-token",
+    "platform_instance": "acme",
+    "env": "PROD",
+    "datastore_to_platform_map": {
+      "sales-warehouse": {
+        "platform": "snowflake",
+        "platform_instance": "prod-sf",
+        "env": "PROD"
+      }
+    },
+    "assertion_results": {
+      "start_time": "2026-08-01T00:00:00Z",
+      "end_time": "2026-09-10T00:00:00Z"
+    }
+  },
+  "datastores": [
+    {
+      "id": 1,
+      "name": "sales-warehouse",
+      "description": "Snowflake sales data",
+      "store_type": "jdbc",
+      "type": "snowflake",
+      "jdbc_url": "jdbc:snowflake://acme.snowflakecomputing.com/",
+      "host": "acme.snowflakecomputing.com",
+      "database": "SALES",
+      "schema": "PUBLIC"
+    },
+    {
+      "id": 2,
+      "name": "events-lake",
+      "store_type": "dfs",
+      "type": "s3",
+      "uri": "s3://acme-events",
+      "root_path": "/warehouse"
+    },
+    {
+      "id": 3,
+      "name": "reporting-pg",
+      "store_type": "jdbc",
+      "type": "postgresql",
+      "jdbc_url": "jdbc:postgresql://pg.internal/reporting",
+      "database": "reporting",
+      "schema": "public"
+    },
+    {
+      "id": 4,
+      "name": "lakehouse",
+      "store_type": "native",
+      "type": "databricks_native",
+      "catalog": "main",
+      "schema": "gold"
+    }
+  ],
+  "containers": {
+    "1": [
+      {
+        "id": 10,
+        "name": "ORDERS",
+        "description": "One row per customer order",
+        "container_type": "table",
+        "table_type": "table",
+        "status": "Available",
+        "datastore": {
+          "id": 1,
+          "name": "sales-warehouse",
+          "store_type": "jdbc",
+          "type": "snowflake"
+        }
+      },
+      {
+        "id": 11,
+        "name": "ORDERS_ENRICHED",
+        "container_type": "table",
+        "table_type": "view",
+        "status": "Available",
+        "datastore": {
+          "id": 1,
+          "name": "sales-warehouse",
+          "store_type": "jdbc",
+          "type": "snowflake"
+        }
+      }
+    ],
+    "2": [
+      {
+        "id": 20,
+        "name": "clickstream",
+        "container_type": "file",
+        "status": "Available",
+        "relative_path": "/clickstream/daily",
+        "file_name": "part-0000.parquet",
+        "extension": "parquet",
+        "file_format": "parquet",
+        "last_modified": "2026-09-08T02:00:00Z",
+        "datastore": {
+          "id": 2,
+          "name": "events-lake",
+          "store_type": "dfs",
+          "type": "s3"
+        }
+      }
+    ],
+    "3": [
+      {
+        "id": 30,
+        "name": "daily_summary",
+        "container_type": "table",
+        "table_type": "table",
+        "status": "Available",
+        "datastore": {
+          "id": 3,
+          "name": "reporting-pg",
+          "store_type": "jdbc",
+          "type": "postgresql"
+        }
+      }
+    ],
+    "4": [
+      {
+        "id": 40,
+        "name": "dim_customer",
+        "container_type": "table",
+        "table_type": "table",
+        "status": "Available",
+        "datastore": {
+          "id": 4,
+          "name": "lakehouse",
+          "store_type": "native",
+          "type": "databricks_native"
+        }
+      }
+    ]
+  },
+  "profiles": {
+    "10": {
+      "id": 500,
+      "created": "2026-09-08T06:00:00Z",
+      "operation_id": 90,
+      "records_count": 125000,
+      "records_processed": 125000,
+      "result": "success"
+    },
+    "11": {
+      "id": 503,
+      "created": "2026-09-08T06:15:00Z",
+      "operation_id": 93,
+      "records_count": 125000,
+      "records_processed": 125000,
+      "result": "success"
+    },
+    "20": {
+      "id": 501,
+      "created": "2026-09-08T06:30:00Z",
+      "operation_id": 91,
+      "records_count": 8400000,
+      "records_processed": 8400000,
+      "result": "success"
+    },
+    "30": {
+      "id": 502,
+      "created": "2026-09-08T07:00:00Z",
+      "operation_id": 92,
+      "records_count": 365,
+      "records_processed": 365,
+      "result": "success"
+    },
+    "40": {
+      "id": 504,
+      "created": "2026-09-08T07:30:00Z",
+      "operation_id": 94,
+      "records_count": 51230,
+      "records_processed": 51230,
+      "result": "success"
+    }
+  },
+  "field_profiles": {
+    "10": [
+      {
+        "id": 600,
+        "name": "ORDER_ID",
+        "created": "2026-09-08T06:00:00Z",
+        "field_type": "Integral",
+        "completeness": 1.0,
+        "approximate_distinct_values": 125000,
+        "min": 1.0,
+        "max": 125000.0
+      },
+      {
+        "id": 601,
+        "name": "AMOUNT",
+        "created": "2026-09-08T06:00:00Z",
+        "field_type": "Fractional",
+        "completeness": 0.9832,
+        "approximate_distinct_values": 98211,
+        "min": 0.01,
+        "max": 9999.99,
+        "mean": 148.27,
+        "median": 89.5,
+        "std_dev": 212.44,
+        "q1": 24.99,
+        "q3": 175.0
+      },
+      {
+        "id": 602,
+        "name": "COUNTRY",
+        "created": "2026-09-08T06:00:00Z",
+        "field_type": "String",
+        "completeness": 1.0,
+        "approximate_distinct_values": 3,
+        "min_length": 2.0,
+        "max_length": 2.0,
+        "histogram_buckets": [
+          {
+            "value": "US",
+            "count": 90000,
+            "ratio": 0.72
+          },
+          {
+            "value": "CA",
+            "count": 25000,
+            "ratio": 0.2
+          },
+          {
+            "value": "GB",
+            "count": 10000,
+            "ratio": 0.08
+          }
+        ]
+      }
+    ],
+    "11": [
+      {
+        "id": 700,
+        "name": "ORDER_KEY",
+        "created": "2026-09-08T06:15:00Z",
+        "field_type": "String",
+        "completeness": 1.0,
+        "approximate_distinct_values": 125000
+      },
+      {
+        "id": 701,
+        "name": "EMAIL",
+        "created": "2026-09-08T06:15:00Z",
+        "field_type": "String",
+        "completeness": 0.9966,
+        "approximate_distinct_values": 119400
+      }
+    ],
+    "20": [
+      {
+        "id": 610,
+        "name": "event_ts",
+        "created": "2026-09-08T06:30:00Z",
+        "field_type": "Timestamp",
+        "completeness": 1.0
+      }
+    ],
+    "30": [
+      {
+        "id": 620,
+        "name": "report_date",
+        "created": "2026-09-08T07:00:00Z",
+        "field_type": "Date",
+        "completeness": 1.0,
+        "approximate_distinct_values": 365
+      }
+    ],
+    "40": [
+      {
+        "id": 630,
+        "name": "customer_id",
+        "created": "2026-09-08T07:30:00Z",
+        "field_type": "String",
+        "completeness": 1.0,
+        "approximate_distinct_values": 51230
+      }
+    ]
+  },
+  "quality_checks": {
+    "10": [
+      {
+        "id": 100,
+        "rule_type": "notNull",
+        "description": "Every order must have an amount",
+        "fields": [
+          {
+            "id": 601,
+            "name": "AMOUNT"
+          }
+        ],
+        "coverage": 1.0,
+        "weight": 8.0,
+        "inferred": false,
+        "status": "Active",
+        "is_passing": false,
+        "last_asserted": "2026-09-08T08:00:00Z",
+        "anomaly_count": 4,
+        "active_anomaly_count": 1
+      },
+      {
+        "id": 101,
+        "rule_type": "expectedValues",
+        "fields": [
+          {
+            "id": 602,
+            "name": "COUNTRY"
+          }
+        ],
+        "properties": {
+          "list": [
+            "US",
+            "CA",
+            "GB"
+          ]
+        },
+        "coverage": 1.0,
+        "weight": 5.0,
+        "inferred": true,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T08:00:00Z"
+      },
+      {
+        "id": 102,
+        "rule_type": "volumetric",
+        "properties": {
+          "min": 100000,
+          "max": 200000
+        },
+        "coverage": 1.0,
+        "weight": 6.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T08:00:00Z"
+      },
+      {
+        "id": 103,
+        "rule_type": "between",
+        "description": "Order amounts sit within the expected band",
+        "fields": [
+          {
+            "id": 601,
+            "name": "AMOUNT"
+          }
+        ],
+        "properties": {
+          "min": 0.01,
+          "max": 10000,
+          "inclusive": true
+        },
+        "coverage": 1.0,
+        "weight": 4.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T08:00:00Z"
+      },
+      {
+        "id": 104,
+        "rule_type": "satisfiesExpression",
+        "description": "Shipped orders must have a ship date",
+        "properties": {
+          "expression": "status <> 'SHIPPED' OR ship_date IS NOT NULL"
+        },
+        "coverage": 1.0,
+        "weight": 7.0,
+        "status": "Active",
+        "is_passing": false,
+        "last_asserted": "2026-09-08T08:00:00Z",
+        "anomaly_count": 1,
+        "active_anomaly_count": 1
+      }
+    ],
+    "20": [
+      {
+        "id": 200,
+        "rule_type": "freshness",
+        "properties": {
+          "max_time": 86400
+        },
+        "coverage": 1.0,
+        "weight": 9.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T09:00:00Z"
+      },
+      {
+        "id": 201,
+        "rule_type": "volumetric",
+        "properties": {
+          "min": 1000000,
+          "max": 20000000
+        },
+        "coverage": 1.0,
+        "weight": 5.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T09:00:00Z"
+      }
+    ],
+    "30": [
+      {
+        "id": 300,
+        "rule_type": "quantumEntanglement",
+        "description": "A rule type this build of the connector has never seen",
+        "properties": {
+          "threshold": 0.5,
+          "mode": "strict"
+        },
+        "coverage": 1.0,
+        "weight": 3.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T09:30:00Z"
+      }
+    ],
+    "11": [
+      {
+        "id": 110,
+        "rule_type": "unique",
+        "fields": [
+          {
+            "id": 700,
+            "name": "ORDER_KEY"
+          }
+        ],
+        "coverage": 1.0,
+        "weight": 9.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T08:15:00Z"
+      },
+      {
+        "id": 111,
+        "rule_type": "matchesPattern",
+        "fields": [
+          {
+            "id": 701,
+            "name": "EMAIL"
+          }
+        ],
+        "properties": {
+          "pattern": "^[^@]+@[^@]+$"
+        },
+        "coverage": 0.99,
+        "weight": 6.0,
+        "status": "Active",
+        "is_passing": false,
+        "last_asserted": "2026-09-08T08:15:00Z",
+        "anomaly_count": 2,
+        "active_anomaly_count": 1
+      }
+    ],
+    "40": [
+      {
+        "id": 400,
+        "rule_type": "unique",
+        "description": "customer_id is the grain of the dimension",
+        "fields": [
+          {
+            "id": 630,
+            "name": "customer_id"
+          }
+        ],
+        "coverage": 1.0,
+        "weight": 9.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T09:45:00Z"
+      },
+      {
+        "id": 401,
+        "rule_type": "expectedSchema",
+        "description": "Schema drift guard -- exercises DATASET_SCHEMA scope",
+        "coverage": 1.0,
+        "weight": 4.0,
+        "status": "Active",
+        "is_passing": true,
+        "last_asserted": "2026-09-08T09:45:00Z"
+      }
+    ]
+  },
+  "anomalies": {
+    "10": [
+      {
+        "id": 900,
+        "uuid": "3f2b1c88-0000-4000-8000-000000000001",
+        "type": "record",
+        "status": "Active",
+        "created": "2026-09-08T08:00:00Z",
+        "is_new": true,
+        "archived": false,
+        "anomalous_records_count": 2103,
+        "message": "2103 orders had a null AMOUNT",
+        "weight": 8.0,
+        "datastore": {
+          "id": 1,
+          "name": "sales-warehouse",
+          "store_type": "jdbc",
+          "type": "snowflake"
+        },
+        "container": {
+          "id": 10,
+          "name": "ORDERS"
+        },
+        "failed_checks": [
+          {
+            "quality_check": {
+              "id": 100,
+              "rule_type": "notNull",
+              "fields": [
+                {
+                  "id": 601,
+                  "name": "AMOUNT"
+                }
+              ]
+            },
+            "message": "2103 rows failed notNull on AMOUNT",
+            "suggested_field": "AMOUNT"
+          }
+        ]
+      },
+      {
+        "id": 901,
+        "uuid": "3f2b1c88-0000-4000-8000-000000000003",
+        "type": "shape",
+        "status": "Acknowledged",
+        "created": "2026-09-08T08:05:00Z",
+        "is_new": false,
+        "archived": false,
+        "anomalous_records_count": 3,
+        "message": "3 shipped orders had no ship date",
+        "weight": 7.0,
+        "datastore": {
+          "id": 1,
+          "name": "sales-warehouse",
+          "store_type": "jdbc",
+          "type": "snowflake"
+        },
+        "container": {
+          "id": 10,
+          "name": "ORDERS"
+        },
+        "failed_checks": [
+          {
+            "quality_check": {
+              "id": 104,
+              "rule_type": "satisfiesExpression"
+            },
+            "message": "3 rows failed satisfiesExpression"
+          }
+        ]
+      }
+    ],
+    "11": [
+      {
+        "id": 910,
+        "uuid": "3f2b1c88-0000-4000-8000-000000000002",
+        "type": "record",
+        "status": "Active",
+        "created": "2026-09-08T08:15:00Z",
+        "is_new": false,
+        "archived": false,
+        "anomalous_records_count": 42,
+        "message": "42 rows had a malformed EMAIL",
+        "weight": 6.0,
+        "datastore": {
+          "id": 1,
+          "name": "sales-warehouse",
+          "store_type": "jdbc",
+          "type": "snowflake"
+        },
+        "container": {
+          "id": 11,
+          "name": "ORDERS_ENRICHED"
+        },
+        "failed_checks": [
+          {
+            "quality_check": {
+              "id": 111,
+              "rule_type": "matchesPattern",
+              "fields": [
+                {
+                  "id": 701,
+                  "name": "EMAIL"
+                }
+              ]
+            },
+            "message": "42 rows failed matchesPattern on EMAIL",
+            "suggested_value": "^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$"
+          }
+        ]
+      }
+    ]
+  }
+}
