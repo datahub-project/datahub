@@ -23,6 +23,13 @@ source:
         - ".*" # Allow all pipelines by default
       deny: []
 
+    # DataHub ownership type for the item default identity.
+    # TECHNICAL_OWNER, BUSINESS_OWNER, DATA_STEWARD, NONE, or
+    # urn:li:ownershipType:<id>. Activities inherit the pipeline owner
+    # when they have none of their own.
+    # ownership_type: TECHNICAL_OWNER
+    # cascade_ownership: true
+
     # Feature flags
     extract_pipelines: true
     include_lineage: true

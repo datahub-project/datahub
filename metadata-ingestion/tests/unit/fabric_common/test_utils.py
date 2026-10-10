@@ -52,6 +52,26 @@ def test_default_identity_user_principal_name() -> None:
         is None
     )
     assert owners_from_user_principal_name("jane.doe@contoso.com") == [
-        "jane.doe@contoso.com"
+        ("jane.doe@contoso.com", "TECHNICAL_OWNER")
     ]
     assert owners_from_user_principal_name(None) is None
+    assert owners_from_user_principal_name(
+        None,
+        parent_user_principal_name="jane.doe@contoso.com",
+        ownership_type="BUSINESS_OWNER",
+        cascade=True,
+    ) == [("jane.doe@contoso.com", "BUSINESS_OWNER")]
+    assert owners_from_user_principal_name(
+        "child@contoso.com",
+        parent_user_principal_name="jane.doe@contoso.com",
+        ownership_type="DATA_STEWARD",
+        cascade=True,
+    ) == [("child@contoso.com", "DATA_STEWARD")]
+    assert (
+        owners_from_user_principal_name(
+            None,
+            parent_user_principal_name="jane.doe@contoso.com",
+            cascade=False,
+        )
+        is None
+    )

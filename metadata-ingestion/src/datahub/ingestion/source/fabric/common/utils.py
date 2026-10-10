@@ -1,7 +1,7 @@
 """Shared utility functions for Microsoft Fabric connectors."""
 
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
@@ -28,11 +28,24 @@ def parse_iso_datetime(iso_str: str) -> datetime:
 
 def owners_from_user_principal_name(
     user_principal_name: Optional[str],
-) -> Optional[List[str]]:
-    """Return a DataHub owner list for a Fabric userPrincipalName."""
-    if not user_principal_name:
+    *,
+    parent_user_principal_name: Optional[str] = None,
+    ownership_type: str = "TECHNICAL_OWNER",
+    cascade: bool = False,
+) -> Optional[List[Tuple[str, str]]]:
+    """Return DataHub owners for a Fabric userPrincipalName.
+
+    Uses the entity's own userPrincipalName. When that is missing and
+    ``cascade`` is set, uses the parent entity's userPrincipalName instead.
+    ``ownership_type`` is the DataHub ownership type (for example
+    TECHNICAL_OWNER or BUSINESS_OWNER).
+    """
+    principal_name = user_principal_name
+    if not principal_name and cascade:
+        principal_name = parent_user_principal_name
+    if not principal_name:
         return None
-    return [user_principal_name]
+    return [(principal_name, ownership_type)]
 
 
 def make_workspace_key(

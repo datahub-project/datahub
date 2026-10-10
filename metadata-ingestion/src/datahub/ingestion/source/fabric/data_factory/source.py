@@ -160,7 +160,9 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Item default identity userPrincipalName, when the identity is a user",
+    "Item default identity userPrincipalName, when the identity is a user. "
+    "`ownership_type` sets the DataHub ownership type (default TECHNICAL_OWNER). "
+    "Children without an owner inherit it.",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -368,6 +370,20 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             f"/pipelines/{pipeline_id}/{run_id}"
         )
 
+    def _owners(
+        self,
+        user_principal_name: Optional[str],
+        *,
+        parent_user_principal_name: Optional[str] = None,
+    ):
+        """Owners for this entity, falling back to the parent when cascading."""
+        return owners_from_user_principal_name(
+            user_principal_name,
+            parent_user_principal_name=parent_user_principal_name,
+            ownership_type=self.config.ownership_type,
+            cascade=self.config.cascade_ownership,
+        )
+
     def _emit_pipelines(
         self,
         workspace: FabricWorkspace,
@@ -402,7 +418,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     "workspace_id": workspace.id,
                 },
                 parent_container=workspace_key,
-                owners=owners_from_user_principal_name(item.owner_user_principal_name),
+                owners=self._owners(item.owner_user_principal_name),
             )
             yield dataflow
 
@@ -532,6 +548,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     ]
                     if has_io
                     else None,
+                    owners=self._owners(
+                        None,
+                        parent_user_principal_name=pipeline_item.owner_user_principal_name,
+                    ),
                 )
                 datajob._set_container(workspace_key)
 

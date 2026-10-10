@@ -247,6 +247,26 @@ class TestSqlEndpointDependencyValidator:
         assert config.profiling._allow_deny_patterns.allow == ["dbo.orders"]
         assert config.is_profiling_enabled()
 
+    def test_ownership_type_accepts_datahub_types_and_custom_urns(self) -> None:
+        technical = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(), ownership_type="technical_owner"
+        )
+        assert technical.ownership_type == "TECHNICAL_OWNER"
+        assert technical.cascade_ownership is True
+
+        custom = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            ownership_type="urn:li:ownershipType:architect",
+            cascade_ownership=False,
+        )
+        assert custom.ownership_type == "urn:li:ownershipType:architect"
+        assert custom.cascade_ownership is False
+
+        with pytest.raises(ValidationError):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(), ownership_type="not-a-type"
+            )
+
     def test_usage_requires_enabled_sql_endpoint(self) -> None:
         with pytest.raises(ValidationError, match="usage.include_usage_statistics"):
             FabricOneLakeSourceConfig(

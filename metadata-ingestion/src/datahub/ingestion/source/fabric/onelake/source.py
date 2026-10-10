@@ -176,7 +176,9 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Item default identity userPrincipalName, when the identity is a user",
+    "Item default identity userPrincipalName, when the identity is a user. "
+    "`ownership_type` sets the DataHub ownership type (default TECHNICAL_OWNER). "
+    "Children without an owner inherit it.",
 )
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -303,6 +305,20 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _is_usage_table_allowed(self, name: str) -> bool:
         return name.lower() in self._ingested_dataset_names
+
+    def _owners(
+        self,
+        user_principal_name: Optional[str],
+        *,
+        parent_user_principal_name: Optional[str] = None,
+    ):
+        """Owners for this entity, falling back to the parent when cascading."""
+        return owners_from_user_principal_name(
+            user_principal_name,
+            parent_user_principal_name=parent_user_principal_name,
+            ownership_type=self.config.ownership_type,
+            cascade=self.config.cascade_ownership,
+        )
 
     def _norm(self, name: str) -> str:
         # Lowercase identifiers used in URNs and schema field paths so they match
@@ -565,7 +581,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 f"/synapsenotebooks/{notebook.id}"
             ),
             custom_properties=custom_properties,
-            owners=owners_from_user_principal_name(notebook.owner_user_principal_name),
+            owners=self._owners(notebook.owner_user_principal_name),
         )
 
     def _process_lakehouse(
@@ -588,7 +604,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
             parent_container=lakehouse_key.parent_key(),
             qualified_name=make_lakehouse_name(workspace.id, lakehouse.id),
-            owners=owners_from_user_principal_name(lakehouse.owner_user_principal_name),
+            owners=self._owners(lakehouse.owner_user_principal_name),
         )
 
         yield lakehouse_container
@@ -616,6 +632,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             emitted_schemas=emitted_schemas,
             profile_targets=profile_targets,
             shortcuts=shortcuts,
+            owner_user_principal_name=lakehouse.owner_user_principal_name,
         )
 
         # Process views (requires SQL endpoint)
@@ -628,6 +645,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 schema_client=schema_client,
                 schema_map=schema_map,
                 emitted_schemas=emitted_schemas,
+                owner_user_principal_name=lakehouse.owner_user_principal_name,
             )
 
         self._extract_item_usage(
@@ -657,7 +675,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetContainerSubTypes.FABRIC_WAREHOUSE,
             parent_container=warehouse_key.parent_key(),
             qualified_name=make_warehouse_name(workspace.id, warehouse.id),
-            owners=owners_from_user_principal_name(warehouse.owner_user_principal_name),
+            owners=self._owners(warehouse.owner_user_principal_name),
         )
 
         yield warehouse_container
@@ -683,6 +701,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
             profile_targets=profile_targets,
+            owner_user_principal_name=warehouse.owner_user_principal_name,
         )
 
         # Process views (requires SQL endpoint)
@@ -695,6 +714,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 schema_client=schema_client,
                 schema_map=schema_map,
                 emitted_schemas=emitted_schemas,
+                owner_user_principal_name=warehouse.owner_user_principal_name,
             )
 
         self._extract_item_usage(
@@ -789,6 +809,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         emitted_schemas: set[str],
         profile_targets: list[FabricProfileTarget],
         shortcuts: Optional[dict[tuple[str, str], LakehouseTableShortcut]] = None,
+        owner_user_principal_name: Optional[str] = None,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -842,6 +863,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                             qualified_name=make_schema_name(
                                 workspace.id, item_id, schema_urn_name
                             ),
+                            owners=self._owners(
+                                None,
+                                parent_user_principal_name=owner_user_principal_name,
+                            ),
                         )
                         emitted_schemas.add(schema_urn_name)
                         self.report.report_schema_scanned()
@@ -878,6 +903,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         parent_container_key,
                         columns,
                         shortcut=shortcut,
+                        owner_user_principal_name=owner_user_principal_name,
                     )
 
         except Exception as e:
@@ -931,6 +957,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         parent_container_key: ContainerKey,
         columns: list[FabricColumn],
         shortcut: Optional[LakehouseTableShortcut] = None,
+        owner_user_principal_name: Optional[str] = None,
     ) -> Iterable[Dataset]:
         """Create a table dataset with schema metadata."""
         table_name = make_table_name(
@@ -983,6 +1010,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             tags=tags,
             custom_properties=custom_properties,
             upstreams=upstreams,
+            owners=self._owners(
+                None,
+                parent_user_principal_name=owner_user_principal_name,
+            ),
         )
 
         upstream_name = (
@@ -1291,6 +1322,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_client: "SchemaExtractionClient",
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
+        owner_user_principal_name: Optional[str] = None,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process views in a lakehouse or warehouse.
 
@@ -1359,6 +1391,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         qualified_name=make_schema_name(
                             workspace.id, item_id, schema_urn_name
                         ),
+                        owners=self._owners(
+                            None,
+                            parent_user_principal_name=owner_user_principal_name,
+                        ),
                     )
                     emitted_schemas.add(schema_urn_name)
                     self.report.report_schema_scanned()
@@ -1375,6 +1411,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     view,
                     parent_container_key,
                     columns,
+                    owner_user_principal_name=owner_user_principal_name,
                 )
 
     def _create_view_dataset(
@@ -1385,6 +1422,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         view: FabricView,
         parent_container_key: ContainerKey,
         columns: list[FabricColumn],
+        owner_user_principal_name: Optional[str] = None,
     ) -> Iterable[Dataset]:
         """Create a view dataset with schema metadata and view definition."""
         # Views use the same URN pattern as tables
@@ -1415,6 +1453,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetSubTypes.VIEW,
             view_definition=view.view_definition,
             parse_view_lineage=False,
+            owners=self._owners(
+                None,
+                parent_user_principal_name=owner_user_principal_name,
+            ),
         )
 
         yield dataset
