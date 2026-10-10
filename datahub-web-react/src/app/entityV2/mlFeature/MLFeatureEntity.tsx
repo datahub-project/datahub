@@ -203,6 +203,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                health={data.health}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 browsePaths={data.browsePathV2 || undefined}
@@ -226,6 +227,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
@@ -270,6 +272,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,

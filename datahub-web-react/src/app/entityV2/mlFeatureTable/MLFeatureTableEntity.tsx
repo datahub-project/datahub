@@ -188,6 +188,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                health={data.health}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -208,6 +209,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
@@ -250,6 +252,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
