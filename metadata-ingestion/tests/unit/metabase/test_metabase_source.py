@@ -250,6 +250,115 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
     metabase_source.close()
 
 
+def test_strip_template_expressions_handles_multiline_optional_clause():
+    """Metabase's [[ ... ]] optional-clause and {{ variable }} syntax is
+    commonly hand-formatted across multiple lines. The regexes in
+    strip_template_expressions must use re.DOTALL, otherwise "." does not
+    match "\\n", the brackets are left untouched, and the resulting SQL is
+    invalid.
+
+    Reference: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
+    """
+    query = """SELECT *
+FROM orders
+WHERE 1=1
+[[
+  AND order_date BETWEEN
+    {{start_date}}
+    AND
+    {{end_date}}
+]]
+"""
+    stripped = MetabaseSource.strip_template_expressions(query)
+
+    assert "[[" not in stripped
+    assert "]]" not in stripped
+    assert "{{" not in stripped
+    assert "}}" not in stripped
+
+
+def test_strip_template_expressions_handles_multiline_template_variable_standalone():
+    """Exercises _TEMPLATE_VARIABLE_PATTERN's re.DOTALL in isolation.
+
+    The multiline-optional-clause test above nests its {{ }} variables
+    inside a [[ ... ]] block, so _OPTIONAL_CLAUSE_PATTERN consumes and
+    removes them in the first substitution pass before
+    _TEMPLATE_VARIABLE_PATTERN ever runs, leaving its own DOTALL flag
+    untested. This test uses a {{ }} variable that spans multiple lines
+    on its own, outside any [[ ... ]] block, so it survives to be matched
+    by _TEMPLATE_VARIABLE_PATTERN directly.
+    """
+    query = """SELECT *
+FROM orders
+WHERE status = {{
+  order_status
+}}
+"""
+    stripped = MetabaseSource.strip_template_expressions(query)
+
+    assert "{{" not in stripped
+    assert "}}" not in stripped
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_get_table_urns_from_native_query_with_multiline_optional_clause(
+    mock_post, mock_get, mock_delete
+):
+    """End-to-end regression test for the re.DOTALL fix: a native query whose
+    [[ ... ]] optional clause spans multiple lines must still resolve table
+    lineage, instead of silently returning no table URNs because the leftover
+    brackets broke SQL parsing."""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    ctx.graph = None
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+
+    query = """SELECT *
+FROM orders
+WHERE 1=1
+[[
+  AND order_date BETWEEN
+    {{start_date}}
+    AND
+    {{end_date}}
+]]
+"""
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="native", native={"query": query}),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
+    assert table_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    ]
+
+    metabase_source.close()
+
+
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
