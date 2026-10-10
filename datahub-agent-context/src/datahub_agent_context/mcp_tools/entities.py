@@ -207,8 +207,10 @@ def list_schema_fields(
     inject_urls_for_urns(graph, result, [""])
     truncate_descriptions(result)
 
-    # Extract total field count before processing
-    total_fields = len(result.get("schemaMetadata", {}).get("fields", []))
+    # Extract total field count before processing. A dataset whose schema was
+    # never ingested comes back with schemaMetadata set to null rather than
+    # absent, so the {} default never applies -- hence `or {}`.
+    total_fields = len((result.get("schemaMetadata") or {}).get("fields") or [])
 
     if total_fields == 0:
         return {
@@ -290,7 +292,7 @@ def list_schema_fields(
             )
 
         # Pre-compute matching count (need all fields for this)
-        fields_for_counting = result.get("schemaMetadata", {}).get("fields", [])
+        fields_for_counting = (result.get("schemaMetadata") or {}).get("fields") or []
         matching_count = sum(
             1 for field in fields_for_counting if score_field_by_keywords(field) > 0
         )
