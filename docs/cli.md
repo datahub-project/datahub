@@ -76,6 +76,7 @@ Options:
                                   printing sensitive information like passwords, this may still happen.
   --version                       Show the version and exit.
   -dl, --detect-memory-leaks      Run memory leak detection.
+  -C, --context KEY=VALUE         Additional context as key=value pairs (can be repeated).
   --help                          Show this message and exit.
 
 Commands:
@@ -106,6 +107,26 @@ Commands:
 
 The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli.
 We've ordered them roughly in the order we expect you to interact with these commands as you get deeper into the `datahub`-verse.
+
+### Attributing traffic to an agent skill
+
+When an AI agent drives the CLI, pass `-C skill=<name>` on the root command so the
+requests can be attributed to the skill that made them:
+
+```shell
+datahub -C skill=datahub-search search "revenue"
+```
+
+The skill name becomes the client component in the `User-Agent` header every request
+carries, alongside the automatically detected caller:
+
+```
+User-Agent: DataHub-Client/1.0 (cli; skill-datahub-search/claude-code; 1.7.0)
+```
+
+It takes precedence over the `DATAHUB_COMPONENT` environment variable for the
+commands it is passed to, and is normalized (lowercased, non-alphanumerics collapsed
+to `-`) before it is sent. No skill information is recorded when the flag is omitted.
 
 ### docker
 
