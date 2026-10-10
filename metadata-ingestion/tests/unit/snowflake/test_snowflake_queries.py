@@ -3,7 +3,7 @@ import itertools
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,6 +16,7 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import (
     QueryDedupStrategyType,
     SnowflakeIdentifierConfig,
@@ -24,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     QueryLogQueryBuilder,
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
+    detect_snowflake_edition,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
     _PLAIN_LITERAL_PATTERN_RE,
@@ -4069,3 +4071,283 @@ class TestDynamicTableLineageSuppression:
 
         # Must not raise (a missing isinstance guard would json.loads(list) -> TypeError).
         list(extractor._parse_audit_log_row(row, {}))
+
+
+class TestQueryHistoryFallback:
+    """Tests for the query_history-only extraction path used when access_history
+    is unavailable (Standard edition): rows are turned into ObservedQuery entries
+    for sqlglot to parse, instead of carrying preparsed object lists."""
+
+    @staticmethod
+    def _create_extractor(
+        *,
+        connection: Optional[Mock] = None,
+        use_access_history: Optional[bool] = None,
+        known_snowflake_edition: Optional[SnowflakeEdition] = None,
+        **config_kwargs: Any,
+    ) -> SnowflakeQueriesExtractor:
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+            use_access_history=use_access_history,
+            known_snowflake_edition=known_snowflake_edition,
+            **config_kwargs,
+        )
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.get_user_identifier = Mock(return_value="test_user")
+
+        return SnowflakeQueriesExtractor(
+            connection=connection or Mock(),
+            config=config,
+            structured_report=SourceReport(),
+            filters=Mock(),
+            identifiers=mock_identifiers,
+        )
+
+    @staticmethod
+    def _make_query_history_row(
+        query_text: str = "SELECT * FROM TEST_DB.PUBLIC.MY_TABLE",
+        query_type: str = "SELECT",
+        query_count: int = 1,
+    ) -> dict:
+        """Build a row in the shape returned by build_query_history_only_query:
+        the enriched columns exist but are NULL."""
+        return {
+            "QUERY_ID": "qh-1",
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": query_text,
+            "QUERY_TYPE": query_type,
+            "SESSION_ID": "session-1",
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "QUERY_START_TIME": datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "QUERY_DURATION": 500,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "TEST_DB",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "QUERY_COUNT": query_count,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "DIRECT_OBJECTS_ACCESSED": None,
+            "OBJECTS_MODIFIED": None,
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    @pytest.mark.parametrize("strategy", list(QueryDedupStrategyType))
+    def test_query_history_only_query_valid_sql(self, strategy):
+        query = QueryLogQueryBuilder(
+            start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=["SERVICE_%"],
+            dedup_strategy=strategy,
+        ).build_query_history_only_query()
+
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+        assert "account_usage.query_history" in query
+        # The whole point of the fallback: no access_history references.
+        assert "access_history" not in query
+        assert "user_name NOT ILIKE 'SERVICE_%'" in query
+
+    def test_parse_query_history_row_yields_observed_query(self):
+        extractor = self._create_extractor(use_access_history=False)
+        row = self._make_query_history_row(
+            query_text="INSERT INTO TEST_DB.PUBLIC.T SELECT * FROM TEST_DB.PUBLIC.S",
+            query_type="INSERT",
+            query_count=7,
+        )
+
+        results = list(extractor._parse_query_history_row(row, {}))
+
+        assert len(results) == 1
+        result = results[0]
+        assert isinstance(result, ObservedQuery)
+        assert result.query == row["QUERY_TEXT"]
+        assert result.session_id == "session-1"
+        assert result.default_db == "TEST_DB"
+        assert result.default_schema == "PUBLIC"
+        assert result.usage_multiplier == 7
+        assert result.query_hash is not None
+        assert result.user is not None
+        assert result.user.urn() == "urn:li:corpuser:test_user"
+        assert result.extra_info is not None
+        assert result.extra_info["snowflake_query_id"] == "qh-1"
+        assert result.extra_info["snowflake_root_query_id"] is None
+        assert extractor.report.num_query_type_counts == {"INSERT": 1}
+
+    @pytest.mark.parametrize(
+        "query_type", ["SHOW", "USE", "CALL", "DESCRIBE", "ALTER_SESSION"]
+    )
+    def test_non_table_query_types_skipped(self, query_type):
+        extractor = self._create_extractor(use_access_history=False)
+        row = self._make_query_history_row(
+            query_text=f"{query_type} something", query_type=query_type
+        )
+
+        results = list(extractor._parse_query_history_row(row, {}))
+
+        assert results == []
+        assert extractor.report.num_query_history_rows_skipped_no_table_access == 1
+        # The type is still counted so the report shows what was skipped.
+        assert extractor.report.num_query_type_counts == {query_type: 1}
+
+    def test_fetch_query_log_uses_simple_query_in_fallback(self):
+        queries_executed = []
+
+        def capture(query: str) -> List[Dict[str, Any]]:
+            queries_executed.append(query)
+            return [self._make_query_history_row()]
+
+        extractor = self._create_extractor(connection=Mock(), use_access_history=False)
+        extractor.connection.query = capture  # type: ignore[method-assign]
+
+        results = list(extractor.fetch_query_log({}))
+
+        assert len(queries_executed) == 1
+        assert "access_history" not in queries_executed[0]
+        assert "account_usage.query_history" in queries_executed[0]
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.query_log_fetch_mode == "query_history"
+
+    def test_fetch_query_log_uses_enriched_query_with_access_history(self):
+        queries_executed = []
+
+        def capture(query: str) -> List[Dict[str, Any]]:
+            queries_executed.append(query)
+            return []
+
+        extractor = self._create_extractor(connection=Mock(), use_access_history=True)
+        extractor.connection.query = capture  # type: ignore[method-assign]
+
+        list(extractor.fetch_query_log({}))
+
+        assert len(queries_executed) == 1
+        assert "account_usage.access_history" in queries_executed[0]
+        assert extractor.report.query_log_fetch_mode == "access_history"
+
+    @pytest.mark.parametrize(
+        "use_access_history,known_edition,show_tags_error,expected",
+        [
+            pytest.param(True, None, None, True, id="explicit_true"),
+            pytest.param(False, None, None, False, id="explicit_false"),
+            pytest.param(
+                None, SnowflakeEdition.STANDARD, None, False, id="known_standard"
+            ),
+            pytest.param(
+                None, SnowflakeEdition.ENTERPRISE, None, True, id="known_enterprise"
+            ),
+            pytest.param(
+                None,
+                None,
+                "SQL compilation error: Unsupported feature 'TAG'.",
+                False,
+                id="probe_standard",
+            ),
+            pytest.param(
+                None,
+                None,
+                "Unsupported feature 'something_else'",
+                False,
+                id="probe_standard_broad_match",
+            ),
+            pytest.param(None, None, None, True, id="probe_enterprise"),
+            pytest.param(
+                None,
+                None,
+                "Some unrelated connection error",
+                True,
+                id="probe_failure_defaults_enriched",
+            ),
+        ],
+    )
+    def test_use_access_history_resolution(
+        self, use_access_history, known_edition, show_tags_error, expected
+    ):
+        connection = Mock()
+        if show_tags_error is not None:
+            connection.query.side_effect = Exception(show_tags_error)
+        else:
+            connection.query.return_value = []
+
+        extractor = self._create_extractor(
+            connection=connection,
+            use_access_history=use_access_history,
+            known_snowflake_edition=known_edition,
+        )
+
+        assert extractor.use_access_history == expected
+        # cached_property: resolution happens once.
+        assert extractor.use_access_history == expected
+        assert extractor.report.query_log_fetch_mode == (
+            "access_history" if expected else "query_history"
+        )
+
+    @pytest.mark.parametrize(
+        "errno,sqlstate",
+        [
+            pytest.param(2, None, id="errno_only"),
+            pytest.param(None, "0A000", id="sqlstate_only"),
+            pytest.param(2, "0A000", id="errno_and_sqlstate"),
+        ],
+    )
+    def test_detect_edition_uses_error_code(self, errno, sqlstate):
+        """The probe must recognize the stable unsupported-feature error
+        (errno 2 / SQLSTATE 0A000) without relying on message text."""
+        connection = Mock()
+        err = Exception("some opaque message that does not mention the feature")
+        if errno is not None:
+            err.errno = errno  # type: ignore[attr-defined]
+        if sqlstate is not None:
+            err.sqlstate = sqlstate  # type: ignore[attr-defined]
+        connection.query.side_effect = err
+
+        assert detect_snowflake_edition(connection) == SnowflakeEdition.STANDARD
+
+    def test_detect_edition_reraises_unrelated_error_codes(self):
+        connection = Mock()
+        err = Exception("unexpected failure")
+        err.errno = 100071  # type: ignore[attr-defined]
+        err.sqlstate = "22000"  # type: ignore[attr-defined]
+        connection.query.side_effect = err
+
+        with pytest.raises(Exception, match="unexpected failure"):
+            detect_snowflake_edition(connection)
+
+    def test_explicit_flag_skips_edition_probe(self):
+        connection = Mock()
+        extractor = self._create_extractor(
+            connection=connection, use_access_history=False
+        )
+
+        assert extractor.use_access_history is False
+        connection.query.assert_not_called()
+
+    def test_pushdown_db_pattern_warns_in_fallback(self):
+        queries_executed = []
+
+        def capture(query: str) -> List[Dict[str, Any]]:
+            queries_executed.append(query)
+            return []
+
+        extractor = self._create_extractor(
+            connection=Mock(),
+            use_access_history=False,
+            push_down_database_pattern_access_history=True,
+        )
+        extractor.connection.query = capture  # type: ignore[method-assign]
+
+        list(extractor.fetch_query_log({}))
+
+        assert len(queries_executed) == 1
+        assert "access_history" not in queries_executed[0]
+        assert any(
+            "push_down_database_pattern_access_history" in w.message
+            for w in extractor.structured_reporter.warnings
+        )

@@ -284,6 +284,20 @@ The older approach that will be deprecated in future versions:
 
 Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
 
+##### Snowflake Standard Edition (`query_history` fallback)
+
+`ACCESS_HISTORY` is only populated on Enterprise edition or above. When the connector detects Standard edition, it skips the `ACCESS_HISTORY` join and derives lineage, usage statistics, query entities, and operations by parsing the query text from `account_usage.query_history`, which is available on all editions.
+
+To force this path, set `use_access_history: false` on either the `snowflake` or `snowflake-queries` source, or set `known_snowflake_edition: STANDARD` to skip edition detection entirely. This fallback applies only when `use_queries_v2: true` (the default); legacy recipes still rely on `ACCESS_HISTORY` and do not derive table lineage from `QUERY_HISTORY`.
+
+This fallback preserves the headline features — usage statistics (including Highlighted Queries), Query entities, table- and column-level lineage for DML/DDL statements, and operational metadata — with a few differences compared to the access_history path:
+
+- **Accuracy**: upstream/downstream tables and columns come from SQL parsing rather than Snowflake's own analysis, so coverage depends on parse success and confidence scores are lower.
+- **Stored procedures**: `root_query_id` is only available in `access_history`, so stored-procedure statements are not grouped under their `CALL`; inner statements are still parsed individually.
+- **Table renames/swaps**: `object_modified_by_ddl` is `access_history`-only, so `ALTER TABLE ... RENAME`/`SWAP` lineage events are not detected.
+- **`push_down_database_pattern_access_history`** has no effect — database filtering is applied after parsing instead.
+- **Performance**: parsing every deduplicated query in the connector is slower than reading Snowflake's preparsed object lists.
+
 ##### Snowflake Streams as Upstream Lineage Sources
 
 DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage details:
