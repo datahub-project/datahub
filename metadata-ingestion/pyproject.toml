@@ -1292,8 +1292,6 @@ all = [
     "zstd<1.5.6.8",
 ]
 
-cloud = ["acryl-datahub-cloud"]
-
 dev = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
