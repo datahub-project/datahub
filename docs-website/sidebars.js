@@ -704,6 +704,11 @@ module.exports = {
           id: "docs/features/feature-guides/metrics-and-semantic-models",
         },
         {
+          label: "Ossie Compatibility",
+          type: "doc",
+          id: "docs/features/feature-guides/ossie-compatibility",
+        },
+        {
           label: "MCP Server",
           type: "doc",
           id: "docs/features/feature-guides/mcp",
