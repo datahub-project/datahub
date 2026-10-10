@@ -417,6 +417,14 @@ class TestConfigurationIntegration:
 
             assert mock_sql_config.options["poolclass"] == QueuePool
 
+            # The Teradata dialect defaults to SingletonThreadPool. poolclass must be
+            # set before the base class decides on max_overflow, or it gets dropped
+            # even though the engine is built with QueuePool.
+            source._add_default_options(config)
+
+            assert config.options["poolclass"] == QueuePool
+            assert config.options["max_overflow"] == config.profiling.max_workers
+
 
 class TestComplexQueryScenarios:
     """Test complex query processing scenarios."""

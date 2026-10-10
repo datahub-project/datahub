@@ -4,9 +4,14 @@ from unittest import mock
 import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import NoSuchTableError
+from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import (
+    PipelineContext,
+    SQLAlchemySource,
+    _pool_accepts_sizing_options,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -316,3 +321,69 @@ def test_loop_views_keeps_view_when_definition_is_unavailable():
     assert view_properties[0].viewLogic == ""
     assert not source.report.warnings
     assert not source.report.failures
+
+
+class _TestSQLiteConfig(SQLCommonConfig):
+    # In-memory SQLite uses SingletonThreadPool, so it exercises the
+    # non-pooling path. (File-backed SQLite uses QueuePool on SQLAlchemy 2.0.)
+    def get_sql_alchemy_url(self):
+        return "sqlite://"
+
+
+@pytest.mark.parametrize(
+    "url, options, expected",
+    [
+        ("sqlite:///test.db", {}, True),
+        ("sqlite://", {}, False),
+        ("sqlite:///:memory:", {}, False),
+        # An explicit poolclass wins over the dialect default, both ways.
+        ("sqlite://", {"poolclass": QueuePool}, True),
+        ("sqlite:///test.db", {"poolclass": NullPool}, False),
+        ("sqlite:///test.db", {"poolclass": StaticPool}, False),
+        # Driver not installed -> keep the previous behaviour.
+        ("not-a-real-dialect://host/db", {}, True),
+    ],
+)
+def test_pool_accepts_sizing_options(url: str, options: dict, expected: bool) -> None:
+    assert _pool_accepts_sizing_options(url, options) is expected
+
+
+def test_add_default_options_skips_max_overflow_for_non_pooling_dialect() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # Passing max_overflow to a non-QueuePool engine makes create_engine() raise
+    # TypeError, which previously aborted the run before profiling anything.
+    assert "max_overflow" not in config.options
+    create_engine(config.get_sql_alchemy_url(), **config.options).dispose()
+
+
+def test_add_default_options_skips_max_overflow_for_explicit_non_queue_pool() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate(
+        {"profiling": {"enabled": True}, "options": {"poolclass": NullPool}}
+    )
+
+    source._add_default_options(config)
+
+    assert "max_overflow" not in config.options
+
+
+def test_add_default_options_sets_max_overflow_when_pooled() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    assert config.options["max_overflow"] == config.profiling.max_workers
+
+
+def test_add_default_options_noop_without_profiling() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({})
+
+    source._add_default_options(config)
+
+    assert "max_overflow" not in config.options

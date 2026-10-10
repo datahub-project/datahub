@@ -2007,13 +2007,14 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add Teradata-specific default options"""
-        super()._add_default_options(sql_config)
         if sql_config.is_profiling_enabled():
             # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
             # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
             # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
             # https://github.com/Teradata/sqlalchemy-teradata/issues/96
+            # Set before super() so the base class sees QueuePool and keeps max_overflow.
             sql_config.options.setdefault("poolclass", QueuePool)
+        super()._add_default_options(sql_config)
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

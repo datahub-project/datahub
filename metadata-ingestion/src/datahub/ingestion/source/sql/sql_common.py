@@ -22,9 +22,11 @@ from typing import (
 
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
+from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import NoSuchTableError, ProgrammingError
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -276,6 +278,42 @@ config_options_to_report = [
 ]
 
 
+def _pool_accepts_sizing_options(url: str, options: Dict[str, Any]) -> bool:
+    """Whether the engine's pool will accept QueuePool sizing options.
+
+    `max_overflow` is a QueuePool-only parameter. Any other pool -- NullPool,
+    StaticPool, SingletonThreadPool (in-memory SQLite, Teradata's default) --
+    makes `create_engine()` raise `TypeError: Invalid argument(s) 'max_overflow'`.
+
+    An explicit `poolclass` in the engine options wins over the dialect default,
+    since that is the pool `create_engine()` will actually build.
+
+    If the dialect cannot be resolved, for example because its driver is not
+    installed in this environment, assume it pools. That preserves the previous
+    behaviour for every dialect this check cannot positively rule out.
+    """
+    explicit = options.get("poolclass")
+    if explicit is not None:
+        return isinstance(explicit, type) and issubclass(explicit, QueuePool)
+    try:
+        parsed_url = make_url(url)
+        # get_pool_class is declared on DefaultDialect rather than on the
+        # Dialect interface that get_dialect() is typed as returning, so
+        # resolve it defensively.
+        get_pool_class = getattr(parsed_url.get_dialect(), "get_pool_class", None)
+        if get_pool_class is None:
+            return True
+        pool_class = get_pool_class(parsed_url)
+    except Exception:
+        logger.debug(
+            "Could not resolve the pool class for this connection; "
+            "assuming QueuePool sizing options are supported.",
+            exc_info=True,
+        )
+        return True
+    return issubclass(pool_class, QueuePool)
+
+
 @dataclass
 class ProfileMetadata:
     """
@@ -372,7 +410,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
+        if sql_config.is_profiling_enabled() and _pool_accepts_sizing_options(
+            sql_config.get_sql_alchemy_url(), sql_config.options
+        ):
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
