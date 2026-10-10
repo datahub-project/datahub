@@ -2075,9 +2075,9 @@
         },
         {
           "capability": "PARTITION_SUPPORT",
-          "description": "Currently not supported.",
+          "description": "Source columns of the table's partition spec are marked as partitioning keys; the full spec (including transforms) is available in the `partition-spec` table property.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
