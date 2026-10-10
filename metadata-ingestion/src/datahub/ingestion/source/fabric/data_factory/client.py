@@ -33,8 +33,9 @@ class FabricDataFactoryClient(FabricCoreClient):
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
         report: Optional[FabricDataFactoryClientReport] = None,
+        include_owners: bool = True,
     ):
-        super().__init__(auth_helper, timeout, report)
+        super().__init__(auth_helper, timeout, report, include_owners=include_owners)
 
     def get_pipeline_runs(
         self,

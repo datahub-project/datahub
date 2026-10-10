@@ -1427,7 +1427,7 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Item default identity userPrincipalName, when the identity is a user. `ownership_type` sets the DataHub ownership type (default TECHNICAL_OWNER). Children without an owner inherit it.",
+          "description": "Optionally enabled via `extract_owners`. Item default identity userPrincipalName, when the identity is a user. `extract_owners.ownership_type` sets the DataHub ownership type. Children inherit it when `extract_owners.cascade_ownership` is true.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1477,7 +1477,7 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Item default identity userPrincipalName, when the identity is a user. `ownership_type` sets the DataHub ownership type (default TECHNICAL_OWNER). Children without an owner inherit it.",
+          "description": "Optionally enabled via `extract_owners`. Item default identity userPrincipalName, when the identity is a user. `extract_owners.ownership_type` sets the DataHub ownership type. Children inherit it when `extract_owners.cascade_ownership` is true.",
           "subtype_modifier": null,
           "supported": true
         },

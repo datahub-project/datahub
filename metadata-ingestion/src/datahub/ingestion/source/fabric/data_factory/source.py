@@ -160,9 +160,10 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Item default identity userPrincipalName, when the identity is a user. "
-    "`ownership_type` sets the DataHub ownership type (default TECHNICAL_OWNER). "
-    "Children without an owner inherit it.",
+    "Optionally enabled via `extract_owners`. Item default identity "
+    "userPrincipalName, when the identity is a user. "
+    "`extract_owners.ownership_type` sets the DataHub ownership type. "
+    "Children inherit it when `extract_owners.cascade_ownership` is true.",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -190,6 +191,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             auth_helper,
             timeout=config.api_timeout,
             report=self.client_report,
+            include_owners=config.extract_owners.enabled,
         )
         self.report.client_report = self.client_report
 
@@ -377,11 +379,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         parent_user_principal_name: Optional[str] = None,
     ):
         """Owners for this entity, falling back to the parent when cascading."""
+        if not self.config.extract_owners.enabled:
+            return None
         return owners_from_user_principal_name(
             user_principal_name,
             parent_user_principal_name=parent_user_principal_name,
-            ownership_type=self.config.ownership_type,
-            cascade=self.config.cascade_ownership,
+            ownership_type=self.config.extract_owners.ownership_type,
+            cascade=self.config.extract_owners.cascade_ownership,
         )
 
     def _emit_pipelines(

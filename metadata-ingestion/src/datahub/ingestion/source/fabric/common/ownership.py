@@ -6,9 +6,16 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import validate_ownership_type
 
 
-class FabricOwnershipConfigMixin(ConfigModel):
-    """DataHub ownership type for a Fabric item's default identity."""
+class FabricOwnershipConfig(ConfigModel):
+    """Ingest a Fabric item's default identity as a DataHub owner."""
 
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Ingest each item's default identity as a DataHub owner. "
+            "When false, the default-identity lookup is skipped."
+        ),
+    )
     ownership_type: str = Field(
         default="TECHNICAL_OWNER",
         description=(
@@ -34,3 +41,10 @@ class FabricOwnershipConfigMixin(ConfigModel):
         if ownership_type_urn:
             return ownership_type_urn
         return ownership_type
+
+
+class FabricOwnershipConfigMixin(ConfigModel):
+    extract_owners: FabricOwnershipConfig = Field(
+        default_factory=FabricOwnershipConfig,
+        description="Ingest each item's default identity as a DataHub owner.",
+    )

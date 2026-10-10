@@ -49,6 +49,7 @@ class OneLakeClient(BaseFabricClient):
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
         report: Optional[FabricOneLakeClientReport] = None,
+        include_owners: bool = True,
     ):
         """Initialize OneLake client.
 
@@ -56,8 +57,9 @@ class OneLakeClient(BaseFabricClient):
             auth_helper: Authentication helper
             timeout: Request timeout
             report: Optional OneLake client report
+            include_owners: When true, look up each item's default identity
         """
-        super().__init__(auth_helper, timeout, report)
+        super().__init__(auth_helper, timeout, report, include_owners=include_owners)
 
     def get_base_endpoint(self) -> str:
         """Get the base API endpoint for OneLake client."""

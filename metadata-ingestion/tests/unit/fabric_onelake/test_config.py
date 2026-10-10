@@ -249,22 +249,29 @@ class TestSqlEndpointDependencyValidator:
 
     def test_ownership_type_accepts_datahub_types_and_custom_urns(self) -> None:
         technical = FabricOneLakeSourceConfig(
-            credential=AzureCredentialConfig(), ownership_type="technical_owner"
+            credential=AzureCredentialConfig(),
+            extract_owners={"ownership_type": "technical_owner"},
         )
-        assert technical.ownership_type == "TECHNICAL_OWNER"
-        assert technical.cascade_ownership is True
+        assert technical.extract_owners.enabled is True
+        assert technical.extract_owners.ownership_type == "TECHNICAL_OWNER"
+        assert technical.extract_owners.cascade_ownership is True
 
         custom = FabricOneLakeSourceConfig(
             credential=AzureCredentialConfig(),
-            ownership_type="urn:li:ownershipType:architect",
-            cascade_ownership=False,
+            extract_owners={
+                "enabled": False,
+                "ownership_type": "urn:li:ownershipType:architect",
+                "cascade_ownership": False,
+            },
         )
-        assert custom.ownership_type == "urn:li:ownershipType:architect"
-        assert custom.cascade_ownership is False
+        assert custom.extract_owners.enabled is False
+        assert custom.extract_owners.ownership_type == "urn:li:ownershipType:architect"
+        assert custom.extract_owners.cascade_ownership is False
 
         with pytest.raises(ValidationError):
             FabricOneLakeSourceConfig(
-                credential=AzureCredentialConfig(), ownership_type="not-a-type"
+                credential=AzureCredentialConfig(),
+                extract_owners={"ownership_type": "not-a-type"},
             )
 
     def test_usage_requires_enabled_sql_endpoint(self) -> None:

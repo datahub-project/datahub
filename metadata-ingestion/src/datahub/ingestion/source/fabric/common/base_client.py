@@ -52,6 +52,7 @@ class BaseFabricClient(ABC):
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
         report: Optional[FabricClientReport] = None,
+        include_owners: bool = True,
     ):
         """Initialize the base client.
 
@@ -59,9 +60,11 @@ class BaseFabricClient(ABC):
             auth_helper: Authentication helper for getting Bearer tokens
             timeout: Request timeout in seconds
             report: Optional client report for tracking metrics
+            include_owners: When true, look up each item's default identity
         """
         self.auth_helper = auth_helper
         self.timeout = timeout
+        self.include_owners = include_owners
         self._session = self._create_session()
         self.report = report or FabricClientReport()
 
@@ -265,6 +268,8 @@ class BaseFabricClient(ABC):
 
         A missing identity or a failed lookup does not fail item listing.
         """
+        if not self.include_owners:
+            return None
         try:
             item = self.get_item(workspace_id, item_id)
         except Exception as e:
