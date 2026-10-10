@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_STATUS_COMPLET
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
@@ -12,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
 import com.linkedin.datahub.graphql.generated.HealthStatusType;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -23,18 +26,26 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestResults;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
+import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Pure health-computation helpers shared by {@link EntityHealthResolver} (per-entity path) and
@@ -45,6 +56,7 @@ import javax.annotation.Nullable;
  * callers differ only in how they fetch the raw data (one URN at a time vs. batched), not in how
  * they interpret it.
  */
+@Slf4j
 public final class HealthComputationUtils {
 
   public static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
@@ -136,6 +148,57 @@ public final class HealthComputationUtils {
       health.setMessage("All assertions are passing");
     }
     return health;
+  }
+
+  /**
+   * Keeps only the urns in {@code assertionUrns} that {@link
+   * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} would list in {@code
+   * dataset.assertions}: the assertion exists, has an {@code assertionInfo} aspect, and is not
+   * soft-deleted (status.removed == true). Uses one batched lookup of those two aspects. Shared by
+   * {@link EntityHealthResolver} and {@link
+   * com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader}. On any lookup failure —
+   * including a {@link RuntimeException}, since {@code JavaEntityClient.batchGetV2} wraps its
+   * checked exceptions and DB errors in one — falls back to returning every input urn unchanged
+   * (treating everything as active) and logs a warning, rather than failing the caller's request.
+   */
+  public static Set<Urn> filterActiveAssertions(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Set<Urn> assertionUrns) {
+    if (assertionUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    try {
+      final Map<Urn, EntityResponse> entities =
+          entityClient.batchGetV2(
+              opContext,
+              Constants.ASSERTION_ENTITY_NAME,
+              new HashSet<>(assertionUrns),
+              ImmutableSet.of(Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_INFO_ASPECT_NAME));
+      return assertionUrns.stream()
+          .filter(urn -> isActive(entities.get(urn)))
+          .collect(Collectors.toSet());
+    } catch (RemoteInvocationException | URISyntaxException | RuntimeException e) {
+      log.warn(
+          "Failed to fetch assertion status for {} assertions; counting all as active",
+          assertionUrns.size(),
+          e);
+      return assertionUrns;
+    }
+  }
+
+  private static boolean isActive(@Nullable final EntityResponse response) {
+    // A missing response (hard-deleted) or missing assertionInfo is dropped, matching the
+    // null/info checks in EntityAssertionsResolver.
+    if (response == null
+        || !response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
+      return false;
+    }
+    if (!response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
+      return true;
+    }
+    return !new Status(response.getAspects().get(Constants.STATUS_ASPECT_NAME).getValue().data())
+        .isRemoved();
   }
 
   private static List<String> resultToFailedAssertionUrns(
