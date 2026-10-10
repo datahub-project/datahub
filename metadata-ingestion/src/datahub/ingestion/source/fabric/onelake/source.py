@@ -46,8 +46,9 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.common.utils import build_workspace_container
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
-from datahub.ingestion.source.fabric.onelake.constants import (
-    FABRIC_SQL_DEFAULT_SCHEMA,
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    effective_schema_name,
+    qualified_filter_name,
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -567,11 +568,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
 
             for table in tables:
-                normalized_schema = (
-                    table.schema_name
-                    if table.schema_name
-                    else FABRIC_SQL_DEFAULT_SCHEMA
-                )
+                normalized_schema = effective_schema_name(table.schema_name)
 
                 # Filter schemas
                 if not self.config.schema_pattern.allowed(normalized_schema):
@@ -579,7 +576,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     continue
 
                 # Filter tables
-                table_full_name = f"{normalized_schema}.{table.name}"
+                table_full_name = qualified_filter_name(normalized_schema, table.name)
 
                 if not self.config.table_pattern.allowed(table_full_name):
                     self.report.report_table_filtered(table_full_name)
@@ -885,16 +882,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
         for view in views:
-            normalized_schema = (
-                view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
-            )
+            normalized_schema = effective_schema_name(view.schema_name)
 
             # Filter schemas
             if not self.config.schema_pattern.allowed(normalized_schema):
                 self.report.report_schema_filtered(normalized_schema)
                 continue
 
-            view_full_name = f"{normalized_schema}.{view.name}"
+            view_full_name = qualified_filter_name(normalized_schema, view.name)
             if not self.config.view_pattern.allowed(view_full_name):
                 self.report.report_view_filtered(view_full_name)
                 continue
