@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.Credentials;
@@ -238,19 +239,26 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
         tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
 
-        final HTTPResponse httpResponse = tokenHttpRequest.send();
-        logger.debug(
-            "Token response: status={}, content={}",
-            httpResponse.getStatusCode(),
-            httpResponse.getContent());
+        HTTPResponse httpResponse = null;
+        final long exchangeStartedAtNanos = System.nanoTime();
+        try {
+          httpResponse = tokenHttpRequest.send();
 
-        final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
-        if (response instanceof TokenErrorResponse) {
-          throw new TechnicalException(
-              "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
+          final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
+          if (response instanceof TokenErrorResponse) {
+            throw new TechnicalException(
+                "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
+          }
+          logger.debug("Token response successful");
+          return (OIDCTokenResponse) response;
+        } finally {
+          // Timeouts throw before a response exists. Log the duration either way, and the status
+          // when the IdP answered, without the body (it contains access and ID tokens).
+          logger.info(
+              "OIDC code-for-token exchange completed in {} ms status={}",
+              TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - exchangeStartedAtNanos),
+              httpResponse == null ? "none" : httpResponse.getStatusCode());
         }
-        logger.debug("Token response successful");
-        return (OIDCTokenResponse) response;
 
       } catch (IOException | ParseException | TechnicalException e) {
         if (attempt == maxAttempts) {
