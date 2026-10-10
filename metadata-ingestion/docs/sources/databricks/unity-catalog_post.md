@@ -104,6 +104,31 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against the live workspace before a run. It uses the recipe's own credentials and reads metadata only, through the same Unity Catalog REST API as ingestion.
+
+| Command              | Parameters                   | Returns                                                                                                         |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `catalogs`           | `limit`                      | The catalogs the recipe reads: the pinned `catalogs` list when set, otherwise every catalog the credential sees |
+| `schemas`            | `catalog`, `limit`           | The schemas in one catalog                                                                                      |
+| `tables`             | `catalog`, `schema`, `limit` | The tables in one schema                                                                                        |
+| `views`              | `catalog`, `schema`, `limit` | The views and materialized views in one schema                                                                  |
+| `metric_views`       | `catalog`, `schema`, `limit` | The metric views in one schema                                                                                  |
+| `columns`            | `catalog`, `schema`, `table` | Each column's name, type, nullability, comment and partition index                                              |
+| `notebooks`          | `limit`                      | Notebook paths under `/Shared/`, and any other path the recipe would ingest                                     |
+| `service_principals` | `limit`                      | Display names of the service principals the credential can list, which ingestion uses to show owners by name    |
+| `sql`                | `query`, `limit`             | The result of one `SELECT` over `information_schema`, run on the warehouse named by `warehouse_id`              |
+
+`probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
+
+- `table_pattern` is matched against `catalog.schema.table`, and applies to views and metric views before `view_pattern` or `metric_view_pattern`. `metric_view_pattern` applies only while `include_metric_views` is on.
+- `catalog_pattern` and `schema_pattern` are matched against the full id, `catalog` or `catalog.schema`, prefixed with the metastore name when `include_metastore` is on. Pass the containing names with `--parent`; `probe run catalogs` names the metastore in a warning.
+- With `catalogs` set, a catalog missing from that list is excluded.
+- Notebooks are matched by path against `notebook_pattern`, and are all excluded while `include_notebooks` is off.
+
+A notebook path outside `/Shared/` that the recipe would not ingest is left out of `notebooks` and only counted in a warning, because user folders and personal repos are named after people. `sql` fails without `warehouse_id`, and running it can start a stopped warehouse, which costs money; no other command touches the warehouse. With `include_hive_metastore` on, ingestion reads `hive_metastore` through the warehouse, so the probe lists nothing inside it and says so in a warning.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces

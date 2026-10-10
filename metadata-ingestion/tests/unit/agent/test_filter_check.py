@@ -1140,3 +1140,151 @@ def test_hive_metastore_databases_are_judged_on_database_pattern() -> None:
         names=["t"],
     )
     assert tables.results[0].included, tables.warnings
+
+
+def test_a_unity_view_denied_by_table_pattern_is_excluded_even_if_view_pattern_allows() -> (
+    None
+):
+    # process_tables checks table_pattern before view_pattern for every object.
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **UNITY_CONFIG,
+            "table_pattern": {"deny": [r"^main\.analytics\.v_orders$"]},
+            "view_pattern": {"allow": [".*"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["main", "analytics"],
+        names=["v_orders"],
+    )
+    verdict = result.results[0]
+    assert (verdict.target, verdict.included, verdict.excluded_by) == (
+        "main.analytics.v_orders",
+        False,
+        "table_pattern",
+    )
+
+
+def test_a_unity_view_switched_off_by_include_views_stays_excluded_by_it() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **UNITY_CONFIG,
+            "include_views": False,
+            "table_pattern": {"deny": [".*"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["main", "analytics"],
+        names=["v_orders"],
+    )
+    assert result.results[0].excluded_by == "include_views"
+
+
+def test_unity_metric_view_pattern_is_ignored_while_include_metric_views_is_off() -> (
+    None
+):
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={**UNITY_CONFIG, "metric_view_pattern": {"deny": [".*"]}},
+        kind=str(DatasetSubTypes.METRIC_VIEW),
+        parent_path=["main", "analytics"],
+        names=["mv_revenue"],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (True, None)
+
+
+def test_unity_metric_view_pattern_applies_once_include_metric_views_is_on() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **UNITY_CONFIG,
+            "include_metric_views": True,
+            "metric_view_pattern": {"deny": [r"^main\.analytics\.mv_revenue$"]},
+        },
+        kind=str(DatasetSubTypes.METRIC_VIEW),
+        parent_path=["main", "analytics"],
+        names=["mv_revenue"],
+    )
+    verdict = result.results[0]
+    assert (verdict.target, verdict.included, verdict.excluded_by) == (
+        "main.analytics.mv_revenue",
+        False,
+        "metric_view_pattern",
+    )
+
+
+def test_a_unity_metric_view_must_still_pass_table_pattern() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={**UNITY_CONFIG, "table_pattern": {"deny": [r".*\.mv_revenue$"]}},
+        kind=str(DatasetSubTypes.METRIC_VIEW),
+        parent_path=["main", "analytics"],
+        names=["mv_revenue"],
+    )
+    assert result.results[0].excluded_by == "table_pattern"
+
+
+def test_unity_notebooks_are_excluded_while_include_notebooks_is_off() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict=UNITY_CONFIG,
+        kind=str(DatasetSubTypes.NOTEBOOK),
+        parent_path=[],
+        names=["/Shared/etl"],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "include_notebooks",
+    )
+    # Top-level: no "pass the containing schema" advice.
+    assert result.warnings == []
+
+
+def test_unity_notebooks_are_judged_on_their_path() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **UNITY_CONFIG,
+            "include_notebooks": True,
+            "notebook_pattern": {"allow": ["^/Shared/.*"]},
+        },
+        kind=str(DatasetSubTypes.NOTEBOOK),
+        parent_path=[],
+        names=["/Shared/etl", "/Users/someone/scratch"],
+    )
+    assert [(r.target, r.included) for r in result.results] == [
+        ("/Shared/etl", True),
+        ("/Users/someone/scratch", False),
+    ]
+    assert result.pattern_field == "notebook_pattern"
+    assert result.warnings == []
+
+
+def test_a_unity_catalog_outside_a_pinned_list_is_excluded_by_it() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        # Pinned names are looked up case-insensitively by the API, which
+        # returns the stored lowercase name, so "Main" pins "main".
+        config_dict={**UNITY_CONFIG, "catalogs": ["Main"]},
+        kind=str(DatasetContainerSubTypes.CATALOG),
+        parent_path=[],
+        names=["main", "other"],
+    )
+    assert [(r.name, r.included, r.excluded_by) for r in result.results] == [
+        ("main", True, None),
+        ("other", False, "catalogs"),
+    ]
+
+
+def test_a_unity_table_under_a_catalog_outside_the_pinned_list_is_excluded() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={**UNITY_CONFIG, "catalogs": ["main"]},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["other", "analytics"],
+        names=["orders"],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "catalogs",
+    )
