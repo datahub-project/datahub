@@ -1677,6 +1677,7 @@ module.exports = {
         "docker/datahub-upgrade/README",
         "docs/docker/bundled-ingestion-venvs",
         "docs/docker/ingestion-executor-security",
+        "docs/docker/ingestion-cli-version-matrix",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",
