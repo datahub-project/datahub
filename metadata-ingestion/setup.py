@@ -317,11 +317,18 @@ snowflake_common = {
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=1.11.0 for CVE-2026-15736: SQL injection via MERGE INTO column keys and via
+    # literal-rendered DDL bound params, plus a local file read from connection params
+    # forwarded out of the URL query string. 1.11.x still requires only sqlalchemy>=1.4.19,
+    # so this does not disturb the sqlalchemy<2 pin.
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
-    "snowflake-connector-python>=4.4.0,<5.0.0",
+    # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
+    # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -576,7 +583,11 @@ plugins: Dict[str, Set[str]] = {
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
     "datahub-lite": {
         "duckdb>=1.0.0,<2.0.0",
-        "fastapi<0.129.0",
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
+        "fastapi>=0.133.0,<0.142.0",
+        # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
+        # CVE-2026-54283; fixed in 1.3.1.
+        "starlette>=1.3.1,<2.0.0",
         "uvicorn<0.41.0",
     },
     # Integrations.
@@ -682,6 +693,8 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
+        # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
+        "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`

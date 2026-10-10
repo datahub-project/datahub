@@ -197,6 +197,14 @@ export class LineageBasePage extends BasePage {
     return this.page.getByTestId(`rf__edge-${operationUrn}::${operationUrn}-${nodeUrn}::${colName}`);
   }
 
+  /**
+   * Column edge from a column to an entity that reads it as a whole, having no columns of its own
+   * (e.g. a metric). The entity side of the edge id has an empty field.
+   */
+  getColumnToEntityEdge(nodeUrn: string, colName: string, entityUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${entityUrn}::`);
+  }
+
   /** Assert a rendered edge is drawn with the lineage arrowhead marker (i.e. it's a real arrow). */
   async checkEdgeHasArrowMarker(edge: Locator): Promise<void> {
     // eslint-disable-next-line playwright/no-raw-locators -- ReactFlow edge path has no test id of its own
@@ -266,6 +274,27 @@ export class LineageBasePage extends BasePage {
       VIEWPORT_SETTLE_MS,
       { polling: 200, timeout: 15000 },
     );
+  }
+
+  // ── Node interactions ───────────────────────────────────────────────────────
+
+  /** The card of a node: its title area, which node hover and selection are driven from. */
+  getNodeCard(nodeUrn: string): Locator {
+    return this.getNode(nodeUrn).getByTestId(`unexpanded-lineage-card-${nodeUrn}`);
+  }
+
+  async hoverNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).hover();
+  }
+
+  /** Select a node on the graph, which also opens it in the lineage sidebar. */
+  async selectNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).click();
+  }
+
+  /** Whether the node as a whole is part of the highlighted column lineage, e.g. a metric reading a column. */
+  async checkNodeHighlighted(nodeUrn: string, highlighted: boolean): Promise<void> {
+    await expect(this.getPrimaryNode(nodeUrn)).toHaveAttribute('data-lineage-highlighted', String(highlighted));
   }
 
   // ── Column interactions ─────────────────────────────────────────────────────

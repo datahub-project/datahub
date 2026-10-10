@@ -48,20 +48,22 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
         return t('menu.cannotAddLargeToSmall');
     }, [t, isDisabled, isSmallModule]);
 
-    const iconColorLevel = isDisabled ? 300 : 1800;
+    const itemColor = isDisabled ? 'textDisabled' : 'text';
+    const descriptionColor = isDisabled ? 'textDisabled' : 'textSecondary';
+    const iconColor = isDisabled ? 'iconDisabled' : 'icon';
 
     const content = (
         <Wrapper>
             <IconWrapper>
-                <Icon icon={icon} color="gray" colorLevel={iconColorLevel} size="2xl" />
+                <Icon icon={icon} color={iconColor} size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold" color={itemColor}>
                     {title}
                 </Text>
                 {description && (
-                    <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
+                    <Text color={descriptionColor} size="sm">
                         {description}
                     </Text>
                 )}
@@ -69,7 +71,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
 
             <SpaceFiller />
 
-            {hasChildren && <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />}
+            {hasChildren && <Icon icon={CaretRight} color={iconColor} size="lg" />}
         </Wrapper>
     );
 

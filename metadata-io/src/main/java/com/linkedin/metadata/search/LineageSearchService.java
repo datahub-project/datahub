@@ -284,8 +284,7 @@ public class LineageSearchService {
                 countable, reducedFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
-              "Lightning Lineage entity result: {}",
-              lineageSearchResult.getEntities().get(0).toString());
+              "Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0));
         }
         log.debug("Lineage search code path: {}", codePath);
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
@@ -314,7 +313,7 @@ public class LineageSearchService {
           log.debug(
               "Lineage entity results number -> {}; first -> {}",
               lineageSearchResult.getNumEntities(),
-              lineageSearchResult.getEntities().get(0).toString());
+              lineageSearchResult.getEntities().get(0));
         }
         log.debug("Lineage search code path: {}", codePath);
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
