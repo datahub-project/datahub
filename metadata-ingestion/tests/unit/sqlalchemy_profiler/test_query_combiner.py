@@ -852,6 +852,36 @@ class TestFlattenPath:
         assert cap.done and cap.exc is None
         assert cap.result.fetchall() == []
 
+    def test_default_mode_failure_does_not_demote_out_of_window_futures(
+        self, engine, test_table
+    ):
+        # The non-flatten counterpart of the test below. Recovery is scoped to
+        # the window that was attempted; letting the failure reach flush() would
+        # fall back the whole queue, so one bad column would serialize every
+        # other query for the table.
+        bad = sa.select(
+            sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        good_count = MAX_QUERIES_TO_COMBINE_AT_ONCE + 10
+        good = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(good_count)
+        ]
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in [bad] + good]
+            qc.flush()
+
+        assert caps[0].exc is not None
+        assert all(c.done and c.exc is None for c in caps[1:])
+        assert all(c.result.scalar() == 3 for c in caps[1:])
+        # Only the window holding the bad query goes one at a time.
+        assert (
+            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
+        # The rest were still combined rather than demoted with it.
+        assert combiner.report.combined_queries_issued >= 1
+
     def test_failing_unit_does_not_demote_out_of_window_futures(
         self, engine, test_table
     ):
