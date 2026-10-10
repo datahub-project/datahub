@@ -42,6 +42,22 @@ def _annotate_search_type(results: Dict[str, Any], search_type: str) -> Dict[str
     return results
 
 
+def _ensure_search_results_key(
+    result: Dict[str, Any], num_results: int
+) -> Dict[str, Any]:
+    """Guarantee the documented ``searchResults`` key is present.
+
+    ``clean_gql_response`` drops empty arrays, so an otherwise-empty search
+    response would lack the ``searchResults`` key entirely. Keep it as an empty
+    list instead, so callers can always read ``result["searchResults"]`` and can
+    distinguish "no matches" from a malformed response. Facet-only queries
+    (num_results=0) intentionally omit it.
+    """
+    if num_results != 0 and isinstance(result, dict):
+        result.setdefault("searchResults", [])
+    return result
+
+
 def _build_urn_lookup(results: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Build URN lookup map from search results."""
     urn_map: Dict[str, Dict[str, Any]] = {}
@@ -332,6 +348,11 @@ def search_documents(
     Returns document metadata WITHOUT content to keep responses concise.
     Use get_entities() with a document URN to retrieve full content when needed.
 
+    VISIBILITY: Search respects your deployment's access controls. Documents
+    that are unpublished or otherwise not visible to the calling user may not
+    be returned, even if the caller owns them. Documents created via
+    save_document are published and therefore discoverable through this tool.
+
     HYBRID SEARCH (recommended for natural language queries):
     When both query and semantic_query are provided, runs keyword and semantic
     searches in parallel and merges results intelligently:
@@ -427,7 +448,7 @@ def search_documents(
                 len(result.get("searchResults", [])),
             )
 
-            return result
+            return _ensure_search_results_key(result, num_results)
 
         # Otherwise, run keyword-only search
         result = _search_documents_impl(
@@ -445,7 +466,7 @@ def search_documents(
             len(result.get("searchResults", [])),
         )
 
-    return result
+    return _ensure_search_results_key(result, num_results)
 
 
 search_documents.__doc__ = (search_documents.__doc__ or "").format(
@@ -485,7 +506,12 @@ def _search_documents_impl(
             "viewUrn": view_urn,
         }
     else:
-        # Default: keyword search
+        # Keyword search: use the generic cross-entity search for both plain
+        # and filtered queries. It ranks by match relevance, supports arbitrary
+        # orFilters, and applies consistent visibility, so filtered and
+        # unfiltered results behave the same (the dedicated searchDocuments API
+        # sorts by creation time and has no backfill for its post-fetch authz
+        # filtering, making it unsuitable for the agent's search path).
         gql_query = document_search_gql
         operation_name = "documentSearch"
         response_key = "searchAcrossEntities"
@@ -503,6 +529,21 @@ def _search_documents_impl(
         variables=variables,
         operation_name=operation_name,
     )[response_key]
+
+    # Fail loudly on a payload that is not a search result at all (e.g. a
+    # schema or backend incompatibility) rather than fabricating an empty
+    # catalog. A valid response always exposes the SearchResults shape; some GMS
+    # versions may omit the empty `searchResults` array for a zero-hit page, so
+    # only treat a payload that has none of searchResults/total/count as
+    # malformed.
+    if isinstance(response, dict) and not any(
+        key in response for key in ("searchResults", "total", "count")
+    ):
+        raise ValueError(
+            "Unexpected document search response: missing SearchResults fields "
+            "(searchResults/total/count). This may indicate a schema or backend "
+            f"incompatibility for operation '{operation_name}'."
+        )
 
     if num_results == 0 and isinstance(response, dict):
         # Support num_results=0 for facet-only queries
