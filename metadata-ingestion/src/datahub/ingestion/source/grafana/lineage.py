@@ -144,6 +144,7 @@ class LineageExtractor:
         self.graph = graph
         self.report = report
         self.include_column_lineage = include_column_lineage
+        self._warned_missing_graph = False
 
     def extract_panel_lineage(
         self, panel: Panel, dashboard_uid: str
@@ -232,20 +233,79 @@ class LineageExtractor:
             ),
         )
 
+    def _parse_context(
+        self, sql: object, platform_config: PlatformConnectionConfig
+    ) -> str:
+        """Context line for a parsing report entry.
+
+        The query is coerced to text before truncating: rawSql comes from
+        user-authored dashboard JSON, so it is not guaranteed to be a string, and
+        reporting a failure must not fail on the value it is reporting.
+        """
+        return f"platform={platform_config.platform}, sql={str(sql)[:200]}"
+
+    def _report_unparseable_sql(
+        self,
+        sql: str,
+        platform_config: PlatformConnectionConfig,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        """Record a panel query the parser could not read."""
+        self.report.report_sql_parsing_failure()
+        self.report.warning(
+            title="Panel SQL could not be parsed",
+            message="Lineage falls back to the datasource, which names a dataset "
+            "that may not exist upstream.",
+            context=self._parse_context(sql, platform_config),
+            exc=exc,
+        )
+
+    def _report_unreachable_graph(
+        self,
+        sql: str,
+        platform_config: PlatformConnectionConfig,
+        exc: BaseException,
+    ) -> None:
+        """Record a failure to reach the graph while resolving schemas.
+
+        Kept apart from an unparseable query because the cause and the remedy are
+        different: this is one systemic outage, not a per-panel SQL problem, and
+        filing it under the same title would bury it behind hundreds of entries
+        that suggest the dashboards are at fault.
+        """
+        self.report.report_sql_parsing_failure()
+        self.report.warning(
+            title="Unable to reach DataHub graph for SQL parsing",
+            message="Schema resolution failed, so panel lineage falls back to the "
+            "datasource, which names a dataset that may not exist upstream.",
+            context=self._parse_context(sql, platform_config),
+            exc=exc,
+        )
+
     def _parse_sql(
         self, sql: str, platform_config: PlatformConnectionConfig
     ) -> Optional[SqlParsingResult]:
         """Parse SQL query for lineage information."""
         if not self.graph:
-            logger.warning("No DataHub graph specified for SQL parsing.")
+            # Config-level, so it is true for every panel; warn once rather than
+            # logging the same line hundreds of times.
+            if not self._warned_missing_graph:
+                self._warned_missing_graph = True
+                self.report.warning(
+                    title="No DataHub graph configured for SQL parsing",
+                    message="Panel queries cannot be parsed without a graph, so "
+                    "lineage falls back to the datasource, which names a dataset that "
+                    "may not exist upstream. Set datahub_api in the recipe.",
+                )
             return None
 
+        self.report.report_sql_parsing_attempt()
         try:
             # Clean Grafana template variables before parsing
             # Variables like ${__from}, $datasource, [[var]] break SQL parsers
             cleaned_sql = _clean_grafana_template_variables(sql)
 
-            return create_lineage_sql_parsed_result(
+            parsed_sql = create_lineage_sql_parsed_result(
                 query=cleaned_sql,
                 platform=platform_config.platform,
                 platform_instance=platform_config.platform_instance,
@@ -254,12 +314,50 @@ class LineageExtractor:
                 default_schema=platform_config.database_schema,
                 graph=self.graph,
             )
-        except ValueError as e:
-            logger.error(f"SQL parsing error for query: {sql}", exc_info=e)
+        # create_schema_resolver runs outside create_lineage_sql_parsed_result's own
+        # try block, so a failure to reach the graph surfaces here as an exception
+        # rather than as a parse error on the result. Nothing else raises: every
+        # parse error is caught in there and returned on the result.
         except Exception as e:
-            logger.exception(f"Unexpected error during SQL parsing: {sql}", exc_info=e)
+            self._report_unreachable_graph(sql, platform_config, exc=e)
+            return None
 
-        return None
+        # create_lineage_sql_parsed_result does not raise on a malformed query: it
+        # returns a truthy result carrying the error and no tables. Left unread,
+        # the run reports success while emitting datasource-UID lineage instead.
+        if parsed_sql.debug_info.table_error:
+            self._report_unparseable_sql(
+                sql, platform_config, exc=parsed_sql.debug_info.table_error
+            )
+            return None
+
+        if not parsed_sql.in_tables:
+            # A stat panel selecting a constant or calling now() is perfectly
+            # legitimate and parses cleanly; it simply has no upstream. Reported so
+            # the datasource fallback is still traceable, but not as a failure -
+            # that would flag ordinary dashboards as broken.
+            self.report.report_no_lineage()
+            self.report.info(
+                title="Panel SQL names no upstream tables",
+                message="The query parsed but references no tables, so lineage falls "
+                "back to the datasource.",
+                context=self._parse_context(sql, platform_config),
+            )
+            return None
+
+        if parsed_sql.debug_info.column_error and self.include_column_lineage:
+            # Table lineage survived, so this is not a parse failure - but column
+            # lineage is silently missing unless it is said out loud.
+            self.report.warning(
+                title="Panel SQL column lineage unavailable",
+                message="Table lineage was extracted but column lineage could not be, "
+                "so the panel's field-level lineage is incomplete.",
+                context=self._parse_context(sql, platform_config),
+                exc=parsed_sql.debug_info.column_error,
+            )
+
+        self.report.report_sql_parsing_success()
+        return parsed_sql
 
     def _create_column_lineage(
         self,
