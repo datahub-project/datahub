@@ -55,7 +55,7 @@ def test_list_warehouses_reads_owner_from_warehouse_endpoint() -> None:
         if endpoint == "workspaces/ws-1/warehouses":
             return _json_response({"value": [{"id": "wh-1", "displayName": "Sales"}]})
         assert endpoint == "workspaces/ws-1/warehouses/wh-1"
-        assert params == {"include": "DefaultIdentity"}
+        assert params is None
         return _json_response(
             {
                 "defaultIdentity": {
@@ -70,6 +70,53 @@ def test_list_warehouses_reads_owner_from_warehouse_endpoint() -> None:
 
     assert warehouses[0].owner_user_principal_name == "jane.doe@contoso.com"
     assert "workspaces/ws-1/items/wh-1" not in called
+    assert "admin/workspaces/ws-1/items/wh-1" not in called
+
+
+def test_list_warehouses_reads_owner_from_admin_creator_principal() -> None:
+    client = OneLakeClient.__new__(OneLakeClient)
+    client.include_owners = True
+    called: list[str] = []
+
+    def get(endpoint: str, params=None):
+        called.append(endpoint)
+        if endpoint == "workspaces/ws-1/warehouses":
+            return _json_response({"value": [{"id": "wh-1", "displayName": "Sales"}]})
+        if endpoint == "workspaces/ws-1/warehouses/wh-1":
+            assert params is None
+            return _json_response(
+                {
+                    "id": "wh-1",
+                    "displayName": "Sales",
+                    "properties": {"connectionString": "example"},
+                }
+            )
+        if endpoint == "workspaces/ws-1/items/wh-1":
+            assert params == {"include": "DefaultIdentity"}
+            return _json_response({"id": "wh-1", "type": "Warehouse"})
+        assert endpoint == "admin/workspaces/ws-1/items/wh-1"
+        return _json_response(
+            {
+                "id": "wh-1",
+                "type": "Warehouse",
+                "creatorPrincipal": {
+                    "type": "User",
+                    "userDetails": {"userPrincipalName": "jane.doe@contoso.com"},
+                },
+            }
+        )
+
+    client.get = get  # type: ignore[method-assign]
+
+    warehouses = list(client.list_warehouses("ws-1"))
+
+    assert warehouses[0].owner_user_principal_name == "jane.doe@contoso.com"
+    assert called == [
+        "workspaces/ws-1/warehouses",
+        "workspaces/ws-1/warehouses/wh-1",
+        "workspaces/ws-1/items/wh-1",
+        "admin/workspaces/ws-1/items/wh-1",
+    ]
 
 
 def test_list_notebooks_reads_default_identity_upn() -> None:
@@ -96,6 +143,67 @@ def test_list_notebooks_reads_default_identity_upn() -> None:
     notebooks = list(client.list_notebooks("ws-1"))
 
     assert notebooks[0].owner_user_principal_name == "jane.doe@contoso.com"
+
+
+def test_list_notebooks_reads_owner_from_admin_creator_principal() -> None:
+    client = OneLakeClient.__new__(OneLakeClient)
+    client.include_owners = True
+    called: list[str] = []
+
+    def get(endpoint: str, params=None):
+        called.append(endpoint)
+        if endpoint == "workspaces/ws-1/notebooks":
+            return _json_response(
+                {"value": [{"id": "nb-1", "displayName": "Explore", "folderId": None}]}
+            )
+        if endpoint == "workspaces/ws-1/items/nb-1":
+            assert params == {"include": "DefaultIdentity"}
+            return _json_response({"id": "nb-1", "type": "Notebook"})
+        assert endpoint == "admin/workspaces/ws-1/items/nb-1"
+        return _json_response(
+            {
+                "id": "nb-1",
+                "type": "Notebook",
+                "creatorPrincipal": {
+                    "type": "User",
+                    "userDetails": {"userPrincipalName": "jane.doe@contoso.com"},
+                },
+            }
+        )
+
+    client.get = get  # type: ignore[method-assign]
+
+    notebooks = list(client.list_notebooks("ws-1"))
+
+    assert notebooks[0].owner_user_principal_name == "jane.doe@contoso.com"
+    assert called == [
+        "workspaces/ws-1/notebooks",
+        "workspaces/ws-1/items/nb-1",
+        "admin/workspaces/ws-1/items/nb-1",
+    ]
+
+
+def test_service_principal_identity_is_not_replaced_by_the_creator() -> None:
+    client = OneLakeClient.__new__(OneLakeClient)
+    client.include_owners = True
+    called: list[str] = []
+
+    def get(endpoint: str, params=None):
+        called.append(endpoint)
+        if endpoint == "workspaces/ws-1/notebooks":
+            return _json_response(
+                {"value": [{"id": "nb-1", "displayName": "Explore", "folderId": None}]}
+            )
+        return _json_response(
+            {"defaultIdentity": {"type": "ServicePrincipal", "id": "sp-1"}}
+        )
+
+    client.get = get  # type: ignore[method-assign]
+
+    notebooks = list(client.list_notebooks("ws-1"))
+
+    assert notebooks[0].owner_user_principal_name is None
+    assert "admin/workspaces/ws-1/items/nb-1" not in called
 
 
 def test_list_items_reads_default_identity_upn() -> None:

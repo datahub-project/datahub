@@ -177,7 +177,8 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(
     SourceCapability.OWNERSHIP,
     "Optionally enabled via `extract_owners`. Item default identity "
-    "userPrincipalName, when the identity is a user. "
+    "userPrincipalName, when the identity is a user. A warehouse or notebook "
+    "with no default identity uses creatorPrincipal from the admin item API. "
     "`extract_owners.ownership_type` sets the DataHub ownership type. "
     "Children inherit it when `extract_owners.cascade_ownership` is true.",
 )

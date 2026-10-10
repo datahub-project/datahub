@@ -13,7 +13,8 @@ from datahub.ingestion.source.fabric.common.constants import (
     ITEM_INCLUDE_DEFAULT_IDENTITY,
 )
 from datahub.ingestion.source.fabric.common.models import (
-    default_identity_user_principal_name,
+    item_has_principal,
+    item_owner_user_principal_name,
 )
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 
@@ -262,29 +263,42 @@ class BaseFabricClient(ABC):
         return data
 
     def _owner_from_resource(self, resource_path: str) -> Optional[str]:
-        """Read a userPrincipalName from a type-specific item GET.
+        """Read an owner from a type-specific item GET.
 
-        Tries ``include=DefaultIdentity`` first. A rejected include parameter
-        is retried without it, because some item endpoints return
-        ``defaultIdentity`` on the plain GET.
+        Warehouse GET has no ``include`` parameter. ``defaultIdentity`` or
+        ``creatorPrincipal`` on the plain response is used when present.
         """
-        saw_success = False
-        for params in ({"include": ITEM_INCLUDE_DEFAULT_IDENTITY}, None):
-            if saw_success:
-                break
-            try:
-                response = self.get(resource_path, params=params)
-            except Exception as e:
-                logger.debug(f"Default identity lookup failed for {resource_path}: {e}")
-                continue
-            saw_success = True
-            data = response.json()
-            if not isinstance(data, dict):
-                continue
-            user_principal_name = default_identity_user_principal_name(data)
-            if user_principal_name:
-                return user_principal_name
-        return None
+        try:
+            response = self.get(resource_path)
+        except Exception as e:
+            logger.debug(f"Owner lookup failed for {resource_path}: {e}")
+            return None
+        data = response.json()
+        if not isinstance(data, dict):
+            return None
+        return item_owner_user_principal_name(data)
+
+    def _owner_from_admin_item(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Read creatorPrincipal from the admin Get Item API.
+
+        Warehouse and notebook owners are this principal when the item has no
+        default identity. The call needs Tenant.Read.All (Fabric administrator
+        or a service principal). A failure does not fail item listing.
+
+        https://learn.microsoft.com/en-us/rest/api/fabric/admin/items/get-item
+        """
+        try:
+            response = self.get(f"admin/workspaces/{workspace_id}/items/{item_id}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to read owner for item {item_id} in workspace "
+                f"{workspace_id} from the admin item API: {e}"
+            )
+            return None
+        data = response.json()
+        if not isinstance(data, dict):
+            return None
+        return item_owner_user_principal_name(data)
 
     def get_item_owner_user_principal_name(
         self,
@@ -293,11 +307,13 @@ class BaseFabricClient(ABC):
         *,
         resource_path: Optional[str] = None,
     ) -> Optional[str]:
-        """Return the item default identity userPrincipalName, if the API provides one.
+        """Return the item owner's userPrincipalName, if the API provides one.
 
         A missing identity or a failed lookup does not fail item listing.
-        ``resource_path`` is a type-specific GET (for example a warehouse)
-        that is tried before the generic items endpoint.
+        ``resource_path`` is a type-specific GET (a warehouse) tried before
+        the generic items endpoint. When the item has no identity at all, the
+        admin item API supplies ``creatorPrincipal``. A service principal
+        identity is left without an owner.
         """
         if not self.include_owners:
             return None
@@ -312,8 +328,16 @@ class BaseFabricClient(ABC):
                 f"Failed to read default identity for item {item_id} "
                 f"in workspace {workspace_id}: {e}"
             )
-            return None
-        return default_identity_user_principal_name(item)
+            item = None
+        if isinstance(item, dict):
+            user_principal_name = item_owner_user_principal_name(item)
+            if user_principal_name:
+                return user_principal_name
+            # An identity is present but it is not a user. Do not replace it
+            # with the item creator.
+            if item_has_principal(item):
+                return None
+        return self._owner_from_admin_item(workspace_id, item_id)
 
     def get(self, endpoint: str, params: Optional[dict] = None) -> requests.Response:
         """Make a GET request.

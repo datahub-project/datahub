@@ -3,6 +3,7 @@
 from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
     default_identity_user_principal_name,
+    item_owner_user_principal_name,
 )
 from datahub.ingestion.source.fabric.common.utils import (
     build_workspace_container,
@@ -50,6 +51,30 @@ def test_default_identity_user_principal_name() -> None:
             {"defaultIdentity": {"type": "ServicePrincipal"}}
         )
         is None
+    )
+    assert (
+        item_owner_user_principal_name(
+            {
+                "creatorPrincipal": {
+                    "type": "User",
+                    "userDetails": {"userPrincipalName": "owner@contoso.com"},
+                }
+            }
+        )
+        == "owner@contoso.com"
+    )
+    assert (
+        item_owner_user_principal_name(
+            {
+                "defaultIdentity": {
+                    "userDetails": {"userPrincipalName": "identity@contoso.com"}
+                },
+                "creatorPrincipal": {
+                    "userDetails": {"userPrincipalName": "owner@contoso.com"}
+                },
+            }
+        )
+        == "identity@contoso.com"
     )
     assert owners_from_user_principal_name("jane.doe@contoso.com") == [
         ("jane.doe@contoso.com", "TECHNICAL_OWNER")

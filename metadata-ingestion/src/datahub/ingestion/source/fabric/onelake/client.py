@@ -13,7 +13,7 @@ from datahub.ingestion.source.fabric.common.auth import (
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
-    default_identity_user_principal_name,
+    item_owner_user_principal_name,
 )
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
@@ -120,14 +120,14 @@ class OneLakeClient(BaseFabricClient):
                 )
                 item_id = item_data.get("id", "")
                 owner = (
-                    default_identity_user_principal_name(item_data)
+                    item_owner_user_principal_name(item_data)
                     if self.include_owners
                     else None
                 )
                 if item_id and owner is None:
-                    # Warehouses return defaultIdentity on
-                    # GET /workspaces/{id}/warehouses/{warehouseId}. The generic
-                    # items lookup is the fallback when that payload has none.
+                    # Warehouses often have no defaultIdentity. The owner is
+                    # creatorPrincipal on the admin item API, after the
+                    # warehouse GET and the generic items lookup.
                     resource_path = (
                         f"workspaces/{workspace_id}/{endpoint_suffix}/{item_id}"
                         if read_owner_from_item_resource
