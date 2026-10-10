@@ -243,6 +243,11 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       return "please only set forceReindex OR forceDeleteByQuery flags";
     }
 
+    boolean reindexSupported = _timeseriesAspectService.supportsReindexForTruncate();
+    if (!reindexSupported && Boolean.TRUE.equals(forceReindex)) {
+      return "forceReindex is not supported for the postgres timeseries store; use delete by query";
+    }
+
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(
         buildCriterion(
@@ -256,8 +261,10 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         String.format(
             "Delete %d out of %d rows (%.2f%%). ",
             numToDelete, totalNum, ((double) numToDelete) / totalNum * 100);
+    // Postgres cannot reindex; always delete-by-query. ES may reindex when deleting >50%.
     boolean reindex =
-        !(forceDeleteByQuery != null && forceDeleteByQuery)
+        reindexSupported
+            && !(forceDeleteByQuery != null && forceDeleteByQuery)
             && ((forceReindex != null && forceReindex) || numToDelete > (totalNum / 2));
 
     if (reindex) {

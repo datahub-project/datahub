@@ -351,6 +351,14 @@ public interface TimeseriesAspectService {
       @Nonnull BatchWriteOperationsOptions options);
 
   /**
+   * Whether {@link #reindexAsync} can be used for {@code truncateTimeseriesAspect}. Elasticsearch
+   * supports reindex; PostgreSQL does not — truncate must use {@link #deleteAspectValuesAsync}.
+   */
+  default boolean supportsReindexForTruncate() {
+    return true;
+  }
+
+  /**
    * Rollback the Time-Series aspects associated with a particular runId. This is invoked as a part
    * of an ingestion rollback process.
    *
@@ -379,6 +387,11 @@ public interface TimeseriesAspectService {
       @Nonnull final String aspectName,
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
+
+  /** Whether an indexing failure should fail MCL processing instead of being logged and skipped. */
+  default boolean shouldPropagateWriteFailures() {
+    return false;
+  }
 
   List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext);
 
