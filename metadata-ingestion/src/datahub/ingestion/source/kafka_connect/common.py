@@ -47,6 +47,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
     from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
@@ -842,6 +843,7 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+    graph: Optional["DataHubGraph"] = None
 
     def requires_cluster_topics(self) -> bool:
         if self.connector_manifest.type == SINK:
@@ -1284,8 +1286,11 @@ class BaseConnector:
             self.config.use_schema_resolver
             and self.config.schema_resolver_finegrained_lineage
             and self.schema_resolver
-            and self.schema_resolver.graph
         ):
+            return None
+
+        graph = self.schema_resolver.graph or self.graph
+        if not graph:
             return None
 
         try:
@@ -1299,9 +1304,7 @@ class BaseConnector:
                 platform_instance=kafka_platform_instance,
             )
 
-            kafka_schema_aspect = self.schema_resolver.graph.get_aspect(
-                str(source_urn), SchemaMetadataClass
-            )
+            kafka_schema_aspect = graph.get_aspect(str(source_urn), SchemaMetadataClass)
             if not kafka_schema_aspect:
                 logger.debug(
                     f"No schema found in DataHub for Kafka topic '{source_topic}'. "
