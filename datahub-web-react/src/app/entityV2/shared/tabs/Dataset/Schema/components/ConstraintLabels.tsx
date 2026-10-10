@@ -17,7 +17,7 @@ const PrimaryKeyPill = styled(Pill)`
     border-color: ${(props) => props.theme.colors.borderBrand};
 `;
 
-const ForeignKeyPill = styled(Pill)`
+export const ForeignKeyPill = styled(Pill)`
     color: ${(props) => props.theme.colors.textSuccess} !important;
     border-color: ${(props) => props.theme.colors.borderSuccess};
 `;
