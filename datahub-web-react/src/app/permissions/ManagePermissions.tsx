@@ -6,9 +6,11 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
+import { ManageDataAccessRoles } from '@app/permissions/dataAccessRoles/ManageDataAccessRoles';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
+import { useAppConfig } from '@app/useAppConfig';
 
 const PageContainer = styled.div`
     padding: 16px 20px;
@@ -49,6 +51,7 @@ const Content = styled.div`
 `;
 
 enum TabType {
+    DataAccessRoles = 'data-access-roles',
     Roles = 'Roles',
     Policies = 'Policies',
 }
@@ -56,6 +59,8 @@ enum TabType {
 export const ManagePermissions = () => {
     const { t } = useTranslation('settings.permissions');
     const location = useLocation();
+    const { config } = useAppConfig();
+    const showAccessManagement = config?.featureFlags?.showAccessManagement;
     const createPolicyRef = useRef<() => void>(() => {});
     const registerCreatePolicy = useCallback((fn: () => void) => {
         createPolicyRef.current = fn;
@@ -79,6 +84,14 @@ export const ManagePermissions = () => {
                 content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
+                },
+            },
+            {
+                name: t('dataAccessRolesTab'),
+                path: TabType.DataAccessRoles,
+                content: <ManageDataAccessRoles />,
+                display: {
+                    enabled: () => showAccessManagement,
                 },
             },
         ];
