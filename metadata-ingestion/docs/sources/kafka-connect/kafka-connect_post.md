@@ -835,6 +835,26 @@ provided_configs:
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
 
+#### Probe support
+
+`datahub recipe probe` reads the Connect REST API with the recipe's credentials and answers the way ingestion will. It returns metadata only. Connector config values are never returned, apart from the keys lineage inference reads (topics, table lists, transforms), so passwords, connection URLs and query text stay on the cluster. Key names are listed, so you can still see that a connector sets `connection.password`.
+
+| Command             | Answers                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `connectors`        | every connector name, including those `connector_patterns` excludes                          |
+| `connector`         | handler, platform, whether ingestion emits it, configured key names, lineage-relevant values |
+| `connector_topics`  | runtime topics ingestion uses for one connector (self-hosted only)                           |
+| `connector_lineage` | the DataJobs and dataset URNs ingestion emits for one connector                              |
+| `cluster_topics`    | Confluent Cloud only: the Kafka REST topic list used to infer sink and routed topics         |
+
+```shell
+datahub recipe probe run connectors --recipe recipe.yml
+datahub recipe probe filter --recipe recipe.yml --kind Connector --name orders-sink
+datahub recipe probe run connector_lineage --recipe recipe.yml --connector orders-sink
+```
+
+`probe filter` judges `connector_patterns` only. An unsupported source connector is dropped by ingestion even when the pattern allows it, and `probe run connector` reports that as `emitted: false`. The probe has no DataHub connection, so with `use_schema_resolver` on (the Confluent Cloud default) it does not expand table patterns or compute column-level lineage, and says so in `warnings`. It does not read the Stream Catalog either. There is no raw `api` command, because every Connect endpoint beyond the connector list returns connector configs or stack traces.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

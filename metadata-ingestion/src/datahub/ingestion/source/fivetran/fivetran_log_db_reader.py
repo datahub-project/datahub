@@ -26,6 +26,12 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.fivetran.fivetran_selection import (
+    ConnectorFacts,
+    ConnectorFilters,
+    connector_pattern_verdict,
+    destination_verdict,
+)
 from datahub.ingestion.source.unity.connection import (
     create_workspace_client,
     get_sql_connection_params,
@@ -479,28 +485,28 @@ class FivetranLogDbReader:
         syncs_interval: int,
     ) -> List[Connector]:
         connectors: List[Connector] = []
+        filters = ConnectorFilters(connector_patterns, destination_patterns)
         with self._report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list")
             connector_list = self._query(self.fivetran_log_query.get_connectors_query())
             for connector in connector_list:
                 connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
-                # DB mode has always matched `connector_patterns` against
-                # `connector_name` only. Keep that contract — adding
-                # connector_id matching would silently change which
-                # connectors a `deny` pattern catches for existing recipes
-                # (e.g. `deny: ["abc123"]` would now also drop a connector
-                # whose ID happened to contain "abc123"). REST mode is new
-                # and uses connector_id directly since that's the stable
-                # identifier the REST API exposes.
-                if not connector_patterns.allowed(connector_name):
+                # DB mode matches `connector_patterns` against the name only;
+                # see connector_pattern_verdict for why. The two rules run in
+                # connector_verdict's DB order, but one by one: the
+                # destination check takes the row's value as it is, so a
+                # NULL destination_id fails here as it always has instead of
+                # skipping the rule as an unknown fact.
+                if not connector_pattern_verdict(
+                    filters, ConnectorFacts(connector_name, connector_id), rest=False
+                ).included:
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not destination_patterns.allowed(
-                    destination_id := connector[Constant.DESTINATION_ID]
-                ):
+                destination_id = connector[Constant.DESTINATION_ID]
+                if not destination_verdict(filters, destination_id).included:
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
