@@ -1,7 +1,9 @@
+import concurrent.futures
 import contextlib
 import json
 import threading
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,16 +11,30 @@ import requests
 import time_machine
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+from datahub.ingestion.api.common import (
+    RUN_REPORTER_RECORD_KEY,
+    RecordEnvelope,
+    http_status,
+)
+from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
+    DataHubRestSinkReport,
     RestSinkMode,
+)
+from datahub.utilities.partition_executor import (
+    BatchPartitionExecutor,
+    PartitionExecutor,
 )
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
+_REPORTER_URN = "urn:li:dataHubIngestionSource:cli-0123456789abcdef0123456789abcdef"
+_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)"
 
 FROZEN_TIME = 1618987484580
 basicAuditStamp = models.AuditStampClass(
@@ -492,3 +508,174 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+@pytest.mark.parametrize(
+    "status,body",
+    [
+        pytest.param(
+            403, {"json": {"status": 403, "message": "unauthorized"}}, id="403-json"
+        ),
+        pytest.param(401, {"text": "<html>Unauthorized</html>"}, id="401-non-json"),
+    ],
+)
+def test_emitter_http_error_keeps_http_cause(requests_mock, status, body):
+    requests_mock.post(
+        f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal",
+        status_code=status,
+        **body,
+    )
+    emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=_REPORTER_URN, aspect=models.StatusClass(removed=False)
+    )
+
+    with pytest.raises(OperationalError) as exc_info:
+        emitter.emit(mcp)
+
+    cause = exc_info.value.__cause__
+    assert isinstance(cause, requests.HTTPError)
+    assert cause.response.status_code == status
+
+
+def _gms_error(
+    status: Optional[int], info: Optional[Dict[str, Any]] = None
+) -> OperationalError:
+    """The OperationalError DataHubRestEmitter raises; status=None models a connection error."""
+    if status is None:
+        return OperationalError(
+            "Unable to emit metadata to DataHub GMS", {"message": "Connection refused"}
+        )
+    response = requests.Response()
+    response.status_code = status
+    error = OperationalError(
+        "Unable to emit metadata to DataHub GMS: denied",
+        info if info is not None else {"status": status, "message": "denied"},
+    )
+    error.__cause__ = requests.HTTPError(f"{status} Error", response=response)
+    return error
+
+
+def _bare_sink(
+    mode: RestSinkMode = RestSinkMode.ASYNC_BATCH,
+) -> Tuple[DatahubRestSink, MagicMock, MagicMock]:
+    """A sink with a mocked emitter and executor; returns (sink, emitter, executor)."""
+    emitter = MagicMock()
+    executor = MagicMock(
+        spec=BatchPartitionExecutor
+        if mode == RestSinkMode.ASYNC_BATCH
+        else PartitionExecutor
+    )
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink.config = DatahubRestSinkConfig(server=MOCK_GMS_ENDPOINT, mode=mode)
+    sink.report = DataHubRestSinkReport()
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = emitter
+    sink._gms_emit_mode = EmitMode.ASYNC
+    sink.executor = executor
+    return sink, emitter, executor
+
+
+def _envelope(urn: str, reporter: bool) -> RecordEnvelope:
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=models.StatusClass(removed=False)
+    )
+    return RecordEnvelope(
+        mcp, metadata={RUN_REPORTER_RECORD_KEY: True} if reporter else {}
+    )
+
+
+def _complete_with_error(
+    sink: DatahubRestSink, envelope: RecordEnvelope, error: Exception
+) -> None:
+    future: concurrent.futures.Future = concurrent.futures.Future()
+    future.set_exception(error)
+    sink.report.pending_requests += 1
+    sink._write_done_callback(envelope, NoopWriteCallback(), future)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_reporter_record_denied_logs_warning_without_failure(caplog, status):
+    sink, _, _ = _bare_sink()
+
+    with caplog.at_level("WARNING"):
+        _complete_with_error(
+            sink, _envelope(_REPORTER_URN, reporter=True), _gms_error(status)
+        )
+
+    # The exit code and --strict-warnings both read these two lists.
+    assert len(sink.report.failures) == 0
+    assert len(sink.report.warnings) == 0
+    assert _REPORTER_URN in caplog.text
+    assert f"HTTP {status}" in caplog.text
+
+
+def test_reporter_record_denied_under_treat_errors_as_warnings_adds_no_warning():
+    sink, _, _ = _bare_sink()
+    sink.treat_errors_as_warnings = True
+
+    _complete_with_error(sink, _envelope(_REPORTER_URN, reporter=True), _gms_error(403))
+
+    assert len(sink.report.failures) == 0
+    assert len(sink.report.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(_gms_error(500), id="server-error"),
+        pytest.param(_gms_error(None), id="no-http-response"),
+    ],
+)
+def test_reporter_record_other_errors_still_fail(error):
+    sink, _, _ = _bare_sink()
+
+    _complete_with_error(sink, _envelope(_REPORTER_URN, reporter=True), error)
+
+    assert len(sink.report.failures) == 1
+
+
+def test_non_reporter_record_denied_still_fails():
+    sink, _, _ = _bare_sink()
+
+    _complete_with_error(sink, _envelope(_DATASET_URN, reporter=False), _gms_error(403))
+
+    assert len(sink.report.failures) == 1
+
+
+def test_denial_detected_from_info_status_without_http_cause():
+    # An error re-raised per record may lose the HTTPError but keeps GMS's body.
+    error = OperationalError("denied", {"status": 403, "message": "denied"})
+
+    assert http_status(error) == 403
+
+
+def test_async_batch_sends_reporter_record_on_its_own():
+    sink, emitter, executor = _bare_sink(RestSinkMode.ASYNC_BATCH)
+    emitter.emit.side_effect = _gms_error(403)
+
+    sink.write_record_async(
+        _envelope(_REPORTER_URN, reporter=True), NoopWriteCallback()
+    )
+    sink.write_record_async(
+        _envelope(_DATASET_URN, reporter=False), NoopWriteCallback()
+    )
+
+    # Never batched, so a refused run report can't fail the metadata batched with it.
+    emitter.emit.assert_called_once()
+    assert emitter.emit.call_args.args[0].entityUrn == _REPORTER_URN
+    executor.submit.assert_called_once()
+    assert executor.submit.call_args.args[0] == _DATASET_URN
+    assert len(sink.report.failures) == 0
+    assert sink.report.pending_requests == 1  # only the batched metadata record
+
+
+def test_async_batch_reporter_record_success_is_counted():
+    sink, _, _ = _bare_sink(RestSinkMode.ASYNC_BATCH)
+
+    sink.write_record_async(
+        _envelope(_REPORTER_URN, reporter=True), NoopWriteCallback()
+    )
+
+    assert sink.report.total_records_written == 1
+    assert sink.report.pending_requests == 0
