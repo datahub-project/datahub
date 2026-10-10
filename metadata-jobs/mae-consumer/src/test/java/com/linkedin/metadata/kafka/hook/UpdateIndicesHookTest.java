@@ -72,7 +72,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
@@ -201,10 +203,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -241,10 +242,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -305,10 +305,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -480,7 +479,7 @@ public class UpdateIndicesHookTest {
 
     // Forced removal of all edges
     Mockito.verify(mockGraphService, Mockito.times(1))
-        .removeEdgesFromNode(any(OperationContext.class), any(), any(), any());
+        .removeEdgesFromNodes(any(OperationContext.class), any(), any());
     // Forced add of edges
     Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any(), Mockito.any());
     // Forced document update
@@ -556,10 +555,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(0))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -597,10 +595,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(0))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -695,10 +692,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -833,10 +829,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -939,10 +934,9 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(0))
         .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
-        .removeEdgesFromNode(
+        .removeEdgesFromNodes(
             any(OperationContext.class),
-            Mockito.eq(downstreamUrn),
-            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.argThat(removeEdgesForDownstream(downstreamUrn)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -1270,5 +1264,11 @@ public class UpdateIndicesHookTest {
     updateIndicesHook.invokeBatch(opContext, Collections.emptyList());
 
     Mockito.verifyNoInteractions(mockEntitySearchService, mockGraphService);
+  }
+
+  private static ArgumentMatcher<Map<Urn, Set<String>>> removeEdgesForDownstream(
+      Urn downstreamUrn) {
+    return urnToRelationshipTypes ->
+        Set.of(DOWNSTREAM_OF).equals(urnToRelationshipTypes.get(downstreamUrn));
   }
 }

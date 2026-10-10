@@ -204,6 +204,20 @@ public interface GraphService {
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
 
+  /**
+   * Equivalent to calling {@link #removeEdgesFromNode} for every entry of {@code
+   * urnToRelationshipTypes} with the same {@code relationshipFilter}. Implementations may combine
+   * the removals into fewer backend requests.
+   */
+  default void removeEdgesFromNodes(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<Urn, Set<String>> urnToRelationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter) {
+    urnToRelationshipTypes.forEach(
+        (urn, relationshipTypes) ->
+            removeEdgesFromNode(opContext, urn, relationshipTypes, relationshipFilter));
+  }
+
   default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
