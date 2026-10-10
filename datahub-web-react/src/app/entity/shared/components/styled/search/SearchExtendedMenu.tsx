@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import DownloadAsCsvButton from '@app/entity/shared/components/styled/search/DownloadAsCsvButton';
-import DownloadAsCsvModal from '@app/entity/shared/components/styled/search/DownloadAsCsvModal';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import DownloadAsCsvModal from '@app/entityV2/shared/components/styled/search/DownloadAsCsvModal';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 
 import { AndFilterInput } from '@types';
