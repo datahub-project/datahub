@@ -33,12 +33,13 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            _entityClient.deleteEntity(context.getOperationContext(), businessAttributeUrn);
+            final var references =
+                _entityClient.deleteEntityThenReferences(
+                    context.getOperationContext(), businessAttributeUrn);
             CompletableFuture.runAsync(
                 () -> {
                   try {
-                    _entityClient.deleteEntityReferences(
-                        context.getOperationContext(), businessAttributeUrn);
+                    references.run();
                   } catch (Exception e) {
                     log.error(
                         String.format(

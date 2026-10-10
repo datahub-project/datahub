@@ -29,9 +29,12 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
@@ -87,6 +90,13 @@ public class EntityResourceTest {
 
     entityResource.setEntityService(entityService);
     entityResource.setTimeseriesAspectService(timeseriesAspectService);
+    entityResource.setHardDeleteService(
+        new HardDeleteService(
+            entityService,
+            mock(DeleteEntityService.class),
+            timeseriesAspectService,
+            new ReliableHardDelete(entityService, false),
+            null));
     entityResource.setAuthorizer(authorizer);
     entityResource.setSystemOperationContext(systemOperationContext);
 

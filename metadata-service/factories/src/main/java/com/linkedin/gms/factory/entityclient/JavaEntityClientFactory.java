@@ -8,13 +8,13 @@ import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
-import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import org.springframework.beans.factory.ObjectProvider;
@@ -43,8 +43,8 @@ public class JavaEntityClientFactory {
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils,
           // Absent where ReliableHardDeleteFactory is not scanned; deletes then run today's path.
-          final @Qualifier("reliableHardDelete") ObjectProvider<ReliableHardDelete>
-              reliableHardDelete) {
+          final @Qualifier("hardDeleteService") ObjectProvider<HardDeleteService>
+              hardDeleteService) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -57,7 +57,7 @@ public class JavaEntityClientFactory {
         _eventProducer,
         entityClientConfig,
         metricUtils,
-        reliableHardDelete.getIfAvailable());
+        hardDeleteService.getIfAvailable());
   }
 
   @Bean("systemEntityClient")
