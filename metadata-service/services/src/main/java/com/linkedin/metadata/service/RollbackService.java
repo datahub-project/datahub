@@ -98,7 +98,10 @@ public class RollbackService {
                 TAG_OPERATION, OPERATION_TYPE, TAG_PHASE, dryRun ? PHASE_DRY_RUN : PHASE_EXECUTE));
 
     try {
-      if (!dryRun) {
+      // With a dispatcher the run is marked only when it rolls back here; a handed-off rollback is
+      // marked by the process that runs it, and a refused one (the same run already rolling back)
+      // leaves the running one's status alone.
+      if (!dryRun && dispatcher == null) {
         updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
       }
 
@@ -186,9 +189,14 @@ public class RollbackService {
             .setAspectRowSummaries(rowSummaries);
       }
 
-      if (dispatcher != null && dispatcher.dispatch(opContext, runId, hardDelete)) {
-        log.info("Rollback of run {} handed off; it runs in another process", runId);
-        return handedOff();
+      if (dispatcher != null) {
+        if (dispatcher.dispatch(opContext, runId, hardDelete)) {
+          // Not marked here: written after the hand-off, it could land after the other process's
+          // end status and leave the run ROLLING_BACK.
+          log.info("Rollback of run {} handed off; it runs in another process", runId);
+          return handedOff();
+        }
+        updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
       }
 
       RollbackRunResult rollbackRunResult =

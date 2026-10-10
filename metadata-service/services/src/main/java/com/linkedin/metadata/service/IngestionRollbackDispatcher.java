@@ -14,7 +14,8 @@ public interface IngestionRollbackDispatcher {
   /**
    * Hands a rollback of {@code runId} to another process; the caller has already authorized it.
    *
-   * @return true when it was taken, false to run it here; never throws
+   * @return true when it was taken, false to run it here
+   * @throws RollbackNotHandedOffException when it was not taken and must not run here either
    */
   boolean dispatch(@Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete);
 }

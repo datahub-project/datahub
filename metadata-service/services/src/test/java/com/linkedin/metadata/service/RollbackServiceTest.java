@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -17,8 +18,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authorization.AuthUtil;
@@ -52,6 +55,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -670,7 +674,8 @@ public class RollbackServiceTest {
     verify(dispatcher, times(1)).dispatch(operationContext, TEST_RUN_ID, true);
     verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
     verifyNoInteractions(mockTimeseriesAspectService);
-    assertEquals(writtenExecutionStatuses(), List.of(RollbackService.ROLLING_BACK_STATUS));
+    // The process that runs it marks the run; a write here could land after its end status.
+    assertTrue(writtenExecutionStatuses().isEmpty());
     assertEquals(response.getEntitiesAffected(), 0);
     assertEquals(response.getAspectsAffected(), 0);
     assertTrue(response.getAspectRowSummaries().isEmpty());
@@ -714,8 +719,71 @@ public class RollbackServiceTest {
   }
 
   @Test
-  public void testRollbackIngestion_DryRunIsNeverOfferedToDispatcher()
-      throws AuthenticationException {
+  public void testRollbackIngestion_DispatcherRefuses_PropagatesAndWritesNoStatus()
+      throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(createTestAspectRows(true));
+    RollbackNotHandedOffException refusal = new RollbackNotHandedOffException("not taken");
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenThrow(refusal);
+    RollbackService service = newRollbackService(dispatcher);
+
+    RollbackNotHandedOffException thrown =
+        expectThrows(
+            RollbackNotHandedOffException.class,
+            () ->
+                service.rollbackIngestion(
+                    operationContext,
+                    TEST_RUN_ID,
+                    false, // dryRun
+                    true, // hardDelete
+                    null));
+
+    assertSame(thrown, refusal);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+    verifyNoInteractions(mockTimeseriesAspectService);
+    // Neither ROLLING_BACK nor ROLLBACK_FAILED: the run that already holds the job keeps its
+    // status.
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
+  }
+
+  @Test
+  public void testRollbackIngestion_NoDispatcher_MarksRollingBackBeforeReadingRows()
+      throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(Collections.emptyList(), 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+
+    rollbackService.rollbackIngestion(
+        operationContext,
+        TEST_RUN_ID,
+        false, // dryRun
+        true, // hardDelete
+        null);
+
+    InOrder statusThenRead = inOrder(mockEntityService, mockSystemMetadataService);
+    statusThenRead
+        .verify(mockEntityService)
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), any(), anyBoolean());
+    statusThenRead
+        .verify(mockSystemMetadataService)
+        .findByRunId(any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), anyInt());
+  }
+
+  @Test
+  public void testRollbackIngestion_DryRunIsNeverOfferedToDispatcher() throws Exception {
+    stubExecutionRequestResult();
     when(mockSystemMetadataService.findByRunId(
             any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(createTestAspectRows(true));
@@ -736,6 +804,7 @@ public class RollbackServiceTest {
 
     verifyNoInteractions(dispatcher);
     assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
   }
 
   @Test
