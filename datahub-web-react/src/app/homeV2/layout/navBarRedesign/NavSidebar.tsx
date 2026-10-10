@@ -230,7 +230,7 @@ export const NavSidebar = () => {
                 icon: <SquaresFour />,
                 selectedIcon: <SquaresFour weight="fill" />,
                 key: 'home',
-                link: PageRoutes.ROOT,
+                link: PageRoutes.HOME,
                 onlyExactPathMapping: true,
                 onClick: () => handleHomeclick(),
                 dataTestId: 'nav-bar-item-home',
