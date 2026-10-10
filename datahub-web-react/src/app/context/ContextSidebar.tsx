@@ -11,6 +11,7 @@ import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
 import DocumentSidebarSearchFilters from '@app/context/DocumentSidebarSearchFilters';
 import DocumentSidebarSearchResults from '@app/context/DocumentSidebarSearchResults';
+import GroupedDocumentsTree from '@app/context/GroupedDocumentsTree';
 import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
 import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
@@ -26,6 +27,15 @@ import useDocumentSidebarSearch from '@app/document/hooks/useDocumentSidebarSear
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import {
+    readStoredDocumentGroupBy,
+    writeStoredDocumentGroupBy,
+} from '@app/document/utils/documentSidebarGroupByStorage';
+import {
+    DOCUMENT_GROUP_BY,
+    DocumentGroupByValue,
+    isDocumentGroupByValue,
+} from '@app/document/utils/documentSidebarGrouping';
+import {
     SECONDARY_BROWSE_FILTERS,
     SecondaryBrowseFilter,
     isDocumentSidebarSearchActive,
@@ -36,6 +46,7 @@ import {
     DEFAULT_DOCUMENT_SIDEBAR_SORT,
     DOCUMENT_SIDEBAR_SORT,
     DocumentSidebarSortValue,
+    isDocumentSidebarSortValue,
 } from '@app/document/utils/documentSidebarSort';
 import { DEFAULT_STATUS_FILTER, DocumentStatusFilter } from '@app/document/utils/documentTreeFilters';
 import { decodeUrn } from '@app/entityV2/shared/utils';
@@ -44,7 +55,9 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
 import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import SidebarAddFilter from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarAddFilter';
-import SidebarSortSelect from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarSortSelect';
+import SidebarDisplaySelect, {
+    type SidebarDisplaySection,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarDisplaySelect';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -87,10 +100,12 @@ export default function ContextSidebar({
     const [selectedTagUrns, setSelectedTagUrns] = useState<string[]>([]);
     const [selectedTermUrns, setSelectedTermUrns] = useState<string[]>([]);
     const [selectedTypeNames, setSelectedTypeNames] = useState<string[]>([]);
+    const [groupBy, setGroupBy] = useState<DocumentGroupByValue>(() => readStoredDocumentGroupBy());
     const [sortSelection, setSortSelection] = useState<DocumentSidebarSortValue>(DEFAULT_DOCUMENT_SIDEBAR_SORT);
     // After sort, keep list at top — selected-row scrollIntoView would jump to the open doc.
     const [suppressSelectionScroll, setSuppressSelectionScroll] = useState(false);
-    const isFirstSortEffectRef = useRef(true);
+    const isFirstDisplayEffectRef = useRef(true);
+    const previousDisplayRef = useRef({ groupBy, sortSelection });
     // Notion-style: Tag / Status / Author / Source start behind "+ Filter" until promoted.
     const [promotedBrowseFilters, setPromotedBrowseFilters] = useState<Set<SecondaryBrowseFilter>>(new Set());
     // One-shot: open the dropdown for a filter just chosen from "+ Filter".
@@ -115,21 +130,30 @@ export default function ContextSidebar({
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
-    // Sort is server-side: remounting DocumentTree reloads roots from page 1.
-    // Drop expansion that would point at wiped child lists, suppress selection
-    // scroll, and pin the browse list at the top (same as search).
+    // Sort / grouping reshape the list: remount trees, drop expansion that would
+    // point at wiped child lists, suppress selection scroll, and pin at the top.
     useEffect(() => {
-        if (isFirstSortEffectRef.current) {
-            isFirstSortEffectRef.current = false;
+        if (isFirstDisplayEffectRef.current) {
+            isFirstDisplayEffectRef.current = false;
+            previousDisplayRef.current = { groupBy, sortSelection };
             return;
         }
+        const previous = previousDisplayRef.current;
+        if (previous.groupBy === groupBy && previous.sortSelection === sortSelection) return;
+        previousDisplayRef.current = { groupBy, sortSelection };
         setExpandedUrns(new Set());
         setSuppressSelectionScroll(true);
         const treeScroll = document.querySelector('[data-testid="hierarchical-browse-tree-scroll"]');
         if (treeScroll instanceof HTMLElement) {
             treeScroll.scrollTop = 0;
         }
-    }, [sortSelection, setExpandedUrns]);
+    }, [groupBy, sortSelection, setExpandedUrns]);
+
+    const handleGroupByChange = useCallback((next: string) => {
+        if (!isDocumentGroupByValue(next)) return;
+        setGroupBy(next);
+        writeStoredDocumentGroupBy(next);
+    }, []);
 
     const importParentDocumentUrn = useMemo(() => {
         if (!isEntityProfile) {
@@ -334,14 +358,36 @@ export default function ContextSidebar({
         [platformFacetOptions],
     );
 
-    const sortOptions = useMemo(
-        () => [
-            { value: DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC, label: t('sidebarSort.lastModified') },
-            { value: DOCUMENT_SIDEBAR_SORT.NAME_ASC, label: t('sidebarSort.nameAtoZ') },
-            { value: DOCUMENT_SIDEBAR_SORT.NAME_DESC, label: t('sidebarSort.nameZtoA') },
-        ],
-        [t],
-    );
+    /** Grouping is omitted while searching — search renders a flat result list. */
+    const displaySections = useMemo<SidebarDisplaySection[]>(() => {
+        const sorting: SidebarDisplaySection = {
+            key: 'sorting',
+            label: t('sidebarDisplay.sorting'),
+            value: sortSelection,
+            onChange: (next) => {
+                if (isDocumentSidebarSortValue(next)) setSortSelection(next);
+            },
+            options: [
+                { value: DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC, label: t('sidebarSort.lastModified') },
+                { value: DOCUMENT_SIDEBAR_SORT.NAME_ASC, label: t('sidebarSort.nameAtoZ') },
+                { value: DOCUMENT_SIDEBAR_SORT.NAME_DESC, label: t('sidebarSort.nameZtoA') },
+            ],
+        };
+        if (isSearchActive) return [sorting];
+        return [
+            {
+                key: 'grouping',
+                label: t('sidebarDisplay.grouping'),
+                value: groupBy,
+                onChange: handleGroupByChange,
+                options: [
+                    { value: DOCUMENT_GROUP_BY.SOURCE, label: t('context.groupBy.source') },
+                    { value: DOCUMENT_GROUP_BY.DOMAIN, label: t('context.groupBy.domain') },
+                ],
+            },
+            sorting,
+        ];
+    }, [groupBy, handleGroupByChange, isSearchActive, sortSelection, t]);
 
     const addFilterOptions = useMemo(() => {
         const labels: Record<SecondaryBrowseFilter, string> = {
@@ -408,6 +454,43 @@ export default function ContextSidebar({
 
     const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
 
+    let sidebarContent: React.ReactNode;
+    if (isSearchActive) {
+        sidebarContent = (
+            <DocumentSidebarSearchResults
+                documents={searchResults}
+                total={searchTotal}
+                loading={searchResultsLoading}
+                isRefreshing={searchRefreshing}
+                selectedUrn={importParentDocumentUrn}
+                onSelect={handleDocumentClick}
+                onClear={handleClearSearch}
+                onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
+                hasSelectedView={hasSelectedView}
+                onClearView={clearSelectedView}
+            />
+        );
+    } else if (groupBy === DOCUMENT_GROUP_BY.DOMAIN) {
+        sidebarContent = (
+            <GroupedDocumentsTree
+                key={`${groupBy}:${sortSelection}`}
+                sort={sortSelection}
+                viewUrn={viewUrn}
+                onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
+                onSelect={handleDocumentClick}
+            />
+        );
+    } else {
+        sidebarContent = (
+            <DocumentTree
+                key={`${groupBy}:${sortSelection}`}
+                onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
+                sortSelection={sortSelection}
+                suppressSelectionScroll={suppressSelectionScroll}
+            />
+        );
+    }
+
     const headerActions = (
         <>
             {/* Import is authorized by Manage Documents, not the create privilege. */}
@@ -458,14 +541,7 @@ export default function ContextSidebar({
                     data-testid="context-sidebar-search-input"
                 />
             }
-            sort={
-                <SidebarSortSelect
-                    options={sortOptions}
-                    value={sortSelection}
-                    onChange={(next) => setSortSelection(next as DocumentSidebarSortValue)}
-                    dataTestId="context-sidebar-sort"
-                />
-            }
+            sort={<SidebarDisplaySelect sections={displaySections} dataTestId="context-sidebar-display" />}
             filters={
                 <>
                     <DocumentSidebarSearchFilters
@@ -571,27 +647,7 @@ export default function ContextSidebar({
             }
         >
             {hasSelectedView && <SidebarViewHint dataTestId="context-sidebar-view-applied-hint" />}
-            {isSearchActive ? (
-                <DocumentSidebarSearchResults
-                    documents={searchResults}
-                    total={searchTotal}
-                    loading={searchResultsLoading}
-                    isRefreshing={searchRefreshing}
-                    selectedUrn={importParentDocumentUrn}
-                    onSelect={handleDocumentClick}
-                    onClear={handleClearSearch}
-                    onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
-                    hasSelectedView={hasSelectedView}
-                    onClearView={clearSelectedView}
-                />
-            ) : (
-                <DocumentTree
-                    key={sortSelection}
-                    onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
-                    sortSelection={sortSelection}
-                    suppressSelectionScroll={suppressSelectionScroll}
-                />
-            )}
+            {sidebarContent}
         </HierarchicalBrowseSidebar>
     );
 }

@@ -395,6 +395,41 @@ public class SearchDocumentsResolverTest {
   }
 
   @Test
+  public void testSearchDocumentsWithHasDomainFalse() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setHasDomain(false);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10));
+
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter, "Filter should not be null");
+
+    boolean hasUnassignedDomain =
+        filter.getOr().stream()
+            .flatMap(cc -> cc.getAnd().stream())
+            .anyMatch(
+                c ->
+                    "domains".equals(c.getField())
+                        && c.getCondition() == Condition.EXISTS
+                        && Boolean.TRUE.equals(c.isNegated()));
+
+    assertTrue(hasUnassignedDomain, "Filter should contain domains EXISTS negated (unassigned)");
+  }
+
+  @Test
   public void testSearchDocumentsWithRelatedAssets() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(mockEnv.getContext()).thenReturn(mockContext);

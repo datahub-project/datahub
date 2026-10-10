@@ -197,6 +197,13 @@ public class SearchDocumentsResolver
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
     }
 
+    if (input.getHasDomain() != null) {
+      criteria.add(
+          Boolean.TRUE.equals(input.getHasDomain())
+              ? CriterionUtils.buildExistsCriterion("domains")
+              : CriterionUtils.buildNotExistsCriterion("domains"));
+    }
+
     if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {
       criteria.add(
           CriterionUtils.buildCriterion(
