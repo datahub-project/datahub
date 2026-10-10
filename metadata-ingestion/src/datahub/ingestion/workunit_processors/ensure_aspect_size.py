@@ -1,10 +1,15 @@
+import copy
 import json
 import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Sized
 
+from typing_extensions import TypeGuard
+
+from datahub.configuration.env_vars import get_upstream_lineage_patch_max_chunks
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -15,10 +20,13 @@ from datahub.ingestion.api.workunit_processor import (
 )
 from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
+    ChangeTypeClass,
     DatasetProfileClass,
     EspressoSchemaClass,
+    GenericAspectClass,
     KafkaSchemaClass,
     KeyValueSchemaClass,
+    MetadataChangeProposalClass,
     MySqlDDLClass,
     OracleDDLClass,
     OrcSchemaClass,
@@ -49,15 +57,15 @@ QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
 QUERY_STATEMENT_TRUNCATION_BUFFER = 100
 
 
-def _largest_fitting_prefix(text: str, fits: Callable[[int], bool]) -> int:
-    """Binary-search the largest prefix length ``n`` of ``text`` for which
+def _largest_fitting_prefix(items: Sized, fits: Callable[[int], bool]) -> int:
+    """Binary-search the largest prefix length ``n`` of ``items`` for which
     ``fits(n)`` is True.
 
     ``fits`` must be monotonic: ``fits(k)`` True implies ``fits(k - 1)`` True
     (holds for size predicates, since a shorter prefix is never larger). Returns
     0 if even ``fits(0)`` is False.
     """
-    lo, hi, retained = 0, len(text), 0
+    lo, hi, retained = 0, len(items), 0
     while lo <= hi:
         mid = (lo + hi) // 2
         if fits(mid):
@@ -66,6 +74,110 @@ def _largest_fitting_prefix(text: str, fits: Callable[[int], bool]) -> int:
         else:
             hi = mid - 1
     return retained
+
+
+JsonPatchOperation = Dict[str, object]
+
+
+@dataclass
+class _PatchChunks:
+    chunks: List[MetadataChangeProposalClass]
+    num_operations_dropped_oversized: int
+    num_operations_dropped_chunk_limit: int
+
+    @property
+    def num_operations_dropped(self) -> int:
+        return (
+            self.num_operations_dropped_oversized
+            + self.num_operations_dropped_chunk_limit
+        )
+
+
+def _serialized_mcp_size(mcp: MetadataChangeProposalClass) -> int:
+    return len(json.dumps(pre_json_transform(mcp.to_obj())))
+
+
+def _patch_with_operations(
+    mcp: MetadataChangeProposalClass, operations: List[JsonPatchOperation]
+) -> MetadataChangeProposalClass:
+    assert mcp.aspect is not None
+    return MetadataChangeProposalClass(
+        entityType=mcp.entityType,
+        entityUrn=mcp.entityUrn,
+        entityKeyAspect=mcp.entityKeyAspect,
+        changeType=mcp.changeType,
+        aspectName=mcp.aspectName,
+        aspect=GenericAspectClass(
+            value=json.dumps(operations).encode(),
+            contentType=mcp.aspect.contentType,
+        ),
+        systemMetadata=copy.deepcopy(mcp.systemMetadata),
+        auditHeader=mcp.auditHeader,
+        headers=mcp.headers,
+    )
+
+
+def _chunk_patch(
+    mcp: MetadataChangeProposalClass,
+    operations: List[JsonPatchOperation],
+    max_bytes: int,
+    max_chunks: int,
+) -> _PatchChunks:
+    """Split ``operations`` into at most ``max_chunks`` ordered patches of at most
+    ``max_bytes`` each. Operations that don't fit on their own, and any left after
+    ``max_chunks`` patches, are dropped and counted."""
+    chunks: List[MetadataChangeProposalClass] = []
+    num_dropped_oversized = 0
+    offset = 0
+
+    def fits(count: int) -> bool:
+        chunk = _patch_with_operations(mcp, operations[offset : offset + count])
+        return _serialized_mcp_size(chunk) <= max_bytes
+
+    while offset < len(operations) and len(chunks) < max_chunks:
+        remaining = operations[offset:]
+        count = _largest_fitting_prefix(remaining, fits)
+        if count == 0:
+            num_dropped_oversized += 1
+            offset += 1
+            continue
+        chunks.append(_patch_with_operations(mcp, remaining[:count]))
+        offset += count
+    return _PatchChunks(
+        chunks=chunks,
+        num_operations_dropped_oversized=num_dropped_oversized,
+        num_operations_dropped_chunk_limit=len(operations) - offset,
+    )
+
+
+_TABLE_LINEAGE_PATH_PREFIX = "/upstreams/"
+_KEYED_LINEAGE_PATH_PREFIXES = (_TABLE_LINEAGE_PATH_PREFIX, "/fineGrainedLineages/")
+
+
+def _is_keyed_add_patch(operations: object) -> TypeGuard[List[JsonPatchOperation]]:
+    # Only per-entry adds are safe to reorder or drop: a dropped remove keeps lineage
+    # the source deleted, and a whole-array add replaces the entries before it.
+    return isinstance(operations, list) and all(
+        isinstance(operation, dict)
+        and operation.get("op") == "add"
+        and str(operation.get("path", "")).startswith(_KEYED_LINEAGE_PATH_PREFIXES)
+        for operation in operations
+    )
+
+
+def _as_upstream_lineage_patch(
+    wu: MetadataWorkUnit,
+) -> Optional[MetadataChangeProposalClass]:
+    mcp = wu.metadata
+    if (
+        isinstance(mcp, MetadataChangeProposalClass)
+        and mcp.changeType == ChangeTypeClass.PATCH
+        and mcp.aspectName == UpstreamLineageClass.ASPECT_NAME
+        and mcp.aspect is not None
+        and mcp.aspect.contentType == JSON_PATCH_CONTENT_TYPE
+    ):
+        return mcp
+    return None
 
 
 @dataclass
@@ -83,15 +195,21 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     # Number of schemaMetadata aspects whose platformSchema blob was dropped
     # wholesale (a coarser, more drastic truncation than dropping fields).
     num_platform_schema_drops: int = 0
+    num_upstream_lineage_patches_split: int = 0
+    num_upstream_lineage_patch_chunks_emitted: int = 0
+    num_upstream_lineage_patch_operations_dropped: int = 0
 
 
 class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorReport]):
-    """Ensure aspects don't exceed the 16MB payload limit by truncating in priority order."""
+    """Ensure aspects don't exceed the payload limit by truncating in priority order,
+    and split oversized upstreamLineage patches into requests that fit."""
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self.payload_constraint = INGEST_MAX_PAYLOAD_BYTES
         self.schema_size_constraint = int(self.payload_constraint * 0.985)
+        self.patch_size_constraint = self.schema_size_constraint
+        self.patch_max_chunks = get_upstream_lineage_patch_max_chunks()
 
     def _record_truncation(self, aspect_name: str) -> None:
         self.report.num_truncations_by_aspect[aspect_name] = (
@@ -113,7 +231,10 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
-            yield wu
+            if lineage_patch := _as_upstream_lineage_patch(wu):
+                yield from self.ensure_upstream_lineage_patch_size(wu, lineage_patch)
+            else:
+                yield wu
 
     def ensure_dataset_profile_size(
         self, dataset_urn: str, profile: DatasetProfileClass
@@ -657,3 +778,91 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             message="View properties contained too much data and would have caused ingestion to fail",
             context=context,
         )
+
+    def ensure_upstream_lineage_patch_size(
+        self, wu: MetadataWorkUnit, mcp: MetadataChangeProposalClass
+    ) -> List[MetadataWorkUnit]:
+        if _serialized_mcp_size(mcp) <= self.patch_size_constraint:
+            return [wu]
+
+        urn = wu.get_urn()
+        assert mcp.aspect is not None
+        try:
+            operations = json.loads(mcp.aspect.value)
+        except ValueError as e:
+            self.ctx.source_report.warning(
+                title="Oversized upstream lineage patch may be rejected by GMS",
+                message="Upstream lineage patch is not valid JSON",
+                context=urn,
+                exc=e,
+            )
+            return [wu]
+        if not _is_keyed_add_patch(operations):
+            self.ctx.source_report.warning(
+                title="Oversized upstream lineage patch may be rejected by GMS",
+                message="Upstream lineage patch contains operations other than adds of "
+                "individual lineage entries, which cannot be safely split or trimmed",
+                context=urn,
+            )
+            return [wu]
+
+        # Adds at distinct paths commute, so table-level lineage can go first and
+        # survive when the chunk limit trims column-level lineage.
+        operations.sort(
+            key=lambda operation: (
+                not str(operation.get("path", "")).startswith(
+                    _TABLE_LINEAGE_PATH_PREFIX
+                )
+            )
+        )
+        result = _chunk_patch(
+            mcp, operations, self.patch_size_constraint, self.patch_max_chunks
+        )
+        if not result.chunks:
+            self.ctx.source_report.warning(
+                title="Oversized upstream lineage patch may be rejected by GMS",
+                message="No upstream lineage patch operation fits within the payload "
+                "size limit on its own",
+                context=urn,
+            )
+            return [wu]
+
+        if len(result.chunks) > 1:
+            self.report.num_upstream_lineage_patches_split += 1
+        self.report.num_upstream_lineage_patch_chunks_emitted += len(result.chunks)
+        self._report_patch_operations_dropped(urn, result)
+
+        workunits = []
+        for index, chunk in enumerate(result.chunks, start=1):
+            chunk_wu = MetadataWorkUnit(
+                id=f"{wu.id}-chunk-{index:04d}" if len(result.chunks) > 1 else wu.id,
+                mcp_raw=chunk,
+                is_primary_source=wu.is_primary_source,
+            )
+            chunk_wu.treat_errors_as_warnings = wu.treat_errors_as_warnings
+            workunits.append(chunk_wu)
+        return workunits
+
+    def _report_patch_operations_dropped(self, urn: str, result: _PatchChunks) -> None:
+        if result.num_operations_dropped:
+            self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
+        self.report.num_upstream_lineage_patch_operations_dropped += (
+            result.num_operations_dropped
+        )
+        if result.num_operations_dropped_oversized:
+            self.ctx.source_report.warning(
+                title="Upstream lineage patch truncated",
+                message="Upstream lineage patch operations larger than the payload "
+                "size limit were omitted",
+                context=f"Omitted {result.num_operations_dropped_oversized} "
+                f"operations for {urn}",
+            )
+        if result.num_operations_dropped_chunk_limit:
+            self.ctx.source_report.warning(
+                title="Upstream lineage patch truncated",
+                message="Upstream lineage patch needed more requests than "
+                "DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS allows, so the remaining "
+                "operations were omitted",
+                context=f"Omitted {result.num_operations_dropped_chunk_limit} "
+                f"operations for {urn}",
+            )

@@ -270,6 +270,11 @@ def get_rest_emitter_batch_max_payload_length() -> int:
     return int(os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", "200"))
 
 
+def get_upstream_lineage_patch_max_chunks() -> int:
+    """Maximum number of MCPs an oversized upstreamLineage patch is split into."""
+    return max(1, _get_int_env("DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS", 1))
+
+
 def get_emit_mode() -> Optional[str]:
     """Emission mode (SYNC_PRIMARY, SYNC_WAIT, ASYNC, ASYNC_WAIT)."""
     return os.getenv("DATAHUB_EMIT_MODE")

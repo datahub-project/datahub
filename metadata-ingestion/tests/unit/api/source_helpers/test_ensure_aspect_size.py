@@ -1,15 +1,20 @@
 import json
 import time
 import unittest
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
@@ -56,10 +61,12 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StringTypeClass,
     SubTypesClass,
+    SystemMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 @pytest.fixture
@@ -1595,3 +1602,220 @@ class TestEnsureAspectSizeProcessorReport:
         assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
+
+
+PATCH_DATASET_URN = make_dataset_urn("hive", "db.downstream")
+
+
+def lineage_patch_workunit(
+    upstream_names: List[str], columns: Optional[List[str]] = None
+) -> MetadataWorkUnit:
+    upstream_urns = [make_dataset_urn("hive", name) for name in upstream_names]
+    aspect = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED)
+            for urn in upstream_urns
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(urn, column) for urn in upstream_urns],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(PATCH_DATASET_URN, column)],
+            )
+            for column in columns or []
+        ],
+    )
+    return convert_upstream_lineage_to_patch(
+        PATCH_DATASET_URN, aspect, SystemMetadataClass(runId="test-run")
+    )
+
+
+def patch_operations(wu: MetadataWorkUnit) -> list:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    return json.loads(wu.metadata.aspect.value)
+
+
+def serialized_size(wu: MetadataWorkUnit) -> int:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    return len(json.dumps(pre_json_transform(wu.metadata.to_obj())))
+
+
+def test_patch_max_chunks_is_read_from_env(processor_ctx):
+    with patch.dict(
+        "os.environ", {"DATAHUB_UPSTREAM_LINEAGE_PATCH_MAX_CHUNKS": "3"}, clear=True
+    ):
+        processor = EnsureAspectSizeProcessor.create(processor_ctx)
+
+    assert processor.patch_max_chunks == 3
+
+
+def assert_same_patch_envelope(chunk: MetadataWorkUnit, wu: MetadataWorkUnit) -> None:
+    assert isinstance(chunk.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert chunk.metadata.aspect is not None and wu.metadata.aspect is not None
+    assert chunk.metadata.entityUrn == wu.metadata.entityUrn
+    assert chunk.metadata.changeType == ChangeTypeClass.PATCH
+    assert chunk.metadata.aspectName == wu.metadata.aspectName
+    assert chunk.metadata.aspect.contentType == wu.metadata.aspect.contentType
+    assert chunk.metadata.systemMetadata == wu.metadata.systemMetadata
+    assert chunk.is_primary_source == wu.is_primary_source
+    assert chunk.treat_errors_as_warnings == wu.treat_errors_as_warnings
+
+
+def test_patch_that_fits_is_passed_through(processor):
+    wu = lineage_patch_workunit(["upstream_0", "upstream_1"], columns=["col_a"])
+
+    assert list(processor.process([wu])) == [wu]
+    assert processor.report.num_upstream_lineage_patches_split == 0
+
+
+def test_oversized_patch_is_split_into_ordered_chunks(processor):
+    wu = lineage_patch_workunit(
+        [f"upstream_{i}" for i in range(5)], columns=[f"col_{i}" for i in range(10)]
+    )
+    wu.is_primary_source = False
+    wu.treat_errors_as_warnings = True
+    processor.patch_size_constraint = serialized_size(wu) // 3
+    processor.patch_max_chunks = 10
+
+    chunks = list(processor.process([wu]))
+
+    assert len(chunks) > 1
+    assert [op for chunk in chunks for op in patch_operations(chunk)] == (
+        patch_operations(wu)
+    )
+    for chunk in chunks:
+        assert_same_patch_envelope(chunk, wu)
+        assert serialized_size(chunk) <= processor.patch_size_constraint
+    assert len({chunk.id for chunk in chunks}) == len(chunks)
+    assert processor.report.num_upstream_lineage_patches_split == 1
+    assert processor.report.num_upstream_lineage_patch_chunks_emitted == len(chunks)
+    assert processor.report.num_upstream_lineage_patch_operations_dropped == 0
+    assert not processor.ctx.source_report.warnings
+
+
+def test_patch_needing_exactly_max_chunks_drops_nothing(processor, processor_ctx):
+    wu = lineage_patch_workunit([f"upstream_{i}" for i in range(20)])
+    processor.patch_size_constraint = serialized_size(wu) // 3
+    processor.patch_max_chunks = 10
+    needed = len(list(processor.process([wu])))
+
+    exact = EnsureAspectSizeProcessor.create(processor_ctx)
+    exact.patch_size_constraint = processor.patch_size_constraint
+    exact.patch_max_chunks = needed
+
+    assert len(list(exact.process([wu]))) == needed
+    assert exact.report.num_upstream_lineage_patch_operations_dropped == 0
+    assert not exact.ctx.source_report.warnings
+
+
+def test_chunk_limit_keeps_table_lineage_before_column_lineage(processor):
+    wu = lineage_patch_workunit(
+        [f"upstream_{i}" for i in range(20)], columns=[f"col_{i}" for i in range(10)]
+    )
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    all_operations = patch_operations(wu)
+    table_lineage = [
+        op for op in all_operations if op["path"].startswith("/upstreams/")
+    ]
+    column_lineage = [op for op in all_operations if op not in table_lineage]
+    wu.metadata.aspect.value = json.dumps(column_lineage + table_lineage).encode()
+    processor.patch_size_constraint = serialized_size(wu) // 3
+    processor.patch_max_chunks = 1
+
+    [chunk] = processor.process([wu])
+
+    emitted = patch_operations(chunk)
+    assert 0 < len(emitted) < len(all_operations)
+    assert emitted == (table_lineage + column_lineage)[: len(emitted)]
+    assert processor.report.num_upstream_lineage_patch_operations_dropped == len(
+        all_operations
+    ) - len(emitted)
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.report.num_upstream_lineage_patch_chunks_emitted == 1
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_patch_skips_operation_that_cannot_fit_alone(processor):
+    wu = lineage_patch_workunit(["short_0", "x" * 5000, "short_1"])
+    processor.patch_size_constraint = serialized_size(
+        lineage_patch_workunit(["short_0"])
+    )
+    processor.patch_max_chunks = 3
+
+    chunks = list(processor.process([wu]))
+
+    emitted = [op for chunk in chunks for op in patch_operations(chunk)]
+    all_operations = patch_operations(wu)
+    assert emitted == [all_operations[0], all_operations[2]]
+    assert processor.report.num_upstream_lineage_patch_operations_dropped == 1
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_patch_is_emitted_unchanged_when_no_operation_fits(processor):
+    wu = lineage_patch_workunit(["x" * 5000])
+    processor.patch_size_constraint = serialized_size(wu) - 1
+    processor.patch_max_chunks = 3
+
+    assert list(processor.process([wu])) == [wu]
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_patch_with_removals_is_emitted_unchanged(processor):
+    builder = DatasetPatchBuilder(PATCH_DATASET_URN)
+    for i in range(20):
+        builder.remove_upstream_lineage(make_dataset_urn("hive", f"upstream_{i}"))
+    [mcp] = builder.build()
+    wu = MetadataWorkUnit(id="lineage-patch", mcp_raw=mcp)
+    processor.patch_size_constraint = serialized_size(wu) // 3
+    processor.patch_max_chunks = 10
+
+    assert list(processor.process([wu])) == [wu]
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_patch_with_whole_array_add_is_emitted_unchanged(processor):
+    upstreams = [
+        UpstreamClass(
+            dataset=make_dataset_urn("hive", f"upstream_{i}"),
+            type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+        for i in range(20)
+    ]
+    builder = DatasetPatchBuilder(PATCH_DATASET_URN)
+    builder.set_upstream_lineages(upstreams[:10])
+    for upstream in upstreams[10:]:
+        builder.add_upstream_lineage(upstream)
+    [mcp] = builder.build()
+    wu = MetadataWorkUnit(id="lineage-patch", mcp_raw=mcp)
+    processor.patch_size_constraint = serialized_size(wu) // 3
+    processor.patch_max_chunks = 10
+
+    assert list(processor.process([wu])) == [wu]
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_malformed_patch_is_emitted_unchanged(processor):
+    wu = lineage_patch_workunit(["upstream_0"])
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    wu.metadata.aspect.value = b"{not json"
+    processor.patch_size_constraint = 1
+
+    assert list(processor.process([wu])) == [wu]
+    assert len(processor.ctx.source_report.warnings) == 1
+
+
+def test_oversized_patch_of_other_aspect_is_not_chunked(processor):
+    builder = DatasetPatchBuilder(PATCH_DATASET_URN)
+    for i in range(20):
+        builder.add_custom_property(f"key_{i}", "value")
+    [mcp] = builder.build()
+    wu = MetadataWorkUnit(id="properties-patch", mcp_raw=mcp)
+    processor.patch_size_constraint = 1
+
+    assert list(processor.process([wu])) == [wu]
+    assert not processor.ctx.source_report.warnings
