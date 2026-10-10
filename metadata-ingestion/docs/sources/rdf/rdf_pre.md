@@ -32,6 +32,7 @@ The `source` parameter accepts multiple input types:
 - **URL**: `source: https://example.com/ontology.ttl`
 - **Comma-separated files**: `source: file1.ttl, file2.ttl, file3.ttl`
 - **Glob pattern**: `source: path/to/**/*.ttl`
+- **Git repository**: `git_info: {repo: https://github.com/acme/onto}` — shallow-clones the repo (SSH deploy key auth); `source` is then a path relative to the checkout, or omit to scan the repo root
 
 #### RDF Dialects
 
@@ -76,3 +77,22 @@ source:
 ```
 
 Available entity types: `glossary` (or `glossary_terms`), `relationship` (or `relationships`).
+
+#### Git repository
+
+Set `git_info` to shallow-clone a Git repository (authenticated with an SSH deploy key) and scan
+it for RDF files. The `source` parameter is then resolved relative to the repository checkout —
+for example `source: glossary/` processes only the `glossary/` subdirectory. Omit `source`
+entirely to scan the entire repository root.
+
+```yaml
+source:
+  type: rdf
+  config:
+    git_info:
+      repo: https://github.com/acme/ontologies
+      branch: main
+      deploy_key_file: ~/.ssh/datahub_rdf_deploy_key
+    source: glossary/ # optional — defaults to repo root
+    format: turtle
+```
