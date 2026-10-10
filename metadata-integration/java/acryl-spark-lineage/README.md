@@ -494,6 +494,7 @@ The build uses Gradle (the JDK 25 toolchain is provisioned automatically) and pr
 ### Next
 
 - _Dependencies_:
+
   - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)
 
 - _Changes_:
