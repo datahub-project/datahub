@@ -92,6 +92,19 @@ def make_table_name(
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{schema_name}{URN_PATTERN_SEPARATOR}{table_name}"
 
 
+def make_notebook_name(workspace_id: str, notebook_id: str) -> str:
+    """Generate notebook name for dataset URN.
+
+    Args:
+        workspace_id: Workspace GUID
+        notebook_id: Notebook item GUID
+
+    Returns:
+        Notebook name string: {workspaceGUID}.{notebookGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{notebook_id}"
+
+
 def make_pipeline_flow_id(workspace_id: str, pipeline_id: str) -> str:
     """Generate flow ID for a Fabric Data Pipeline.
 

@@ -22,7 +22,6 @@ class FabricItem:
     type: Literal["Lakehouse", "Warehouse"]  # Item type
     workspace_id: str
     description: Optional[str] = None
-    # TODO: Add support for shortcuts when available in API
 
 
 @dataclass

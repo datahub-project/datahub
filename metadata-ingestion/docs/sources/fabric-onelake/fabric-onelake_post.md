@@ -268,7 +268,9 @@ source:
 
 #### Usage Statistics
 
-The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Each captured query is parsed by the SQL parsing aggregator and emitted as:
+The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Usage and lineage are attached only to datasets this run ingested. Tables that appear only inside query text, including the connector's own schema and profiling SQL, are not created as assets. Warehouse tables are listed from the OneLake catalog, not from query history.
+
+Each captured query is parsed by the SQL parsing aggregator and emitted as:
 
 - `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
 - `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
@@ -342,6 +344,41 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
+### Shortcuts
+
+Shortcut detection is enabled by default (`shortcuts.enabled`). Each lakehouse is checked against the [OneLake Shortcuts API](https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/list-shortcuts). Shortcuts whose path is under `Tables` are matched to ingested tables. Those tables are tagged `shortcut` and receive these custom properties:
+
+| Property                         | Value                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `shortcut_origin_name`           | Original table name at the target                                                       |
+| `shortcut_origin_path`           | Target path (`Tables/<schema>/<table>` for OneLake; location plus subpath for external) |
+| `shortcut_origin_workspace_id`   | Target workspace GUID (OneLake targets only)                                            |
+| `shortcut_origin_workspace_name` | Target workspace display name, resolved via `GET /workspaces/{id}`                      |
+| `shortcut_origin_item_id`        | Target lakehouse/item GUID (OneLake targets only)                                       |
+| `shortcut_origin_item_name`      | Target item display name, resolved via `GET /workspaces/{id}/items/{id}`                |
+
+Display names are resolved once per workspace and item. If the caller cannot read the target workspace or item, the `_name` properties are omitted and the GUIDs remain.
+
+`shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`). When that origin table is ingested in the same run and both tables have schema, each shortcut column is linked to the origin column of the same name. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
+
+### Notebooks
+
+Notebook ingestion is off by default. Set `include_notebooks: true` to ingest each workspace notebook as a dataset with subtype Notebook, the same representation the Databricks Unity Catalog source uses.
+
+`notebook_pattern` filters on the notebook path. The path is `/<folder>/.../<name>`, built from the workspace folder listing and the notebook display name. A notebook in the workspace root is `/<name>`. Example: `^/Shared/.*`.
+
+For each notebook that passes the pattern, the connector calls `POST /workspaces/{workspaceId}/notebooks/{notebookId}/getDefinition?format=fabricGitSource`. The decoded source is stored in the `content` custom property, and the language (`python`, `sql`, `scala`, or `r`) is stored in `language` when the content file suffix identifies it. `path` is always set. If the definition request fails, the notebook is still ingested without contents.
+
+The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
+
+### Profiling
+
+When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
+
+`profile_pattern` filters tables as `schema.table` and columns as `schema.table.column`, the same way `mssql-odbc` does. Column metrics (`include_field_null_count`, `include_field_distinct_count`, min/max/mean/median/stddev, quantiles, histograms, distinct value frequencies, and sample values), `profile_table_level_only`, `query_combiner_enabled`, and `max_workers` all apply. Set `turn_off_expensive_profiling_metrics` to skip quantiles, histograms, frequencies, and sample values.
+
+`profiling.enabled` requires `sql_endpoint.enabled=true`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
@@ -355,6 +392,8 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
+- **Profiling Requires SQL Endpoint**: Table and column profiling queries the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped.
+- **Shortcuts Are Lakehouse Tables**: Shortcut detection lists `Tables` shortcuts on lakehouses. File shortcuts and warehouse items are not tagged. If the shortcuts API fails for a lakehouse, that lakehouse is ingested without shortcut tags.
 
 ### Troubleshooting
 
