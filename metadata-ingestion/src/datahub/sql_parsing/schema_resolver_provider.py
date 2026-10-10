@@ -58,6 +58,11 @@ class SchemaResolverProvider:
         self._batch_size = batch_size
         self._report = report
 
+    @property
+    def graph(self) -> "DataHubGraph":
+        """The graph this provider bulk-fetches schemas from."""
+        return self._graph
+
     @functools.lru_cache
     def get(
         self,

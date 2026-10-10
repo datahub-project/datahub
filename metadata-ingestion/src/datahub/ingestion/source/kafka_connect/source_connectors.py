@@ -1852,14 +1852,15 @@ class SnowflakeSourceConnector(BaseConnector):
         Returns:
             List of matching table names
         """
-        if not self.schema_resolver or not self.schema_resolver.graph:
+        graph = self._get_graph()
+        if not self.schema_resolver or not graph:
             return []
 
         try:
             # Query DataHub directly for tables matching the platform
-            # SchemaResolver's cache may be empty, so we use its graph connection directly
+            # SchemaResolver's cache may be empty, so we use the graph connection directly
             all_urns = list(
-                self.schema_resolver.graph.get_urns_by_filter(
+                graph.get_urns_by_filter(
                     platform=platform,
                     env=self.schema_resolver.env,
                     entity_types=["dataset"],

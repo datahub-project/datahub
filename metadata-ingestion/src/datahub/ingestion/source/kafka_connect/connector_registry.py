@@ -150,6 +150,12 @@ class ConnectorRegistry:
             )
             if schema_resolver:
                 connector.schema_resolver = schema_resolver
+                # Provider-built resolvers carry no graph so that table resolution
+                # stays within the bulk cache. Hand the connector the graph directly
+                # for what that cache cannot serve: Kafka topic schemas for sink
+                # column lineage, and topic/table discovery queries against DataHub.
+                if schema_resolver_provider is not None:
+                    connector.graph = schema_resolver_provider.graph
         else:
             logger.debug(
                 f"No handler found for connector '{manifest.name}' with class '{connector_class_value}'"
