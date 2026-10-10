@@ -1,5 +1,5 @@
+import { toast } from '@components';
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -17,11 +17,15 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 // Mock GraphQL hooks
 vi.mock('@graphql/template.generated');
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
-        warning: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(() => undefined),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -568,7 +572,6 @@ describe('useModuleOperations', () => {
 
         it('should show translated error when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -591,11 +594,10 @@ describe('useModuleOperations', () => {
             });
 
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(messageSpy).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
             expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
     });
 
@@ -833,7 +835,6 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing module URN', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -870,17 +871,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Module URN is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Module URN is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Module URN is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should validate input and show error for missing position', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -911,17 +910,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Module position is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Module position is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Module position is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should validate input and show error for invalid rowIndex', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -958,17 +955,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Valid row index is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Valid row index is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Valid row index is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should handle case when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -1002,12 +997,11 @@ describe('useModuleOperations', () => {
             });
 
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(messageSpy).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         describe('module deletion logic', () => {
@@ -2138,7 +2132,6 @@ describe('useModuleOperations', () => {
     describe('moveModule translated error messages', () => {
         it('should show translated error when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -2165,18 +2158,16 @@ describe('useModuleOperations', () => {
             });
 
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(messageSpy).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
     });
 
     describe('upsertModule translated error messages', () => {
         it('should show translated error when mutation resolves but returns no URN (create mode)', async () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -2207,16 +2198,14 @@ describe('useModuleOperations', () => {
             await Promise.resolve();
 
             expect(consoleSpy).toHaveBeenCalledWith('Failed to create module - no URN returned');
-            expect(messageSpy).toHaveBeenCalledWith('Failed to create module');
+            expect(toast.error).toHaveBeenCalledWith('Failed to create module');
             expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should show translated error when mutation resolves but returns no URN (edit mode)', async () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const existingModule = mockPersonalTemplate.properties!.rows![0].modules![0];
 
@@ -2250,11 +2239,10 @@ describe('useModuleOperations', () => {
             await Promise.resolve();
 
             expect(consoleSpy).toHaveBeenCalledWith('Failed to update module - no URN returned');
-            expect(messageSpy).toHaveBeenCalledWith('Failed to update module');
+            expect(toast.error).toHaveBeenCalledWith('Failed to update module');
             expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
     });
 

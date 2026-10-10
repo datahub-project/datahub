@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -15,10 +15,15 @@ import {
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -244,7 +249,7 @@ describe('Template Operation Utils', () => {
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
             expect(consoleSpy).toHaveBeenCalledWith('Failed to addModule:', error);
-            expect(message.error).toHaveBeenCalledWith('Failed to add module');
+            expect(toast.error).toHaveBeenCalledWith('Failed to add module');
 
             consoleSpy.mockRestore();
         });
@@ -270,7 +275,7 @@ describe('Template Operation Utils', () => {
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(mockGlobalTemplate); // Revert call
             expect(consoleSpy).toHaveBeenCalledWith('Failed to removeModule:', error);
-            expect(message.error).toHaveBeenCalledWith('Failed to remove module');
+            expect(toast.error).toHaveBeenCalledWith('Failed to remove module');
 
             consoleSpy.mockRestore();
         });
@@ -300,7 +305,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(false);
             expect(console.error).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should return true and log error when validation error exists', () => {
@@ -311,7 +316,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(true);
             expect(consoleSpy).toHaveBeenCalledWith('Invalid test operation input:', validationError);
-            expect(message.error).toHaveBeenCalledWith(validationError);
+            expect(toast.error).toHaveBeenCalledWith(validationError);
 
             consoleSpy.mockRestore();
         });
@@ -342,7 +347,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(true);
             expect(console.error).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should return false and log error when template is null', () => {
@@ -352,7 +357,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(message.error).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
 
             consoleSpy.mockRestore();
         });
@@ -364,7 +369,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(message.error).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
 
             consoleSpy.mockRestore();
         });
