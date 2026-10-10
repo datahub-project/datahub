@@ -77,15 +77,24 @@
     ],
     "joins": [
         {
-            "join_type": "NATURAL JOIN",
+            "join_type": "JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
             ],
             "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)"
             ],
-            "on_clause": null,
-            "columns_involved": []
+            "on_clause": "\"t1\".\"id\" = \"t2\".\"id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
+                    "column": "id"
+                }
+            ]
         }
     ],
     "debug_info": {
