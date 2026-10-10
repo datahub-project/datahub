@@ -115,6 +115,13 @@ class TrinoUsageReport(SourceReport):
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
+# A usage-only source: it inherits the SQL family's probe interface, but what it
+# ingests is query history, so it doesn't advertise the probe.
+@capability(
+    SourceCapability.PROBE,
+    "Not supported: a usage-only source. Probe the `trino` source instead",
+    supported=False,
+)
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """

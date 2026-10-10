@@ -361,13 +361,14 @@ class SnowflakeV2Source(
         privileges: List[SnowflakePrivilege] = []
         capabilities: List[SourceCapability] = [
             c.capability
-            for c in SnowflakeV2Source.get_capabilities()  # type: ignore
+            for c in SnowflakeV2Source.get_capabilities()
             if c.capability
             not in (
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
                 SourceCapability.TEST_CONNECTION,
+                SourceCapability.PROBE,
             )
         ]
 

@@ -561,7 +561,16 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
 
 
 def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
-    getter = config_hook(config_class_for(source_type), "probe_provider_class")
+    return provider_class_for_config(config_class_for(source_type))
+
+
+def provider_class_for_config(
+    config_cls: Optional[type],
+) -> Optional[Type[ProbeProvider]]:
+    """The probe provider `config_cls` declares, or None. The one rule for
+    "this source can be probed": `probe methods`, `probe run` and the derived
+    Probe capability (api.decorators) all read it."""
+    getter = config_hook(config_cls, "probe_provider_class")
     provider_cls = getter() if getter else None
     if isinstance(provider_cls, type):
         _refuse_unknown_provider_attributes(provider_cls)

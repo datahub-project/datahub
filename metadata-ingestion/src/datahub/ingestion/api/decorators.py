@@ -1,6 +1,8 @@
 # So that SourceCapabilityModifier can be resolved at runtime
 from __future__ import annotations
 
+import functools
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Type
@@ -10,6 +12,8 @@ from datahub.ingestion.api.source import (
     SourceCapability as SourceCapability,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+
+logger = logging.getLogger(__name__)
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -115,6 +119,59 @@ class CapabilitySetting:
     subtype_modifier: Optional[List[SourceCapabilityModifier]] = None
 
 
+PROBE_CAPABILITY_DESCRIPTION = (
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`"
+)
+
+
+@functools.lru_cache(maxsize=None)
+def _derived_probe_capability(source_cls: type) -> Optional[CapabilitySetting]:
+    """The Probe capability, where the source's config declares a probe provider.
+
+    Never raises: a config or provider that fails to resolve leaves the
+    capability absent, so get_capabilities() always works. That failure is the
+    connector's defect, which `probe run` reports loudly, so it is logged at
+    WARNING rather than dropped silently. Cached per class, since the answer
+    only depends on class attributes.
+    """
+    try:
+        # Lazy: the probe framework is heavy, and every source module imports
+        # this one.
+        from datahub.ingestion.agent.probe_methods import provider_class_for_config
+
+        get_config_class = getattr(source_cls, "get_config_class", None)
+        if get_config_class is None:
+            return None
+        if provider_class_for_config(get_config_class()) is None:
+            return None
+    except Exception:
+        logger.warning(
+            "Probe capability not derived for %s: its probe provider lookup failed",
+            source_cls.__name__,
+            exc_info=True,
+        )
+        return None
+    return CapabilitySetting(
+        capability=SourceCapability.PROBE,
+        description=PROBE_CAPABILITY_DESCRIPTION,
+        supported=True,
+    )
+
+
+def source_capabilities(source_cls: type) -> List[CapabilitySetting]:
+    """What get_capabilities() returns: the declared capabilities, then Probe."""
+    declared: Dict[SourceCapability, CapabilitySetting] = getattr(
+        source_cls, "__capabilities", {}
+    )
+    settings = list(declared.values())
+    # An explicit declaration, typically supported=False, wins over the derivation.
+    if SourceCapability.PROBE not in declared:
+        derived = _derived_probe_capability(source_cls)
+        if derived is not None:
+            settings.append(derived)
+    return settings
+
+
 def capability(
     capability_name: SourceCapability,
     description: str,
@@ -122,7 +179,11 @@ def capability(
     subtype_modifier: Optional[List[SourceCapabilityModifier]] = None,
 ) -> Callable[[Type], Type]:
     """
-    A decorator to mark a source as having a certain capability
+    A decorator to mark a source as having a certain capability.
+
+    SourceCapability.PROBE is derived, not declared: get_capabilities() adds it
+    when the source's config declares a probe provider. Declare it only with
+    supported=False, to hide it on a source that inherits a provider.
     """
 
     def wrapper(cls: Type) -> Type:
@@ -133,7 +194,10 @@ def capability(
         ):
             cls.__capabilities = {}
 
-            cls.get_capabilities = lambda: cls.__capabilities.values()
+            # Source.get_capabilities is the same, for a class not deriving
+            # from Source. A classmethod, so a subclass without its own
+            # @capability still derives Probe from its own config class.
+            cls.get_capabilities = classmethod(source_capabilities)
 
             # If the superclasses have capability annotations, copy those over.
             for base in cls.__bases__:
