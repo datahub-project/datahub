@@ -3,11 +3,14 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    Annotated,
     Dict,
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -27,7 +30,11 @@ from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Filters,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -42,6 +49,12 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    parent_required,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -55,6 +68,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
+)
+from datahub.ingestion.source.mongodb_selection import (
+    SYSTEM_DATABASE_RULE,
+    collection_target,
+    collection_verdict,
+    database_verdict,
 )
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
@@ -90,11 +109,9 @@ from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
-# These are MongoDB-internal databases, which we want to skip.
-# See https://docs.mongodb.com/manual/reference/local-database/ and
-# https://docs.mongodb.com/manual/reference/config-database/ and
-# https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = {"admin", "config", "local"}
+# Ingestion emits no subtype for a collection, so the probe names the kind
+# after what MongoDB calls it.
+MONGODB_COLLECTION_KIND = "Collection"
 
 
 class HostingEnvironment(Enum):
@@ -157,11 +174,15 @@ class MongoDBConfig(
         ),
     )
 
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
     )
-    collection_pattern: AllowDenyPattern = Field(
+    collection_pattern: Annotated[
+        AllowDenyPattern, Filters(MONGODB_COLLECTION_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
     )
@@ -196,6 +217,58 @@ class MongoDBConfig(
                 "platform='documentdb' requires hostingEnvironment='AWS_DOCUMENTDB'."
             )
         return self
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: ingestion never loads the probe module.
+        from datahub.ingestion.source.mongodb_probe import MongoDBMetadataProbe
+
+        return MongoDBMetadataProbe
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        # collection_pattern is matched against `database.collection`.
+        if ctx.kind != MONGODB_COLLECTION_KIND or parent_required(ctx):
+            return None
+        return collection_target(ctx.parent_path[-1], ctx.name)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind == DatasetContainerSubTypes.DATABASE:
+            return database_verdict(self, ctx.name)
+        if ctx.kind == MONGODB_COLLECTION_KIND:
+            return collection_verdict(self, ctx.name, ctx.target)
+        return None
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        if kind == DatasetContainerSubTypes.DATABASE:
+            return ()
+        if kind == MONGODB_COLLECTION_KIND:
+            return (DatasetContainerSubTypes.DATABASE,)
+        return None
+
+
+def create_mongo_client(
+    config: MongoDBConfig, defaults: Optional[Mapping[str, object]] = None
+) -> MongoClient:
+    """The client ingestion reads through. `defaults` sit under the recipe's
+    own `options`, so a recipe setting the same option wins."""
+    options = dict(defaults or {})
+    if config.username is not None:
+        options["username"] = config.username
+    if config.password is not None:
+        options["password"] = config.password.get_secret_value()
+    if config.authMechanism is not None:
+        options["authMechanism"] = config.authMechanism
+    options = {
+        **options,
+        **config.options,
+    }
+
+    # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+    return MongoClient(
+        config.connect_uri,
+        datetime_conversion="DATETIME_AUTO",
+        **options,  # type: ignore
+    )
 
 
 @dataclass
@@ -355,24 +428,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         self.report = MongoDBSourceReport()
         self.platform = config.platform
 
-        options = {}
-        if self.config.username is not None:
-            options["username"] = self.config.username
-        if self.config.password is not None:
-            options["password"] = self.config.password.get_secret_value()
-        if self.config.authMechanism is not None:
-            options["authMechanism"] = self.config.authMechanism
-        options = {
-            **options,
-            **self.config.options,
-        }
-
-        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
-        self.mongo_client = MongoClient(
-            self.config.connect_uri,
-            datetime_conversion="DATETIME_AUTO",
-            **options,  # type: ignore
-        )
+        self.mongo_client = create_mongo_client(self.config)
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -437,10 +493,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
         # traverse databases in sorted order so output is consistent
         for database_name in sorted(database_names):
-            if database_name in DENY_DATABASE_LIST:
-                continue
-            if not self.config.database_pattern.allowed(database_name):
-                self.report.report_dropped(database_name)
+            verdict = database_verdict(self.config, database_name)
+            if not verdict.included:
+                # System databases are skipped without a report entry.
+                if verdict.excluded_by != SYSTEM_DATABASE_RULE:
+                    self.report.report_dropped(database_name)
                 continue
 
             database = self.mongo_client[database_name]
@@ -459,19 +516,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
             collection_names: List[str] = database.list_collection_names()
             # traverse collections in sorted order so output is consistent
             for collection_name in sorted(collection_names):
-                dataset_name = f"{database_name}.{collection_name}"
+                dataset_name = collection_target(database_name, collection_name)
 
-                # Skip MongoDB internal system collections by default.
-                # system.profile requires dbAdmin (not just read/readWrite) and only exists
-                # when profiling is enabled. system.views contains view definitions, not data.
-                # Both produce garbage schema metadata if ingested naively.
-                if self.config.excludeSystemCollections and collection_name.startswith(
-                    "system."
-                ):
-                    self.report.report_dropped(dataset_name)
-                    continue
-
-                if not self.config.collection_pattern.allowed(dataset_name):
+                if not collection_verdict(
+                    self.config, collection_name, dataset_name
+                ).included:
                     self.report.report_dropped(dataset_name)
                     continue
 

@@ -9,7 +9,17 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 import pydantic
 from typing_extensions import Self
@@ -82,6 +92,13 @@ from datahub.utilities.file_backed_collections import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.verdicts import (
+        ClassifyContext,
+        Verdict,
+        VerdictContext,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +217,32 @@ class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
 ):
     connection: SnowflakeConnectionConfig
+
+    # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
+    # Each imports snowflake_queries_probe lazily, so ingestion never loads the
+    # probe framework.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.snowflake.snowflake_queries_probe import (
+            SnowflakeQueriesMetadataProbe,
+        )
+
+        return SnowflakeQueriesMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.ancestor_kinds(kind)
+
+    def probe_match_target(self, ctx: "ClassifyContext") -> Optional[str]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.match_target(self, ctx)
+
+    def probe_verdict_override(self, ctx: "VerdictContext") -> Optional["Verdict"]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.verdict(self, ctx)
 
 
 @dataclass

@@ -50,6 +50,11 @@ from datahub.ingestion.source.dremio.dremio_profiling import (
     build_profile_target,
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.dremio.dremio_selection import (
+    REFLECTION_ROOT,
+    DatasetFacts,
+    dataset_verdict,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
@@ -481,14 +486,19 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
+        # The dataset query has applied schema_pattern already.
+        verdict = dataset_verdict(
+            self.config,
+            DatasetFacts(path=dataset_info.path, name=dataset_info.resource_name),
+        )
         # Drop Dremio Reflections — _accelerator_ holds internal acceleration
         # structures that should never surface in the DataHub catalog.
-        if dataset_info.path and dataset_info.path[0] == "_accelerator_":
+        if verdict.excluded_by == REFLECTION_ROOT:
             self.report.report_dropped(f"Skipping Dremio reflection: {dataset_name}")
             return
 
         self.report.report_entity_scanned(dataset_name, dataset_info.dataset_type.value)
-        if not self.config.dataset_pattern.allowed(dataset_name):
+        if not verdict.included:
             self.report.report_dropped(dataset_name)
             return
 

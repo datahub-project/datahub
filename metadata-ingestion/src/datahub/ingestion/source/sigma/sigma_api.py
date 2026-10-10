@@ -48,6 +48,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     WorkbookLineageTableEntry,
     Workspace,
 )
+from datahub.ingestion.source.sigma.sigma_selection import placement_verdict
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -2627,8 +2628,11 @@ class SigmaAPI:
                 if candidate_workspace_id:
                     workspace = self.get_workspace(candidate_workspace_id)
 
+                placement = placement_verdict(
+                    self.config, workspace.name if workspace else None
+                )
                 if workspace:
-                    if self.config.workspace_pattern.allowed(workspace.name):
+                    if placement.included:
                         self.report.data_models.processed(
                             f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
                         )
@@ -2642,7 +2646,7 @@ class SigmaAPI:
                         self.report.data_models.dropped(
                             f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
                         )
-                elif self.config.ingest_shared_entities:
+                elif placement.included:
                     self.report.data_models_without_workspace += 1
                     self.report.data_models.processed(
                         f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
@@ -2728,8 +2732,11 @@ class SigmaAPI:
                     if workbook.workspaceId:
                         workspace = self.get_workspace(workbook.workspaceId)
 
+                    placement = placement_verdict(
+                        self.config, workspace.name if workspace else None
+                    )
                     if workspace:
-                        if self.config.workspace_pattern.allowed(workspace.name):
+                        if placement.included:
                             self.report.workbooks.processed(
                                 f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
                             )
@@ -2739,7 +2746,7 @@ class SigmaAPI:
                             self.report.workbooks.dropped(
                                 f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
                             )
-                    elif self.config.ingest_shared_entities:
+                    elif placement.included:
                         # If no workspace for workbook we can consider it as shared entity
                         self.report.workbooks_without_workspace += 1
                         self.report.workbooks.processed(

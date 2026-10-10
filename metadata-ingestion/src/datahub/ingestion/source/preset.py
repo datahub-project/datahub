@@ -71,6 +71,13 @@ class PresetConfig(SupersetConfig):
             self.display_uri = self.connect_uri
         return self
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Not Superset's: Preset logs in at manager_uri with an API key.
+        from datahub.ingestion.source.preset_probe import PresetMetadataProbe
+
+        return PresetMetadataProbe
+
 
 @platform_name("Preset")
 @config_class(PresetConfig)

@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Counter,
     Dict,
     Iterable,
@@ -14,7 +15,7 @@ from typing import (
 
 from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -41,6 +42,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     classification_workunit_processor,
 )
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dynamodb.data_reader import DynamoDBTableItemsReader
 from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -109,7 +111,7 @@ class DynamoDBConfig(
         default=300, description="Maximum number of fields to include in the schema."
     )
 
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
     )
@@ -131,6 +133,20 @@ class DynamoDBConfig(
     @property
     def dynamodb_client(self):
         return self.get_dynamodb_client()
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Imported lazily, so ingestion never loads the probe module.
+        from datahub.ingestion.source.dynamodb.dynamodb_probe import (
+            DynamoDBMetadataProbe,
+        )
+
+        return DynamoDBMetadataProbe
+
+
+def dynamodb_dataset_name(region: str, table_name: str) -> str:
+    """The name a table is emitted under and table_pattern is matched against."""
+    return f"{region}.{table_name}"
 
 
 @dataclass
@@ -221,7 +237,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
 
         for table_name in self._list_tables(dynamodb_client):
-            dataset_name = f"{region}.{table_name}"
+            dataset_name = dynamodb_dataset_name(region, table_name)
             if not self.config.table_pattern.allowed(dataset_name):
                 logger.debug(f"skipping table: {dataset_name}")
                 self.report.report_dropped(dataset_name)
@@ -383,7 +399,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         """
         if self.config.include_table_item is None:
             return
-        dataset_name = f"{region}.{table_name}"
+        dataset_name = dynamodb_dataset_name(region, table_name)
         if dataset_name not in self.config.include_table_item:
             return
         primary_key_list = self.config.include_table_item.get(dataset_name)

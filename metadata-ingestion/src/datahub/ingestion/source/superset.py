@@ -4,7 +4,18 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import dateutil.parser as dp
 import requests
@@ -15,7 +26,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Enables,
+    Filters,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -32,6 +48,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -42,6 +59,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    DatasetContainerSubTypes,
+)
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -50,6 +71,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.superset_selection import (
+    SUPERSET_DATASET_KIND,
+    DatasetFacts,
+    dataset_verdict,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     ChangeAuditStamps,
@@ -316,19 +342,25 @@ class SupersetConfig(
         default=dict(),
         description="Regex patterns for tables to filter to assign domain_key. ",
     )
-    dataset_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for dataset to filter in ingestion.",
+    dataset_pattern: Annotated[AllowDenyPattern, Filters(SUPERSET_DATASET_KIND)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description="Regex patterns for dataset to filter in ingestion.",
+        )
     )
-    chart_pattern: AllowDenyPattern = Field(
+    chart_pattern: Annotated[AllowDenyPattern, Filters(BIAssetSubTypes.CHART)] = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting chart names that are to be included",
     )
-    dashboard_pattern: AllowDenyPattern = Field(
+    dashboard_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.DASHBOARD)
+    ] = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard names that are to be included",
     )
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -340,11 +372,13 @@ class SupersetConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
     )
-    ingest_dashboards: bool = Field(
+    ingest_dashboards: Annotated[bool, Enables(BIAssetSubTypes.DASHBOARD)] = Field(
         default=True, description="Enable to ingest dashboards."
     )
-    ingest_charts: bool = Field(default=True, description="Enable to ingest charts.")
-    ingest_datasets: bool = Field(
+    ingest_charts: Annotated[bool, Enables(BIAssetSubTypes.CHART)] = Field(
+        default=True, description="Enable to ingest charts."
+    )
+    ingest_datasets: Annotated[bool, Enables(SUPERSET_DATASET_KIND)] = Field(
         default=False, description="Enable to ingest datasets."
     )
 
@@ -381,6 +415,43 @@ class SupersetConfig(
         if self.display_uri is None:
             self.display_uri = self.connect_uri
         return self
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """A dataset passes dataset_pattern on its table_name and then
+        database_pattern on its database, as _process_dataset decides it."""
+        if ctx.kind != SUPERSET_DATASET_KIND or ctx.structural is not None:
+            return None
+        database = ctx.attributes.get("database") or (
+            ctx.parent_path[-1] if ctx.parent_path else None
+        )
+        if database is None and not self.database_pattern.is_allow_all():
+            ctx.warn(
+                "database_pattern also drops a dataset by its database, which a "
+                "bare name does not carry; these datasets were judged on "
+                "dataset_pattern alone. Judge a `probe run datasets` listing "
+                "with --from-run, or pass the database as --parent"
+            )
+        return dataset_verdict(
+            self, DatasetFacts(table_name=ctx.target, database_name=database)
+        )
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Charts and dashboards are not dropped by their datasets' database:
+        # _process_chart only warns about one.
+        database = str(DatasetContainerSubTypes.DATABASE)
+        return {
+            database: (),
+            SUPERSET_DATASET_KIND: (database,),
+            str(BIAssetSubTypes.CHART): (),
+            str(BIAssetSubTypes.DASHBOARD): (),
+        }.get(kind)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Imported lazily, so ingestion never loads the probe module.
+        from datahub.ingestion.source.superset_probe import SupersetMetadataProbe
+
+        return SupersetMetadataProbe
 
 
 def get_metric_name(metric):
@@ -2231,7 +2302,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         try:
             dataset_id = dataset_data.get("id")
             dataset_name = dataset_data.get("table_name", "")
-            if not self.config.dataset_pattern.allowed(dataset_name):
+            if not dataset_verdict(
+                self.config, DatasetFacts(table_name=dataset_name)
+            ).included:
                 self.report.report_dropped(
                     f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
@@ -2244,8 +2317,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                     .get("database_name")
                 )
 
-                if database_name and not self.config.database_pattern.allowed(
+                if (
                     database_name
+                    and not dataset_verdict(
+                        self.config,
+                        DatasetFacts(
+                            table_name=dataset_name, database_name=database_name
+                        ),
+                    ).included
                 ):
                     self.filtered_dataset_to_database[dataset_id] = database_name
                     self.report.report_dropped(

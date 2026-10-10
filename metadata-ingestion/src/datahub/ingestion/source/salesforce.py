@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
+from typing import Annotated, Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
 from pydantic import Field, field_validator
@@ -16,6 +16,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -143,7 +144,15 @@ class SalesforceConfig(
         description="Ingest Tags from source. This will override Tags entered from UI",
     )
 
-    object_pattern: AllowDenyPattern = Field(
+    # One pattern for both kinds: ingestion matches it on the API name before
+    # it tells a custom object from a standard one. Custom Object first:
+    # `describe` reports a field's first marker, and must name the kind that
+    # probe filter's field-to-kind inversion picks, the alphabetically first.
+    object_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
+        Filters(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Salesforce objects to filter in ingestion.",
     )
@@ -178,6 +187,18 @@ class SalesforceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Imported lazily, so ingestion never loads the probe module.
+        from datahub.ingestion.source.salesforce_probe import SalesforceMetadataProbe
+
+        return SalesforceMetadataProbe
+
+
+def is_custom_object(sobject_name: str) -> bool:
+    """Whether an sObject, by API name, is a custom object (`Property__c`)."""
+    return sobject_name.endswith("__c")
 
 
 @dataclass
@@ -655,7 +676,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
         )
 
         customObject = None
-        if sObjectName.endswith("__c"):  # Is Custom Object
+        if is_custom_object(sObjectName):
             customObject = self.sf_api.get_custom_object_details(
                 sObject["DeveloperName"]
             )
@@ -864,7 +885,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
         self, sObjectName: str, datasetUrn: str
     ) -> MetadataWorkUnit:
         subtypes: List[str] = []
-        if sObjectName.endswith("__c"):
+        if is_custom_object(sObjectName):
             subtypes.append(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT)
         else:
             subtypes.append(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT)

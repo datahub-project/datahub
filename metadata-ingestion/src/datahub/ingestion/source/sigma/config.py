@@ -1,15 +1,30 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional, Sequence
 
 import pydantic
 from pydantic import BaseModel, Field
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Enables,
+    Filters,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.report import EntityFilterReport, Report
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.sigma.sigma_selection import (
+    UNKNOWN,
+    DataModelFacts,
+    WorkbookFacts,
+    WorkspaceFact,
+    data_model_verdict,
+    workbook_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -602,7 +617,9 @@ class SigmaSourceConfig(
         description="Sigma Client Secret"
     )
     # Sigma workspace identifier
-    workspace_pattern: AllowDenyPattern = pydantic.Field(
+    workspace_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.SIGMA_WORKSPACE)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workspaces in ingestion."
         "Mention 'My documents' if personal entities also need to ingest.",
@@ -645,7 +662,9 @@ class SigmaSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
     )
-    workbook_pattern: AllowDenyPattern = pydantic.Field(
+    workbook_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.SIGMA_WORKBOOK)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
     )
@@ -659,7 +678,10 @@ class SigmaSourceConfig(
         "that read one lose that upstream edge; workbook elements are "
         "linked straight to the warehouse table when their SQL names it.",
     )
-    ingest_data_models: bool = pydantic.Field(
+    # When off, get_workunits_internal never lists Data Models at all.
+    ingest_data_models: Annotated[
+        bool, Enables(BIContainerSubTypes.SIGMA_DATA_MODEL)
+    ] = pydantic.Field(
         default=True,
         description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
         "as a Container with one Dataset per element inside it (plus per-element "
@@ -670,7 +692,9 @@ class SigmaSourceConfig(
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
     )
-    data_model_pattern: AllowDenyPattern = pydantic.Field(
+    data_model_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.SIGMA_DATA_MODEL)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma Data Model names in ingestion. "
         "Requires ingest_data_models to be enabled.",
@@ -693,3 +717,70 @@ class SigmaSourceConfig(
         "breaking with a ``SourceReport.warning`` instead of looping "
         "unbounded.",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: sigma_probe imports this module, and ingestion should
+        # not load the probe framework's provider code.
+        from datahub.ingestion.source.sigma.sigma_probe import SigmaMetadataProbe
+
+        return SigmaMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Workbooks and Data Models sit in a workspace, whose
+        workspace_pattern drops everything in it."""
+        return ancestors_in(
+            (str(BIContainerSubTypes.SIGMA_WORKSPACE),),
+            kind,
+            (
+                str(BIContainerSubTypes.SIGMA_WORKBOOK),
+                str(BIContainerSubTypes.SIGMA_DATA_MODEL),
+            ),
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """A workbook or Data Model also needs its placement to pass: in a
+        readable workspace workspace_pattern decides, in none
+        ingest_shared_entities does (sigma_selection). The workspace is read
+        from --parent, else from the record a saved `workbooks` or
+        `data_models` run carries."""
+        if ctx.structural is not None:
+            return None
+        if ctx.kind == BIContainerSubTypes.SIGMA_WORKBOOK:
+            in_files = ctx.attributes.get("in_files")
+            return workbook_verdict(
+                self,
+                WorkbookFacts(
+                    ctx.target,
+                    in_files=UNKNOWN if in_files is None else in_files == "true",
+                    workspace_name=self._workspace_named_by(ctx),
+                ),
+            )
+        if ctx.kind == BIContainerSubTypes.SIGMA_DATA_MODEL:
+            return data_model_verdict(
+                self,
+                DataModelFacts(
+                    ctx.target, workspace_name=self._workspace_named_by(ctx)
+                ),
+            )
+        return None
+
+    @staticmethod
+    def _workspace_named_by(ctx: VerdictContext) -> WorkspaceFact:
+        """The workspace name, None for an object in no readable workspace,
+        or UNKNOWN (warned) when this call was not told which."""
+        if ctx.parent_path:
+            return ctx.parent_path[-1]
+        workspace = ctx.attributes.get("workspace")
+        if workspace is not None:
+            return workspace
+        if ctx.attributes.get("has_workspace") == "false":
+            return None
+        ctx.warn(
+            f"no workspace for '{ctx.name}' here: workspace_pattern and "
+            "ingest_shared_entities are judged only with --parent or from a "
+            "record that carries its workspace, which a saved `probe run "
+            "workbooks` or `data_models` run does; pass one with `probe filter "
+            "--from-run`"
+        )
+        return UNKNOWN
