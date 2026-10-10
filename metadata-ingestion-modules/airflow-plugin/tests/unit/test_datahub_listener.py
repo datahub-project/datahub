@@ -1,6 +1,8 @@
 """Unit tests for the Airflow 3 DataHub listener."""
 
+import logging
 import sys
+import threading
 from types import ModuleType, SimpleNamespace
 from typing import Any, Iterator, List
 from unittest.mock import MagicMock, patch
@@ -376,3 +378,163 @@ class TestOnStarting:
         ):
             # Must not raise — on_starting runs synchronously on Airflow startup.
             DataHubListener.on_starting(stub, TaskRunnerMarker())
+
+
+class TestEmitGate:
+    """Tests for the bounded-concurrency gate in front of listener emits."""
+
+    def test_allows_up_to_max_concurrent(self) -> None:
+        gate = listener_mod._EmitGate(2)
+
+        assert gate.try_acquire() is True
+        assert gate.try_acquire() is True
+        assert gate.try_acquire() is False
+        assert gate.dropped == 1
+
+    def test_zero_max_concurrent_is_unbounded(self) -> None:
+        """0 disables the ceiling: acquire always succeeds, release is a no-op."""
+        gate = listener_mod._EmitGate(0)
+
+        for _ in range(50):
+            assert gate.try_acquire() is True
+        for _ in range(50):
+            gate.release()  # must not raise
+        assert gate.dropped == 0
+
+    def test_default_is_unbounded(self) -> None:
+        """Shipping bounded-by-default would silently start dropping metadata
+        for deployments that are currently emitting everything."""
+        assert listener_mod._MAX_CONCURRENT_EMITS == 0
+        assert listener_mod._emit_gate.max_concurrent == 0
+
+    def test_release_restores_capacity(self) -> None:
+        gate = listener_mod._EmitGate(1)
+
+        assert gate.try_acquire() is True
+        assert gate.try_acquire() is False
+        gate.release()
+        assert gate.try_acquire() is True
+
+
+class TestRunInThreadShedding:
+    """The decorator must shed events rather than spawn unbounded threads.
+
+    Without a ceiling, live thread count is (event rate x DataHub response
+    time), so a slow GMS grows threads without bound in the Airflow scheduler.
+    """
+
+    def test_drops_when_saturated(self, caplog: pytest.LogCaptureFixture) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        calls: List[str] = []
+
+        @listener_mod.run_in_thread
+        def slow_hook() -> None:
+            calls.append("ran")
+            started.set()
+            release.wait(timeout=10)
+
+        gate = listener_mod._EmitGate(1)
+        try:
+            with (
+                patch.object(listener_mod, "_emit_gate", gate),
+                patch.object(listener_mod, "_RUN_IN_THREAD_TIMEOUT", 0),
+                caplog.at_level(logging.WARNING, logger=listener_mod.logger.name),
+            ):
+                slow_hook()
+                assert started.wait(timeout=10), "first invocation never started"
+
+                slow_hook()  # no permit available
+
+            assert calls == ["ran"], "second invocation must not run the hook"
+            assert gate.dropped == 1
+            assert any(
+                record.levelno == logging.WARNING and "slow_hook" in record.getMessage()
+                for record in caplog.records
+            ), "a dropped event must be surfaced to operators"
+        finally:
+            release.set()
+
+    def test_permit_released_after_success(self) -> None:
+        calls: List[str] = []
+
+        @listener_mod.run_in_thread
+        def hook() -> None:
+            calls.append("ran")
+
+        gate = listener_mod._EmitGate(1)
+        with (
+            patch.object(listener_mod, "_emit_gate", gate),
+            patch.object(listener_mod, "_RUN_IN_THREAD_TIMEOUT", 10),
+        ):
+            hook()
+            hook()
+
+        assert calls == ["ran", "ran"]
+        assert gate.dropped == 0
+
+    def test_permit_released_after_exception(self) -> None:
+        """A leaked permit is silent and cumulative: it would permanently
+        shrink capacity until the plugin stopped emitting altogether."""
+        calls: List[str] = []
+
+        @listener_mod.run_in_thread
+        def failing_hook() -> None:
+            calls.append("ran")
+            raise RuntimeError("boom")
+
+        gate = listener_mod._EmitGate(1)
+        with (
+            patch.object(listener_mod, "_emit_gate", gate),
+            patch.object(listener_mod, "_RUN_IN_THREAD_TIMEOUT", 10),
+        ):
+            failing_hook()
+            failing_hook()
+
+        assert calls == ["ran", "ran"]
+        assert gate.dropped == 0
+
+    def test_permit_released_when_thread_cannot_start(self) -> None:
+        """A Thread() construction failure is caught by wrapper's outer handler,
+        which cannot release the permit, so the gate must be unwound at the
+        raise site. A leak here lowers the cap permanently."""
+        calls: List[str] = []
+
+        @listener_mod.run_in_thread
+        def hook() -> None:
+            calls.append("ran")
+
+        gate = listener_mod._EmitGate(1)
+        with (
+            patch.object(listener_mod, "_emit_gate", gate),
+            patch.object(
+                listener_mod.threading,
+                "Thread",
+                side_effect=RuntimeError("can't start a new thread"),
+            ),
+        ):
+            hook()
+
+        assert calls == []
+        assert gate.dropped == 0
+        assert gate.try_acquire() is True, "permit leaked on thread-spawn failure"
+
+    def test_inline_path_is_not_gated(self) -> None:
+        """RUN_IN_THREAD=false already serializes to one emit at a time, so
+        gating it would only add a way to lose events for no benefit."""
+        calls: List[str] = []
+
+        @listener_mod.run_in_thread
+        def hook() -> None:
+            calls.append("ran")
+
+        gate = listener_mod._EmitGate(1)
+        assert gate.try_acquire() is True  # exhaust the gate
+
+        with (
+            patch.object(listener_mod, "_emit_gate", gate),
+            patch.object(listener_mod, "_RUN_IN_THREAD", False),
+        ):
+            hook()
+
+        assert calls == ["ran"]
