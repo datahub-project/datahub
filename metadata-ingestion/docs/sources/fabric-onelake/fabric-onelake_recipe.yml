@@ -54,7 +54,17 @@ source:
     extract_warehouses: true
     extract_schemas: true  # Set to false to skip schema containers
     extract_views: true    # Requires sql_endpoint.enabled
-    
+
+    # OneLake shortcuts on lakehouse tables (enabled by default).
+    # Calls GET /workspaces/{workspaceId}/items/{lakehouseId}/shortcuts and tags
+    # matching tables `shortcut` with shortcut_origin_* custom properties (name,
+    # path, workspace id/name, item id/name). include_lineage also emits a
+    # OneLake table target as an upstream; external targets are tagged but not
+    # linked.
+    # shortcuts:
+    #   enabled: true
+    #   include_lineage: false
+
     # Optional: API timeout (seconds)
     # api_timeout: 30
     
@@ -75,6 +85,31 @@ source:
     #   encrypt: "yes"  # Enable encryption (default: "yes")
     #   trust_server_certificate: "no"  # Trust server certificate (default: "no")
     #   query_timeout: 30  # Timeout for SQL queries in seconds (default: 30)
+
+    # Optional: Table and column profiling. Same options as mssql-odbc.
+    # Runs on the SQL Analytics Endpoint via the Microsoft ODBC Driver for SQL Server.
+    # profiling:
+    #   enabled: false
+    #   profile_table_level_only: false
+    #   include_field_null_count: true
+    #   include_field_distinct_count: true
+    #   include_field_min_value: true
+    #   include_field_max_value: true
+    #   include_field_mean_value: true
+    #   include_field_median_value: true
+    #   include_field_stddev_value: true
+    #   include_field_quantiles: false
+    #   include_field_distinct_value_frequencies: false
+    #   include_field_histogram: false
+    #   include_field_sample_values: true
+    #   field_sample_values_limit: 20
+    #   max_number_of_fields_to_profile: null
+    #   turn_off_expensive_profiling_metrics: false
+    #   query_combiner_enabled: true
+    # profile_pattern:
+    #   allow:
+    #     - ".*"
+    #   deny: []
 
     # Optional: Query usage extraction. Reads queryinsights.exec_requests_history
     # on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires sql_endpoint.enabled=true.

@@ -11,6 +11,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -18,6 +19,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -30,6 +32,39 @@ class ExtractSchemaConfig(ConfigModel):
             "Schema extraction method. Currently only 'sql_analytics_endpoint' is supported."
         ),
     )
+
+
+class ShortcutsConfig(ConfigModel):
+    """Configuration for OneLake shortcut detection on lakehouse tables."""
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Identify lakehouse tables that are OneLake shortcuts by calling "
+            "`GET /workspaces/{workspaceId}/items/{lakehouseId}/shortcuts`. "
+            "Matching tables are tagged `shortcut` and get `shortcut_origin_*` "
+            "custom properties: original table name and path, plus the target "
+            "workspace and item ids and display names for OneLake targets. "
+            "Requires OneLake.Read.All (or OneLake.ReadWrite.All)."
+        ),
+    )
+    include_lineage: bool = Field(
+        default=False,
+        description=(
+            "When the shortcut target is another OneLake table, emit that table "
+            "as an upstream of the shortcut dataset. External targets (ADLS, S3, "
+            "and similar) still receive the `shortcut` tag and origin properties, "
+            "but no dataset upstream. Requires `enabled=True`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_lineage_requires_enabled(self):
+        if self.include_lineage and not self.enabled:
+            raise ValueError(
+                "shortcuts.include_lineage=True requires shortcuts.enabled=True."
+            )
+        return self
 
 
 class SqlEndpointConfig(ConfigModel):
@@ -195,6 +230,16 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for tables and columns to profile. Matched against "
+            "`schema.table`, and against `schema.table.column` for column-level "
+            "metrics. Only tables allowed by `table_pattern` are considered. "
+            "Same behavior as the `mssql-odbc` `profile_pattern`."
+        ),
+    )
+
     # Feature flags
     extract_lakehouses: bool = Field(
         default=True,
@@ -212,6 +257,15 @@ class FabricOneLakeSourceConfig(
             "Whether to extract views and their definitions. "
             "Requires a configured sql_endpoint, because views are discovered via "
             "INFORMATION_SCHEMA.VIEWS over the SQL Analytics Endpoint."
+        ),
+    )
+
+    shortcuts: ShortcutsConfig = Field(
+        default_factory=ShortcutsConfig,
+        description=(
+            "OneLake shortcut detection for lakehouse tables. Enabled by default; "
+            "set `shortcuts.include_lineage` to also emit the origin table as an "
+            "upstream."
         ),
     )
 
@@ -253,6 +307,17 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # Table and column profiling. Same options as the mssql-odbc SQL profiler.
+    profiling: ProfilingConfig = Field(
+        default_factory=ProfilingConfig,
+        description=(
+            "Table and column profiling, run through the SQL Analytics Endpoint "
+            "with the Microsoft ODBC Driver for SQL Server. Uses the same "
+            "profiler and options as the `mssql-odbc` source. Disabled by default. "
+            "Requires `sql_endpoint.enabled=True`."
+        ),
+    )
+
     # Usage tracking
     usage: FabricUsageConfig = Field(
         default_factory=FabricUsageConfig,
@@ -290,6 +355,8 @@ class FabricOneLakeSourceConfig(
             )
         if self.usage.include_usage_statistics:
             requiring_features.append("usage.include_usage_statistics=True")
+        if self.is_profiling_enabled():
+            requiring_features.append("profiling.enabled=True")
 
         if requiring_features:
             raise ValueError(
@@ -297,4 +364,16 @@ class FabricOneLakeSourceConfig(
                 f"the following are set: {', '.join(requiring_features)}. "
                 f"These features all query the SQL Analytics Endpoint."
             )
+        return self
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    @model_validator(mode="after")
+    def pass_profile_pattern_to_profiling(self):
+        """Column filters inside the SQL profiler read `profiling._allow_deny_patterns`."""
+        if self.profiling.enabled:
+            self.profiling._allow_deny_patterns = self.profile_pattern
         return self
