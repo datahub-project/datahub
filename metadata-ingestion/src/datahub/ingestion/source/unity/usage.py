@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, Set, TypeVar
+from typing import Callable, Iterable, List, Optional, Set, Tuple, TypeVar
 
 from databricks.sdk.service.sql import QueryStatementType
 
@@ -13,7 +13,11 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Query, TableReference
+from datahub.ingestion.source.unity.proxy_types import (
+    Query,
+    TableReference,
+    escape_unity_name,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
@@ -54,6 +58,27 @@ _STATEMENT_TYPE_TO_QUERY_TYPE = {
     QueryStatementType.REPLACE: QueryType.CREATE_TABLE_AS_SELECT,
 }
 
+_SYSTEM_CATALOG = "system"
+_INFORMATION_SCHEMA = "information_schema"
+
+
+def _is_system_table(catalog: str, schema: str) -> bool:
+    # The system catalog and each catalog's information_schema hold Databricks
+    # metadata views, which are datasets only when a recipe ingests them.
+    return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == _INFORMATION_SCHEMA
+
+
+def _split_table_name(full_name: str) -> Optional[Tuple[str, str, str]]:
+    parts = split_databricks_identifier(full_name)
+    if parts is None or len(parts) != 3:
+        return None
+    return parts[0], parts[1], parts[2]
+
+
+def _is_system_table_name(full_name: str) -> bool:
+    parts = _split_table_name(full_name)
+    return parts is not None and _is_system_table(parts[0], parts[1])
+
 
 @dataclass(eq=False)
 class UnityCatalogUsageExtractor:
@@ -77,7 +102,7 @@ class UnityCatalogUsageExtractor:
 
     def _build_aggregator(
         self,
-        is_allowed_table: Optional[Callable[[str], bool]] = None,
+        is_allowed_table: Callable[[str], bool],
     ) -> SqlParsingAggregator:
         # UnityCatalogSourceConfig extends BaseUsageConfig so self.config satisfies
         # the usage_config parameter type.
@@ -137,31 +162,66 @@ class UnityCatalogUsageExtractor:
         return CorpUserUrn.from_string(self.user_urn_builder(query.user_name))
 
     def _full_name_to_urn(self, full_name: str) -> Optional[UrnStr]:
-        parts = split_databricks_identifier(full_name)
-        if parts is None or len(parts) != 3:
+        parts = _split_table_name(full_name)
+        if parts is None:
             logger.debug("Skipping unexpected table full name: %s", full_name)
             self.report.num_lineage_tables_unresolvable += 1
             self.report.lineage_tables_unresolvable_sample.append(full_name)
             return None
         catalog, schema, table = parts
-        # resolve_table_parts always returns a (synthesized) URN; the SchemaInfo is
-        # the resolution signal. It is None when the table is not in the schema
-        # resolver cache, i.e. not one this recipe ingested. Treating those as
-        # unresolvable keeps preparsed usage scoped to known datasets and lets the
-        # caller fall back to sqlglot instead of emitting confident lineage to a
-        # possibly-nonexistent URN.
+        # Tables this run ingested are registered in the resolver under the URN they
+        # were emitted with; a SchemaInfo marks the hit.
         urn, schema_info = self.schema_resolver.resolve_table_parts(
             database=catalog, db_schema=schema, table=table
         )
-        if schema_info is None:
-            logger.debug(
-                "Could not resolve lineage table name to a known dataset: %s",
-                full_name,
-            )
-            self.report.num_lineage_tables_unresolvable += 1
-            self.report.lineage_tables_unresolvable_sample.append(full_name)
+        if schema_info is not None:
+            return urn
+        if _is_system_table(catalog, schema):
+            self.report.num_lineage_tables_system_skipped += 1
             return None
-        return urn
+        # A table this run did not ingest still becomes a URN, built the same way as
+        # an ingested one, so queries spanning catalogs keep it as a subject.
+        # is_allowed_table limits usage and operations to ingested tables.
+        self.report.num_lineage_tables_not_ingested += 1
+        self.report.lineage_tables_not_ingested_sample.add(full_name)
+        return self.table_urn_builder(
+            TableReference(metastore=None, catalog=catalog, schema=schema, table=table)
+        )
+
+    def _make_allowed_table_predicate(
+        self, locally_discovered: Set[str]
+    ) -> Callable[[str], bool]:
+        # Only tables this run ingested are allowed, so usage statistics and
+        # operations are never written for datasets another recipe owns; tables from
+        # other catalogs still reach the aggregator as query subjects. A run that
+        # ingested no tables (e.g. include_tables and include_views disabled for a
+        # usage-only recipe) falls back to the recipe's filter patterns instead.
+        if locally_discovered:
+            return lambda name: name.lower() in locally_discovered
+        # Like the source's catalog listing, an empty catalogs list is unrestricted.
+        catalogs = {c.lower() for c in self.config.catalogs or []}
+        return lambda name: self._is_allowed_by_patterns(name, catalogs)
+
+    def _is_allowed_by_patterns(self, name: str, catalogs: Set[str]) -> bool:
+        # Applies the catalogs / catalog_pattern / schema_pattern / table_pattern checks
+        # the source uses when listing tables, against the escaped ids it builds (the
+        # deprecated include_metastore prefix is not known here). The name comes from a
+        # dataset URN, which no longer quotes identifiers, so a catalog or schema
+        # containing dots cannot be told apart from the next part: catalog and schema
+        # filters use the leading parts, and table_pattern sees the full name, which
+        # is the same string the source matches when listing tables.
+        parts = name.split(".")
+        if len(parts) < 3:
+            return False
+        catalog_id = escape_unity_name(parts[0])
+        return (
+            (not catalogs or parts[0].lower() in catalogs)
+            and self.config.catalog_pattern.allowed(catalog_id)
+            and self.config.schema_pattern.allowed(
+                f"{catalog_id}.{escape_unity_name(parts[1])}"
+            )
+            and self.config.table_pattern.allowed(name)
+        )
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
         urns: List[UrnStr] = []
@@ -229,7 +289,8 @@ class UnityCatalogUsageExtractor:
             "total=%s preparsed=%s (%.1f%%) "
             "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
             "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s "
-            "redacted=%s",
+            "not_ingested_lineage_tables=%s system_lineage_tables_skipped=%s "
+            "skipped_system_tables_only=%s redacted=%s",
             total,
             preparsed,
             preparsed_pct,
@@ -238,6 +299,9 @@ class UnityCatalogUsageExtractor:
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
+            self.report.num_lineage_tables_not_ingested,
+            self.report.num_lineage_tables_system_skipped,
+            self.report.num_queries_skipped_system_tables_only,
             redacted,
         )
 
@@ -279,6 +343,8 @@ class UnityCatalogUsageExtractor:
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
+        if not upstreams and not targets:
+            return []
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
@@ -366,10 +432,7 @@ class UnityCatalogUsageExtractor:
 
         if self._can_use_preparsed_query(query):
             preparsed_queries = self._to_preparsed_queries(query)
-            if preparsed_queries and (
-                any(p.upstreams for p in preparsed_queries)
-                or any(p.downstream for p in preparsed_queries)
-            ):
+            if preparsed_queries:
                 for preparsed in preparsed_queries:
                     aggregator.add_preparsed_query(preparsed)
                 self.report.num_queries_preparsed_from_lineage += 1
@@ -387,8 +450,29 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
-            # System-table lineage was present but produced no resolvable
-            # dataset URNs. For redacted queries we can't run sqlglot either,
+            # No lineage name produced a URN, so none of them is an ingested table.
+            # When every name is a system / information_schema table, the query is a
+            # metadata read with nothing to attribute usage to, and sqlglot would
+            # find the same tables.
+            if all(
+                _is_system_table_name(name)
+                for name in (
+                    *query.source_table_full_names,
+                    *query.target_table_full_names,
+                )
+            ):
+                self.report.num_queries_skipped_system_tables_only += 1
+                logger.debug(
+                    "Usage query skipped: system-table lineage names only system "
+                    "tables (statement_id=%s lineage_sources=%s lineage_targets=%s)",
+                    query.query_id,
+                    query.source_table_full_names,
+                    query.target_table_full_names,
+                )
+                return
+
+            # System-table lineage was present but produced no usable dataset
+            # URNs. For redacted queries we can't run sqlglot either,
             # so drop silently — bumping num_queries_preparsed_fallback_to_sqlglot
             # would produce a "parsed with sqlglot" warning that isn't true.
             if query.is_query_text_redacted:
@@ -397,7 +481,7 @@ class UnityCatalogUsageExtractor:
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
             logger.debug(
                 "Usage query fell back to sqlglot: system-table lineage present but "
-                "no resolvable dataset URNs "
+                "no usable dataset URNs "
                 "(statement_id=%s statement_type=%s "
                 "lineage_sources=%s lineage_targets=%s preview=%r)",
                 query.query_id,
@@ -459,8 +543,9 @@ class UnityCatalogUsageExtractor:
             (
                 self.report.num_queries_preparsed_fallback_to_sqlglot,
                 "System-table lineage fell back to SQL parsing",
-                "Queries had table lineage from system tables but no resolvable "
-                "dataset URNs; those queries were parsed with sqlglot instead.",
+                "Queries had table lineage from system tables but no usable table "
+                "names (not catalog.schema.table identifiers); those queries were "
+                "parsed with sqlglot instead.",
             ),
         ):
             if count > 0:
@@ -506,8 +591,9 @@ class UnityCatalogUsageExtractor:
             self.report.warning(
                 title="Unresolvable lineage table names",
                 message=(
-                    "Table names from system.access.table_lineage could not be mapped "
-                    "to dataset URNs and were omitted from preparsed usage."
+                    "Table names from system.access.table_lineage were not "
+                    "catalog.schema.table identifiers and were omitted from "
+                    "preparsed usage."
                 ),
                 context=context,
                 log=False,
@@ -615,33 +701,6 @@ class UnityCatalogUsageExtractor:
                     log=False,
                 )
 
-    @staticmethod
-    def _make_allowed_table_predicate(
-        locally_discovered: Set[str],
-        resolver: SchemaResolver,
-    ) -> Optional[Callable[[str], bool]]:
-        """Build the is_allowed_table predicate for the usage aggregator.
-
-        Locally-discovered tables pass via fast set membership. When the schema
-        resolver has a graph, tables that exist in DataHub but were not discovered
-        by this recipe are also allowed — so queries referencing tables from other
-        catalogs produce query entities instead of being silently dropped.
-        """
-        if not locally_discovered:
-            return None
-
-        def _is_allowed_table(name: str) -> bool:
-            if name.lower() in locally_discovered:
-                return True
-            if resolver.graph is not None:
-                urn, schema_info = resolver.resolve_table_parts(
-                    database=None, db_schema=None, table=name
-                )
-                return schema_info is not None
-            return False
-
-        return _is_allowed_table
-
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -651,9 +710,7 @@ class UnityCatalogUsageExtractor:
         # form, so we use it directly — using DatasetUrn.name here would include the
         # platform_instance prefix when one is configured, causing a mismatch.
         locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
-        is_allowed_table = self._make_allowed_table_predicate(
-            locally_discovered, self.schema_resolver
-        )
+        is_allowed_table = self._make_allowed_table_predicate(locally_discovered)
 
         # Databricks query history has no per-query session catalog/schema (unlike
         # Snowflake), so we can't derive a per-query default_db.  When the recipe

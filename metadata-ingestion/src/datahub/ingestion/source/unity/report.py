@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -46,6 +46,10 @@ class UnityCatalogReport(SQLSourceReport):
     lineage_tables_unresolvable_sample: LossyList[str] = field(
         default_factory=LossyList
     )
+    num_lineage_tables_not_ingested: int = 0
+    lineage_tables_not_ingested_sample: LossySet[str] = field(default_factory=LossySet)
+    num_lineage_tables_system_skipped: int = 0
+    num_queries_skipped_system_tables_only: int = 0
     num_lineage_row_field_read_errors: int = 0
     num_usage_query_fetch_failures: int = 0
 
