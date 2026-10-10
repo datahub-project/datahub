@@ -1,5 +1,6 @@
 import json
 import unittest
+from typing import List
 from unittest.mock import patch
 
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -213,6 +214,102 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         assert report.schema_registry_connectivity_failures == 1
         assert result["topic-a"].schema is None
         assert result["topic-a"].fields == []
+
+
+class SubjectForTopicTest(unittest.TestCase):
+    """Which registry subject a topic resolves to.
+
+    Companion topics (`.RETRY`, `.DLT`, environment suffixes) produce subjects that
+    all begin with the parent topic's name, so resolving on prefix alone is
+    order-dependent and can hand a topic another topic's schema.
+    """
+
+    @staticmethod
+    def _registry(subjects: List[str], **config: object) -> ConfluentSchemaRegistry:
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+                **config,
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient"
+        ) as mock_client_cls:
+            mock_client_cls.return_value.get_subjects.return_value = subjects
+            return ConfluentSchemaRegistry.create(
+                kafka_source_config, KafkaSourceReport()
+            )
+
+    def test_exact_subject_wins_over_companion_topic_listed_first(self):
+        # The registry lists the .RETRY companion before the topic's own subject.
+        registry = self._registry(
+            [
+                "orders.RETRY-value",
+                "orders.DLT-value",
+                "orders-value",
+            ]
+        )
+        assert registry._get_subject_for_topic("orders", False) == "orders-value"
+
+    def test_companion_topics_keep_their_own_subjects(self):
+        registry = self._registry(
+            ["orders-value", "orders.RETRY-value", "orders.DLT-value"]
+        )
+        assert (
+            registry._get_subject_for_topic("orders.RETRY", False)
+            == "orders.RETRY-value"
+        )
+        assert (
+            registry._get_subject_for_topic("orders.DLT", False) == "orders.DLT-value"
+        )
+
+    def test_companion_subject_is_not_served_to_a_schemaless_topic(self):
+        # "orders" has no subject of its own. Handing it the .RETRY schema would be
+        # worse than reporting it schemaless, which is what the caller warns about.
+        registry = self._registry(["orders.RETRY-value"])
+        assert registry._get_subject_for_topic("orders", False) is None
+
+    def test_environment_suffixed_topics_do_not_collide(self):
+        # Case (c) from the naming-strategy comment.
+        registry = self._registry(["a.b.c.d.qa-value", "a.b.c.d-value"])
+        assert registry._get_subject_for_topic("a.b.c.d", False) == "a.b.c.d-value"
+        assert (
+            registry._get_subject_for_topic("a.b.c.d.qa", False) == "a.b.c.d.qa-value"
+        )
+
+    def test_topic_record_name_strategy_still_resolves(self):
+        # TopicRecordNameStrategy joins the record name with "-", so it is still
+        # reachable when the topic has no TopicNameStrategy subject.
+        registry = self._registry(["orders-io.acryl.Order-value"])
+        assert (
+            registry._get_subject_for_topic("orders", False)
+            == "orders-io.acryl.Order-value"
+        )
+
+    def test_key_schemas_resolve_independently(self):
+        registry = self._registry(["orders.RETRY-key", "orders-key", "orders-value"])
+        assert registry._get_subject_for_topic("orders", True) == "orders-key"
+        assert registry._get_subject_for_topic("orders", False) == "orders-value"
+
+    def test_topic_subject_map_still_overrides(self):
+        registry = self._registry(
+            ["orders-value"],
+            topic_subject_map={"orders-value": "explicitly.mapped-value"},
+        )
+        assert (
+            registry._get_subject_for_topic("orders", False)
+            == "explicitly.mapped-value"
+        )
+
+    def test_disable_topic_record_naming_strategy_is_exact_only(self):
+        registry = self._registry(
+            ["orders-io.acryl.Order-value"],
+            disable_topic_record_naming_strategy=True,
+        )
+        assert registry._get_subject_for_topic("orders", False) is None
 
 
 if __name__ == "__main__":
