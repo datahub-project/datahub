@@ -182,7 +182,7 @@
                             "upstreams": [
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
@@ -190,7 +190,7 @@
                                 },
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
@@ -198,7 +198,7 @@
                                 },
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
@@ -536,7 +536,7 @@
                             "upstreams": [
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
@@ -544,7 +544,7 @@
                                 },
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
@@ -827,7 +827,7 @@
                             "upstreams": [
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
@@ -1029,7 +1029,7 @@
                             "upstreams": [
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
@@ -1242,7 +1242,7 @@
                             "upstreams": [
                                 {
                                     "auditStamp": {
-                                        "time": 1643871600000,
+                                        "time": 0,
                                         "actor": "urn:li:corpuser:unknown"
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
@@ -1818,7 +1818,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
@@ -1894,7 +1894,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
@@ -1984,7 +1984,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
@@ -2032,7 +2032,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
@@ -2087,7 +2087,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
@@ -2142,7 +2142,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
@@ -2190,7 +2190,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
@@ -2245,7 +2245,7 @@
                     "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
                     "value": {
                         "auditStamp": {
-                            "time": 1643871600000,
+                            "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
@@ -2345,11 +2345,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2444,11 +2440,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2543,11 +2535,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2629,11 +2617,7 @@
                     "logic": "-- Refunds have a negative amount, so the total amount should always be >= 0.\n-- Therefore return records where this isn't true to make the test fail\nselect\n    order_id,\n    sum(amount) as total_amount\nfrom `calm-pagoda-323403`.`jaffle_shop`.`orders`\ngroup by 1\nhaving not(total_amount >= 0)"
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2735,11 +2719,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2807,11 +2787,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2904,11 +2880,7 @@
                     "logic": "\n\nwith all_values as (\n\n    select\n        credit_card_amount as value_field\n\n    from `calm-pagoda-323403`.`jaffle_shop`.`orders`\n    \n    where credit_card_amount is not null\n    \n\n),\nset_values as (\n\n    select\n        cast('0' as \n    string\n) as value_field\n    \n    \n),\nvalidation_errors as (\n    -- values from the model that match the set\n    select\n        v.value_field\n    from\n        all_values v\n        join\n        set_values s on v.value_field = s.value_field\n\n)\n\nselect *\nfrom validation_errors\n\n"
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -2998,11 +2970,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3090,11 +3058,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3182,11 +3146,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3274,11 +3234,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3366,11 +3322,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3458,11 +3410,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3550,11 +3498,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3642,11 +3586,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3734,11 +3674,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3826,11 +3762,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -3918,11 +3850,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4019,11 +3947,7 @@
                     "logic": "orders.customer_id referential integrity to customers.customer_id"
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4120,11 +4044,7 @@
                     "logic": "orders.customer_id referential integrity to customers.customer_id"
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4218,11 +4138,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4316,11 +4232,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4414,11 +4326,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4512,11 +4420,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },
@@ -4610,11 +4514,7 @@
                     }
                 },
                 "source": {
-                    "type": "EXTERNAL",
-                    "created": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:__datahub_system"
-                    }
+                    "type": "EXTERNAL"
                 }
             }
         },

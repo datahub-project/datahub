@@ -206,7 +206,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
@@ -214,7 +214,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
@@ -222,7 +222,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",

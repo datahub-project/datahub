@@ -185,7 +185,6 @@ class _TwoTierSchemaResolver(SchemaResolver):
         return super().resolve_table(table.model_copy(update={"database": None}))
 
 
-_DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
 _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
@@ -1944,14 +1943,14 @@ def make_mapping_upstream_lineage(
                 )
             )
 
+    # dbt has no per-edge event time. Omit auditStamp so the schema default
+    # (time 0 / unknown actor) stays stable across runs. A wall clock here
+    # makes an unchanged graph look modified.
     return UpstreamLineageClass(
         upstreams=[
             UpstreamClass(
                 dataset=upstream_urn,
                 type=DatasetLineageTypeClass.COPY,
-                auditStamp=AuditStamp(
-                    time=mce_builder.get_sys_time(), actor=_DEFAULT_ACTOR
-                ),
             )
         ],
         fineGrainedLineages=cll or None,
@@ -4734,21 +4733,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if not upstream_urns:
                 return None
 
-            auditStamp = AuditStamp(
-                time=mce_builder.get_sys_time(),
-                actor=_DEFAULT_ACTOR,
-            )
             sibling_urn = node.get_urn(
                 self.config.target_platform,
                 self.config.env,
                 self.config.target_platform_instance,
             )
+            # Same as COPY lineage: dbt has no per-edge event time, so omit
+            # auditStamp and keep the schema's stable unknown default.
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
                         dataset=upstream,
                         type=DatasetLineageTypeClass.TRANSFORMED,
-                        auditStamp=auditStamp,
                     )
                     for upstream in upstream_urns
                     if not (node.node_type == "model" and upstream == sibling_urn)
