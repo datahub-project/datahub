@@ -305,7 +305,6 @@ export class ChartEntity implements Entity<Chart> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -332,7 +331,6 @@ export class ChartEntity implements Entity<Chart> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}

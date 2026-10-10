@@ -1,5 +1,6 @@
 import {
     canBeAssetBadge,
+    getAllowedValueKey,
     getBadgeUrnToReplace,
     getFilteredSortedStructuredProperties,
     getNewAllowedPlatforms,
@@ -180,6 +181,20 @@ function makeSp(opts: { displayName?: string; qualifiedName?: string; time?: num
         },
     } as unknown as StructuredPropertyEntity;
 }
+
+describe('getAllowedValueKey', () => {
+    it('returns numberValue when it is zero', () => {
+        expect(getAllowedValueKey({ numberValue: 0 })).toBe(0);
+    });
+
+    it('prefers numberValue over stringValue when both are set', () => {
+        expect(getAllowedValueKey({ numberValue: 1, stringValue: 'one' })).toBe(1);
+    });
+
+    it('falls back to stringValue when numberValue is absent', () => {
+        expect(getAllowedValueKey({ stringValue: 'high' })).toBe('high');
+    });
+});
 
 describe('getFilteredSortedStructuredProperties', () => {
     it('matches on displayName, case-insensitively', () => {

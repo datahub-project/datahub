@@ -1,8 +1,9 @@
 import { Select, SelectOption } from '@components';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -11,6 +12,8 @@ import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
+
+const SEARCH_RESULT_COUNT = 20;
 
 const StyledOptionWrapper = styled.div`
     width: 100%;
@@ -25,14 +28,9 @@ type Props = {
     placeholder?: string;
 };
 
-const addManyToCache = (cache: Map<string, Entity>, entities: Entity[]) => {
-    entities.forEach((entity) => cache.set(entity.urn, entity));
+const addManyToCache = (cache: Map<string, Entity>, entities: Array<Entity | null | undefined> | null | undefined) => {
+    buildEntityCache(entities).forEach((entity, urn) => cache.set(urn, entity));
     return cache;
-};
-
-const isResolutionRequired = (urns: string[], cache: Map<string, Entity>) => {
-    const uncachedUrns = urns.filter((urn) => !cache.has(urn));
-    return uncachedUrns.length > 0;
 };
 
 /**
@@ -52,16 +50,19 @@ export const EntitySearchValueInput = ({
     const { t } = useTranslation('shared.query-builder');
     const entityRegistry = useEntityRegistry();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
     /**
      * Bootstrap by resolving all URNs that are not in the cache yet.
      */
     const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
     useEffect(() => {
-        if (isResolutionRequired(selectedUrns, entityCache)) {
-            // Resolve urns to their full entities
-            getEntities({ variables: { urns: selectedUrns } });
+        const attemptedUrns = attemptedUrnsRef.current;
+        if (!isEntityResolutionRequired(selectedUrns, entityCache, attemptedUrns)) {
+            return;
         }
+        selectedUrns.forEach((urn) => attemptedUrns.add(urn));
+        getEntities({ variables: { urns: selectedUrns } });
     }, [selectedUrns, entityCache, getEntities]);
 
     /**
@@ -71,8 +72,7 @@ export const EntitySearchValueInput = ({
      */
     useEffect(() => {
         if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
-            const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache((cache) => addManyToCache(cache, entities));
+            setEntityCache((cache) => addManyToCache(cache, resolvedEntitiesData.entities));
         }
     }, [resolvedEntitiesData]);
 
@@ -106,7 +106,7 @@ export const EntitySearchValueInput = ({
                 types: entityTypes,
                 query: text,
                 start: 0,
-                count: 10,
+                count: SEARCH_RESULT_COUNT,
             },
             entityTypes,
         );
@@ -170,7 +170,7 @@ export const EntitySearchValueInput = ({
                     types: entityTypes,
                     query: '*',
                     start: 0,
-                    count: 10,
+                    count: SEARCH_RESULT_COUNT,
                 },
             },
         });
@@ -199,6 +199,7 @@ export const EntitySearchValueInput = ({
             width="full"
             renderCustomOptionText={customOptionRenderer}
             showSearch
+            filterResultsByQuery={false}
         />
     );
 };

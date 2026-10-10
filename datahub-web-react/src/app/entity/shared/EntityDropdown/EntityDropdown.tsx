@@ -397,6 +397,7 @@ function EntityDropdown(props: Props) {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
                 />
@@ -404,6 +405,7 @@ function EntityDropdown(props: Props) {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
                 />
@@ -411,6 +413,7 @@ function EntityDropdown(props: Props) {
             {isCloneEntityModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={entityType}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
                     isCloning
