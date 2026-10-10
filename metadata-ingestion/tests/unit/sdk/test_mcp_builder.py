@@ -1,4 +1,6 @@
 import datahub.emitter.mcp_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import StatusClass, TelemetryClientIdClass
 
 
@@ -156,3 +158,35 @@ def test_entity_supports_aspect():
 
     assert not builder.entity_supports_aspect("dataset", TelemetryClientIdClass)
     assert builder.entity_supports_aspect("telemetry", TelemetryClientIdClass)
+
+
+def _aspect_name(wu: MetadataWorkUnit) -> str:
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    return wu.metadata.aspectName or ""
+
+
+def test_gen_containers_emits_dpi_first_or_right_after_parent_container() -> None:
+    db = builder.DatabaseKey(platform="mysql", instance="inst", database="db")
+    schema = builder.SchemaKey(
+        platform="mysql", instance="inst", database="db", schema="s"
+    )
+
+    db_aspects = [
+        _aspect_name(wu)
+        for wu in builder.gen_containers(
+            container_key=db, name="db", sub_types=["Database"]
+        )
+    ]
+    schema_aspects = [
+        _aspect_name(wu)
+        for wu in builder.gen_containers(
+            container_key=schema,
+            name="s",
+            sub_types=["Schema"],
+            parent_container_key=db,
+        )
+    ]
+
+    assert db_aspects[0] == "dataPlatformInstance"
+    # The parent Container aspect stays first for AutoBrowsePathV2Processor.
+    assert schema_aspects[:2] == ["container", "dataPlatformInstance"]
