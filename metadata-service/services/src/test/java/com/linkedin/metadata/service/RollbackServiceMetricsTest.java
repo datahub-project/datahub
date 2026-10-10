@@ -89,7 +89,8 @@ public class RollbackServiceMetricsTest {
                                 .apiDefault(MAX_SEARCH_RESULTS)
                                 .build())
                         .build())
-                .build());
+                .build(),
+            null);
   }
 
   @Test

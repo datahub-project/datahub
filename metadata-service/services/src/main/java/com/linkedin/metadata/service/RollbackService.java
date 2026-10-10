@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,6 +63,7 @@ public class RollbackService {
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataServiceConfig systemMetadataServiceConfig;
+  @Nullable private final IngestionRollbackDispatcher dispatcher;
 
   public List<AspectRowSummary> rollbackTargetAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
@@ -182,6 +184,11 @@ public class RollbackService {
             .setUnsafeEntitiesCount(unsafeEntitiesCount)
             .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
             .setAspectRowSummaries(rowSummaries);
+      }
+
+      if (dispatcher != null && dispatcher.dispatch(opContext, runId, hardDelete)) {
+        log.info("Rollback of run {} handed off; it runs in another process", runId);
+        return handedOff();
       }
 
       RollbackRunResult rollbackRunResult =
@@ -381,6 +388,16 @@ public class RollbackService {
     } else {
       return "at least " + size;
     }
+  }
+
+  /** Nothing was rolled back in this process: the rollback was handed off. */
+  @Nonnull
+  private static RollbackResponse handedOff() {
+    return new RollbackResponse()
+        .setAspectRowSummaries(new AspectRowSummaryArray())
+        .setEntitiesAffected(0)
+        .setAspectsAffected(0)
+        .setUnsafeEntities(new UnsafeEntityInfoArray());
   }
 
   private static void sleep(int seconds) {
