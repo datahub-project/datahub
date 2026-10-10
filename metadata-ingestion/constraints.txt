@@ -1145,10 +1145,8 @@ python3-openid==3.2.0
     # via flask-openid
 pytz==2026.1.post1
     # via
-    #   acryl-datahub-cloud
     #   asynch
     #   clickhouse-driver
-    #   croniter
     #   dlt
     #   neo4j
     #   pandas
@@ -1614,7 +1612,6 @@ tzdata==2025.3
     #   tzlocal
 tzlocal==5.3.1
     # via
-    #   acryl-datahub-cloud
     #   asynch
     #   clickhouse-driver
     #   trino
