@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -17,13 +17,20 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => useAppConfigMock(),
 }));
+const modalPropsMock = vi.fn();
+vi.mock('@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal', () => ({
+    EmbeddedListSearchModal: (props: unknown) => {
+        modalPropsMock(props);
+        return null;
+    },
+}));
 
-function logicalModelEntityData(canEditProperties: boolean) {
+function logicalModelEntityData(canEditProperties: boolean, total = 1) {
     return {
         platform: { properties: { logical: true } },
         privileges: { canEditProperties },
         physicalChildren: {
-            total: 1,
+            total,
             relationships: [
                 {
                     entity: {
@@ -66,5 +73,12 @@ describe('SidebarLogicalSection', () => {
         expect(screen.getByTestId('physical-children-list')).toBeInTheDocument();
         expect(screen.queryByTestId('add-physical-child')).not.toBeInTheDocument();
         expect(screen.queryByTestId('unlink-physical-child')).not.toBeInTheDocument();
+    });
+
+    it('applies the search bar view to "View all"', () => {
+        renderSection(logicalModelEntityData(false, 12));
+        fireEvent.click(screen.getByText(/11 more/));
+
+        expect(modalPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({ applyView: true }));
     });
 });
