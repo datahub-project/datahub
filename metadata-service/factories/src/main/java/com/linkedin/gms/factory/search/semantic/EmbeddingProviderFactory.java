@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.search.embedding.AiGatewayEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
@@ -40,6 +41,8 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
  *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large models
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
+ *   <li><b>ai-gateway</b>: OAuth2-authenticated AI gateway embedding API (fronts Vertex AI, Azure
+ *       OpenAI, and Bedrock behind a single contract)
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
  *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
@@ -106,10 +109,11 @@ public class EmbeddingProviderFactory {
       case "vertex_ai" -> createVertexAiProvider(config);
       case "onnx" -> createOnnxProvider(config, semanticSearchConfig);
       case "classical" -> createClassicalProvider(config, semanticSearchConfig);
+      case "ai-gateway" -> createAiGatewayProvider(config);
       default ->
           throw new IllegalStateException(
               String.format(
-                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai, onnx, classical",
+                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai, onnx, classical, ai-gateway",
                   providerType));
     };
   }
@@ -441,7 +445,8 @@ public class EmbeddingProviderFactory {
    * <p>Credentials are resolved once via Application Default Credentials, scoped to the Cloud
    * Platform API, and then reused across calls. {@link GoogleCredentials#refreshIfExpired()} is
    * used on each invocation so that tokens are only refreshed when stale — not on every embed call.
-   * The eager {@code refreshIfExpired()} call at construction time validates the credentials at
+   *
+   * <p>The eager {@code refreshIfExpired()} call at construction time validates the credentials at
    * startup rather than on the first search request, surfacing misconfiguration early.
    *
    * <p>Protected to allow override in tests without a live GCP environment.
@@ -472,5 +477,53 @@ public class EmbeddingProviderFactory {
         throw new RuntimeException("Failed to obtain GCP access token", e);
       }
     };
+  }
+
+  private EmbeddingProvider createAiGatewayProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.AiGatewayConfig aiGatewayConfig = config.getAiGateway();
+
+    if (aiGatewayConfig == null
+        || aiGatewayConfig.getBaseUrl() == null
+        || aiGatewayConfig.getBaseUrl().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.baseUrl is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getPlatform() == null || aiGatewayConfig.getPlatform().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.platform is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getModel() == null || aiGatewayConfig.getModel().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.model is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getTokenUrl() == null || aiGatewayConfig.getTokenUrl().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.tokenUrl is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getClientId() == null || aiGatewayConfig.getClientId().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.clientId is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getClientSecret() == null || aiGatewayConfig.getClientSecret().isBlank()) {
+      throw new IllegalStateException(
+          "AI Gateway client secret is required when using the ai-gateway embedding provider. "
+              + "Set the AI_GATEWAY_CLIENT_SECRET environment variable or configure embeddingProvider.aiGateway.clientSecret in application.yaml");
+    }
+
+    log.info(
+        "Configuring AI Gateway embedding provider: baseUrl={}, platform={}, model={}, dimensions={}",
+        aiGatewayConfig.getBaseUrl(),
+        aiGatewayConfig.getPlatform(),
+        aiGatewayConfig.getModel(),
+        aiGatewayConfig.getDimensions());
+
+    return new AiGatewayEmbeddingProvider(
+        aiGatewayConfig.getBaseUrl(),
+        aiGatewayConfig.getPlatform(),
+        aiGatewayConfig.getModel(),
+        aiGatewayConfig.getTokenUrl(),
+        aiGatewayConfig.getClientId(),
+        aiGatewayConfig.getClientSecret(),
+        aiGatewayConfig.getDimensions());
   }
 }
