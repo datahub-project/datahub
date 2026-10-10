@@ -30,6 +30,10 @@ from datahub.ingestion.source.fabric.common.models import (
     ItemJobStatus,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.common.sensitivity import (
+    SENSITIVITY_LABEL_CAPABILITY,
+    SensitivityLabelEmitter,
+)
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_activity_job_id,
     make_activity_job_urn,
@@ -166,6 +170,8 @@ def _parse_iso_to_millis(iso_str: str) -> int:
     "`extract_owners.ownership_type` sets the DataHub ownership type. "
     "Children inherit it when `extract_owners.cascade_ownership` is true.",
 )
+@capability(SourceCapability.TAGS, SENSITIVITY_LABEL_CAPABILITY)
+@capability(SourceCapability.GLOSSARY_TERMS, SENSITIVITY_LABEL_CAPABILITY)
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default via Copy and InvokePipeline activities",
@@ -193,6 +199,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             timeout=config.api_timeout,
             report=self.client_report,
             include_owners=config.extract_owners.enabled,
+            include_sensitivity_labels=config.extract_sensitivity_label.enabled,
+        )
+        self._labels = SensitivityLabelEmitter(
+            enabled=config.extract_sensitivity_label.enabled,
+            output=config.extract_sensitivity_label.output,
+            auth_helper=auth_helper,
+            timeout=config.api_timeout,
         )
         self.report.client_report = self.client_report
 
@@ -389,6 +402,14 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             cascade=self.config.extract_owners.cascade_ownership,
         )
 
+    def _attach_sensitivity(
+        self, entity: Entity, label_id: Optional[str]
+    ) -> Iterable[Entity]:
+        labels = getattr(self, "_labels", None)
+        if labels is None:
+            return []
+        return labels.attach(entity, label_id)
+
     def _emit_pipelines(
         self,
         workspace: FabricWorkspace,
@@ -425,6 +446,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 parent_container=workspace_key,
                 owners=self._owners(item.owner_user_principal_name),
             )
+            yield from self._attach_sensitivity(dataflow, item.sensitivity_label_id)
             yield dataflow
 
             yield from self._emit_pipeline_activities(

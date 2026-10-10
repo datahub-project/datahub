@@ -31,6 +31,7 @@ class FabricNotebook:
     description: Optional[str] = None
     folder_id: Optional[str] = None
     owner_user_principal_name: Optional[str] = None
+    sensitivity_label_id: Optional[str] = None
 
 
 def notebook_path(

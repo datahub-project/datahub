@@ -12,6 +12,9 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.fabric.common.ownership import FabricOwnershipConfigMixin
+from datahub.ingestion.source.fabric.common.sensitivity import (
+    FabricSensitivityLabelConfigMixin,
+)
 from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -153,6 +156,7 @@ class FabricOneLakeSourceConfig(
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     FabricOwnershipConfigMixin,
+    FabricSensitivityLabelConfigMixin,
 ):
     """Configuration for Fabric OneLake source.
 

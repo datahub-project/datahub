@@ -24,6 +24,8 @@ class FabricItem:
     description: Optional[str] = None
     # userPrincipalName from the item default identity, when it is a user.
     owner_user_principal_name: Optional[str] = None
+    # sensitivityLabel.id. The name and description come from Microsoft Graph.
+    sensitivity_label_id: Optional[str] = None
 
 
 @dataclass

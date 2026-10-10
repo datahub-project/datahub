@@ -14,6 +14,7 @@ from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
     item_owner_user_principal_name,
+    sensitivity_label_id,
 )
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
@@ -53,6 +54,7 @@ class OneLakeClient(BaseFabricClient):
         timeout: int = 30,
         report: Optional[FabricOneLakeClientReport] = None,
         include_owners: bool = True,
+        include_sensitivity_labels: bool = False,
     ):
         """Initialize OneLake client.
 
@@ -61,8 +63,15 @@ class OneLakeClient(BaseFabricClient):
             timeout: Request timeout
             report: Optional OneLake client report
             include_owners: When true, look up each item's default identity
+            include_sensitivity_labels: When true, read each item's sensitivity label id
         """
-        super().__init__(auth_helper, timeout, report, include_owners=include_owners)
+        super().__init__(
+            auth_helper,
+            timeout,
+            report,
+            include_owners=include_owners,
+            include_sensitivity_labels=include_sensitivity_labels,
+        )
 
     def get_base_endpoint(self) -> str:
         """Get the base API endpoint for OneLake client."""
@@ -119,25 +128,32 @@ class OneLakeClient(BaseFabricClient):
                     f"Processing {item_type}: {item_data.get('displayName', 'Unknown')}"
                 )
                 item_id = item_data.get("id", "")
+                include_labels = getattr(self, "include_sensitivity_labels", False)
                 owner = (
                     item_owner_user_principal_name(item_data)
                     if self.include_owners
                     else None
                 )
-                if item_id and owner is None:
+                label = sensitivity_label_id(item_data) if include_labels else None
+                if item_id and (owner is None or (include_labels and label is None)):
                     # Warehouses often have no defaultIdentity. The owner is
                     # creatorPrincipal on the admin item API, after the
-                    # warehouse GET and the generic items lookup.
+                    # warehouse GET and the generic items lookup. The
+                    # sensitivity label GUID is read from the items GET when
+                    # the payload already fetched does not include it.
                     resource_path = (
                         f"workspaces/{workspace_id}/{endpoint_suffix}/{item_id}"
-                        if read_owner_from_item_resource
+                        if read_owner_from_item_resource and owner is None
                         else None
                     )
-                    owner = self.get_item_owner_user_principal_name(
+                    annotations = self.get_item_annotations(
                         workspace_id,
                         item_id,
                         resource_path=resource_path,
+                        listed=item_data,
                     )
+                    owner = annotations.owner_user_principal_name
+                    label = annotations.sensitivity_label_id
                 yield factory(
                     id=item_id,
                     name=item_data.get("displayName", ""),
@@ -145,6 +161,7 @@ class OneLakeClient(BaseFabricClient):
                     workspace_id=workspace_id,
                     description=item_data.get("description"),
                     owner_user_principal_name=owner,
+                    sensitivity_label_id=label,
                 )
         except Exception as e:
             logger.error(
@@ -203,17 +220,23 @@ class OneLakeClient(BaseFabricClient):
         logger.info(f"Listing notebooks for workspace {workspace_id}")
         for item in self._paginate(f"workspaces/{workspace_id}/notebooks"):
             item_id = item.get("id", "")
+            annotations = (
+                self.get_item_annotations(workspace_id, item_id, listed=item)
+                if item_id
+                else None
+            )
             yield FabricNotebook(
                 id=item_id,
                 display_name=item.get("displayName", ""),
                 workspace_id=workspace_id,
                 description=item.get("description"),
                 folder_id=item.get("folderId"),
-                owner_user_principal_name=self.get_item_owner_user_principal_name(
-                    workspace_id, item_id
-                )
-                if item_id
-                else None,
+                owner_user_principal_name=(
+                    annotations.owner_user_principal_name if annotations else None
+                ),
+                sensitivity_label_id=(
+                    annotations.sensitivity_label_id if annotations else None
+                ),
             )
 
     def list_folders(self, workspace_id: str) -> Dict[str, Tuple[str, Optional[str]]]:

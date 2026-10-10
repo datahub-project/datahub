@@ -11,6 +11,9 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.fabric.common.ownership import FabricOwnershipConfigMixin
+from datahub.ingestion.source.fabric.common.sensitivity import (
+    FabricSensitivityLabelConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -24,6 +27,7 @@ class FabricDataFactorySourceConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     FabricOwnershipConfigMixin,
+    FabricSensitivityLabelConfigMixin,
 ):
     """Configuration for Fabric Data Factory source.
 

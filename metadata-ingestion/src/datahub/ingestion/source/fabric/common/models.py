@@ -81,6 +81,8 @@ class FabricItem:
     description: Optional[str] = None
     # userPrincipalName from defaultIdentity, when the item has a user identity.
     owner_user_principal_name: Optional[str] = None
+    # sensitivityLabel.id. The name and description come from Microsoft Graph.
+    sensitivity_label_id: Optional[str] = None
 
 
 def _user_principal_name_from_principal(principal: object) -> Optional[str]:
@@ -116,6 +118,29 @@ def item_owner_user_principal_name(item: Mapping[str, object]) -> Optional[str]:
         if user_principal_name:
             return user_principal_name
     return None
+
+
+def sensitivity_label_id(item: Mapping[str, object]) -> Optional[str]:
+    """Return ``sensitivityLabel.id`` when the item payload includes one.
+
+    Fabric returns only the label GUID. The name and description are resolved
+    separately from Microsoft Graph.
+    """
+    label = item.get("sensitivityLabel") or {}
+    if not isinstance(label, dict):
+        return None
+    label_id = label.get("id")
+    if isinstance(label_id, str) and label_id:
+        return label_id
+    return None
+
+
+@dataclass
+class FabricItemAnnotations:
+    """Owner and sensitivity label read from an item payload."""
+
+    owner_user_principal_name: Optional[str] = None
+    sensitivity_label_id: Optional[str] = None
 
 
 def item_has_principal(item: Mapping[str, object]) -> bool:

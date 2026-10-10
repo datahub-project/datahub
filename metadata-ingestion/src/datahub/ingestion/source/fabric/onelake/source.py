@@ -43,6 +43,10 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.constants import FABRIC_APP_BASE_URL
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
+from datahub.ingestion.source.fabric.common.sensitivity import (
+    SENSITIVITY_LABEL_CAPABILITY,
+    SensitivityLabelEmitter,
+)
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_notebook_name,
@@ -182,6 +186,8 @@ class WarehouseSchemaKey(WarehouseKey):
     "`extract_owners.ownership_type` sets the DataHub ownership type. "
     "Children inherit it when `extract_owners.cascade_ownership` is true.",
 )
+@capability(SourceCapability.TAGS, SENSITIVITY_LABEL_CAPABILITY)
+@capability(SourceCapability.GLOSSARY_TERMS, SENSITIVITY_LABEL_CAPABILITY)
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via `profiling`. Uses the SQL Analytics Endpoint and the "
@@ -232,6 +238,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             timeout=config.api_timeout,
             report=self.client_report,
             include_owners=config.extract_owners.enabled,
+            include_sensitivity_labels=config.extract_sensitivity_label.enabled,
+        )
+        self._labels = SensitivityLabelEmitter(
+            enabled=config.extract_sensitivity_label.enabled,
+            output=config.extract_sensitivity_label.output,
+            auth_helper=auth_helper,
+            timeout=config.api_timeout,
         )
         # Link client report to source report for reporting
         self.report.client_report = self.client_report
@@ -441,9 +454,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         ):
             self.usage_extractor.update_state_on_success()
 
+    def _attach_sensitivity(
+        self, entity: Entity, label_id: Optional[str]
+    ) -> Iterable[Entity]:
+        labels = getattr(self, "_labels", None)
+        if labels is None:
+            return []
+        return labels.attach(entity, label_id)
+
     def _process_workspace_items(
         self, workspace: FabricWorkspace
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit, Entity]]:
         """Process lakehouses and warehouses within a workspace."""
         # Process lakehouses
         if self.config.extract_lakehouses:
@@ -493,7 +514,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield from self._process_notebooks(workspace)
 
-    def _process_notebooks(self, workspace: FabricWorkspace) -> Iterable[Dataset]:
+    def _process_notebooks(
+        self, workspace: FabricWorkspace
+    ) -> Iterable[Union[Dataset, Entity]]:
         """Ingest workspace notebooks as datasets with subtype Notebook."""
         if not self.config.include_notebooks:
             return
@@ -549,9 +572,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
             self.report.report_notebook_scanned()
             logger.info(f"Processing notebook: {path} ({notebook.id})")
-            yield self._create_notebook_dataset(
+            dataset = self._create_notebook_dataset(
                 workspace, notebook, path, content, language
             )
+            yield from self._attach_sensitivity(dataset, notebook.sensitivity_label_id)
+            yield dataset
 
     def _create_notebook_dataset(
         self,
@@ -591,7 +616,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
-    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit, Entity]]:
         """Process a lakehouse and its tables and views."""
         # Create lakehouse container
         lakehouse_key = LakehouseKey(
@@ -611,7 +636,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             qualified_name=make_lakehouse_name(workspace.id, lakehouse.id),
             owners=self._owners(lakehouse.owner_user_principal_name),
         )
-
+        yield from self._attach_sensitivity(
+            lakehouse_container, lakehouse.sensitivity_label_id
+        )
         yield lakehouse_container
 
         schema_client = self._create_schema_client(
@@ -662,7 +689,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
-    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit, Entity]]:
         """Process a warehouse and its tables and views."""
         # Create warehouse container
         warehouse_key = WarehouseKey(
@@ -682,7 +709,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             qualified_name=make_warehouse_name(workspace.id, warehouse.id),
             owners=self._owners(warehouse.owner_user_principal_name),
         )
-
+        yield from self._attach_sensitivity(
+            warehouse_container, warehouse.sensitivity_label_id
+        )
         yield warehouse_container
 
         schema_client = self._create_schema_client(

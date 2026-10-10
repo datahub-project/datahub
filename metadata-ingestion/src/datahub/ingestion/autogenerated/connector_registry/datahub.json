@@ -1432,6 +1432,18 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1478,6 +1490,18 @@
         {
           "capability": "OWNERSHIP",
           "description": "Optionally enabled via `extract_owners`. Item default identity userPrincipalName, when the identity is a user. A warehouse or notebook with no default identity uses creatorPrincipal from the admin item API. `extract_owners.ownership_type` sets the DataHub ownership type. Children inherit it when `extract_owners.cascade_ownership` is true.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
           "subtype_modifier": null,
           "supported": true
         },
