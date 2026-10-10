@@ -446,6 +446,8 @@ class _ChunkItem:
     payload: str
     urn: Optional[str] = None
     aspect_name: Optional[str] = None
+    # Position of this item in the emit_mcps input, for reporting what did not land.
+    index: int = -1
 
     @property
     def byte_size(self) -> int:
@@ -462,14 +464,36 @@ class _Chunk:
         payload: str,
         urn: Optional[str] = None,
         aspect_name: Optional[str] = None,
+        index: int = -1,
     ) -> None:
-        item = _ChunkItem(payload=payload, urn=urn, aspect_name=aspect_name)
+        item = _ChunkItem(
+            payload=payload, urn=urn, aspect_name=aspect_name, index=index
+        )
         self.items.append(item)
         self.total_bytes += item.byte_size
 
     @staticmethod
     def join(chunk: "_Chunk") -> str:
         return "[" + ",".join(item.payload for item in chunk.items) + "]"
+
+
+class ChunkedEmitError(OperationalError):
+    """Raised by `emit_mcps` when one of the requests it split the batch into fails.
+
+    The requests before it were accepted, so retrying the whole batch would re-apply
+    them. `not_landed_indices` lists, in ascending order, the positions in the `mcps`
+    argument that were in the failed request or were never sent.
+    """
+
+    def __init__(self, message: str, info: dict, not_landed_indices: List[int]) -> None:
+        super().__init__(message, info)
+        # Keep str() identical to the OperationalError this replaces.
+        self.args = (message, info)
+        self.not_landed_indices = not_landed_indices
+
+    def __reduce__(self) -> Tuple[Any, ...]:
+        # BaseException rebuilds from self.args, which omits not_landed_indices.
+        return (type(self), (self.message, self.info, self.not_landed_indices))
 
 
 class DataHubRestEmitter(Closeable, Emitter):
@@ -998,7 +1022,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         # A single sync-marked MCP upgrades the whole batch to sync, so resolve
         # the async flag once across all MCPs rather than per-request.
         batch_async = self._is_batch_async(mcps, emit_mode)
-        for mcp in mcps:
+        for index, mcp in enumerate(mcps):
             request = self._to_openapi_request(mcp, emit_mode, batch_async)
             if request:
                 # Create a composite key with both method and URL
@@ -1019,47 +1043,63 @@ class DataHubRestEmitter(Closeable, Emitter):
                     batches[key].append(new_chunk)
                     current_chunk = new_chunk
 
-                current_chunk.add_item(serialized_item, mcp.entityUrn, mcp.aspectName)
+                current_chunk.add_item(
+                    serialized_item, mcp.entityUrn, mcp.aspectName, index=index
+                )
 
         trace_data: List[TraceData] = []
-        # Chunks are grouped by (method, url), so track a global index/total to
-        # keep chunk=i/total truthful across all groups.
-        total_chunks = sum(len(group) for group in batches.values())
-        chunk_index = 0
-        for (method, url), chunks in batches.items():
-            for chunk in chunks:
-                chunk_index += 1
+        # Flattened across (method, url) groups so chunk=i/total stays truthful and a
+        # failure can name every chunk that has not landed, whichever group it is in.
+        sends = [
+            (method, url, chunk)
+            for (method, url), chunks in batches.items()
+            for chunk in chunks
+        ]
+        for chunk_index, (method, url, chunk) in enumerate(sends, start=1):
+            try:
                 response = self._emit_generic(
                     url, payload=_Chunk.join(chunk), method=method
                 )
-                data = (
-                    extract_trace_data(
-                        response, warn_on_missing=self._should_trace(emit_mode)
-                    )
-                    if response
-                    else None
+            except OperationalError as chunk_error:
+                # Keep __cause__ as the transport error callers saw before;
+                # chunk_error stays reachable as __context__.
+                raise ChunkedEmitError(
+                    chunk_error.message,
+                    chunk_error.info,
+                    sorted(
+                        item.index
+                        for _, _, unsent in sends[chunk_index - 1 :]
+                        for item in unsent.items
+                    ),
+                ) from chunk_error.__cause__ or chunk_error
+            data = (
+                extract_trace_data(
+                    response, warn_on_missing=self._should_trace(emit_mode)
                 )
-                logger.debug(
-                    "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s urns=%s",
-                    chunk_index,
-                    total_chunks,
-                    method,
-                    len(chunk.items),
-                    response.status_code,
-                    data.trace_id if data else None,
-                    [(item.urn, item.aspect_name) for item in chunk.items],
-                )
-                if data is not None:
-                    if _DATAHUB_EMITTER_TRACE:
-                        try:
-                            logger.info(
-                                f"MCP batch trace_id={data.trace_id} "
-                                f"timestamp={data.extract_timestamp()} "
-                                f"urns={list(data.data.keys())}"
-                            )
-                        except Exception as e:
-                            logger.debug(f"Failed to log trace data: {e}")
-                    trace_data.append(data)
+                if response
+                else None
+            )
+            logger.debug(
+                "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s urns=%s",
+                chunk_index,
+                len(sends),
+                method,
+                len(chunk.items),
+                response.status_code,
+                data.trace_id if data else None,
+                [(item.urn, item.aspect_name) for item in chunk.items],
+            )
+            if data is not None:
+                if _DATAHUB_EMITTER_TRACE:
+                    try:
+                        logger.info(
+                            f"MCP batch trace_id={data.trace_id} "
+                            f"timestamp={data.extract_timestamp()} "
+                            f"urns={list(data.data.keys())}"
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to log trace data: {e}")
+                trace_data.append(data)
 
         if trace_data and self._should_trace(emit_mode):
             self._await_status(trace_data, wait_timeout)
@@ -1119,6 +1159,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
 
         trace_data: List[TraceData] = []
+        sent = 0
         for chunk_index, (mcp_obj_chunk, mcp_chunk) in enumerate(chunks, start=1):
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
@@ -1130,7 +1171,17 @@ class DataHubRestEmitter(Closeable, Emitter):
             }
 
             payload = json.dumps(payload_dict)
-            response = self._emit_generic(url, payload)
+            try:
+                response = self._emit_generic(url, payload)
+            except OperationalError as chunk_error:
+                # Chunks are contiguous slices of `mcps`, so everything from this chunk
+                # on has not landed.
+                raise ChunkedEmitError(
+                    chunk_error.message,
+                    chunk_error.info,
+                    list(range(sent, len(mcps))),
+                ) from chunk_error.__cause__ or chunk_error
+            sent += len(mcp_chunk)
             data = (
                 extract_trace_data_from_mcps(
                     response, mcp_chunk, warn_on_missing=self._should_trace(emit_mode)

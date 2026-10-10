@@ -1,9 +1,11 @@
+import copy
 import json
 import os
+import pickle
 import time
 import warnings
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
@@ -23,6 +25,7 @@ from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     INGEST_MAX_PAYLOAD_BYTES,
+    ChunkedEmitError,
     DataHubRestEmitter,
     DatahubRestEmitter,
     EmitMode,
@@ -45,6 +48,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECT_NAMES,
     KEY_ASPECTS,
     ChangeTypeClass,
+    MetadataChangeProposalClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
@@ -3034,3 +3038,167 @@ class TestAsyncUnlessSyncMarker:
             restli_emitter.emit_mcps([plain], emit_mode=EmitMode.ASYNC)
             payload = json.loads(mock_emit.call_args[0][1])
             assert payload.get("async") == "true"
+
+
+class TestChunkedEmitError:
+    """emit_mcps names the inputs that did not land when one of its requests fails."""
+
+    @staticmethod
+    def _ok() -> Response:
+        response = Mock(spec=Response)
+        response.status_code = 200
+        response.headers = {}
+        response.json.return_value = []
+        return response
+
+    @staticmethod
+    def _status(urn: str) -> MetadataChangeProposalWrapper:
+        return MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=Status(removed=False)
+        )
+
+    @staticmethod
+    def _rejection() -> OperationalError:
+        return OperationalError(
+            "Unable to emit metadata to DataHub GMS: rejected",
+            {"status": 422, "message": "rejected"},
+        )
+
+    def test_restli_reports_failed_and_unsent_chunks(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        mcps = [
+            self._status(f"urn:li:dataset:(urn:li:dataPlatform:mysql,t{i},PROD)")
+            for i in range(5)
+        ]
+        rejection = self._rejection()
+        script: List[Union[Response, OperationalError]] = [self._ok(), rejection]
+
+        def emit_generic(url: str, payload: str, method: str = "POST") -> Response:
+            outcome = script.pop(0)
+            if isinstance(outcome, OperationalError):
+                raise outcome
+            return outcome
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=emit_generic
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        # Chunks are [0,1] (landed), [2,3] (rejected), [4] (never sent).
+        assert mock_emit.call_count == 2
+        error = exc_info.value
+        assert error.not_landed_indices == [2, 3, 4]
+        assert isinstance(error, OperationalError)
+        assert error.message == rejection.message
+        assert error.info == rejection.info
+        assert str(error) == str(rejection)
+        for clone in (pickle.loads(pickle.dumps(error)), copy.copy(error)):
+            assert type(clone) is ChunkedEmitError
+            assert str(clone) == str(error)
+            assert clone.not_landed_indices == [2, 3, 4]
+
+    def test_openapi_reports_noncontiguous_positions(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 1)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+        mcps = [
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t0,PROD)"),
+            self._status("urn:li:container:c1"),
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t2,PROD)"),
+        ]
+        script: List[Union[Response, OperationalError]] = [
+            self._ok(),
+            self._rejection(),
+        ]
+
+        def emit_generic(url: str, payload: str, method: str = "POST") -> Response:
+            outcome = script.pop(0)
+            if isinstance(outcome, OperationalError):
+                raise outcome
+            return outcome
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=emit_generic
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        # Requests are grouped by entity type: [t0], [t2] (datasets), then [c1].
+        # t0 landed, t2 was rejected, c1 was never sent.
+        sent = [
+            json.loads(call.kwargs["payload"])[0]["urn"]
+            for call in mock_emit.call_args_list
+        ]
+        assert sent == [mcps[0].entityUrn, mcps[2].entityUrn]
+        assert exc_info.value.not_landed_indices == [1, 2]
+
+    def test_restli_first_chunk_failure_reports_every_position(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        mcps = [
+            self._status(f"urn:li:dataset:(urn:li:dataPlatform:mysql,t{i},PROD)")
+            for i in range(3)
+        ]
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=self._rejection()
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        assert mock_emit.call_count == 1
+        assert exc_info.value.not_landed_indices == [0, 1, 2]
+
+    def test_cause_is_the_original_transport_error(self):
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        http_error = requests.HTTPError("422 Client Error")
+        rejection = self._rejection()
+        rejection.__cause__ = http_error
+
+        with patch.object(emitter, "_emit_generic", side_effect=rejection):
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(
+                    [
+                        self._status(
+                            "urn:li:dataset:(urn:li:dataPlatform:mysql,t0,PROD)"
+                        )
+                    ],
+                    emit_mode=EmitMode.SYNC_PRIMARY,
+                )
+
+        assert exc_info.value.__cause__ is http_error
+        assert exc_info.value.__context__ is rejection
+
+    def test_openapi_omits_mcps_that_map_to_no_request(self, monkeypatch):
+        monkeypatch.setattr(rest_emitter, "BATCH_INGEST_MAX_PAYLOAD_LENGTH", 1)
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+        # An UPSERT without an aspect produces no OpenAPI request.
+        no_request = MetadataChangeProposalClass(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,t1,PROD)",
+            aspectName="status",
+        )
+        mcps: List[
+            Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]
+        ] = [
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t0,PROD)"),
+            no_request,
+            self._status("urn:li:dataset:(urn:li:dataPlatform:mysql,t2,PROD)"),
+        ]
+
+        with patch.object(
+            emitter, "_emit_generic", side_effect=self._rejection()
+        ) as mock_emit:
+            with pytest.raises(ChunkedEmitError) as exc_info:
+                emitter.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
+
+        assert mock_emit.call_count == 1
+        assert exc_info.value.not_landed_indices == [0, 2]

@@ -3,11 +3,13 @@ import contextlib
 import dataclasses
 import functools
 import logging
+import re
 import threading
 import uuid
+from collections import Counter
 from datetime import timedelta
 from enum import auto
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 import pydantic
 import requests
@@ -31,6 +33,7 @@ from datahub.emitter.rest_emitter import (
     _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
+    ChunkedEmitError,
     DataHubRestEmitter,
     EmitMode,
     RestSinkEndpoint,
@@ -51,7 +54,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.lossy_collections import LossySet
 from datahub.utilities.partition_executor import (
+    BatchItemFailures,
     BatchPartitionExecutor,
     PartitionExecutor,
 )
@@ -64,6 +69,82 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
+
+# Isolation does one HTTP round trip per record, each with its own retry ladder, so a
+# systemic client error (a permission denial, a model mismatch) turns "the batch failed"
+# into max_per_batch sequential failures per rejected batch. Once this many
+# consecutive isolation passes recover nothing, stop paying that cost and fail the
+# records that did not land with the batch error.
+_MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS = 3
+
+# Client errors that say nothing about which record is at fault: auth, request timeout
+# and throttling fail every record alike.
+_NON_RECORD_CLIENT_ERRORS = {401, 408, 429}
+
+_Event = Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+
+
+def _not_landed_events(
+    events_by_record: List[List[_Event]], error: ChunkedEmitError
+) -> List[List[_Event]]:
+    """Per record, the events emit_mcps had not got accepted when it raised `error`."""
+    not_landed = set(error.not_landed_indices)
+    pending: List[List[_Event]] = []
+    offset = 0
+    for events in events_by_record:
+        pending.append(
+            [event for i, event in enumerate(events, start=offset) if i in not_landed]
+        )
+        offset += len(events)
+    return pending
+
+
+# The REST.li batch endpoint rejects the whole request when the token may not write
+# some of its entities, and names every denied entity in one message:
+#   User <actor> is unauthorized to modify entity: HttpStatus: 403 Urn: <urn>, HttpStatus: 403 Urn: <urn>
+# URNs contain ", " themselves, so an entry ends where the next entry's token starts,
+# not at the separator.
+_AUTHZ_DENIAL_MARKER = " is unauthorized to modify entity: "
+_AUTHZ_DENIAL_ENTRY = re.compile(
+    r"HttpStatus: (\d+) Urn: (.+?)(?=, HttpStatus: \d+ Urn: |$)", re.DOTALL
+)
+
+
+def _parse_denied_urns(error: OperationalError) -> Optional["Counter[str]"]:
+    """Per URN, how many proposals of the batch were denied, if `error` is a per-entity
+    write denial. GMS authorizes each (change type, urn) proposal separately and lists
+    one entry per denied proposal, so the same URN can appear more than once."""
+    if error.info.get("status") != 403:
+        return None
+    _, marker, entries = str(error.info.get("message") or "").partition(
+        _AUTHZ_DENIAL_MARKER
+    )
+    parsed = _AUTHZ_DENIAL_ENTRY.findall(entries)
+    # Anything that does not re-render to the exact message (a truncated message, a
+    # changed format, a non-403 entry) is not trusted to say which records to fail.
+    if (
+        not marker
+        or not parsed
+        or any(status != "403" for status, _ in parsed)
+        or ", ".join(f"HttpStatus: {s} Urn: {u}" for s, u in parsed) != entries
+    ):
+        return None
+    return Counter(urn for _, urn in parsed)
+
+
+def _is_record_attributable(error: BaseException) -> bool:
+    """Whether the server rejected the batch for its content, so re-sending each record
+    alone can find the culprit. Outages, throttling and connection failures are not:
+    isolating them only multiplies retries against a server that is already failing."""
+    if not isinstance(error, OperationalError):
+        return False
+    response = getattr(error.__cause__, "response", None)
+    status = getattr(response, "status_code", None) or error.info.get("status")
+    return (
+        isinstance(status, int)
+        and 400 <= status < 500
+        and status not in _NON_RECORD_CLIENT_ERRORS
+    )
 
 
 class RestSinkMode(ConfigEnum):
@@ -114,6 +195,28 @@ class DataHubRestSinkReport(SinkReport):
 
     async_batches_prepared: int = 0
     async_batches_split: int = 0
+
+    # Batch rejection is all-or-nothing server-side, so a batch rejected for its content
+    # (a record-attributable 4xx) is re-emitted one record at a time to find the records
+    # that actually caused it; batches_rejected counts those. "recovered" counts records
+    # that would have been silently lost before this behaviour existed.
+    batches_rejected: int = 0
+    # Multi-record batches, or the re-send after an authorization split, failed by
+    # throttling, a server error, auth or the connection: not isolated, since every
+    # record would fail alike.
+    batches_rejected_not_record_attributable: int = 0
+    records_isolated_after_batch_rejection: int = 0
+    records_recovered_after_batch_rejection: int = 0
+    # Incremented once isolation trips off (see _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS)
+    # so a systemic failure doesn't silently drop out of batches_rejected.
+    batches_rejected_while_isolation_suppressed: int = 0
+    # A batch rejected only because the token may not write some of its entities is
+    # split once: those entities' records fail and the rest is re-sent in one call.
+    batches_split_on_authorization_denial: int = 0
+    records_denied_by_authorization: int = 0
+    authorization_denied_urns: LossySet[str] = dataclasses.field(
+        default_factory=LossySet
+    )
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -183,6 +286,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         self._gms_emit_mode = _resolve_gms_emit_mode(
             self.config.mode, _DEFAULT_EMIT_MODE
         )
+
+        # Guards the isolation circuit breaker's counters below, since
+        # _isolate_batch_failures runs on worker threads and several batches can be
+        # rejected concurrently.
+        self._isolation_lock = threading.Lock()
+        self._consecutive_zero_recovery_isolations = 0
+        self._isolation_suppressed = False
 
         try:
             gms_config = self.emitter.server_config
@@ -360,28 +470,29 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
+                # One batch error can be shared by every record in the batch, so the
+                # per-record details go on a copy, never on the shared e.info.
+                info = dict(e.info)
                 # trim exception stacktraces in all cases when reporting
-                if "stackTrace" in e.info:
+                if "stackTrace" in info:
                     with contextlib.suppress(Exception):
-                        e.info["stackTrace"] = "\n".join(
-                            e.info["stackTrace"].split("\n")[:3]
+                        info["stackTrace"] = "\n".join(
+                            info["stackTrace"].split("\n")[:3]
                         )
-                        e.info["message"] = e.info.get("message", "").split("\n")[0][
-                            :200
-                        ]
+                        info["message"] = info.get("message", "").split("\n")[0][:200]
 
                 # Include information about the entity that failed.
                 record_urn = _get_urn(record_envelope)
                 if record_urn:
-                    e.info["urn"] = record_urn
+                    info["urn"] = record_urn
                 if workunit_id := record_envelope.metadata.get("workunit_id"):
-                    e.info["workunit_id"] = workunit_id
+                    info["workunit_id"] = workunit_id
 
                 if not self.treat_errors_as_warnings:
-                    self.report.report_failure({"error": e.message, "info": e.info})
+                    self.report.report_failure({"error": e.message, "info": info})
                 else:
-                    self.report.report_warning({"warning": e.message, "info": e.info})
-                write_callback.on_failure(record_envelope, e, e.info)
+                    self.report.report_warning({"warning": e.message, "info": info})
+                write_callback.on_failure(record_envelope, e, info)
             else:
                 logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
@@ -411,19 +522,36 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ]
         ],
     ) -> None:
-        events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+        # Grouped per record, not flattened, so a rejected batch can be attributed to the
+        # record that caused it. The expansion is 1:N because an MCE unpacks into several MCPs.
+        events_by_record: List[
+            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        ] = []
 
         for record in records:
             event = record[0]
 
             if isinstance(event, MetadataChangeEvent):
                 # Unpack MCEs into MCPs.
-                mcps = mcps_from_mce(event)
-                events.extend(mcps)
+                events_by_record.append(list(mcps_from_mce(event)))
             else:
-                events.append(event)
+                events_by_record.append([event])
 
-        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        events = [event for group in events_by_record for event in group]
+
+        try:
+            trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        except ChunkedEmitError as batch_error:
+            # Only a failed send says which events landed. Any other error (the trace
+            # wait of ASYNC_WAIT, a serialization error) propagates as before and fails
+            # every record of the batch, since re-sending could re-apply landed writes.
+            if len(events_by_record) <= 1:
+                # Nothing to isolate: the single record's error is already precise.
+                raise
+            raise self._recover_rejected_batch(
+                events_by_record, batch_error
+            ) from batch_error
+
         num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
         if num_chunks > 1:
@@ -432,6 +560,192 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
+
+    def _recover_rejected_batch(
+        self, events_by_record: List[List[_Event]], batch_error: ChunkedEmitError
+    ) -> BatchItemFailures:
+        # None = written. Records whose chunk the server already accepted stay None and
+        # are never re-sent: re-applying a landed PATCH or CREATE is not safe. Every
+        # other record starts out failed with the batch error.
+        pending = _not_landed_events(events_by_record, batch_error)
+        outcomes: List[Optional[BaseException]] = [
+            batch_error if events else None for events in pending
+        ]
+
+        # A per-entity authorization denial names the records at fault, so they can be
+        # failed without per-record isolation. Denials are per proposal, so it is only
+        # trusted when every not-landed proposal for a denied URN was denied: if a URN
+        # has more proposals than denial entries (an UPSERT denied CREATE next to an
+        # authorized PATCH, or a later chunk that was never sent), the denial does not
+        # say which of them failed, so fall through to isolation.
+        error: ChunkedEmitError = batch_error
+        denied_counts = _parse_denied_urns(batch_error)
+        pending_counts = Counter(
+            event.entityUrn for events in pending for event in events
+        )
+        if denied_counts is not None and all(
+            pending_counts[urn] == n for urn, n in denied_counts.items()
+        ):
+            pending, resend_error = self._apply_authorization_denial(
+                pending, outcomes, batch_error, set(denied_counts)
+            )
+            if resend_error is None:
+                return BatchItemFailures(outcomes)
+            # Something besides the parsed denial is wrong with the remainder: isolate
+            # it, under the same breaker and attributability rules as any rejection.
+            # A second denial on the resend is not split again; it is isolated too.
+            error = resend_error
+
+        if self._isolation_suppressed:
+            with self._isolation_lock:
+                self.report.batches_rejected_while_isolation_suppressed += 1
+            return BatchItemFailures(outcomes)
+        if not _is_record_attributable(error):
+            with self._isolation_lock:
+                self.report.batches_rejected_not_record_attributable += 1
+            return BatchItemFailures(outcomes)
+
+        return self._isolate_batch_failures(pending, outcomes)
+
+    def _apply_authorization_denial(
+        self,
+        pending: List[List[_Event]],
+        outcomes: List[Optional[BaseException]],
+        batch_error: OperationalError,
+        denied: Set[str],
+    ) -> Tuple[List[List[_Event]], Optional[ChunkedEmitError]]:
+        """Fail the records of denied entities, then re-send everything else once.
+
+        Updates `outcomes` in place and returns the events still not written (aligned
+        with `outcomes`) and the re-send's error, or ([], None) when nothing is left to
+        recover.
+        """
+        actor = str(batch_error.info.get("message")).partition(_AUTHZ_DENIAL_MARKER)[0]
+        remaining: List[List[_Event]] = []
+        denied_records = 0
+        for index, events in enumerate(pending):
+            urn = next(
+                (event.entityUrn for event in events if event.entityUrn in denied),
+                None,
+            )
+            if urn is None:
+                remaining.append(events)
+                continue
+            remaining.append([])
+            denied_records += 1
+            # One error per record: the done callback writes the record's urn into
+            # error.info, so a shared error would name the same entity everywhere.
+            message = f"{actor}{_AUTHZ_DENIAL_MARKER}HttpStatus: 403 Urn: {urn}"
+            outcomes[index] = OperationalError(
+                f"Unable to emit metadata to DataHub GMS: {message}",
+                {**batch_error.info, "message": message},
+            )
+        with self._isolation_lock:
+            self.report.batches_split_on_authorization_denial += 1
+            self.report.records_denied_by_authorization += denied_records
+            for urn in denied:
+                self.report.authorization_denied_urns.add(urn)
+
+        resend = [event for events in remaining for event in events]
+        logger.info(
+            "Batch rejected for authorization: %d record(s) denied, re-sending %d "
+            "event(s) once",
+            denied_records,
+            len(resend),
+        )
+        if not resend:
+            return [], None
+        try:
+            self.emitter.emit_mcps(resend, emit_mode=self._gms_emit_mode)
+        except ChunkedEmitError as resend_error:
+            still_pending = _not_landed_events(remaining, resend_error)
+            for index, events in enumerate(remaining):
+                if events:
+                    # Part of a chunked re-send may have landed; never re-send it.
+                    outcomes[index] = resend_error if still_pending[index] else None
+            return still_pending, resend_error
+        except Exception as resend_error:
+            # Not a failed send, so any of it may have landed: fail it all, re-send none.
+            for index, events in enumerate(remaining):
+                if events:
+                    outcomes[index] = resend_error
+            return [], None
+        for index, events in enumerate(remaining):
+            if events:
+                outcomes[index] = None
+        return [], None
+
+    def _isolate_batch_failures(
+        self,
+        pending: List[List[_Event]],
+        outcomes: List[Optional[BaseException]],
+    ) -> BatchItemFailures:
+        # The server rejects a batch as a unit, so a single invalid record fails every
+        # record batched with it. Re-emitting one record at a time attributes the failure
+        # to the record that caused it and lets the rest through. Only events that have
+        # not landed are re-emitted; records left unattempted keep their outcome.
+        with self._isolation_lock:
+            self.report.batches_rejected += 1
+
+        attempted = 0
+        recovered = 0
+        for index, events in enumerate(pending):
+            if not events:
+                continue
+            if self._isolation_suppressed:
+                # Another worker tripped the circuit breaker mid-pass.
+                break
+            attempted += 1
+            with self._isolation_lock:
+                self.report.records_isolated_after_batch_rejection += 1
+            try:
+                self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+            except Exception as e:
+                outcomes[index] = e
+                if not isinstance(e, ChunkedEmitError) or not _is_record_attributable(
+                    e
+                ):
+                    # Not a failed send, or the server stopped attributing failures (an
+                    # outage, throttling): the remaining records keep the batch error.
+                    break
+            else:
+                outcomes[index] = None
+                recovered += 1
+                with self._isolation_lock:
+                    self.report.records_recovered_after_batch_rejection += 1
+
+        logger.info(
+            "Batch of %d rejected; isolation recovered %d record(s) and identified "
+            "%d genuine failure(s)",
+            attempted,
+            recovered,
+            attempted - recovered,
+        )
+
+        newly_suppressed = False
+        with self._isolation_lock:
+            if recovered > 0:
+                self._consecutive_zero_recovery_isolations = 0
+            else:
+                self._consecutive_zero_recovery_isolations += 1
+                if (
+                    self._consecutive_zero_recovery_isolations
+                    >= _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS
+                    and not self._isolation_suppressed
+                ):
+                    self._isolation_suppressed = True
+                    newly_suppressed = True
+        if newly_suppressed:
+            logger.warning(
+                "Isolation recovered zero records across %d consecutive rejected "
+                "batches; disabling per-record isolation for the rest of this run. "
+                "Later rejected batches will fail as a whole instead of being "
+                "re-emitted one record at a time. See "
+                "batches_rejected_while_isolation_suppressed in the report.",
+                _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS,
+            )
+
+        return BatchItemFailures(outcomes)
 
     def write_record_async(
         self,
