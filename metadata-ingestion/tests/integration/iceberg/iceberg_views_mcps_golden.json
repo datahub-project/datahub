@@ -1,0 +1,380 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "location": "file:///tmp/warehouse/viewtest"
+            },
+            "name": "viewtest",
+            "qualifiedName": "viewtest",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "write.parquet.compression-codec": "zstd",
+                "location": "file:///tmp/warehouse/viewtest/events",
+                "format-version": "2",
+                "partition-spec": "[]"
+            },
+            "name": "events",
+            "qualifiedName": "viewtest.events",
+            "lastModified": {
+                "time": 1787558007903
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "viewtest.events",
+            "platform": "urn:li:dataPlatform:iceberg",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "table {\n  1: event_id: required long\n  2: event_type: optional string\n  3: event_ts: optional timestamp\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=long].event_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "long",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=string].event_type",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=long].event_ts",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"logicalType\": \"timestamp-micros\"}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+                    "urn": "urn:li:container:ab3fb758c224737da47e02efa85ba326"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ab3fb758c224737da47e02efa85ba326"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "events_summary",
+            "qualifiedName": "viewtest.events_summary",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ab3fb758c224737da47e02efa85ba326",
+                    "urn": "urn:li:container:ab3fb758c224737da47e02efa85ba326"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,viewtest.events_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ab3fb758c224737da47e02efa85ba326"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586815200000,
+        "runId": "iceberg-views-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
