@@ -268,7 +268,9 @@ source:
 
 #### Usage Statistics
 
-The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Each captured query is parsed by the SQL parsing aggregator and emitted as:
+The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Usage and lineage are attached only to datasets this run ingested. Tables that appear only inside query text, including the connector's own schema and profiling SQL, are not created as assets. Warehouse tables are listed from the OneLake catalog, not from query history.
+
+Each captured query is parsed by the SQL parsing aggregator and emitted as:
 
 - `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
 - `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
@@ -342,6 +344,14 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
+### Profiling
+
+When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
+
+`profile_pattern` filters tables as `schema.table` and columns as `schema.table.column`, the same way `mssql-odbc` does. Column metrics (`include_field_null_count`, `include_field_distinct_count`, min/max/mean/median/stddev, quantiles, histograms, distinct value frequencies, and sample values), `profile_table_level_only`, `query_combiner_enabled`, and `max_workers` all apply. Set `turn_off_expensive_profiling_metrics` to skip quantiles, histograms, frequencies, and sample values.
+
+`profiling.enabled` requires `sql_endpoint.enabled=true`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
@@ -355,6 +365,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
+- **Profiling Requires SQL Endpoint**: Table and column profiling queries the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped.
 
 ### Troubleshooting
 

@@ -638,14 +638,19 @@ plugins: Dict[str, Set[str]] = {
     },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
+        # query_combiner, used by the SQLAlchemy profiler, imports greenlet.
+        "greenlet<4.0.0",
         "pyodbc>=4.0,<6.0.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
+        # operation_config, imported by the profiling config, requires cachetools
+        # at module import. Without it the source is disabled as a missing extra.
     }
     | sqlglot_lib
-    | usage_common,
+    | usage_common
+    | cachetools_lib,
     "bigid": {"requests>=2.28.0,<3.0"},
     "bigquery": sql_common
     | bigquery_common
