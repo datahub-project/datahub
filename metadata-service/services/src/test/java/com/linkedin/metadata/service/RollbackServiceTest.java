@@ -8,23 +8,32 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -34,15 +43,19 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,21 +81,25 @@ public class RollbackServiceTest {
     mockSystemMetadataService = mock(SystemMetadataService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
 
-    rollbackService =
-        new RollbackService(
-            mockEntityService,
-            mockSystemMetadataService,
-            mockTimeseriesAspectService,
-            TEST_SYSTEM_METADATA_SERVICE_CONFIG.toBuilder()
-                .limit(
-                    TEST_SYSTEM_METADATA_SERVICE_CONFIG.getLimit().toBuilder()
-                        .results(
-                            ResultsLimitConfig.builder()
-                                .max(MAX_SEARCH_RESULTS)
-                                .apiDefault(MAX_SEARCH_RESULTS)
-                                .build())
-                        .build())
-                .build());
+    rollbackService = newRollbackService(null);
+  }
+
+  private RollbackService newRollbackService(IngestionRollbackDispatcher dispatcher) {
+    return new RollbackService(
+        mockEntityService,
+        mockSystemMetadataService,
+        mockTimeseriesAspectService,
+        TEST_SYSTEM_METADATA_SERVICE_CONFIG.toBuilder()
+            .limit(
+                TEST_SYSTEM_METADATA_SERVICE_CONFIG.getLimit().toBuilder()
+                    .results(
+                        ResultsLimitConfig.builder()
+                            .max(MAX_SEARCH_RESULTS)
+                            .apiDefault(MAX_SEARCH_RESULTS)
+                            .build())
+                    .build())
+            .build(),
+        dispatcher);
   }
 
   @Test
@@ -633,6 +650,236 @@ public class RollbackServiceTest {
         () -> {
           rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
         });
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherTakesRollback_NothingRunsInProcess()
+      throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(createTestAspectRows(true));
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenReturn(true);
+
+    RollbackResponse response =
+        newRollbackService(dispatcher)
+            .rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                false, // dryRun
+                true, // hardDelete
+                null);
+
+    verify(dispatcher, times(1)).dispatch(operationContext, TEST_RUN_ID, true);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+    verifyNoInteractions(mockTimeseriesAspectService);
+    // The process that runs it marks the run; a write here could land after its end status.
+    assertTrue(writtenExecutionStatuses().isEmpty());
+    assertEquals(response.getEntitiesAffected(), 0);
+    assertEquals(response.getAspectsAffected(), 0);
+    assertTrue(response.getAspectRowSummaries().isEmpty());
+    assertTrue(response.getUnsafeEntities().isEmpty());
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherDeclines_RunsInProcess() throws Exception {
+    stubExecutionRequestResult();
+    List<AspectRowSummary> testAspects = createTestAspectRows(true);
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(testAspects)
+        .thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(testAspects, 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenReturn(false);
+
+    newRollbackService(dispatcher)
+        .rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    verify(dispatcher, times(1)).dispatch(operationContext, TEST_RUN_ID, true);
+    verify(mockEntityService).rollbackRun(operationContext, testAspects, TEST_RUN_ID, true);
+    assertEquals(
+        writtenExecutionStatuses(),
+        List.of(RollbackService.ROLLING_BACK_STATUS, RollbackService.ROLLED_BACK_STATUS));
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherRefuses_PropagatesAndWritesNoStatus()
+      throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(createTestAspectRows(true));
+    RollbackNotHandedOffException refusal = new RollbackNotHandedOffException("not taken");
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenThrow(refusal);
+    RollbackService service = newRollbackService(dispatcher);
+
+    RollbackNotHandedOffException thrown =
+        expectThrows(
+            RollbackNotHandedOffException.class,
+            () ->
+                service.rollbackIngestion(
+                    operationContext,
+                    TEST_RUN_ID,
+                    false, // dryRun
+                    true, // hardDelete
+                    null));
+
+    assertSame(thrown, refusal);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+    verifyNoInteractions(mockTimeseriesAspectService);
+    // Neither ROLLING_BACK nor ROLLBACK_FAILED: the run that already holds the job keeps its
+    // status.
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
+  }
+
+  @Test
+  public void testRollbackIngestion_NoDispatcher_MarksRollingBackBeforeReadingRows()
+      throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(Collections.emptyList(), 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+
+    rollbackService.rollbackIngestion(
+        operationContext,
+        TEST_RUN_ID,
+        false, // dryRun
+        true, // hardDelete
+        null);
+
+    InOrder statusThenRead = inOrder(mockEntityService, mockSystemMetadataService);
+    statusThenRead
+        .verify(mockEntityService)
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), any(), anyBoolean());
+    statusThenRead
+        .verify(mockSystemMetadataService)
+        .findByRunId(any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), anyInt());
+  }
+
+  @Test
+  public void testRollbackIngestion_DryRunIsNeverOfferedToDispatcher() throws Exception {
+    stubExecutionRequestResult();
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(createTestAspectRows(true));
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(any(), anyString(), anyBoolean())).thenReturn(true);
+
+    RollbackResponse response =
+        newRollbackService(dispatcher)
+            .rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                true, // dryRun
+                false, // hardDelete
+                null);
+
+    verifyNoInteractions(dispatcher);
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
+  }
+
+  @Test
+  public void testRollbackIngestion_UnauthorizedIsNeverOfferedToDispatcher() throws Exception {
+    // Authorizer.EMPTY denies everything; REST API authorization is a process-wide flag that is
+    // off by default in unit tests, so turn it on for this case only.
+    OperationContext deniedContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            Authorizer.EMPTY, UrnUtils.getUrn("urn:li:corpuser:denied-user"));
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(createTestAspectRows(true));
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    // Would hand the rollback to a process that runs as system if the offer preceded authorization.
+    when(dispatcher.dispatch(any(), anyString(), anyBoolean())).thenReturn(true);
+    RollbackService service = newRollbackService(dispatcher);
+
+    boolean previous = isRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+    try {
+      assertThrows(
+          AuthenticationException.class,
+          () ->
+              service.rollbackIngestion(
+                  deniedContext,
+                  TEST_RUN_ID,
+                  false, // dryRun
+                  true, // hardDelete
+                  null));
+    } finally {
+      setRestApiAuthorizationEnabled(previous);
+    }
+
+    verifyNoInteractions(dispatcher);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+  }
+
+  /** Lets updateExecutionRequestStatus find a result aspect to update, so its writes show up. */
+  private void stubExecutionRequestResult() throws Exception {
+    EnvelopedAspect aspect = new EnvelopedAspect();
+    aspect.setName(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+    aspect.setValue(new Aspect(new ExecutionRequestResult().setStatus("RUNNING").data()));
+    when(mockEntityService.getLatestEnvelopedAspect(
+            any(OperationContext.class), anyString(), any(Urn.class), anyString()))
+        .thenReturn(aspect);
+  }
+
+  /** The execution request statuses written so far, in order. */
+  private List<String> writtenExecutionStatuses() {
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockEntityService, atLeast(0))
+        .ingestProposal(
+            any(OperationContext.class), proposals.capture(), any(AuditStamp.class), anyBoolean());
+    return proposals.getAllValues().stream()
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                        proposal.getAspect().getValue(),
+                        proposal.getAspect().getContentType(),
+                        ExecutionRequestResult.class)
+                    .getStatus())
+        .collect(Collectors.toList());
+  }
+
+  private static boolean isRestApiAuthorizationEnabled() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    return field.getBoolean(null);
+  }
+
+  private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, enabled);
   }
 
   private List<AspectRowSummary> createTestAspectRows(boolean includeKeyAspects) {

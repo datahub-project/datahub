@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,6 +63,7 @@ public class RollbackService {
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataServiceConfig systemMetadataServiceConfig;
+  @Nullable private final IngestionRollbackDispatcher dispatcher;
 
   public List<AspectRowSummary> rollbackTargetAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
@@ -96,7 +98,10 @@ public class RollbackService {
                 TAG_OPERATION, OPERATION_TYPE, TAG_PHASE, dryRun ? PHASE_DRY_RUN : PHASE_EXECUTE));
 
     try {
-      if (!dryRun) {
+      // With a dispatcher the run is marked only when it rolls back here; a handed-off rollback is
+      // marked by the process that runs it, and a refused one (the same run already rolling back)
+      // leaves the running one's status alone.
+      if (!dryRun && dispatcher == null) {
         updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
       }
 
@@ -182,6 +187,16 @@ public class RollbackService {
             .setUnsafeEntitiesCount(unsafeEntitiesCount)
             .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
             .setAspectRowSummaries(rowSummaries);
+      }
+
+      if (dispatcher != null) {
+        if (dispatcher.dispatch(opContext, runId, hardDelete)) {
+          // Not marked here: written after the hand-off, it could land after the other process's
+          // end status and leave the run ROLLING_BACK.
+          log.info("Rollback of run {} handed off; it runs in another process", runId);
+          return handedOff();
+        }
+        updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
       }
 
       RollbackRunResult rollbackRunResult =
@@ -381,6 +396,16 @@ public class RollbackService {
     } else {
       return "at least " + size;
     }
+  }
+
+  /** Nothing was rolled back in this process: the rollback was handed off. */
+  @Nonnull
+  private static RollbackResponse handedOff() {
+    return new RollbackResponse()
+        .setAspectRowSummaries(new AspectRowSummaryArray())
+        .setEntitiesAffected(0)
+        .setAspectsAffected(0)
+        .setUnsafeEntities(new UnsafeEntityInfoArray());
   }
 
   private static void sleep(int seconds) {
