@@ -17,6 +17,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.sql_parsing.sqlglot_utils import (
     PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION,
     _sanitize_snowflake_ddl,
+    _sanitize_tsql_param_header,
     _sanitize_tsql_temp_tables,
     generalize_query,
     generalize_query_fast,
@@ -486,6 +487,50 @@ def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
     assert _sanitize_tsql_temp_tables(sql) == expected
 
 
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # SQL Server DMV query text can start with a parameter declaration
+        # header containing a single parameter and a parameterized type.
+        ("(@Amount numeric(38,10))select 1", "select 1"),
+        # Parameter declaration header with a simple type.
+        ("(@Id int)select * from dbo.users", "select * from dbo.users"),
+        # Parameter declaration header with multiple parameters.
+        (
+            "(@Id int,@Name nvarchar(50))select * from dbo.users",
+            "select * from dbo.users",
+        ),
+        # Regression case from MSSQL query lineage: the parameter header
+        # precedes an INSERT...SELECT statement and must be removed before
+        # sqlglot parses the query.
+        (
+            "(@MinDate date,@Amount numeric(38,10))"
+            "insert into dbo.target_table (col1, col2) "
+            "select s.col1, s.col2 "
+            "from dbo.source_table as s "
+            "where s.amount > @Amount",
+            "insert into dbo.target_table (col1, col2) "
+            "select s.col1, s.col2 "
+            "from dbo.source_table as s "
+            "where s.amount > @Amount",
+        ),
+        # SQL without a parameter header must remain unchanged.
+        ("SELECT * FROM dbo.users", "SELECT * FROM dbo.users"),
+        # Parenthesized SQL is valid T-SQL and must not be mistaken for a
+        # parameter declaration header.
+        ("(SELECT 1) AS something", "(SELECT 1) AS something"),
+    ],
+)
+def test_sanitize_tsql_param_header(sql: str, expected: str) -> None:
+    """SQL Server parameter declaration headers must be stripped before parsing.
+
+    SQL Server DMV and Query Store query text can include a leading parameter
+    declaration header that is metadata rather than executable T-SQL. The
+    header causes sqlglot to fail to parse the otherwise valid query.
+    """
+    assert _sanitize_tsql_param_header(sql) == expected
+
+
 def test_tsql_digit_leading_temp_table_lineage() -> None:
     """A #<digit> temp-table target must not blow up parsing and lose the real source.
 
@@ -526,6 +571,52 @@ def test_parse_statement_filters_noop_block_nodes(sql: str, dialect: str) -> Non
     result = parse_statement(sql, get_dialect(dialect))
     assert not isinstance(result, sqlglot.exp.Block)
     assert not isinstance(result, (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement))
+
+
+def test_parse_statement_sanitizes_tsql_param_header() -> None:
+    """T-SQL parameter declaration headers must not prevent SQL parsing.
+
+    SQL Server DMV and Query Store query text can contain a leading parameter
+    declaration header. Without sanitization, sqlglot raises a ParseError
+    before DataHub can extract query lineage from the statement.
+    """
+    sql = """(@MinDate date,@Amount numeric(38,10))
+    insert into dbo.target_table (col1, col2)
+    select s.col1, s.col2
+    from dbo.source_table as s
+    where s.amount > @Amount"""
+
+    result = parse_statement(sql, get_dialect("tsql"))
+
+    assert isinstance(result, sqlglot.exp.Insert)
+
+
+def test_tsql_param_header_lineage() -> None:
+    """A T-SQL parameter declaration header must not prevent lineage extraction.
+
+    SQL Server DMV and Query Store query text can contain a leading parameter
+    declaration header. Without sanitization, sqlglot raises a ParseError and
+    the statement's lineage is lost, including the real source table.
+    """
+    resolver = SchemaResolver(platform="mssql")
+
+    sql = """(@MinDate date,@Amount numeric(38,10))
+    insert into dbo.target_table (col1, col2)
+    select s.col1, s.col2
+    from dbo.source_table as s
+    where s.amount > @Amount"""
+
+    result = sqlglot_lineage(
+        sql,
+        schema_resolver=resolver,
+        override_dialect="mssql",
+    )
+
+    assert result.debug_info.table_error is None, result.debug_info.table_error
+    assert any("source_table" in table for table in result.in_tables), result.in_tables
+    assert any("target_table" in table for table in result.out_tables), (
+        result.out_tables
+    )
 
 
 @pytest.mark.parametrize(
