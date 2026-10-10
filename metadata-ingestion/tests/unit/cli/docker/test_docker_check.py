@@ -52,6 +52,27 @@ def test_run_quickstart_preflight_checks_insufficient_memory(mock_docker_client)
     assert "Total Docker memory configured" in str(exc_info.value)
 
 
+def test_run_quickstart_preflight_checks_insufficient_memory_but_skipped(
+    mock_docker_client, monkeypatch
+):
+    monkeypatch.setenv("DATAHUB_QUICKSTART_SKIP_MEMORY_CHECK", "true")
+
+    # Mock Docker info to return insufficient memory - should be ignored while skipped.
+    mock_docker_client.info.return_value = {
+        "MemTotal": int((MIN_MEMORY_NEEDED - 1) * 1024 * 1024 * 1000)
+    }
+
+    # Mock container run to return sufficient disk space, so the memory check is the
+    # only thing under test here.
+    mock_container = MagicMock()
+    mock_container.decode.return_value = f"{MIN_DISK_SPACE_NEEDED * 1024**3} {MIN_DISK_SPACE_NEEDED * 1024**3}"
+    mock_docker_client.containers.run.return_value = mock_container
+
+    # Should not raise DockerLowMemoryError, or even call client.info(), while skipped.
+    run_quickstart_preflight_checks(mock_docker_client)
+    mock_docker_client.info.assert_not_called()
+
+
 def test_run_quickstart_preflight_checks_insufficient_disk_space(mock_docker_client):
     # Mock Docker info to return sufficient memory
     mock_docker_client.info.return_value = {
