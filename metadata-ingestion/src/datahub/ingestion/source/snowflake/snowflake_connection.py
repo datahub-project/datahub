@@ -1,7 +1,7 @@
 import logging
 import threading
 import warnings
-from typing import Any, Dict, Final, Optional
+from typing import Any, Dict, Final, Literal, Optional
 
 import pydantic
 import snowflake.connector
@@ -15,6 +15,7 @@ from snowflake.connector.network import (
     EXTERNAL_BROWSER_AUTHENTICATOR,
     KEY_PAIR_AUTHENTICATOR,
     OAUTH_AUTHENTICATOR,
+    WORKLOAD_IDENTITY_AUTHENTICATOR,
 )
 from tenacity import (
     Retrying,
@@ -62,6 +63,7 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
+    "WORKLOAD_IDENTITY_AUTHENTICATOR": WORKLOAD_IDENTITY_AUTHENTICATOR,
 }
 
 # Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth
@@ -134,7 +136,7 @@ class SnowflakeConnectionConfig(ConfigModel):
     )
     authentication_type: str = pydantic.Field(
         default="DEFAULT_AUTHENTICATOR",
-        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "OAUTH_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "OAUTH_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR", "KEY_PAIR_AUTHENTICATOR" and "WORKLOAD_IDENTITY_AUTHENTICATOR".',
     )
     account_id: str = pydantic.Field(
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
@@ -151,6 +153,12 @@ class SnowflakeConnectionConfig(ConfigModel):
     token: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
+    )
+    workload_identity_provider: Optional[Literal["AWS", "AZURE", "GCP"]] = (
+        pydantic.Field(
+            default=None,
+            description="Cloud provider whose workload identity attests this connection to Snowflake. Required when `authentication_type` is `WORKLOAD_IDENTITY_AUTHENTICATOR`. The ingestion process must run on that cloud (EC2/ECS/EKS with an IAM role, an Azure VM or Function with a managed identity, or GCE/Cloud Run/GKE with an attached service account). See https://docs.snowflake.com/en/user-guide/workload-identity-federation",
+        )
     )
     snowflake_domain: str = pydantic.Field(
         default=DEFAULT_SNOWFLAKE_DOMAIN,
@@ -218,6 +226,12 @@ class SnowflakeConnectionConfig(ConfigModel):
             )
         return v
 
+    @field_validator("workload_identity_provider", mode="before")
+    @classmethod
+    def _uppercase_workload_identity_provider(cls, v: Any) -> Any:
+        # Accept "aws" / "Aws" in the recipe and normalize to the connector's spelling.
+        return v.upper() if isinstance(v, str) else v
+
     @model_validator(mode="after")
     def validate_authentication_config(self):
         """Validate authentication configuration consistency."""
@@ -233,6 +247,19 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Either `private_key` and `private_key_path` is set but `authentication_type` is {self.authentication_type}. "
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
+
+        # Check workload identity federation consistency
+        if self.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR":
+            if self.workload_identity_provider is None:
+                raise ValueError(
+                    "`workload_identity_provider` is required when `authentication_type` is "
+                    "WORKLOAD_IDENTITY_AUTHENTICATOR. Set it to one of AWS, AZURE or GCP."
+                )
+        elif self.workload_identity_provider is not None:
+            raise ValueError(
+                f"`workload_identity_provider` can only be set when `authentication_type` is "
+                f"WORKLOAD_IDENTITY_AUTHENTICATOR, not {self.authentication_type}."
+            )
 
         # warnings.warn reaches --test-source-connection, which prints neither
         # the summary nor the source report. SnowflakeV2Source mirrors this in
@@ -286,10 +313,18 @@ class SnowflakeConnectionConfig(ConfigModel):
             )
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        # Workload identity never uses a password, so a leftover one from a password
+        # recipe must not end up in the URL (the profiler logs it at DEBUG).
+        password = (
+            self.password.get_secret_value()
+            if self.password
+            and self.authentication_type != "WORKLOAD_IDENTITY_AUTHENTICATOR"
+            else None
+        )
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
-            self.password.get_secret_value() if self.password else None,
+            password,
             self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -357,6 +392,15 @@ class SnowflakeConnectionConfig(ConfigModel):
 
             connect_args["private_key"] = pkb
 
+        if self.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR":
+            # The connector converts these plain strings into its own AttestationProvider
+            # enum, so we must not import that private symbol here.
+            # setdefault keeps an explicit `connect_args` override winning, like the
+            # `private_key` guard above.
+            connect_args.setdefault(
+                "workload_identity_provider", self.workload_identity_provider
+            )
+
         self._computed_connect_args = connect_args
         return connect_args
 
@@ -423,6 +467,12 @@ class SnowflakeConnectionConfig(ConfigModel):
         )
 
     def get_key_pair_connection(self) -> NativeSnowflakeConnection:
+        return self._get_authenticator_connection()
+
+    def _get_authenticator_connection(self) -> NativeSnowflakeConnection:
+        # Shared by the auth types whose credential travels in connect_args or is
+        # obtained by the connector itself (key pair, workload identity): no password
+        # or token is passed here.
         connect_args = self.get_options()["connect_args"]
 
         return snowflake.connector.connect(
@@ -467,6 +517,10 @@ class SnowflakeConnectionConfig(ConfigModel):
             return self.get_oauth_connection()
         elif self.authentication_type == "KEY_PAIR_AUTHENTICATOR":
             return self.get_key_pair_connection()
+        elif self.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR":
+            # No password, key or token is sent: the connector obtains a short-lived
+            # attestation from the cloud's instance-metadata service.
+            return self._get_authenticator_connection()
         elif self.authentication_type == "EXTERNAL_BROWSER_AUTHENTICATOR":
             return snowflake.connector.connect(
                 user=self.username,
