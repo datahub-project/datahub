@@ -11,7 +11,7 @@ import {
     isEmptyLogicalPredicate,
     isLogicalPredicate,
 } from '@app/sharedV2/queryBuilder/builder/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, FacetFilterInput, FilterOperator } from '@types';
 
@@ -152,7 +152,7 @@ export function getViewAllSupport(
  */
 export default function useAssetCollectionViewAll(module: ModuleProps['module']): (() => void) | undefined {
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const params = module.properties.params.assetCollectionParams;
 
     const searchParams = useMemo(() => {

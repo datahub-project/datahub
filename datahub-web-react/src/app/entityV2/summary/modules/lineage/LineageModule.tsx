@@ -8,13 +8,13 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import LineageExplorer from '@app/lineageV3/LineageExplorer';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export default function LineageModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { urn, entityType } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const navigateToLineageTab = () => {
         history.push(getEntityPath(entityType, urn, entityRegistry, false, false, 'Lineage'));

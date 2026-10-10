@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from '@app/searchV2/filters/FilterOption';
@@ -59,7 +59,7 @@ import {
     STRING_TYPE_URN,
     URN_TYPE_URN,
 } from '@src/app/shared/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
 
@@ -760,7 +760,7 @@ export function useElementDimensions(ref) {
 }
 
 export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (filter.entity) {
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);

@@ -1,6 +1,5 @@
 import { useContext } from 'react';
 
-import EntityRegistryV2 from '@app/entityV2/EntityRegistry';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 
 /**
@@ -8,8 +7,4 @@ import { EntityRegistryContext } from '@src/entityRegistryContext';
  */
 export function useEntityRegistry() {
     return useContext(EntityRegistryContext);
-}
-
-export function useEntityRegistryV2() {
-    return useContext(EntityRegistryContext) as any as EntityRegistryV2;
 }

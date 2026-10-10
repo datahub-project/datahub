@@ -9,7 +9,7 @@ import { Avatar, Loader, SimpleSelect } from '@src/alchemy-components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -42,7 +42,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     const ownerSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
     const ownerResult = useSearch ? ownerSearchResults : recommendedData;
     const [getAssigneeEntities, { data: resolvedAssigneeEntities }] = useGetEntitiesLazyQuery();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     useEffect(() => {
         if (data?.assignees?.length) {

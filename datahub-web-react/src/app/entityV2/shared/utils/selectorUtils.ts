@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
 
@@ -87,7 +87,7 @@ export const deduplicateEntities = ({
  */
 export const entitiesToSelectOptions = (
     entities: Entity[],
-    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
+    entityRegistry: ReturnType<typeof useEntityRegistry>,
 ): SelectOption[] => {
     return entities.map((entity) => ({
         value: entity.urn,
@@ -110,7 +110,7 @@ export interface EntityLoadingPlaceholder {
 export const entitiesToNestedSelectOptions = (
     entityUrns: string[],
     entityCache: Map<string, Entity>,
-    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
+    entityRegistry: ReturnType<typeof useEntityRegistry>,
     loadingPlaceholder?: EntityLoadingPlaceholder,
 ): NestedSelectOption[] => {
     return entityUrns.map((urn: string) => {

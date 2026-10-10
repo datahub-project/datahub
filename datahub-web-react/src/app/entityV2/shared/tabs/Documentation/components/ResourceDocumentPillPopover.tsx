@@ -10,7 +10,7 @@ import { formatDateString } from '@app/entityV2/shared/containers/profile/utils'
 import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Document } from '@types';
 
@@ -77,7 +77,7 @@ type Props = {
 export default function ResourceDocumentPillPopover({ document, fallbackTitle }: Props) {
     const { t } = useTranslation('entity.profile.summary');
     const { t: tl } = useTranslation('common.labels');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const title = document.info?.title || fallbackTitle;
     const description = removeMarkdown(document.info?.contents?.text?.trim() || '');
     const owners = document.ownership?.owners ?? [];

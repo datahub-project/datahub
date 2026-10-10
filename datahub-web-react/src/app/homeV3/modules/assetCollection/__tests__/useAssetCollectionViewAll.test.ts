@@ -21,7 +21,7 @@ vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getTypeFromGraphName: (name: string) =>
             (({ dataProduct: EntityType.DataProduct }) as Record<string, EntityType>)[name],
     }),

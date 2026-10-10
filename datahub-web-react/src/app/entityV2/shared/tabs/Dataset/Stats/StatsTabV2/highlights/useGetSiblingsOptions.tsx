@@ -2,7 +2,7 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { DataPlatform, Dataset, EntityType } from '@src/types.generated';
 
 type SiblingOption = {
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const useGetSiblingsOptions = ({ baseEntityData }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const options: SiblingOption[] = [];
     options.push({

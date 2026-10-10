@@ -5,7 +5,7 @@ import { PlatformAggregate, SubtypeAggregate } from '@app/lineageV3/LineageFilte
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const PillsWrapper = styled.div`
     display: flex;
@@ -80,7 +80,7 @@ function LineageFilterEntry(
     index: number,
     dataTestIdPrefix: string,
 ) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
 
     return (

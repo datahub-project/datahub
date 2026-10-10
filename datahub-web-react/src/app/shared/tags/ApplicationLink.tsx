@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

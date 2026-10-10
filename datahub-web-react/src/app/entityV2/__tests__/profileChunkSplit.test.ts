@@ -28,6 +28,7 @@ const PROFILE_IMPORT_ALLOWLIST = [
     'useGlossaryRelatedAssetsTabCount',
     'lineageV3/types',
     'lineageV3/utils/lineageUtils',
+    'lineageV3/utils/downgradeV2FieldPath',
 ];
 
 const PROFILE_IMPORT_MARKERS = [

@@ -65,7 +65,6 @@ const mockEntityRegistry = {
 // Mock the useEntityRegistry hooks to return a mock entity registry
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 // Mock react-helmet-async to avoid context issues in tests

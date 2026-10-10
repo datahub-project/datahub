@@ -10,7 +10,7 @@ import i18next from 'i18next';
 import { DefaultTheme } from 'styled-components';
 import YAML from 'yamljs';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';

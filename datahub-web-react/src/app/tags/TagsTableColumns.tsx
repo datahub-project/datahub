@@ -18,7 +18,7 @@ import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -120,7 +120,7 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { data, loading: ownerLoading } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',

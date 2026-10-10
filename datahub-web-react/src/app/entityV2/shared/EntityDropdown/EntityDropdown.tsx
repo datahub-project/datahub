@@ -53,7 +53,7 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -114,7 +114,7 @@ const EntityDropdown = (props: Props) => {
     const onEntityProfile = entityProfileUrn === urn;
 
     const me = useUserContext();
-    const entityRegistryV2 = useEntityRegistryV2();
+    const entityRegistryV2 = useEntityRegistry();
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();

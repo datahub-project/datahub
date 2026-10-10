@@ -8,7 +8,7 @@ import { DefaultEmptyEntityList } from '@app/homeV2/reference/sections/DefaultEm
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { EntityLinkListSkeleton } from '@app/homeV2/reference/sections/EntityLinkListSkeleton';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
 
@@ -76,7 +76,7 @@ export const EntityLinkList = ({
     render,
 }: Props) => {
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const isEmpty = entities.length === 0 && !loading;
     const { isUserInitializing } = useContext(OnboardingContext);
 

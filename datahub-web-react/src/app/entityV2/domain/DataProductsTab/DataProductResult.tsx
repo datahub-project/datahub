@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import EditDataProductModal from '@app/entityV2/domain/DataProductsTab/EditDataProductModal';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 
 import { DataProduct, EntityType } from '@types';
@@ -54,7 +54,7 @@ interface Props {
 }
 
 export default function DataProductResult({ dataProduct, onUpdateDataProduct, setDeletedDataProductUrns }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { refetch } = useEntityContext();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 

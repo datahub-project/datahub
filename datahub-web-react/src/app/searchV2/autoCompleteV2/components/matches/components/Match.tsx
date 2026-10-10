@@ -9,7 +9,7 @@ import { isDashboard } from '@app/entityV2/dashboard/utils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { matchedInputFieldParams } from '@app/search/matches/matchedInputFieldRenderer';
 import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
@@ -32,7 +32,7 @@ interface Props {
 }
 
 export default function Match({ query, entityType, entity, match, color, colorLevel }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const label = useMemo(
         () => capitalizeFirstLetterOnly(getMatchedFieldLabel(entityType, match.fieldName)),
