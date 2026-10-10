@@ -705,7 +705,19 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.info("Auto-discovery mode: discovering jobs for configured project")
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
-                logger.warning("No jobs discovered in auto-discovery mode")
+                # A failure (not a warning) so stale-entity removal does not
+                # soft-delete every previously ingested dbt entity.
+                self.report.failure(
+                    title="No dbt Cloud jobs discovered",
+                    message="Auto-discovery found no eligible jobs in the production "
+                    "environment, so nothing was ingested. Check that "
+                    "auto_discovery.job_id_pattern matches at least one job, and, if "
+                    "auto_discovery.require_generate_docs is enabled, that a job has "
+                    '"Generate docs on run" turned on.',
+                    context=f"account_id={self.config.account_id}, "
+                    f"project_id={self.config.project_id}, "
+                    f"jobs_retrieved={self.report.total_jobs_retreived_from_api}",
+                )
                 return [], {}
             run_id = None  # Always use latest run in auto-discovery
         else:
