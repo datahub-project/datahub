@@ -112,12 +112,18 @@ class OneLakeClient(BaseFabricClient):
                 logger.debug(
                     f"Processing {item_type}: {item_data.get('displayName', 'Unknown')}"
                 )
+                item_id = item_data.get("id", "")
                 yield factory(
-                    id=item_data.get("id", ""),
+                    id=item_id,
                     name=item_data.get("displayName", ""),
                     type=item_type.capitalize(),
                     workspace_id=workspace_id,
                     description=item_data.get("description"),
+                    owner_user_principal_name=self.get_item_owner_user_principal_name(
+                        workspace_id, item_id
+                    )
+                    if item_id
+                    else None,
                 )
         except Exception as e:
             logger.error(
@@ -174,12 +180,18 @@ class OneLakeClient(BaseFabricClient):
         """
         logger.info(f"Listing notebooks for workspace {workspace_id}")
         for item in self._paginate(f"workspaces/{workspace_id}/notebooks"):
+            item_id = item.get("id", "")
             yield FabricNotebook(
-                id=item.get("id", ""),
+                id=item_id,
                 display_name=item.get("displayName", ""),
                 workspace_id=workspace_id,
                 description=item.get("description"),
                 folder_id=item.get("folderId"),
+                owner_user_principal_name=self.get_item_owner_user_principal_name(
+                    workspace_id, item_id
+                )
+                if item_id
+                else None,
             )
 
     def list_folders(self, workspace_id: str) -> Dict[str, Tuple[str, Optional[str]]]:

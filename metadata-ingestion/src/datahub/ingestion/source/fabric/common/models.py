@@ -9,7 +9,7 @@ References:
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Mapping, Optional
 
 from pydantic import model_validator
 
@@ -79,6 +79,25 @@ class FabricItem:
     type: str  # e.g. "DataPipeline", "CopyJob", "Dataflow", "Lakehouse", "Warehouse"
     workspace_id: str
     description: Optional[str] = None
+    # userPrincipalName from defaultIdentity, when the item has a user identity.
+    owner_user_principal_name: Optional[str] = None
+
+
+def default_identity_user_principal_name(item: Mapping[str, object]) -> Optional[str]:
+    """Return the item default identity's userPrincipalName, if present.
+
+    Service principals and items without a default identity have no UPN.
+    """
+    identity = item.get("defaultIdentity") or {}
+    if not isinstance(identity, dict):
+        return None
+    user_details = identity.get("userDetails") or {}
+    if not isinstance(user_details, dict):
+        return None
+    user_principal_name = user_details.get("userPrincipalName")
+    if isinstance(user_principal_name, str) and user_principal_name:
+        return user_principal_name
+    return None
 
 
 class ItemJobStatus(StrEnum):

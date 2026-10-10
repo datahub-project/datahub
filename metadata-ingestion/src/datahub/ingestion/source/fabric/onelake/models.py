@@ -22,6 +22,8 @@ class FabricItem:
     type: Literal["Lakehouse", "Warehouse"]  # Item type
     workspace_id: str
     description: Optional[str] = None
+    # userPrincipalName from the item default identity, when it is a user.
+    owner_user_principal_name: Optional[str] = None
 
 
 @dataclass

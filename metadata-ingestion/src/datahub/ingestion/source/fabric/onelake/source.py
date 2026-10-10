@@ -50,7 +50,10 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
     make_table_name,
     make_warehouse_name,
 )
-from datahub.ingestion.source.fabric.common.utils import build_workspace_container
+from datahub.ingestion.source.fabric.common.utils import (
+    build_workspace_container,
+    owners_from_user_principal_name,
+)
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.constants import (
@@ -171,6 +174,10 @@ class WarehouseSchemaKey(WarehouseKey):
 @support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Item default identity userPrincipalName, when the identity is a user",
+)
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via `profiling`. Uses the SQL Analytics Endpoint and the "
@@ -558,6 +565,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 f"/synapsenotebooks/{notebook.id}"
             ),
             custom_properties=custom_properties,
+            owners=owners_from_user_principal_name(notebook.owner_user_principal_name),
         )
 
     def _process_lakehouse(
@@ -580,6 +588,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
             parent_container=lakehouse_key.parent_key(),
             qualified_name=make_lakehouse_name(workspace.id, lakehouse.id),
+            owners=owners_from_user_principal_name(lakehouse.owner_user_principal_name),
         )
 
         yield lakehouse_container
@@ -648,6 +657,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetContainerSubTypes.FABRIC_WAREHOUSE,
             parent_container=warehouse_key.parent_key(),
             qualified_name=make_warehouse_name(workspace.id, warehouse.id),
+            owners=owners_from_user_principal_name(warehouse.owner_user_principal_name),
         )
 
         yield warehouse_container

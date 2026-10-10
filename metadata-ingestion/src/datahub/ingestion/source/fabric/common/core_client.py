@@ -80,12 +80,16 @@ class FabricCoreClient(BaseFabricClient):
             f"workspaces/{workspace_id}/items", params=params
         ):
             try:
+                item_id = item_data["id"]
                 yield FabricItem(
-                    id=item_data["id"],
+                    id=item_id,
                     name=item_data.get("displayName", ""),
                     type=item_data.get("type", item_type or ""),
                     workspace_id=workspace_id,
                     description=item_data.get("description"),
+                    owner_user_principal_name=self.get_item_owner_user_principal_name(
+                        workspace_id, item_id
+                    ),
                 )
             except KeyError as e:
                 self.report.report_parse_failure(

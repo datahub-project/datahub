@@ -9,6 +9,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.constants import (
+    ITEM_INCLUDE_DEFAULT_IDENTITY,
+)
+from datahub.ingestion.source.fabric.common.models import (
+    default_identity_user_principal_name,
+)
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 
 logger = logging.getLogger(__name__)
@@ -235,6 +241,39 @@ class BaseFabricClient(ABC):
         """
         logger.info("Listing Fabric workspaces")
         yield from self._paginate("workspaces")
+
+    def get_item(self, workspace_id: str, item_id: str) -> dict:
+        """Get one workspace item, including its default identity.
+
+        GET /workspaces/{workspaceId}/items/{itemId}?include=DefaultIdentity
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item
+        """
+        response = self.get(
+            f"workspaces/{workspace_id}/items/{item_id}",
+            params={"include": ITEM_INCLUDE_DEFAULT_IDENTITY},
+        )
+        data = response.json()
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def get_item_owner_user_principal_name(
+        self, workspace_id: str, item_id: str
+    ) -> Optional[str]:
+        """Return the item default identity userPrincipalName, if the API provides one.
+
+        A missing identity or a failed lookup does not fail item listing.
+        """
+        try:
+            item = self.get_item(workspace_id, item_id)
+        except Exception as e:
+            logger.warning(
+                f"Failed to read default identity for item {item_id} "
+                f"in workspace {workspace_id}: {e}"
+            )
+            return None
+        return default_identity_user_principal_name(item)
 
     def get(self, endpoint: str, params: Optional[dict] = None) -> requests.Response:
         """Make a GET request.

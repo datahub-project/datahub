@@ -41,6 +41,7 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.common.utils import (
     build_workspace_container,
     make_workspace_key,
+    owners_from_user_principal_name,
     parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.data_factory.client import (
@@ -157,6 +158,10 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 @support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Item default identity userPrincipalName, when the identity is a user",
+)
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default via Copy and InvokePipeline activities",
@@ -397,6 +402,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     "workspace_id": workspace.id,
                 },
                 parent_container=workspace_key,
+                owners=owners_from_user_principal_name(item.owner_user_principal_name),
             )
             yield dataflow
 

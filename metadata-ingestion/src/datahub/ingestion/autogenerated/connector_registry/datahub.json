@@ -1426,6 +1426,12 @@
           "supported": true
         },
         {
+          "capability": "OWNERSHIP",
+          "description": "Item default identity userPrincipalName, when the identity is a user",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1466,6 +1472,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Item default identity userPrincipalName, when the identity is a user",
           "subtype_modifier": null,
           "supported": true
         },
