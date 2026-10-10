@@ -312,6 +312,7 @@ datahub-kafka = [
 datahub-lineage-file = []
 
 datahub-lite = [
+    "duckdb>=1.0.0,<2.0.0",
     "fastapi>=0.133.0,<0.142.0",
     "starlette>=1.3.1,<2.0.0",
     "uvicorn<0.41.0",
@@ -1333,6 +1334,7 @@ dev = [
     "Deprecated<2.0.0",
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
+    "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",
@@ -1526,6 +1528,7 @@ docs = [
     "Deprecated<2.0.0",
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
+    "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",

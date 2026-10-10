@@ -582,6 +582,7 @@ plugins: Dict[str, Set[str]] = {
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
     "datahub-lite": {
+        "duckdb>=1.0.0,<2.0.0",
         # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
         "fastapi>=0.133.0,<0.142.0",
         # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
