@@ -92,7 +92,9 @@ EOF
 
     ready=0
     for _ in $(seq 1 60); do
-        if "$ORACLE_HOME/bin/lsnrctl" status | grep -q XEPDB1; then
+        # XE registers this service as xepdb1. A case-sensitive XEPDB1
+        # never matches, so the ready file below would never be written.
+        if "$ORACLE_HOME/bin/lsnrctl" status | grep -qi xepdb1; then
             ready=1
             break
         fi
