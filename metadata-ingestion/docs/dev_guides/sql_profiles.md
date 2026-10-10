@@ -51,9 +51,34 @@ The legacy Great Expectations profiler (`profiling.method: ge`) has been removed
 
 :::
 
+## Profiling and long transactions
+
+By default a MySQL profile runs as one transaction per table, so under `REPEATABLE READ` — MySQL's default — every stage reads one snapshot, until the query combiner rolls back to recover from a failed statement. InnoDB holds that read view, and the undo history behind it, for as long as the table takes to profile. `profiling.profiling_isolation_level: AUTOCOMMIT` runs each profiling statement on its own instead.
+
+The cost is consistency. On a table being written concurrently the stages see different rows, so a profile can disagree with itself — `uniqueCount` above `rowCount`, for instance. Postgres-family sources already connect in `AUTOCOMMIT`, so the option changes nothing there unless `options.isolation_level` has overridden it.
+
+Prefer it to `options.connect_args.autocommit`. The driver option does work, but it applies to every connection the source opens rather than just profiling, SQLAlchemy cannot see it, and it is not validated at config-parse time. The two interact badly: SQLAlchemy records the server's default isolation level at first connect and, after any checkout that set an isolation level through SQLAlchemy, restores it on return to the pool — and that restore turns driver-level autocommit back off.
+
+### What this looks like in a MySQL log
+
+With `profiling_isolation_level: AUTOCOMMIT`, each profiled table brackets like this:
+
+```
+SET AUTOCOMMIT = 1                                        -- checkout
+<the profiling queries>
+ROLLBACK
+SET AUTOCOMMIT = 0                                        -- return to the pool
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ
+COMMIT
+```
+
+The last four lines are SQLAlchemy restoring the connection as it returns to the pool, **after** the table's queries — not a transaction wrapped around them. The isolation level named is whatever the server's default is, not necessarily `REPEATABLE READ`.
+
+If you also set `options.connect_args.autocommit`, the opening `SET AUTOCOMMIT = 1` disappears for the first table on each connection, because the connection is already in autocommit and the driver skips a statement that would change nothing. A log read without that in mind looks like the setting being ignored when it is not.
+
 ## Reducing profiling cost
 
-Profiling issues one query per metric per column, so a wide table can cost hundreds of round trips and hundreds of table scans. Three independent options reduce that; they address different costs and can be combined.
+Profiling issues one query per metric per column, so a wide table can cost hundreds of round trips and hundreds of table scans. Four independent options reduce that; they address different costs and can be combined.
 
 ### Query combining
 
@@ -92,9 +117,24 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 
 If `scans_avoided` is low, those last four say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 
+### Skipping the exact row count
+
+`profiling.profile_table_row_count_estimate_only` replaces the profiler's own `COUNT(*)` — a full scan per table — with a single catalog lookup: `information_schema.tables.table_rows` on MySQL, `pg_class.reltuples` on Postgres, `svv_table_info.tbl_rows` on Redshift. It is ignored on every other source.
+
+The error reaches further than `rowCount`. `nullCount` is `rowCount` minus an exact non-null count, so it and `nullProportion` inherit it. Because the subtraction is clamped at zero, an under-reported `rowCount` understates a column's nulls — to none at all once the shortfall exceeds them — and an over-reported one invents nulls, even in a `NOT NULL` column.
+
+The estimate is approximate by design, not only when it is stale:
+
+- **MySQL.** For InnoDB, `TABLE_ROWS` is a sampled estimate that MySQL documents as varying from the true count by up to 40–50%. On 8.0 and later it is additionally served from a cache refreshed by `ANALYZE TABLE` or after `information_schema_stats_expiry` (24 hours by default), so a table that has grown since also under-reports. Views report `TABLE_ROWS` as `0` or `NULL`.
+- **Postgres.** On 14 and later, `reltuples` is `-1` for a table that has never been analyzed, and stays `-1` for a partitioned parent until someone runs `ANALYZE` on the parent, because autovacuum does not. That `-1` is carried through as `rowCount`. On 13 and earlier the sentinel is `0`, which is indistinguishable from an empty table.
+- **Redshift.** `tbl_rows` counts rows deleted but not yet vacuumed, so it over-reports after deletes. `SVV_TABLE_INFO` is also visible only to superusers unless you grant it: without `GRANT SELECT ON SVV_TABLE_INFO TO <user>`, the profiling user sees no rows and **every table reads as 0**, which clamps every column's `nullCount` to zero.
+- A lookup that fails, or that finds no row, is reported as `0`.
+
+See [`rowCount` and the column statistics are measured over different things](#rowcount-and-the-column-statistics-are-measured-over-different-things) for the related case where the two are measured over different row sets.
+
 ### Sampling
 
-For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the two options above reduce how many queries and scans are issued — so sampling composes with both, and on a supported platform you can enable all three.
+For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the options above reduce how many queries and scans are issued — so sampling composes with them, and on a supported platform you can enable several together.
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
 
