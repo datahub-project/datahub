@@ -116,8 +116,27 @@ public class SearchQueryBuilder {
    */
   private static final float EXACT_NAME_CONSTANT_BOOST = 1000.0f;
 
-  /** Fields eligible for the exact-name constant boost (only primary name fields). */
-  private static final Set<String> EXACT_NAME_BOOST_FIELDS = Set.of("name", "title");
+  /**
+   * Fields eligible for the exact-name constant boost (only primary name fields). {@code
+   * displayName} and {@code fullName} are the primary name fields of corpuser/corpGroup (and a few
+   * other types such as dataPlatform and service); without them a user's exact display name gets no
+   * exact-name treatment and loses to entities that merely mention the name in free text.
+   */
+  private static final Set<String> EXACT_NAME_BOOST_FIELDS =
+      Set.of("name", "title", "displayName", "fullName");
+
+  /**
+   * Keyword subfields queried for exact-name matches on the V2.5 light path (see {@link
+   * #getLightweightExactMatchBoost}). Derived from {@link #EXACT_NAME_BOOST_FIELDS} so the two
+   * paths cannot drift; sorted so the generated query is stable. {@code _entityName} is not in the
+   * base set on purpose: it is an ES field alias to an analyzed text field, so a term query on it
+   * can never match a multi-token name.
+   */
+  private static final List<String> EXACT_NAME_KEYWORD_FIELDS =
+      EXACT_NAME_BOOST_FIELDS.stream()
+          .sorted()
+          .map(field -> field + ".keyword")
+          .collect(Collectors.toUnmodifiableList());
 
   /**
    * Stage 1: fields the {@code *word*} contains-wildcard searches. A leading wildcard is costly,
@@ -142,7 +161,8 @@ public class SearchQueryBuilder {
   private static final int ALL_TERMS_MIN_TOKENS = 2;
 
   /** Name/title fields eligible for the all-terms bonus (primary name fields only). */
-  private static final Set<String> ALL_TERMS_BONUS_FIELDS = Set.of("name", "title", "id");
+  private static final Set<String> ALL_TERMS_BONUS_FIELDS =
+      Set.of("name", "title", "displayName", "fullName", "id");
 
   /**
    * Stage 1: Minimum number of query tokens to activate description phrase match. Long queries (4+
@@ -171,7 +191,8 @@ public class SearchQueryBuilder {
    * matching to name/id fields; other fields still get recall via the SQS analyzed match.
    */
   private static final Set<String> EXACT_MATCH_CORE_FIELDS =
-      Set.of("name", "title", "_entityName", "qualifiedName", "id", "urn");
+      Set.of(
+          "name", "title", "displayName", "fullName", "_entityName", "qualifiedName", "id", "urn");
 
   /**
    * Stage 1: Multiplier on exact and prefix match boosts so an exact or prefix hit outscores a
@@ -248,7 +269,7 @@ public class SearchQueryBuilder {
    * finds nothing.
    */
   private static final Set<String> EXACT_NAME_FOCUSED_FIELDS =
-      Set.of("name", "title", "qualifiedName", "id", "displayName", "urn");
+      Set.of("name", "title", "qualifiedName", "id", "displayName", "fullName", "urn");
 
   /**
    * Stage 1: terms a phrase prefix expands to per field when the query has several terms, whose
@@ -1522,23 +1543,21 @@ public class SearchQueryBuilder {
     // and splitting would make "load-job" an exact match for a name "Load Job"
     String exactQuery = stripSurroundingQuotes(typedQuery);
     DisMaxQueryBuilder nameBoost = QueryBuilders.disMaxQuery().tieBreaker(0.0f);
-    nameBoost.add(
-        QueryBuilders.termQuery("name.keyword", exactQuery)
-            .caseInsensitive(true)
-            .boost(EXACT_NAME_CONSTANT_BOOST));
-    nameBoost.add(
-        QueryBuilders.termQuery("title.keyword", exactQuery)
-            .caseInsensitive(true)
-            .boost(EXACT_NAME_CONSTANT_BOOST));
+    for (String field : EXACT_NAME_KEYWORD_FIELDS) {
+      nameBoost.add(
+          QueryBuilders.termQuery(field, exactQuery)
+              .caseInsensitive(true)
+              .boost(EXACT_NAME_CONSTANT_BOOST));
+    }
     nameBoost.add(multiMatch);
     return Optional.of(nameBoost);
   }
 
   /**
-   * Light path: minimal exact-match boost using only constant_score clauses on name.keyword and
-   * title.keyword. Keeps exact name matches above partial matches without the many clauses of the
-   * full exact/prefix query (term queries, phrase prefixes, synonyms and word grams on every core
-   * field).
+   * Light path: minimal exact-match boost using only constant_score clauses on the keyword
+   * subfields in {@link #EXACT_NAME_KEYWORD_FIELDS}. Keeps exact name matches above partial matches
+   * without the many clauses of the full exact/prefix query (term queries, phrase prefixes,
+   * synonyms and word grams on every core field).
    */
   @VisibleForTesting
   static Optional<QueryBuilder> getLightweightExactMatchBoost(
@@ -1553,7 +1572,7 @@ public class SearchQueryBuilder {
     DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
     disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
 
-    for (String field : List.of("name.keyword", "title.keyword")) {
+    for (String field : EXACT_NAME_KEYWORD_FIELDS) {
       disMaxQuery.add(
           QueryBuilders.constantScoreQuery(
                   QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true))
