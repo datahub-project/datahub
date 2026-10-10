@@ -150,3 +150,27 @@ query getDomainEntitySummary($urn: String!) {
         }
     }
 }
+
+query getDomainsOwnedBy($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+                ... on Domain {
+                    ownership {
+                        owners {
+                            owner {
+                                ... on CorpUser {
+                                    urn
+                                }
+                                ... on CorpGroup {
+                                    urn
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
