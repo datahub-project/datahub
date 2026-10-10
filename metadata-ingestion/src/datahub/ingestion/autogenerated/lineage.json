@@ -393,125 +393,6 @@
         ]
       }
     },
-    "api": {
-      "apiProperties": {
-        "aspect": "apiProperties",
-        "fields": [
-          {
-            "name": "sourceRepository",
-            "path": "sourceRepository",
-            "isLineage": true,
-            "relationship": {
-              "name": "SourcedFrom",
-              "entityTypes": [
-                "repository"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      }
-    },
-    "application": {
-      "applicationLineage": {
-        "aspect": "applicationLineage",
-        "fields": [
-          {
-            "name": "inputEdges",
-            "path": "inputEdges",
-            "isLineage": true,
-            "relationship": {
-              "name": "Consumes",
-              "entityTypes": [
-                "api",
-                "dataset"
-              ],
-              "isLineage": true
-            }
-          },
-          {
-            "name": "outputEdges",
-            "path": "outputEdges",
-            "isLineage": true,
-            "relationship": {
-              "name": "Produces",
-              "entityTypes": [
-                "api",
-                "dataset"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      }
-    },
-    "service": {
-      "serviceProperties": {
-        "aspect": "serviceProperties",
-        "fields": [
-          {
-            "name": "apis",
-            "path": "apis",
-            "isLineage": true,
-            "relationship": {
-              "name": "ServiceComposesApi",
-              "entityTypes": [
-                "api"
-              ],
-              "isLineage": true
-            }
-          },
-          {
-            "name": "sourceRepository",
-            "path": "sourceRepository",
-            "isLineage": true,
-            "relationship": {
-              "name": "SourcedFrom",
-              "entityTypes": [
-                "repository"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      }
-    },
-    "metric": {
-      "metricUpstreams": {
-        "aspect": "metricUpstreams",
-        "fields": [
-          {
-            "name": "datasetUpstreams",
-            "path": "datasetUpstreams",
-            "isLineage": true,
-            "relationship": {
-              "name": "Consumes",
-              "entityTypes": [
-                "dataset"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      },
-      "metricRelationships": {
-        "aspect": "metricRelationships",
-        "fields": [
-          {
-            "name": "derivedFrom",
-            "path": "derivedFrom",
-            "isLineage": true,
-            "relationship": {
-              "name": "DerivedFrom",
-              "entityTypes": [
-                "metric"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      }
-    },
     "mlModelGroup": {
       "mlModelGroupProperties": {
         "aspect": "mlModelGroupProperties",
@@ -639,8 +520,156 @@
           }
         ]
       }
+    },
+    "api": {
+      "apiProperties": {
+        "aspect": "apiProperties",
+        "fields": [
+          {
+            "name": "sourceRepository",
+            "path": "sourceRepository",
+            "isLineage": true,
+            "relationship": {
+              "name": "SourcedFrom",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "apiSignature": {
+        "aspect": "apiSignature",
+        "fields": [
+          {
+            "name": "inputDatasetEdges",
+            "path": "inputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputDatasetEdges",
+            "path": "outputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "application": {
+      "applicationLineage": {
+        "aspect": "applicationLineage",
+        "fields": [
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "api",
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "api",
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "service": {
+      "serviceProperties": {
+        "aspect": "serviceProperties",
+        "fields": [
+          {
+            "name": "apis",
+            "path": "apis",
+            "isLineage": true,
+            "relationship": {
+              "name": "ServiceComposesApi",
+              "entityTypes": [
+                "api"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "sourceRepository",
+            "path": "sourceRepository",
+            "isLineage": true,
+            "relationship": {
+              "name": "SourcedFrom",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "metric": {
+      "metricUpstreams": {
+        "aspect": "metricUpstreams",
+        "fields": [
+          {
+            "name": "datasetUpstreams",
+            "path": "datasetUpstreams",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "metricRelationships": {
+        "aspect": "metricRelationships",
+        "fields": [
+          {
+            "name": "derivedFrom",
+            "path": "derivedFrom",
+            "isLineage": true,
+            "relationship": {
+              "name": "DerivedFrom",
+              "entityTypes": [
+                "metric"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-09-17T21:44:18.633475+00:00"
+  "generated_at": "2026-10-01T14:13:58.793559+00:00"
 }
