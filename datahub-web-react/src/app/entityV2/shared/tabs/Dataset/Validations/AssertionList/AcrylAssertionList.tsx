@@ -93,7 +93,7 @@ export const buildAssertionListFilters = (
             condition: FilterOperator.Equal,
         },
     ];
-    const { status, type, source, tags, column, owners } = selectedFilters.filterCriteria;
+    const { status, type, category, source, tags, column, owners } = selectedFilters.filterCriteria;
 
     if (status.length) {
         filters.push({
@@ -104,6 +104,9 @@ export const buildAssertionListFilters = (
     }
     if (type.length) {
         filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: type, condition: FilterOperator.Equal });
+    }
+    if (category.length) {
+        filters.push({ field: ASSERTION_CUSTOM_TYPE_FILTER_NAME, values: category, condition: FilterOperator.Equal });
     }
     if (tags.length) {
         filters.push({ field: TAGS_FILTER_NAME, values: tags, condition: FilterOperator.Equal });
