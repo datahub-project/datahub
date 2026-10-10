@@ -11,7 +11,10 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
-from datahub.ingestion.source.fabric.common.models import FabricWorkspace
+from datahub.ingestion.source.fabric.common.models import (
+    FabricWorkspace,
+    default_identity_user_principal_name,
+)
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
@@ -89,6 +92,7 @@ class OneLakeClient(BaseFabricClient):
         item_type: str,
         endpoint_suffix: str,
         factory: Callable[..., T],
+        read_owner_from_item_resource: bool = False,
     ) -> Iterator[T]:
         """List items (lakehouses or warehouses) in a workspace.
 
@@ -115,17 +119,32 @@ class OneLakeClient(BaseFabricClient):
                     f"Processing {item_type}: {item_data.get('displayName', 'Unknown')}"
                 )
                 item_id = item_data.get("id", "")
+                owner = (
+                    default_identity_user_principal_name(item_data)
+                    if self.include_owners
+                    else None
+                )
+                if item_id and owner is None:
+                    # Warehouses return defaultIdentity on
+                    # GET /workspaces/{id}/warehouses/{warehouseId}. The generic
+                    # items lookup is the fallback when that payload has none.
+                    resource_path = (
+                        f"workspaces/{workspace_id}/{endpoint_suffix}/{item_id}"
+                        if read_owner_from_item_resource
+                        else None
+                    )
+                    owner = self.get_item_owner_user_principal_name(
+                        workspace_id,
+                        item_id,
+                        resource_path=resource_path,
+                    )
                 yield factory(
                     id=item_id,
                     name=item_data.get("displayName", ""),
                     type=item_type.capitalize(),
                     workspace_id=workspace_id,
                     description=item_data.get("description"),
-                    owner_user_principal_name=self.get_item_owner_user_principal_name(
-                        workspace_id, item_id
-                    )
-                    if item_id
-                    else None,
+                    owner_user_principal_name=owner,
                 )
         except Exception as e:
             logger.error(
@@ -167,6 +186,7 @@ class OneLakeClient(BaseFabricClient):
             item_type="warehouse",
             endpoint_suffix="warehouses",
             factory=FabricWarehouse,
+            read_owner_from_item_resource=True,
         )
 
     def list_notebooks(self, workspace_id: str) -> Iterator[FabricNotebook]:

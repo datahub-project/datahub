@@ -261,15 +261,50 @@ class BaseFabricClient(ABC):
             return {}
         return data
 
+    def _owner_from_resource(self, resource_path: str) -> Optional[str]:
+        """Read a userPrincipalName from a type-specific item GET.
+
+        Tries ``include=DefaultIdentity`` first. A rejected include parameter
+        is retried without it, because some item endpoints return
+        ``defaultIdentity`` on the plain GET.
+        """
+        saw_success = False
+        for params in ({"include": ITEM_INCLUDE_DEFAULT_IDENTITY}, None):
+            if saw_success:
+                break
+            try:
+                response = self.get(resource_path, params=params)
+            except Exception as e:
+                logger.debug(f"Default identity lookup failed for {resource_path}: {e}")
+                continue
+            saw_success = True
+            data = response.json()
+            if not isinstance(data, dict):
+                continue
+            user_principal_name = default_identity_user_principal_name(data)
+            if user_principal_name:
+                return user_principal_name
+        return None
+
     def get_item_owner_user_principal_name(
-        self, workspace_id: str, item_id: str
+        self,
+        workspace_id: str,
+        item_id: str,
+        *,
+        resource_path: Optional[str] = None,
     ) -> Optional[str]:
         """Return the item default identity userPrincipalName, if the API provides one.
 
         A missing identity or a failed lookup does not fail item listing.
+        ``resource_path`` is a type-specific GET (for example a warehouse)
+        that is tried before the generic items endpoint.
         """
         if not self.include_owners:
             return None
+        if resource_path:
+            user_principal_name = self._owner_from_resource(resource_path)
+            if user_principal_name:
+                return user_principal_name
         try:
             item = self.get_item(workspace_id, item_id)
         except Exception as e:
