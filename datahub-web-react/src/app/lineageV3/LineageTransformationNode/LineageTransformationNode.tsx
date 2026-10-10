@@ -2,7 +2,7 @@ import { Icon, Popover } from '@components';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled, { keyframes } from 'styled-components';
@@ -23,6 +23,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
@@ -97,6 +98,8 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const location = useLocation();
     const entityRegistry = useEntityRegistryV2();
     const refetch = useRefetchLineage(urn, type);
+    // The menu lives inside the hover card, which unmounts when it closes, so the modal is rendered here instead.
+    const [manageLineageDirection, setManageLineageDirection] = useState<LineageDirection | null>(null);
 
     const isQuery = type === EntityType.Query;
 
@@ -178,6 +181,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             isGhost={isGhost}
             isOpen={displayedMenuNode === urn}
             setDisplayedMenuNode={setDisplayedMenuNode}
+            onManageLineage={setManageLineageDirection}
         />,
     ];
 
@@ -212,14 +216,24 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
         </PopoverWrapper>
     );
     return (
-        <Popover
-            content={popoverContent}
-            overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
-            overlayStyle={{ padding: 0 }}
-            overlayClassName="sectioned-tooltip"
-        >
-            {contents}
-        </Popover>
+        <>
+            <Popover
+                content={popoverContent}
+                overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
+                overlayStyle={{ padding: 0 }}
+                overlayClassName="sectioned-tooltip"
+            >
+                {contents}
+            </Popover>
+            {manageLineageDirection && (
+                <ManageLineageModal
+                    node={data}
+                    direction={manageLineageDirection}
+                    closeModal={() => setManageLineageDirection(null)}
+                    refetch={refetch[manageLineageDirection]}
+                />
+            )}
+        </>
     );
 }
 
