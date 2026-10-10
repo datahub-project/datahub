@@ -60,6 +60,12 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    WORKSPACE_ID_PATTERN,
+    WORKSPACE_NAME_PATTERN,
+    WorkspaceFacts,
+    workspace_verdict,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -1789,20 +1795,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = []
         for workspace in all_workspaces:
-            if not self.source_config.workspace_id_pattern.allowed(
-                workspace.id
-            ) or not self.source_config.workspace_name_pattern.allowed(workspace.name):
+            verdict = workspace_verdict(
+                self.source_config,
+                WorkspaceFacts(workspace.name, workspace.id, workspace.type),
+            )
+            if verdict.excluded_by in (WORKSPACE_NAME_PATTERN, WORKSPACE_ID_PATTERN):
                 self.reporter.filtered_workspace_names.append(
                     f"{workspace.id} - {workspace.name}"
                 )
                 continue
-            elif workspace.type not in self.source_config.workspace_type_filter:
+            if not verdict.included:
                 self.reporter.filtered_workspace_types.append(
                     f"{workspace.id} - {workspace.name} (type = {workspace.type})"
                 )
                 continue
-            else:
-                allowed_workspaces.append(workspace)
+            allowed_workspaces.append(workspace)
 
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
         logger.debug(
