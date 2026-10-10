@@ -302,6 +302,16 @@ datahub-documents = [
     "unstructured[md]==0.24.1",
 ]
 
+datahub-entity-embeddings = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
+    "jsonpath-ng==1.7.0",
+    "nltk!=3.10.1",
+    "unstructured-ingest==1.4.28",
+    "unstructured[md]==0.24.1",
+]
+
 datahub-gc = []
 
 datahub-kafka = [
@@ -1171,7 +1181,7 @@ vertica = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
-# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
+# All plugins (excluding: airflow, confluence, datahub-documents, datahub-entity-embeddings, datahub-lite, debug-recording, duckdb, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
@@ -1829,6 +1839,7 @@ lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
 datahub-gc = "datahub.ingestion.source.gc.datahub_gc:DataHubGcSource"
 datahub-debug = "datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource"
 datahub-documents = "datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource"
+datahub-entity-embeddings = "datahub.ingestion.source.datahub_entity_embeddings.source:DataHubEntityEmbeddingsSource"
 datahub-apply = "datahub.ingestion.source.apply.datahub_apply:DataHubApplySource"
 datahub-mock-data = "datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource"
 datahub-lineage-file = "datahub.ingestion.source.metadata.lineage:LineageFileSource"

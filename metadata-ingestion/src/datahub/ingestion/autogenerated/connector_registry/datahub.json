@@ -805,6 +805,20 @@
       "platform_name": "DataHubDocuments",
       "support_status": "ALPHA"
     },
+    "datahub-entity-embeddings": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.datahub_entity_embeddings.source.DataHubEntityEmbeddingsSource",
+      "platform_id": "datahub-entity-embeddings",
+      "platform_name": "DataHubEntityEmbeddings",
+      "support_status": "ALPHA"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
