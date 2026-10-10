@@ -210,6 +210,25 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),GetTableList)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
+            ],
+            "outputDatasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV)",
     "changeType": "UPSERT",
@@ -332,6 +351,22 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),GetTableList)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -343,6 +378,31 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "adf-foreach-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Copy"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ForEachTablePipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "CopyTableToStaging",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV)",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -373,6 +433,24 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Copy Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),IterateOverTables)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -384,6 +462,68 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "adf-foreach-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+                },
+                {
+                    "id": "complex-data-factory.ForEachTablePipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ForEachTablePipeline,DEV),CopyTableToStaging)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-foreach",
         "lastRunId": "no-run-id-provided"
     }
 }
