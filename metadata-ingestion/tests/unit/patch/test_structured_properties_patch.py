@@ -7,7 +7,13 @@ from datahub.emitter.mcp_builder import (
     StructuredPropertyWriteMode,
     add_structured_properties_to_entity_wu,
 )
+from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR
+from datahub.metadata.schema_classes import (
+    MetadataAttributionClass,
+    StructuredPropertyValueAssignmentClass,
+)
 from datahub.metadata.urns import StructuredPropertyUrn
+from datahub.specific.dataset import DatasetPatchBuilder
 
 ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 PROP_A = StructuredPropertyUrn.from_string(
@@ -125,3 +131,92 @@ def test_patch_value_is_set(value: str) -> None:
     assert add_ops
     op_value = add_ops[0]["value"]
     assert op_value is not None
+
+
+def _assignment(
+    property_urn: str, values: list, source: str = ""
+) -> StructuredPropertyValueAssignmentClass:
+    return StructuredPropertyValueAssignmentClass(
+        propertyUrn=property_urn,
+        values=values,
+        attribution=(
+            MetadataAttributionClass(
+                source=source, time=0, actor="urn:li:corpuser:__datahub_system"
+            )
+            if source
+            else None
+        ),
+    )
+
+
+def test_upsert_manual_keys_on_property_urn_alone() -> None:
+    """upsert_structured_property_manual must key /properties on propertyUrn alone, so
+    the patch replaces any existing entry for the property, whatever its attribution
+    source."""
+    source = "urn:li:dataHubAction:test"
+    builder = DatasetPatchBuilder(ENTITY_URN).upsert_structured_property_manual(
+        _assignment(str(PROP_A), ["sensitive"], source)
+    )
+    mcps = list(builder.build())
+    assert len(mcps) == 1
+    payload = _parse_mcp_aspect(mcps[0])
+    assert payload["arrayPrimaryKeys"] == {"properties": ["propertyUrn"]}
+    assert payload["patch"] == [
+        {
+            "op": "add",
+            "path": f"/properties/{PROP_A}",
+            "value": {
+                "propertyUrn": str(PROP_A),
+                "values": [{"string": "sensitive"}],
+                "attribution": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:__datahub_system",
+                    "source": source,
+                    "sourceDetail": {},
+                },
+            },
+        }
+    ]
+
+
+def test_upsert_manual_differs_from_set_manual() -> None:
+    """set_structured_property_manual keys on (propertyUrn, attribution source) via
+    arrayPrimaryKeys; the upsert must not, or it would append a second entry."""
+    source = "urn:li:dataHubAction:test"
+    set_payload = _parse_mcp_aspect(
+        list(
+            DatasetPatchBuilder(ENTITY_URN)
+            .set_structured_property_manual(_assignment(str(PROP_A), ["x"], source))
+            .build()
+        )[0]
+    )
+    assert set_payload["arrayPrimaryKeys"] == {
+        "properties": ["propertyUrn", f"attribution{UNIT_SEPARATOR}source"]
+    }
+    assert set_payload["patch"][0]["path"] == f"/properties/{PROP_A}/{source}"
+
+    upsert_payload = _parse_mcp_aspect(
+        list(
+            DatasetPatchBuilder(ENTITY_URN)
+            .upsert_structured_property_manual(_assignment(str(PROP_A), ["x"], source))
+            .build()
+        )[0]
+    )
+    assert upsert_payload["arrayPrimaryKeys"] == {"properties": ["propertyUrn"]}
+    assert upsert_payload["patch"][0]["path"] == f"/properties/{PROP_A}"
+
+
+def test_upsert_manual_multiple_properties_and_no_attribution() -> None:
+    builder = (
+        DatasetPatchBuilder(ENTITY_URN)
+        .upsert_structured_property_manual(_assignment(str(PROP_A), ["a"]))
+        .upsert_structured_property_manual(_assignment(str(PROP_B), ["30d"]))
+    )
+    mcps = list(builder.build())
+    assert len(mcps) == 1
+    ops = _parse_mcp_aspect(mcps[0])["patch"]
+    assert [op["path"] for op in ops] == [
+        f"/properties/{PROP_A}",
+        f"/properties/{PROP_B}",
+    ]
+    assert all("attribution" not in op["value"] for op in ops)
