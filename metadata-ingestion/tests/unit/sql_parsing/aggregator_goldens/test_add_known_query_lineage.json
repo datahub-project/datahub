@@ -136,6 +136,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae",
             "operationType": "INSERT",
             "sourceType": "DATA_PLATFORM",
             "lastUpdatedTimestamp": 20000,
