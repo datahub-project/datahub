@@ -104,6 +104,125 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
+#### External data quality tables
+
+If a data-quality engine outside DataHub (for example, an in-house framework running as Databricks jobs) evaluates rules, it can publish them to DataHub by writing two tables that follow the **DataHub external DQ table contract (v1)**. The connector reads them and publishes each rule as an externally-managed assertion on the dataset it checks, with one run event per evaluation.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    warehouse_id: "<warehouse-id>"
+    platform_instance: "<one per workspace>" # see "Identity" below
+    stateful_ingestion:
+      enabled: true # read results incrementally; strongly recommended
+    external_dq:
+      enabled: true
+      rules_table: main.governance.dq_rules
+      results_table: main.governance.dq_results
+```
+
+##### Table contract (v1)
+
+```sql
+CREATE TABLE main.governance.dq_rules (
+  rule_id STRING NOT NULL,           -- unique in this table; stable across renames/threshold changes
+  dataset_path ARRAY<STRING> NOT NULL, -- ["catalog", "schema", "table"] of an ingested table or view
+  column_paths ARRAY<STRING>,         -- empty = table-level; several = multi-column rule
+  rule_name STRING NOT NULL,          -- shown as the assertion name
+  rule_type STRING NOT NULL,          -- your engine's rule type, e.g. completeness
+  rule_description STRING,
+  dimension STRING,
+  operator STRING,                    -- NOT_NULL, UNIQUE, BETWEEN, GREATER_THAN, LESS_THAN, EQUAL_TO
+  threshold_min DOUBLE,               -- BETWEEN needs min and max
+  threshold_max DOUBLE,
+  threshold_value DOUBLE,             -- GREATER_THAN, LESS_THAN, EQUAL_TO need a value
+  logic STRING,                       -- e.g. the SQL the rule evaluates
+  severity STRING,                    -- LOW, MEDIUM, HIGH; default for results without one; drives incident actions
+  is_active BOOLEAN NOT NULL,         -- false retires the assertion
+  rule_version STRING,
+  external_url STRING,
+  updated_at TIMESTAMP NOT NULL       -- when the rule definition last changed; shown as the assertion's last update
+);
+
+CREATE TABLE main.governance.dq_results (
+  run_id STRING NOT NULL,             -- unique per evaluation of a rule; (rule_id, run_id) identifies a result
+  rule_id STRING NOT NULL,
+  executed_at TIMESTAMP NOT NULL,     -- when the evaluation finished
+  status STRING NOT NULL,             -- SUCCESS, FAILURE, ERROR, INIT
+  is_warning BOOLEAN,                 -- SUCCESS + true = non-blocking warning
+  severity STRING,                    -- LOW, MEDIUM, HIGH; overrides the rule's severity
+  actual_value DOUBLE,
+  evaluated_row_count BIGINT,
+  failed_row_count BIGINT,
+  missing_row_count BIGINT,
+  operator_snapshot STRING,           -- the rule as it was when evaluated
+  threshold_min_snapshot DOUBLE,
+  threshold_max_snapshot DOUBLE,
+  threshold_value_snapshot DOUBLE,
+  rule_version_snapshot STRING,
+  error_type STRING,                  -- for status ERROR
+  error_message STRING,
+  external_url STRING
+);
+```
+
+**Table schema.** Every contract column must exist, matched by name case-insensitively, with a compatible type: `STRING`/`VARCHAR`/`CHAR` for strings, `BOOLEAN`, any integer type for `BIGINT`, `DOUBLE`/`FLOAT`/`DECIMAL` or an integer type for `DOUBLE`, `TIMESTAMP` (not `TIMESTAMP_NTZ`, which has no time zone to compare against the checkpoint), and `ARRAY<STRING>`. Additional columns are allowed after the contract columns and are passed through: rule extras appear as native parameters on the assertion, result extras as native results on the run, both as strings, with NULLs omitted. Contract columns out of order, or extra columns before them, produce a warning; set `strict_column_order` to make that a failure. If either table does not match the contract, nothing is read from either table and the run reports a failure.
+
+**Rows.** A row that violates the rules below is skipped with a warning naming its `rule_id` (and `run_id`) and counted in `rules_skipped_invalid` or `results_skipped_invalid`; the rest of the table is still processed.
+
+- `rule_id`, `rule_name`, `rule_type`, `run_id` must not be blank. `dataset_path` must be a non-empty list of non-blank names; `column_paths` may be NULL or empty but not contain blanks.
+- `status` and `severity` are matched case-insensitively against the values above. A NULL `is_warning` means `false`.
+- Numbers must be finite (no NaN or infinity). `executed_at` and `updated_at` must be within years 1 to 9999.
+- `rule_id` must be unique in the rules table. If a `rule_id` appears more than once, every row for it is skipped with a warning, because rows are read in no particular order and the connector cannot tell which definition is current.
+- `(rule_id, run_id)` identifies a result. If it appears more than once, only the first row read is published.
+- The results table is append-only. Updating or deleting rows is not detected (see late arrivals below).
+
+##### How rules and results map to DataHub
+
+**Identity.** An assertion is identified by `(platform, platform_instance, env, rule_namespace, rule_id)`. The dataset is deliberately not part of it: changing a rule's `dataset_path` (for example, after a table rename) re-points the assertion and keeps its run history. Changing `platform_instance`, `env` or `rule_namespace` in the recipe creates new assertions and soft-deletes the old ones through stale-entity removal, exactly as those settings re-create datasets. The deprecated `include_metastore` changes the platform instance as well. Two recipes that ingest different workspaces without `platform_instance` and with the default `rule_namespace` share assertion URNs for equal `rule_id`s and re-point them on every run, so set `platform_instance` (or a distinct `rule_namespace`) per rules table.
+
+**Which dataset a result belongs to.** The results table carries no dataset. A result is attached to the dataset its rule's `dataset_path` points to in the same run, resolved case-insensitively against the tables and views the connector ingested in that run, using the connector's own URN rules (platform instance, env, metastore prefix, URN lowercasing). Consequences:
+
+- `dataset_path` must have exactly three parts (`catalog`, `schema`, `table`), without a metastore prefix; views and `hive_metastore` tables work if they are ingested.
+- Rules for tables that were not ingested in the same run (filtered out by `catalog_pattern`, `schema_pattern` or `table_pattern`, dropped, or not listed because of a transient API error) are skipped and counted in `rules_unresolved_dataset`. Their results are held, see below.
+- After a `dataset_path` change, results published later attach to the new dataset; run events published earlier keep the dataset they were published against.
+- `column_paths` should name top-level columns. Casing is matched to the ingested schema; nested (struct) fields are passed through as written and may not link to the column in DataHub.
+
+**Assertion.** Each active rule becomes a `CUSTOM` assertion of category `Databricks Data Quality` whose name is `rule_name`, native type is `rule_type` and logic is `logic`; `rule_id`, `rule_namespace`, `rule_description`, `dimension`, `rule_version` and `severity` are custom properties. `operator` is mapped to a standard operator when the parameters allow it: `NOT_NULL`; `UNIQUE` (as a uniqueness ratio of 1); `BETWEEN` with `threshold_min` and `threshold_max`; `GREATER_THAN`, `LESS_THAN` and `EQUAL_TO` with `threshold_value`. Anything else, including a standard operator without its parameters, stays native and is described by `rule_type` and `logic`. The scope is column-level when `column_paths` is set, otherwise row-level. `updated_at` becomes the assertion's last-updated time.
+
+**Incidents.** Rules whose `severity` is in `raise_incidents_for_severities` (default `HIGH`) get assertion actions that raise an incident when a result fails and resolve it when one succeeds. DataHub Cloud acts on these; DataHub Core stores them. The actions are emitted for every rule, empty when the severity does not qualify, so lowering a rule's severity removes them. Set the list empty to disable.
+
+**Run event.** Each result becomes one run event on its assertion, with `run_id` as the run id and as the event's message id, `executed_at` as the timestamp, and the dataset above as the assertee:
+
+- `SUCCESS`, `FAILURE`, `ERROR` and `INIT` map one to one. `SUCCESS` with `is_warning = true` stays a success and carries `warning: true` in the native results; `is_warning` is ignored for other statuses.
+- Severity is attached to `FAILURE` results only, from the result's `severity` or, if absent, the rule's.
+- `ERROR` puts `error_type` and `error_message` into the structured result error and, because the open-source GraphQL API does not expose it, into the native results as well.
+- `actual_value` and the row counts map to the standard result fields; the `*_snapshot` columns and any extra columns go into the native results.
+
+**Retirement.** Setting `is_active` to `false` marks the assertion as removed and no further results are published for it; results already published stay as history, and setting it back to `true` reactivates it. A rule deleted from the rules table is soft-deleted by stale-entity removal like any other ingested entity; re-adding it restores the assertion and its history.
+
+##### Reading results incrementally
+
+The connector runs this stage last, after profiling, and reads results through a checkpoint on `executed_at` when stateful ingestion is enabled:
+
+- Each run reads results from a window start up to now and publishes each `(rule_id, run_id)` once. The window starts `late_arrival_minutes` before the newest `executed_at` published so far, so results that arrive up to that late are still picked up; keys already published inside the window are remembered in the checkpoint and skipped.
+- The window start never moves backward. Raising `late_arrival_minutes` therefore only applies to results newer than the previous run's window start and never re-publishes results already sent.
+- `executed_at` should be the completion time. Lateness is measured against the newest `executed_at` already published, so a result stamped more than `late_arrival_minutes` earlier than that is not picked up. The next run detects such results with one `COUNT` per run and reports how many were missed (`results_missed_late`). This assumes the results table is append-only; deleting old results (for example, for retention) can hide the warning for that run.
+- The checkpoint is capped at the ingestion host's clock, so a producer whose clock runs ahead cannot shrink the late-arrival window for other results. Results dated more than `late_arrival_minutes` in the future are skipped with a warning and read again once the clock catches up.
+- Results whose rule row exists but was skipped as invalid or duplicated are not published and do not hold the window: they are retried while inside the late-arrival window, then dropped, counted in `results_skipped_invalid_rule`, with one warning per `rule_id`. Fix the rule row.
+- Results whose rule is missing from the rules table, or whose dataset was not ingested this run (for example, after a transient table-listing failure), hold the window start at the oldest such result for up to `initial_lookback_days`, so they are published once the rule resolves. While a rule stays unresolved, every run re-reads from that result and the remembered keys grow with it, bounded by `initial_lookback_days`. Older results stop holding the window, are counted in `results_unresolved_expired`, and are dropped once the window moves past them. Each run warns once per such `rule_id`.
+- Results for a retired rule are skipped, counted in `results_skipped_retired`, and treated as published so they do not hold the window.
+- The first run publishes the last `initial_lookback_days` of results. Lower it before enabling if subscribers should not be notified about that history.
+- A failure the connector reports itself (an unreadable table, a query error) keeps the checkpoint at the last result it published, so the next run resumes there without duplicates. A run that never reaches this stage commits the previous checkpoint unchanged. If the run is aborted by an error the connector did not report (for example, the process is killed), the checkpoint of that run is not saved and the next run re-publishes that run's results.
+- Without stateful ingestion the last `initial_lookback_days` of results are re-published on every run, which re-sends notifications to subscribers. The run reports a warning.
+
+##### Requirements
+
+- `warehouse_id` is required: both tables are read over the SQL warehouse, and their schemas are validated through `<catalog>.information_schema.columns`.
+- Both tables must be in Unity Catalog (not `hive_metastore`), fully qualified as `catalog.schema.table`. The ingestion principal needs `USE CATALOG`, `USE SCHEMA` and `SELECT` on them.
+- Re-publishing a run event re-sends notifications and re-fires incident hooks in DataHub Cloud. Stateful ingestion is what prevents that; enable it.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces

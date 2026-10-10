@@ -33,6 +33,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.external_dq.config import ExternalDQConfig
 from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -43,6 +44,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_types import (
     escape_unity_name,
     qualified_table_name,
@@ -343,6 +345,15 @@ class UnityCatalogSourceConfig(
             "Requires warehouse_id to be set since tag extraction needs to query system.information_schema.tags. "
             "If warehouse_id is not provided, this will be automatically disabled to allow ingestion to continue."
         ),
+    )
+
+    external_dq: ExternalDQConfig = pydantic.Field(
+        default_factory=ExternalDQConfig,
+        description="Ingest data-quality rules and results that an external engine "
+        "writes to two Unity Catalog tables following the DataHub external DQ table "
+        "contract, as externally-managed assertions on the tables ingested in the "
+        "same run. Runs last, after profiling. Requires warehouse_id; see "
+        "'External data quality tables' in the connector docs for the contract.",
     )
 
     _rename_table_ownership = pydantic_renamed_field(
@@ -796,6 +807,22 @@ class UnityCatalogSourceConfig(
         # Run after warehouse_id is resolved so the 30 vs 365-day cap is correct.
         self._validate_start_time_window()
 
+        return self
+
+    @model_validator(mode="after")
+    def _validate_external_dq(self) -> "UnityCatalogSourceConfig":
+        if not self.external_dq.enabled:
+            return self
+        if not self.warehouse_id:
+            raise ValueError(
+                "external_dq requires warehouse_id: the contract tables are read over SQL."
+            )
+        for table in (self.external_dq.rules_table, self.external_dq.results_table):
+            parts = split_databricks_identifier(table or "")
+            if not parts or len(parts) != 3 or not all(parts):
+                raise ValueError(
+                    f"external_dq tables must be fully qualified as catalog.schema.table, got {table!r}"
+                )
         return self
 
     @model_validator(mode="after")
