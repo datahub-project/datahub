@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import logging
 import threading
 import traceback
 import uuid
 from typing import Callable
 
+from datahub.configuration.env_vars import get_disable_executor_task_secret_scope
 from datahub.executor.dispatcher.dispatcher import Dispatcher
 from datahub.executor.execution.executor import Executor
 from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.executor.request.signal_request import SignalRequest
+from datahub.masking.secret_registry import task_secret_scope
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -31,12 +34,45 @@ def dispatch_async(
     executor: Executor, request: ExecutionRequest, close_callback: Callable[[], None]
 ) -> None:
     try:
-        res = executor.execute(request)
-        res.pretty_print_summary()
-    except Exception:
-        logger.error(
-            f"Failed dispatch for {request.exec_id}: {traceback.format_exc(limit=3)}"
+        # SECURITY: one masking scope per task, opened here because this is
+        # the only place that is exactly one task on exactly one thread.
+        #
+        # Secrets were registered into a process-global registry that is
+        # never cleared, so every task inherited every earlier task's. The
+        # visible harm is a later task's own output being redacted against an
+        # unrelated task's password -- and the marker names that task's
+        # variable, so on a shared executor one tenant's recipe leaks into
+        # another's output.
+        #
+        # Clearing between tasks is not available as a fix: dispatch runs
+        # tasks concurrently, so a clear during one disarms masking for
+        # another running beside it. Scoping needs no coordination between
+        # tasks. A task's secrets stay in its scope and never reach the
+        # global, which masks only process-level secrets -- so a raw thread
+        # started inside a task needs contextvars.copy_context() to keep the
+        # task's masking; see task_secret_scope.
+        #
+        # The summary print AND the failure traceback are inside the scope.
+        # An earlier version of this said so while leaving the `except`
+        # outside the `with`, which is worse than not scoping at all: the
+        # scope's finally resets the ContextVar before the log line runs, so
+        # the failure path -- the one that renders a traceback, the leakiest
+        # channel here -- was masked against the global registry while the
+        # comment claimed it was masked against this task's.
+        scope = (
+            contextlib.nullcontext()
+            if get_disable_executor_task_secret_scope()
+            else task_secret_scope()
         )
+        with scope:
+            try:
+                res = executor.execute(request)
+                res.pretty_print_summary()
+            except Exception:
+                logger.error(
+                    f"Failed dispatch for {request.exec_id}: "
+                    f"{traceback.format_exc(limit=3)}"
+                )
     finally:
         close_callback()
 
