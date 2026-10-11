@@ -15,6 +15,11 @@ import ch.qos.logback.core.read.ListAppender;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.FormAssociation;
+import com.linkedin.common.FormAssociationArray;
+import com.linkedin.common.FormVerificationAssociation;
+import com.linkedin.common.FormVerificationAssociationArray;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -28,6 +33,11 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptArray;
+import com.linkedin.form.FormPromptType;
+import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -41,6 +51,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -48,11 +59,13 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -60,9 +73,10 @@ import org.testng.annotations.Test;
 
 /**
  * With conditional reference writes on, removing a reference from an aspect must not overwrite an
- * edit made to that aspect after it was read. Primary storage for one referencing dataset aspect is
- * faked in memory; a pending concurrent edit lands just before the next write, as another writer's
- * would.
+ * edit made to that aspect after it was read, and an entity deleted because it only exists for the
+ * deleted one is kept when written to after its versions were captured. Primary storage for one
+ * referencing aspect (a dataset's, or a form's) is faked in memory; a pending concurrent edit lands
+ * just before the next write, as another writer's would.
  */
 public class DeleteEntityServiceConditionalReferenceTest {
   private static final TagUrn DELETED_TAG = new TagUrn("deleted");
@@ -70,6 +84,15 @@ public class DeleteEntityServiceConditionalReferenceTest {
   private static final Urn CONTAINER = UrnUtils.getUrn("urn:li:container:deleted");
   private static final Urn DATASET =
       UrnUtils.toDatasetUrn("snowflake", "conditional_reference", "PROD");
+  private static final Urn DELETED_PROPERTY = UrnUtils.getUrn("urn:li:structuredProperty:deleted");
+  private static final Urn KEPT_PROPERTY = UrnUtils.getUrn("urn:li:structuredProperty:kept");
+  private static final Urn FORM = UrnUtils.getUrn("urn:li:form:conditionalReference");
+  private static final Urn OTHER_FORM = UrnUtils.getUrn("urn:li:form:otherReference");
+  private static final Urn DELETED_FORM = UrnUtils.getUrn("urn:li:form:deleted");
+  private static final Urn OTHER_DATASET =
+      UrnUtils.toDatasetUrn("snowflake", "other_conditional_reference", "PROD");
+  private static final Urn TEST = UrnUtils.getUrn("urn:li:test:formTest");
+  private static final Urn OTHER_TEST = UrnUtils.getUrn("urn:li:test:otherFormTest");
   private static final long VERSION_READ = 3L;
   private static final int WRITE_LIMIT = 3;
 
@@ -81,22 +104,32 @@ public class DeleteEntityServiceConditionalReferenceTest {
   private EntitySearchService searchService;
   private ValidationException versionMismatch;
 
+  private Urn storedUrn;
   private String storedAspectName;
   private RecordTemplate storedAspect;
   private long storedVersion;
   private boolean versionInSystemMetadata;
   private int pendingConcurrentEdits;
+  private Runnable concurrentEdit;
   private List<MetadataChangeProposal> writes;
+
+  /** Entities outside the faked one: read as given, and every write to them commits. */
+  private Map<Urn, EntityResponse> otherEntities;
+
+  private List<MetadataChangeProposal> otherWrites;
 
   @BeforeMethod
   public void setup() throws Exception {
     entityService = mock(EntityService.class);
     graphService = mock(GraphService.class);
     searchService = mock(EntitySearchService.class);
+    storedUrn = DATASET;
     storedVersion = VERSION_READ;
     versionInSystemMetadata = true;
     pendingConcurrentEdits = 0;
     writes = new ArrayList<>();
+    otherEntities = new HashMap<>();
+    otherWrites = new ArrayList<>();
 
     final BatchItem item = mock(BatchItem.class);
     when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
@@ -121,8 +154,12 @@ public class DeleteEntityServiceConditionalReferenceTest {
         .thenReturn(emptyScrollResult);
 
     when(entityService.getEntityV2(
-            any(OperationContext.class), eq(DATASET.getEntityType()), eq(DATASET), anySet()))
-        .thenAnswer(invocation -> storedResponse());
+            any(OperationContext.class), anyString(), any(Urn.class), anySet()))
+        .thenAnswer(
+            invocation -> {
+              final Urn urn = invocation.getArgument(2);
+              return urn.equals(storedUrn) ? storedResponse() : otherEntities.get(urn);
+            });
     when(entityService.ingestProposal(
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
@@ -284,6 +321,323 @@ public class DeleteEntityServiceConditionalReferenceTest {
             eq(true));
   }
 
+  @Test
+  public void aConcurrentPromptEditIsKeptAndTheDeletedPromptIsStillRemoved() {
+    storeFormInfo(DELETED_PROPERTY, KEPT_PROPERTY);
+    searchFinds(List.of(Constants.FORM_ENTITY_NAME), FORM);
+    pendingConcurrentEdits = 1;
+
+    deleteWithoutGraphReferences(DELETED_PROPERTY, true, WRITE_LIMIT);
+
+    assertEquals(writes.size(), 2);
+    assertEquals(ifVersionMatch(writes.get(0)), String.valueOf(VERSION_READ));
+    assertEquals(ifVersionMatch(writes.get(1)), String.valueOf(VERSION_READ + 1));
+    assertEquals(
+        storedPromptIds(), List.of(promptId(KEPT_PROPERTY), concurrentPromptId(VERSION_READ)));
+    verifyNoAsyncWrites();
+  }
+
+  /** One form keeps changing past the write limit: reported, and the next form is still cleaned. */
+  @Test
+  public void aFormThatKeepsChangingIsReportedAndTheNextFormIsStillCleaned() {
+    storeFormInfo(DELETED_PROPERTY, KEPT_PROPERTY);
+    otherEntities.put(
+        OTHER_FORM,
+        versionedResponse(
+            OTHER_FORM,
+            Constants.FORM_INFO_ASPECT_NAME,
+            formInfo(DELETED_PROPERTY, KEPT_PROPERTY),
+            VERSION_READ));
+    searchFinds(List.of(Constants.FORM_ENTITY_NAME), FORM, OTHER_FORM);
+    pendingConcurrentEdits = Integer.MAX_VALUE;
+
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteWithoutGraphReferences(DELETED_PROPERTY, true, WRITE_LIMIT));
+
+    assertEquals(writes.size(), WRITE_LIMIT);
+    assertTrue(storedPromptIds().contains(promptId(DELETED_PROPERTY)));
+    assertTrue(reportsFailedUpdate(logs));
+    assertEquals(otherWrites.size(), 1);
+    assertEquals(ifVersionMatch(otherWrites.get(0)), String.valueOf(VERSION_READ));
+    assertEquals(promptIds(writtenFormInfo(otherWrites.get(0))), List.of(promptId(KEPT_PROPERTY)));
+  }
+
+  @Test
+  public void withTheFlagOffAFormIsRewrittenAsynchronouslyWithoutAVersionCheck() {
+    storeFormInfo(DELETED_PROPERTY, KEPT_PROPERTY);
+    searchFinds(List.of(Constants.FORM_ENTITY_NAME), FORM);
+    when(entityService.getLatestAspect(
+            any(OperationContext.class), eq(FORM), eq(Constants.FORM_INFO_ASPECT_NAME)))
+        .thenReturn(storedAspect);
+
+    deleteWithoutGraphReferences(DELETED_PROPERTY, false, WRITE_LIMIT);
+
+    assertTrue(writes.isEmpty());
+    final ArgumentCaptor<MetadataChangeProposal> asyncWrite =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityService)
+        .ingestProposal(
+            any(OperationContext.class), asyncWrite.capture(), any(AuditStamp.class), eq(true));
+    assertFalse(
+        asyncWrite.getValue().hasHeaders()
+            && asyncWrite.getValue().getHeaders().containsKey(HTTP_HEADER_IF_VERSION_MATCH));
+    assertEquals(
+        promptIds(writtenFormInfo(asyncWrite.getValue())), List.of(promptId(KEPT_PROPERTY)));
+  }
+
+  @Test
+  public void aConcurrentFormAssignmentIsKeptAndTheDeletedFormIsStillRemoved() {
+    storeForms(OTHER_FORM);
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), DATASET);
+    pendingConcurrentEdits = 1;
+
+    deleteWithoutGraphReferences(DELETED_FORM, true, WRITE_LIMIT);
+
+    assertEquals(writes.size(), 2);
+    assertEquals(ifVersionMatch(writes.get(0)), String.valueOf(VERSION_READ));
+    assertEquals(ifVersionMatch(writes.get(1)), String.valueOf(VERSION_READ + 1));
+    final Forms stored = new Forms(storedAspect.data());
+    assertEquals(incompleteFormUrns(stored), List.of(OTHER_FORM, concurrentFormUrn(VERSION_READ)));
+    assertTrue(stored.getCompletedForms().isEmpty());
+    assertTrue(stored.getVerifications().isEmpty());
+    verifyNoAsyncWrites();
+  }
+
+  /** One asset keeps changing past the write limit: reported; the next asset is still cleaned. */
+  @Test
+  public void anAssetWhoseFormsKeepChangingIsReportedAndTheNextAssetIsStillCleaned() {
+    storeForms(OTHER_FORM);
+    otherEntities.put(
+        OTHER_DATASET,
+        versionedResponse(
+            OTHER_DATASET,
+            Constants.FORMS_ASPECT_NAME,
+            forms(List.of(DELETED_FORM, OTHER_FORM), List.of(DELETED_FORM), List.of(DELETED_FORM)),
+            VERSION_READ));
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), DATASET, OTHER_DATASET);
+    pendingConcurrentEdits = Integer.MAX_VALUE;
+
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteWithoutGraphReferences(DELETED_FORM, true, WRITE_LIMIT));
+
+    assertEquals(writes.size(), WRITE_LIMIT);
+    assertTrue(incompleteFormUrns(new Forms(storedAspect.data())).contains(DELETED_FORM));
+    assertTrue(reportsFailedUpdate(logs));
+    assertEquals(otherWrites.size(), 1);
+    assertEquals(ifVersionMatch(otherWrites.get(0)), String.valueOf(VERSION_READ));
+    final Forms otherWritten = writtenForms(otherWrites.get(0));
+    assertEquals(incompleteFormUrns(otherWritten), List.of(OTHER_FORM));
+    assertTrue(otherWritten.getCompletedForms().isEmpty());
+    assertTrue(otherWritten.getVerifications().isEmpty());
+  }
+
+  @Test
+  public void withTheFlagOffFormsAreRewrittenAsynchronouslyWithoutAVersionCheck() {
+    storeForms(OTHER_FORM);
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), DATASET);
+    when(entityService.getLatestAspect(
+            any(OperationContext.class), eq(DATASET), eq(Constants.FORMS_ASPECT_NAME)))
+        .thenReturn(storedAspect);
+
+    deleteWithoutGraphReferences(DELETED_FORM, false, WRITE_LIMIT);
+
+    assertTrue(writes.isEmpty());
+    final ArgumentCaptor<MetadataChangeProposal> asyncWrite =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityService)
+        .ingestProposal(
+            any(OperationContext.class), asyncWrite.capture(), any(AuditStamp.class), eq(true));
+    assertFalse(
+        asyncWrite.getValue().hasHeaders()
+            && asyncWrite.getValue().getHeaders().containsKey(HTTP_HEADER_IF_VERSION_MATCH));
+    assertEquals(incompleteFormUrns(writtenForms(asyncWrite.getValue())), List.of(OTHER_FORM));
+  }
+
+  @Test
+  public void aTestOfTheDeletedFormIsDeletedBoundedByTheVersionsCaptured() {
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), TEST);
+    final DeleteCeiling ceiling = captureCeiling(TEST);
+    deletesTo(TEST, ceiling, true);
+
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteWithoutGraphReferences(DELETED_FORM, true, WRITE_LIMIT));
+
+    verify(entityService).deleteUrn(any(OperationContext.class), eq(TEST), eq(ceiling));
+    verify(entityService, never()).deleteUrn(any(OperationContext.class), eq(TEST));
+    // A test has no forms aspect: that is not a failed cleanup.
+    assertFalse(reportsSearchReferenceError(logs));
+  }
+
+  /** A write after the capture keeps the test (logged); the cleanup goes on to the next one. */
+  @Test
+  public void aTestWrittenToAfterTheCaptureIsKeptAndTheNextOneIsStillDeleted() {
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), TEST, OTHER_TEST);
+    final DeleteCeiling keptCeiling = captureCeiling(TEST);
+    deletesTo(TEST, keptCeiling, false);
+    final DeleteCeiling otherCeiling = captureCeiling(OTHER_TEST);
+    deletesTo(OTHER_TEST, otherCeiling, true);
+
+    final List<ILoggingEvent> logs =
+        logsOf(() -> deleteWithoutGraphReferences(DELETED_FORM, true, WRITE_LIMIT));
+
+    assertTrue(logsKept(logs, TEST));
+    assertFalse(logsKept(logs, OTHER_TEST));
+    assertFalse(reportsSearchReferenceError(logs));
+    verify(entityService).deleteUrn(any(OperationContext.class), eq(OTHER_TEST), eq(otherCeiling));
+  }
+
+  @Test
+  public void withTheFlagOffATestOfTheDeletedFormIsDeletedUnbounded() {
+    searchFinds(DeleteEntityUtils.getEntityNamesForFormDeletion(), TEST);
+
+    deleteWithoutGraphReferences(DELETED_FORM, false, WRITE_LIMIT);
+
+    verify(entityService).deleteUrn(any(OperationContext.class), eq(TEST));
+    verify(entityService, never()).captureDeleteCeiling(any(OperationContext.class), any());
+  }
+
+  private void searchFinds(final List<String> entityNames, final Urn... found) {
+    final SearchEntityArray entities = new SearchEntityArray();
+    for (Urn urn : found) {
+      entities.add(new SearchEntity().setEntity(urn));
+    }
+    final ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(entities);
+    scrollResult.setNumEntities(found.length);
+    when(searchService.structuredScroll(
+            any(OperationContext.class),
+            eq(entityNames),
+            anyString(),
+            any(Filter.class),
+            isNull(),
+            nullable(String.class),
+            anyString(),
+            anyInt()))
+        .thenReturn(scrollResult);
+  }
+
+  private void deleteWithoutGraphReferences(
+      final Urn deleted, final boolean conditional, final int writeLimit) {
+    when(graphService.scrollRelatedEntities(
+            any(OperationContext.class),
+            nullable(Set.class),
+            eq(newFilter("urn", deleted.toString())),
+            nullable(Set.class),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of()),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            eq("5m"),
+            eq(1000),
+            nullable(Long.class),
+            nullable(Long.class)))
+        .thenReturn(
+            RelatedEntitiesScrollResult.builder()
+                .numResults(0)
+                .pageSize(0)
+                .scrollId(null)
+                .entities(ImmutableList.of())
+                .build());
+    new DeleteEntityService(
+            entityService, graphService, searchService, null, null, conditional, writeLimit)
+        .deleteReferencesTo(opContext, deleted, false);
+  }
+
+  private DeleteCeiling captureCeiling(final Urn urn) {
+    final DeleteCeiling ceiling = new DeleteCeiling(Map.of(urn.getEntityType() + "Key", 1L), 1L);
+    when(entityService.captureDeleteCeiling(any(OperationContext.class), eq(urn)))
+        .thenReturn(Optional.of(ceiling));
+    return ceiling;
+  }
+
+  /** {@code keyDeleted} false: the entity was written to after the capture and is kept. */
+  private void deletesTo(final Urn urn, final DeleteCeiling ceiling, final boolean keyDeleted) {
+    final RollbackResult result =
+        new RollbackResult(
+            urn,
+            urn.getEntityType(),
+            urn.getEntityType() + "Key",
+            null,
+            null,
+            null,
+            null,
+            ChangeType.DELETE,
+            keyDeleted,
+            0);
+    when(entityService.deleteUrn(any(OperationContext.class), eq(urn), eq(ceiling)))
+        .thenReturn(new RollbackRunResult(List.of(), keyDeleted ? 1 : 0, List.of(result)));
+  }
+
+  private static boolean logsKept(final List<ILoggingEvent> logs, final Urn urn) {
+    return logs.stream()
+        .anyMatch(
+            event ->
+                event.getLevel() == Level.WARN
+                    && event.getFormattedMessage().contains("kept " + urn));
+  }
+
+  private void verifyNoAsyncWrites() {
+    verify(entityService, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            eq(true));
+  }
+
+  private static FormInfo formInfo(final Urn... properties) {
+    final FormPromptArray prompts = new FormPromptArray();
+    for (Urn property : properties) {
+      prompts.add(prompt(promptId(property), property));
+    }
+    return new FormInfo().setName("form").setPrompts(prompts);
+  }
+
+  private static FormPrompt prompt(final String id, final Urn property) {
+    return new FormPrompt()
+        .setId(id)
+        .setTitle(id)
+        .setType(FormPromptType.STRUCTURED_PROPERTY)
+        .setStructuredPropertyParams(new StructuredPropertyParams().setUrn(property));
+  }
+
+  private static String promptId(final Urn property) {
+    return "prompt-" + property.getId();
+  }
+
+  private static String concurrentPromptId(final long version) {
+    return "concurrent" + version;
+  }
+
+  private List<String> storedPromptIds() {
+    return promptIds(new FormInfo(storedAspect.data()));
+  }
+
+  private static List<String> promptIds(final FormInfo formInfo) {
+    return formInfo.getPrompts().stream().map(FormPrompt::getId).collect(Collectors.toList());
+  }
+
+  private static FormInfo writtenFormInfo(final MetadataChangeProposal proposal) {
+    return GenericRecordUtils.deserializeAspect(
+        proposal.getAspect().getValue(), proposal.getAspect().getContentType(), FormInfo.class);
+  }
+
+  private static EntityResponse versionedResponse(
+      final Urn urn, final String aspectName, final RecordTemplate aspect, final long version) {
+    final EnvelopedAspect envelopedAspect =
+        new EnvelopedAspect()
+            .setName(aspectName)
+            .setValue(new Aspect(aspect.data()))
+            .setVersion(0L)
+            .setSystemMetadata(new SystemMetadata().setVersion(String.valueOf(version)));
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(urn);
+    response.setEntityName(urn.getEntityType());
+    response.setAspects(new EnvelopedAspectMap(Map.of(aspectName, envelopedAspect)));
+    return response;
+  }
+
   private void deleteReferencesTo(
       final Urn deleted, final String relationshipType, final boolean conditional) {
     deleteReferencesTo(deleted, relationshipType, conditional, WRITE_LIMIT);
@@ -340,6 +694,14 @@ public class DeleteEntityServiceConditionalReferenceTest {
     return logs.list;
   }
 
+  private static boolean reportsSearchReferenceError(final List<ILoggingEvent> logs) {
+    return logs.stream()
+        .anyMatch(
+            event ->
+                event.getLevel() == Level.ERROR
+                    && event.getFormattedMessage().contains("Error trying to update aspect"));
+  }
+
   private static boolean reportsFailedUpdate(final List<ILoggingEvent> logs) {
     return logs.stream()
         .anyMatch(
@@ -355,6 +717,85 @@ public class DeleteEntityServiceConditionalReferenceTest {
       associations.add(new TagAssociation().setTag(tag));
     }
     storedAspect = new GlobalTags().setTags(associations);
+    concurrentEdit =
+        () -> {
+          final List<TagUrn> edited = new ArrayList<>(storedTags());
+          edited.add(concurrentTag(storedVersion));
+          storeTags(edited.toArray(new TagUrn[0]));
+        };
+  }
+
+  /** A form whose formInfo has one prompt per property; a concurrent edit adds another prompt. */
+  private void storeFormInfo(final Urn... properties) {
+    storedUrn = FORM;
+    storedAspectName = Constants.FORM_INFO_ASPECT_NAME;
+    storedAspect = formInfo(properties);
+    concurrentEdit =
+        () -> {
+          final FormInfo edited = new FormInfo(storedAspect.data());
+          final List<FormPrompt> prompts = new ArrayList<>(edited.getPrompts());
+          prompts.add(prompt(concurrentPromptId(storedVersion), KEPT_PROPERTY));
+          storedAspect = new FormInfo().setName("form").setPrompts(new FormPromptArray(prompts));
+        };
+  }
+
+  /**
+   * An asset assigned the given forms as incomplete, with the deleted form also completed and
+   * verified; a concurrent edit assigns another form.
+   */
+  private void storeForms(final Urn... incomplete) {
+    storedUrn = DATASET;
+    storedAspectName = Constants.FORMS_ASPECT_NAME;
+    final List<Urn> assigned = new ArrayList<>(List.of(DELETED_FORM));
+    assigned.addAll(List.of(incomplete));
+    storedAspect = forms(assigned, List.of(DELETED_FORM), List.of(DELETED_FORM));
+    concurrentEdit =
+        () -> {
+          final Forms edited = new Forms(storedAspect.data());
+          final List<Urn> urns = new ArrayList<>(incompleteFormUrns(edited));
+          urns.add(concurrentFormUrn(storedVersion));
+          storedAspect =
+              forms(
+                  urns,
+                  edited.getCompletedForms().stream()
+                      .map(FormAssociation::getUrn)
+                      .collect(Collectors.toList()),
+                  edited.getVerifications().stream()
+                      .map(FormVerificationAssociation::getForm)
+                      .collect(Collectors.toList()));
+        };
+  }
+
+  private static Forms forms(
+      final List<Urn> incomplete, final List<Urn> completed, final List<Urn> verified) {
+    return new Forms()
+        .setIncompleteForms(formAssociations(incomplete))
+        .setCompletedForms(formAssociations(completed))
+        .setVerifications(
+            new FormVerificationAssociationArray(
+                verified.stream()
+                    .map(form -> new FormVerificationAssociation().setForm(form))
+                    .collect(Collectors.toList())));
+  }
+
+  private static FormAssociationArray formAssociations(final List<Urn> urns) {
+    return new FormAssociationArray(
+        urns.stream().map(urn -> new FormAssociation().setUrn(urn)).collect(Collectors.toList()));
+  }
+
+  private static Urn concurrentFormUrn(final long version) {
+    return UrnUtils.getUrn("urn:li:form:concurrent" + version);
+  }
+
+  private static List<Urn> incompleteFormUrns(final Forms forms) {
+    return forms.getIncompleteForms().stream()
+        .map(FormAssociation::getUrn)
+        .collect(Collectors.toList());
+  }
+
+  private static Forms writtenForms(final MetadataChangeProposal proposal) {
+    return GenericRecordUtils.deserializeAspect(
+        proposal.getAspect().getValue(), proposal.getAspect().getContentType(), Forms.class);
   }
 
   private void storeContainer() {
@@ -405,20 +846,22 @@ public class DeleteEntityServiceConditionalReferenceTest {
                     ? new SystemMetadata().setVersion(String.valueOf(storedVersion))
                     : new SystemMetadata());
     final EntityResponse response = new EntityResponse();
-    response.setUrn(DATASET);
-    response.setEntityName(DATASET.getEntityType());
+    response.setUrn(storedUrn);
+    response.setEntityName(storedUrn.getEntityType());
     response.setAspects(new EnvelopedAspectMap(Map.of(storedAspectName, envelopedAspect)));
     return response;
   }
 
   /** Primary storage with the version precondition: a concurrent edit may land first. */
   private IngestResult ingest(final MetadataChangeProposal proposal) {
+    if (!proposal.getEntityUrn().equals(storedUrn)) {
+      otherWrites.add(proposal);
+      return IngestResult.builder().urn(proposal.getEntityUrn()).sqlCommitted(true).build();
+    }
     writes.add(proposal);
     if (pendingConcurrentEdits > 0) {
       pendingConcurrentEdits--;
-      final List<TagUrn> tags = new ArrayList<>(storedTags());
-      tags.add(concurrentTag(storedVersion));
-      storeTags(tags.toArray(new TagUrn[0]));
+      concurrentEdit.run();
       storedVersion++;
     }
     if (proposal.hasHeaders() && !String.valueOf(storedVersion).equals(ifVersionMatch(proposal))) {
@@ -428,8 +871,8 @@ public class DeleteEntityServiceConditionalReferenceTest {
         GenericRecordUtils.deserializeAspect(
             proposal.getAspect().getValue(),
             proposal.getAspect().getContentType(),
-            GlobalTags.class);
+            storedAspect.getClass());
     storedVersion++;
-    return IngestResult.builder().urn(DATASET).sqlCommitted(true).build();
+    return IngestResult.builder().urn(storedUrn).sqlCommitted(true).build();
   }
 }

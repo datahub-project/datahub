@@ -18,7 +18,9 @@ import com.linkedin.common.OriginType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.GroupMembership;
@@ -28,6 +30,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -42,6 +45,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.ActorGroupMembershipService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -84,25 +88,60 @@ public class GroupService implements ActorGroupMembershipService {
   private static final String MEMBERSHIP_CLEANUP_FAILED_METRIC =
       "auth.group.native_group_membership_cleanup_failed";
 
+  /** Used when conditional membership cleanup is off, where the limit does not apply. */
+  private static final int DEFAULT_CONDITIONAL_WRITE_LIMIT = 3;
+
   private final SystemEntityClient _entityClient;
   private final EntityService<?> _entityService;
   private final GraphClient _graphClient;
   private final GraphService _graphService;
+  private final boolean _conditionalMembershipCleanup;
+  private final int _conditionalWriteLimit;
 
   public GroupService(
       @Nonnull SystemEntityClient entityClient,
       @Nonnull EntityService<?> entityService,
       @Nonnull GraphClient graphClient,
       @Nonnull GraphService graphService) {
+    this(
+        entityClient,
+        entityService,
+        graphClient,
+        graphService,
+        false,
+        DEFAULT_CONDITIONAL_WRITE_LIMIT);
+  }
+
+  /**
+   * @param conditionalMembershipCleanup when true, {@link #removeStaleNativeGroupMembership} writes
+   *     each member's {@code nativeGroupMembership} conditioned on the version read. If the aspect
+   *     moved meanwhile, it is read again and the group removed from the current value, up to
+   *     {@code conditionalWriteLimit} writes, so a group added meanwhile is kept
+   * @param conditionalWriteLimit writes of one member's cleanup, the first included, before its
+   *     failure is counted; at least 1
+   */
+  public GroupService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull EntityService<?> entityService,
+      @Nonnull GraphClient graphClient,
+      @Nonnull GraphService graphService,
+      final boolean conditionalMembershipCleanup,
+      final int conditionalWriteLimit) {
     Objects.requireNonNull(entityClient, "entityClient must not be null!");
     Objects.requireNonNull(entityService, "entityService must not be null!");
     Objects.requireNonNull(graphClient, "graphClient must not be null!");
     Objects.requireNonNull(graphService, "graphService must not be null!");
+    if (conditionalWriteLimit < 1) {
+      throw new IllegalArgumentException(
+          "conditionalWriteLimit must be at least 1, got " + conditionalWriteLimit);
+    }
 
     _entityClient = entityClient;
     _entityService = entityService;
     _graphClient = graphClient;
     _graphService = graphService;
+    _conditionalMembershipCleanup = conditionalMembershipCleanup;
+    _conditionalWriteLimit = conditionalWriteLimit;
   }
 
   @Override
@@ -458,6 +497,12 @@ public class GroupService implements ActorGroupMembershipService {
    * nobody re-added, and because authorization reads this aspect rather than the graph, each of
    * them keeps the recreated group's privileges while appearing in no member list at all.
    *
+   * <p>With conditional membership cleanup on, each member is written on its own with {@code
+   * If-Version-Match}: an aspect changed since it was read, such as by another group being added,
+   * is read again and the group removed from what is there now, so that change is kept. A
+   * byte-identical re-add does not change the aspect, so the race above is not caught this way
+   * either.
+   *
    * <p>Best-effort by contract, like {@link #removeGroupMembers}: the caller has already reported
    * the delete itself as successful, so no failure here is surfaced. Unlike that method, the
    * captured list is partitioned into fixed-size batches and one failing batch does not abandon the
@@ -476,11 +521,19 @@ public class GroupService implements ActorGroupMembershipService {
     }
   }
 
-  /** One aspect read for the whole batch, then one write covering everyone still referencing it. */
+  /**
+   * One aspect read for the whole batch. Unconditionally, that is followed by one write covering
+   * everyone still referencing the group. With conditional cleanup on, it is instead one
+   * conditional write per member (see {@link #removeStaleGroupReferencesIfUnchanged}).
+   */
   private void removeStaleGroupReferences(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> batch) {
+    if (_conditionalMembershipCleanup) {
+      removeStaleGroupReferencesIfUnchanged(opContext, groupUrn, batch);
+      return;
+    }
     final Map<Urn, MetadataChangeProposal> proposals =
         buildStaleReferenceProposals(opContext, groupUrn, batch);
     if (proposals == null || proposals.isEmpty()) {
@@ -512,19 +565,9 @@ public class GroupService implements ActorGroupMembershipService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> batch) {
-    final Map<Urn, EntityResponse> responses;
-    try {
-      responses =
-          batchGetUserAspectsNoCache(
-              opContext, new LinkedHashSet<>(batch), Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
-    } catch (Exception e) {
-      log.error(
-          "Failed to read nativeGroupMembership for {} member(s) of deleted group {}; leaving this"
-              + " batch untouched.",
-          batch.size(),
-          groupUrn,
-          e);
-      incrementCleanupMetric(opContext, MEMBERSHIP_CLEANUP_FAILED_METRIC, batch.size());
+    final Map<Urn, EntityResponse> responses =
+        readNativeGroupMemberships(opContext, groupUrn, batch);
+    if (responses == null) {
       return null;
     }
 
@@ -541,6 +584,156 @@ public class GroupService implements ActorGroupMembershipService {
               userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
     }
     return proposals;
+  }
+
+  /**
+   * @return the batch's aspects, or null if they could not be read (logged and counted)
+   */
+  @Nullable
+  private Map<Urn, EntityResponse> readNativeGroupMemberships(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final List<Urn> batch) {
+    try {
+      return batchGetUserAspectsNoCache(
+          opContext, new LinkedHashSet<>(batch), Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+    } catch (Exception e) {
+      log.error(
+          "Failed to read nativeGroupMembership for {} member(s) of deleted group {}; leaving this"
+              + " batch untouched.",
+          batch.size(),
+          groupUrn,
+          e);
+      incrementCleanupMetric(opContext, MEMBERSHIP_CLEANUP_FAILED_METRIC, batch.size());
+      return null;
+    }
+  }
+
+  /**
+   * One aspect read for the whole batch, then one conditional write per member still referencing
+   * the group: each member's aspect changes on its own, so each write carries its own version.
+   */
+  private void removeStaleGroupReferencesIfUnchanged(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final List<Urn> batch) {
+    final Map<Urn, EntityResponse> responses =
+        readNativeGroupMemberships(opContext, groupUrn, batch);
+    if (responses == null) {
+      return;
+    }
+
+    int failed = 0;
+    for (Urn userUrn : batch) {
+      boolean cleared;
+      try {
+        cleared =
+            removeGroupIfUnchanged(
+                opContext, groupUrn, userUrn, nativeGroupMembershipAspect(responses.get(userUrn)));
+      } catch (Exception e) {
+        log.error(
+            "Failed to clear the reference to deleted group {} from {}; leaving it in place.",
+            groupUrn,
+            userUrn,
+            e);
+        cleared = false;
+      }
+      if (!cleared) {
+        failed++;
+      }
+    }
+    incrementCleanupMetric(opContext, MEMBERSHIP_CLEANUP_FAILED_METRIC, failed);
+  }
+
+  /**
+   * Removes {@code groupUrn} from one member's {@code nativeGroupMembership} only if the aspect is
+   * still at the version read. When it has moved on, it is read again and the group removed from
+   * what is there now, up to the configured number of writes in all.
+   *
+   * @return false when the reference was left in place (logged)
+   */
+  private boolean removeGroupIfUnchanged(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final Urn userUrn,
+      @Nullable final EnvelopedAspect readAspect)
+      throws Exception {
+    EnvelopedAspect current = readAspect;
+    for (int writes = 1; ; writes++) {
+      final NativeGroupMembership remaining = withoutGroup(current, groupUrn);
+      if (remaining == null) {
+        return true;
+      }
+      final long version = ConditionalWriteValidator.resolveAspectVersion(current);
+      final MetadataChangeProposal proposal =
+          buildMetadataChangeProposal(userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, remaining);
+      proposal.setHeaders(
+          new StringMap(
+              Map.of(
+                  ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH,
+                  String.valueOf(version))));
+      Exception rejection = null;
+      try {
+        if (_entityClient.ingestProposal(opContext, proposal, false) != null) {
+          return true;
+        }
+      } catch (Exception e) {
+        // A version mismatch is thrown inside a request and dropped outside one; the read below
+        // tells it from any other failure.
+        rejection = e;
+      }
+
+      final EnvelopedAspect latest =
+          nativeGroupMembershipAspect(
+              batchGetUserAspectsNoCache(
+                      opContext.withReadPreference(ReadPreference.PRIMARY),
+                      Set.of(userUrn),
+                      Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
+                  .get(userUrn));
+      if (withoutGroup(latest, groupUrn) == null) {
+        return true;
+      }
+      if (ConditionalWriteValidator.resolveAspectVersion(latest) == version
+          || writes >= _conditionalWriteLimit) {
+        log.error(
+            "Failed to clear the reference to deleted group {} from {} after {} write(s); leaving"
+                + " it in place.",
+            groupUrn,
+            userUrn,
+            writes,
+            rejection);
+        return false;
+      }
+      current = latest;
+    }
+  }
+
+  /**
+   * @return the membership without {@code groupUrn}, or null when the aspect is absent or does not
+   *     name the group
+   */
+  @Nullable
+  private static NativeGroupMembership withoutGroup(
+      @Nullable final EnvelopedAspect aspect, @Nonnull final Urn groupUrn) {
+    if (aspect == null) {
+      return null;
+    }
+    final List<Urn> groups = new NativeGroupMembership(aspect.getValue().data()).getNativeGroups();
+    if (!groups.contains(groupUrn)) {
+      return null;
+    }
+    final List<Urn> remaining =
+        groups.stream().filter(group -> !group.equals(groupUrn)).collect(Collectors.toList());
+    return new NativeGroupMembership().setNativeGroups(new UrnArray(remaining));
+  }
+
+  @Nullable
+  private static EnvelopedAspect nativeGroupMembershipAspect(
+      @Nullable final EntityResponse entityResponse) {
+    if (entityResponse == null || !entityResponse.hasAspects()) {
+      return null;
+    }
+    return entityResponse.getAspects().get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
   }
 
   private static void incrementCleanupMetric(

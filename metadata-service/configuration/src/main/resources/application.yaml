@@ -423,7 +423,11 @@ datahub:
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
-  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Writes of one reference removal during a hard delete, the first included, before a failure caused by concurrent edits is reported (reliableHardDelete only); at least 1
+  # Writes of one reference removal during a hard delete (graph phase, search-phase formInfo/forms
+  # rewrites) or of one member in the native group membership sweep, the first included, before a
+  # failure caused by concurrent edits is reported (graph/search phase) or counted (group sweep).
+  # Applies only when reliableHardDelete is on; at least 1.
+  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Write attempts per reference removal; at least 1
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
