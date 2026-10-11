@@ -155,7 +155,9 @@ def test_clean_markdown_strips_data_uri_images() -> None:
     aspects = run(make_source(build_fixture_service()))
     text = doc_info(aspects, DOC_IMAGES).contents.text
     assert "base64" not in text
-    assert "![Blue diagram]()" in text
+    assert "*[Image: Blue diagram]*" in text
+    assert "*[Image]*" in text
+    assert "![" not in text
     assert "\n\n\n" not in text
     assert text.endswith("End.")
 
@@ -166,7 +168,7 @@ def test_clean_markdown_inline_and_reference_forms() -> None:
         "[img]: <data:image/png;base64,QQ==>\n[link]: https://example.com/z.png\n"
     )
     assert clean_markdown(raw) == (
-        "a ![x]() b ![y]() ![z][link]\n\n[link]: https://example.com/z.png"
+        "a *[Image: x]* b *[Image: y]* ![z][link]\n\n[link]: https://example.com/z.png"
     )
 
 

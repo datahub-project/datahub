@@ -38,6 +38,8 @@ from datahub.ingestion.source.google_drive.constants import (
     FAILURE_NOT_FOUND,
     FAILURE_TOO_LARGE,
     FOLDER_SUBTYPE,
+    IMAGE_PLACEHOLDER,
+    IMAGE_PLACEHOLDER_WITH_ALT,
     INLINE_DATA_IMAGE_RE,
     MIME_FOLDER,
     PLATFORM,
@@ -111,18 +113,25 @@ logger = logging.getLogger(__name__)
 OwnerTuple = Tuple[CorpUserUrn, str]
 
 
+def image_placeholder(alt: str) -> str:
+    alt = alt.strip()
+    return IMAGE_PLACEHOLDER_WITH_ALT.format(alt=alt) if alt else IMAGE_PLACEHOLDER
+
+
 def clean_markdown(text: str) -> str:
     """Normalise exported markdown before it is stored and embedded.
 
     Any change here must bump EXTRACTION_ALGO_VERSION so already-ingested documents
     are re-exported with the new cleaning.
     """
-    text = INLINE_DATA_IMAGE_RE.sub(r"![\1]()", text)
+    text = INLINE_DATA_IMAGE_RE.sub(lambda m: image_placeholder(m.group(1)), text)
     data_refs = {m.group(1) for m in REFERENCE_DATA_IMAGE_RE.finditer(text)}
     text = REFERENCE_DATA_IMAGE_RE.sub("", text)
     if data_refs:
         text = REFERENCE_IMAGE_USE_RE.sub(
-            lambda m: f"![{m.group(1)}]()" if m.group(2) in data_refs else m.group(0),
+            lambda m: (
+                image_placeholder(m.group(1)) if m.group(2) in data_refs else m.group(0)
+            ),
             text,
         )
     text = text.replace("\r\n", "\n")

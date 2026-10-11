@@ -1107,7 +1107,7 @@
     name: google_drive
     displayName: Google Drive
     type: OTHERS
-    logoUrl: "assets/platforms/googledrivelogo.svg"
+    logoUrl: "assets/platforms/googledocslogo.svg"
 - entityUrn: urn:li:dataPlatform:streamlit
   entityType: dataPlatform
   aspectName: dataPlatformInfo

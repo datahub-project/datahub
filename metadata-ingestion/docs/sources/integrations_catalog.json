@@ -1058,7 +1058,7 @@
     "platform_type": "Collaboration",
     "connection_type": "Pull",
     "description": "Google Drive is Google Workspace's file storage and collaboration service. Ingest Google Docs from folders and shared drives as DataHub documents.",
-    "img_path": "img/logos/platforms/google-drive.svg"
+    "img_path": "img/logos/platforms/google-docs.svg"
   },
   "notion": {
     "platform_type": "Collaboration",

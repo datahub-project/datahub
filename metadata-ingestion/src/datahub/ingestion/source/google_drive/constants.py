@@ -15,7 +15,7 @@ FOLDER_SUBTYPE = "Folder"
 
 # Bump when export cleaning or text normalisation changes, to force a re-export of
 # every document on the next run even if its Drive version is unchanged.
-EXTRACTION_ALGO_VERSION = "1"
+EXTRACTION_ALGO_VERSION = "2"
 
 API_MAX_RETRIES = 5
 LIST_PAGE_SIZE = 1000
@@ -75,6 +75,10 @@ REFERENCE_DATA_IMAGE_RE = re.compile(
     r"^\[([^\]]+)\]:\s*<?data:[^\s>]*>?[ \t]*$", re.MULTILINE
 )
 REFERENCE_IMAGE_USE_RE = re.compile(r"!\[([^\]]*)\]\[([^\]]+)\]")
+# Stripped images become plain text rather than `![alt]()`: an image with an empty
+# source renders as a broken-image icon in the DataHub UI.
+IMAGE_PLACEHOLDER = "*[Image]*"
+IMAGE_PLACEHOLDER_WITH_ALT = "*[Image: {alt}]*"
 EXCESS_BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 EXPORT_TOO_LARGE_REASON = "exportSizeLimitExceeded"
