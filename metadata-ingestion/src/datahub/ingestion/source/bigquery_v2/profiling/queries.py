@@ -82,11 +82,11 @@ WHERE {where}
 LIMIT 1"""
 
 # Sampling fallbacks: newest row by a date column, or a table sample when there is none.
-# {select_extra} explicitly projects any ingestion-time pseudo partition columns
-# (_PARTITIONTIME/_PARTITIONDATE), which BigQuery omits from `SELECT *`; without it a
-# sampled row would never carry those fields and sampling would recover no value for
-# ingestion-time-partitioned tables.
-LATEST_BY_DATE_SAMPLE = """SELECT *{select_extra}
+# {select_cols} projects only the partition columns (sampling reads nothing else), so a
+# wide table is not full-column-scanned just to recover a few partition values. The caller
+# builds it from the resolved partition columns, which includes any ingestion-time pseudo
+# columns (_PARTITIONTIME/_PARTITIONDATE) that `SELECT *` would otherwise omit.
+LATEST_BY_DATE_SAMPLE = """SELECT {select_cols}
 FROM {table_ref}
 WHERE `{date_col}` IS NOT NULL
 ORDER BY `{date_col}` DESC
@@ -94,7 +94,7 @@ LIMIT @limit_rows"""
 
 # BigQuery requires a literal (not a query parameter) in the TABLESAMPLE percentage;
 # sample_percent is the code-controlled SAMPLING_PERCENT constant, not user input.
-TABLESAMPLE_SAMPLE = """SELECT *{select_extra}
+TABLESAMPLE_SAMPLE = """SELECT {select_cols}
 FROM {table_ref} TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
 LIMIT @limit_rows"""
 
