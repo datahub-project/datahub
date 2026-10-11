@@ -516,6 +516,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_element_urn_to_cols: Dict[
             str, Dict[str, str]
         ] = {}  # {lowercase_col: canonical_col}
+        # (dataModelId, elementId) -> (element Dataset URN, element). A /spec
+        # join side in another model is named this way; element ids alone
+        # repeat across models.
+        self.dm_element_by_model_and_id: Dict[
+            Tuple[str, str], Tuple[str, SigmaDataModelElement]
+        ] = {}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -3083,16 +3089,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         def resolve(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
             assert side.element_id is not None
-            urn = elementId_to_dataset_urn.get(side.element_id)
-            lookup = lookups.get(side.element_id)
+            urn: Optional[str]
+            lookup: Optional[_ColumnLookup]
+            if side.data_model_id:
+                foreign = self.dm_element_by_model_and_id.get(
+                    (side.data_model_id, side.element_id)
+                )
+                if foreign is None:
+                    return None
+                urn = foreign[0]
+                lookup = self._dm_element_column_lookup(foreign[1])
+            else:
+                urn = elementId_to_dataset_urn.get(side.element_id)
+                lookup = lookups.get(side.element_id)
             name = lookup.resolve(side.column) if lookup else None
             return (urn, name) if urn is not None and name is not None else None
 
         partners: Dict[Tuple[str, str], Set[_JoinPartner]] = {}
         for predicate in index.pairs:
             sides = (predicate.left, predicate.right)
-            if any(s.element_id is None or s.data_model_id for s in sides):
-                # A warehouse table or another Data Model's element.
+            if any(s.element_id is None for s in sides):
+                # A warehouse table.
                 self.reporter.data_model_join_key_partner_unmapped += 1
                 continue
             a, b = resolve(predicate.left), resolve(predicate.right)
@@ -3682,6 +3699,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.dm_element_urn_to_cols[element_dataset_urn] = {
                 c.lower(): c for c in el_by_name
             }
+            self.dm_element_by_model_and_id[
+                (data_model.dataModelId, element.elementId)
+            ] = (element_dataset_urn, element)
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
