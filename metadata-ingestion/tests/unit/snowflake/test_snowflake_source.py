@@ -1,6 +1,6 @@
 import datetime
 import re
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -233,6 +233,31 @@ def test_config_fetch_views_from_information_schema():
     config_dict_false = {**config_dict, "fetch_views_from_information_schema": False}
     config = SnowflakeV2Config.model_validate(config_dict_false)
     assert config.fetch_views_from_information_schema is False
+
+
+def test_probe_judges_tables_on_the_database_qualified_name():
+    # SnowflakeV2Source is not a SQLAlchemySource, so the probe's
+    # get_identifier shim cannot build `database.schema.table`; the config's
+    # own probe_filter_target declares it.
+    config = SnowflakeV2Config.model_validate(
+        {"account_id": "a", "username": "u", "password": "p"}
+    )
+    warned: List[str] = []
+
+    assert (
+        config.probe_filter_target(
+            schema="SCH", entity="T1", warn=warned.append, database="DB"
+        )
+        == "DB.SCH.T1"
+    )
+    assert warned == []
+
+    # A recipe spans several databases, so only the caller can name one.
+    assert (
+        config.probe_filter_target(schema="SCH", entity="T1", warn=warned.append)
+        is None
+    )
+    assert len(warned) == 1
 
 
 default_config_dict: Dict[str, Any] = {

@@ -133,6 +133,7 @@
     "document.linkRelatedTooltip": "关联相关数据资产或背景文档",
     "document.name": "文档",
     "document.namePlural": "文档",
+    "document.newDocumentPlaceholder": "新建文档",
     "document.noChangeHistoryEmpty": "暂无变更历史！",
     "document.noContentPlaceholder": "暂无内容",
     "document.previousVersionTitle": "上一版本",

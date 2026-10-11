@@ -896,6 +896,8 @@ class TableauSourceReport(
 ):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
+    num_workbook_project_lookups: int = 0
+    num_get_workbook_query_failures: int = 0
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
@@ -1211,7 +1213,7 @@ class TableauSiteSource:
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
         self.tableau_project_registry: Dict[str, TableauProject] = {}
-        self.workbook_project_map: Dict[str, str] = {}
+        self.workbook_project_map: Dict[str, Optional[str]] = {}
         self.datasource_project_map: Dict[str, str] = {}
         self.db_tables_lookup: Dict[str, dict] = {}
 
@@ -1512,13 +1514,11 @@ class TableauSiteSource:
         if self.server is None:
             return
 
+        # Every workbook is recorded, not just those in selected projects, so that a
+        # workbook returned by the Metadata API for an unselected project (e.g. one that
+        # shares its name with a selected project) can be reported accurately without
+        # a follow-up REST lookup. Consumers check tableau_project_registry membership.
         for wb in TSC.Pager(self.server.workbooks):
-            if wb.project_id not in self.tableau_project_registry:
-                logger.debug(
-                    f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
-                    f"registry"
-                )
-                continue
             if wb.id is None:
                 self.report.warning(
                     title="Workbook without an id skipped",
@@ -1905,11 +1905,18 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    self.report.warning(
-                        title="Skipping Missing Workbook",
-                        message="Skipping workbook as its project is not present in project registry",
-                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
-                    )
+                    if project_luid is None:
+                        self.report.warning(
+                            title="Unable to Resolve Workbook Project",
+                            message="Skipping workbook because its project could not be resolved: the workbook has no luid, or the Tableau REST API did not return it or returned it without a project. Check that the ingestion user can view the workbook. If it was published or modified during this run, it will be picked up on the next run.",
+                            context=f"workbook={wrk_name}({wrk_id}), project={prj_name}",
+                        )
+                    else:
+                        self.report.info(
+                            title="Skipping Workbook in Unselected Project",
+                            message="Skipping workbook because its project is not selected by the project filters. This typically happens when another project with the same name is selected.",
+                            context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
+                        )
                     continue
 
                 yield from self.emit_workbook_as_container(workbook)
@@ -2683,12 +2690,39 @@ class TableauSiteSource:
             )
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
-        if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
-            return self.workbook_project_map[wb[c.LUID]]
+        wb_luid: Optional[str] = wb.get(c.LUID)
+        if not wb_luid:
+            logger.debug(
+                f"workbook {wb.get(c.NAME)} has no luid, project_luid not found"
+            )
+            return None
 
-        logger.debug(f"workbook {wb.get(c.NAME)} project_luid not found")
+        if wb_luid not in self.workbook_project_map:
+            # A None result is recorded too, so a failed lookup is not repeated.
+            self.workbook_project_map[wb_luid] = self._query_workbook_for_project_luid(
+                wb_luid
+            )
 
-        return None
+        project_luid: Optional[str] = self.workbook_project_map[wb_luid]
+        if project_luid is None:
+            logger.debug(f"workbook {wb.get(c.NAME)} project_luid not found")
+
+        return project_luid
+
+    def _query_workbook_for_project_luid(self, wb_luid: str) -> Optional[str]:
+        self.report.num_workbook_project_lookups += 1
+
+        try:
+            return self.server.workbooks.get_by_id(wb_luid).project_id
+        except Exception:
+            # The skip itself is reported by emit_workbooks; only log the cause here
+            # so one failed workbook does not produce two report entries.
+            self.report.num_get_workbook_query_failures += 1
+            logger.warning(
+                f"Failed to get workbook details for workbook_luid={wb_luid}",
+                exc_info=True,
+            )
+            return None
 
     def _get_embedded_datasource_project_luid(self, ds: dict) -> Optional[str]:
         if ds.get(c.WORKBOOK):

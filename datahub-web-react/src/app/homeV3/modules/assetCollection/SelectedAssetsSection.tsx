@@ -19,12 +19,14 @@ const SelectedAssetsContainer = styled.div`
     gap: 8px;
     height: 100%;
     max-height: 440px;
+    min-height: 0;
 `;
 
 const ResultsContainer = styled.div`
     margin: 0 -12px 0 -8px;
     overflow-y: auto;
     scrollbar-gutter: stable;
+    min-height: 0;
 `;
 
 type Props = {
@@ -47,16 +49,24 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
         setSelectedAssetUrns(urns);
     };
 
-    // To prevent refetch on only order change
-    const stableUrns = useMemo(() => [...selectedAssetUrns].sort(), [selectedAssetUrns]);
-    const { entities } = useGetEntities(stableUrns);
+    // Cache resolved entities and fetch only new URNs, so the list doesn't empty (flicker) on each change
+    const [entitiesMap, setEntitiesMap] = useState<Record<string, Entity>>({});
+    const unresolvedUrns = useMemo(
+        () => selectedAssetUrns.filter((urn) => !entitiesMap[urn]),
+        [selectedAssetUrns, entitiesMap],
+    );
+    const { entities } = useGetEntities(unresolvedUrns);
 
-    const entitiesMap = useMemo(() => {
-        const map: Record<string, Entity> = {};
-        entities.forEach((entity) => {
-            map[entity.urn] = entity;
-        });
-        return map;
+    useEffect(() => {
+        if (entities.length) {
+            setEntitiesMap((prev) => {
+                const next = { ...prev };
+                entities.forEach((entity) => {
+                    next[entity.urn] = entity;
+                });
+                return next;
+            });
+        }
     }, [entities]);
 
     const handleRemoveAsset = (entity: Entity) => {

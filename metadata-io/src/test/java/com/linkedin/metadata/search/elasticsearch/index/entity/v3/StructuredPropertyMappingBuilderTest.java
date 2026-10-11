@@ -9,6 +9,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -252,6 +253,36 @@ public class StructuredPropertyMappingBuilderTest {
   }
 
   @Test
+  public void testStringValuesCopyToFullTextFieldUnlessExcluded() {
+    for (String valueType : List.of("string", "rich_text", "urn")) {
+      assertEquals(
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+                  propertyOfType(valueType))
+              .get("copy_to"),
+          List.of("_search.structuredProperties"),
+          valueType);
+    }
+    for (String valueType : List.of("number", "date")) {
+      assertFalse(
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+                  propertyOfType(valueType))
+              .containsKey("copy_to"),
+          valueType);
+    }
+
+    // An opted-out property keeps its field for filters and facets
+    for (String valueType : List.of("string", "rich_text", "urn")) {
+      Map<String, Object> excluded =
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+              propertyOfType(valueType)
+                  .setSearchConfiguration(
+                      new DataHubSearchConfig().setExcludeFromFullTextSearch(true)));
+      assertFalse(excluded.containsKey("copy_to"), valueType);
+      assertEquals(excluded.get("type"), "keyword", valueType);
+    }
+  }
+
+  @Test
   public void testCreateStructuredPropertyMappingsSameTypeCollisionKeepsLowestUrn()
       throws URISyntaxException {
     Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
@@ -305,5 +336,12 @@ public class StructuredPropertyMappingBuilderTest {
             mockEntitySpec, List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
 
     assertFalse(mappings.containsKey("certification_status"));
+  }
+
+  private static StructuredPropertyDefinition propertyOfType(String valueType) {
+    return new StructuredPropertyDefinition()
+        .setQualifiedName("prop")
+        .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+        .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub." + valueType));
   }
 }

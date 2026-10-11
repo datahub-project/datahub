@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
+from sqlalchemy import Select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
@@ -47,9 +48,10 @@ class ProfilingConnection:
     statement itself, can promise there is none.
 
     When in doubt, go down a rung: the cost is a lost optimisation, not a
-    wrong number. get_row_count is the example worth studying -- it uses
-    execute_aggregate normally and execute_single_row when a sample clause has
-    to survive.
+    wrong number. get_column_median is the example worth studying -- its native
+    aggregate goes through execute_aggregate, while the OFFSET/LIMIT window it
+    falls back to uses execute_rows, because that window returns two rows for an
+    even row count and would break a combined batch.
     """
 
     def __init__(self, conn: Connection) -> None:
@@ -76,7 +78,7 @@ class ProfilingConnection:
         nothing can tell `MEDIAN(v)` from `v` -- so pass
         literal_is_aggregate=True to assert that yours collapses to one row.
         """
-        query = sa.select([expr]).select_from(table)
+        query = sa.select(expr).select_from(table)
 
         inner = expr.element if isinstance(expr, Label) else expr
         # None: a function, which returns one row by construction.
@@ -307,18 +309,6 @@ class PlatformAdapter(ABC):
         """
         return None
 
-    def get_sample_clause(self, sample_size: int) -> Optional[str]:
-        """
-        Get platform-specific TABLESAMPLE clause.
-
-        Args:
-            sample_size: Number of rows to sample
-
-        Returns:
-            SQL TABLESAMPLE clause string, or None if unsupported
-        """
-        return None
-
     def get_mean_expr(self, column: str) -> ColumnElement[Any]:
         """
         Get platform-specific mean (AVG) expression.
@@ -382,16 +372,14 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         conn: ProfilingConnection,
-        sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> int:
         """
-        Get row count with optional sampling or estimation.
+        Get row count, optionally via fast estimation.
 
         Args:
             table: SQLAlchemy table object
             conn: Active database connection
-            sample_clause: Optional SQL suffix for sampling
             use_estimation: Use fast estimation if available
 
         TODO: performance optimization: get from system tables
@@ -415,16 +403,7 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        if sample_clause:
-            # The sample clause must survive, so this one cannot be flattened.
-            query = (
-                sa.select([sa.func.count()])
-                .select_from(table)
-                .suffix_with(sample_clause)
-            )
-            count_result: Any = conn.execute_single_row(query).scalar()
-        else:
-            count_result = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -508,35 +487,39 @@ class PlatformAdapter(ABC):
 
         return result
 
+    def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
+        """
+        Sample-stddev expression. Some dialects' bare `stddev()` is population
+        stddev (MySQL, Doris, ClickHouse), so name the sample variant explicitly.
+        """
+        return sa.func.stddev_samp(sa.column(column))
+
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting. We use
-        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
-        population stddev). When the dialect returns NULL we disambiguate the cause:
-          - exactly one non-null value: stddev is mathematically undefined → return None
-          - multiple rows but all-equal: zero variance → return 0.0
-          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
+        Returns the raw database result to preserve native type formatting. A NULL
+        result is ambiguous; resolve_stdev_null() settles it once the non-null count
+        is known, so no extra query is issued here.
         """
-        # Some dialects' bare `stddev()` defaults to STDDEV_POP (MySQL, Doris) —
-        # calling stddev_samp explicitly keeps semantics consistent across dialects.
-        result = conn.execute_aggregate(
-            table, sa.func.stddev_samp(sa.column(column))
-        ).scalar()
-        if result is None:
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-            if non_null_count == 1:
-                # Single value: stddev is mathematically undefined.
-                return None
-            if non_null_count > 1:
-                # Multiple values, all equal: zero variance.
-                return 0.0
-            # No non-null values: defer to adapter-specific behavior.
-            return self.get_stdev_null_value()
-        return result
+        return conn.execute_aggregate(table, self.get_stdev_expr(column)).scalar()
+
+    def resolve_stdev_null(self, non_null_count: Optional[int]) -> Optional[Any]:
+        """
+        Interpret a NULL stddev now that the non-null count is known:
+          - exactly one non-null value: mathematically undefined → None
+          - several, so all equal: zero variance → 0.0
+          - all-null column: dialect-specific (most None, Redshift 0.0)
+        """
+        if non_null_count is None:
+            return None
+        if non_null_count == 1:
+            return None
+        if non_null_count > 1:
+            return 0.0
+        return self.get_stdev_null_value()
 
     def get_stdev_null_value(self) -> Optional[Any]:
         """
@@ -609,8 +592,8 @@ class PlatformAdapter(ABC):
         if non_null_count == 0:
             return None
         offset = max(non_null_count // 2 - 1, 0)
-        middle_query = (
-            sa.select([sa.column(column)])
+        middle_query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .order_by(sa.column(column))
@@ -681,10 +664,10 @@ class PlatformAdapter(ABC):
                 # to be described as required by the query combiner, which is
                 # wrong: quantiles run on the main greenlet (see
                 # ProfilingConnection.execute_rows) and are never combined.
-                percentile_expr = sa.literal_column(
+                percentile_expr: Label = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
-                query = sa.select([percentile_expr]).select_from(table)
+                query = sa.select(percentile_expr).select_from(table)
                 result = conn.execute_rows(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
@@ -748,34 +731,30 @@ class PlatformAdapter(ABC):
             # Create case expression for this bucket
             if i < num_buckets - 1:
                 bucket_case_expr: Any = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) < bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) < bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             else:
                 # Last bucket includes the max value
                 bucket_case_expr = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) <= bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) <= bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
-        query = sa.select(buckets).select_from(table)
+        query = sa.select(*buckets).select_from(table)
         # Single-row, but on the main greenlet, so not batchable regardless --
         # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()
@@ -811,8 +790,8 @@ class PlatformAdapter(ABC):
             List of (value, count) tuples, sorted by count descending
         """
         count_expr = sa.func.count().label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .group_by(sa.column(column))
             .order_by(count_expr.desc())
@@ -852,8 +831,8 @@ class PlatformAdapter(ABC):
             (Trino/Athena JSON) are orderable in SQL.
         """
         count_expr = sa.func.count(sa.column(column)).label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
@@ -899,8 +878,8 @@ class PlatformAdapter(ABC):
         Returns:
             List of sample values (may contain duplicates)
         """
-        query = (
-            sa.select([sa.column(column)])
+        query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).isnot(None))
             .limit(limit)

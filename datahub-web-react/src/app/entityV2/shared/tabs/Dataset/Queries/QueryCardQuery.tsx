@@ -1,7 +1,9 @@
+import { CodeBlock } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { CodeBlockContent } from '@components/components/CodeBlock/components';
+
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
@@ -12,32 +14,25 @@ const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
     :hover {
         cursor: pointer;
     }
-    overflow: auto !important;
+    overflow: auto;
 
     ${(props) =>
         props.isCompact &&
         `
         height: 55px;
-        overflow: hidden !important;
+        overflow: hidden;
         margin: 0;
     `}
 `;
 
-const NestedSyntax = styled(StyledSyntaxHighlighter)<{ isCompact?: boolean }>`
-    background-color: transparent !important;
-    border: none !important;
-    margin: 0px !important;
-    height: 100% !important;
-    overflow: auto !important;
-    ::-webkit-scrollbar {
-        display: none;
-    } !important;
+// The card is a fixed-height preview, so the scrollbar would sit on top of the
+// clipped SQL rather than alongside it.
+const NestedCode = styled(CodeBlock)`
+    height: 100%;
 
-    ${(props) =>
-        props.isCompact &&
-        `
-        overflow: hidden !important;
-    `}
+    ${CodeBlockContent}::-webkit-scrollbar {
+        display: none;
+    }
 `;
 
 type Props = {
@@ -56,9 +51,17 @@ export default function QueryCardQuery({ query, showDetails, onClickExpand, inde
             data-testid={`query-content-${index}`}
             isCompact={isCompact}
         >
-            <NestedSyntax showLineNumbers language={SQL_LANGUAGE} isCompact={isCompact}>
-                {query}
-            </NestedSyntax>
+            <NestedCode
+                code={query}
+                language={SQL_LANGUAGE}
+                variant="embedded"
+                showHeader={false}
+                showCopy={false}
+                showFormat={false}
+                showLineNumbers
+                maxHeight="100%"
+                overflow={isCompact ? 'hidden' : 'auto'}
+            />
         </Statement>
     );
 }

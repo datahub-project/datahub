@@ -38,6 +38,7 @@ public class EntityServiceFactory {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
+      @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
       @Value("${MAE_CONSUMER_ENABLED:false}") final String maeConsumerEnabled,
       @Value("${MCL_CONSUMER_ENABLED:false}") final String mclConsumerEnabled,
       final List<ThrottleSensor> throttleSensors,
@@ -60,7 +61,10 @@ public class EntityServiceFactory {
                 .setCdcModeChangeLog(featureFlags.isCdcModeChangeLog())
                 .setRetry(_ebeanMaxTransactionRetry)
                 .setEnableBrowseV2(enableBrowsePathV2)
-                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
+                // Without this line the yaml/env value never reaches the service and
+                // stamping is silently dead regardless of DATAHUB_HONOR_SYNC_INGEST_FLAG.
+                .setSyncIngestStamping(syncIngestStamping),
             metricUtils);
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.

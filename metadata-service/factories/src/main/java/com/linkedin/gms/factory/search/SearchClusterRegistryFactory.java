@@ -43,7 +43,7 @@ public class SearchClusterRegistryFactory {
       @Nullable final SearchClientShims shims,
       @Qualifier("searchClientShim") final SearchClientShim<?> primaryShim,
       @Qualifier("elasticSearchIndexSettingsOverrides")
-          final Map<String, Map<String, String>> indexSettingOverrides,
+          final Map<String, Map<String, Object>> indexSettingOverrides,
       final GitVersion gitVersion,
       final ObjectMapper objectMapper,
       final MetricUtils metricUtils) {

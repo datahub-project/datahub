@@ -61,10 +61,7 @@ public class AggregationQueryBuilder {
   private final Set<String> allFacetFields;
   private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
-  /**
-   * Search V3 entity indices keep keyword fields at the root, so facets aggregate on the field
-   * itself instead of a {@code .keyword} subfield.
-   */
+  /** Search V3 documents store their entity type; V2 derives it from the index name. */
   private final boolean v3KeywordReadEnabled;
 
   private Map<String, String> filtersToDisplayName;
@@ -239,7 +236,7 @@ public class AggregationQueryBuilder {
       return facet;
     }
     // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
-    return ESUtils.toKeywordField(opContext, facet, v3KeywordReadEnabled, aspectRetriever);
+    return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

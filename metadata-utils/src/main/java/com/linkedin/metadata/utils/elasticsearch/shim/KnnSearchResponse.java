@@ -6,10 +6,17 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-public record KnnSearchResponse(@Nonnull List<Hit> hits) {
+/**
+ * @param partial whether the engine reported a timeout or failed shards, so hits may be missing
+ */
+public record KnnSearchResponse(@Nonnull List<Hit> hits, boolean partial) {
 
   public KnnSearchResponse {
     hits = List.copyOf(hits);
+  }
+
+  public KnnSearchResponse(@Nonnull List<Hit> hits) {
+    this(hits, false);
   }
 
   public boolean isEmpty() {

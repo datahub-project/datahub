@@ -258,7 +258,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "INT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -491,7 +491,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "INT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

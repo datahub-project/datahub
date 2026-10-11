@@ -4239,7 +4239,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Columns from OData EDMX",
+          "description": "Columns from OData EDMX; CSN elements when an asset has no consumption URL",
           "subtype_modifier": null,
           "supported": true
         },

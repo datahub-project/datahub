@@ -1,17 +1,10 @@
-import Editor from '@monaco-editor/react';
-import { Button, Modal } from 'antd';
+import { CodeBlock, Modal } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components/macro';
 
 import { jsonToYaml } from '@app/ingestV2/source/utils';
-import '@conf/monaco';
 
 const EDITOR_LANGUAGE = 'yaml';
-
-const YamlWrapper = styled.div`
-    padding: 24px;
-`;
 
 interface Props {
     recipe?: string;
@@ -25,27 +18,21 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
 
     return (
         <Modal
-            open
             onCancel={onCancel}
             width={800}
             title={t('source.viewRecipeTitle')}
-            footer={<Button onClick={onCancel}>{tc('done')}</Button>}
+            buttons={[{ text: tc('done'), variant: 'filled', onClick: onCancel }]}
         >
-            <YamlWrapper>
-                <Editor
-                    options={{
-                        readOnly: true,
-                        minimap: { enabled: false },
-                        scrollbar: {
-                            vertical: 'hidden',
-                            horizontal: 'hidden',
-                        },
-                    }}
-                    height="55vh"
-                    defaultLanguage={EDITOR_LANGUAGE}
-                    value={formattedRecipe}
-                />
-            </YamlWrapper>
+            <CodeBlock
+                code={formattedRecipe}
+                language={EDITOR_LANGUAGE}
+                variant="embedded"
+                showHeader={false}
+                showCopy={false}
+                showFormat={false}
+                showLineNumbers
+                maxHeight="55vh"
+            />
         </Modal>
     );
 }

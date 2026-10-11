@@ -1,4 +1,4 @@
-import { CaretUpOutlined } from '@ant-design/icons';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -204,7 +204,7 @@ export default function FilterOption({
                                 {includeCount && <CountText>{getCountText()}</CountText>}
                                 {nestedOptions && nestedOptions.length > 0 && (
                                     <ArrowButton
-                                        icon={<CaretUpOutlined />}
+                                        icon={<CaretUp />}
                                         type="text"
                                         onClick={() => setAreChildrenVisible(!areChildrenVisible)}
                                         isOpen={areChildrenVisible}

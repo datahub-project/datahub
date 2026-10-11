@@ -56,9 +56,8 @@ public class AuthenticatorChain {
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(
-            String.format(
-                "Executing Authenticator with class name %s",
-                authenticator.getClass().getCanonicalName()));
+            "Executing Authenticator with class name {}",
+            authenticator.getClass().getCanonicalName());
         // The library came with plugin can use the contextClassLoader to load the classes. For
         // example apache-ranger library does this.
         // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
@@ -75,17 +74,15 @@ public class AuthenticatorChain {
       } catch (AuthenticationExpiredException e) {
         // Throw if it's an AuthenticationException to propagate the error message to the end user
         log.debug(
-            String.format(
-                "Unable to authenticate request using Authenticator %s",
-                authenticator.getClass().getCanonicalName()),
+            "Unable to authenticate request using Authenticator {}",
+            authenticator.getClass().getCanonicalName(),
             e);
         throw e;
       } catch (Exception e) {
         // Log as a normal error otherwise.
         log.debug(
-            String.format(
-                "Caught exception while attempting to authenticate request using Authenticator %s",
-                authenticator.getClass().getCanonicalName()),
+            "Caught exception while attempting to authenticate request using Authenticator {}",
+            authenticator.getClass().getCanonicalName(),
             e);
         authenticationFailures.add(new Pair<>(authenticator.getClass().getCanonicalName(), e));
       } finally {

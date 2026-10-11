@@ -10,8 +10,8 @@ dependencies {
   implementation project(path: ':li-utils')
 
   // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
-  // latest caffeine 3.1.8 compatible
-  api 'nl.basjes.parse.useragent:yauaa:7.29.0'
+  // 8.x requires a Java 17 runtime (DataHub already runs on 17)
+  api 'nl.basjes.parse.useragent:yauaa:8.2.0'
 
   implementation externalDependency.slf4jApi
   implementation externalDependency.servletApi

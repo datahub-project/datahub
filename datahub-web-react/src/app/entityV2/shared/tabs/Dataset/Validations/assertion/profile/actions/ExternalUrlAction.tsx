@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import {
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { Assertion, AssertionRunStatus, EntityType } from '@types';
@@ -15,9 +19,10 @@ const StyledArrowUpRight = styled(ArrowUpRight)`
 type Props = {
     assertion: Assertion;
     isExpandedView?: boolean;
+    onActionTriggered?: () => void;
 };
 
-export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
+export const ExternalUrlAction = ({ assertion, isExpandedView = false, onActionTriggered }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
@@ -49,9 +54,12 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
             key="external-url"
             tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
-            icon={<StyledArrowUpRight size={16} />}
+            icon={
+                <StyledArrowUpRight size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+            }
             isExpandedView={isExpandedView}
             actionName={t('action.viewExternalPlatform')}
+            onActionTriggered={onActionTriggered}
         />
     );
 };

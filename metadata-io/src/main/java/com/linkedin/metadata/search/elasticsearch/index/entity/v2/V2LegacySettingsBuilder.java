@@ -206,6 +206,13 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
     return settings.build();
   }
 
+  /** The analysis section alone, for V3 indices that reuse the V2 analyzers. */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> buildAnalysisSettings(@Nonnull IndexConfiguration indexConfiguration)
+      throws IOException {
+    return (Map<String, Object>) buildSettings(indexConfiguration).get(ANALYSIS);
+  }
+
   private Map<String, Object> buildFilters(@Nonnull IndexConfiguration indexConfiguration)
       throws IOException {
     PathMatchingResourcePatternResolver resourceResolver =

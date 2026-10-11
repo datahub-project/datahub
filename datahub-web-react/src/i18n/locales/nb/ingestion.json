@@ -47,6 +47,7 @@
     "executions.someHidden": "Noen kjøringer kan være skjult",
     "executions.summaryAborted": "Ingestion-jobben ble avbrutt på grunn av omstart av worker.",
     "executions.summaryCancelled": "Ingestion ble kansellert.",
+    "executions.summaryDuplicate": "Ingestion-jobben ble kansellert fordi en annen instans av denne jobben allerede finnes.",
     "executions.summaryFailure": "Ingestion ble ikke fullført, eller ble fullført med feil.",
     "executions.summaryRollbackFailed": "Tilbakerulling av ingestion feilet.",
     "executions.summaryRolledBack": "Ingestion ble rullet tilbake.",

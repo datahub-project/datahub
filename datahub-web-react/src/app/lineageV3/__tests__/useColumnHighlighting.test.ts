@@ -217,6 +217,26 @@ describe('related columns shown on the graph', () => {
         expect(shownRelatedColumns.get(upstreamRef)?.[LineageDirection.Downstream]).toEqual(1);
     });
 
+    it('counts a chart once, however many of its fields read the column', () => {
+        const CHART = 'urn:li:chart:(looker,c1)';
+        const { shownRelatedColumns } = run(new Map(), {
+            fineGrainedLineage: lineageFromEdges([
+                [upstreamRef, createColumnRef(CHART, 'measure_a')],
+                [upstreamRef, createColumnRef(CHART, 'measure_b')],
+                [upstreamRef, downstreamRef],
+            ]),
+            nodes: new Map([
+                [UPSTREAM, node(UPSTREAM, LineageDirection.Upstream)],
+                [DOWNSTREAM, node(DOWNSTREAM, LineageDirection.Upstream)],
+                [CHART, { id: CHART, urn: CHART, type: EntityType.Chart, entity: {} } as any],
+            ]),
+            displayedNodeIds: new Set([UPSTREAM, DOWNSTREAM, CHART]),
+        });
+
+        // One column plus one chart, as `getColumnLineageCounts` counts consuming entities
+        expect(shownRelatedColumns.get(upstreamRef)?.[LineageDirection.Downstream]).toEqual(2);
+    });
+
     it('counts through nodes missing from the graph', () => {
         const { shownRelatedColumns } = run(new Map(), {
             fineGrainedLineage: lineageFromEdges([
