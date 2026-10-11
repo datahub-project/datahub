@@ -57,6 +57,8 @@ FOLDER_PATH_SEPARATOR = "/"
 
 ELEMENT_TYPE_NARRATIVE_TEXT = "NarrativeText"
 DOCUMENT_ENTITY_TYPE = "document"
+ASPECT_DOCUMENT_INFO = "documentInfo"
+ASPECT_STATUS = "status"
 DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 FAILURE_NOT_FOUND = "not_found"

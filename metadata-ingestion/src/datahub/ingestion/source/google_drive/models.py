@@ -84,3 +84,9 @@ class ExportResult:
     text: Optional[str]
     used_html_fallback: bool
     failure_reason: Optional[str]
+
+
+@dataclass
+class UnchangedCheck:
+    unchanged: bool
+    soft_deleted: bool

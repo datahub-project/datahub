@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, cast
 from unittest import mock
 
 import pytest
@@ -90,10 +90,19 @@ def doc_info(aspects: Aspects, file_id: str) -> DocumentInfoClass:
     return info
 
 
-def graph_returning(infos: Dict[str, DocumentInfoClass]) -> DataHubGraph:
+def graph_returning(
+    infos: Dict[str, DocumentInfoClass], removed: FrozenSet[str] = frozenset()
+) -> DataHubGraph:
+    def stored(urn: str, aspects: List[str]) -> Dict[str, object]:
+        bag: Dict[str, object] = {"status": StatusClass(removed=urn in removed)}
+        if urn in infos:
+            bag["documentInfo"] = infos[urn]
+        return bag
+
     graph = mock.MagicMock(spec=DataHubGraph)
-    graph.get_aspect.side_effect = lambda urn, _cls: infos.get(urn)
-    graph.get_urns_by_filter.return_value = []
+    graph.get_entity_semityped.side_effect = stored
+    # Soft-deleted state must come from the entity, not from (lagging) search.
+    graph.get_urns_by_filter.side_effect = AssertionError("search must not be used")
     return cast(DataHubGraph, graph)
 
 
@@ -243,15 +252,18 @@ def test_embedding_failure_blanks_version_so_next_run_retries() -> None:
 def test_soft_deleted_unchanged_document_is_resurrected() -> None:
     first = run(make_source(build_fixture_service()))
     urn = make_document_urn(DOC_RUNBOOK)
-    graph = graph_returning({urn: doc_info(first, DOC_RUNBOOK)})
-    cast(mock.MagicMock, graph).get_urns_by_filter.return_value = [urn]
+    graph = graph_returning(
+        {urn: doc_info(first, DOC_RUNBOOK)}, removed=frozenset({urn})
+    )
 
-    source = make_source(build_fixture_service(), graph=graph)
+    svc = build_fixture_service()
+    source = make_source(svc, graph=graph)
     aspects = run(source)
 
     status = aspects[urn]["status"]
     assert isinstance(status, StatusClass) and status.removed is False
     assert source.report.documents_resurrected == 1
+    assert DOC_RUNBOOK not in exported_ids(svc)
 
 
 def test_native_and_external_import_modes() -> None:

@@ -28,9 +28,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
+    ASPECT_DOCUMENT_INFO,
+    ASPECT_STATUS,
     DOCUMENT_ENTITY_TYPE,
     ELEMENT_TYPE_NARRATIVE_TEXT,
     EXCESS_BLANK_LINES_RE,
@@ -76,6 +77,7 @@ from datahub.ingestion.source.google_drive.models import (
     DriveFile,
     DriveTree,
     FolderNode,
+    UnchangedCheck,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -187,7 +189,6 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
         )
         self._ingest_fingerprint = self._compute_ingest_fingerprint()
-        self._soft_deleted_cache: Optional[Set[str]] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GoogleDriveSource":
@@ -333,12 +334,14 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         urn = make_document_urn(file.id)
         folder = tree.folders[ref.folder_id]
 
-        if self._is_unchanged(urn, file, folder):
+        check = self._check_unchanged(urn, file, folder)
+        if check.unchanged:
             self.report.documents_skipped_unchanged += 1
             self.stale_entity_removal_handler.add_entity_to_state(
                 DOCUMENT_ENTITY_TYPE, urn
             )
-            yield from self._resurrect_if_soft_deleted(urn)
+            if check.soft_deleted:
+                yield from self._resurrect(urn)
             return
 
         result = self.client.export_markdown(file.id)
@@ -455,47 +458,38 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             exc=exc,
         )
 
-    def _is_unchanged(self, urn: str, file: DriveFile, folder: FolderNode) -> bool:
+    def _check_unchanged(
+        self, urn: str, file: DriveFile, folder: FolderNode
+    ) -> UnchangedCheck:
         if not self.ctx.graph or not file.version:
-            return False
+            return UnchangedCheck(unchanged=False, soft_deleted=False)
         try:
-            info = self.ctx.graph.get_aspect(urn, DocumentInfoClass)
+            # Status is read from the entity itself rather than from search: a
+            # document soft-deleted by the previous run may not be indexed as removed
+            # yet, and missing it would leave a restored document deleted.
+            stored = self.ctx.graph.get_entity_semityped(
+                urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS]
+            )
         except Exception as e:
             logger.debug("Could not load %s for change detection: %s", urn, e)
-            return False
-        if info is None or not info.customProperties:
-            return False
+            return UnchangedCheck(unchanged=False, soft_deleted=False)
+        info = stored.get(ASPECT_DOCUMENT_INFO)
+        status = stored.get(ASPECT_STATUS)
+        if not isinstance(info, DocumentInfoClass) or not info.customProperties:
+            return UnchangedCheck(unchanged=False, soft_deleted=False)
         props = info.customProperties
-        return (
+        unchanged = (
             props.get(PROP_VERSION) == file.version
             and props.get(PROP_INGEST_FINGERPRINT) == self._ingest_fingerprint
             and props.get(PROP_PARENT_ID) == folder.id
             and info.title == file.name
         )
+        return UnchangedCheck(
+            unchanged=unchanged,
+            soft_deleted=isinstance(status, StatusClass) and status.removed,
+        )
 
-    def _soft_deleted_urns(self) -> Set[str]:
-        if self._soft_deleted_cache is not None:
-            return self._soft_deleted_cache
-        urns: Set[str] = set()
-        if self.ctx.graph:
-            try:
-                urns = set(
-                    self.ctx.graph.get_urns_by_filter(
-                        entity_types=[DOCUMENT_ENTITY_TYPE],
-                        platform=PLATFORM,
-                        platform_instance=self.config.platform_instance,
-                        status=RemovedStatusFilter.ONLY_SOFT_DELETED,
-                    )
-                )
-            except Exception as e:
-                # Only costs resurrection of unchanged documents restored from trash.
-                logger.debug("Could not list soft-deleted documents: %s", e)
-        self._soft_deleted_cache = urns
-        return urns
-
-    def _resurrect_if_soft_deleted(self, urn: str) -> Iterable[MetadataWorkUnit]:
-        if urn not in self._soft_deleted_urns():
-            return
+    def _resurrect(self, urn: str) -> Iterable[MetadataWorkUnit]:
         self.report.documents_resurrected += 1
         yield MetadataChangeProposalWrapper(
             entityUrn=urn, aspect=StatusClass(removed=False)
