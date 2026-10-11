@@ -124,6 +124,156 @@ def test_partition_filters_from_max_partition_id():
         ), f"Expected None for sentinel {sentinel!r}"
 
 
+def test_max_partition_id_skipped_for_range_partition():
+    """table.max_partition_id is a MAX() over the STRING partition_id column, so for a
+    RANGE partition it is a lexicographic max ("9000" > "19000"). The zero-scan fast path
+    must be skipped for RANGE tables so the floor is resolved numerically downstream.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    table = make_table(max_partition_id="9000")
+    table.partition_info = make_partition_info("RANGE", "bucket_id", ["bucket_id"])  # type: ignore[assignment]
+
+    assert (
+        discovery._get_partition_filters_from_max_partition_id(
+            table,
+            required_columns=["bucket_id"],
+            column_types={"bucket_id": "INT64"},
+        )
+        is None
+    )
+
+
+def test_max_partition_id_fills_type_from_partition_info_columns():
+    """When INFORMATION_SCHEMA.COLUMNS could not supply a partition column's type, fall
+    back to the type the schema extractor recorded on partition_info.columns so a
+    TIMESTAMP id widens to a half-open range instead of a midnight equality.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    table = make_table(max_partition_id="20241115")
+    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
+        type="DAY",
+        field="event_ts",
+        fields=["event_ts"],
+        columns=[SimpleNamespace(data_type="TIMESTAMP")],
+        require_partition_filter=True,
+    )
+
+    # column_types is empty (COLUMNS lookup failed); the type comes from partition_info.
+    filters = discovery._get_partition_filters_from_max_partition_id(
+        table,
+        required_columns=["event_ts"],
+        column_types={},
+    )
+    assert filters == [
+        "`event_ts` >= TIMESTAMP('2024-11-15 00:00:00') "
+        "AND `event_ts` < TIMESTAMP('2024-11-16 00:00:00')"
+    ]
+
+
+def test_ingestion_time_pseudo_columns_collapse_to_partitiontime():
+    """An ingestion-time partitioned table's require-filter error lists every pseudo-column
+    alias for its single partition; they must collapse to one canonical column so the
+    single-column discovery paths still apply.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    error = (
+        "Cannot query over table 'p.d.t' without a filter over column(s) "
+        "'_PARTITION_LOAD_TIME', '_PARTITIONDATE', '_PARTITIONTIME' that can be used "
+        "for partition elimination"
+    )
+    result = discovery._extract_partition_info_from_error(error)
+    assert result.required_columns == ["_PARTITIONTIME"]
+
+    # A genuine composite key that merely includes a date column is left intact.
+    composite = (
+        "Cannot query over table 'p.d.t' without a filter over column(s) "
+        "'event_date', 'region' that can be used for partition elimination"
+    )
+    assert discovery._extract_partition_info_from_error(composite).required_columns == [
+        "event_date",
+        "region",
+    ]
+
+
+def test_probe_uses_partition_fetch_job_config():
+    """The require-filter probe must carry the partition-fetch timeout so it cannot run
+    unbounded on a non-require-filter table (where the probe scans until the LIMIT).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    captured: List[Any] = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured.append(job_config)
+        return []
+
+    discovery._probe_required_partition_columns(
+        make_table(name="t"), "my-project", "ds", execute, "partition detection"
+    )
+
+    assert captured and captured[0].job_timeout_ms is not None
+
+
+def test_sampling_projects_only_partition_columns():
+    """Sampling reads only the partition columns, so the sample query must project exactly
+    those columns rather than `SELECT *`, which would scan every column of a wide table.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    captured: List[str] = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured.append(query)
+        return []
+
+    discovery._get_partitions_with_sampling(
+        make_table(name="t"),
+        "my-project",
+        "ds",
+        execute,
+        known_columns=["event_date"],
+        known_column_types={"event_date": "DATE"},
+    )
+
+    # The first query is the INFORMATION_SCHEMA.COLUMNS lookup; the sample query is the one
+    # that reads from the table itself (ORDER BY the date column).
+    sample_queries = [q for q in captured if "INFORMATION_SCHEMA" not in q]
+    assert sample_queries, "expected a sample query to be issued"
+    sample_query = sample_queries[0]
+    assert "SELECT *" not in sample_query
+    assert "`event_date`" in sample_query
+
+
+def test_column_types_resolved_once_when_passed_down():
+    """_find_real_partition_values must reuse the caller's resolved column_types rather
+    than re-querying INFORMATION_SCHEMA.COLUMNS, which previously ran several times/table.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    calls = {"count": 0}
+    original = discovery._get_partition_column_types
+
+    def counting(*args: Any, **kwargs: Any) -> Dict[str, str]:
+        calls["count"] += 1
+        return original(*args, **kwargs)
+
+    discovery._get_partition_column_types = counting  # type: ignore[method-assign]
+
+    discovery._find_real_partition_values(
+        make_table(name="t"),
+        "my-project",
+        "ds",
+        ["region_id"],
+        lambda q, jc, ctx: [],
+        column_types={"region_id": "INT64"},
+    )
+
+    assert calls["count"] == 0
+
+
 def test_max_partition_id_used_before_information_schema():
     """When max_partition_id is present it should short-circuit INFORMATION_SCHEMA queries."""
     discovery = PartitionDiscovery(make_config())
@@ -212,10 +362,11 @@ def test_unpartitioned_table_returns_empty_list():
     assert filters == []
 
 
-def test_all_value_queries_fail_returns_is_not_null_fallback():
-    """When the partition column is known (from the BigQuery error) but every query for
-    specific values fails, the function returns IS NOT NULL as a last-resort fallback
-    rather than None.  IS NOT NULL lets profiling proceed; a None would skip it entirely.
+def test_require_filter_table_skipped_when_only_is_not_null_fallback():
+    """A require-filter table whose only reachable fallback is an unpruned IS NOT NULL
+    must be skipped (None), not profiled: IS NOT NULL satisfies BigQuery's filter check
+    but full-scans every partition, which is exactly the inaccurate whole-table profile
+    the require-filter skip exists to prevent.
     """
     discovery = PartitionDiscovery(make_config())
 
@@ -225,15 +376,37 @@ def test_all_value_queries_fail_returns_is_not_null_fallback():
     )
 
     def execute(query: str, job_config: Any, context: str) -> list:
-        # COLUMNS lookup fails, so the probe runs and its error names the column; every
-        # value query then fails, exercising the IS NOT NULL last-resort fallback. The
-        # probe is `SELECT 1 FROM ... LIMIT` (not the verify query with `exists_check`).
+        # COLUMNS lookup fails, so the probe runs and its error both names the column and
+        # proves the table enforces require_partition_filter; every value query then fails,
+        # so the only fallback is IS NOT NULL. The probe is `SELECT 1 FROM ... LIMIT`.
         if "INFORMATION_SCHEMA.COLUMNS" in query:
             raise Exception("COLUMNS unavailable")
         if "INFORMATION_SCHEMA" in query:
             return []
         if "SELECT 1 FROM" in query and "exists_check" not in query:
             raise Exception(partition_err)
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="t"), "my-project", "ds", execute
+    )
+
+    assert filters is None
+
+
+def test_non_require_filter_table_keeps_is_not_null_fallback():
+    """A table that does NOT require a partition filter (and is not external) still gets
+    the IS NOT NULL last-resort fallback so profiling can proceed, rather than being
+    skipped. Only require-filter / external tables are skipped on an all-unpruned fallback.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        # Authoritative COLUMNS lookup names the partition column without requiring a
+        # filter, so no probe runs; every value query then fails, exercising the
+        # IS NOT NULL last-resort fallback on a non-require-filter table.
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="")]
         return []
 
     filters = discovery.get_required_partition_filters(
