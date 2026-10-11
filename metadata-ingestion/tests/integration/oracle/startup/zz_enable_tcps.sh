@@ -26,24 +26,33 @@
 
     rm -rf "$WALLET"
     mkdir -p "$WALLET" /opt/oracle/tls/wallet
-    "$ORACLE_HOME/bin/orapki" wallet create \
-        -wallet "$WALLET" -pwd "$WALLET_PWD" -auto_login
-    "$ORACLE_HOME/bin/orapki" wallet add \
+    # This image's orapki prompts even when -pwd is set. Compose does not
+    # attach a terminal, so a -pwd-only call reads EOF and exits before the
+    # ready file is written. wallet create asks for the password twice.
+    orapki() {
+        local prompts=$1
+        shift
+        local input="" i
+        for i in $(seq 1 "$prompts"); do
+            input+="${WALLET_PWD}"$'\n'
+        done
+        printf '%s' "$input" | "$ORACLE_HOME/bin/orapki" "$@"
+    }
+    orapki 2 wallet create -wallet "$WALLET" -auto_login
+    orapki 1 wallet add \
         -wallet "$WALLET" \
-        -pwd "$WALLET_PWD" \
         -dn "CN=localhost" \
         -keysize 2048 \
         -self_signed \
         -validity 3650 \
         -sign_alg sha256
     # wallet add does not refresh cwallet.sso. Recreate the auto-login file
-    # so the listener can open the wallet without the password.
+    # so the listener can open the wallet without the password. An existing
+    # wallet asks for its password once.
     rm -f "$WALLET/cwallet.sso"
-    "$ORACLE_HOME/bin/orapki" wallet create \
-        -wallet "$WALLET" -pwd "$WALLET_PWD" -auto_login
-    "$ORACLE_HOME/bin/orapki" wallet export \
+    orapki 1 wallet create -wallet "$WALLET" -auto_login
+    orapki 1 wallet export \
         -wallet "$WALLET" \
-        -pwd "$WALLET_PWD" \
         -dn "CN=localhost" \
         -cert /opt/oracle/tls/wallet/ewallet.pem
 
