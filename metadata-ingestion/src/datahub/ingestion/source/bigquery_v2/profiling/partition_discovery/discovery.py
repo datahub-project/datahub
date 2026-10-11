@@ -27,6 +27,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_COMPONENT_COLUMNS,
     DEFAULT_MAX_PARTITION_VALUES,
     DEFAULT_PARTITION_STATS_LIMIT,
+    INGESTION_TIME_PSEUDO_COLUMNS,
     MAX_PARTITION_VALUES,
     PARTITION_FILTER_PATTERN,
     PARTITION_GRANULARITY_DAY,
@@ -346,6 +347,8 @@ class PartitionDiscovery:
             list(required_partition_columns),
             execute_query_func,
             cached_metadata=cached_partition_metadata,
+            column_types=column_types,
+            partition_filter_required_by_probe=partition_filter_required_by_probe,
         )
 
         if partition_filters:
@@ -420,19 +423,23 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = 5,
         cached_metadata: Optional[CachedPartitionMetadata] = None,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Dict[str, PartitionValue]:
         if not partition_columns:
             return {}
 
         safe_table_ref = build_safe_table_reference(project, schema, table.name)
-        column_types = self._get_partition_column_types(
-            table,
-            project,
-            schema,
-            partition_columns,
-            execute_query_func,
-            cached_metadata=cached_metadata,
-        )
+        # Reuse the caller's resolved types when provided to avoid repeating the
+        # INFORMATION_SCHEMA.COLUMNS lookup already done upstream.
+        if column_types is None:
+            column_types = self._get_partition_column_types(
+                table,
+                project,
+                schema,
+                partition_columns,
+                execute_query_func,
+                cached_metadata=cached_metadata,
+            )
 
         categorized = self._categorize_partition_columns(
             partition_columns, column_types
@@ -1111,7 +1118,12 @@ class PartitionDiscovery:
         try:
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
             test_query = queries.PARTITION_FILTER_PROBE.format(table_ref=safe_table_ref)
-            job_config = QueryJobConfig(
+            # Route through _partition_fetch_job_config so the probe honours
+            # partition_fetch_timeout / partition_fetch_max_bytes_billed. The success path
+            # reads only LIMIT n rows, but on a non-require-filter table the probe scans
+            # until the limit is met, so it must carry the same guardrails as every other
+            # discovery query rather than running unbounded.
+            job_config = self._partition_fetch_job_config(
                 query_parameters=[
                     ScalarQueryParameter("limit_rows", "INT64", TEST_QUERY_LIMIT_ROWS)
                 ]
@@ -1222,21 +1234,18 @@ class PartitionDiscovery:
 
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
-            # BigQuery omits ingestion-time pseudo-columns (_PARTITIONTIME/_PARTITIONDATE)
-            # from SELECT *, so project any that are partition columns explicitly; otherwise
-            # the sampled rows never carry them and _first_complete_row misses their value.
-            select_extra = "".join(
-                f", `{col}`"
-                for col in partition_cols_with_types
-                if col in PSEUDO_PARTITION_COLUMN_TYPES
-            )
+            # Sampling reads only the partition columns (via _first_complete_row), so
+            # project exactly those instead of `SELECT *` to avoid scanning every column of
+            # a wide table. This also covers ingestion-time pseudo-columns
+            # (_PARTITIONTIME/_PARTITIONDATE), which BigQuery omits from `SELECT *`.
+            select_cols = ", ".join(f"`{col}`" for col in partition_cols_with_types)
 
             if date_columns:
                 primary_date_col = date_columns[0]
                 sample_query = queries.LATEST_BY_DATE_SAMPLE.format(
                     table_ref=safe_table_ref,
                     date_col=primary_date_col,
-                    select_extra=select_extra,
+                    select_cols=select_cols,
                 )
 
                 # Route through _partition_fetch_job_config: LATEST_BY_DATE_SAMPLE does an
@@ -1255,7 +1264,7 @@ class PartitionDiscovery:
                 sample_query = queries.TABLESAMPLE_SAMPLE.format(
                     table_ref=safe_table_ref,
                     sample_percent=SAMPLING_PERCENT,
-                    select_extra=select_extra,
+                    select_cols=select_cols,
                 )
 
                 job_config = self._partition_fetch_job_config(
@@ -1531,6 +1540,8 @@ class PartitionDiscovery:
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         cached_metadata: Optional[CachedPartitionMetadata] = None,
+        column_types: Optional[Dict[str, str]] = None,
+        partition_filter_required_by_probe: bool = False,
     ) -> Optional[List[str]]:
         """Find real partition values by querying the table directly.
 
@@ -1542,13 +1553,22 @@ class PartitionDiscovery:
         if not required_columns:
             return []
 
-        column_types = self._get_partition_column_types(
-            table,
-            project,
-            schema,
-            required_columns,
-            execute_query_func,
-            cached_metadata=cached_metadata,
+        # The caller (get_required_partition_filters) already resolved the authoritative
+        # column types, so reuse them instead of re-querying INFORMATION_SCHEMA.COLUMNS;
+        # recomputing here (and again in the direct-query/fallback helpers) repeated the
+        # same lookup several times per table.
+        if column_types is None:
+            column_types = self._get_partition_column_types(
+                table,
+                project,
+                schema,
+                required_columns,
+                execute_query_func,
+                cached_metadata=cached_metadata,
+            )
+
+        requires_filter = partition_filter_required_by_probe or bool(
+            table.partition_info and table.partition_info.require_partition_filter
         )
 
         # Always try direct table query first - it handles date, date-component, AND
@@ -1562,6 +1582,7 @@ class PartitionDiscovery:
             required_columns,
             execute_query_func,
             cached_metadata=cached_metadata,
+            column_types=column_types,
         )
 
         if actual_partition_values:
@@ -1603,7 +1624,12 @@ class PartitionDiscovery:
                     f"fallback_partition_values apply; using fallback filters"
                 )
                 return self._get_fallback_partition_filters(
-                    table, project, schema, required_columns, column_types
+                    table,
+                    project,
+                    schema,
+                    required_columns,
+                    column_types,
+                    requires_filter=requires_filter,
                 )
             logger.debug(
                 f"No date-type columns in {table.name} and direct query returned nothing; "
@@ -1676,7 +1702,12 @@ class PartitionDiscovery:
         # unquoted integers for INT64 year/month/day) rather than quoting every value as a
         # string, which BigQuery rejects as an INT64 = STRING comparison.
         return self._get_fallback_partition_filters(
-            table, project, schema, required_columns, column_types
+            table,
+            project,
+            schema,
+            required_columns,
+            column_types,
+            requires_filter=requires_filter,
         )
 
     def _get_fallback_partition_filters(
@@ -1686,6 +1717,7 @@ class PartitionDiscovery:
         schema: str,
         required_columns: List[str],
         column_types: Optional[Dict[str, str]] = None,
+        requires_filter: bool = False,
     ) -> List[str]:
         logger.debug(f"Using fallback partition values for {table.name}")
 
@@ -1694,6 +1726,7 @@ class PartitionDiscovery:
 
         fallback_filters = []
         uses_is_not_null = False
+        pinned_any = False
         guessed_date_cols: List[str] = []
         for col_name in required_columns:
             col_type = column_types.get(col_name, "")
@@ -1704,6 +1737,27 @@ class PartitionDiscovery:
                 fallback_filters.append(filter_str)
                 if "IS NOT NULL" in filter_str:
                     uses_is_not_null = True
+                else:
+                    pinned_any = True
+
+        # A fallback that pins no real value (every column degraded to IS NOT NULL) prunes
+        # nothing — it is a full scan. On a require-filter or external table the caller
+        # would otherwise skip the table rather than full-scan it (see the skip in
+        # get_required_partition_filters), so returning these filters silently defeats that
+        # decision. Return [] so discovery reports "no usable values" and the skip applies.
+        # A partial prune (some column pinned) is kept: it still narrows the scan.
+        if fallback_filters and not pinned_any and (requires_filter or table.external):
+            warn(
+                self.report,
+                logger,
+                title="Partition discovery skipped a table",
+                message="Partition discovery could not pin any partition value and the "
+                "table requires a partition filter (or is external), so it is skipped "
+                "rather than full-scanned with an unpruned 'IS NOT NULL' filter. Set "
+                "profiling.fallback_partition_values to pin a partition.",
+                context=f"{table.name}: columns={sorted(required_columns)}",
+            )
+            return []
 
         logger.debug(f"Generated fallback partition filters: {fallback_filters}")
 
@@ -1880,6 +1934,22 @@ class PartitionDiscovery:
         )
         return [partition_filter]
 
+    @staticmethod
+    def _declared_partition_column_types(table: BigqueryTable) -> Dict[str, str]:
+        # The schema extractor records the partition columns' declared BigQuery types on
+        # partition_info.columns (aligned 1:1 with partition_info.fields). This is a
+        # best-effort source of truth when the INFORMATION_SCHEMA.COLUMNS lookup is
+        # unavailable; columns is None for the common single-field time/range cases, so
+        # callers must still handle a missing type.
+        info = table.partition_info
+        if info is None or not info.columns:
+            return {}
+        return {
+            field: col.data_type
+            for field, col in zip(info.fields, info.columns, strict=False)
+            if col is not None and col.data_type
+        }
+
     def _get_partition_filters_from_max_partition_id(
         self,
         table: BigqueryTable,
@@ -1892,21 +1962,33 @@ class PartitionDiscovery:
         ):
             return None
 
-        # A RANGE-partitioned table's max_partition_id is the highest bucket's inclusive
-        # lower bound, so it must be scanned with `col >= id`, not equality.
+        # A RANGE bucket id is an integer, but table.max_partition_id is a MAX() over the
+        # STRING partition_id column (see queries.py), so it is a *lexicographic* max:
+        # bucket "9000" sorts above "19000". Trusting it would build `col >= 9000` and sweep
+        # in buckets the true top (19000) excludes. Skip the zero-scan fast path for RANGE
+        # and let the INFORMATION_SCHEMA path resolve the floor numerically
+        # (MAX_RANGE_PARTITION_ID casts to INT64).
         is_range_partition = (
             getattr(table.partition_info, "type", None) == RANGE_PARTITION_NAME
         )
+        if is_range_partition:
+            return None
 
         # INFORMATION_SCHEMA.COLUMNS never lists the _PARTITIONTIME/_PARTITIONDATE
         # pseudo-columns, so infer their (TIMESTAMP/DATE) type by name — as the
         # datetime-override path does. Without it a compact hourly id loses its hour and a
         # TIMESTAMP id is not widened to a half-open partition range on ingestion-time
-        # tables, so the zero-scan filter would profile the wrong window.
+        # tables, so the zero-scan filter would profile the wrong window. When the COLUMNS
+        # lookup failed for a regular column, fall back to the type the schema extractor
+        # already recorded on partition_info so e.g. a TIMESTAMP id still widens to a range
+        # instead of a midnight equality.
+        declared_types = self._declared_partition_column_types(table)
         enriched_types = dict(column_types)
         for col in required_columns:
             if not enriched_types.get(col):
-                inferred = PSEUDO_PARTITION_COLUMN_TYPES.get(col.upper())
+                inferred = PSEUDO_PARTITION_COLUMN_TYPES.get(
+                    col.upper()
+                ) or declared_types.get(col)
                 if inferred:
                     enriched_types[col] = inferred
 
@@ -2114,6 +2196,17 @@ class PartitionDiscovery:
                     required_columns.append(column_match.group(i))
 
             if required_columns:
+                # An ingestion-time partitioned table's error lists all pseudo-column
+                # aliases (_PARTITION_LOAD_TIME, _PARTITIONDATE, _PARTITIONTIME) for its one
+                # partition. Treating them as a 3-column composite key would disable the
+                # single-column paths (partition_datetime, max_partition_id), so collapse
+                # them to the canonical _PARTITIONTIME. Only collapse when *every* parsed
+                # column is such an alias, so a real composite key is left intact.
+                if all(
+                    col.upper() in INGESTION_TIME_PSEUDO_COLUMNS
+                    for col in required_columns
+                ):
+                    required_columns = ["_PARTITIONTIME"]
                 result.required_columns = required_columns
                 logger.debug(
                     f"Extracted required partition columns: {required_columns}"
