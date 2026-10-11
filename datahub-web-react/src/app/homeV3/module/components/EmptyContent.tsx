@@ -10,6 +10,7 @@ interface Props {
     linkText?: string;
     linkIcon?: React.ComponentType<any>;
     onLinkClick?: () => void;
+    dataTestId?: string;
 }
 
 const Container = styled.div`
@@ -47,9 +48,9 @@ const Description = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
-export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick }: Props) {
+export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick, dataTestId }: Props) {
     return (
-        <Container>
+        <Container data-testid={dataTestId}>
             <IconWrapper>
                 <Icon icon={icon} color="icon" />
             </IconWrapper>

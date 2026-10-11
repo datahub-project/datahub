@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationResult;
@@ -80,8 +81,32 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testShouldUseProposedDomains_existingEntityWithDomains() {
-    assertFalse(DomainWriteAuthorizationUtils.shouldUseProposedDomainsForMatch(true, true, true));
+  public void testExistingDomainsOnlyDropsMissingDomains() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X, DOMAIN_Y))))
+        .thenReturn(Map.of(DOMAIN_X, false, DOMAIN_Y, true));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X, DOMAIN_Y));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
+    assertEquals(pruned.getDomains().size(), 1);
+    assertEquals(pruned.getDomains().get(0), DOMAIN_Y);
+  }
+
+  @Test
+  public void testExistingDomainsOnlyAllMissingYieldsEmptyMembership() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X)))).thenReturn(Map.of(DOMAIN_X, false));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertFalse(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
   }
 
   @Test
@@ -388,7 +413,7 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testSeedProposedDomainResourceSpec_mergesAndOverwritesDomain() {
+  public void testSeedProposedDomainResourceSpec_recordsDomainOverrideOnly() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     com.datahub.authorization.EntitySpec resourceSpec =
         new com.datahub.authorization.EntitySpec(
@@ -398,20 +423,24 @@ public class DomainWriteAuthorizationUtilsTest {
     existingResolvers.put(
         EntityFieldType.OWNER,
         FieldResolver.getResolverFromValues(Set.of("urn:li:corpuser:alice")));
-    existingResolvers.put(
-        EntityFieldType.DOMAIN, FieldResolver.getResolverFromValues(Set.of(DOMAIN_X.toString())));
-    opContext
-        .getAuthorizationContext()
-        .getSessionResourceSpecCache()
-        .put(resourceSpec, new ResolvedEntitySpec(resourceSpec, existingResolvers));
+    ResolvedEntitySpec existing = new ResolvedEntitySpec(resourceSpec, existingResolvers);
+    opContext.getAuthorizationContext().getSessionResourceSpecCache().put(resourceSpec, existing);
 
+    DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
+        opContext, resourceSpec, Set.of(DOMAIN_X.toString()));
     DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
         opContext, resourceSpec, Set.of(DOMAIN_Y.toString()));
 
-    ResolvedEntitySpec merged =
-        opContext.getAuthorizationContext().getSessionResourceSpecCache().get(resourceSpec);
-    assertEquals(merged.getFieldValues(EntityFieldType.OWNER), Set.of("urn:li:corpuser:alice"));
-    assertEquals(merged.getFieldValues(EntityFieldType.DOMAIN), Set.of(DOMAIN_Y.toString()));
+    // The cached resolution is left alone; the latest proposed domains live in the override map.
+    assertSame(
+        opContext.getAuthorizationContext().getSessionResourceSpecCache().get(resourceSpec),
+        existing);
+    Map<EntityFieldType, FieldResolver> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides().get(resourceSpec);
+    assertEquals(overrides.keySet(), Set.of(EntityFieldType.DOMAIN));
+    assertEquals(
+        overrides.get(EntityFieldType.DOMAIN).getFieldValuesFuture().join().getValues(),
+        Set.of(DOMAIN_Y.toString()));
   }
 
   @Nonnull

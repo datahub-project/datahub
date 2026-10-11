@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.exception;
 import static org.testng.Assert.*;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
@@ -561,5 +562,33 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertTrue(error.getMessage().contains("Validation failed"));
     assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleLineageTimeoutException() throws ExecutionException, InterruptedException {
+    LineageTimeoutException exception = new LineageTimeoutException("Lineage operation timed out");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Lineage operation timed out");
+    assertEquals(error.getErrorCode(), 504);
+  }
+
+  @Test
+  public void testHandleNestedLineageTimeoutException()
+      throws ExecutionException, InterruptedException {
+    // A wrapped timeout must still map to DEADLINE_EXCEEDED, not the generic RuntimeException path.
+    LineageTimeoutException cause =
+        new LineageTimeoutException("Slice 0 timed out after 50 seconds");
+    RuntimeException wrapper = new RuntimeException("Wrapper", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("Slice 0 timed out"));
+    assertEquals(error.getErrorCode(), 504);
   }
 }

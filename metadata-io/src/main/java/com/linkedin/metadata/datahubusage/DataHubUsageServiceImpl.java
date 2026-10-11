@@ -2,6 +2,7 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
@@ -45,7 +46,8 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
 
   @Override
   public String getUsageIndexName(@Nonnull OperationContext opContext) {
-    return indexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX);
+    return indexConvention.getIndexName(
+        opContext, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   /** Searches the DataHub Usage index for backend tracing events */

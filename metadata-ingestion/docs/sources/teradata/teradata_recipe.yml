@@ -29,7 +29,7 @@ source:
     # when a column has an unknown type (e.g. derived expressions).
     #use_dbc_columns_for_views: true
 
-    # Cap profiling to high-priority tables (uses standard GEProfilingConfig).
+    # Cap profiling to high-priority tables (uses standard ProfilingConfig).
     #profiling:
     #  enabled: true
     #  limit: 500

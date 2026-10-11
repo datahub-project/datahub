@@ -68,8 +68,9 @@ public final class EntitySearchIndexResolver {
   }
 
   /**
-   * Cross-entity wildcard used by analytics charts that scan every entity index at once. V2 is
-   * {@code *index_v2}; V3 is {@code *index_v3}.
+   * Cross-entity wildcard for reads that scan every entity index at once: analytics charts and
+   * aggregations without an entity list. V2 is {@code *index_v2}; V3 is {@code *index_v3}. Only the
+   * family being read is matched, so entities written to both V2 and V3 are counted once.
    */
   @Nonnull
   public static String allEntityIndexPattern(
@@ -106,6 +107,12 @@ public final class EntitySearchIndexResolver {
     if (!shouldReadV3(entityIndex) || entityNames.isEmpty()) {
       return null;
     }
-    return QueryBuilders.termsQuery(INDEX_VIRTUAL_FIELD, entityNames);
+    // Callers often pass entity registry keys, which are lower-cased (glossaryterm), while V3
+    // stores the entity name (glossaryTerm). Entity names are unique ignoring case.
+    BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    for (String entityName : entityNames) {
+      query.should(QueryBuilders.termQuery(INDEX_VIRTUAL_FIELD, entityName).caseInsensitive(true));
+    }
+    return query;
   }
 }

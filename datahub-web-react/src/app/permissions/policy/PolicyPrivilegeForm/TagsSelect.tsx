@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { MultiValueInput } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -8,7 +8,6 @@ import { SelectOption } from '@components/components/Select/types';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import TagSelect from '@app/sharedV2/tags/TagSelect';
 
@@ -33,10 +32,6 @@ const FieldWithConditionWrapper = styled.div`
 const SelectContainer = styled.div`
     flex: 1;
     min-width: 0;
-`;
-
-const StyledInput = styled(Input)`
-    width: 100%;
 `;
 
 export default function TagsSelect({
@@ -64,7 +59,6 @@ export default function TagsSelect({
     );
 
     const isStartsWithCondition = tagCondition === PolicyMatchCondition.StartsWith;
-    const startsWithValue = isStartsWithCondition && tags.length > 0 ? tags[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(tagCondition, FIELD_TYPES.TAG, onConditionChange);
 
@@ -79,10 +73,11 @@ export default function TagsSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.tagPrefixPlaceholder')}
-                        value={startsWithValue}
-                        onChange={(e) => onTagsChange(toStartsWithValues(e.target.value))}
+                        values={tags}
+                        onUpdate={onTagsChange}
+                        width="full"
                     />
                 ) : (
                     <TagSelect

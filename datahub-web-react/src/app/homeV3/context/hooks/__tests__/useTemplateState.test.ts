@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
@@ -17,8 +18,18 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
 }));
 
+vi.mock('@app/entity/shared/EntityContext', () => ({
+    useEntityContext: vi.fn(),
+}));
+
+vi.mock('@app/shared/usePrevious', () => ({
+    default: vi.fn(),
+}));
+
 const mockUseGlobalSettings = vi.mocked(useGlobalSettings);
 const mockUseUserContext = vi.mocked(useUserContext);
+const mockUseEntityContext = vi.mocked(useEntityContext);
+const mockUsePrevious = vi.mocked(await import('@app/shared/usePrevious')).default;
 
 // Mock template data
 const mockPersonalTemplate: PageTemplateFragment = {
@@ -75,6 +86,23 @@ const mockGlobalTemplate: PageTemplateFragment = {
 
 describe('useTemplateState', () => {
     beforeEach(() => {
+        mockUseEntityContext.mockReturnValue({
+            urn: '',
+            entityType: EntityType.Dataset,
+            entityData: null,
+            loading: false,
+            baseEntity: null,
+            updateEntity: vi.fn(),
+            routeToTab: vi.fn(),
+            refetch: vi.fn(),
+            lineage: undefined,
+            dataNotCombinedWithSiblings: null,
+            entityState: { shouldRefetchContents: false, setShouldRefetchContents: vi.fn() },
+        });
+        mockUsePrevious.mockReturnValue(undefined);
+    });
+
+    afterEach(() => {
         vi.clearAllMocks();
     });
 
@@ -532,6 +560,242 @@ describe('useTemplateState', () => {
 
             expect(result.current.globalTemplate).toBe(null);
             expect(result.current.template).toBe(null);
+        });
+    });
+
+    describe('AssetSummary template initialization', () => {
+        const mockAssetSummaryTemplate: PageTemplateFragment = {
+            urn: 'urn:li:pageTemplate:assetSummary',
+            type: EntityType.DatahubPageTemplate,
+            properties: {
+                rows: [
+                    {
+                        modules: [
+                            {
+                                urn: 'urn:li:pageModule:3',
+                                type: EntityType.DatahubPageModule,
+                                exists: true,
+                                properties: {
+                                    name: 'Asset Summary Module',
+                                    type: DataHubPageModuleType.Link,
+                                    visibility: { scope: PageModuleScope.Global },
+                                    params: {},
+                                },
+                            },
+                        ],
+                    },
+                ],
+                surface: { surfaceType: PageTemplateSurfaceType.AssetSummary },
+                visibility: { scope: PageTemplateScope.Global },
+            },
+        };
+
+        it('should initialize AssetSummary template with default and personal templates when entityData is available', () => {
+            mockUseEntityContext.mockReturnValue({
+                urn: 'test-urn',
+                entityType: EntityType.Dataset,
+                entityData: {
+                    urn: 'test-urn',
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate as any,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loading: false,
+                baseEntity: null,
+                updateEntity: vi.fn(),
+                routeToTab: vi.fn(),
+                refetch: vi.fn(),
+                lineage: undefined,
+                dataNotCombinedWithSiblings: null,
+                entityState: { shouldRefetchContents: false, setShouldRefetchContents: vi.fn() },
+            });
+            mockUsePrevious.mockReturnValue(undefined);
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {},
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState(PageTemplateSurfaceType.AssetSummary));
+
+            expect(result.current.globalTemplate?.urn).toBe('urn:li:dataHubPageTemplate:asset_summary_default');
+            expect(result.current.personalTemplate?.urn).toBe('urn:li:pageTemplate:assetSummary');
+        });
+
+        it('should not reinitialize AssetSummary templates when urn does not change', () => {
+            mockUseEntityContext.mockReturnValue({
+                urn: 'test-urn',
+                entityType: EntityType.Dataset,
+                entityData: {
+                    urn: 'test-urn',
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate as any,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loading: false,
+                baseEntity: null,
+                updateEntity: vi.fn(),
+                routeToTab: vi.fn(),
+                refetch: vi.fn(),
+                lineage: undefined,
+                dataNotCombinedWithSiblings: null,
+                entityState: { shouldRefetchContents: false, setShouldRefetchContents: vi.fn() },
+            });
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {},
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            mockUsePrevious.mockReturnValue('test-urn');
+
+            const { result, rerender } = renderHook(() => useTemplateState(PageTemplateSurfaceType.AssetSummary));
+
+            const initialGlobalTemplate = result.current.globalTemplate;
+            const initialPersonalTemplate = result.current.personalTemplate;
+
+            rerender();
+
+            expect(result.current.globalTemplate).toBe(initialGlobalTemplate);
+            expect(result.current.personalTemplate).toBe(initialPersonalTemplate);
+        });
+
+        it('should reinitialize AssetSummary templates when urn changes', () => {
+            let currentUrn = 'old-urn';
+
+            mockUseEntityContext.mockReturnValue({
+                urn: currentUrn,
+                entityType: EntityType.Dataset,
+                entityData: {
+                    urn: currentUrn,
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate as any,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loading: false,
+                baseEntity: null,
+                updateEntity: vi.fn(),
+                routeToTab: vi.fn(),
+                refetch: vi.fn(),
+                lineage: undefined,
+                dataNotCombinedWithSiblings: null,
+                entityState: { shouldRefetchContents: false, setShouldRefetchContents: vi.fn() },
+            });
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {},
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: mockAssetSummaryTemplate,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            // First render - initialize with old URN
+            mockUsePrevious.mockReturnValue(undefined);
+            const { result, rerender } = renderHook(() => useTemplateState(PageTemplateSurfaceType.AssetSummary));
+
+            // Verify templates are initialized
+            expect(result.current.globalTemplate).not.toBeNull();
+            expect(result.current.personalTemplate).not.toBeNull();
+            const initialPersonalTemplateUrn = result.current.personalTemplate?.urn;
+
+            // Simulate URN change - prevUrn becomes old-urn, current urn becomes new-urn
+            currentUrn = 'new-urn';
+
+            // Change the personal template URN to verify reinitialization picks up the new one
+            const newAssetSummaryTemplate: PageTemplateFragment = {
+                ...mockAssetSummaryTemplate,
+                urn: 'urn:li:pageTemplate:assetSummary-new',
+            };
+
+            mockUseEntityContext.mockReturnValue({
+                urn: currentUrn,
+                entityType: EntityType.Dataset,
+                entityData: {
+                    urn: currentUrn,
+                    settings: {
+                        assetSummary: {
+                            templates: [
+                                {
+                                    template: newAssetSummaryTemplate as any,
+                                },
+                            ],
+                        },
+                    },
+                },
+                loading: false,
+                baseEntity: null,
+                updateEntity: vi.fn(),
+                routeToTab: vi.fn(),
+                refetch: vi.fn(),
+                lineage: undefined,
+                dataNotCombinedWithSiblings: null,
+                entityState: { shouldRefetchContents: false, setShouldRefetchContents: vi.fn() },
+            });
+            mockUsePrevious.mockReturnValue('old-urn');
+
+            rerender();
+
+            // Templates should be reinitialized with new entity's template
+            expect(result.current.globalTemplate).not.toBeNull();
+            expect(result.current.personalTemplate?.urn).toBe('urn:li:pageTemplate:assetSummary-new');
+
+            // Verify that personal template was reinitialized (different URN)
+            expect(result.current.personalTemplate?.urn).not.toBe(initialPersonalTemplateUrn);
         });
     });
 });

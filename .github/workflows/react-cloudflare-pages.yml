@@ -74,16 +74,65 @@ jobs:
         # -Psourcemap was hotfix-removed once).
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: python3 .github/scripts/check_sourcemap_sizes.py datahub-web-react/dist/assets/*.map
+      # pages-action is unpublished (repo 404); Cloudflare's replacement is wrangler-action.
+      # Do not pass gitHubToken: wrangler-action names GitHub Deployments "preview"/"production",
+      # which broke Meticulous (it listens for datahub-project-web-react). Record that
+      # environment ourselves after a successful Pages upload.
       - name: Publish
+        id: cloudflare
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: datahub-project-web-react
           workingDirectory: datahub-web-react
-          directory: dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy dist --project-name=datahub-project-web-react
+      - name: Record GitHub Deployment
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_URL: ${{ steps.cloudflare.outputs.deployment-url }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          IS_PRODUCTION: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.event_name == 'release') }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_URL}" ]; then
+            echo "::error::wrangler-action did not output deployment-url"
+            exit 1
+          fi
+          if [ "${IS_PRODUCTION}" = "true" ]; then
+            TRANSIENT=false
+            PRODUCTION=true
+          else
+            TRANSIENT=true
+            PRODUCTION=false
+          fi
+          DEPLOY_ID=$(jq -nc \
+            --arg ref "$REF" \
+            --arg desc "Cloudflare Pages frontend preview" \
+            --argjson transient "$TRANSIENT" \
+            --argjson production "$PRODUCTION" \
+            '{
+              ref: $ref,
+              environment: "datahub-project-web-react",
+              description: $desc,
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: $transient,
+              production_environment: $production
+            }' | gh api --method POST "/repos/${REPO}/deployments" --input - --jq '.id')
+          jq -nc \
+            --arg url "$DEPLOY_URL" \
+            --arg log "${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
+            '{
+              state: "success",
+              environment: "datahub-project-web-react",
+              environment_url: $url,
+              log_url: $log,
+              description: "Cloudflare Pages frontend preview"
+            }' | gh api --method POST "/repos/${REPO}/deployments/${DEPLOY_ID}/statuses" --input - >/dev/null
+          echo "Created GitHub Deployment ${DEPLOY_ID} -> ${DEPLOY_URL}"
       # Runs LAST because it is destructive: it checks out the base commit's src/ and rebuilds
       # dist/ in place (without -Psourcemap) to measure the base bundle size. It must run after
       # Publish so Cloudflare deploys the real PR build WITH sourcemaps — otherwise the maps

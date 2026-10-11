@@ -18,7 +18,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -50,11 +50,11 @@ public class V2MappingsBuilderTest {
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
 
-    // Create LegacyMappingsBuilder. Default to the legacy (OpenSearch2/ES7) profile to match the
+    // Default to the OpenSearch legacy ngram profile to match the
     // historical test expectations — pre-refactor, this constructor produced legacy ngram config.
     mappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     // Create real OperationContext with test setup
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -881,7 +881,7 @@ public class V2MappingsBuilderTest {
     // The constructor doesn't actually throw an exception, so this test should pass
     // This is the current behavior of the implementation
     V2MappingsBuilder builder =
-        new V2MappingsBuilder(null, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+        new V2MappingsBuilder(null, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
     assertNotNull(builder, "Constructor should create instance even with null entity index config");
   }
 
@@ -953,7 +953,7 @@ public class V2MappingsBuilderTest {
             .getResourceAsStream("test-entity-registry.yaml"));
   }
 
-  // ES7 / OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
+  // OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
   // subfields,
   // ES8+ strips it on round-trip, which causes a perpetual mapping diff and reindex loop.
   /** Recursively collects every value found under any "ngram" key in a mappings tree. */
@@ -1007,7 +1007,7 @@ public class V2MappingsBuilderTest {
           ngram.get("doc_values"),
           "false",
           "Legacy profile must continue to emit doc_values=false to avoid a transitional reindex"
-              + " of existing ES7/OpenSearch indexes");
+              + " of existing OpenSearch indexes");
     }
   }
 
@@ -1028,11 +1028,9 @@ public class V2MappingsBuilderTest {
 
   @Test
   public void testNgramHasDocValuesForLegacyConfig() {
-    // OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG is also used by the ES7 compatibility shim
-    // (Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShim), so this test covers
-    // both ES7 and OpenSearch 2.x behavior.
+    // OpenSearch persists doc_values:false on search_as_you_type fields.
     assertLegacyNgramShape(
-        collectAllNgramSubfields(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+        collectAllNgramSubfields(OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
   }
 
   @Test
@@ -1047,7 +1045,7 @@ public class V2MappingsBuilderTest {
     // Sanity check: switching profile must NOT alter top-level fields like urn, runId,
     // systemCreated, or the analyzer wiring. We only expect the ngram doc_values flag to differ.
     Collection<IndexMapping> legacy =
-        buildAllMappings(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+        buildAllMappings(OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
     Collection<IndexMapping> es8 = buildAllMappings(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
     assertEquals(legacy.size(), es8.size(), "Same number of indexes regardless of profile");
 

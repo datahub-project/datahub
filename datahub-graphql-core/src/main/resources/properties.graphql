@@ -527,6 +527,12 @@ input UpdateStructuredPropertyInput {
   newAllowedValues: [AllowedValueInput!]
 
   """
+  Replace the allowed values list, preserving the given order. Existing values cannot be
+  removed. Do not send this together with newAllowedValues.
+  """
+  allowedValues: [AllowedValueInput!]
+
+  """
   Set to true if you want to change the cardinality of this structured property
   to multiple. Cannot change from multiple to single for backwards compatibility reasons.
   """

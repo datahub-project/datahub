@@ -1,4 +1,3 @@
-import { message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,6 +6,8 @@ import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/sha
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
@@ -41,6 +42,7 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
+    const entityRegistry = useEntityRegistryV2();
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const { refetch: entityRefetch } = useEntityContext();
@@ -58,7 +60,11 @@ export default function EditStructuredPropertyModal({
     }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
-        message.loading(isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'));
+        showToastMessage(
+            ToastType.LOADING,
+            isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'),
+            1,
+        );
         const propValues = selectedValues.map((value) => {
             if (typeof value === 'string') {
                 return { stringValue: value as string };
@@ -94,8 +100,11 @@ export default function EditStructuredPropertyModal({
                 } else {
                     entityRefetch();
                 }
-                message.destroy();
-                message.success(isAddMode ? t('properties.added.success') : t('properties.updated.success'));
+                showToastMessage(
+                    ToastType.SUCCESS,
+                    isAddMode ? t('properties.added.success') : t('properties.updated.success'),
+                    3,
+                );
                 closeModal();
             })
             .catch((error) => {
@@ -111,7 +120,10 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${structuredProperty?.definition?.displayName}`}
+            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${entityRegistry.getDisplayName(
+                structuredProperty.type,
+                structuredProperty,
+            )}`}
             onCancel={closeModal}
             open={isOpen}
             buttons={[

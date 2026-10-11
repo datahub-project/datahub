@@ -13,6 +13,8 @@ import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManag
 
 import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
+const SCROLL_X = 'max-content';
+
 const StyledTable = styled(Table)`
     overflow: inherit;
     height: inherit;
@@ -97,7 +99,6 @@ export default function AccessManagement() {
             dataIndex: 'hasAccess',
             key: 'hasAccess',
             render: renderAccessCell,
-            hidden: true,
         },
     ];
 
@@ -108,6 +109,7 @@ export default function AccessManagement() {
             dataSource={tableData}
             columns={columns}
             pagination={false}
+            scroll={{ x: SCROLL_X }}
             aria-label={t('accessManagement.tableAriaLabel')}
         />
     );

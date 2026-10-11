@@ -3,10 +3,15 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { toast } from '@components/components/Toast/Toast';
+
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
+import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import { hasIncompleteStructuredProperties } from '@app/permissions/policy/structuredProperties/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -20,6 +25,7 @@ type Props = {
     focusPolicyUrn: string | undefined;
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
+    policyPrivileges?: PolicyPrivilegesConfig;
 };
 
 const StepsWrapper = styled.div`
@@ -60,7 +66,15 @@ const MODAL_BODY_STYLE = {
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
-export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
+export default function PolicyBuilderModal({
+    policy,
+    setPolicy,
+    open,
+    onClose,
+    onSave,
+    focusPolicyUrn,
+    policyPrivileges,
+}: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
@@ -71,6 +85,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
 
     // Go to next step
     const next = () => {
+        // If on privilege step with incomplete structured properties, show error and don't proceed
+        if (activeStepIndex === 1) {
+            const structuredProps = policy.resources?.filter?.criteria?.find(
+                (c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY,
+            )?.structuredPropertyValues;
+
+            if (structuredProps && hasIncompleteStructuredProperties(structuredProps)) {
+                toast.error(t('privilegeForm.incompleteStructuredPropertiesMessage'));
+                return;
+            }
+        }
         setActiveStepIndex(activeStepIndex + 1);
     };
 
@@ -79,9 +104,45 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         setActiveStepIndex(activeStepIndex - 1);
     };
 
+    const filterEmptyStructuredProperties = () => {
+        if (!policy.resources?.filter?.criteria) {
+            return policy;
+        }
+
+        const cleanedCriteria = policy.resources.filter.criteria
+            .map((criterion) => {
+                if (criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY) {
+                    return criterion;
+                }
+
+                return {
+                    ...criterion,
+                    structuredPropertyValues: criterion.structuredPropertyValues?.filter(
+                        (prop) => prop.propertyUrn?.trim() && Array.isArray(prop.values) && prop.values.length > 0,
+                    ),
+                };
+            })
+            .filter(
+                (criterion) =>
+                    criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY ||
+                    (criterion.structuredPropertyValues?.length ?? 0) > 0,
+            );
+
+        return {
+            ...policy,
+            resources: {
+                ...policy.resources,
+                filter: {
+                    ...policy.resources.filter,
+                    criteria: cleanedCriteria,
+                },
+            },
+        };
+    };
+
     // Save or create a policy
     const onSavePolicy = () => {
-        onSave(policy);
+        onSave(filterEmptyStructuredProperties());
     };
 
     // Change the type of policy, either Metadata or Platform
@@ -130,6 +191,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 isEditState={isEditState}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
+                policyPrivileges={policyPrivileges}
             />
         ),
         complete: policy.privileges && policy.privileges.length > 0, // Whether the "next" button should appear.
@@ -178,9 +240,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? t('editPolicyModalTitle') : t('createPolicyModalTitle')}
                 open={open}
-                onCancel={() => setShowConfirmationModal(true)}
+                onCancel={onClose}
                 closable
-                width={950}
+                width={1000}
                 buttons={[]}
                 bodyStyle={MODAL_BODY_STYLE}
             >

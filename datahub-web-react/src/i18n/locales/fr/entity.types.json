@@ -137,6 +137,7 @@
     "document.linkRelatedTooltip": "Lier des assets associés ou des documents de contexte",
     "document.name": "Document",
     "document.namePlural": "Documents",
+    "document.newDocumentPlaceholder": "Nouveau document",
     "document.noChangeHistoryEmpty": "Aucun historique des modifications pour le moment!",
     "document.noContentPlaceholder": "Aucun contenu",
     "document.previousVersionTitle": "Version précédente",

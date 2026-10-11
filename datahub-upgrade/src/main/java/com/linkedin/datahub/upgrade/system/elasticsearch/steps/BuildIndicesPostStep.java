@@ -13,6 +13,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
@@ -58,13 +59,14 @@ public class BuildIndicesPostStep implements UpgradeStep {
 
         // Reset write blocking
         for (ReindexConfig indexConfig : indexConfigs) {
+          SearchClientShim<?> searchClient =
+              IndexUtils.requireIndexBuilder(indexConfig.name()).getSearchClient();
           UpdateSettingsRequest request = new UpdateSettingsRequest(indexConfig.name());
           Map<String, Object> indexSettings = ImmutableMap.of(INDEX_BLOCKS_WRITE_SETTING, "false");
 
           request.settings(indexSettings);
           boolean ack =
-              esComponents
-                  .getSearchClient()
+              searchClient
                   .updateIndexSettings(opContext, request, RequestOptions.DEFAULT)
                   .isAcknowledged();
           log.info(
@@ -74,9 +76,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
               ack);
 
           if (ack) {
-            ack =
-                IndexUtils.validateWriteBlock(
-                    opContext, esComponents.getSearchClient(), indexConfig.name(), false);
+            ack = IndexUtils.validateWriteBlock(opContext, searchClient, indexConfig.name(), false);
             log.info(
                 "Validated index {} with new settings. Settings: {}, Acknowledged: {}",
                 indexConfig.name(),

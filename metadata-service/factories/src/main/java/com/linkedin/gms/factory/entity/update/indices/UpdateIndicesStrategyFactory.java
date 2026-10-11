@@ -61,7 +61,7 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
           boolean coalesceBatchUpdates) {
@@ -113,6 +113,7 @@ public class UpdateIndicesStrategyFactory {
       TimeseriesAspectService timeseriesAspectService,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       EntityDocumentIdHasher entityDocumentIdHasher,
+      ConfigurationProvider configProvider,
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
@@ -129,6 +130,7 @@ public class UpdateIndicesStrategyFactory {
         timeseriesWriteThrottleCache,
         entityDocumentIdHasher,
         documentContributors == null ? List.of() : documentContributors,
-        v2Enabled);
+        v2Enabled,
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
   }
 }

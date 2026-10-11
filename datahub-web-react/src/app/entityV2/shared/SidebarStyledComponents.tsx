@@ -22,24 +22,6 @@ export const SideBar = styled.div`
     }
 `;
 
-export const SideBarSubSection = styled.div`
-    height: calc(100vh - 135px);
-    overflow: auto;
-    padding-right: 18px;
-    &.fullView {
-        height: calc(100vh - 70px);
-    }
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: ${(props) => props.theme.colors.scrollbarTrack};
-    }
-    &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.scrollbarThumb};
-        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
-    }
-`;
-
 export const EmptyValue = styled.div<{ color?: string }>`
     &:after {
         content: 'None';
@@ -134,13 +116,6 @@ export const AboutSectionText = styled.div`
         padding-left: 15px;
         padding-top: 5px;
     }
-`;
-
-export const GroupsSection = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    text-align: left;
 `;
 
 export const TagsSection = styled.div`

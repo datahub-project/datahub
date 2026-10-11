@@ -44,7 +44,7 @@ On DataHub Cloud v1.0.2+, Copilot Studio can connect with OAuth2 and [Dynamic Cl
 4. Enter your DataHub domain when prompted (e.g. `<tenant>` for `https://<tenant>.acryl.io`), sign in, and approve the connection. Copilot Studio can only retrieve DataHub's tools after this step completes.
 5. Click **Add to agent**.
 
-Prefer your tenant URL directly? Use `https://<tenant>.acryl.io/integrations/ai/mcp` as the Server URL instead — both endpoints support OAuth2 + DCR. With the tenant URL you skip the domain prompt and go straight to login.
+Prefer your tenant URL directly? Use `https://<tenant>.acryl.io/mcp` as the Server URL instead — both endpoints support OAuth2 + DCR. With the tenant URL you skip the domain prompt and go straight to login.
 
 :::tip Fallback OAuth modes
 If **Dynamic discovery** fails, try **Dynamic** and enter the Authorization and Token URLs from the auth server's `/.well-known/oauth-authorization-server` document. Prefer Dynamic discovery when it works — you should not need a Client ID or Client secret.
@@ -57,7 +57,7 @@ For service accounts, unattended agents, or DataHub Cloud versions prior to v1.0
 | Field              | Value                                                 |
 | ------------------ | ----------------------------------------------------- |
 | **Server name**    | `DataHub MCP Server`                                  |
-| **Server URL**     | `https://<tenant>.acryl.io/integrations/ai/mcp`       |
+| **Server URL**     | `https://<tenant>.acryl.io/mcp`                       |
 | **Authentication** | API key · Header · `Authorization` · `Bearer <token>` |
 
 <p align="center">

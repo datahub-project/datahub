@@ -391,3 +391,135 @@ To see resolved dependencies for each Scala version:
 
 - `acryl-spark-lineage_2.12-<version>.jar`
 - `acryl-spark-lineage_2.13-<version>.jar`
+
+## Changelog and Release Notes
+
+The agent's release notes are the `## Changelog` section of [`README.md`](README.md). There is no
+separate `CHANGELOG.md`, and nothing generates it — regenerate it by hand whenever the released
+versions have drifted ahead of the newest documented one.
+
+### Why this is manual
+
+The jar is published on **every** DataHub release and takes that release's version from
+`versioning.gradle`, which reads `build/version.json` derived from the git tag. Nothing in this
+module declares a version. Most releases therefore ship a jar with no agent changes in it. The
+changelog lists only the versions that changed, and you attribute every entry to a release by
+hand.
+
+### Attribute commits to releases
+
+Collect commits over a **date window on `origin/master`**, then resolve each one with
+`git tag --contains`. Both ends of that recipe avoid branch topology, which is the part that goes
+wrong. Two traps make the obvious approaches return nonsense:
+
+- **Release tags are not on `master`.** Patch lines are tagged on release branches, so
+  `git merge-base --is-ancestor v1.7.0.10 master` is false and a `v1.7.0.10..HEAD` range comes
+  back nearly empty.
+- **Version order is not time order.** `v1.8.0rc3` was tagged 2026-09-07, ten days _before_
+  `v1.7.0.11rc4` on 2026-09-17, and `v1.7.0.1` (2026-09-03) came a month after `v1.7.0.2`
+  (2026-08-06). Neither `sort -V | tail -1` nor a range between adjacent tags means what it looks
+  like it means.
+
+Run this from the repository root, with `<last-documented>` set to the newest version already in
+the changelog:
+
+```bash
+# Releases are tagged on the acryl remote; master lives on origin.
+git fetch acryl --tags && git fetch origin
+
+# Collect every commit that reaches the published jar, from the last documented release onward.
+SINCE=$(git log -1 --format=%cI v<last-documented>)
+git log --format='%H|%ci|%s' --since="$SINCE" origin/master -- \
+  metadata-integration/java/acryl-spark-lineage/ \
+  metadata-integration/java/openlineage-converter/ \
+  metadata-integration/java/datahub-client/src/main/ > /tmp/spark_commits.txt
+
+# Map each commit to the lowest-numbered GA release that contains it.
+while IFS='|' read -r sha date subj; do
+  tag=$(git tag --contains "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | head -1)
+  printf "%-12s %s  %s\n" "${tag:--unreleased-}" "${date:0:10}" "$subj"
+done < /tmp/spark_commits.txt | tac
+```
+
+Commits that resolve to no tag are unreleased and belong under `### Next`. A commit that reached a
+release only as a cherry-pick keeps a different SHA on the release branch. Spot-check anything that
+looks like it should have shipped: `git log --all --grep '#<pr-number>)'`.
+
+### Which paths count
+
+| Path                                                 | Why it reaches the jar                              |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `metadata-integration/java/acryl-spark-lineage/`     | The agent itself                                    |
+| `metadata-integration/java/openlineage-converter/`   | Shared OpenLineage-to-DataHub conversion, shaded in |
+| `metadata-integration/java/datahub-client/src/main/` | The REST, Kafka, file and S3 emitters, shaded in    |
+
+Skip changes confined to `src/test/`, `spark-smoke-test/`, or test-only `build.gradle`
+dependencies — they never reach users. To decide whether a dependency bump is user-visible, look
+at the runtime entries in its lockfile diff:
+
+```bash
+git show <sha> --format="" -- metadata-integration/java/acryl-spark-lineage/gradle.lockfile \
+  | grep '^[-+]' | grep 'runtimeClasspath' | grep -v 'testRuntimeClasspath$'
+```
+
+### Confirm what was actually published
+
+Tags and published jars are not the same set: some tags never reach GA, and release candidates are
+published too. Check Maven Central before writing version headings:
+
+```bash
+curl -s https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml \
+  | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g'
+```
+
+Give a heading only to GA versions. Keep changes that exist solely in an `rc` under `### Next`
+until that GA release ships.
+
+### Write the entries
+
+Match the conventions already in `README.md`:
+
+- Order versions newest first, above `### Version 0.2.18`.
+- Group bullets under `_Changes_`, `_Fixes_` and `_Dependencies_`.
+- Link each PR as `([#19254](https://github.com/datahub-project/datahub/pull/19254))`.
+- Describe the user-visible symptom of a fix, not the patch. Readers decide whether to upgrade
+  from the symptom.
+- Name any config key a change adds or alters, and update the "Configuration Options" table in the
+  same pass.
+- After a run of unlisted versions, state the gap — for example,
+  `_No agent changes in 1.7.0, 1.7.0.1, 1.7.0.2, 1.7.0.3, 1.7.0.6 or 1.7.0.7._` — so a reader can
+  tell a deliberate gap from a missing entry.
+
+Before committing, format with Gradle (never `npx prettier`):
+
+```bash
+./gradlew :datahub-web-react:mdPrettierWrite
+```
+
+### Prompt to hand an agent
+
+Run this from the repository root:
+
+> Update the `## Changelog` section of
+> `metadata-integration/java/acryl-spark-lineage/README.md` to cover every DataHub release
+> published since the newest version documented there.
+>
+> Follow the "Changelog and Release Notes" runbook in
+> `metadata-integration/java/acryl-spark-lineage/CLAUDE.md`. In particular:
+>
+> - Run `git fetch acryl --tags && git fetch origin` first; releases are tagged on the `acryl`
+>   remote and `master` lives on `origin`.
+> - Collect candidate commits with a `--since` date window on `origin/master`, then attribute each
+>   one with `git tag --contains <sha>`. Never range between two tags and never use `HEAD` as the
+>   endpoint: release tags sit on release branches, and version order is not time order.
+> - Cover `acryl-spark-lineage/`, `openlineage-converter/` and `datahub-client/src/main/`, and
+>   ignore test-only changes.
+> - Cross-check against the published versions in
+>   `https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml`, and give
+>   a heading only to GA versions.
+> - State explicitly which versions shipped no agent changes.
+> - For each user-facing change, read the diff and describe the symptom a user would see, and name
+>   any config key involved.
+> - Finish with `./gradlew :datahub-web-react:mdPrettierWrite`.
+>
+> Show me the diff. Do not commit or push.

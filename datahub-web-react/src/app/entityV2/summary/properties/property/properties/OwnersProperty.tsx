@@ -18,7 +18,7 @@ export default function OwnersProperty(props: PropertyComponentProps) {
 
     const renderOwner = (owner: OwnerType) => {
         const displayName = entityRegistry.getDisplayName(owner.type, owner);
-        const avatarUrl = owner.editableProperties?.pictureLink;
+        const avatarUrl = ('editableProperties' in owner && owner.editableProperties?.pictureLink) || undefined;
 
         return (
             <HoverEntityTooltip entity={owner} showArrow={false}>

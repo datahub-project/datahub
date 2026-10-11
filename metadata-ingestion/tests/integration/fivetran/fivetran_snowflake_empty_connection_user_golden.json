@@ -136,7 +136,7 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
                 },
                 {
-                    "id": "my-fivetran.calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)"
                 }
             ]
@@ -259,7 +259,7 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
                 },
                 {
-                    "id": "my-fivetran.calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)"
                 }
             ]
@@ -382,7 +382,7 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
                 },
                 {
-                    "id": "my-fivetran.calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)"
                 }
             ]
@@ -837,7 +837,7 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
                 },
                 {
-                    "id": "my-fivetran.my_confluent_cloud_connector_id",
+                    "id": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)"
                 }
             ]
@@ -937,7 +937,7 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
                 },
                 {
-                    "id": "my-fivetran.my_confluent_cloud_connector_id",
+                    "id": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)"
                 }
             ]

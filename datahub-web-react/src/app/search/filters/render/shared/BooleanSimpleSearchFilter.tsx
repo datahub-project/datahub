@@ -1,4 +1,5 @@
-import { DownOutlined, UpOutlined } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Checkbox } from 'antd';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
@@ -19,11 +20,11 @@ const Title = styled.div`
     cursor: pointer;
 `;
 
-const StyledUpOutlined = styled(UpOutlined)`
+const StyledUpOutlined = styled(CaretUp)`
     font-size: 10px;
 `;
 
-const StyledDownOutlined = styled(DownOutlined)`
+const StyledDownOutlined = styled(CaretDown)`
     font-size: 10px;
 `;
 

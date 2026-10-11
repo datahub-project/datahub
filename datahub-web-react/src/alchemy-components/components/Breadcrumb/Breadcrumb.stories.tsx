@@ -3,13 +3,11 @@ import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import styled, { ThemeProvider } from 'styled-components';
+import styled from 'styled-components';
 
 import { Breadcrumb } from '@components/components/Breadcrumb';
 import { breadcrumbDefaults } from '@components/components/Breadcrumb/defaults';
 import { Icon } from '@components/components/Icon';
-
-import themes from '@conf/theme/themes';
 
 // Auto Docs
 const meta = {
@@ -54,13 +52,6 @@ const meta = {
                 <MemoryRouter>
                     <Story />
                 </MemoryRouter>
-            );
-        },
-        (Story) => {
-            return (
-                <ThemeProvider theme={themes.themeV2}>
-                    <Story />
-                </ThemeProvider>
             );
         },
     ],

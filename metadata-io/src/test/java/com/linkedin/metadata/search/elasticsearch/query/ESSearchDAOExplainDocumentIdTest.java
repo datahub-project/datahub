@@ -11,13 +11,11 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class ESSearchDAOExplainDocumentIdTest {
@@ -27,12 +25,7 @@ public class ESSearchDAOExplainDocumentIdTest {
 
   private static ESSearchDAO dao(ElasticSearchConfiguration config) {
     return new ESSearchDAO(
-        Mockito.mock(SearchClientShim.class),
-        false,
-        config,
-        null,
-        QueryFilterRewriteChain.EMPTY,
-        TEST_SEARCH_SERVICE_CONFIG);
+        false, config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
   }
 
   private static ElasticSearchConfiguration v3KeywordReadConfig() {

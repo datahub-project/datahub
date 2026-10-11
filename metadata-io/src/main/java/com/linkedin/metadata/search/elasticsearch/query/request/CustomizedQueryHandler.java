@@ -151,8 +151,8 @@ public class CustomizedQueryHandler {
         && customAutocompleteConfiguration.isInheritFunctionScore()
         && customQueryConfiguration != null) {
       log.debug(
-          "Inheriting query configuration for autocomplete function scoring: "
-              + customQueryConfiguration);
+          "Inheriting query configuration for autocomplete function scoring: {}",
+          customQueryConfiguration);
       // inherit if not overridden
       result =
           Optional.of(

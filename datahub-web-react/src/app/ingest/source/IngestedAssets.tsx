@@ -83,7 +83,8 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets + total only — result body is unused.
+                count: 0,
                 filters: [
                     {
                         field: 'runId',
@@ -154,7 +155,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     title="View Ingested Assets"
-                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    searchBarStyle={{ width: 525, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],

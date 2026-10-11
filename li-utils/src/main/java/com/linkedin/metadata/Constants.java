@@ -135,6 +135,7 @@ public class Constants {
   public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
   public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
   public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String UPSTREAM_METRICS_ASPECT_NAME = "upstreamMetrics";
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
@@ -499,6 +500,7 @@ public class Constants {
 
   // Relationships
   public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
+  public static final String APPLICATION_PART_OF_RELATIONSHIP_NAME = "ApplicationPartOf";
   public static final String IS_CHILD_OF_RELATIONSHIP_NAME = "IsChildOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
@@ -629,6 +631,8 @@ public class Constants {
 
   // Index names
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+  public static final String GRAPH_SERVICE_INDEX = "graph_service_v1";
+  public static final String SYSTEM_METADATA_SERVICE_INDEX = "system_metadata_service_v1";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
@@ -641,6 +645,16 @@ public class Constants {
       "DataHub is currently in read only mode and this write will be dropped.";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // The emit-mode marker is the same system-metadata key/value convention already
+  // published by the Python REST emitter (EMIT_MODE_MARKER_KEY /
+  // EMIT_MODE_MARKER_SYNC in datahub.emitter.request_helper): a per-MCP marker
+  // that pins a write to synchronous routing regardless of the caller's
+  // configured emit mode. Stamping it server-side (rather than requiring a producer
+  // to set it directly) lets externally-originated sync writes propagate that pin
+  // through MCL -> platform events -> downstream event consumers.
+  public static final String EMIT_MODE_MARKER_KEY = "emitModeMarker";
+  public static final String EMIT_MODE_MARKER_SYNC = "sync";
 
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver

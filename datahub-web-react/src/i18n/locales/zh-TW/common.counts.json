@@ -1,0 +1,9 @@
+{
+    "columnCount_other": "{{count}} 個欄位",
+    "matchCount_other": "{{count}} 筆相符",
+    "ownerCount_other": "{{count}} 位擁有者",
+    "queryCount_other": "{{count}} 筆查詢",
+    "rowCount_other": "{{count}} 列",
+    "tagCount_other": "{{count}} 個標籤",
+    "termCount_other": "{{count}} 個詞彙"
+}

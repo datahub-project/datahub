@@ -2,8 +2,8 @@
 
 import hashlib
 import json
-import sys
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,7 +15,7 @@ from datahub.ingestion.source.unstructured.event_consumer import (
     DocumentEventConsumer,
 )
 
-# Skip entire module if unstructured is not installed (requires Python 3.10+)
+# Skip entire module if unstructured is not installed (requires Python 3.11+)
 pytest.importorskip("unstructured")
 
 from datahub.ingestion.api.common import PipelineContext
@@ -59,10 +59,6 @@ def _mock_fetch(source, entities, urns=None):
 class TestTextPartitioner:
     """Test text partitioner."""
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_simple_markdown(self):
         """Test partitioning simple markdown text."""
         partitioner = TextPartitioner()
@@ -76,10 +72,6 @@ class TestTextPartitioner:
         element_types = {elem.get("type") for elem in elements}
         assert "Title" in element_types or "Header" in element_types
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_empty_text(self):
         """Test partitioning empty text."""
         partitioner = TextPartitioner()
@@ -89,10 +81,6 @@ class TestTextPartitioner:
 
         assert elements == []
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_single_character_falls_back(self):
         """A single-character document yields zero elements from the markdown
         partitioner; the fallback keeps it embeddable instead of silently
@@ -1576,6 +1564,18 @@ class TestSourceTypeFiltering:
             )
             assert should_process_external is True
 
+            # SYSTEM (platform-managed) documents are DataHub-owned, like NATIVE
+            entity_system: dict[str, Any] = {
+                "urn": "urn:li:document:system1",
+                "info": {"source": {"sourceType": "SYSTEM"}},
+            }
+            assert source._should_process_by_source_type(
+                entity_system, entity_system["info"]
+            )
+            assert source._should_process_by_source_type_event(
+                "SYSTEM", {}, "urn:li:document:system1"
+            )
+
     def test_external_skipped_when_include_external_disabled(self, ctx, mock_graph):
         """EXTERNAL documents are skipped when include_external_documents is False."""
         config = DataHubDocumentsSourceConfig(
@@ -2215,6 +2215,192 @@ class TestConfigFingerprintInHash:
             # Should only return notion document (confluence filtered out)
             assert len(documents) == 1
             assert documents[0]["urn"] == "urn:li:document:notion1"
+
+
+_SERVER_SEMANTIC_SEARCH_OFF = ServerSemanticSearchConfig(
+    enabled=False, enabled_entities=["document"], embedding_config=None
+)
+_SERVER_BEDROCK_COHERE_V3 = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="bedrock",
+        model_id="cohere.embed-english-v3",
+        aws_region="us-west-2",
+        model_embedding_key="cohere_embed_v3",
+    ),
+)
+_SERVER_BEDROCK_TITAN_V2 = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="bedrock",
+        model_id="amazon.titan-embed-text-v2:0",
+        aws_region="us-west-2",
+        model_embedding_key="titan_embed_text_v2",
+    ),
+)
+_SERVER_VERTEX_GEMINI = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="test-project",
+        vertex_location="us-east1",
+    ),
+)
+_SERVER_ONNX_ARCTIC = ServerSemanticSearchConfig(
+    enabled=True,
+    enabled_entities=["document"],
+    embedding_config=ServerEmbeddingConfig(
+        provider="onnx",
+        model_id="snowflake_arctic_embed_s",
+        model_embedding_key="snowflake_arctic_embed_s",
+    ),
+)
+
+
+class TestFingerprintFollowsServerEmbeddingConfig:
+    """The managed recipe has no local embedding block: provider and model come
+    from the server. The skip hash must follow them, or documents hashed under
+    one server config are skipped as unchanged under the next one forever."""
+
+    URN = "urn:li:document:analytics-knowledge"
+    TEXT = "Analytics Knowledge -- how revenue is defined"
+
+    def _run_source(
+        self,
+        tmp_path: Path,
+        server_config: Union[ServerSemanticSearchConfig, Exception],
+    ) -> DataHubDocumentsSource:
+        config = DataHubDocumentsSourceConfig(
+            datahub={"server": "http://test-server:8080"},
+            incremental={"state_file_path": str(tmp_path / "state.json")},
+            locking={"enabled": False},
+            stateful_ingestion={"enabled": False},
+        )
+        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        lookup: dict[str, Any] = (
+            {"side_effect": server_config}
+            if isinstance(server_config, Exception)
+            else {"return_value": server_config}
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ),
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config",
+                **lookup,
+            ),
+        ):
+            return DataHubDocumentsSource(ctx, config)
+
+    def _run_batch(self, source: DataHubDocumentsSource) -> Mock:
+        """One scheduled batch run over the test document; returns the embed mock."""
+        with (
+            patch.object(
+                source,
+                "_fetch_documents_graphql",
+                return_value=[{"urn": self.URN, "text": self.TEXT}],
+            ),
+            patch.object(
+                source.chunking_source,
+                "process_elements_inline",
+                return_value=iter([]),
+            ) as embed,
+        ):
+            list(source.get_workunits_internal())
+        return embed
+
+    def _record_processed(self, source: DataHubDocumentsSource) -> None:
+        source._update_document_state(self.URN, self.TEXT)
+        source._save_state()
+
+    @pytest.mark.parametrize(
+        "earlier, later",
+        [
+            pytest.param(
+                _SERVER_SEMANTIC_SEARCH_OFF,
+                _SERVER_BEDROCK_COHERE_V3,
+                id="semantic-search-turned-on",
+            ),
+            pytest.param(
+                _SERVER_SEMANTIC_SEARCH_OFF,
+                _SERVER_VERTEX_GEMINI,
+                id="semantic-search-turned-on-vertex",
+            ),
+            pytest.param(
+                _SERVER_BEDROCK_COHERE_V3,
+                _SERVER_BEDROCK_TITAN_V2,
+                id="server-model-changed",
+            ),
+        ],
+    )
+    def test_reprocesses_document_when_server_embedding_config_changes(
+        self, tmp_path, earlier, later
+    ):
+        self._record_processed(self._run_source(tmp_path, earlier))
+
+        assert self._run_source(tmp_path, later)._should_process(self.URN, self.TEXT)
+
+    @pytest.mark.parametrize(
+        "earlier_pooling, later_pooling", [("cls", "mean"), ("mean", "cls")]
+    )
+    def test_reprocesses_document_when_onnx_pooling_changes(
+        self, tmp_path, monkeypatch, earlier_pooling, later_pooling
+    ):
+        # The server does not expose pooling; the executor reads the env var GMS
+        # uses. cls and mean pooling give different vectors from the same model.
+        monkeypatch.setenv("ONNX_EMBEDDING_MODEL_DIR", "/models/arctic")
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", earlier_pooling)
+        self._record_processed(self._run_source(tmp_path, _SERVER_ONNX_ARCTIC))
+
+        monkeypatch.setenv("ONNX_EMBEDDING_POOLING", later_pooling)
+        assert self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)._should_process(
+            self.URN, self.TEXT
+        )
+
+    @pytest.mark.parametrize("pooling", [None, "cls", "CLS"])
+    def test_default_onnx_pooling_is_not_fingerprinted(
+        self, tmp_path, monkeypatch, pooling
+    ):
+        # Onnx documents hashed before pooling was fingerprinted must not all
+        # re-embed on upgrade, so the default (cls) adds nothing to the hash.
+        monkeypatch.setenv("ONNX_EMBEDDING_MODEL_DIR", "/models/arctic")
+        if pooling is None:
+            monkeypatch.delenv("ONNX_EMBEDDING_POOLING", raising=False)
+        else:
+            monkeypatch.setenv("ONNX_EMBEDDING_POOLING", pooling)
+        source = self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)
+
+        assert "onnx_pooling" not in source._get_processing_config_fingerprint()
+
+    def test_failed_config_lookup_fails_run_and_keeps_saved_hashes(self, tmp_path):
+        # A transient AppConfig failure must not look like "semantic search off":
+        # that would re-hash every document without embedding it, then re-embed
+        # the whole corpus once the lookup recovers.
+        self._run_batch(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
+        saved_state = (tmp_path / "state.json").read_text()
+
+        with pytest.raises(ValueError, match="embedding configuration"):
+            self._run_batch(
+                self._run_source(tmp_path, GraphError("AppConfig unavailable"))
+            )
+
+        assert (tmp_path / "state.json").read_text() == saved_state
+        recovered = self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3)
+        self._run_batch(recovered).assert_not_called()
+        assert recovered.report.num_documents_skipped_unchanged == 1
+
+    def test_skips_unchanged_document_under_same_server_config(self, tmp_path):
+        self._record_processed(self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3))
+
+        assert not self._run_source(
+            tmp_path, _SERVER_BEDROCK_COHERE_V3
+        )._should_process(self.URN, self.TEXT)
 
 
 class TestPartialEntityHandling:
@@ -3331,20 +3517,46 @@ class TestFetchDocumentsPagination:
             assert mock_execute.call_count == 1
             assert not source.report.failures
 
-    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
-        """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
+    @pytest.mark.parametrize(
+        "schema_check_kwargs,expect_flag",
+        [
+            ({"return_value": True}, True),
+            ({"return_value": False}, False),
+            # Schema check failed: fail closed, but surface it in the report.
+            ({"side_effect": GraphError("introspection failed")}, False),
+        ],
+    )
+    def test_search_flags_reach_hidden_documents(
+        self, ctx, config, mock_graph, schema_check_kwargs, expect_flag
+    ):
+        """Hidden-lifecycle docs are always requested; non-global-context docs only when
+        the server supports the flag, since older servers reject unknown search flags."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
             response = self._make_scroll_page(0, 0, next_scroll_id=None)
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=response
-            ) as mock_execute:
+            with (
+                patch.object(
+                    source.graph,
+                    "_graphql_input_type_has_field",
+                    **schema_check_kwargs,
+                ) as mock_schema_check,
+                patch.object(
+                    source.graph, "execute_graphql", return_value=response
+                ) as mock_execute,
+            ):
                 list(source._scroll_document_urns())
 
-            query = mock_execute.call_args[0][0]
-            assert "includeHiddenLifecycleStages: true" in query
+            mock_schema_check.assert_called_once_with(
+                "SearchFlags", "includeNonGlobalContextDocuments"
+            )
+            flags = mock_execute.call_args[0][1]["searchFlags"]
+            assert flags["includeHiddenLifecycleStages"] is True
+            assert ("includeNonGlobalContextDocuments" in flags) is expect_flag
+            assert bool(source.report.warnings) is (
+                "side_effect" in schema_check_kwargs
+            )
 
     def test_empty_result_set(self, ctx, config, mock_graph):
         """Zero documents yields no URNs after one call."""
@@ -4615,10 +4827,10 @@ class TestOrphanedDocumentResilience:
             for f in source.report.failures
         )
 
-    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
-        # Right length, every slot null. Unlike a length mismatch this is
-        # interpretable, and the rest of the catalog may be healthy — so the run
-        # goes red without one drifted page taking down the whole run.
+    def test_all_null_batch_warns_and_does_not_abort(self, ctx, config):
+        # Right length, every slot null, but a later batch resolves: the live
+        # catalog is being served, so the null batch is orphan drift. Warn, skip
+        # it, and keep the run green.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
         batch1 = {"entities": [None] * 100}
@@ -4627,11 +4839,58 @@ class TestOrphanedDocumentResilience:
 
         hydrated = list(source._hydrate_documents(urns))
 
-        # Second batch still hydrated: the failure did not abort the run.
         assert len(hydrated) == 50
         assert source.report.num_documents_skipped_orphaned == 100
         assert any(
-            "resolved nothing" in (f.title or "").lower()
+            "resolved nothing in a batch" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+        assert not source.report.failures
+
+    def test_clustered_orphans_spanning_batches_do_not_fail(self, ctx, config):
+        # Enumeration is URN-ordered, so orphans sharing a prefix are contiguous.
+        # 250 of them between live documents fill two whole hydration batches;
+        # that is drift, not a serving problem, and must not fail the run.
+        source = self._make_source(ctx, config)
+        live_before = [f"urn:li:document:a-{i:03d}" for i in range(50)]
+        orphans = [f"urn:li:document:proposed-{i:03d}" for i in range(250)]
+        live_after = [f"urn:li:document:z-{i:03d}" for i in range(100)]
+        urns = live_before + orphans + live_after
+        resolvable = set(live_before + live_after)
+
+        def hydrate(_query, variables):
+            return {
+                "entities": [
+                    self._native_notion_doc(u) if u in resolvable else None
+                    for u in variables["urns"]
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = hydrate
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert len(hydrated) == 150
+        assert source.report.num_documents_skipped_orphaned == 250
+        assert not source.report.failures
+
+    def test_nothing_resolved_in_any_batch_fails(self, ctx, config):
+        # Every batch null across the whole run: nothing in the catalog is being
+        # served, which is a serving problem, not orphans. The run must go red
+        # rather than finish green having embedded nothing.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        source.graph.execute_graphql.side_effect = [
+            {"entities": [None] * 100},
+            {"entities": [None] * 50},
+        ]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert hydrated == []
+        assert source.report.num_documents_skipped_orphaned == 150
+        assert any(
+            (f.title or "") == "Document hydration resolved nothing"
             for f in source.report.failures
         )
 
@@ -4808,3 +5067,207 @@ class TestTotalProcessingFailure:
             source = self._run(ctx, failed=2, processed=5)
 
         assert not source.report.failures
+
+
+class TestCheckpointPruning:
+    """A complete batch enumeration lists every live document, so incremental state
+    for any other URN belongs to a deleted document. Keeping it grows the checkpoint
+    by one entry per document ever embedded, until it no longer fits in a single
+    request and no run can commit progress."""
+
+    LIVE = "urn:li:document:live"
+    DELETED = "urn:li:document:deleted"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def _make_source(
+        self,
+        ctx: PipelineContext,
+        backend: str,
+        scroll_urns: tuple[str, ...] = (LIVE,),
+        **config: Any,
+    ) -> DataHubDocumentsSource:
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, _make_config(**config))
+        source.graph = Mock()
+        source.graph.config.server = "http://test-server:8080"
+
+        live_doc = TestOrphanedDocumentResilience._native_notion_doc(self.LIVE)
+        # The live document is unchanged since the last run, so it is skipped
+        # without embedding and only the carried-forward state is in play.
+        previous = {
+            self.LIVE: {
+                "content_hash": source._calculate_text_hash(
+                    live_doc["info"]["contents"]["text"]
+                ),
+                "last_processed": "2026-09-01T00:00:00",
+            },
+            self.DELETED: {
+                "content_hash": "hash-of-a-deleted-document",
+                "last_processed": "2026-09-01T00:00:00",
+            },
+        }
+        if backend == "state_handler":
+            handler = TestStateStorage._make_state_handler(
+                stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                    enabled=True
+                ),
+                last_checkpoint=Checkpoint(
+                    job_name="document_chunking",
+                    pipeline_name="test-pipeline",
+                    run_id="previous-run",
+                    state=DocumentChunkingCheckpointState(document_state=previous),
+                ),
+            )
+            # Like the real provider, the current checkpoint is seeded from the last one.
+            handler.state_provider.get_current_checkpoint.return_value = (  # type: ignore[attr-defined]
+                handler.create_checkpoint()
+            )
+            source.state_handler = handler
+        else:
+            source.document_state = previous
+
+        self._serve(source, scroll_urns)
+        return source
+
+    def _serve(
+        self, source: DataHubDocumentsSource, scroll_urns: tuple[str, ...]
+    ) -> None:
+        """Answer the scroll with `scroll_urns`. Only the live document resolves; any
+        other listed URN is an orphan (an index entry whose entity is gone)."""
+        live_doc = TestOrphanedDocumentResilience._native_notion_doc(self.LIVE)
+
+        def _graphql(query: str, variables: Optional[dict] = None) -> dict:
+            if "scrollAcrossEntities" in query:
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [{"entity": {"urn": u}} for u in scroll_urns],
+                    }
+                }
+            assert variables is not None
+            return {
+                "entities": [
+                    live_doc if u == self.LIVE else None for u in variables["urns"]
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = _graphql  # type: ignore[attr-defined]
+
+    @staticmethod
+    def _tracked_urns(source: DataHubDocumentsSource) -> set[str]:
+        if source.state_handler is not None:
+            state = source.state_handler.get_current_state()
+            assert state is not None
+            return set(state.document_state)
+        return set(source.document_state)
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_full_enumeration_drops_state_for_deleted_documents(self, ctx, backend):
+        source = self._make_source(ctx, backend)
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
+        assert source.report.num_documents_pruned_from_state == 1
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_truncated_enumeration_keeps_state(self, ctx, backend):
+        # A full page without a continuation cursor means some live documents
+        # were never listed. Dropping their state would re-embed them next run.
+        source = self._make_source(ctx, backend, scroll_batch_size=1)
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, self.DELETED}
+        assert source.report.num_documents_pruned_from_state == 0
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_orphaned_index_entry_is_pruned(self, ctx, backend):
+        # The deleted document's search entry outlived it: listed, but unresolvable.
+        source = self._make_source(ctx, backend, scroll_urns=(self.LIVE, self.DELETED))
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_empty_enumeration_keeps_state(self, ctx, backend):
+        # Zero listed documents is far likelier an index problem than an empty
+        # catalog; pruning against it would re-embed everything next run.
+        source = self._make_source(ctx, backend, scroll_urns=())
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, self.DELETED}
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_state_written_earlier_in_the_run_survives_prune(self, ctx, backend):
+        # E.g. a document embedded from an event before the event-mode fallback to
+        # batch: it may not be searchable yet, but its new hash must not be dropped.
+        source = self._make_source(ctx, backend)
+        source._update_document_state("urn:li:document:just-created", "fresh body")
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, "urn:li:document:just-created"}
+
+    @pytest.mark.parametrize("listed", [(), (DELETED,)], ids=["empty", "all-orphans"])
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_listing_without_live_documents_keeps_state_despite_writes(
+        self, ctx, backend, listed
+    ):
+        # Writes from earlier in the run must not make a listing with no live
+        # documents look usable, or the prune would keep only those writes.
+        source = self._make_source(ctx, backend, scroll_urns=listed)
+        source._update_document_state("urn:li:document:just-created", "fresh body")
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {
+            self.LIVE,
+            self.DELETED,
+            "urn:li:document:just-created",
+        }
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_prune_uses_only_the_latest_listing(self, ctx, backend):
+        # An earlier scroll in the same run (e.g. before an event-mode fallback) must
+        # not keep documents the latest complete listing no longer returns.
+        source = self._make_source(ctx, backend, scroll_urns=(self.LIVE, self.DELETED))
+        list(source._scroll_document_urns())
+        self._serve(source, (self.LIVE,))
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
+
+
+def test_datahub_documents_does_not_embed_when_only_v3_enabled():
+    """V3 on with semantic search off must not start embedding generation."""
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = Mock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider is None
+    query = fake_graph.execute_graphql.call_args.kwargs["query"]
+    assert "entityIndexV3" in query

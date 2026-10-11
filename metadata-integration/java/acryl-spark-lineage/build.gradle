@@ -218,11 +218,20 @@ dependencies {
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
 
-  // Iceberg + AWS SDK (shaded uber-jars) for the Glue connection-instance smoke test: a real Spark
-  // job reads an Iceberg table via GlueCatalog pointed at a mocked Glue/S3 (moto), so OpenLineage
-  // emits an `arn:aws:glue:<region>:<account>` symlink the listener resolves to a platform_instance.
+  // Iceberg GlueCatalog for the connection-instance smoke test. iceberg-aws-bundle is a fat JAR
+  // that embeds an older unshaded AWS SDK; that clashes with datahub-client's AWS SDK
+  // (${rootProject.ext.awsSdk2Version}) and throws NoSuchMethodError on
+  // Endpoint.Builder.endpointUrl. Use the thin iceberg-aws artifact plus the repo BOM instead.
   testImplementation "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1"
-  testImplementation "org.apache.iceberg:iceberg-aws-bundle:1.6.1"
+  testImplementation "org.apache.iceberg:iceberg-aws:1.6.1"
+  testImplementation platform(externalDependency.awsSdk2Bom)
+  testImplementation "software.amazon.awssdk:glue"
+  testImplementation "software.amazon.awssdk:s3"
+  testImplementation "software.amazon.awssdk:sts"
+  testImplementation "software.amazon.awssdk:kms"
+  testImplementation "software.amazon.awssdk:dynamodb"
+  testImplementation "software.amazon.awssdk:url-connection-client"
+  testImplementation "software.amazon.awssdk:apache-client"
 
   // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
   // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),

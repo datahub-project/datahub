@@ -49,5 +49,5 @@ ENV MFE_CONFIG_FILE_PATH=/datahub-frontend/conf/mfe.config.dev.yaml
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT${DATAHUB_BASE_PATH}/admin || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:${MANAGEMENT_SERVER_PORT:-4319}/health/live || exit 1
 CMD ./start.sh

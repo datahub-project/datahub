@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.aws;
 
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -10,13 +11,17 @@ import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class AwsClientFactoryBedrockCredentialsTest {
 
@@ -32,7 +37,13 @@ public class AwsClientFactoryBedrockCredentialsTest {
     ReflectionTestUtils.setField(awsClientFactory, "configurationProvider", configurationProvider);
     System.clearProperty("AWS_REGION");
     System.clearProperty("AWS_ENDPOINT_URL");
+    System.clearProperty("AWS_ROLE_ARN");
+    System.clearProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
     System.clearProperty("aws.region");
+    System.clearProperty("aws.roleArn");
+    System.clearProperty("aws.webIdentityTokenFile");
+    System.clearProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM");
+    System.clearProperty("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG");
 
     DataHubConfiguration dataHubConfiguration = new DataHubConfiguration();
     dataHubConfiguration.setObjectStorage(new ObjectStorageConfiguration());
@@ -41,9 +52,18 @@ public class AwsClientFactoryBedrockCredentialsTest {
 
   @AfterMethod
   public void tearDown() throws Exception {
+    if (awsClientFactory != null) {
+      awsClientFactory.shutdown();
+    }
     System.clearProperty("AWS_REGION");
     System.clearProperty("AWS_ENDPOINT_URL");
+    System.clearProperty("AWS_ROLE_ARN");
+    System.clearProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
     System.clearProperty("aws.region");
+    System.clearProperty("aws.roleArn");
+    System.clearProperty("aws.webIdentityTokenFile");
+    System.clearProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM");
+    System.clearProperty("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG");
     if (mocks != null) {
       mocks.close();
     }
@@ -75,12 +95,123 @@ public class AwsClientFactoryBedrockCredentialsTest {
 
   @Test
   public void openSearchIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder()
+            .clusters(
+                Map.of(
+                    "primary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search:9200")
+                        .opensearchUseAwsIamAuth(true)
+                        .region("us-east-1")
+                        .build()))
+            .build();
     when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
 
     assertTrue(awsClientFactory.isOpenSearchIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void secondaryOpenSearchIamAuthRequiresSharedCredentialsWhenPrimaryDoesNot() {
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder()
+            .clusters(
+                Map.of(
+                    "primary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search:9200")
+                        .opensearchUseAwsIamAuth(false)
+                        .build(),
+                    "secondary",
+                    SearchClusterSettings.builder()
+                        .uri("https://search.example.es.amazonaws.com")
+                        .opensearchUseAwsIamAuth(true)
+                        .region("us-west-2")
+                        .build()))
+            .build();
+    when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
+
+    assertTrue(awsClientFactory.isOpenSearchIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    assertNotNull(awsClientFactory.defaultAwsCredentialsProvider());
+  }
+
+  @Test
+  public void ebeanIamAuthOnAwsRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "aws");
+
+    assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    AwsCredentialsProvider provider = awsClientFactory.defaultAwsCredentialsProvider();
+    assertNotNull(provider);
+    awsClientFactory.shutdown();
+  }
+
+  @Test
+  public void ebeanPostgresIamAuthOnAwsRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanPostgresUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "aws");
+
+    assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void ebeanIamAuthOnGcpDoesNotRequireAwsCredentials() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "gcp");
+
+    assertFalse(awsClientFactory.isAwsCloudForEbean());
+    assertFalse(awsClientFactory.isEbeanIamAuthConfigured());
+  }
+
+  @Test
+  public void ebeanIamAuthWithoutCloudDoesNotRequireAwsCredentials() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "traditional");
+
+    assertFalse(awsClientFactory.isAwsCloudForEbean());
+    assertFalse(awsClientFactory.isEbeanIamAuthConfigured());
+  }
+
+  @Test
+  public void ebeanIamAuthWithIrsaDoesNotRequirePodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "auto");
+    System.setProperty("aws.webIdentityTokenFile", "/var/run/secrets/eks/token");
+
+    try {
+      assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
+      assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    } finally {
+      System.clearProperty("aws.webIdentityTokenFile");
+    }
+  }
+
+  @Test
+  public void webIdentityConfigurationRequiresSharedCredentialsWithoutRegion() {
+    System.setProperty("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role");
+    System.setProperty("AWS_WEB_IDENTITY_TOKEN_FILE", "/tmp/token");
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+
+    assertTrue(AwsClientFactory.isAwsConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void sdkWebIdentityPropertiesRequireSharedCredentialsWithoutRegion() {
+    System.setProperty("aws.roleArn", "arn:aws:iam::123456789012:role/test-role");
+    System.setProperty("aws.webIdentityTokenFile", "/tmp/token");
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+
+    assertTrue(AwsClientFactory.isAwsConfigured());
     assertTrue(awsClientFactory.isAwsCredentialsRequired());
   }
 
@@ -95,6 +226,76 @@ public class AwsClientFactoryBedrockCredentialsTest {
 
     assertTrue(awsClientFactory.isObjectStorageRoleArnConfigured());
     assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void mskIamMechanismRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties.getProperties().put("sasl.mechanism", "AWS_MSK_IAM");
+    ReflectionTestUtils.setField(awsClientFactory, "kafkaProperties", kafkaProperties);
+
+    assertTrue(awsClientFactory.isMskIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    AwsCredentialsProvider provider = awsClientFactory.defaultAwsCredentialsProvider();
+    assertNotNull(provider);
+    awsClientFactory.shutdown();
+  }
+
+  @Test
+  public void mskIamJaasRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties
+        .getConsumer()
+        .getProperties()
+        .put("sasl.jaas.config", "software.amazon.msk.auth.iam.IAMLoginModule required;");
+    ReflectionTestUtils.setField(awsClientFactory, "kafkaProperties", kafkaProperties);
+
+    assertTrue(awsClientFactory.isMskIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void documentedMskIamEnvVarsRequireSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    System.setProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM", "AWS_MSK_IAM");
+
+    assertTrue(awsClientFactory.isMskIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void mskIamOnOneKafkaClientIsNotHiddenByAnotherClientsPlainSasl() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties.getConsumer().getProperties().put("sasl.mechanism", "AWS_MSK_IAM");
+    kafkaProperties.getProducer().getProperties().put("sasl.mechanism", "PLAIN");
+    kafkaProperties
+        .getProducer()
+        .getProperties()
+        .put(
+            "sasl.jaas.config",
+            "org.apache.kafka.common.security.plain.PlainLoginModule required;");
+    ReflectionTestUtils.setField(awsClientFactory, "kafkaProperties", kafkaProperties);
+
+    assertTrue(awsClientFactory.isMskIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void plainKafkaSaslDoesNotRequireAwsCredentials() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties.getProperties().put("sasl.mechanism", "PLAIN");
+    kafkaProperties
+        .getProperties()
+        .put(
+            "sasl.jaas.config",
+            "org.apache.kafka.common.security.plain.PlainLoginModule required;");
+    ReflectionTestUtils.setField(awsClientFactory, "kafkaProperties", kafkaProperties);
+
+    assertFalse(awsClientFactory.isMskIamAuthConfigured());
   }
 
   private void wireBedrockConfig(String bedrockRegion) {

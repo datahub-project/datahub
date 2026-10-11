@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Bästa träffar",
     "searchBar.sections.recentlySearched": "Nyligen sökt",
     "searchBar.sections.recentlyViewed": "Nyligen visat",
+    "searchBar.viewAll": "Visa alla →",
     "searchBar.viewAllResults": "Visa alla resultat för <bold>{{query}}</bold>",
     "searchHeader.discover": "Upptäck",
     "sidebar.loadingError": "Sidofältet kunde inte laddas.",

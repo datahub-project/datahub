@@ -34,7 +34,14 @@ export function Day<ValueType>({ day, weekOffset, dayIndex }: DayProps<ValueType
 
     if (showPopover) {
         return (
-            <Popover placement="topLeft" content={popoverRenderer?.(day)}>
+            <Popover
+                placement="topLeft"
+                content={popoverRenderer?.(day)}
+                // Opens above this 16px square, which is exactly where the previous day sits.
+                // The box must not catch that hover. Controls inside the content opt back in.
+                overlayStyle={{ pointerEvents: 'none' }}
+                overlayInnerStyle={{ pointerEvents: 'none' }}
+            >
                 {renderBar()}
             </Popover>
         );

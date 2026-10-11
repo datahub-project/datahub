@@ -9,6 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -540,9 +541,13 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private boolean isGlobalIndex(String indexName) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String graphIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
     String systemMetadataIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext,
+            SearchComponent.SYSTEM_METADATA,
+            ElasticSearchSystemMetadataService.INDEX_NAME);
     return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
   }
 
@@ -552,7 +557,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       try {
         for (ReindexConfig config : service.buildReindexConfigs(opContext, structuredProperties)) {
           if (config.name().equals(indexName)) {
-            return Pair.of(service.getIndexBuilder(), config);
+            return Pair.of(service.getIndexBuilder(indexName), config);
           }
         }
       } catch (Exception e) {

@@ -1,5 +1,5 @@
 import { BarChart, GraphCard } from '@components';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -12,14 +12,21 @@ import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import { getAggregationTimeRangeOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import { getInitialUsageTimeRange } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import useGetTimeRangeOptionsByTimeRange from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByTimeRange';
+import { useManualLookback } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
 import {
     getPopoverTimeFormat,
     getXAxisTickFormat,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
+
+function isTimeRange(value: string): value is TimeRange {
+    return (Object.values(TimeRange) as string[]).includes(value);
+}
 
 const QueryCountChart = () => {
     const { t } = useTranslation('entity.profile.stats');
@@ -31,9 +38,11 @@ const QueryCountChart = () => {
         setSectionState,
     } = useStatsSectionsContext();
 
+    const { hasRecentUsage } = useGetStatsData();
     const aggregationTimeRangeOptions = useMemo(() => getAggregationTimeRangeOptions(), []);
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(aggregationTimeRangeOptions, oldestDatasetUsageTime);
-    const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
+    const automaticRange = getInitialUsageTimeRange(oldestDatasetUsageTime, hasRecentUsage);
+    const { range: timeRange, selectRange } = useManualLookback(statsEntityUrn, automaticRange, isTimeRange);
 
     const {
         chartData,
@@ -51,10 +60,6 @@ const QueryCountChart = () => {
             setSectionState(SectionKeys.QUERIES, hasData, loading);
         }
     }, [chartData, loading, sections.queries, setSectionState, canViewDatasetUsage]);
-
-    const handleFilterChange = (value: TimeRange) => {
-        setTimeRange(value);
-    };
 
     const renderBarChart = () => {
         return (
@@ -91,13 +96,14 @@ const QueryCountChart = () => {
                         options={timeRangeOptions}
                         values={timeRange ? [timeRange] : []}
                         loading={loading}
-                        onUpdate={(value) => handleFilterChange(value as TimeRange)}
+                        onUpdate={selectRange}
                         chartName={chartName}
                     />
                 </>
             )}
             loading={loading}
             isEmpty={chartData.length === 0 || !canViewDatasetUsage}
+            emptyMessage={t('graph.emptyInSelectedRange')}
             emptyContent={!canViewDatasetUsage && <NoPermission statName={t('queryCountChart.statName')} />}
             moreInfoModalContent={<MoreInfoModalContent />}
         />

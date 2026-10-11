@@ -1,5 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static com.linkedin.metadata.Constants.SYSTEM_METADATA_SERVICE_INDEX;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -9,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -64,7 +66,7 @@ public class ElasticSearchSystemMetadataService
   @Getter private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   private static final String DOC_DELIMETER = "--";
-  public static final String INDEX_NAME = "system_metadata_service_v1";
+  public static final String INDEX_NAME = SYSTEM_METADATA_SERVICE_INDEX;
   public static final String FIELD_URN = "urn";
   public static final String FIELD_ASPECT = "aspect";
   public static final String FIELD_REMOVED = "removed";
@@ -298,7 +300,7 @@ public class ElasticSearchSystemMetadataService
     return List.of(
         _indexBuilder.buildReindexState(
             opContext,
-            _indexConvention.getIndexName(opContext, INDEX_NAME),
+            _indexConvention.getIndexName(opContext, SearchComponent.SYSTEM_METADATA, INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -306,7 +308,8 @@ public class ElasticSearchSystemMetadataService
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = _indexConvention.getIndexName(opContext, INDEX_NAME);
+    String indexName =
+        _indexConvention.getIndexName(opContext, SearchComponent.SYSTEM_METADATA, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =

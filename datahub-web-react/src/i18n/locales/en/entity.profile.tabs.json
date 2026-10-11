@@ -54,6 +54,7 @@
     "properties.save.error": "Unable to save structured property. Something went wrong.",
     "properties.search.placeholder": "Search...",
     "properties.searchInProperties.placeholder": "Search in properties...",
+    "properties.showCountMoreValues": "show {{count}} more of {{total, number}} values",
     "properties.structuredProperty.title": "Structured Property",
     "properties.updated.success": "Successfully updated structured property!"
 }

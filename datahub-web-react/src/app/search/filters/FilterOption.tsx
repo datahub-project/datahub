@@ -1,10 +1,9 @@
-import { CaretUpOutlined } from '@ant-design/icons';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { generateColor } from '@app/entity/shared/components/styled/StyledTag';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { IconSpacer, Label } from '@app/search/filters/styledComponents';
 import { FilterOptionType } from '@app/search/filters/types';
@@ -47,14 +46,14 @@ const FilterOptionWrapper = styled.div<{ centerAlign?: boolean; addPadding?: boo
     ${(props) => props.addPadding && 'padding-left: 16px;'}
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const StyledCheckbox = styled(Checkbox)`
     font-size: 14px;
     .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY[7]};
+        border-color: ${(props) => props.theme.colors.borderCheckbox};
     }
     .ant-checkbox-checked {
         .ant-checkbox-inner {
@@ -79,7 +78,7 @@ const TagColor = styled.span<{ color: string; colorHash?: string | null }>`
 const CountText = styled.span`
     font-size: 12px;
     margin-left: 6px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const LabelCountWrapper = styled.span`
@@ -184,7 +183,7 @@ export default function FilterOption({
                             <CountText>{countText}</CountText>
                             {nestedOptions && nestedOptions.length > 0 && (
                                 <ArrowButton
-                                    icon={<CaretUpOutlined />}
+                                    icon={<CaretUp />}
                                     type="text"
                                     onClick={() => setAreChildrenVisible(!areChildrenVisible)}
                                     isOpen={areChildrenVisible}

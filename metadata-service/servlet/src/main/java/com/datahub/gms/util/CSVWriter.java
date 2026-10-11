@@ -21,6 +21,11 @@ public class CSVWriter {
   }
 
   private static String escapeSpecialCharacters(String data) {
+    // A missing value is an empty cell, e.g. the analyzer of a Search V3 simple query string,
+    // which leaves analysis to the fields it reads
+    if (data == null) {
+      return "";
+    }
     String escapedData = data.replaceAll("\\R", " ");
     if (data.contains(",") || data.contains("\"") || data.contains("'")) {
       data = data.replace("\"", "\"\"");
