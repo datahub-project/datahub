@@ -6,6 +6,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.datahub.test.BatchType;
 import com.datahub.test.ComplexNestedRecord;
@@ -885,12 +886,37 @@ public class TimeseriesAspectServicePostgresIT {
             urnFilter,
             new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(50, 60));
     assertNotNull(taskId);
-    try {
-      pgTimeseries.awaitDeleteAspectValuesAsync(taskId, 60);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
     assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
+  }
+
+  @Test
+  public void deleteAspectValuesAsync_unsupportedFilterFailsAndKeepsRows() {
+    Filter urnFilter =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            List.of(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.EQUAL, TEST_URN.toString())));
+    long before = pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter);
+    assertTrue(before > 0);
+
+    Filter unsupported =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            List.of(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.IN, TEST_URN.toString())));
+    try {
+      pgTimeseries.deleteAspectValuesAsync(
+          opContext,
+          ENTITY_NAME,
+          ASPECT_NAME,
+          unsupported,
+          new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(50, 60));
+      fail("unsupported filter must fail the delete");
+    } catch (UnsupportedOperationException expected) {
+      // Caller sees the failure; rows are unchanged.
+    }
+    assertEquals(
+        pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), before);
   }
 
   @Test

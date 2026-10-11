@@ -45,12 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -67,12 +62,6 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   @Nonnull private final TimeseriesAspectServiceConfig timeseriesAspectServiceConfig;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nonnull private final EntityRegistry entityRegistry;
-  private final ExecutorService deleteExecutor =
-      Executors.newCachedThreadPool(r -> new Thread(r, "pg-timeseries-delete"));
-
-  /** In-flight async deletes keyed by returned task id (removed when the task finishes). */
-  private final java.util.concurrent.ConcurrentHashMap<String, Future<?>> deleteTasks =
-      new java.util.concurrent.ConcurrentHashMap<>();
 
   public PostgresTimeseriesAspectService(
       @Nonnull PgTimeseriesStoreRegistry storeRegistry,
@@ -448,40 +437,25 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     String taskId = UUID.randomUUID().toString();
     int batchSize = options.getBatchSize();
     long timeoutSeconds = options.getTimeoutSeconds();
-    Future<DeleteAspectValuesResult> future =
-        deleteExecutor.submit(
-            () -> {
-              try {
-                return deleteAspectValuesBatched(
-                    opContext, entityName, aspectName, filter, batchSize, timeoutSeconds);
-              } finally {
-                deleteTasks.remove(taskId);
-              }
-            });
-    deleteTasks.put(taskId, future);
-    // Fast-completing deletes can finish before put; remove again so the map does not retain a
-    // completed future forever.
-    if (future.isDone()) {
-      deleteTasks.remove(taskId, future);
-    }
-    // Return immediately (ES delete-by-query parity). Batched delete enforces timeoutSeconds.
-    return taskId;
-  }
-
-  /**
-   * Waits for an async delete started by {@link #deleteAspectValuesAsync}. Used by tests;
-   * production callers poll via count/truncate watch loops.
-   */
-  void awaitDeleteAspectValuesAsync(@Nonnull String taskId, long timeoutSeconds)
-      throws InterruptedException, ExecutionException, TimeoutException {
-    Future<?> future = deleteTasks.get(taskId);
-    if (future == null) {
-      return;
-    }
-    if (timeoutSeconds > 0) {
-      future.get(timeoutSeconds, TimeUnit.SECONDS);
-    } else {
-      future.get();
+    // Run to completion on this call. There is no PostgreSQL task getTaskStatus can poll (that
+    // API only accepts an Elasticsearch nodeId:taskId), and retention GC treats a successful
+    // truncate response as a finished delete. A background future that is dropped on completion
+    // hides SQL failures and leaves rows past retention.
+    try {
+      DeleteAspectValuesResult result =
+          deleteAspectValuesBatched(
+              opContext, entityName, aspectName, filter, batchSize, timeoutSeconds);
+      log.info(
+          "PostgreSQL timeseries delete {} removed {} rows for {}.{}",
+          taskId,
+          result.getNumDocsDeleted(),
+          entityName,
+          aspectName);
+      return taskId;
+    } catch (RuntimeException e) {
+      log.error(
+          "PostgreSQL timeseries delete {} failed for {}.{}", taskId, entityName, aspectName, e);
+      throw e;
     }
   }
 
