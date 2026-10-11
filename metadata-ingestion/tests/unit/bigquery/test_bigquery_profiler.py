@@ -2189,15 +2189,15 @@ def test_queries_templates_pass_sql_validation():
             table_ref="`p.d.t`", where="`event_date` = '2023-12-25'"
         ),
         queries.LATEST_BY_DATE_SAMPLE.format(
-            table_ref="`p.d.t`", date_col="event_date", select_extra=""
+            table_ref="`p.d.t`", date_col="event_date", select_cols="`event_date`"
         ),
         queries.LATEST_BY_DATE_SAMPLE.format(
             table_ref="`p.d.t`",
             date_col="_PARTITIONTIME",
-            select_extra=", `_PARTITIONTIME`",
+            select_cols="`_PARTITIONTIME`",
         ),
         queries.TABLESAMPLE_SAMPLE.format(
-            table_ref="`p.d.t`", sample_percent=0.001, select_extra=""
+            table_ref="`p.d.t`", sample_percent=0.001, select_cols="`region`"
         ),
         queries.TOP_VALUES_BY_COUNT.format(
             col_name="region",
@@ -2762,7 +2762,10 @@ def test_partition_discovery_with_window_config():
 
 
 def test_partition_discovery_empty_table():
-    """Test partition discovery on a table with no data"""
+    """An empty table that requires a partition filter yields no discoverable partition
+    value, so discovery skips it (None) rather than returning an unpruned IS NOT NULL
+    filter that would full-scan a require-filter table.
+    """
     config = create_test_config()
     discovery = PartitionDiscovery(config)
 
@@ -2775,7 +2778,7 @@ def test_partition_discovery_empty_table():
         table, "test-project", "dataset", mock_execute_empty
     )
 
-    assert filters is not None or filters == []
+    assert filters is None
 
 
 @pytest.mark.parametrize(
@@ -3203,6 +3206,7 @@ def test_find_real_partition_values_type_propagation(
             required_columns,
             mock_execute,
             cached_metadata=None,
+            column_types=column_types,
         )
 
         assert result is not None, "Expected filters but got None"
