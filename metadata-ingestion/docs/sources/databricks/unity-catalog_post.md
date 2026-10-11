@@ -72,9 +72,9 @@ The default preparsed path emits table-level usage only (no column `fieldCounts`
 
 :::
 
-#### Data Quality Monitors (assertions)
+#### Data Quality Monitoring (assertions)
 
-DataHub ingests the results of [Databricks data quality monitors](https://docs.databricks.com/aws/en/data-quality-monitoring/) (formerly Lakehouse Monitoring) as DataHub **assertions**. When `data_quality.enabled: true`, for each ingested table that has a monitor DataHub reads the monitor's `*_profile_metrics` table and emits a column **completeness** assertion, plus a per-run result, for every monitored column. The assertion passes when the column has no nulls in the window.
+DataHub ingests [Databricks anomaly detection](https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-quality-monitoring/anomaly-detection/results) results as DataHub **assertions**. When `data_quality.enabled: true`, DataHub reads the `system.data_quality_monitoring.table_results` system table and, for each ingested table, publishes one assertion per anomaly-detection check with a run event per scan. The pass/fail/error verdict is Databricks' own (`status`) — DataHub does not derive its own threshold.
 
 ```yaml
 source:
@@ -83,19 +83,18 @@ source:
     warehouse_id: "<your-warehouse-id>"
     data_quality:
       enabled: true
-      # Optional: restrict which columns get assertions, or widen the window.
-      column_pattern:
-        allow: [".*"]
+      # Optional: widen or narrow how many days of scans are published.
       max_window_days: 7
 ```
 
 Behavior:
 
-- One completeness assertion is published per monitored column (subject to `column_pattern`); the whole-table summary row is not published.
-- `max_window_days` bounds how far back monitor windows are evaluated relative to the ingestion `end_time` (default: the most recent 7 days), so each run publishes the latest windows rather than replaying all history.
-- Requires a `databricks-sdk` recent enough to expose the data quality API (>= 0.68.0); on older SDKs data-quality extraction is skipped with a warning.
+- Three checks are published per table: **commit freshness** (`freshness.commit_freshness`), **daily row count** (`completeness.daily_row_count`), and **total row count** (`completeness.total_row_count`). Each is a separate assertion keyed on the dataset and check (not the scan time), so re-ingestion appends run events rather than duplicating assertions.
+- Assertions are emitted as `CUSTOM` / `EXTERNAL` with the operator `_NATIVE_`, categorized as **Databricks Lakehouse Monitor**. Databricks' `Healthy`/`Unhealthy`/`Error` statuses map to `SUCCESS`/`FAILURE`/`ERROR`; `Training` and `Unknown` scans are not a pass/fail verdict and are skipped, as are the table-level and per-group status rollups (so a failure is not counted twice).
+- For the row-count checks the observed `last_value` is reported as the assertion's actual aggregate value, and the per-scan predicted band (`min_predicted_value`/`max_predicted_value`) is attached to the run's `nativeResults`. The commit-freshness `last_value`/`predicted_value` are timestamps, so they are reported on `nativeResults` rather than as an aggregate.
+- `max_window_days` bounds how far back scans are published relative to the ingestion `end_time` (default: the most recent 7 days), so each run reports the latest scans rather than replaying all history.
 
-Permissions: the metric tables are read over SQL, so a running SQL warehouse (`warehouse_id`) is required, and the ingesting principal needs `SELECT` on each monitor's `*_profile_metrics` table. If a monitor writes its metrics to a schema that is not otherwise ingested, grant `USE SCHEMA` on that schema as well.
+Permissions: the results system table is read over SQL, so a running SQL warehouse (`warehouse_id`) is required. `system.data_quality_monitoring.table_results` is **account-admin only** by default, is **metastore-wide**, and contains **sample values** from every catalog, so an account admin must grant the ingesting principal an explicit `SELECT` on it — share it only with principals authorized to see metastore-wide results.
 
 #### Delta Lake External Tables
 

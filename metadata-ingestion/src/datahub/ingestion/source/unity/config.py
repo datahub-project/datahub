@@ -203,22 +203,19 @@ class FederationConnectionDetail(ConfigModel):
 class UnityCatalogDataQualityConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="Publish Databricks data-quality monitor results as DataHub "
-        "column completeness assertions. Requires warehouse_id, since the monitor's "
-        "metric tables are read over SQL. Disabled by default.",
-    )
-    column_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Which columns to publish completeness assertions for, matched on "
-        "the column name.",
+        description="Publish Databricks anomaly-detection results "
+        "(system.data_quality_monitoring.table_results) as DataHub assertions: one "
+        "assertion per table per check (commit freshness, daily row count, total row "
+        "count), with a run event per scan carrying Databricks' own verdict. Requires "
+        "warehouse_id, since the system table is read over SQL. Disabled by default.",
     )
     max_window_days: int = Field(
         default=7,
         ge=1,
-        description="Only evaluate monitor windows ending within this many days before "
-        "the ingestion end_time, so each run publishes the most recent windows rather "
-        "than replaying all monitor history. Defaults to 7 so a daily monitor that "
-        "last refreshed a day or two ago still surfaces its latest results.",
+        description="Only publish anomaly-detection scans whose event_time is within "
+        "this many days before the ingestion end_time, so each run reports the most "
+        "recent scans rather than replaying all history. Defaults to 7 so a daily "
+        "monitor that last scanned a day or two ago still surfaces its latest results.",
     )
 
 
@@ -430,9 +427,10 @@ class UnityCatalogSourceConfig(
     data_quality: UnityCatalogDataQualityConfig = pydantic.Field(
         default_factory=UnityCatalogDataQualityConfig,
         description=(
-            "Publish Databricks data-quality monitor results as DataHub assertions. "
-            "Disabled by default; requires warehouse_id since the monitor metric "
-            "tables are queried over SQL."
+            "Publish Databricks anomaly-detection results as DataHub assertions. "
+            "Disabled by default; requires warehouse_id since the "
+            "system.data_quality_monitoring.table_results system table is queried "
+            "over SQL."
         ),
     )
 

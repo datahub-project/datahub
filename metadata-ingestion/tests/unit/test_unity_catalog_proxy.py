@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.errors import NotFound
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
@@ -2026,31 +2025,8 @@ class TestQueryFilterWithStatementTypesSerialisation:
 
 
 class TestUnityCatalogDataQualityProxy:
-    """Direct tests for the data-quality proxy seams: only NotFound degrades to
-    None, and run_sql_query raises (rather than returning []) on failure."""
-
-    def test_get_quality_monitor_returns_monitor(self, mock_proxy):
-        monitor = object()
-        mock_proxy._workspace_client.data_quality.get_monitor.return_value = monitor
-        assert mock_proxy.get_quality_monitor("table-id") is monitor
-
-    def test_get_quality_monitor_missing_api_returns_none(self, mock_proxy):
-        # Older databricks-sdk without the data_quality client.
-        mock_proxy._workspace_client.data_quality = None
-        assert mock_proxy.get_quality_monitor("table-id") is None
-
-    def test_get_quality_monitor_not_found_returns_none(self, mock_proxy):
-        mock_proxy._workspace_client.data_quality.get_monitor.side_effect = NotFound(
-            "no monitor"
-        )
-        assert mock_proxy.get_quality_monitor("table-id") is None
-
-    def test_get_quality_monitor_other_error_raises(self, mock_proxy):
-        mock_proxy._workspace_client.data_quality.get_monitor.side_effect = (
-            RuntimeError("boom")
-        )
-        with pytest.raises(RuntimeError):
-            mock_proxy.get_quality_monitor("table-id")
+    """run_sql_query raises (rather than returning []) on failure so the data-quality
+    extractor can tell a query error apart from a scan window with no rows."""
 
     def test_run_sql_query_returns_rows(self, mock_proxy):
         with patch("datahub.ingestion.source.unity.proxy.connect") as mock_connect:
