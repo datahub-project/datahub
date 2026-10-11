@@ -27,11 +27,12 @@ public final class MCPTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataC
   KafkaTraceReader<MetadataChangeProposal> buildTraceReader() {
     return MCPTraceReader.builder()
         .adminClient(adminClient)
-        .consumerSupplier(() -> consumer)
+        .consumerPool(TraceConsumerPools.singleConsumer(consumer))
         .pollDurationMs(100)
         .pollMaxAttempts(3)
         .executorService(executorService)
         .timeoutSeconds(5)
+        .cancelFuturesOnTimeout(true)
         .topicName(TOPIC_NAME)
         .consumerGroupId(CONSUMER_GROUP)
         .build();

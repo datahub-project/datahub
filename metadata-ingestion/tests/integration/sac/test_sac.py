@@ -1,52 +1,78 @@
+import json
 from functools import partial
-from typing import Dict
-from urllib.parse import parse_qs
+from pathlib import Path
+from typing import Any, Dict, List
+from unittest.mock import MagicMock
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from requests.exceptions import RetryError
+from requests_mock import Mocker
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sac.sac import (
+    ConnectionMappingConfig,
+    SACSource,
+    SACSourceConfig,
+)
+from datahub.ingestion.source.sac.sac_common import ResourceModel
+from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
+
+DWC_MODEL_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sac,"
+    "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000,PROD)"
+)
 
 MOCK_TENANT_URL = "http://tenant"
 MOCK_TOKEN_URL = "http://tenant.authentication/oauth/token"
 MOCK_CLIENT_ID = "foo"
 MOCK_CLIENT_SECRET = "bar"
 MOCK_ACCESS_TOKEN = "foobaraccesstoken"
+MOCK_ACQUIRED_MODEL_ID = "ACQUIREDMODEL123"
 
 
-@pytest.mark.integration
-def test_sac(
-    pytestconfig,
-    tmp_path,
-    requests_mock,
-    mock_time,
-):
-    requests_mock.post(
-        MOCK_TOKEN_URL,
-        json=match_token_url,
+def _des_metadata_url(model_id: str) -> str:
+    return f"{MOCK_TENANT_URL}/api/v1/dataexport/providers/sac/{model_id}/$metadata"
+
+
+def _acquired_model_dataset_urn() -> str:
+    return (
+        "urn:li:dataset:(urn:li:dataPlatform:sac,"
+        f"t.4.{MOCK_ACQUIRED_MODEL_ID}:{MOCK_ACQUIRED_MODEL_ID},PROD)"
     )
 
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sac"
 
-    with open(f"{test_resources_dir}/metadata.xml", mode="rb") as f:
-        content = f.read()
-        requests_mock.get(
-            f"{MOCK_TENANT_URL}/api/v1/$metadata",
-            content=partial(match_metadata, content=content),
-        )
+def _register_pipeline_mocks(requests_mock: Mocker, test_resources_dir: Path) -> None:
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
 
+    # The connector queries the OData "Resources" data endpoints directly (without reading the
+    # $metadata document), so only the data endpoints are mocked here.
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources?$format=json&$filter=isTemplate eq 0 and isSample eq 0 and isPublic eq 1 and ((resourceType eq 'STORY' and resourceSubtype eq '') or (resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'))&$select=resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile",
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
         json=match_resources,
     )
 
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources%28%27LXTH4JCE36EOYLU41PIINLYPU9XRYM26%27%29/resourceModels?$format=json&$select=modelId,name,description,externalId,connectionId,systemType",
+        f"{MOCK_TENANT_URL}/api/v1/Resources('LXTH4JCE36EOYLU41PIINLYPU9XRYM26')/resourceModels",
         json=partial(match_resource, resource_id="LXTH4JCE36EOYLU41PIINLYPU9XRYM26"),
     )
 
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources%28%27EOYLU41PIILXTH4JCE36NLYPU9XRYM26%27%29/resourceModels?$format=json&$select=modelId,name,description,externalId,connectionId,systemType",
+        f"{MOCK_TENANT_URL}/api/v1/Resources('EOYLU41PIILXTH4JCE36NLYPU9XRYM26')/resourceModels",
         json=partial(match_resource, resource_id="EOYLU41PIILXTH4JCE36NLYPU9XRYM26"),
     )
 
@@ -60,6 +86,24 @@ def test_sac(
         json=match_model_metadata,
     )
 
+
+@pytest.mark.integration
+def test_sac(
+    pytestconfig,
+    tmp_path,
+    requests_mock,
+    mock_time,
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sac"
+
+    _register_pipeline_mocks(requests_mock, test_resources_dir)
+
+    # Acquired-model schema is opt-in; enable it so the golden covers the DES path.
+    des_metadata = (
+        test_resources_dir / "fixtures/acquired_model_des_metadata.xml"
+    ).read_text()
+    requests_mock.get(_des_metadata_url(MOCK_ACQUIRED_MODEL_ID), text=des_metadata)
+
     pipeline = Pipeline.create(
         {
             "run_id": "sac-integration-test",
@@ -70,6 +114,7 @@ def test_sac(
                     "token_url": MOCK_TOKEN_URL,
                     "client_id": MOCK_CLIENT_ID,
                     "client_secret": MOCK_CLIENT_SECRET,
+                    "ingest_acquired_data_model_schema_metadata": True,
                 },
             },
             "sink": {
@@ -82,12 +127,526 @@ def test_sac(
     pipeline.run()
     pipeline.raise_from_status()
 
+    source = pipeline.source
+    assert isinstance(source, SACSource)
+    assert source.report.acquired_model_schema_resolved == 1
+    # Models 1 (BW) and 2 (HANA) are live and skipped up front (no DES request).
+    assert source.report.acquired_model_schema_skipped_known_live == 2
+    assert source.report.acquired_model_schema_skipped_live_412 == 0
+    assert source.report.acquired_model_schema_failed == 0
+
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/sac_mces.json",
         golden_path=test_resources_dir / "sac_mces_golden.json",
         ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )
+
+
+@pytest.mark.integration
+def test_query_odata_entities_follows_pagination(requests_mock):
+    # The Resources endpoint can return results across multiple server-driven pages linked by
+    # "__next"; the connector must follow them and concatenate the results.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+
+    page_1 = {
+        "d": {
+            "results": [{"resourceId": "A"}],
+            "__next": f"{MOCK_TENANT_URL}/api/v1/Resources?$skiptoken=PAGE2",
+        }
+    }
+    page_2 = {"d": {"results": [{"resourceId": "B"}]}}
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        [{"json": page_1}, {"json": page_2}],
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-pagination-test"))
+
+    results = list(source._query_odata_entities("Resources", select="resourceId"))
+
+    assert [entity["resourceId"] for entity in results] == ["A", "B"]
+
+
+def _make_source(requests_mock: Mocker, run_id: str) -> SACSource:
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    return SACSource(config, PipelineContext(run_id=run_id))
+
+
+def _acquired_model(model_id: str = "ACQUIRED_MODEL") -> ResourceModel:
+    return ResourceModel(
+        namespace="t.S",
+        model_id=model_id,
+        name="Acquired model",
+        description=None,
+        system_type=None,
+        connection_id=None,
+        external_id=None,
+        is_import=False,
+    )
+
+
+def test_acquired_model_schema_transport_error_degrades_gracefully(requests_mock):
+    # A per-model Data Export Service failure (here the retry adapter exhausting on
+    # repeated 5xx, surfaced as RetryError) must not abort the run: the schema is
+    # skipped, the failure is counted, and no exception propagates.
+    source = _make_source(requests_mock, "sac-des-error-test")
+    model = _acquired_model("BROKEN_PROVIDER")
+    requests_mock.get(
+        _des_metadata_url(model.model_id),
+        exc=RetryError("too many 500 error responses"),
+    )
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_failed == 1
+
+
+def test_acquired_model_schema_skips_live_model_on_412(requests_mock):
+    # The Data Export Service returns 412 for Live Data Models (e.g. DWC), whose schema lives
+    # in the source system. That is an expected skip, not a failure.
+    source = _make_source(requests_mock, "sac-des-412-test")
+    model = _acquired_model("LIVE_DWC_MODEL")
+    requests_mock.get(_des_metadata_url(model.model_id), status_code=412)
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_skipped_live_412 == 1
+    assert source.report.acquired_model_schema_failed == 0
+
+
+def test_acquired_model_schema_non_ok_http_error_degrades(requests_mock):
+    # A non-412 HTTP error (e.g. a per-model 403 grant miss) is counted as a failure and the
+    # model is emitted without a schema.
+    source = _make_source(requests_mock, "sac-des-403-test")
+    model = _acquired_model()
+    requests_mock.get(_des_metadata_url(model.model_id), status_code=403)
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_failed == 1
+
+
+def test_acquired_model_schema_malformed_metadata_degrades(requests_mock):
+    source = _make_source(requests_mock, "sac-des-malformed-test")
+    model = _acquired_model()
+    requests_mock.get(_des_metadata_url(model.model_id), text="<edmx:Edmx> not closed")
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_failed == 1
+
+
+def test_acquired_model_schema_empty_fact_data_degrades(requests_mock):
+    # FactData with no properties: emitted without a schema, counted as failed.
+    source = _make_source(requests_mock, "sac-des-empty-test")
+    model = _acquired_model()
+    empty_fact_data = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">'
+        "<edmx:DataServices>"
+        '<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="sac">'
+        '<EntityType Name="FactData"/>'
+        "</Schema></edmx:DataServices></edmx:Edmx>"
+    )
+    requests_mock.get(_des_metadata_url(model.model_id), text=empty_fact_data)
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_failed == 1
+
+
+def test_acquired_model_schema_des_failure_does_not_abort_pipeline(
+    pytestconfig, tmp_path, requests_mock, mock_time
+):
+    # A per-model DES failure must not abort the run: the model is still emitted (with
+    # datasetProperties, no schemaMetadata) and the failure is counted.
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sac"
+    _register_pipeline_mocks(requests_mock, test_resources_dir)
+    requests_mock.get(_des_metadata_url(MOCK_ACQUIRED_MODEL_ID), status_code=403)
+
+    output_path = f"{tmp_path}/sac_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sac-des-pipeline-failure-test",
+            "source": {
+                "type": "sac",
+                "config": {
+                    "tenant_url": MOCK_TENANT_URL,
+                    "token_url": MOCK_TOKEN_URL,
+                    "client_id": MOCK_CLIENT_ID,
+                    "client_secret": MOCK_CLIENT_SECRET,
+                    "ingest_acquired_data_model_schema_metadata": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        },
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    source = pipeline.source
+    assert isinstance(source, SACSource)
+    assert source.report.acquired_model_schema_failed == 1
+    assert source.report.acquired_model_schema_resolved == 0
+
+    acquired_urn = _acquired_model_dataset_urn()
+    aspects_by_type = {
+        record["aspectName"]
+        for record in json.loads(Path(output_path).read_text())
+        if record.get("entityUrn") == acquired_urn and "aspectName" in record
+    }
+    # The model is still emitted, just without a DES-derived schema.
+    assert "datasetProperties" in aspects_by_type
+    assert "schemaMetadata" not in aspects_by_type
+
+
+def _register_test_connection_mocks(requests_mock: Mocker) -> None:
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources", json={"d": {"results": []}}
+    )
+    requests_mock.get(f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={})
+
+
+def _test_connection_config() -> Dict[str, str]:
+    return {
+        "tenant_url": MOCK_TENANT_URL,
+        "token_url": MOCK_TOKEN_URL,
+        "client_id": MOCK_CLIENT_ID,
+        "client_secret": MOCK_CLIENT_SECRET,
+    }
+
+
+def test_connection_probes_data_export_service(requests_mock):
+    # With acquired-model schema ingestion enabled, test_connection probes the Data Export
+    # Service; a missing "Data Export Service" OAuth grant (403) surfaces as a SCHEMA_METADATA
+    # capability failure, not a basic-connectivity failure (the tenant can still connect).
+    _register_test_connection_mocks(requests_mock)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+        status_code=403,
+    )
+
+    report = SACSource.test_connection(
+        {
+            **_test_connection_config(),
+            "ingest_acquired_data_model_schema_metadata": True,
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    schema_capability = report.capability_report[SourceCapability.SCHEMA_METADATA]
+    assert not schema_capability.capable
+    assert "403" in (schema_capability.failure_reason or "")
+
+
+def test_connection_succeeds_when_data_export_service_is_reachable(requests_mock):
+    _register_test_connection_mocks(requests_mock)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+        json={"value": []},
+    )
+
+    report = SACSource.test_connection(
+        {
+            **_test_connection_config(),
+            "ingest_acquired_data_model_schema_metadata": True,
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    assert any(
+        "dataexport/administration" in req.url for req in requests_mock.request_history
+    )
+
+
+def test_connection_skips_data_export_service_when_disabled(requests_mock):
+    # With acquired-model schema ingestion explicitly disabled, the Data Export Service is
+    # not probed and its access is not required for a successful connection test.
+    _register_test_connection_mocks(requests_mock)
+
+    report = SACSource.test_connection(
+        {
+            **_test_connection_config(),
+            "ingest_acquired_data_model_schema_metadata": False,
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is None
+    assert not any("dataexport" in req.url for req in requests_mock.request_history)
+
+
+def _dwc_source(
+    requests_mock: Any,
+    connection_mapping: Dict[str, ConnectionMappingConfig],
+    resolve_datasphere_lineage: bool = True,
+    graph: Any = None,
+) -> SACSource:
+    # SACSource.__init__ eagerly fetches an OAuth token, so the token endpoint is mocked.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        connection_mapping=connection_mapping,
+        resolve_datasphere_lineage=resolve_datasphere_lineage,
+    )
+    return SACSource(config, PipelineContext(run_id="sac-dwc-test", graph=graph))
+
+
+def _dwc_model(name: str) -> ResourceModel:
+    # DWC live models carry an empty externalId; only the name links to the Datasphere object.
+    return ResourceModel(
+        namespace="t.3.C1ekdhlvx11ts0000000000000",
+        model_id="C1ekdhlvx11ts0000000000000",
+        name=name,
+        description=name,
+        system_type="DWC",
+        connection_id="DWCPROD",
+        external_id="",
+        is_import=False,
+    )
+
+
+def test_resolve_datasphere_upstream_builds_urn_from_configured_space(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_honors_platform_instance_and_env(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="bdap_sac",
+                platform_instance="prod_ds",
+                env="DEV",
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Analytics_3658_Results"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,prod_ds.bdap_sac.analytics_3658_results,DEV)"
+    )
+
+
+def test_resolve_datasphere_upstream_preserves_case_when_lowercase_disabled(
+    requests_mock,
+):
+    # Mirrors the airbyte/sigma per-connection convert_urns_to_lowercase override:
+    # when the upstream connector was run without lower-casing, casing is preserved.
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="BDAP_SAC",
+                convert_urns_to_lowercase=False,
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,BDAP_SAC.Fax_Mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_no_space_is_skipped(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(platform_instance="prod_ds")},
+    )
+
+    assert source._resolve_datasphere_upstream(_dwc_model("Fax_Mart")) is None
+    assert source.report.dwc_lineage_skipped_no_space == 1
+
+
+def test_resolve_datasphere_upstream_synthetic_name_is_unresolved(requests_mock):
+    # SAC falls back to `<namespace>:<model_id>` when OData exposes no real technical name;
+    # that value cannot identify the Datasphere object, so no lineage is emitted.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+    synthetic_name = "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000"
+
+    assert source._resolve_datasphere_upstream(_dwc_model(synthetic_name)) is None
+    assert source.report.dwc_lineage_unresolved == 1
+
+
+def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
+    # Drives a DWC model through the full workunit emission (not just the resolver) so the
+    # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert [u.dataset for u in upstream.upstreams] == [expected_upstream]
+
+    # The upstream key is materialized so the Datasphere node exists even if that
+    # connector has not run yet (order-independent lineage).
+    key_workunits = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetKeyClass) is not None
+        and wu.get_urn() == expected_upstream
+    ]
+    assert len(key_workunits) == 1
+
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert source.report.dwc_lineage_resolved == 1
+
+
+def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
+    # With the flag off a DWC model must not emit upstream lineage and, crucially, must not
+    # fall through to the generic "Unknown system type" warning (DWC is a known type).
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        resolve_datasphere_lineage=False,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    assert _first_aspect(workunits, UpstreamLineageClass) is None
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert list(source.report.warnings) == []
+
+
+_DATASPHERE_UPSTREAM_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+)
+
+
+def _datasphere_upstream_schema() -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="fax_mart",
+        platform="urn:li:dataPlatform:sap-datasphere",
+        version=0,
+        hash="",
+        platformSchema=SchemalessClass(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="revenue",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="DECIMAL",
+            ),
+            SchemaFieldClass(
+                fieldPath="region",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="NVARCHAR",
+            ),
+        ],
+        primaryKeys=["region"],
+    )
+
+
+def test_dwc_column_lineage_mirrors_upstream_schema_and_emits_fgl(requests_mock):
+    # SAC exposes no columns for a live model, so the schema is resolved from the upstream
+    # Datasphere dataset in the graph, mirrored onto the SAC dataset, and mapped 1:1.
+    graph = MagicMock()
+    graph.get_aspect.return_value = _datasphere_upstream_schema()
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    graph.get_aspect.assert_called_once_with(
+        _DATASPHERE_UPSTREAM_URN, SchemaMetadataClass
+    )
+
+    sac_schema = _first_aspect(workunits, SchemaMetadataClass)
+    assert sac_schema is not None
+    assert [f.fieldPath for f in sac_schema.fields] == ["revenue", "region"]
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream.fineGrainedLineages is not None
+    edges = {
+        (fgl.upstreams[0], fgl.downstreams[0]) for fgl in upstream.fineGrainedLineages
+    }
+    assert edges == {
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},revenue)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},revenue)",
+        ),
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},region)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},region)",
+        ),
+    }
+    assert source.report.dwc_column_lineage_resolved == 1
+
+
+def test_dwc_column_lineage_degrades_to_table_level_without_graph(requests_mock):
+    # No graph -> table-level lineage only, no fabricated schema, counted as unresolved.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert upstream.fineGrainedLineages is None
+    assert _first_aspect(workunits, SchemaMetadataClass) is None
+    assert source.report.dwc_column_lineage_unresolved == 1
+
+
+def _first_aspect(workunits: List[Any], aspect_type: Any) -> Any:
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect is not None:
+            return aspect
+    return None
 
 
 def match_token_url(request, context):
@@ -121,16 +680,21 @@ def check_authorization(headers: Dict[str, str]) -> None:
     assert headers["x-sap-sac-custom-auth"] == "true"
 
 
-def match_metadata(request, context, content):
-    check_authorization(request.headers)
-
-    context.headers["content-type"] = "application/xml"
-
-    return content
+def query_params(request: Any) -> Dict[str, List[str]]:
+    # parse from request.url because requests_mock lowercases the values exposed via request.qs
+    return parse_qs(urlsplit(request.url).query)
 
 
 def match_resources(request, context):
     check_authorization(request.headers)
+
+    params = query_params(request)
+    assert params["$format"] == ["json"]
+    assert "resourceId" in params["$select"][0]
+    # the access-control predicates must be sent, otherwise private/sample content could be ingested
+    assert "isTemplate eq 0" in params["$filter"][0]
+    assert "isSample eq 0" in params["$filter"][0]
+    assert "isPublic eq 1" in params["$filter"][0]
 
     json = {
         "d": {
@@ -183,6 +747,10 @@ def match_resources(request, context):
 def match_resource(request, context, resource_id):
     check_authorization(request.headers)
 
+    params = query_params(request)
+    assert params["$format"] == ["json"]
+    assert "modelId" in params["$select"][0]
+
     json = {
         "d": {
             "results": [
@@ -218,6 +786,19 @@ def match_resource(request, context, resource_id):
                     "modelId": "t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F",
                     "name": "Name of the third model (Import)",
                     "description": "Description of the third model which was imported",
+                    "externalId": "",
+                    "connectionId": "",
+                    "systemType": None,
+                },
+                {
+                    "__metadata": {
+                        "type": "sap.fpa.services.search.internal.ModelsType",
+                        "uri": f"/api/v1/Models(resourceId='{resource_id}',modelId='t.4.{MOCK_ACQUIRED_MODEL_ID}%3A{MOCK_ACQUIRED_MODEL_ID}')",
+                    },
+                    "modelId": f"t.4.{MOCK_ACQUIRED_MODEL_ID}:{MOCK_ACQUIRED_MODEL_ID}",
+                    "name": "Name of the fourth model (Acquired)",
+                    "description": "Description of an acquired SAC-stored model whose schema comes from the Data Export Service",
+                    # Acquired: no externalId/connectionId/systemType, so it takes the DES path.
                     "externalId": "",
                     "connectionId": "",
                     "systemType": None,

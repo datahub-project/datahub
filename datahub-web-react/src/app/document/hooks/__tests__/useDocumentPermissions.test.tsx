@@ -5,6 +5,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
+import { DocumentSourceType } from '@types';
+
 // Mock the context hooks
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
@@ -13,6 +15,11 @@ vi.mock('@app/context/useUserContext', () => ({
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
+
+const makeEntityData = (sourceType: DocumentSourceType | undefined, canEditDescription = true) => ({
+    privileges: { canEditDescription, canManageEntity: false },
+    info: sourceType ? { source: { sourceType } } : undefined,
+});
 
 describe('useDocumentPermissions', () => {
     const mockUseUserContext = vi.mocked(useUserContext);
@@ -51,10 +58,11 @@ describe('useDocumentPermissions', () => {
         });
     });
 
-    it('should allow create when user has manageDocuments privilege', () => {
+    it('should allow create without platform-wide document management', () => {
         mockUseUserContext.mockReturnValue({
             platformPrivileges: {
-                manageDocuments: true,
+                manageDocuments: false,
+                createDocuments: true,
             },
         } as any);
 
@@ -70,8 +78,8 @@ describe('useDocumentPermissions', () => {
         const { result } = renderHook(() => useDocumentPermissions());
 
         expect(result.current.canCreate).toBe(true);
-        expect(result.current.canDelete).toBe(true);
-        expect(result.current.canMove).toBe(true);
+        expect(result.current.canDelete).toBe(false);
+        expect(result.current.canMove).toBe(false);
     });
 
     it('should allow editing when user has canEditDescription privilege', () => {
@@ -98,7 +106,7 @@ describe('useDocumentPermissions', () => {
         expect(result.current.canEditType).toBe(true);
     });
 
-    it('should allow delete and move when user has canManageEntity privilege', () => {
+    it('should allow move but not delete when user only has canManageEntity privilege', () => {
         mockUseUserContext.mockReturnValue({
             platformPrivileges: {
                 manageDocuments: false,
@@ -110,6 +118,31 @@ describe('useDocumentPermissions', () => {
                 privileges: {
                     canEditDescription: false,
                     canManageEntity: true,
+                    canDeleteEntity: false,
+                },
+            },
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canDelete).toBe(false);
+        expect(result.current.canMove).toBe(true);
+        expect(result.current.canCreate).toBe(false);
+    });
+
+    it('should allow delete without move when user only has canDeleteEntity privilege', () => {
+        mockUseUserContext.mockReturnValue({
+            platformPrivileges: {
+                manageDocuments: false,
+            },
+        } as any);
+
+        mockUseEntityData.mockReturnValue({
+            entityData: {
+                privileges: {
+                    canEditDescription: false,
+                    canManageEntity: false,
+                    canDeleteEntity: true,
                 },
             },
         } as any);
@@ -117,7 +150,7 @@ describe('useDocumentPermissions', () => {
         const { result } = renderHook(() => useDocumentPermissions());
 
         expect(result.current.canDelete).toBe(true);
-        expect(result.current.canMove).toBe(true);
+        expect(result.current.canMove).toBe(false);
         expect(result.current.canCreate).toBe(false);
     });
 
@@ -125,6 +158,7 @@ describe('useDocumentPermissions', () => {
         mockUseUserContext.mockReturnValue({
             platformPrivileges: {
                 manageDocuments: true,
+                createDocuments: true,
             },
         } as any);
 
@@ -133,6 +167,7 @@ describe('useDocumentPermissions', () => {
                 privileges: {
                     canEditDescription: true,
                     canManageEntity: true,
+                    canDeleteEntity: true,
                 },
             },
         } as any);
@@ -201,6 +236,7 @@ describe('useDocumentPermissions', () => {
         mockUseUserContext.mockReturnValue({
             platformPrivileges: {
                 manageDocuments: true,
+                createDocuments: true,
             },
         } as any);
 
@@ -217,7 +253,7 @@ describe('useDocumentPermissions', () => {
     });
 
     it('should memoize results and not recompute unless dependencies change', () => {
-        const platformPrivileges = { manageDocuments: true };
+        const platformPrivileges = { manageDocuments: true, createDocuments: true };
         const entityData = {
             privileges: {
                 canEditDescription: true,
@@ -246,7 +282,7 @@ describe('useDocumentPermissions', () => {
 
     it('should recompute when platformPrivileges change', () => {
         mockUseUserContext.mockReturnValue({
-            platformPrivileges: { manageDocuments: false },
+            platformPrivileges: { manageDocuments: false, createDocuments: false },
         } as any);
 
         mockUseEntityData.mockReturnValue({
@@ -264,7 +300,7 @@ describe('useDocumentPermissions', () => {
 
         // Change platformPrivileges
         mockUseUserContext.mockReturnValue({
-            platformPrivileges: { manageDocuments: true },
+            platformPrivileges: { manageDocuments: false, createDocuments: true },
         } as any);
 
         rerender();
@@ -272,8 +308,46 @@ describe('useDocumentPermissions', () => {
         expect(result.current.canCreate).toBe(true);
     });
 
-    it('should allow delete/move with either canManageEntity OR manageDocuments', () => {
-        // Test with canManageEntity only
+    it('should lock canEditState and canEditType to false for external documents regardless of privileges', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: true } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(DocumentSourceType.External, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(false);
+        expect(result.current.canEditType).toBe(false);
+        // other permissions are unaffected
+        expect(result.current.canEditContents).toBe(true);
+        expect(result.current.canEditTitle).toBe(true);
+    });
+
+    it('should allow canEditState and canEditType for native documents with canEditDescription', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: false } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(DocumentSourceType.Native, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(true);
+        expect(result.current.canEditType).toBe(true);
+    });
+
+    it('should allow canEditState and canEditType when source is not set (native/no source)', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: false } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(undefined, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(true);
+        expect(result.current.canEditType).toBe(true);
+    });
+
+    it('should allow delete with canDeleteEntity and move with canManageEntity or manageDocuments', () => {
         mockUseUserContext.mockReturnValue({
             platformPrivileges: { manageDocuments: false },
         } as any);
@@ -283,6 +357,7 @@ describe('useDocumentPermissions', () => {
                 privileges: {
                     canEditDescription: false,
                     canManageEntity: true,
+                    canDeleteEntity: true,
                 },
             },
         } as any);
@@ -291,7 +366,6 @@ describe('useDocumentPermissions', () => {
         expect(result1.current.canDelete).toBe(true);
         expect(result1.current.canMove).toBe(true);
 
-        // Test with manageDocuments only
         mockUseUserContext.mockReturnValue({
             platformPrivileges: { manageDocuments: true },
         } as any);
@@ -301,6 +375,7 @@ describe('useDocumentPermissions', () => {
                 privileges: {
                     canEditDescription: false,
                     canManageEntity: false,
+                    canDeleteEntity: false,
                 },
             },
         } as any);

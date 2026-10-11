@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 import typing
 from datetime import datetime
@@ -41,6 +42,45 @@ def get_or_else(value: Optional[_T], default: _T) -> _T:
     # Normally we'd use `value or default`. However, that runs into issues
     # when value is falsey but not None.
     return value if value is not None else default
+
+
+def get_init_config_value(
+    arg_value: Optional[str],
+    env_var: str,
+    prompt_text: str,
+    default: Optional[str] = None,
+    hide_input: bool = False,
+) -> str:
+    """Get config value from CLI arg, env var, or interactive prompt.
+
+    Precedence: CLI arg > Environment variable > Interactive prompt
+
+    Args:
+        arg_value: Value from CLI argument (if provided)
+        env_var: Environment variable name to check
+        prompt_text: Text to show in interactive prompt
+        default: Default value for prompt
+        hide_input: Whether to hide input (for passwords)
+
+    Returns:
+        The resolved configuration value
+    """
+    # Priority 1: CLI argument
+    if arg_value is not None:
+        return arg_value
+
+    # Priority 2: Environment variable
+    env_value = os.environ.get(env_var)
+    if env_value:
+        return env_value
+
+    # Priority 3: Interactive prompt (fallback)
+    return click.prompt(
+        text=prompt_text,
+        type=str,
+        default=default or "",
+        hide_input=hide_input,
+    )
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -405,9 +445,17 @@ def generate_access_token(
     }
     response = session.post(f"{frontend_url}/api/v2/graphql", json=json)
     response.raise_for_status()
-    return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
-        "accessToken", None
+    payload = response.json()
+    errors = payload.get("errors") or []
+    if errors:
+        messages = "; ".join(str(error.get("message") or error) for error in errors)
+        raise ValueError(f"Failed to create access token: {messages}")
+    access_token = (payload.get("data", {}).get("createAccessToken", {}) or {}).get(
+        "accessToken"
     )
+    if not access_token:
+        raise ValueError("Failed to create access token: empty response from server")
+    return token_name, access_token
 
 
 def ensure_has_system_metadata(

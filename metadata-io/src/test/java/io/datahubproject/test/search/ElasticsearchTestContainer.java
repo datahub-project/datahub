@@ -26,8 +26,11 @@ public class ElasticsearchTestContainer implements SearchTestContainer {
     this.esContainer =
         new org.testcontainers.elasticsearch.ElasticsearchContainer(dockerImageName)
             .withEnv(
-                "xpack.security.enabled",
-                "false"); // ES8+ enables this property, but we don't need SSL in tests
+                "xpack.security.enabled", "true") // Enable security APIs for testing role creation
+            .withEnv("xpack.security.http.ssl.enabled", "false")
+            .withEnv("xpack.security.authc.anonymous.username", "anonymous")
+            .withEnv("xpack.security.authc.anonymous.roles", "superuser")
+            .withEnv("xpack.security.authc.anonymous.authz_exception", "false");
     checkContainerEngine(esContainer.getDockerClient());
     esContainer.withEnv("ES_JAVA_OPTS", SEARCH_JAVA_OPTS).withStartupTimeout(STARTUP_TIMEOUT);
   }

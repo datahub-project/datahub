@@ -73,7 +73,8 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
-    Mockito.when(mockSecretService.encrypt(TEST_INPUT.getValue())).thenReturn("encrypted_value");
+    Mockito.when(mockSecretService.encrypt(Mockito.any(), Mockito.eq(TEST_INPUT.getValue())))
+        .thenReturn("encrypted_value");
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
@@ -85,7 +86,8 @@ public class UpdateSecretResolverTest {
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
-    Mockito.verify(mockSecretService, Mockito.times(1)).encrypt(TEST_INPUT.getValue());
+    Mockito.verify(mockSecretService, Mockito.times(1))
+        .encrypt(Mockito.any(), Mockito.eq(TEST_INPUT.getValue()));
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
   }
 
@@ -101,7 +103,9 @@ public class UpdateSecretResolverTest {
 
     Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
     // The secret value should NOT be escaped before encryption
-    Mockito.when(mockSecretService.encrypt(TEST_INPUT_WITH_SPECIAL_CHARS.getValue()))
+    Mockito.when(
+            mockSecretService.encrypt(
+                Mockito.any(), Mockito.eq(TEST_INPUT_WITH_SPECIAL_CHARS.getValue())))
         .thenReturn("encrypted_special_value");
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
@@ -117,7 +121,7 @@ public class UpdateSecretResolverTest {
 
     // Verify that the secret value was passed to encrypt WITHOUT escaping
     Mockito.verify(mockSecretService, Mockito.times(1))
-        .encrypt(Mockito.eq("password\nwith/slashes\"and\\backslashes"));
+        .encrypt(Mockito.any(), Mockito.eq("password\nwith/slashes\"and\\backslashes"));
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
   }
 

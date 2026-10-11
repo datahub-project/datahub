@@ -3,7 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentChange;
@@ -47,6 +49,11 @@ public class DocumentChangeHistoryResolver
     final Document source = environment.getSource();
     final Urn documentUrn = UrnUtils.getUrn(source.getUrn());
 
+    if (!AuthorizationUtils.canGetDocument(documentUrn, context)) {
+      throw new AuthorizationException(
+          "Unauthorized to view change history for entity: " + documentUrn);
+    }
+
     // Parse arguments
     final Long startTimeMillis = environment.getArgument("startTimeMillis");
     final Long endTimeMillis = environment.getArgument("endTimeMillis");
@@ -67,6 +74,7 @@ public class DocumentChangeHistoryResolver
             // Get timeline from TimelineService
             List<ChangeTransaction> transactions =
                 _timelineService.getTimeline(
+                    context.getOperationContext(),
                     documentUrn,
                     categories,
                     startTime,
@@ -178,14 +186,35 @@ public class DocumentChangeHistoryResolver
     }
 
     // Set details (optional parameters)
+    List<StringMapEntry> details = new ArrayList<>();
     if (event.getParameters() != null && !event.getParameters().isEmpty()) {
-      List<StringMapEntry> details = new ArrayList<>();
       for (Map.Entry<String, Object> entry : event.getParameters().entrySet()) {
         StringMapEntry mapEntry = new StringMapEntry();
         mapEntry.setKey(entry.getKey());
         mapEntry.setValue(entry.getValue() != null ? entry.getValue().toString() : "");
         details.add(mapEntry);
       }
+    }
+
+    // For RELATED_ENTITIES changes, include the modifier (entity URN) and operation as first-class
+    // fields
+    if (event.getCategory() == ChangeCategory.RELATED_ENTITIES) {
+      if (event.getModifier() != null && !event.getModifier().isEmpty()) {
+        StringMapEntry modifierEntry = new StringMapEntry();
+        modifierEntry.setKey("entityUrn");
+        modifierEntry.setValue(event.getModifier());
+        details.add(modifierEntry);
+      }
+
+      if (event.getOperation() != null) {
+        StringMapEntry operationEntry = new StringMapEntry();
+        operationEntry.setKey("operation");
+        operationEntry.setValue(event.getOperation().name());
+        details.add(operationEntry);
+      }
+    }
+
+    if (!details.isEmpty()) {
       change.setDetails(details);
     }
 

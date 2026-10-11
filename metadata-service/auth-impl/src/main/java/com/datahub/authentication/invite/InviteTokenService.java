@@ -35,6 +35,7 @@ public class InviteTokenService {
   private static final String HAS_ROLE_FIELD_NAME = "hasRole";
   private final EntityClient _entityClient;
   private final SecretService _secretService;
+  private final OperationContext _systemOperationContext;
 
   public Urn getInviteTokenUrn(@Nonnull final String inviteTokenStr) throws URISyntaxException {
     String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
@@ -83,7 +84,7 @@ public class InviteTokenService {
     final Urn inviteTokenUrn = searchEntity.getEntity();
 
     com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(opContext, inviteTokenUrn);
-    return _secretService.decrypt(inviteToken.getToken());
+    return _secretService.decrypt(_systemOperationContext, inviteToken.getToken());
   }
 
   private com.linkedin.identity.InviteToken getInviteTokenEntity(
@@ -152,7 +153,8 @@ public class InviteTokenService {
     InviteTokenKey inviteTokenKey = new InviteTokenKey();
     inviteTokenKey.setId(hashedInviteTokenStr);
     com.linkedin.identity.InviteToken inviteTokenAspect =
-        new com.linkedin.identity.InviteToken().setToken(_secretService.encrypt(inviteTokenStr));
+        new com.linkedin.identity.InviteToken()
+            .setToken(_secretService.encrypt(opContext, inviteTokenStr));
     if (roleUrnStr != null) {
       Urn roleUrn = Urn.createFromString(roleUrnStr);
       inviteTokenAspect.setRole(roleUrn);

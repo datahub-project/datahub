@@ -39,8 +39,10 @@ def test_preset_config_parsing():
     config = PresetConfig.model_validate(preset_config)
 
     # Test Preset-specific fields
-    assert config.api_key == "dummy_api_key"
-    assert config.api_secret == "dummy_api_secret"
+    assert config.api_key is not None
+    assert config.api_key.get_secret_value() == "dummy_api_key"
+    assert config.api_secret is not None
+    assert config.api_secret.get_secret_value() == "dummy_api_secret"
     assert config.manager_uri == "https://api.app.preset.io"
 
     # Test that regular Superset fields are still parsed

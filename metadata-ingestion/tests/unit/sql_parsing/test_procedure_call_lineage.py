@@ -1,0 +1,787 @@
+"""Tests for stored-procedure CALL/EXEC lineage extraction.
+
+These tests verify that `parse_procedure_code` recognises procedure invocations
+inside a procedure body and emits them as `inputDatajobs` on the returned
+`DataJobInputOutputClass`. The implementation is intentionally tolerant of the
+two ways sqlglot models calls:
+
+* TSQL ``EXEC``/``EXECUTE`` → structured ``Execute`` node
+* All other dialects' ``CALL`` → unparseable ``Command`` literal, regex-extracted
+
+The resolution rules being tested:
+
+* Two-tier sources signal themselves with ``default_schema=None``. A bare
+  ``CALL foo()`` resolves under the default database; a qualified
+  ``CALL otherdb.foo()`` swaps in the explicit database.
+* Three-tier sources fill the schema slot. Bare names use both defaults,
+  two-part names override the schema, three-part names override both.
+
+These are the same composition rules used by ``BaseProcedure.to_urn`` /
+``get_procedure_flow_name`` so the resulting URNs join cleanly against the
+DataJob URNs emitted for the called procedures elsewhere in ingestion.
+"""
+
+import pytest
+
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+
+def test_two_tier_unqualified_call_resolves_under_default_db():
+    """``CALL foo()`` from a MySQL/MariaDB procedure must point at the same
+    flow (``<db>.stored_procedures``) as the caller's flow URN."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """
+    CALL process_customer_data();
+    CALL generate_order_summaries(100.00);
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,  # two-tier
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    ]
+    # No DML in this body → no dataset lineage.
+    assert not result.inputDatasets
+    assert not result.outputDatasets
+
+
+def test_two_tier_qualified_call_swaps_database():
+    """``CALL otherdb.proc()`` in a two-tier source treats the leading qualifier
+    as a database, not a schema."""
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="caller_db",
+        default_schema=None,
+        code="CALL other_db.helper();",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mysql,other_db.stored_procedures,PROD),helper)"
+    ]
+
+
+def test_three_tier_unqualified_call_uses_default_db_and_schema():
+    schema_resolver = SchemaResolver(platform="postgres", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="mydb",
+        default_schema="public",
+        code="CALL load_data();",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(postgres,mydb.public.stored_procedures,PROD),load_data)"
+    ]
+
+
+def test_three_tier_two_part_call_overrides_schema():
+    schema_resolver = SchemaResolver(platform="postgres", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="mydb",
+        default_schema="public",
+        code="CALL etl.run_step();",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(postgres,mydb.etl.stored_procedures,PROD),run_step)"
+    ]
+
+
+def test_three_tier_three_part_call_overrides_both():
+    schema_resolver = SchemaResolver(platform="postgres", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="mydb",
+        default_schema="public",
+        code="CALL warehouse.staging.compact();",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(postgres,warehouse.staging.stored_procedures,PROD),compact)"
+    ]
+
+
+def test_tsql_exec_resolves_via_structured_node():
+    """TSQL ``EXEC`` parses as ``Execute`` with explicit db/schema/name."""
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="AdventureWorks",
+        default_schema="dbo",
+        code="EXEC dbo.usp_DoStuff @x = 1;",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mssql,AdventureWorks.dbo.stored_procedures,PROD),usp_DoStuff)"
+    ]
+
+
+def test_tsql_execute_with_db_schema_qualifier():
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="default_db",
+        default_schema="dbo",
+        code="EXECUTE OtherDB.audit.log_event;",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mssql,OtherDB.audit.stored_procedures,PROD),log_event)"
+    ]
+
+
+def test_tsql_bracketed_identifiers():
+    """``EXEC [db].[schema].[proc]`` — bracket-quoted identifiers must have
+    their brackets stripped for URN composition."""
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="default_db",
+        default_schema="dbo",
+        code="EXEC [Reporting].[etl].[refresh_all];",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mssql,Reporting.etl.stored_procedures,PROD),refresh_all)"
+    ]
+
+
+def test_call_lineage_combines_with_dml_lineage():
+    """A body that both writes data AND calls another procedure must emit both
+    table-level lineage and dataJob-level lineage in the same aspect.
+
+    Two-tier procedure bodies typically reference tables by unqualified name
+    (resolved against the procedure's home database), so the test mirrors that
+    convention rather than fully qualifying.
+    """
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """
+    CALL upstream_loader();
+    INSERT INTO target_table (id) SELECT id FROM source_table;
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),upstream_loader)"
+    ]
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.source_table,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
+    ]
+
+
+def test_duplicate_calls_are_deduplicated():
+    """Idempotent ``CALL`` of the same procedure twice must not produce
+    duplicate ``inputDatajobs`` entries — the lineage relationship is the same."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """
+    CALL helper();
+    CALL helper();
+    CALL helper();
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),helper)"
+    ]
+
+
+def test_call_with_no_default_context_is_skipped():
+    """If we can't fill in even one part of the flow name, we silently drop the
+    call rather than emit a malformed URN."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db=None,
+        default_schema=None,
+        code="CALL orphan();",
+        is_temp_table=lambda _: False,
+    )
+
+    # Nothing usable in the body and no defaults to fall back to: parse_procedure_code
+    # treats this as "no lineage" rather than emitting urn:li:dataFlow:(...,stored_procedures,...).
+    assert result is None
+
+
+def test_unresolvable_call_dropped_but_dml_lineage_survives():
+    """A CALL that can't be resolved (no default db/schema, no qualifier) is
+    dropped from ``inputDatajobs`` without erroring or discarding the DML
+    lineage that shares the body. Exercises ``_build_call_datajob_urn``
+    returning ``None`` while the overall result is still non-``None``."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """
+    INSERT INTO reportdb.target (id) SELECT id FROM reportdb.source;
+    CALL orphan();
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db=None,
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    # The orphan CALL is silently dropped, not raised on.
+    assert not result.inputDatajobs
+    # Fully-qualified DML still yields table lineage.
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,reportdb.source,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,reportdb.target,PROD)"
+    ]
+
+
+def test_call_inside_view_or_function_does_not_match():
+    """A SELECT that references a column literally named ``CALL`` must not be
+    mistaken for a procedure invocation."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code="INSERT INTO test_db.t (CALL) SELECT id FROM test_db.s;",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert not result.inputDatajobs
+
+
+def test_begin_end_wrapped_body_recovers_first_call():
+    """Real MySQL/MariaDB bodies are wrapped in ``BEGIN ... END``. The opening
+    ``BEGIN`` glued onto the first ``CALL`` used to drop it — both must appear."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """BEGIN
+        CALL process_customer_data();
+        CALL generate_order_summaries(100.00);
+    END"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    ]
+
+
+def test_labeled_begin_end_block_handled():
+    """MariaDB labeled blocks: ``my_label: BEGIN ... END my_label``. The labeled
+    opener is stripped and the labeled closer skipped, leaving clean call lineage."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """proc_body: BEGIN
+        CALL first_step();
+        CALL second_step();
+    END proc_body"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),first_step)",
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),second_step)",
+    ]
+
+
+def test_begin_end_wrapped_body_recovers_first_dml_and_call():
+    """The glued-on BEGIN must not drop first-statement DML either: an opening
+    INSERT...SELECT plus a CALL should emit both dataset and dataJob lineage."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """BEGIN
+        INSERT INTO target_table (id) SELECT id FROM source_table;
+        CALL downstream_step();
+    END"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),downstream_step)"
+    ]
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.source_table,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
+    ]
+
+
+def test_tsql_dispatcher_procedure_without_semicolons():
+    """Newline-separated ``EXEC`` calls inside ``BEGIN TRY`` must resolve every callee.
+
+    Distinct callees on purpose: a repeated callee would dedupe to one URN and hide a
+    dropped call. The trailing ``SET NOCOUNT OFF`` / ``RETURN`` used to swallow the
+    final call.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+
+    code = """
+    CREATE PROCEDURE dbo.run_batch (@batch_id CHAR(10), @run_date SMALLDATETIME = NULL)
+    AS
+    BEGIN
+        SET NOCOUNT ON
+
+        BEGIN TRY
+            -- one call per step, each with a positional step number
+            EXEC run_batch_step_a @batch_id,1,@run_date
+            EXEC run_batch_step_b @batch_id,2,@run_date
+            EXEC run_batch_step_c @batch_id,3,@run_date
+            SET NOCOUNT OFF
+            RETURN
+        END TRY
+        BEGIN CATCH
+            EXEC master.dbo.sp_LogError @batch_id
+            SET NOCOUNT OFF
+            RETURN
+        END CATCH
+    END
+    """
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert result.inputDatajobs == [
+        f"urn:li:dataJob:({flow},run_batch_step_a)",
+        f"urn:li:dataJob:({flow},run_batch_step_b)",
+        f"urn:li:dataJob:({flow},run_batch_step_c)",
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,master.dbo.stored_procedures,STG),sp_LogError)",
+    ]
+
+
+@pytest.mark.parametrize("verb", ["DENY", "GRANT", "REVOKE"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        "{verb} EXECUTE TO reporting_user\n        EXEC dbo.real_child @a",
+        "EXEC dbo.real_child @a\n        {verb} EXECUTE TO reporting_user",
+        "{verb} EXECUTE ON OBJECT::dbo.thing TO reporting_user\n        EXEC dbo.real_child @a",
+        # The worst of the four: a call followed by the ON form used to leave the whole
+        # body unparseable, so nothing at all resolved -- not even the call.
+        "EXEC dbo.real_child @a\n        {verb} EXECUTE ON OBJECT::dbo.thing TO reporting_user",
+    ],
+    ids=[
+        "privilege-then-call",
+        "call-then-privilege",
+        "on-form-then-call",
+        "call-then-on-form",
+    ],
+)
+def test_privilege_statement_does_not_invent_a_called_procedure(verb, body):
+    """A privilege statement must not become a call.
+
+    `DENY EXECUTE TO r` has no ON, and `TO` tokenizes as a valid call target, so a
+    splitter that treats every EXECUTE as a statement start hands sqlglot
+    `EXECUTE TO r` -- parsed as a call to a procedure named TO, while the real call
+    that preceded it is swallowed into the fragment left behind. Invented lineage is
+    worse than missing lineage, so assert on the resolved URNs, not the fragments.
+
+    Parametrized rather than looped so each verb/position reports on its own: in a
+    loop the first failing case hides whether the rest are covered at all.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.setup AS\n"
+            f"    BEGIN\n        {body.format(verb=verb)}\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [f"urn:li:dataJob:({flow},real_child)"]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "EXEC sp_executesql @sql",
+        "EXEC sys.sp_executesql @sql",
+        "EXEC sp_rename 'a', 'b'",
+        "EXEC msdb.dbo.sp_send_dbmail @p = 1",
+    ],
+)
+def test_system_procedure_calls_are_currently_emitted_as_edges(call):
+    """Known gap, pinned rather than fixed here: system procedures become dataJobs.
+
+    The call detector has no system-procedure filter, so `sp_executesql` resolves to
+    `<default_db>.dbo.stored_procedures` even though it lives in `sys`. That predates
+    this change: on the base splitter any body written with semicolons already emitted
+    these. What changes here is reach -- semicolon-less bodies now resolve too, and
+    `sp_executesql` is the most common call there is.
+
+    The fix is a policy decision (which names count as system) rather than a bug fix,
+    so it is deliberately not made here. Note for whoever does make it: T-SQL `EXEC`
+    goes through the `Execute` branch of `_extract_procedure_call` and every other
+    dialect's `CALL` goes through the `Command` branch, so a filter in the `Execute`
+    branch would be T-SQL-only. A blanket `sp_` prefix test would wrongly drop a user
+    procedure such as `master.dbo.sp_LogError`.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            f"CREATE PROCEDURE dbo.runner AS\n"
+            f"    BEGIN\n        {call}\n        EXEC dbo.real_child @a\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    jobs = result.inputDatajobs or []
+    # The real call is captured, which is the point of this PR...
+    assert f"urn:li:dataJob:({flow},real_child)" in jobs
+    # ...but so is the system procedure, under a database and schema it does not live
+    # in. Change this assertion when the detector learns to drop them.
+    assert len(jobs) == 2
+
+
+def test_insert_exec_records_the_call_but_not_the_target():
+    """`INSERT INTO t EXEC p` splits, so the call resolves where it used to be lost.
+
+    The target table is still not recorded as an output: the `INSERT INTO t` fragment
+    left behind has no source and produces no dataset lineage. Pinned so the gap is
+    visible rather than assumed -- capturing the target is a follow-up.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.loader AS\n"
+            "    BEGIN\n"
+            "        INSERT INTO dbo.target EXEC dbo.src_proc @a\n"
+            "    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [f"urn:li:dataJob:({flow},src_proc)"]
+    assert not result.outputDatasets
+
+
+@pytest.mark.parametrize("separator", ["\n", ";\n"], ids=["newlines", "semicolons"])
+@pytest.mark.parametrize(
+    "staging,consumer",
+    [
+        ("INSERT INTO #t EXEC dbo.src_proc", "INSERT INTO dbo.final SELECT a FROM #t"),
+        (
+            "INSERT INTO #t EXEC dbo.src_proc",
+            "MERGE dbo.final AS d USING #t AS s ON d.a = s.a "
+            "WHEN MATCHED THEN UPDATE SET d.a = s.a",
+        ),
+        ("INSERT @tv EXEC dbo.src_proc", "INSERT INTO dbo.final SELECT a FROM @tv"),
+    ],
+    ids=["insert-select", "merge", "table-variable"],
+)
+def test_staging_a_call_through_a_temp_table_keeps_the_real_output(
+    staging, consumer, separator
+):
+    """`INSERT INTO #t EXEC p` is how T-SQL captures a procedure's result set.
+
+    Splitting the call out leaves an `INSERT INTO #t` with no source. Left in, it
+    registers `#t` as a temp table with no upstreams, so everything later built from
+    `#t` resolves to nothing and the procedure loses `dbo.final` -- its real output.
+    """
+    result = parse_procedure_code(
+        schema_resolver=SchemaResolver(platform="mssql", env="STG"),
+        default_db="my_db",
+        default_schema="dbo",
+        code=f"CREATE TABLE #t (a INT){separator}{staging}{separator}{consumer}",
+        is_temp_table=lambda urn: "#t" in urn or "tv" in urn,
+    )
+
+    assert result is not None
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.final,STG)"
+    ]
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG),src_proc)"
+    ]
+
+
+def test_return_code_call_yields_no_lineage():
+    """Known gap, pinned rather than fixed here: `EXEC @rc = proc` loses its edge.
+
+    Assigning the return code is a real call to `child`, and the splitter does break
+    it out as its own statement, but sqlglot 30.12 raises on the form. Recovering the
+    edge needs the detector to accept `@var =` before the name, which belongs with the
+    other detector gaps rather than in a splitter change.
+
+    Change this assertion when it learns to. The pattern is common in exactly the
+    dispatcher procedures this PR is about, so the gap is not academic.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.runner AS\n"
+            "    BEGIN\n"
+            "        DECLARE @rc INT\n"
+            "        EXEC @rc = dbo.child @a\n"
+            "    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is None or not result.inputDatajobs
+
+
+@pytest.mark.parametrize(
+    "trailing_call",
+    [
+        "EXEC(@sql)",
+        "EXEC @rc = dbo.child @a",
+        "EXECUTE AS USER = 'etl'",
+    ],
+)
+def test_a_call_with_no_resolvable_callee_does_not_cost_the_statement_before_it(
+    trailing_call,
+):
+    """None of these three names a callee, so none of them yields an edge.
+
+    They still have to open a statement. While they did not, `EXEC @rc =` and
+    `EXECUTE AS` absorbed the DML in front of them into a fragment sqlglot cannot
+    parse, costing that statement its lineage too. `EXEC(@sql)` is asserted alongside
+    them because sqlglot happens to tolerate it at the end of a blob today, which is
+    incidental -- the split is what the behaviour should rest on.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=f"INSERT INTO my_db.dbo.target SELECT c FROM my_db.dbo.source\n{trailing_call}",
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.source,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.target,PROD)"
+    ]
+    assert not result.inputDatajobs
+
+
+def test_a_statement_label_costs_the_call_it_lands_next_to():
+    """Known gap, pinned rather than fixed here: `retry:` swallows a call.
+
+    A label ends in `:`, which is a continuation, so it never opens a statement. After
+    an EXEC it joins that call's argument list and the call is lost; after any other
+    statement it suppresses the opener and takes the call after it instead. Change
+    these assertions when labels learn to close a statement.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    def parse(code):
+        return parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="my_db",
+            default_schema="dbo",
+            code=code,
+            is_temp_table=lambda _: False,
+        )
+
+    # After an EXEC: the label joins `a`'s arguments, so only `b` survives.
+    after_exec = parse("EXEC dbo.a @x\nretry:\nEXEC dbo.b @y")
+    assert after_exec is not None
+    assert [
+        urn.split(",")[-1].rstrip(")") for urn in after_exec.inputDatajobs or []
+    ] == ["b"]
+
+    # After anything else: the label takes the call with it, and the statement in
+    # front loses its own lineage too -- nothing is left to emit.
+    assert (
+        parse("SELECT a INTO my_db.dbo.t FROM my_db.dbo.s\nretry:\nEXEC dbo.b") is None
+    )
+
+
+def test_case_expression_argument_keeps_the_call():
+    """The splitter must not cut an EXEC at an ELSE belonging to a CASE argument.
+
+    Asserted on the resolved URN rather than on the split, because the damage is at
+    this level: a call cut at ELSE leaves `CASE ... THEN` unparseable and the edge
+    disappears entirely.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.runner AS\n"
+            "    BEGIN\n"
+            "        EXEC dbo.child @mode = CASE WHEN @x = 1 THEN 1 ELSE 0 END\n"
+            "        EXEC dbo.other @b\n"
+            "    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert sorted(result.inputDatajobs or []) == [
+        f"urn:li:dataJob:({flow},child)",
+        f"urn:li:dataJob:({flow},other)",
+    ]
+
+
+def test_a_procedure_named_execute_is_not_mistaken_for_its_argument():
+    """`Execute` is a legal procedure name and tokenizes as EXECUTE.
+
+    Splitting there would leave `Execute @a`, which parses as a call to a procedure
+    named `a` -- invented lineage, the same failure mode as `DENY EXECUTE TO r`
+    resolving to a procedure named `TO`.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.runner AS\n"
+            "    BEGIN\n        EXEC dbo.Execute @a\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    jobs = result.inputDatajobs or []
+    assert jobs == [f"urn:li:dataJob:({flow},Execute)"]
+    assert f"urn:li:dataJob:({flow},a)" not in jobs
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        # A bare IF between two semicolon-less calls must not swallow the first.
+        (
+            "EXEC dbo.child @a\nIF EXISTS (SELECT 1 FROM my_db.dbo.t)\nEXEC dbo.other @b",
+            ["child", "other"],
+        ),
+        # Unqualified `Execute` tokenizes as EXECUTE. Nothing resolves (sqlglot will
+        # not take the bare reserved word as a name), but nothing is invented either
+        # -- the argument `@a` must not become a callee.
+        ("EXEC Execute @a", []),
+        # `EXECUTE AS USER` is an impersonation clause, not a call. The preceding
+        # call survives and no procedure named AS / USER / CALLER appears.
+        ("EXEC dbo.child @a\nEXECUTE AS USER = 'bob'", ["child"]),
+    ],
+    ids=["if-exists-between-calls", "unqualified-execute", "execute-as-user"],
+)
+def test_forms_that_must_not_invent_a_callee(body, expected):
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=f"CREATE PROCEDURE dbo.runner AS\n    BEGIN\n{body}\n    END",
+        is_temp_table=lambda _: False,
+    )
+
+    jobs = (result.inputDatajobs if result else None) or []
+    assert sorted(jobs) == sorted(f"urn:li:dataJob:({flow},{n})" for n in expected)

@@ -6,11 +6,13 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.reflection import Inspector
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ContainerKey, SchemaKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -23,7 +25,9 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -54,7 +58,9 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
                 database=current_db or parsed_url.path.lstrip("/"),
                 query=urllib.parse.parse_qs(parsed_url.query),
             ).update_query_dict(uri_opts or {})
-            return str(url)
+            # render_as_string(hide_password=False): str(URL) masks the password as
+            # "***" on SQLAlchemy 2.0, which would break the create_engine() connection.
+            return url.render_as_string(hide_password=False)
         else:
             return make_sqlalchemy_uri(
                 self.scheme,
@@ -64,6 +70,14 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
                 current_db or self.database,
                 uri_opts=uri_opts,
             )
+
+    @classmethod
+    def probe_container_kind(cls) -> str:
+        # get_schema_names() returns databases here, and get_inspectors filters them
+        # with database_pattern (schema_pattern is deprecated on this config), so a
+        # probe reporting them as Schemas would send `probe filter` to the wrong
+        # pattern field.
+        return DatasetContainerSubTypes.DATABASE
 
 
 class TwoTierSQLAlchemySource(SQLAlchemySource):
@@ -108,6 +122,15 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
     def gen_schema_key(self, db_name: str, schema: str) -> ContainerKey:
         # Sanity check that we don't try to generate schema containers for 2 tier databases.
         raise NotImplementedError
+
+    def _get_procedure_schema_key(
+        self, db_name: str, schema: str
+    ) -> Optional[SchemaKey]:
+        # Two-tier sources have no schema layer; the loop reuses db_name as
+        # the "schema" argument, which would otherwise build flow names like
+        # ``test_db.test_db.stored_procedures``. Return None so the flow name
+        # falls back to ``{database}.stored_procedures``.
+        return None
 
     def get_inspectors(self):
         # This method can be overridden in the case that you want to dynamically

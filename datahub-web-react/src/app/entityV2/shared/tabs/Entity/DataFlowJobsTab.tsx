@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export const DataFlowJobsTab = ({ properties = { urn: '' } }: Props) => {
+    const { t } = useTranslation('entity.profile.tabs');
     const [page, setPage] = useState(1);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
@@ -38,11 +40,11 @@ export const DataFlowJobsTab = ({ properties = { urn: '' } }: Props) => {
     const pageSize = data?.dataFlow?.childJobs?.count || 0;
     const pageStart = data?.dataFlow?.childJobs?.start || 0;
     const lastResultIndex = pageStart + pageSize > totalJobs ? totalJobs : pageStart + pageSize;
-    const title = `Contains ${totalJobs} ${
+    const entityName =
         totalJobs === 1
             ? entityRegistry.getEntityName(EntityType.DataJob)
-            : entityRegistry.getCollectionName(EntityType.DataJob)
-    }`;
+            : entityRegistry.getCollectionName(EntityType.DataJob);
+    const title = t('entity.containsCount', { count: totalJobs, entityName });
     return (
         <EntityList
             title={title}

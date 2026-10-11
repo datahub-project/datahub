@@ -77,10 +77,12 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(
       Pair<Path, Path> configFileClassPathPair,
       @Nullable
-          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider,
+      boolean useOptimizedEntityLoading)
       throws IOException {
     this(
-        DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        DataSchemaFactory.withCustomClasspath(
+            configFileClassPathPair.getSecond(), useOptimizedEntityLoading),
         DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond())
             .map(Stream::of)
             .orElse(Stream.empty())
@@ -92,9 +94,10 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(
       String entityRegistryRoot,
       @Nullable
-          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider,
+      boolean useOptimizedLoading)
       throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot), pluginFactoryProvider);
+    this(getFileAndClassPath(entityRegistryRoot), pluginFactoryProvider, useOptimizedLoading);
   }
 
   private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
@@ -139,12 +142,20 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(
       InputStream configFileInputStream,
       @Nullable
-          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider,
+      boolean useOptimizedEntityLoading) {
     this(
-        DataSchemaFactory.getInstance(),
+        DataSchemaFactory.getInstance(useOptimizedEntityLoading),
         Collections.emptyList(),
         configFileInputStream,
         pluginFactoryProvider);
+  }
+
+  public ConfigEntityRegistry(
+      InputStream configFileInputStream,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+    this(configFileInputStream, pluginFactoryProvider, false);
   }
 
   public ConfigEntityRegistry(
@@ -209,17 +220,24 @@ public class ConfigEntityRegistry implements EntityRegistry {
       EntitySpec entitySpec;
       Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
       String searchGroup =
-          entity.getSearchGroup() != null
-              ? entity.getSearchGroup()
-              : EntityAnnotation.DEFAULT_SEARCH_GROUP;
+          EntityAnnotation.isSearchGroupUnset(entity.getSearchGroup())
+              ? null
+              : entity.getSearchGroup();
+      // YAML is the authoring source of truth; null means leave PDL default (false) / config false
+      Boolean viewUnrestricted = entity.getViewUnrestricted();
 
       if (!entitySchema.isPresent()) {
         entitySpec =
             entitySpecBuilder.buildConfigEntitySpec(
-                entity.getName(), entity.getKeyAspect(), aspectSpecs, searchGroup);
+                entity.getName(),
+                entity.getKeyAspect(),
+                aspectSpecs,
+                searchGroup,
+                Boolean.TRUE.equals(viewUnrestricted));
       } else {
         entitySpec =
-            entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs, searchGroup);
+            entitySpecBuilder.buildEntitySpec(
+                entitySchema.get(), aspectSpecs, searchGroup, viewUnrestricted);
       }
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }

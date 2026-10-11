@@ -1,4 +1,6 @@
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -8,8 +10,6 @@ import PlatformContent from '@app/entity/shared/containers/profile/header/Platfo
 import FormInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/FormInfo';
 import { StyledDivider } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import LinkOut from '@images/link-out.svg?react';
 
 const EntityName = styled.div`
     font-size: 16px;
@@ -43,6 +43,7 @@ interface Props {
 }
 
 export default function EntityInfo({ formUrn }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
@@ -56,7 +57,11 @@ export default function EntityInfo({ formUrn }: Props) {
                 target="_blank"
                 rel="noreferrer noopener"
             >
-                View Profile <LinkOut style={{ marginLeft: '4px' }} />
+                <Trans
+                    t={t}
+                    i18nKey="entityInfo.viewProfile"
+                    components={{ icon: <ArrowSquareOut style={{ marginLeft: '4px' }} /> }}
+                />
             </StyledLink>
             <DatasetStatsSummarySubHeader properties={{ shouldWrap: true }} />
             <FormInfoWrapper>

@@ -1,23 +1,3 @@
-import { scaleOrdinal } from '@visx/scale';
-import dayjs from 'dayjs';
-
-import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
-
-// Mock Data Util
-export const generateDateSeries = (numOfDays) =>
-    Array(numOfDays)
-        .fill(0)
-        .map((d, i) => ({
-            date: dayjs(new Date(Date.now() - 24 * 60 * 60 * 1000 * i)).format(),
-            value: Math.round(Math.max(10, Math.random() * 100 || 0)),
-        }));
-
-// Status Ordinal Scale
-export const statusOrdinalScale = scaleOrdinal({
-    domain: ['Not Started', 'In Progress', 'Completed'],
-    range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR],
-});
-
 // private utils to help with rounding y axis numbers
 const NUMERICAL_ABBREVIATIONS = ['k', 'm', 'b', 't'];
 function roundToPrecision(n: number, precision: number) {
@@ -37,28 +17,24 @@ export const truncateNumberForDisplay = (n: number, skipRounding?: boolean): str
     return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${roundedNumber}`;
 };
 
+// IEEE-754 doubles carry ~16 significant decimal digits, and arithmetic like
+// `2713.2 / 1000` lands 1 ULP off its intended value (= 2.7131999999999996), so
+// String() prints the full noisy tail. Rounding to this many significant figures
+// strips that noise while preserving far more precision than any abbreviated
+// label needs — it sits safely below the ~16-digit noise floor and well above the
+// handful of figures a real tick label uses.
+const ABBREVIATION_SIGNIFICANT_DIGITS = 12;
+
 // Number Abbreviations
 export const abbreviateNumber = (str) => {
     const number = parseFloat(str);
     if (Number.isNaN(number)) return str;
-    if (number < 1000) return number;
+    if (number < 1000) return Number(number.toPrecision(ABBREVIATION_SIGNIFICANT_DIGITS));
     const abbreviations = ['K', 'M', 'B', 'T'];
     const index = Math.floor(Math.log10(number) / 3);
     const suffix = abbreviations[index - 1];
     const shortNumber = number / 10 ** (index * 3);
-    return `${shortNumber}${suffix}`;
-};
-
-// Byte Abbreviations
-export const abbreviateBytes = (str): string => {
-    const bytes = parseFloat(str);
-    if (Number.isNaN(bytes)) return str;
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const index = Math.floor(Math.log(bytes) / Math.log(1024));
-    const shortBytes = bytes / 1024 ** index;
-
-    return `${abbreviateNumber(shortBytes.toFixed())} ${units[index]}`;
+    return `${Number(shortNumber.toPrecision(ABBREVIATION_SIGNIFICANT_DIGITS))}${suffix}`;
 };
 
 type CalculateYScaleExtentForChartOptions = {

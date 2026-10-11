@@ -1,3 +1,4 @@
+import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
@@ -18,7 +19,7 @@ interface Props {
 
 export default function useStructuredPropertyPrompt({ prompt, submitResponse, field }: Props) {
     const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
-    const { refetch, entityData } = useEntityContext();
+    const { entityData } = useEntityContext();
     const { selectedPromptId, formView } = useEntityFormContext();
     const initialValues = useMemo(
         () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
@@ -32,7 +33,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         updateSelectedValues,
         hasEdited,
         setHasEdited,
-    } = useEditStructuredProperty();
+    } = useEditStructuredProperty(initialValues);
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 
@@ -50,6 +51,13 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             setSelectedValues(initialValues || []);
         }
     }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
+
+    const previousInitialValues = usePrevious(initialValues);
+    useEffect(() => {
+        if (!hasEdited && !!initialValues?.length && !isEqual(initialValues, previousInitialValues)) {
+            setSelectedValues(initialValues);
+        }
+    }, [initialValues, previousInitialValues, hasEdited, setSelectedValues]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {
@@ -70,7 +78,6 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
                 },
             },
             () => {
-                refetch();
                 setHasEdited(false);
                 if (field) {
                     refetchSchema();

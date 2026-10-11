@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -27,9 +27,9 @@ const StyledModal = styled(Modal)`
     }
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     && {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 24px;
         margin: 18px 12px 0 0;
     }

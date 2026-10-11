@@ -1,5 +1,7 @@
-import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover, Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -34,7 +36,7 @@ const LoadingBar = styled.div`
     left: 0;
     width: 100%;
     height: 4px;
-    background-color: #1890ff;
+    background-color: ${(props) => props.theme.colors.hyperlinks};
     z-index: 1000;
     animation: loading 2s infinite ease-in-out;
 
@@ -51,31 +53,41 @@ const LoadingBar = styled.div`
     }
 `;
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const MIN_SEARCH_LENGTH = 3;
 
 const ManageApplications = () => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [showCreateApplicationModal, setShowCreateApplicationModal] = useState(false);
 
     const userContext = useUserContext();
     const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
-    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
+    useDebounce(
+        () => {
+            setDebouncedSearchQuery(searchQuery);
+            setCurrentPage(1);
+        },
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery],
+    );
 
     // Search query configuration
     const searchInputs = useMemo(
         () => ({
             types: [EntityType.Application],
-            query: debouncedSearchQuery,
-            start: (currentPage - 1) * PAGE_SIZE,
-            count: PAGE_SIZE,
+            query: debouncedSearchQuery.length >= MIN_SEARCH_LENGTH ? debouncedSearchQuery : '',
+            start: (currentPage - 1) * pageSize,
+            count: pageSize,
             filters: [],
             searchFlags: { skipCache: true },
         }),
-        [currentPage, debouncedSearchQuery],
+        [currentPage, pageSize, debouncedSearchQuery],
     );
 
     const {
@@ -92,22 +104,22 @@ const ManageApplications = () => {
     const totalApplications = searchData?.searchAcrossEntities?.total || 0;
 
     if (searchError) {
-        return <Message type="error" content={`Failed to load applications: ${searchError.message}`} />;
+        return <Message type="error" content={t('applications.loadError', { error: searchError.message })} />;
     }
     // Create the Create Application button with proper permissions handling
     const renderCreateApplicationButton = () => {
         if (!canManageApplications) {
             return (
                 <StructuredPopover
-                    title="You do not have permission to create applications"
+                    title={t('applications.noCreatePermissionTooltip')}
                     placement="left"
                     showArrow
                     mouseEnterDelay={0.1}
                     mouseLeaveDelay={0.1}
                 >
-                    <span>
-                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
-                            Create Application
+                    <span data-testid="create-application-button">
+                        <Button size="md" color="primary" icon={{ icon: Plus }} disabled>
+                            {t('applications.createButton')}
                         </Button>
                     </span>
                 </StructuredPopover>
@@ -118,10 +130,11 @@ const ManageApplications = () => {
             <Button
                 onClick={() => setShowCreateApplicationModal(true)}
                 size="md"
-                color="violet"
-                icon={{ icon: 'Plus', source: 'phosphor' }}
+                color="primary"
+                icon={{ icon: Plus }}
+                data-testid="create-application-button"
             >
-                Create Application
+                {t('applications.createButton')}
             </Button>
         );
     };
@@ -131,23 +144,28 @@ const ManageApplications = () => {
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
-                <PageTitle title="Manage Applications" subTitle="Create and edit applications" />
+                <PageTitle title={t('applications.pageTitle')} subTitle={t('applications.pageSubtitle')} />
                 {renderCreateApplicationButton()}
             </HeaderContainer>
 
             <SearchContainer>
                 <SearchBar
-                    placeholder="Search applications..."
+                    placeholder={t('applications.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     id="application-search-input"
                     data-testid="application-search-input"
                     width="280px"
                 />
+                {searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH && (
+                    <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                        {t('applications.searchMinCharsHint', { minLength: MIN_SEARCH_LENGTH })}
+                    </Text>
+                )}
             </SearchContainer>
 
             {!searchLoading && totalApplications === 0 ? (
-                <EmptyApplications isEmptySearch={debouncedSearchQuery.length > 0} />
+                <EmptyApplications isEmptySearch={searchQuery.length > 0} />
             ) : (
                 <>
                     <ApplicationsTable
@@ -159,20 +177,29 @@ const ManageApplications = () => {
                     />
                     <Pagination
                         currentPage={currentPage}
-                        itemsPerPage={PAGE_SIZE}
+                        itemsPerPage={pageSize}
                         total={totalApplications}
                         loading={searchLoading}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={(page, newPageSize) => {
+                            setCurrentPage(page);
+                            if (newPageSize && newPageSize !== pageSize) {
+                                setPageSize(newPageSize);
+                                setCurrentPage(1);
+                            }
+                        }}
+                        showSizeChanger
+                        pageSizeOptions={[10, 20, 50, 100]}
                     />
                 </>
             )}
 
             <CreateNewApplicationModal
                 open={showCreateApplicationModal}
-                onClose={() => {
+                onCreate={() => {
                     setShowCreateApplicationModal(false);
                     setTimeout(() => refetch(), 3000);
                 }}
+                onClose={() => setShowCreateApplicationModal(false)}
             />
         </PageContainer>
     );

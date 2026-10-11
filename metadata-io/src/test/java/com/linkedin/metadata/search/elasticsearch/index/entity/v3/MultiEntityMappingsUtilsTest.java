@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class MultiEntityMappingsUtilsTest {
@@ -286,27 +287,6 @@ public class MultiEntityMappingsUtilsTest {
   // Tests for relocated utility methods
 
   @Test
-  public void testGetElasticsearchTypeForFieldWithSearchIndexedTrue() {
-    SearchableFieldSpec fieldSpec =
-        createSearchableFieldSpecWithSearchIndexed(FieldType.TEXT, "testField", true);
-
-    String result = MultiEntityMappingsUtils.getElasticsearchTypeForField(fieldSpec);
-
-    assertEquals(result, ESUtils.KEYWORD_FIELD_TYPE);
-  }
-
-  @Test
-  public void testGetElasticsearchTypeForFieldWithSearchIndexedFalse() {
-    SearchableFieldSpec fieldSpec =
-        createSearchableFieldSpecWithSearchIndexed(FieldType.TEXT, "testField", false);
-
-    String result = MultiEntityMappingsUtils.getElasticsearchTypeForField(fieldSpec);
-
-    // When searchIndexed is false, it should return the original field type (TEXT -> keyword)
-    assertEquals(result, ESUtils.KEYWORD_FIELD_TYPE);
-  }
-
-  @Test
   public void testGetElasticsearchTypeForFieldWithoutSearchIndexed() {
     SearchableFieldSpec fieldSpec =
         createSearchableFieldSpecWithSearchIndexed(FieldType.KEYWORD, "testField", null);
@@ -404,7 +384,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     assertTrue(result.containsKey("dynamic"));
     assertTrue(result.containsKey("properties"));
@@ -414,7 +394,8 @@ public class MultiEntityMappingsUtilsTest {
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
     assertTrue(properties.containsKey("name"));
     assertTrue(properties.containsKey("score"));
-    // Note: tier_1 field is no longer explicitly created - it will be created dynamically
+    // searchTier is ignored: no tier field is created
+    assertFalse(properties.containsKey("tier_1"));
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -426,7 +407,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Arrays.asList(entitySpec1, entitySpec2);
 
     // This should throw an IllegalArgumentException due to type conflicts
-    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
   }
 
   @Test
@@ -434,7 +415,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.emptyList();
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     @SuppressWarnings("unchecked")
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
@@ -450,7 +431,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     // Verify basic structure
     assertNotNull(result, "Result should not be null");
@@ -480,9 +461,6 @@ public class MultiEntityMappingsUtilsTest {
     assertEquals(scoreField.get("type"), "keyword", "score should be keyword type");
     assertEquals(
         scoreField.get("normalizer"), "keyword_normalizer", "score should have normalizer");
-
-    // Note: tier destination fields are no longer explicitly created in _search section
-    // They will be created dynamically when data is copied to them via copy_to
 
     // Verify entity field name destinations
     assertTrue(properties.containsKey("customField"), "Should contain customField field");
@@ -605,5 +583,40 @@ public class MultiEntityMappingsUtilsTest {
     when(entitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(aspectSpec));
 
     return entitySpec;
+  }
+
+  @Test
+  public void testMergeMappingsPreservesStructuredPropertiesAcrossEntities() {
+    Map<String, Object> existingMappings =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "dynamic",
+                    true,
+                    "properties",
+                    Map.of("propertyA", Map.of("type", "keyword")))));
+    Map<String, Object> configMappings =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "dynamic", false, "properties", Map.of("propertyB", Map.of("type", "date")))));
+
+    Map<String, Object> result =
+        MultiEntityMappingsUtils.mergeMappings(existingMappings, configMappings);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> resultProperties = (Map<String, Object>) result.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredProperties =
+        (Map<String, Object>) resultProperties.get("structuredProperties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> scopedProperties =
+        (Map<String, Object>) structuredProperties.get("properties");
+    assertEquals(scopedProperties.keySet(), Set.of("propertyA", "propertyB"));
+    assertEquals(structuredProperties.get("dynamic"), false);
   }
 }

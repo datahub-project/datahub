@@ -1,110 +1,36 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
-import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
+import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { useTreeExpansionRegistry } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Loader } from '@src/alchemy-components';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
-import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
+import { EntityType, GlossaryTerm } from '@types';
 
-interface ItemWrapperProps {
-    $isSelected: boolean;
-    $isChildNode?: boolean;
-}
-
-const ItemWrapper = styled.div<ItemWrapperProps>`
+const ItemWrapper = styled.div`
     display: flex;
     flex-direction: column;
-    font-weight: 700;
     position: relative;
-    overflow: ${(props) => !props.$isChildNode && 'hidden'};
-`;
-
-const NodeBadge = styled.span<{ color: string }>`
-    position: absolute;
-    height: 9px;
-    width: 50px;
-    background-color: ${({ color }) => color};
-    top: 0;
-    left: -15px;
-    transform: rotate(-45deg);
-    opacity: 1;
-`;
-
-const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
-    align-items: center;
-    display: flex;
-    font-size: 16px;
-    padding: 13px 0;
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
-    padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
-`;
-
-const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
-    cursor: pointer;
-    margin-right: 6px;
-    line-height: 0;
-    :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
-    }
-`;
-
-const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
-    cursor: pointer;
-    margin-right: 6px;
-    line-height: 0;
-    :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
-    }
 `;
 
 const ChildrenWrapper = styled.div``;
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
-
-const ChildrenCount = styled.div`
-    padding: 0 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 20px;
-    background-color: ${colors.gray[100]};
-    color: ${colors.gray[1700]};
-    font-size: 12px;
-    height: 22px;
-    min-width: 28px;
-    font-weight: 400;
-    margin-right: 12px;
-`;
-
-const StyledDivider = styled.div<{ depth: number }>`
-    width: calc(100% + 26px + ${(props) => props.depth * 18}px);
-    margin-left: calc(-13px - ${(props) => props.depth * 18}px);
-    border-bottom: 1px solid #eae8fb;
+const LoadingWrapper = styled.div<{ $level: number }>`
+    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
 `;
 
 interface Props {
@@ -116,8 +42,9 @@ interface Props {
     nodeUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
-    isChildNode?: boolean;
     depth: number;
+    selectedUrns?: string[];
+    iconColor?: string;
 }
 
 function NodeItem(props: Props) {
@@ -130,21 +57,26 @@ function NodeItem(props: Props) {
         nodeUrnToHide,
         selectTerm,
         selectNode,
-        isChildNode,
         depth,
+        selectedUrns,
+        iconColor,
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
-    const generateColor = useGenerateGlossaryColorFromPalette();
-    const [areChildrenVisible, setAreChildrenVisible] = useState(false);
+    const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const { entityData } = useGlossaryEntityData();
+    const expansion = useTreeExpansionRegistry();
+
+    const [areChildrenVisible, setAreChildrenVisible] = useState(false);
+
     const entityUrn = node.urn;
     const {
         scrollRef,
         data: children,
         loading,
     } = useGlossaryChildren({ entityUrn, skip: !areChildrenVisible || shouldHideNode });
-    const { entityData } = useGlossaryEntityData();
 
     useEffect(() => {
         if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
@@ -159,6 +91,22 @@ function NodeItem(props: Props) {
     }, [refreshBrowser]);
 
     const noOfChildren = (node.childrenCount?.termsCount || 0) + (node.childrenCount?.nodesCount || 0);
+    const hasChildren = noOfChildren > 0;
+
+    useEffect(() => {
+        if (!expansion || !hasChildren || shouldHideNode) return undefined;
+        const api = {
+            expand: () => setAreChildrenVisible(true),
+            collapse: () => setAreChildrenVisible(false),
+        };
+        expansion.register(node.urn, api);
+        return () => expansion.unregister(node.urn, api);
+    }, [expansion, hasChildren, node.urn, shouldHideNode]);
+
+    useEffect(() => {
+        if (!expansion || !hasChildren || shouldHideNode) return;
+        expansion.reportExpanded(node.urn, areChildrenVisible);
+    }, [expansion, hasChildren, areChildrenVisible, node.urn, shouldHideNode]);
 
     function handleSelectNode() {
         if (selectNode) {
@@ -167,65 +115,60 @@ function NodeItem(props: Props) {
         }
     }
 
-    const childNodes = children
-        ?.filter((child) => child?.type === EntityType.GlossaryNode)
-        .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
-    const childTerms = children
-        ?.filter((child) => child?.type === EntityType.GlossaryTerm)
-        .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+    function handleRowClick() {
+        if (isSelecting) {
+            handleSelectNode();
+            return;
+        }
+        history.push(entityRegistry.getEntityUrl(node.type, node.urn));
+    }
+
+    // Preserve scrollAcrossEntities order (type then name via sortInput). Do not re-sort.
+    const childNodes = children?.filter((child) => child?.type === EntityType.GlossaryNode);
+    const childTerms = children?.filter((child) => child?.type === EntityType.GlossaryTerm);
+
+    const isMultiSelected = isSelecting && selectedUrns?.includes(node.urn);
+    const isOnEntityPage = entityData?.urn === node.urn;
+    const isRowSelected = !!isOnEntityPage && !isSelecting;
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = node.displayProperties?.colorHex || generateColor(node.urn);
+    const glossaryColor = resolveGlossaryEntityColor(node, generateColor, { inheritedColor: iconColor });
+    const NodeIcon = getGlossaryEntityIcon(EntityType.GlossaryNode);
+    const displayName = entityRegistry.getDisplayName(node.type, node);
 
     return (
-        <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
-            {!isChildNode && <NodeBadge color={glossaryColor} />}
-            <NodeWrapper $isSelected={entityData?.urn === node.urn} $depth={depth}>
-                {areChildrenVisible && (
-                    <StyledDownOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(false)}
-                        isSelected={entityData?.urn === node.urn}
+        <ItemWrapper>
+            <HierarchicalBrowseTreeRow
+                level={depth}
+                isSelected={isRowSelected}
+                hasChildren={hasChildren}
+                isExpanded={areChildrenVisible}
+                count={noOfChildren}
+                icon={
+                    <GlossaryColoredIcon
+                        color={glossaryColor}
+                        icon={NodeIcon}
+                        size={TREE_ROW_ENTITY_ICON_SIZE}
+                        iconSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
                     />
-                )}
-                {!areChildrenVisible && (
-                    <StyledRightOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(true)}
-                        isSelected={entityData?.urn === node.urn}
-                    />
-                )}
-                {!isSelecting && (
-                    <NodeLink
-                        to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
-                        $isSelected={entityData?.urn === node.urn}
-                        $areChildrenVisible={areChildrenVisible}
-                        $isChildNode
-                    >
-                        {entityRegistry.getDisplayName(node.type, node)}
-                    </NodeLink>
-                )}
-                {isSelecting && (
-                    <NameWrapper showSelectStyles={!!selectNode} onClick={handleSelectNode}>
-                        {entityRegistry.getDisplayName(node.type, node)}
-                    </NameWrapper>
-                )}
-                {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
-            </NodeWrapper>
-            <StyledDivider depth={depth} />
+                }
+                label={displayName}
+                trailing={isMultiSelected ? <SelectedMark /> : undefined}
+                onSelect={handleRowClick}
+                onToggleExpand={() => setAreChildrenVisible((v) => !v)}
+                data-testid={`glossary-sidebar-node-${node.urn}`}
+            />
             {areChildrenVisible && (
                 <>
                     {!children.length && loading && (
-                        <LoadingWrapper>
-                            <LoadingOutlined />
+                        <LoadingWrapper $level={depth + 1}>
+                            <Loader size="xs" padding={0} />
                         </LoadingWrapper>
                     )}
                     {children.length > 0 && (
                         <ChildrenWrapper>
-                            {(childNodes as GlossaryNode[]).map((child) => (
+                            {(childNodes as GlossaryNodeFragment[]).map((child) => (
                                 <NodeItem
                                     node={child}
                                     isSelecting={isSelecting}
@@ -234,23 +177,24 @@ function NodeItem(props: Props) {
                                     nodeUrnToHide={nodeUrnToHide}
                                     selectTerm={selectTerm}
                                     selectNode={selectNode}
-                                    isChildNode
                                     key={child.urn}
                                     depth={depth + 1}
+                                    selectedUrns={selectedUrns}
+                                    iconColor={glossaryColor}
                                 />
                             ))}
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
-                                    <span key={child.urn}>
-                                        <TermItem
-                                            term={child}
-                                            isSelecting={isSelecting}
-                                            selectTerm={selectTerm}
-                                            includeActiveTabPath
-                                            depth={depth + 1}
-                                        />
-                                        <StyledDivider depth={depth + 1} />
-                                    </span>
+                                    <TermItem
+                                        key={child.urn}
+                                        term={child}
+                                        isSelecting={isSelecting}
+                                        selectTerm={selectTerm}
+                                        includeActiveTabPath
+                                        depth={depth + 1}
+                                        selectedUrns={selectedUrns}
+                                        iconColor={glossaryColor}
+                                    />
                                 ))}
                             <div ref={scrollRef} />
                         </ChildrenWrapper>

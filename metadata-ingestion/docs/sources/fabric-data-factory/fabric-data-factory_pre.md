@@ -1,0 +1,165 @@
+### Overview
+
+The `fabric-data-factory` module ingests metadata from Microsoft Fabric Data Factory into DataHub. It extracts workspaces, data pipelines, activities, and execution history, and resolves lineage from Copy activities to external datasets.
+
+:::tip Quick Start
+
+1. **Set up authentication** — Configure Azure credentials (see [Prerequisites](#prerequisites))
+2. **Enable API access** — Ensure a Fabric admin has enabled service principal API access (if using SP or managed identity)
+3. **Grant permissions** — Add your identity as a workspace **Contributor** (required for pipeline definitions and lineage)
+4. **Configure recipe** — Use `fabric-data-factory_recipe.yml` as a template
+5. **Run ingestion** — Execute `datahub ingest -c fabric-data-factory_recipe.yml`
+
+:::
+
+#### Key Features
+
+- Workspaces as containers, data pipelines as DataFlows (DataHub entity type), activities as DataJobs
+- Dataset-level lineage from Copy and InvokePipeline activities
+- Pipeline and activity execution history as DataProcessInstances
+- Cross-recipe lineage via `platform_instance_map` for connecting to externally ingested datasets
+- Pattern-based filtering for workspaces and pipelines
+- Stateful ingestion for stale entity removal
+- Multiple authentication methods (Service Principal, Managed Identity, Azure CLI, DefaultAzureCredential)
+
+#### References
+
+Azure Authentication
+
+- [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
+- [Azure Identity Library](https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme)
+- [Service Principal Authentication](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals)
+- [Managed Identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview)
+
+Fabric Data Factory Concepts
+
+- [Microsoft Fabric Data Factory Overview](https://learn.microsoft.com/fabric/data-factory/data-factory-overview)
+- [Data Pipelines in Fabric](https://learn.microsoft.com/fabric/data-factory/activity-overview)
+- [Fabric REST API](https://learn.microsoft.com/rest/api/fabric/articles/)
+- [Fabric Connections](https://learn.microsoft.com/fabric/data-factory/connector-overview)
+
+### Prerequisites
+
+#### Required Permissions
+
+The connector requires **Contributor** role on each workspace. Contributor is needed to fetch pipeline definitions without it. With Reader role only, the connector will list workspaces and pipelines but will not extract pipeline activities, activity run details, or lineage.
+
+##### Delegated (on behalf of a user) authentication
+
+If using delegated auth (e.g., Azure CLI), the signed-in user's existing Fabric permissions apply directly. The connector requires the following delegated scopes:
+
+- `Workspace.Read.All` or `Workspace.ReadWrite.All` — for listing workspaces and items
+- `Item.ReadWrite.All` or `DataPipeline.ReadWrite.All` — for Get Item Definition, List Item Connections, and Query Activity Runs (`Item.Read.All` is **not** sufficient for definitions and connections)
+- `Item.Read.All` or `DataPipeline.Read.All` — sufficient for List Item Job Instances (execution history)
+
+The Azure CLI token includes the necessary Fabric API scopes by default.
+
+##### Service Principal and Managed Identity authentication
+
+Service principals and managed identities do not inherit any permissions by default. You need to:
+
+1. **Enable API access**: A Fabric admin must enable the service principal tenant settings (see **Fabric Admin Settings** below)
+2. **Grant workspace access**: Add the SP or MI as a workspace **Contributor** for each workspace you want to ingest
+
+#### Fabric Admin Settings
+
+:::warning
+For **service principal** and **managed identity** authentication, a Fabric administrator must enable API access for service principals in the Fabric admin portal. Without this, API calls will fail with 401 errors even if workspace permissions are correctly assigned.
+:::
+
+As of mid-2025, Microsoft split the original single tenant setting into two separate settings. Configure them as follows:
+
+1. Go to the [Fabric Admin Portal](https://app.fabric.microsoft.com/admin-portal) > **Tenant settings**
+2. Under **Developer settings**, enable the applicable setting(s):
+   - **Service principals can call Fabric public APIs** — Controls access to CRUD APIs protected by the Fabric permission model (e.g., reading workspaces and items). This is **enabled by default** for new tenants since August 2025.
+   - **Service principals can create workspaces, connections, and deployment pipelines** — Controls access to global APIs not protected by Fabric permissions. This is **disabled by default**. Enable only if needed.
+3. Restrict access to a dedicated **security group** containing only the service principals that need API access. This is the recommended approach.
+
+:::tip
+If you are on an older tenant where the legacy single setting **Service principals can use Fabric APIs** is still visible, enable that instead. It will be automatically migrated to the two new settings.
+:::
+
+:::tip
+Tenant setting changes can take **up to 15 minutes** to propagate. If you receive 401 errors immediately after enabling, wait and retry.
+:::
+
+For detailed instructions, see [Developer admin settings](https://learn.microsoft.com/en-us/fabric/admin/service-admin-portal-developer) and [Identity support for Fabric REST APIs](https://learn.microsoft.com/en-us/rest/api/fabric/articles/identity-support).
+
+#### Authentication
+
+The connector supports four authentication methods via the shared `credential` config block. All methods use Azure's `TokenCredential` interface.
+
+##### Service Principal (recommended for production)
+
+Register an application in [Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) and note the `client_id`, `client_secret`, and `tenant_id`. Then:
+
+1. Ensure the Fabric admin has enabled service principal API access (see **Fabric Admin Settings** above)
+2. Create a security group in Entra ID and add the service principal as a member
+3. Add the security group as **Contributor** in each target workspace (Contributor role grants access to pipeline definitions and item connections for lineage)
+
+```yaml
+credential:
+  authentication_method: service_principal
+  client_id: ${AZURE_CLIENT_ID}
+  client_secret: ${AZURE_CLIENT_SECRET}
+  tenant_id: ${AZURE_TENANT_ID}
+```
+
+All three fields are required when using this method.
+
+##### Managed Identity (for Azure-hosted deployments)
+
+Use this when running DataHub ingestion on an Azure VM, AKS, App Service, or other Azure compute that supports [managed identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview). The managed identity must be added as a workspace Contributor in Fabric. A Fabric admin must also enable the tenant settings described in **Fabric Admin Settings** above — these settings govern API access for both service principals and managed identities, despite the setting name referencing only service principals.
+
+```yaml
+# System-assigned managed identity (no additional config needed)
+credential:
+  authentication_method: managed_identity
+```
+
+For **user-assigned managed identity**, provide the client ID:
+
+```yaml
+credential:
+  authentication_method: managed_identity
+  managed_identity_client_id: "<your-managed-identity-client-id>"
+```
+
+##### Azure CLI (for local development and testing)
+
+Uses the credentials from your local `az login` session. The signed-in user's existing Fabric permissions apply directly — no additional setup needed beyond workspace access.
+
+```yaml
+credential:
+  authentication_method: cli
+```
+
+Run `az login` before starting ingestion. For remote servers without a browser, use `az login`.
+
+##### DefaultAzureCredential (flexible auto-detection)
+
+Uses Azure's [DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential) chain, which tries multiple credential sources in order: environment variables, workload identity, managed identity, shared token cache, Azure CLI, Azure PowerShell, Azure Developer CLI, and more.
+
+```yaml
+credential:
+  authentication_method: default
+```
+
+You can exclude specific credential sources from the chain to speed up detection or avoid unintended auth in mixed environments:
+
+```yaml
+credential:
+  authentication_method: default
+  exclude_cli_credential: true # Skip Azure CLI (recommended in production)
+  exclude_environment_credential: false
+  exclude_managed_identity_credential: false
+```
+
+#### Setup
+
+1. Choose an authentication method from above and configure the `credential` block.
+2. If using service principal or managed identity:
+   - Ensure the Fabric admin has enabled the appropriate developer settings (see **Fabric Admin Settings**)
+   - Create a security group, add your identity, and grant **Contributor** on target workspaces
+3. If using Azure CLI, run `az login` (or `az login --use-device-code` on remote servers).
+4. Configure the ingestion recipe with optional workspace and pipeline filters.

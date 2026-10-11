@@ -1,12 +1,12 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
+import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
-    LINEAGE_ANNOTATION_NODE,
+    LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
-import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -26,20 +26,40 @@ import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
-import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
+import { LineageDisplayContext, LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import LineageControls from '@app/lineageV3/controls/LineageControls';
 import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
 import LineageSVGs from '@app/lineageV3/lineageSVGs';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
 const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
     ${({ isDraggingBoundingBox }) =>
         !isDraggingBoundingBox &&
-        `.react-flow__node-lineage-entity:not(.dragging) {
+        `
+        .react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
-        }`}
+        }
+        .react-flow__node-lineage-bounding-box:not(.dragging) {
+            transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;        
+        }
+        `}
+
+    /* Hovered nodes render above their neighbors, so overlays like the expand/contract
+       controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */
+    .react-flow__node-lineage-entity:hover {
+        z-index: 1000 !important;
+    }
+
+    /* reactflow/dist/style.css is a compile-time light stylesheet. Most of it never
+       reaches this graph — nodes and edges are custom, no handles are rendered, and
+       attribution is off via proOptions — but the shift-drag selection box is stock,
+       and it ships in Google blue rather than our brand. */
+    .react-flow__nodesselection-rect,
+    .react-flow__selection {
+        background: ${({ theme }) => theme.colors.bgSelected};
+        border: 1px dotted ${({ theme }) => theme.colors.borderSelected};
+    }
 `;
 
 // TODO: Bring back after figuring out how to no overlap expand / contract actions
@@ -55,7 +75,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
-    [LINEAGE_ANNOTATION_NODE]: LineageAnnotationNode,
+    [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -68,35 +88,22 @@ const edgeTypes: EdgeTypes = {
 interface Props {
     initialNodes: LineageVisualizationNode[];
     initialEdges: Edge[];
-    levelsInfo: LevelsInfo;
-    levelsMap: Map<string, number>;
 }
 
 // React flow doesn't always emit events if it re-renders at the same time
 const MemoizedLineageVisualization = React.memo(LineageVisualization);
 export default MemoizedLineageVisualization;
 
-function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMap }: Props) {
+function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const theme = useTheme();
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
     const { isModuleView } = useContext(LineageGraphContext);
-    const addAnnotationNodes = useAddAnnotationNodes();
-
-    const { nodes, edges } = useMemo(() => {
-        if (!isModuleView) {
-            return {
-                nodes: initialNodes,
-                edges: initialEdges,
-            };
-        }
-
-        return addAnnotationNodes(initialNodes, initialEdges, levelsInfo, levelsMap);
-    }, [isModuleView, initialNodes, initialEdges, levelsInfo, levelsMap, addAnnotationNodes]);
 
     return (
         <LineageVisualizationContext.Provider
@@ -113,8 +120,8 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
             <LineageSVGs />
             <StyledReactFlow
                 isDraggingBoundingBox={isDraggingBoundingBox}
-                nodes={nodes}
-                edges={edges}
+                defaultNodes={initialNodes}
+                defaultEdges={initialEdges}
                 // Selection change event does not get emitted without timeout
                 onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
                 onClick={() => setDisplayedMenuNode(null)}
@@ -138,13 +145,24 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
             >
-                <Background variant={BackgroundVariant.Dots} />
+                {/* Background and MiniMap take their colors as props rather than CSS, and
+                    both default to fixed light values. */}
+                <Background variant={BackgroundVariant.Dots} color={theme.colors.lineageBackgroundDot} />
                 {!isModuleView && (
                     <>
                         <ZoomControls />
                         <SearchControl />
                         <LineageControls />
-                        <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                        <LineageEmptyGraphNudgePanel />
+                        <MiniMap
+                            position="bottom-right"
+                            ariaLabel={null}
+                            pannable
+                            zoomable
+                            style={{ backgroundColor: theme.colors.bgSurface }}
+                            nodeColor={theme.colors.border}
+                            maskColor={theme.colors.overlayMedium}
+                        />
                     </>
                 )}
             </StyledReactFlow>
@@ -178,4 +196,18 @@ function useHandleKeyboardDeselect(setSelectedColumn: (value: string | null) => 
             document.removeEventListener('keydown', handleKeyPress);
         };
     }, [setSelectedColumn]);
+}
+
+function LineageEmptyGraphNudgePanel() {
+    const { rootUrn, adjacencyList, nodes, showGhostEntities, setShowGhostEntities } = useContext(LineageNodesContext);
+
+    return (
+        <LineageEmptyGraphNudge
+            rootUrn={rootUrn}
+            adjacencyList={adjacencyList}
+            nodes={nodes}
+            showGhostEntities={showGhostEntities}
+            setShowGhostEntities={setShowGhostEntities}
+        />
+    );
 }

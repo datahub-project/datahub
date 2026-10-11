@@ -1,10 +1,12 @@
-import { red } from '@ant-design/colors';
-import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Tooltip } from 'antd';
+import { Button as AlchemyButton, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { Button, Form, Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
@@ -13,14 +15,14 @@ export const Label = styled.div`
     padding-bottom: 8px;
 `;
 
-export const StyledButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
+const StyledButton = styled(Button)`
+    color: ${(props) => props.theme.colors.textTertiary};
     margin: 10px 0 0 30px;
     width: calc(100% - 72px);
 `;
 
-export const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
+export const StyledQuestion = styled(Question)`
+    color: ${(props) => props.theme.colors.icon};
     margin-left: 4px;
 `;
 
@@ -33,7 +35,7 @@ const SectionWrapper = styled.div`
     display: flex;
     padding: 8px 0 0 30px;
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -41,12 +43,12 @@ const FieldsWrapper = styled.div`
     flex: 1;
 `;
 
-const StyledDeleteButton = styled(Button)`
+const DeleteButton = styled(AlchemyButton)`
     margin-left: 10px;
 `;
 
 export const ErrorWrapper = styled.div`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
     margin-top: 5px;
 `;
 
@@ -56,6 +58,8 @@ interface Props {
 }
 
 export default function DictField({ field, removeMargin }: Props) {
+    const { t } = useTranslation('common.actions');
+
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -95,12 +99,17 @@ export default function DictField({ field, removeMargin }: Props) {
                                     </StyledFormItem>
                                 ))}
                             </FieldsWrapper>
-                            <StyledDeleteButton onClick={() => remove(name)} type="text" shape="circle" danger>
-                                <DeleteOutlined />
-                            </StyledDeleteButton>
+                            <DeleteButton
+                                variant="text"
+                                isCircle
+                                color="red"
+                                icon={{ icon: Trash, size: 'lg' }}
+                                aria-label={t('remove')}
+                                onClick={() => remove(name)}
+                            />
                         </SectionWrapper>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} icon={<Plus />}>
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>

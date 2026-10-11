@@ -16,5 +16,5 @@ idea {
     sourceDirs += file('src/main/javaPegasus')
   }
 }
-
+apply from: '../gradle/schema/pegasus-models-index.gradle'
 sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')

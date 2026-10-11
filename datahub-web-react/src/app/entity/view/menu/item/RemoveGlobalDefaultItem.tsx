@@ -1,5 +1,6 @@
-import { StopOutlined } from '@ant-design/icons';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
@@ -13,12 +14,13 @@ type Props = {
  * Remove the Global View
  */
 export const RemoveGlobalDefaultItem = ({ key, onClick }: Props) => {
+    const { t } = useTranslation('entity.views');
     return (
         <MenuItemStyle key={key} onClick={onClick}>
             <IconItemTitle
-                tip="Remove this View as your organization's default."
-                title="Remove organization default"
-                icon={<StopOutlined />}
+                tip={t('menu.removeOrgDefaultTooltip')}
+                title={t('menu.removeOrgDefault')}
+                icon={<Prohibit />}
             />
         </MenuItemStyle>
     );

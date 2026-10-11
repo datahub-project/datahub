@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/incident_create.py
-import logging
 import os
 import uuid
 
@@ -7,10 +6,7 @@ import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata._urns.urn_defs import IncidentUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from datahub.metadata.urns import IncidentUrn
 
 # Configuration
 gms_endpoint = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
@@ -57,7 +53,7 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(metadata_change_proposal)
-log.info(f"Created incident {incident_urn} for dataset {dataset_urn}")
-log.info(
+print(f"Created incident {incident_urn} for dataset {dataset_urn}")
+print(
     f"Incident details: type={incident_info.type}, priority={incident_info.priority}, status={incident_info.status.state}"
 )

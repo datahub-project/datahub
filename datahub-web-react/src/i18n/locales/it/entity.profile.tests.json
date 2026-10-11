@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Non superato",
+    "resultText.passing": "Superato",
+    "summary.allFailing": "Tutti i test non sono superati",
+    "summary.allPassing": "Tutti i test sono superati",
+    "summary.countsSubtitle": "{{passing}} test superati, {{failing}} test non superati",
+    "summary.noTestsRun": "Nessun test eseguito",
+    "summary.someFailing": "Alcuni test non sono superati",
+    "summary.statusTooltip": "Questo stato si basa sull'esecuzione più recente di ciascun test.",
+    "testResults.empty": "Nessun test trovato :(",
+    "testResults.noEvaluations": "Nessuna valutazione",
+    "testResults.title": "Risultati dei test di governance"
+}

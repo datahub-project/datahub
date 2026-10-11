@@ -1,10 +1,9 @@
-import Icon, {
-    ApartmentOutlined,
-    DatabaseOutlined,
-    DeploymentUnitOutlined,
-    FilterOutlined,
-    LineChartOutlined,
-} from '@ant-design/icons';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { Database as DatabaseIcon } from '@phosphor-icons/react/dist/csr/Database';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React from 'react';
 
 import TableauEmbeddedDataSourceLogo from '@images/tableau-embedded-data-source.svg?react';
@@ -18,12 +17,10 @@ export enum SubType {
     Dataset = 'Dataset',
     Project = 'Project',
     View = 'View',
-    Table = 'Table',
     TableauWorksheet = 'Worksheet',
     TableauWorkbook = 'Workbook',
     TableauPublishedDataSource = 'Published Data Source',
     TableauEmbeddedDataSource = 'Embedded Data Source',
-    LookerExplore = 'Explore',
     Looker = 'Look',
     DbtSource = 'Source',
     VertexAIPipelineTask = 'Pipeline Task',
@@ -31,38 +28,39 @@ export enum SubType {
 
 export const TYPE_ICON_CLASS_NAME = 'typeIcon';
 
-export function getSubTypeIcon(subType?: string): JSX.Element | undefined {
+export function getSubTypeIcon(subType?: string, size?: number | string): JSX.Element | undefined {
     if (!subType) return undefined;
+    const iconSize = size || '1em';
     const lowerSubType = subType.toLowerCase();
     if (lowerSubType === SubType.Database.toLowerCase()) {
-        return <DatabaseOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <DatabaseIcon className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.Schema.toLowerCase()) {
-        return <ApartmentOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <Stack className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.Dataset.toLowerCase()) {
-        return <ApartmentOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <TableIcon className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.Project.toLowerCase()) {
-        return <DeploymentUnitOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <Graph className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.View.toLowerCase()) {
-        return <FilterOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <Funnel className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.TableauWorkbook.toLowerCase()) {
-        return <Icon component={TableauWorkbookLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauWorkbookLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauPublishedDataSource.toLowerCase()) {
-        return <Icon component={TableauPublishedDataSourceLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauPublishedDataSourceLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauEmbeddedDataSource.toLowerCase()) {
-        return <Icon component={TableauEmbeddedDataSourceLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <TableauEmbeddedDataSourceLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.TableauWorksheet.toLowerCase()) {
-        return <LineChartOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <ChartLine className={TYPE_ICON_CLASS_NAME} size={iconSize} color="currentColor" />;
     }
     if (lowerSubType === SubType.VertexAIPipelineTask.toLowerCase()) {
-        return <Icon component={VertexAIPipelineTaskLogo} className={TYPE_ICON_CLASS_NAME} />;
+        return <VertexAIPipelineTaskLogo className={TYPE_ICON_CLASS_NAME} />;
     }
     return undefined;
 }

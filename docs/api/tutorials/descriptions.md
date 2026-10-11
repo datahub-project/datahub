@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for adding, updating, and removing descriptions on DataHub Datasets and columns via the API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -19,7 +23,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before adding a description, you need to ensure the targeted dataset is already present in your datahub.

@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -12,8 +13,7 @@ const IconWrapper = styled.div`
 
 function getIconProps(notificationType: NotificationType): IconProps {
     const defaultProps: IconProps = {
-        source: 'phosphor',
-        icon: 'X',
+        icon: X,
         size: 'lg',
     };
 

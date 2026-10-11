@@ -1,0 +1,36 @@
+namespace com.linkedin.dataset
+
+/**
+ * How an upstream lineage reference's URN was resolved against the entities stored
+ * in DataHub. Populated by the lineage URN casing normalization processor for
+ * references on a configured upstream platform; absent when the reference is out of
+ * scope (platform not configured, feature disabled) or was ingested before the
+ * feature was enabled.
+ *
+ * This verdict reflects DataHub's knowledge AT THE TIME THE LINEAGE EDGE WAS
+ * INGESTED, not the current state of the graph. It is a point-in-time record and is
+ * not re-evaluated automatically: e.g. a reference recorded as UNRESOLVED (its target
+ * did not exist yet) keeps that value even after the target is later ingested and the
+ * edge in fact resolves exactly — the verdict only refreshes when the referencing
+ * source is re-ingested.
+ */
+enum LineageMatchType {
+  /**
+   * The reference matched an existing entity exactly, including URN casing.
+   */
+  EXACT
+
+  /**
+   * The reference was case-normalized to match an existing entity whose URN uses
+   * different casing (i.e. the reference was rewritten to heal a casing mismatch).
+   */
+  NORMALIZED
+
+  /**
+   * The reference is on a configured upstream platform but could not be resolved to
+   * a single existing entity — either no entity matched (under any casing), or the
+   * casing was ambiguous (multiple entities share the case-insensitive form). The
+   * reference was left unchanged; this flags potentially broken lineage.
+   */
+  UNRESOLVED
+}

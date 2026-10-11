@@ -1,5 +1,5 @@
-import Icon from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
@@ -16,6 +16,7 @@ import TableauViewIcon from '@images/tableau-view.svg?react';
 const viewPattern = /.*tableau.com.*\/#(\/site\/[^/]*)?\/views\/(.*)/;
 
 export default function TableauViewsSection() {
+    const { t } = useTranslation('entity.types');
     const { urn } = useEntityData();
 
     const { data } = useGetSearchResultsForMultipleQuery({
@@ -45,8 +46,8 @@ export default function TableauViewsSection() {
     return (
         <>
             <HeaderTitle>
-                <Icon component={TableauViewIcon} />
-                Views ({views.length})
+                <TableauViewIcon />
+                {t('container.viewsCountTitle', { count: views.length })}
             </HeaderTitle>
             <HorizontalList>
                 {views.map((view) => (

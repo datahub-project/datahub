@@ -1,5 +1,8 @@
 package com.datahub.authentication;
 
+import java.util.Optional;
+import javax.annotation.Nonnull;
+
 /**
  * A static wrapper around a {@link ThreadLocal} instance of {@link Authentication} containing
  * information about the currently authenticated actor.
@@ -9,6 +12,15 @@ public class AuthenticationContext {
 
   public static Authentication getAuthentication() {
     return AUTHENTICATION.get();
+  }
+
+  /**
+   * Present when AuthenticationContext is set for the current thread. Actor is non-null by {@link
+   * Authentication} construction ({@code Objects.requireNonNull}).
+   */
+  @Nonnull
+  public static Optional<Authentication> maybeAuthentication() {
+    return Optional.ofNullable(AUTHENTICATION.get());
   }
 
   public static void setAuthentication(Authentication authentication) {

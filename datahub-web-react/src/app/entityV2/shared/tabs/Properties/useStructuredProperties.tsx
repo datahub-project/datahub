@@ -1,19 +1,25 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { isPropagated } from '@app/entity/shared/propagation/utils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
-import { PropertyValue, StructuredPropertiesEntry } from '@types';
+import { Maybe, PropertyValue, SchemaFieldEntity, StructuredPropertiesEntry } from '@types';
 
 const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },
     NumberValue: { type: 'number', nativeDataType: 'float' },
 };
 
-export function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
+function structuredPropertyIsPropagated(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    return isPropagated(structuredPropertiesEntry.attribution?.sourceDetail);
+}
+
+function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
     return structuredPropertiesEntry.values
         .filter((value) => !!value)
         .map((value) => ({
@@ -45,36 +51,37 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
     };
 }
 
+// Shared row builder: every property-row path filters out non-existent property definitions,
+// dedupes by property urn (preferring direct assignments over propagated ones), and maps to
+// PropertyRow — keeping the three entry points below behaviorally identical.
+function buildStructuredPropertyRows(properties?: Maybe<Array<StructuredPropertiesEntry>> | null): PropertyRow[] {
+    return dedupeByUrn(
+        properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+        (prop) => prop.structuredProperty.urn,
+        structuredPropertyIsPropagated,
+    ).map(mapStructuredPropertyToPropertyRow);
+}
+
 // map the properties map into a list of PropertyRow objects to render in a table
-function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
-    const structuredPropertyRows: PropertyRow[] = [];
-
-    entityData?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
-
-    return structuredPropertyRows;
+export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
+    return buildStructuredPropertyRows(entityData?.structuredProperties?.properties);
 }
 
 function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericEntityProperties | null) {
-    const structuredPropertyRows: PropertyRow[] = [];
-
     const schemaFieldEntity = entityData?.schemaMetadata?.fields?.find(
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
-    schemaFieldEntity?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
-
-    return structuredPropertyRows;
+    return buildStructuredPropertyRows(schemaFieldEntity?.structuredProperties?.properties);
 }
 
-export function findAllSubstrings(s: string): Array<string> {
+// map structured properties already available on the caller (e.g. from a parent drawer) into a
+// list of PropertyRow objects, without needing to fire the entity-with-schema query
+export function getFieldEntityStructuredPropertyRows(fieldEntity?: Maybe<SchemaFieldEntity>) {
+    return buildStructuredPropertyRows(fieldEntity?.structuredProperties?.properties);
+}
+
+function findAllSubstrings(s: string): Array<string> {
     const substrings: Array<string> = [];
 
     for (let i = 0; i < s.length; i++) {
@@ -86,7 +93,7 @@ export function findAllSubstrings(s: string): Array<string> {
     return substrings;
 }
 
-export function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
+function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
     return {
         displayName,
         qualifiedName,
@@ -150,7 +157,7 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
     return finalParents;
 }
 
-export function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
+function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     /**
      * This function takes in an array of PropertyRow objects, representing parent and child properties. Parent properties
      * will not have values, but child properties will. It organizes the rows into the parent and child structure and
@@ -216,12 +223,18 @@ export default function useStructuredProperties(
     entityRegistry: EntityRegistry,
     fieldPath: string | null,
     filterText?: string,
+    fieldEntity?: Maybe<SchemaFieldEntity>,
 ) {
     const { entityData } = useEntityData();
-    const { entityWithSchema } = useGetEntityWithSchema(!fieldPath);
+    // Skip the entity-with-schema query entirely when the caller already has the field entity
+    // (with its structured properties) available (e.g. passed down from a parent drawer), to
+    // avoid re-firing the query and flashing an empty table when revisiting this tab.
+    const { entityWithSchema, loading } = useGetEntityWithSchema(!fieldPath || !!fieldEntity);
 
     let structuredPropertyRowsRaw: PropertyRow[] = [];
-    if (fieldPath) {
+    if (fieldEntity) {
+        structuredPropertyRowsRaw = getFieldEntityStructuredPropertyRows(fieldEntity);
+    } else if (fieldPath) {
         structuredPropertyRowsRaw = getFieldStructuredPropertyRows(
             fieldPath,
             entityWithSchema as GenericEntityProperties,
@@ -251,5 +264,6 @@ export default function useStructuredProperties(
         structuredPropertyRows,
         expandedRowsFromFilter: expandedRowsFromFilter as Set<string>,
         structuredPropertyRowsRaw,
+        loading: fieldEntity ? false : loading,
     };
 }

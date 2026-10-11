@@ -3,7 +3,7 @@ title: "Timeline API"
 ---
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
-to entities. At present, the API only supports Datasets and Glossary Terms.
+to entities. The API supports Datasets, Glossary Terms, Domains, and Data Products.
 
 ## Compatibility
 
@@ -109,6 +109,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 - Any changes in ownership of the dataset, adding an owner, or changing the type of the owner.
 - Driven by the `ownership` aspect.
 - All changes are currently marked as `MINOR`.
+- **Note:** The category parameter is `OWNERSHIP`. The legacy name `OWNER` is accepted as a backward-compatible alias in the REST API and CLI.
 
 ### Example Usage
 
@@ -123,7 +124,7 @@ Took 1.087 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874829027&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNERSHIP&start=1644874829027&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
@@ -135,7 +136,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874831456&end=2682397800000
+http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNERSHIP&start=1644874831456&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
@@ -255,7 +256,4 @@ Here are a few screenshots showing how to navigate to it. You can try out the AP
 ## Future Work
 
 - Supporting versions as start and end parameters as part of the call to the timeline API
-- Supporting entities beyond Datasets
-- Adding GraphQL API support
 - Supporting materialization of computed versions for entity categories (compared to the current read-time version computation)
-- Support in the UI to visualize the timeline in various places (e.g. schema history, etc.)

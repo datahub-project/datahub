@@ -5,10 +5,8 @@ folders = ["./smoke-test/tests"]
 
 for folder in folders:
     print(f"Checking folder {folder}")
-    packages = [i for i in setuptools.find_packages(folder) if "cypress" not in i]
-    namespace_packages = [
-        i for i in setuptools.find_namespace_packages(folder) if "cypress" not in i
-    ]
+    packages = setuptools.find_packages(folder)
+    namespace_packages = setuptools.find_namespace_packages(folder)
 
     print("Packages found:", packages)
     print("Namespace packages found:", namespace_packages)

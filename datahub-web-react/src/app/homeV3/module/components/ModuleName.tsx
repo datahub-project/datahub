@@ -1,22 +1,24 @@
-import { colors } from '@components';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { NameContainer } from '@app/homeV3/styledComponents';
 
 interface Props {
     text?: string;
+    dataTestId?: string;
 }
 
-export default function ModuleName({ text }: Props) {
+export default function ModuleName({ text, dataTestId }: Props) {
+    const theme = useTheme();
     return (
         <NameContainer
             ellipsis={{
                 tooltip: {
-                    color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
             }}
+            data-testid={dataTestId}
         >
             {text}
         </NameContainer>

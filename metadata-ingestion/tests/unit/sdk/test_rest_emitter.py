@@ -1,12 +1,15 @@
 import json
 import os
 import time
+import warnings
 from datetime import timedelta
-from typing import Any, Dict
-from unittest.mock import ANY, MagicMock, Mock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
+import requests
 from requests import Response, Session
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -25,7 +28,9 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RequestsSessionConfig,
     RestSinkEndpoint,
+    _KeepAliveHTTPAdapter,
     logger,
+    preserve_unicode_escapes,
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
@@ -178,7 +183,18 @@ class TestDataHubRestEmitter:
             ),
         )
 
-        with patch.object(openapi_emitter, "_emit_generic") as mock_method:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+
+        with (
+            patch.object(
+                openapi_emitter, "_emit_generic", return_value=mock_response
+            ) as mock_method,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             openapi_emitter.emit_mcp(item)
 
             mock_method.assert_called_once_with(
@@ -212,9 +228,114 @@ class TestDataHubRestEmitter:
                 method="post",
             )
 
+    def test_instance_default_emit_mode(self):
+        """A per-instance default_emit_mode is applied when no per-call mode is given,
+        and a per-call emit_mode still overrides it."""
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            default_emit_mode=EmitMode.ASYNC,
+        )
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+
+        item = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+            aspect=DatasetProfile(
+                rowCount=2000, columnCount=15, timestampMillis=1626995099686
+            ),
+        )
+
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_method,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
+
+            # No per-call emit_mode -> picks up the instance default (ASYNC).
+            emitter.emit_mcp(item)
+            assert mock_method.call_args[0][0].endswith("dataset?async=true")
+
+            # Per-call emit_mode overrides the instance default.
+            emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
+            assert mock_method.call_args[0][0].endswith("dataset?async=false")
+
+    def test_instance_default_emit_mode_emit_mcps(self):
+        """emit_mcps() (the batch path) also honours the per-instance default,
+        with per-call emit_mode still overriding it."""
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            default_emit_mode=EmitMode.ASYNC,
+        )
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+
+        items = [
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+                aspect=DatasetProfile(
+                    rowCount=2000, columnCount=15, timestampMillis=1626995099686
+                ),
+            )
+        ]
+
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_method,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
+
+            # No per-call emit_mode -> picks up the instance default (ASYNC).
+            emitter.emit_mcps(items)
+            assert mock_method.call_args[0][0].endswith("dataset?async=true")
+
+            # Per-call emit_mode overrides the instance default.
+            emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+            assert mock_method.call_args[0][0].endswith("dataset?async=false")
+
+    def test_to_graph_preserves_default_emit_mode(self):
+        """Converting an emitter to a graph must carry over the instance default,
+        otherwise callers that go through `.to_graph()` silently revert to the
+        global default."""
+        assert (
+            DataHubRestEmitter(MOCK_GMS_ENDPOINT, default_emit_mode=EmitMode.ASYNC)
+            .to_graph()
+            ._default_emit_mode
+            == EmitMode.ASYNC
+        )
+
     def test_openapi_emitter_emit_mcps(self, openapi_emitter):
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {"traceparent": "00-emit-mcps-trace-abc-01"}
+        mock_response.json.return_value = [
+            {
+                "urn": f"urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount{i},PROD)",
+                "datasetProfile": {},
+            }
+            for i in range(3)
+        ]
+
         with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+            return_value=mock_response,
         ) as mock_emit:
             items = [
                 MetadataChangeProposalWrapper(
@@ -230,9 +351,8 @@ class TestDataHubRestEmitter:
 
             result = openapi_emitter.emit_mcps(items)
 
-            assert result == 1
-
-            # Single chunk test - all items should be in one batch
+            # Single chunk test - should return list with one TraceData
+            assert len(result) == 1
             mock_emit.assert_called_once()
             call_args = mock_emit.call_args
             assert (
@@ -242,9 +362,21 @@ class TestDataHubRestEmitter:
             assert isinstance(call_args[1]["payload"], str)  # Should be JSON string
 
     def test_openapi_emitter_emit_mcps_max_bytes(self, openapi_emitter):
-        with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit:
+        def mock_emit_response(*args, **kwargs):
+            resp = Mock(spec=Response)
+            resp.status_code = 200
+            resp.headers = {}
+            resp.json.return_value = []
+            return resp
+
+        with (
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+                side_effect=mock_emit_response,
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             # Create a large payload that will force chunking
             large_payload = "x" * (
                 INGEST_MAX_PAYLOAD_BYTES // 2
@@ -278,9 +410,21 @@ class TestDataHubRestEmitter:
                 assert "datasetProperties" in payload_data[0]
 
     def test_openapi_emitter_emit_mcps_max_items(self, openapi_emitter):
-        with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit:
+        def mock_emit_response(*args, **kwargs):
+            resp = Mock(spec=Response)
+            resp.status_code = 200
+            resp.headers = {}
+            resp.json.return_value = []
+            return resp
+
+        with (
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+                side_effect=mock_emit_response,
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             # Create more items than BATCH_INGEST_MAX_PAYLOAD_LENGTH
             items = [
                 MetadataChangeProposalWrapper(
@@ -312,8 +456,23 @@ class TestDataHubRestEmitter:
             assert len(second_payload) == 2  # Should have the remaining 2 items
 
     def test_openapi_emitter_emit_mcps_multiple_entity_types(self, openapi_emitter):
+        call_count = [0]
+
+        def mock_side_effect(*args, **kwargs):
+            mock_resp = Mock(spec=Response)
+            mock_resp.status_code = 200
+            mock_resp.headers = {
+                "traceparent": f"00-entity-type-trace-{call_count[0]}-01"
+            }
+            mock_resp.json.return_value = [
+                {"urn": "urn:li:dataset:test", "datasetProfile": {}}
+            ]
+            call_count[0] += 1
+            return mock_resp
+
         with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+            side_effect=mock_side_effect,
         ) as mock_emit:
             # Create items for two different entity types
             dataset_items = [
@@ -339,8 +498,8 @@ class TestDataHubRestEmitter:
             items = dataset_items + dashboard_items
             result = openapi_emitter.emit_mcps(items)
 
-            # Should return number of unique entity URLs
-            assert result == 2
+            # Should make 2 calls for 2 unique entity URLs
+            assert len(result) == 2
             assert mock_emit.call_count == 2
 
             # Check that calls were made with different URLs but correct payloads
@@ -515,7 +674,7 @@ class TestDataHubRestEmitter:
                 wait_timeout=timedelta(seconds=10),
             )
 
-            assert result == 1  # Should return number of unique entity URLs
+            assert len(result) == 1  # Should return list with one TraceData
 
             # Verify initial emit calls
             emit_calls = [
@@ -851,8 +1010,23 @@ class TestDataHubRestEmitter:
 
     def test_openapi_emitter_same_url_different_methods(self, openapi_emitter):
         """Test handling of requests with same URL but different HTTP methods"""
+        call_count = [0]
+
+        def mock_side_effect(*args, **kwargs):
+            mock_resp = Mock(spec=Response)
+            mock_resp.status_code = 200
+            mock_resp.headers = {
+                "traceparent": f"00-trace-method-{call_count[0]}-abc-01"
+            }
+            mock_resp.json.return_value = [
+                {"urn": "urn:li:dataset:test", "datasetProperties": {}}
+            ]
+            call_count[0] += 1
+            return mock_resp
+
         with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+            side_effect=mock_side_effect,
         ) as mock_emit:
             items = [
                 # POST requests for updating
@@ -882,7 +1056,7 @@ class TestDataHubRestEmitter:
             result = openapi_emitter.emit_mcps(items)
 
             # Verify that we made 2 calls (one for each HTTP method)
-            assert result == 2
+            assert len(result) == 2
             assert mock_emit.call_count == 2
 
             # Check that calls were made with different methods but the same URL
@@ -903,9 +1077,24 @@ class TestDataHubRestEmitter:
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
         """Test that chunking works correctly across different HTTP methods"""
+        call_count = [0]
+
+        def mock_side_effect(*args, **kwargs):
+            mock_resp = Mock(spec=Response)
+            mock_resp.status_code = 200
+            mock_resp.headers = {
+                "traceparent": f"00-trace-chunk-{call_count[0]}-abc-01"
+            }
+            mock_resp.json.return_value = [
+                {"urn": "urn:li:dataset:test", "datasetProfile": {}}
+            ]
+            call_count[0] += 1
+            return mock_resp
+
         with (
             patch(
-                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic",
+                side_effect=mock_side_effect,
             ) as mock_emit,
             patch("datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
         ):
@@ -942,7 +1131,7 @@ class TestDataHubRestEmitter:
             # Should have 4 chunks total:
             # - 2 chunks for POST (4 items with max 2 per chunk)
             # - 2 chunks for PATCH (3 items with max 2 per chunk)
-            assert result == 4
+            assert len(result) == 4
             assert mock_emit.call_count == 4
 
             # Count the calls by method and verify chunking
@@ -995,11 +1184,16 @@ class TestDataHubRestEmitter:
         )
 
         # Test with SYNC_WAIT emit mode
-        with patch.object(openapi_emitter, "_emit_generic") as mock_emit:
+        with (
+            patch.object(openapi_emitter, "_emit_generic") as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             # Configure mock to return a simple response
             mock_response = Mock(spec=Response)
             mock_response.status_code = 200
             mock_response.headers = {}
+            mock_response.json.return_value = []
             mock_emit.return_value = mock_response
 
             # Call emit_mcp with SYNC_WAIT mode
@@ -1115,7 +1309,7 @@ class TestDataHubRestEmitter:
         assert mock_session.get.call_count == 1
 
         # Cache should still be empty
-        assert not hasattr(emitter, "_server_config") or emitter._server_config is None
+        assert emitter._server_config is None
         assert emitter._config_fetch_time is None
 
         # Fix the error and set up successful response
@@ -1210,7 +1404,18 @@ class TestDataHubRestEmitter:
             ),
         )
 
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             emitter.emit_mcp(test_mcp)
 
             # Verify _emit_generic was called
@@ -1234,8 +1439,6 @@ class TestDataHubRestEmitter:
 
     def test_preserve_unicode_escapes_function_directly(self):
         """Test the preserve_unicode_escapes function with various unicode scenarios"""
-        from datahub.emitter.rest_emitter import preserve_unicode_escapes
-
         # Test simple unicode characters
         test_dict = {
             "name": "Café",
@@ -1276,7 +1479,18 @@ class TestDataHubRestEmitter:
             aspect=None,  # No aspect data needed for delete
         )
 
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             emitter.emit_mcp(delete_mcp_key_aspect)
 
             # Verify _emit_generic was called once
@@ -1339,7 +1553,19 @@ class TestDataHubRestEmitter:
             aspect=DatasetProperties(name="Test Dataset"),
         )
 
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
+
             # Test delete
             emitter.emit_mcp(delete_mcp)
             delete_url = mock_emit.call_args[0][0]
@@ -1378,7 +1604,19 @@ class TestDataHubRestEmitter:
             aspect=DatasetProperties(name="Test Dataset"),
         )
 
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
+
             # Test delete payload
             emitter.emit_mcp(delete_mcp)
             delete_payload = json.loads(mock_emit.call_args[0][1])
@@ -1420,7 +1658,18 @@ class TestDataHubRestEmitter:
             aspect=None,
         )
 
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             emitter.emit_mcp(delete_mcp_key)
 
             # Should have called _emit_generic
@@ -1464,6 +1713,414 @@ class TestDataHubRestEmitter:
                     # Reset for next iteration
                     mock_emit.reset_mock()
                 break  # Only need to test one non-key aspect
+
+
+class TestTraceDataReturn:
+    """Tests for emit_mcp() and emit_mcps() returning TraceData objects."""
+
+    @pytest.fixture
+    def openapi_emitter(self) -> DataHubRestEmitter:
+        openapi_emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        openapi_emitter._server_config = RestServiceConfig(
+            raw_config={
+                "versions": {
+                    "acryldata/datahub": {
+                        "version": "v1.0.1rc0"  # Supports OpenApi & Tracing
+                    }
+                }
+            }
+        )
+        return openapi_emitter
+
+    @pytest.fixture
+    def restli_emitter(self) -> DataHubRestEmitter:
+        return DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+    def test_emit_mcp_returns_trace_data_openapi(self, openapi_emitter):
+        """Test that emit_mcp() returns TraceData when trace header is present (OpenAPI)."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {
+            "traceparent": "00-00063609cb934b9d0d4e6a7d6d5e1234-1234567890abcdef-01"
+        }
+        mock_response.json.return_value = [
+            {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+                "datasetProfile": {},
+            }
+        ]
+
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
+            item = MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+                aspect=DatasetProfile(
+                    rowCount=2000,
+                    columnCount=15,
+                    timestampMillis=1626995099686,
+                ),
+            )
+
+            result = openapi_emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert result is not None
+            assert isinstance(result, TraceData)
+            assert result.trace_id == "00063609cb934b9d0d4e6a7d6d5e1234"
+            assert (
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)"
+                in result.data
+            )
+
+    def test_emit_mcp_returns_trace_data_restli(self, restli_emitter):
+        """Test that emit_mcp() returns TraceData when trace header is present (REST.Li)."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {
+            "traceparent": "00-00063609cb934b9d0d4e6a7d6d5e9999-abcdef1234567890-01"
+        }
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(restli_emitter, "_emit_generic", return_value=mock_response):
+            item = MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,Test.Table,PROD)",
+                aspect=Status(removed=False),
+            )
+
+            result = restli_emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert result is not None
+            assert isinstance(result, TraceData)
+            assert result.trace_id == "00063609cb934b9d0d4e6a7d6d5e9999"
+            assert (
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,Test.Table,PROD)"
+                in result.data
+            )
+            assert (
+                "status"
+                in result.data[
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Test.Table,PROD)"
+                ]
+            )
+
+    def test_emit_mcp_returns_none_when_no_trace_header(self, openapi_emitter):
+        """Test that emit_mcp() returns None when trace header is missing (no warning for SYNC_PRIMARY)."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}  # No traceparent header
+        mock_response.json.return_value = [
+            {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,NoTrace,PROD)",
+                "status": {},
+            }
+        ]
+
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
+            item = MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NoTrace,PROD)",
+                aspect=Status(removed=False),
+            )
+
+            # SYNC_PRIMARY mode should not warn when trace header is missing
+            result = openapi_emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert result is None
+
+    def test_emit_mcps_returns_list_of_trace_data(self, openapi_emitter):
+        """Test that emit_mcps() returns a list of TraceData objects."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {"traceparent": "00-trace123-abc-01"}
+        mock_response.json.return_value = [
+            {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,Batch1,PROD)",
+                "status": {},
+            },
+            {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,Batch2,PROD)",
+                "status": {},
+            },
+        ]
+
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
+            items = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:mysql,Batch{i},PROD)",
+                    aspect=Status(removed=False),
+                )
+                for i in range(1, 3)
+            ]
+
+            result = openapi_emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert isinstance(result, list)
+            assert len(result) == 1  # Single batch
+            assert all(isinstance(trace, TraceData) for trace in result)
+            assert result[0].trace_id == "trace123"
+
+    def test_emit_mcps_returns_multiple_trace_data_for_chunked_batches(
+        self, openapi_emitter
+    ):
+        """Test that emit_mcps() returns multiple TraceData when batches are chunked."""
+        # Note: traceparent format is "00-{trace_id}-{span_id}-{flags}"
+        # The trace_id extractor takes the second part when split by '-'
+        trace_ids = ["tracechunk0001", "tracechunk0002"]
+        call_count = [0]
+
+        def side_effect(*args, **kwargs):
+            mock_resp = Mock(spec=Response)
+            mock_resp.status_code = 200
+            mock_resp.headers = {"traceparent": f"00-{trace_ids[call_count[0]]}-abc-01"}
+            mock_resp.json.return_value = [
+                {
+                    "urn": f"urn:li:dataset:(urn:li:dataPlatform:mysql,Item{call_count[0]},PROD)",
+                    "status": {},
+                }
+            ]
+            call_count[0] += 1
+            return mock_resp
+
+        with (
+            patch.object(openapi_emitter, "_emit_generic", side_effect=side_effect),
+            patch("datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
+        ):
+            items = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:mysql,Item{i},PROD)",
+                    aspect=Status(removed=False),
+                )
+                for i in range(4)  # Will create 2 chunks with max 2 items each
+            ]
+
+            result = openapi_emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert isinstance(result, list)
+            assert len(result) == 2  # Two chunks
+            assert result[0].trace_id == "tracechunk0001"
+            assert result[1].trace_id == "tracechunk0002"
+
+    def test_emit_mcps_returns_empty_list_for_no_traces(self, openapi_emitter):
+        """Test that emit_mcps() returns empty list when no trace headers are present (no warning for SYNC_PRIMARY)."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}  # No traceparent
+        mock_response.json.return_value = []
+
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
+            items = [
+                MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NoTrace,PROD)",
+                    aspect=Status(removed=False),
+                )
+            ]
+
+            # SYNC_PRIMARY mode should not warn when trace header is missing
+            result = openapi_emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert isinstance(result, list)
+            assert len(result) == 0
+
+    def test_emit_mcps_restli_returns_trace_data(self, restli_emitter):
+        """Test that emit_mcps() with REST.Li returns TraceData objects."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        # Note: traceparent format is "00-{trace_id}-{span_id}-{flags}"
+        # The trace_id extractor takes the second part when split by '-'
+        mock_response.headers = {"traceparent": "00-restlitraceid123456-abc-01"}
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(restli_emitter, "_emit_generic", return_value=mock_response):
+            items = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:mysql,RestLi{i},PROD)",
+                    aspect=Status(removed=False),
+                )
+                for i in range(2)
+            ]
+
+            result = restli_emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+
+            assert isinstance(result, list)
+            assert len(result) == 1
+            assert result[0].trace_id == "restlitraceid123456"
+
+
+class TestGetTraceStatus:
+    """Tests for the get_trace_status() method."""
+
+    @pytest.fixture
+    def emitter_with_tracing(self) -> DataHubRestEmitter:
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = RestServiceConfig(
+            raw_config={
+                "versions": {
+                    "acryldata/datahub": {
+                        "version": "v1.0.1rc0"  # Supports API Tracing
+                    }
+                }
+            }
+        )
+        return emitter
+
+    @pytest.fixture
+    def emitter_without_tracing(self) -> DataHubRestEmitter:
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = RestServiceConfig(
+            raw_config={
+                "versions": {
+                    "acryldata/datahub": {
+                        "version": "v0.9.0"  # Does NOT support API Tracing
+                    }
+                }
+            }
+        )
+        return emitter
+
+    def test_get_trace_status_returns_status_dict(self, emitter_with_tracing):
+        """Test that get_trace_status() returns status dict when server supports tracing."""
+        expected_status = {
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,Test,PROD)": {
+                "status": {
+                    "success": True,
+                    "primaryStorage": {"writeStatus": "ACTIVE_STATE"},
+                    "searchStorage": {"writeStatus": "ACTIVE_STATE"},
+                }
+            }
+        }
+
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = expected_status
+
+        with patch.object(
+            emitter_with_tracing, "_emit_generic", return_value=mock_response
+        ):
+            trace = TraceData(
+                trace_id="test-trace-id",
+                data={
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Test,PROD)": ["status"]
+                },
+            )
+
+            result = emitter_with_tracing.get_trace_status(trace)
+
+            assert result == expected_status
+
+    def test_get_trace_status_returns_none_when_no_tracing_support(
+        self, emitter_without_tracing
+    ):
+        """Test that get_trace_status() returns None when server doesn't support tracing."""
+        with patch.object(logger, "warning") as mock_warning:
+            trace = TraceData(
+                trace_id="test-trace-id",
+                data={
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Test,PROD)": ["status"]
+                },
+            )
+
+            result = emitter_without_tracing.get_trace_status(trace)
+
+            assert result is None
+            mock_warning.assert_called_once_with(
+                "get_trace_status() is only available with a newer GMS version that supports API tracing."
+            )
+
+    def test_get_trace_status_only_errors_parameter(self, emitter_with_tracing):
+        """Test that get_trace_status() correctly passes only_include_errors parameter."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}
+
+        with patch.object(
+            emitter_with_tracing, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            trace = TraceData(
+                trace_id="test-trace-123",
+                data={"urn:li:dataset:test": ["status"]},
+            )
+
+            emitter_with_tracing.get_trace_status(trace, only_include_errors=True)
+
+            # Check the URL contains the correct parameters
+            call_url = mock_emit.call_args[0][0]
+            assert "onlyIncludeErrors=true" in call_url
+
+    def test_get_trace_status_detailed_parameter(self, emitter_with_tracing):
+        """Test that get_trace_status() correctly passes detailed parameter."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}
+
+        with patch.object(
+            emitter_with_tracing, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            trace = TraceData(
+                trace_id="test-trace-456",
+                data={"urn:li:dataset:test": ["status"]},
+            )
+
+            emitter_with_tracing.get_trace_status(trace, detailed=False)
+
+            # Check the URL contains the correct parameters
+            call_url = mock_emit.call_args[0][0]
+            assert "detailed=false" in call_url
+
+    def test_get_trace_status_uses_trace_data(self, emitter_with_tracing):
+        """Test that get_trace_status() sends the trace data as payload."""
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}
+
+        with patch.object(
+            emitter_with_tracing, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            trace_data_dict = {
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,Test1,PROD)": [
+                    "status",
+                    "schema",
+                ],
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,Test2,PROD)": ["ownership"],
+            }
+            trace = TraceData(
+                trace_id="multi-aspect-trace",
+                data=trace_data_dict,
+            )
+
+            emitter_with_tracing.get_trace_status(trace)
+
+            # Check the payload contains the trace data
+            call_payload = mock_emit.call_args[1]["payload"]
+            assert call_payload == trace_data_dict
+
+    def test_get_trace_status_returns_none_when_no_server_config(self):
+        """Test that get_trace_status() returns None when server config is not loaded."""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        # Don't set _server_config
+
+        with patch.object(logger, "warning") as mock_warning:
+            trace = TraceData(
+                trace_id="test-trace-id",
+                data={"urn:li:dataset:test": ["status"]},
+            )
+
+            result = emitter.get_trace_status(trace)
+
+            assert result is None
+            mock_warning.assert_called_once()
+
+    def test_get_trace_status_returns_none_when_server_config_is_none(self):
+        """Test that get_trace_status() returns None when server config is explicitly None."""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = None  # type: ignore[assignment]
+
+        with patch.object(logger, "warning") as mock_warning:
+            trace = TraceData(
+                trace_id="test-trace-id",
+                data={"urn:li:dataset:test": ["status"]},
+            )
+
+            result = emitter.get_trace_status(trace)
+
+            assert result is None
+            mock_warning.assert_called_once()
 
 
 class TestOpenApiModeSelection:
@@ -1632,7 +2289,18 @@ class TestOpenApiIntegration:
             )
 
             # Mock _emit_generic to inspect what URL is used
-            with patch.object(emitter, "_emit_generic") as mock_emit:
+            mock_emit_response = Mock(spec=Response)
+            mock_emit_response.status_code = 200
+            mock_emit_response.headers = {}
+            mock_emit_response.json.return_value = []
+
+            with (
+                patch.object(
+                    emitter, "_emit_generic", return_value=mock_emit_response
+                ) as mock_emit,
+                warnings.catch_warnings(),
+            ):
+                warnings.simplefilter("ignore", APITracingWarning)
                 emitter.emit_mcp(test_mcp)
 
                 # Check that OpenAPI URL format was used
@@ -1662,7 +2330,18 @@ class TestOpenApiIntegration:
             )
 
             # Mock _emit_generic to inspect what URL is used
-            with patch.object(emitter, "_emit_generic") as mock_emit:
+            mock_emit_response = Mock(spec=Response)
+            mock_emit_response.status_code = 200
+            mock_emit_response.headers = {}
+            mock_emit_response.json.return_value = {"value": "success"}
+
+            with (
+                patch.object(
+                    emitter, "_emit_generic", return_value=mock_emit_response
+                ) as mock_emit,
+                warnings.catch_warnings(),
+            ):
+                warnings.simplefilter("ignore", APITracingWarning)
                 emitter.emit_mcp(test_mcp)
 
                 # Check that RestLi URL format was used (not OpenAPI)
@@ -1689,7 +2368,18 @@ class TestOpenApiIntegration:
         )
 
         # Mock _emit_generic to inspect what URL is used
-        with patch.object(emitter, "_emit_generic") as mock_emit:
+        mock_emit_response = Mock(spec=Response)
+        mock_emit_response.status_code = 200
+        mock_emit_response.headers = {}
+        mock_emit_response.json.return_value = []
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_emit_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
             emitter.emit_mcp(test_mcp)
 
             # Check that OpenAPI URL format was used
@@ -1721,13 +2411,18 @@ class TestOpenApiIntegration:
         )
 
         # Mock _emit_generic to inspect URLs used
-        with patch.object(emitter, "_emit_generic") as mock_emit:
-            # Configure mock to return appropriate responses
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.headers = {}
-            mock_response.json.return_value = []
-            mock_emit.return_value = mock_response
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_emit,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
 
             # Emit batch of different entity types
             emitter.emit_mcps([dataset_mcp, dashboard_mcp])
@@ -1796,3 +2491,546 @@ class TestRequestsSessionConfig:
             session.headers.update({"X-DataHub-Client-Mode": client_mode.name})
             mode = RequestsSessionConfig.get_client_mode_from_session(session)
             assert mode == client_mode
+
+    def test_tcp_keepalive_adapter_used_when_enabled(self):
+        """_KeepAliveHTTPAdapter is mounted when tcp_keepalive=True."""
+        session = RequestsSessionConfig(tcp_keepalive=True).build_session()
+        assert isinstance(
+            session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_tcp_keepalive_adapter_not_used_when_disabled(self):
+        """Plain HTTPAdapter is mounted when tcp_keepalive=False."""
+        session = RequestsSessionConfig(tcp_keepalive=False).build_session()
+        adapter = session.get_adapter("https://example.com")
+        assert type(adapter) is HTTPAdapter
+
+    def test_tcp_keepalive_socket_options_reach_pool_manager(self):
+        """Socket options are forwarded to init_poolmanager so keepalive is actually active."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "init_poolmanager") as mock:
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_degrades_gracefully(self):
+        """When keepalive is unavailable, init_poolmanager is called without socket_options."""
+        adapter = _KeepAliveHTTPAdapter()
+        with (
+            patch.object(_KeepAliveHTTPAdapter, "_socket_options", return_value=None),
+            patch.object(HTTPAdapter, "init_poolmanager") as mock,
+        ):
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" not in mock.call_args.kwargs
+
+    def test_tcp_keepalive_socket_options_reach_proxy_manager(self):
+        """Socket options are forwarded to proxy_manager_for so keepalive is active on proxied connections."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "proxy_manager_for") as mock:
+            adapter.proxy_manager_for("http://proxy:8080")
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_retries_with_fresh_connection_on_ssl_error(self):
+        """On SSLError the pool is closed and the request is retried with a fresh connection."""
+        adapter = _KeepAliveHTTPAdapter()
+        ssl_error = requests.exceptions.SSLError(
+            "EOF occurred in violation of protocol"
+        )
+        ok_response = MagicMock()
+
+        with (
+            patch.object(
+                HTTPAdapter, "send", side_effect=[ssl_error, ok_response]
+            ) as mock_send,
+            patch.object(adapter, "close") as mock_close,
+        ):
+            result = adapter.send(MagicMock())
+
+        assert mock_close.call_count == 1
+        assert mock_send.call_count == 2
+        assert result is ok_response
+
+    def test_tcp_keepalive_socket_options_logs_on_platform_error(self):
+        """_socket_options logs and returns None when the platform raises on socket option access."""
+        import datahub.emitter.rest_emitter as module
+
+        mock_socket = MagicMock()
+        type(mock_socket).SOL_SOCKET = PropertyMock(
+            side_effect=OSError("not supported")
+        )
+        with patch.object(module, "socket", mock_socket):
+            opts = _KeepAliveHTTPAdapter._socket_options()
+        assert opts is None
+
+    def test_datahub_rest_emitter_uses_keepalive_adapter_when_enabled(self):
+        """DataHubRestEmitter uses _KeepAliveHTTPAdapter when tcp_keepalive=True."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=True)
+        assert isinstance(
+            emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+        assert isinstance(
+            emitter._session.get_adapter("http://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_datahub_rest_emitter_uses_plain_adapter_by_default(self):
+        """DataHubRestEmitter uses plain HTTPAdapter by default (tcp_keepalive=False)."""
+        emitter = DataHubRestEmitter("http://localhost:8080")
+        assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
+        assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
+
+    def test_client_cert_unset_leaves_session_cert_none(self):
+        """No client cert configured -> requests.Session.cert stays at its default (None)."""
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_client_cert_only_sets_session_cert_to_string(self):
+        """Single combined-PEM path is passed through as a string."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/combined.pem"
+        ).build_session()
+        assert session.cert == "/etc/certs/combined.pem"
+
+    def test_client_cert_and_key_sets_session_cert_to_tuple(self):
+        """Separate cert and key paths are passed to requests as a (cert, key) tuple."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/client.crt",
+            client_key_path="/etc/certs/client.key",
+        ).build_session()
+        assert session.cert == ("/etc/certs/client.crt", "/etc/certs/client.key")
+
+    def test_client_key_without_cert_is_ignored(self):
+        """A key without a cert is meaningless; session.cert stays None."""
+        session = RequestsSessionConfig(
+            client_key_path="/etc/certs/client.key"
+        ).build_session()
+        assert session.cert is None
+
+
+class TestClientCertEnvFallback:
+    def test_session_config_env_vars_picked_up(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig().build_session()
+        assert session.cert == ("/env/client.crt", "/env/client.key")
+
+    def test_session_config_no_env_vars_leaves_cert_unset(self, monkeypatch):
+        monkeypatch.delenv("DATAHUB_CLIENT_CERT_PATH", raising=False)
+        monkeypatch.delenv("DATAHUB_CLIENT_KEY_PATH", raising=False)
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_session_config_explicit_path_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig(
+            client_certificate_path="/explicit/client.crt",
+            client_key_path="/explicit/client.key",
+        ).build_session()
+        assert session.cert == ("/explicit/client.crt", "/explicit/client.key")
+
+    def test_rest_emitter_picks_up_env_vars(self, monkeypatch):
+        """DataHubRestEmitter builds RequestsSessionConfig internally, so env
+        vars should reach session.cert through the same fallback."""
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        assert emitter._session.cert == ("/env/client.crt", "/env/client.key")
+
+
+class TestDataHubGraphTcpKeepalive:
+    """Regression tests covering tcp_keepalive propagation from a RestEmitter
+    into the DataHubGraph it builds via to_graph() / from_emitter().
+
+    DataHubGraph.from_emitter() and DataHubGraph.__init__() must carry the
+    flag through when reconstructing the underlying session, otherwise
+    ingestion (which goes through the graph, not the original emitter)
+    silently reverts to a session without TCP keepalive enabled.
+    """
+
+    def test_from_emitter_propagates_tcp_keepalive_true(self):
+        """from_emitter() must carry tcp_keepalive=True through to the graph's session."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=True)
+        graph = emitter.to_graph()
+        assert graph._session_config.tcp_keepalive is True
+        assert isinstance(
+            graph._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_from_emitter_propagates_tcp_keepalive_false(self):
+        """from_emitter() must also faithfully preserve tcp_keepalive=False."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=False)
+        graph = emitter.to_graph()
+        assert graph._session_config.tcp_keepalive is False
+        assert type(graph._session.get_adapter("https://example.com")) is HTTPAdapter
+
+    def test_datahub_graph_constructed_with_tcp_keepalive(self):
+        """Constructing a DataHubGraph with tcp_keepalive=True wires up the keepalive adapter."""
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        graph = DataHubGraph(
+            DatahubClientConfig(server="http://localhost:8080", tcp_keepalive=True)
+        )
+        assert isinstance(
+            graph._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+
+class TestTcpKeepaliveModuleDefaultResolution:
+    """DataHubRestEmitter.__init__ resolves an unset `tcp_keepalive` arg via
+    `get_or_else(arg, _DEFAULT_TCP_KEEPALIVE)`, where the module constant is
+    seeded from DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE at import. We patch
+    the constant directly to verify the resolution; the env-var -> constant
+    mapping is covered separately in tests/unit/configuration/test_env_vars.py.
+    """
+
+    @pytest.mark.parametrize(
+        "module_default,explicit_arg,expected_keepalive",
+        [
+            (True, None, True),  # default applies when arg omitted
+            (False, None, False),  # default applies when arg omitted
+            (True, False, False),  # explicit False wins over True default
+            (False, True, True),  # explicit True wins over False default
+        ],
+    )
+    def test_emitter_keepalive_resolution(
+        self, module_default, explicit_arg, expected_keepalive
+    ):
+        from datahub.emitter import rest_emitter
+
+        kwargs = {} if explicit_arg is None else {"tcp_keepalive": explicit_arg}
+        with patch.object(rest_emitter, "_DEFAULT_TCP_KEEPALIVE", module_default):
+            emitter = DataHubRestEmitter("http://localhost:8080", **kwargs)
+
+        adapter = emitter._session.get_adapter("https://example.com")
+        if expected_keepalive:
+            assert isinstance(adapter, _KeepAliveHTTPAdapter)
+        else:
+            assert type(adapter) is HTTPAdapter
+
+
+class TestWeightedRetry:
+    """Tests for the WeightedRetry class that provides weighted retry logic for 429 responses."""
+
+    def test_non_429_status_decrements_total_normally(self):
+        """Non-429 responses should decrement retry count normally."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[500, 429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 500
+
+            # First non-429 error
+            result = retry.increment(response=mock_response)
+            assert result.total == 4
+
+            # Second non-429 error
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_429_weighted_retry_with_multiplier_2(self):
+        """With multiplier=2, every second 429 should decrement the retry count."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            # First 429: total stays at 5 (compensated)
+            result = retry.increment(response=mock_response)
+            assert result.total == 5
+
+            # Second 429: total decrements to 4 (actually decrements)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Third 429: total stays at 4 (compensated)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fourth 429: total decrements to 3 (actually decrements)
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_429_weighted_retry_with_multiplier_3(self):
+        """With multiplier=3, every third 429 should decrement the retry count."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 3):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            # First 429: compensated (stays at 5)
+            result = retry.increment(response=mock_response)
+            assert result.total == 5
+
+            # Second 429: compensated (stays at 5)
+            result = result.increment(response=mock_response)
+            assert result.total == 5
+
+            # Third 429: actually decrements (to 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fourth 429: compensated (stays at 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fifth 429: compensated (stays at 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Sixth 429: actually decrements (to 3)
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_mixed_429_and_non_429_responses(self):
+        """Mixed 429 and non-429 responses should handle counters correctly."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=10, status_forcelist=[500, 429])
+
+            mock_429 = Mock(headers={})
+            mock_429.status = 429
+
+            mock_500 = Mock(headers={})
+            mock_500.status = 500
+
+            # First 429: compensated (stays at 10)
+            result = retry.increment(response=mock_429)
+            assert result.total == 10
+
+            # 500 error: normal decrement (to 9)
+            result = result.increment(response=mock_500)
+            assert result.total == 9
+
+            # Second 429: actually decrements (to 8)
+            result = result.increment(response=mock_429)
+            assert result.total == 8
+
+            # Another 500 error: normal decrement (to 7)
+            result = result.increment(response=mock_500)
+            assert result.total == 7
+
+            # Third 429: compensated (stays at 7)
+            result = result.increment(response=mock_429)
+            assert result.total == 7
+
+            # Fourth 429: actually decrements (to 6)
+            result = result.increment(response=mock_429)
+            assert result.total == 6
+
+    def test_429_with_total_none(self):
+        """When total is None (unlimited retries), should not modify total."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=None, status_forcelist=[429])
+
+            mock_response = Mock()
+            mock_response.status = 429
+
+            # With total=None, the increment should not try to modify total
+            result = retry.increment(response=mock_response)
+            assert result.total is None
+
+    def test_429_without_response_object(self):
+        """When response is None, should not apply weighted retry logic."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            # No response means no status code to check, should decrement normally
+            result = retry.increment(response=None)
+            assert result.total == 4
+
+    def test_effective_retry_count_increase(self):
+        """Verify that 429s effectively get more retries than configured."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            # With total=3 and multiplier=2, we should be able to retry 6 times for 429s
+            retry = rest_emitter._WeightedRetry(total=3, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            result = retry
+            retry_count = 0
+
+            # Count how many 429 retries we can do before exhausting retries
+            while result.total:
+                result = result.increment(response=mock_response)
+                retry_count += 1
+                if retry_count > 10:  # Safety check
+                    break
+
+            # With multiplier=2, we should get ~2x retries
+            assert retry_count == 6
+
+
+class TestAsyncUnlessSyncMarker:
+    """Marker-aware sync routing requires explicit per-client opt-in (config /
+    constructor — never implicit). When opted in, a batch is upgraded to
+    synchronous if any of its MCPs carries an emit-mode marker requesting sync;
+    otherwise the configured emit_mode is honored unchanged. It only ever forces
+    more synchronicity, never less. The async parameter is always explicit, so
+    server-side ingest resolution is untouched; default-off keeps the existing
+    wire format."""
+
+    @pytest.fixture
+    def restli_emitter(self) -> DataHubRestEmitter:
+        return DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=False,
+            respect_mcp_sync_marker=True,
+        )
+
+    def _emit_and_get_payload(
+        self,
+        emitter: DataHubRestEmitter,
+        emit_mode: EmitMode,
+        mcp: Optional[MetadataChangeProposalWrapper] = None,
+    ) -> dict:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(
+            emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            item = mcp or MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(test,async_unless_sync,PROD)",
+                aspect=Status(removed=False),
+            )
+            emitter.emit_mcp(item, emit_mode=emit_mode)
+            return json.loads(mock_emit.call_args[0][1])
+
+    def _emit_openapi_and_get_url(
+        self,
+        emitter: DataHubRestEmitter,
+        emit_mode: EmitMode,
+        mcp: Optional[MetadataChangeProposalWrapper] = None,
+    ) -> str:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(
+            emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            item = mcp or MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(test,async_unless_sync_openapi,PROD)",
+                aspect=Status(removed=False),
+            )
+            emitter.emit_mcp(item, emit_mode=emit_mode)
+            return mock_emit.call_args[0][0]
+
+    def test_openapi_sync_primary_unmarked_stays_sync(self):
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            respect_mcp_sync_marker=True,
+        )
+        url = self._emit_openapi_and_get_url(emitter, EmitMode.SYNC_PRIMARY)
+        assert "async=false" in url
+
+    def test_openapi_async_marker_upgrades_to_sync(self):
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            respect_mcp_sync_marker=True,
+        )
+        url = self._emit_openapi_and_get_url(
+            emitter, EmitMode.ASYNC, mcp=self._sync_demanding_mcp()
+        )
+        assert "async=false" in url
+
+    @staticmethod
+    def _sync_demanding_mcp() -> MetadataChangeProposalWrapper:
+        from datahub.metadata.schema_classes import SystemMetadataClass
+
+        return MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,sync_demanded,PROD)",
+            aspect=Status(removed=False),
+            systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "sync"}),
+        )
+
+    def test_default_sends_explicit_async_false(self):
+        # No config opt-in: wire format unchanged from the default.
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        payload = self._emit_and_get_payload(emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "false"
+
+    def test_async_mode_sends_async_true(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.ASYNC)
+        assert payload.get("async") == "true"
+
+    def test_sync_primary_unmarked_stays_sync(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "false"
+
+    def test_async_marker_upgrades_to_sync(self, restli_emitter):
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.ASYNC, mcp=self._sync_demanding_mcp()
+        )
+        assert payload.get("async") == "false"
+
+    def test_sync_marker_keeps_request_sync(self, restli_emitter):
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.SYNC_PRIMARY, mcp=self._sync_demanding_mcp()
+        )
+        assert payload.get("async") == "false"
+
+    def test_sync_marker_case_insensitive(self, restli_emitter):
+        # A non-canonical "Sync" (e.g. from an externally-generated MCP) is still
+        # honored — the marker read is case/whitespace tolerant.
+        from datahub.metadata.schema_classes import SystemMetadataClass
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,sync_demanded_caps,PROD)",
+            aspect=Status(removed=False),
+            systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "Sync"}),
+        )
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.SYNC_PRIMARY, mcp=mcp
+        )
+        assert payload.get("async") == "false"
+
+    def test_no_implicit_enrollment_without_config_opt_in(self):
+        """A client that did not explicitly opt in (recipe/pipeline config or
+        constructor) keeps explicit async=false — there is no process-wide
+        enrollment mechanism."""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        payload = self._emit_and_get_payload(emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "false"
+
+    def test_sync_wait_never_upgraded(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.SYNC_WAIT)
+        assert payload.get("async") == "false"
+
+    def test_restli_batch_coarsens_to_sync_when_any_marked(self, restli_emitter):
+        # A single marked MCP upgrades the whole async batch to sync; an
+        # all-unmarked async batch stays async.
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        plain = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,plain,PROD)",
+            aspect=Status(removed=False),
+        )
+
+        with patch.object(
+            restli_emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            restli_emitter.emit_mcps(
+                [plain, self._sync_demanding_mcp()], emit_mode=EmitMode.ASYNC
+            )
+            payload = json.loads(mock_emit.call_args[0][1])
+            assert payload.get("async") == "false"
+
+        with patch.object(
+            restli_emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            restli_emitter.emit_mcps([plain], emit_mode=EmitMode.ASYNC)
+            payload = json.loads(mock_emit.call_args[0][1])
+            assert payload.get("async") == "true"

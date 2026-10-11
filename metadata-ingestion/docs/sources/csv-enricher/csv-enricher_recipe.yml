@@ -1,8 +1,13 @@
 source:
-  type: csv-enricher 
+  type: csv-enricher
   config:
     # relative path to your csv file to ingest
     filename: ./path/to/your/file.csv
+
+    # optional explicit mapping from CSV columns to structured properties
+    structured_properties:
+      tier: "io.acryl.metadata.tier"
+      classification: "urn:li:structuredProperty:io.acryl.privacy.classification"
 
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

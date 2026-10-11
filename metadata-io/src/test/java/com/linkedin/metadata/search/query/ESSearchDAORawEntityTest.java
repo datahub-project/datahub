@@ -27,7 +27,9 @@ public class ESSearchDAORawEntityTest {
   public void testRawEntityWithMockedClient() throws Exception {
     // Setup mocks
     SearchClientShim<?> mockClient = Mockito.mock(SearchClientShim.class);
-    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockClient);
 
     // Mock search response
     SearchResponse mockResponse = Mockito.mock(SearchResponse.class);
@@ -36,7 +38,11 @@ public class ESSearchDAORawEntityTest {
     Mockito.when(mockResponse.getHits()).thenReturn(mockHits);
 
     // Setup behavior for mocks
-    Mockito.when(mockClient.search(Mockito.any(), Mockito.eq(RequestOptions.DEFAULT)))
+    Mockito.when(
+            mockClient.search(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     // Create test URN
@@ -48,7 +54,6 @@ public class ESSearchDAORawEntityTest {
     // Create ESSearchDAO with mocked client
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(
-            mockClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             null,
@@ -65,6 +70,8 @@ public class ESSearchDAORawEntityTest {
     assertEquals(results.get(datasetUrn), mockResponse);
 
     // Verify the search was performed with correct parameters
-    Mockito.verify(mockClient).search(Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
+    Mockito.verify(mockClient)
+        .search(
+            Mockito.any(OperationContext.class), Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
   }
 }

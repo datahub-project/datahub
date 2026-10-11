@@ -1,5 +1,7 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Icon } from '@src/alchemy-components';
@@ -15,7 +17,7 @@ const Container = styled.div`
     width: 100%;
     min-height: 500px;
     height: 70vh;
-    border: 1px solid #f0f0f0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
 `;
 
@@ -38,7 +40,7 @@ const SubSearchSection = styled.div`
 const CurrentSection = styled.div`
     flex: 1;
     width: 40%;
-    border-left: 1px solid #f0f0f0;
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
 `;
@@ -48,7 +50,7 @@ const SectionHeader = styled.div`
     margin-top: 10px;
     font-size: 16px;
     font-weight: 500;
-    color: #666;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ScrollableContent = styled.div`
@@ -63,11 +65,11 @@ const SelectedItem = styled.div`
     border-radius: 4px;
     margin-bottom: 8px;
     align-items: center;
-    border: 1px solid #f0f0f0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     justify-content: space-between;
 
     &:hover {
-        background-color: #fafafa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -92,6 +94,7 @@ export function SearchSelectUrnInput({
     selectedValues,
     updateSelectedValues,
 }: SearchSelectUrnInputProps) {
+    const { t } = useTranslation('entity.shared.components');
     const [tempSelectedEntities, setTempSelectedEntities] = useState<EntityAndType[]>(INITIAL_SELECTED_ENTITIES);
 
     // Convert the selected values (urns) to EntityAndType format for SearchSelect
@@ -126,7 +129,7 @@ export function SearchSelectUrnInput({
     return (
         <Container>
             <SearchSection>
-                <SectionHeader>Search Values</SectionHeader>
+                <SectionHeader>{t('embeddedSearch.searchValues')}</SectionHeader>
                 <SubSearchSection>
                     <SearchSelect
                         fixedEntityTypes={allowedEntityTypes}
@@ -137,10 +140,10 @@ export function SearchSelectUrnInput({
                 </SubSearchSection>
             </SearchSection>
             <CurrentSection>
-                <SectionHeader>Selected Values</SectionHeader>
+                <SectionHeader>{t('embeddedSearch.selectedValues')}</SectionHeader>
                 <ScrollableContent>
                     {tempSelectedEntities.length === 0 ? (
-                        <div>No values selected</div>
+                        <div>{t('embeddedSearch.noValuesSelected')}</div>
                     ) : (
                         tempSelectedEntities.map((entity) => (
                             <SelectedItem key={entity.urn}>
@@ -150,7 +153,7 @@ export function SearchSelectUrnInput({
                                     <Skeleton.Input active />
                                 )}
                                 <IconWrapper>
-                                    <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+                                    <Icon icon={X} onClick={() => removeEntity(entity)} />
                                 </IconWrapper>
                             </SelectedItem>
                         ))

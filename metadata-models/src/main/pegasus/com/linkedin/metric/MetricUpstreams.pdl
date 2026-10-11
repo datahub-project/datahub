@@ -1,0 +1,88 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Edge
+
+/**
+ * Data-flow lineage from a metric to the datasets and columns it reads.
+ * Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
+ *
+ * Point `datasetUpstreams` and `fieldUpstreams` at the metric's direct
+ * upstreams. For a semantic-model-backed metric those are Semantic Model
+ * Dataset URNs and their schemaFields. For a standalone metric they are
+ * physical dataset and schemaField URNs. Do not copy the Semantic Model
+ * Dataset-to-physical column mapping here; that lives on the Semantic Model
+ * Dataset's `upstreamLineage.fineGrainedLineages`.
+ *
+ * If `fieldUpstreams` is non-empty, every destination's SchemaFieldUrn parent
+ * must also appear in `datasetUpstreams`. Dataset-only writes (absent or empty
+ * `fieldUpstreams`) are valid. Column writes without those parents are not.
+ * MetricUpstreamsValidator enforces this.
+ *
+ * LineageRegistry.getSchemaFieldRelationships lists Consumes incoming from metric
+ * so a schema-field downstream walk finds the metric.
+ *
+ * Always write `fieldUpstreams`. Use an empty array when there are no columns
+ * so the next ingest replaces stale column edges, as with `datasetUpstreams`.
+ */
+@Aspect = {
+  "name": "metricUpstreams"
+}
+record MetricUpstreams {
+
+  /**
+   * Datasets this metric reads (table-level lineage).
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn":    "datasetUpstreams/*/created/time",
+      "createdActor": "datasetUpstreams/*/created/actor",
+      "updatedOn":    "datasetUpstreams/*/lastModified/time",
+      "updatedActor": "datasetUpstreams/*/lastModified/actor",
+      "properties":   "datasetUpstreams/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "datasetUpstreams",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDatasetUpstreams",
+      "queryByDefault": false
+    }
+  }
+  datasetUpstreams: optional array[Edge]
+
+  /**
+   * Schema fields this metric reads (column-level lineage).
+   * The parent dataset is SchemaFieldUrn.parent. There is no per-entry
+   * transform; the SQL lives on metricInfo.expression.
+   * `isLineage` is omitted so these edges do not appear in entity-level
+   * upstream expansion.
+   *
+   * Write an empty array to clear stale column edges. Every entry's parent
+   * dataset must also appear in datasetUpstreams.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "schemaField" ],
+      "createdOn":    "fieldUpstreams/*/created/time",
+      "createdActor": "fieldUpstreams/*/created/actor",
+      "updatedOn":    "fieldUpstreams/*/lastModified/time",
+      "updatedActor": "fieldUpstreams/*/lastModified/actor",
+      "properties":   "fieldUpstreams/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "fieldUpstreams",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasFieldUpstreams",
+      "queryByDefault": false
+    }
+  }
+  fieldUpstreams: optional array[Edge]
+
+}

@@ -22,6 +22,7 @@ def get_abs_properties(
     azure_config: Optional[AzureConnectionConfig],
     use_abs_container_properties: Optional[bool] = False,
     use_abs_blob_properties: Optional[bool] = False,
+    set_schema_inferred_from: bool = True,
 ) -> Dict[str, str]:
     if azure_config is None:
         raise ValueError(
@@ -33,7 +34,11 @@ def get_abs_properties(
         container=container_name
     )
 
-    custom_properties = {"schema_inferred_from": full_path}
+    custom_properties: Dict[str, str] = {}
+    if set_schema_inferred_from:
+        # Only name a source file when inference actually runs, otherwise the
+        # property would point at a file whose schema was never emitted.
+        custom_properties["schema_inferred_from"] = full_path
     if not sample_files:
         custom_properties.update(
             {
@@ -192,32 +197,17 @@ def list_folders(
     abs_blob_service_client = azure_config.get_blob_service_client()
     container_client = abs_blob_service_client.get_container_client(container_name)
 
-    current_level = prefix.count("/")
-    blob_list = container_client.list_blobs(name_starts_with=prefix)
+    normalized_prefix = prefix.strip("/")
+    prefix_with_separator = f"{normalized_prefix}/" if normalized_prefix else ""
 
-    this_dict = {}
-    for blob in blob_list:
-        blob_name = blob.name[: blob.name.rfind("/") + 1]
-        folder_structure_arr = blob_name.split("/")
-
-        folder_name = ""
-        if len(folder_structure_arr) > current_level:
-            folder_name = f"{folder_name}/{folder_structure_arr[current_level]}"
-        else:
+    # walk_blobs with a delimiter yields one BlobPrefix (name ends with "/") per
+    # immediate sub-folder; blobs at this level are skipped.
+    for item in container_client.walk_blobs(
+        name_starts_with=prefix_with_separator, delimiter="/"
+    ):
+        name = item.name
+        if not name.endswith("/"):
             continue
-
-        folder_name = folder_name[1 : len(folder_name)]
-
-        if folder_name.endswith("/"):
-            folder_name = folder_name[:-1]
-
-        if folder_name == "":
-            continue
-
-        folder_name = f"{prefix}{folder_name}"
-        if folder_name in this_dict:
-            continue
-        else:
-            this_dict[folder_name] = folder_name
-
-        yield f"{folder_name}"
+        folder_name = name.strip("/")
+        if folder_name:
+            yield folder_name

@@ -35,7 +35,16 @@ class Action(Closeable, metaclass=ABCMeta):
         """Factory method to create an instance of an Action"""
         pass
 
-    @abstractmethod
-    def act(self, event: EventEnvelope) -> None:
-        """Take Action on DataHub events, provided an instance of a DataHub event."""
-        pass
+    def act(self, event: EventEnvelope) -> bool | None:
+        """Take Action on DataHub events, provided an instance of a DataHub event.
+
+        Returns:
+            Whether to immediately commit the event as processed successfully.
+            Return False if the event has been recorded but should not be acknowledged
+            until some later time, e.g. due to batch or asynchronous processing.
+
+            Returning None is equivalent to returning True, i.e. it assumes the event was processed successfully.
+
+        Raises:
+            Exception: To indicate the event was not processed successfully and to retry processing the same event.
+        """

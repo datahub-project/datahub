@@ -1,12 +1,15 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import generateUseDownloadListDataProductAssets from '@app/entityV2/dataProduct/generateUseDownloadListDataProductAssets';
 import generateUseListDataProductAssets from '@app/entityV2/dataProduct/generateUseListDataProductAssets';
 import { generateUseListDataProductAssetsCount } from '@app/entityV2/dataProduct/generateUseListDataProductAssetsCount';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 
 export function DataProductEntitiesTab() {
+    const { t } = useTranslation('entity.types');
     const { urn } = useEntityData();
 
     return (
@@ -14,8 +17,9 @@ export function DataProductEntitiesTab() {
             <EmbeddedListSearchSection
                 useGetSearchResults={generateUseListDataProductAssets({ urn })}
                 useGetSearchCountResult={generateUseListDataProductAssetsCount({ urn })}
+                useGetDownloadSearchResults={generateUseDownloadListDataProductAssets({ urn })}
                 emptySearchQuery="*"
-                placeholderText="Filter assets..."
+                placeholderText={t('shared.filterAssetsPlaceholder')}
                 skipCache
                 applyView
             />

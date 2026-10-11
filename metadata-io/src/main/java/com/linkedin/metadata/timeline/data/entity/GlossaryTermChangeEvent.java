@@ -2,7 +2,7 @@ package com.linkedin.metadata.timeline.data.entity;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.Urn;
+import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -27,15 +27,31 @@ public class GlossaryTermChangeEvent extends ChangeEvent {
       AuditStamp auditStamp,
       SemanticChangeType semVerChange,
       String description,
-      Urn termUrn) {
+      GlossaryTermAssociation glossaryTermAssociation) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        ImmutableMap.of("termUrn", termUrn.toString()),
+        buildParameters(glossaryTermAssociation),
         auditStamp,
         semVerChange,
         description);
+  }
+
+  private static ImmutableMap<String, Object> buildParameters(
+      GlossaryTermAssociation glossaryTermAssociation) {
+    return new ImmutableMap.Builder<String, Object>()
+        .put("termUrn", glossaryTermAssociation.getUrn().toString())
+        .put(
+            "context",
+            glossaryTermAssociation.getContext() != null
+                ? glossaryTermAssociation.getContext()
+                : "{}")
+        .put(
+            "sourceDetails",
+            ChangeEventParameterUtils.serializeSourceDetail(
+                glossaryTermAssociation.getAttribution()))
+        .build();
   }
 }

@@ -1,7 +1,13 @@
-import { Icon, Tooltip, colors } from '@components';
-import React from 'react';
+import { Icon, TabButtons, Tooltip } from '@components';
+import { List } from '@phosphor-icons/react/dist/csr/List';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { TabButtonItem } from '@components/components/ButtonTabs/types';
+
+import CreateLogicalModelButton from '@app/entityV2/shared/logicalModels/CreateLogicalModelButton';
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
@@ -33,13 +39,12 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     padding: 16px 0px 8px 0px;
-    border: 1px solid ${colors.gray[100]};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['box-shadow-navbar-redesign'] : '0px 4px 10px 0px #a8a8a840'};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
 
 const FiltersContainerTop = styled.div`
@@ -51,33 +56,8 @@ const FiltersContainerTop = styled.div`
     padding-bottom: 8px;
 `;
 
-const CustomSwitch = styled.div`
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 30px;
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    padding: 2px;
-    width: fit-content;
-    justify-content: space-between;
-`;
-
-const IconContainer = styled.div<{ isActive?: boolean }>`
-    cursor: pointer;
-    align-items: center;
-    display: flex;
-    padding: 4px;
-    transition: left 0.5s ease;
-    color: ${colors.gray[1800]};
-
-    ${(props) =>
-        props.isActive &&
-        `
-        background: ${colors.gray[100]};
-        border-radius: 100%;
-        color: ${colors.gray[1700]};
-    `}
-`;
+const FULL_CARD_VIEW_KEY = 'full';
+const COMPACT_CARD_VIEW_KEY = 'compact';
 
 const SelectedFiltersContainer = styled.div`
     padding: 4px 16px 8px 16px;
@@ -109,7 +89,7 @@ const ControlsContainer = styled.div`
 `;
 
 const RecommendedFiltersContainer = styled.div`
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 16px 8px 16px;
 `;
 
@@ -144,12 +124,37 @@ export default function SearchFilters({
     setShowSelectMode,
     downloadSearchResults,
 }: Props) {
+    const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { isFullViewCard, setIsFullViewCard, selectedSortOption, setSelectedSortOption } = useSearchContext();
     // Filter out the available filters if `basicFilters` is true
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
     const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
+
+    const viewTabs: TabButtonItem[] = useMemo(
+        () => [
+            {
+                key: FULL_CARD_VIEW_KEY,
+                dataTestId: 'full-card-view-toggle',
+                label: (
+                    <Tooltip showArrow={false} title={t('filters.fullCardView')}>
+                        <Icon icon={Rows} size="md" />
+                    </Tooltip>
+                ),
+            },
+            {
+                key: COMPACT_CARD_VIEW_KEY,
+                dataTestId: 'compact-card-view-toggle',
+                label: (
+                    <Tooltip showArrow={false} title={t('filters.compactCardView')}>
+                        <Icon icon={List} size="md" />
+                    </Tooltip>
+                ),
+            },
+        ],
+        [t],
+    );
 
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -166,6 +171,7 @@ export default function SearchFilters({
                         selectedSortOption={selectedSortOption}
                         setSelectedSortOption={setSelectedSortOption}
                     />
+                    <CreateLogicalModelButton />
                     <SearchMenuItems
                         filters={generateOrFilters(unionType, activeFilters)}
                         query={query}
@@ -174,18 +180,13 @@ export default function SearchFilters({
                         setShowSelectMode={setShowSelectMode}
                         downloadSearchResults={downloadSearchResults}
                     />
-                    <CustomSwitch>
-                        <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
-                            <Tooltip showArrow={false} title="Full Card View">
-                                <Icon icon="Rows" source="phosphor" size="md" />
-                            </Tooltip>
-                        </IconContainer>
-                        <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
-                            <Tooltip showArrow={false} title="Compact Card View">
-                                <Icon icon="List" source="phosphor" size="md" />
-                            </Tooltip>
-                        </IconContainer>
-                    </CustomSwitch>
+                    <TabButtons
+                        tabs={viewTabs}
+                        activeTab={isFullViewCard ? FULL_CARD_VIEW_KEY : COMPACT_CARD_VIEW_KEY}
+                        onTabClick={(key) => setIsFullViewCard(key === FULL_CARD_VIEW_KEY)}
+                        fit="hug"
+                        aria-label={t('filters.cardViewSwitchLabel')}
+                    />
                 </ControlsContainer>
             </FiltersContainerTop>
             {activeFilters.length > 0 && (

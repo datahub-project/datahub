@@ -3,10 +3,13 @@ package com.linkedin.metadata.search.utils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.SearchHit;
 
 /**
@@ -25,11 +28,22 @@ public class UrnExtractionUtils {
    *
    * @param hit The search hit containing the document
    * @return The extracted URN
-   * @throws RuntimeException if the URN field is null or invalid
+   * @throws InvalidSearchHitException if the URN field is null or invalid
    */
   @Nonnull
   public static Urn extractUrnFromSearchHit(@Nonnull SearchHit hit) {
     Map<String, Object> sourceMap = hit.getSourceAsMap();
+    if (sourceMap == null) {
+      // No _source on the hit (e.g. _source disabled or not fetched). Treat as a skippable
+      // invalid hit rather than dereferencing null and crashing the whole search.
+      log.error(
+          "Found search document with no source. Document details: index={}, id={}",
+          hit.getIndex(),
+          hit.getId());
+      throw new InvalidSearchHitException(
+          "Search document has no source. Index: " + hit.getIndex() + ", ID: " + hit.getId());
+    }
+
     Object urnValue = sourceMap.get("urn");
 
     if (urnValue == null) {
@@ -38,7 +52,7 @@ public class UrnExtractionUtils {
           hit.getIndex(),
           hit.getId(),
           sourceMap);
-      throw new RuntimeException(
+      throw new InvalidSearchHitException(
           "Search document contains null URN. Index: " + hit.getIndex() + ", ID: " + hit.getId());
     }
 
@@ -52,7 +66,7 @@ public class UrnExtractionUtils {
           urnValue,
           sourceMap,
           e);
-      throw new RuntimeException("Invalid urn in search document " + e);
+      throw new InvalidSearchHitException("Invalid urn in search document " + urnValue, e);
     }
   }
 
@@ -89,5 +103,31 @@ public class UrnExtractionUtils {
       log.warn("Failed to extract {} URN from document: {}", context, e.getMessage());
       return null;
     }
+  }
+
+  /**
+   * Extract unique URNs from a search response, skipping invalid entries.
+   *
+   * <p>This method iterates through all hits in the response and extracts URNs, collecting them
+   * into a Set for deduplication. Invalid or null URNs are logged and skipped rather than causing
+   * the entire operation to fail.
+   *
+   * @param response The search response containing hits
+   * @return Set of unique URNs extracted from the response
+   */
+  @Nonnull
+  public static Set<Urn> extractUniqueUrns(@Nonnull SearchResponse response) {
+    Set<Urn> urns = new HashSet<>();
+    if (response.getHits() == null || response.getHits().getHits() == null) {
+      return urns;
+    }
+    for (SearchHit hit : response.getHits().getHits()) {
+      try {
+        urns.add(extractUrnFromSearchHit(hit));
+      } catch (Exception e) {
+        log.warn("Skipping hit with invalid URN: {}", e.getMessage());
+      }
+    }
+    return urns;
   }
 }

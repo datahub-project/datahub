@@ -70,18 +70,10 @@ class DataLakeSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
-    spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
-    )
-
-    spark_config: Dict[str, Any] = Field(
-        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
-        default={},
-    )
-
     max_rows: int = Field(
         default=100,
-        description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+        ge=1,
+        description="Maximum number of rows to use when inferring schemas for TSV and CSV files. Also caps JSON and JSONL schema inference: at most this many records of a top-level array are read, and arrays inside a single JSON object are truncated to this many elements, so fields that only appear later are not reported.",
     )
     add_partition_columns_to_schema: bool = Field(
         default=False,
@@ -95,6 +87,21 @@ class DataLakeSourceConfig(
     number_of_files_to_sample: int = Field(
         default=100,
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
+    )
+
+    enable_schema_inference: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer the schema from sampled files and emit a "
+            "`schemaMetadata` aspect. Set to `False` when another pipeline owns the "
+            "schema: no `schemaMetadata` is emitted for any dataset in this recipe, "
+            "and no files are opened for inference. Schemas already in DataHub are "
+            "left as they are and stop updating; new datasets get no schema unless "
+            "another pipeline writes one. Partition columns are part of the schema, "
+            "so `add_partition_columns_to_schema` can't be combined with this. "
+            "Properties, containers, tags and profiling are still emitted, and "
+            "profiling still reads files."
+        ),
     )
 
     _rename_path_spec_to_plural = pydantic_renamed_field(
@@ -202,5 +209,11 @@ class DataLakeSourceConfig(
                 raise ValueError(
                     "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
                 )
+
+        if self.add_partition_columns_to_schema and not self.enable_schema_inference:
+            raise ValueError(
+                "add_partition_columns_to_schema has no effect when enable_schema_inference is false, "
+                "because partition columns are part of the inferred schema. Remove one of the two settings."
+            )
 
         return self

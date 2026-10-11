@@ -1,4 +1,5 @@
 import { notification } from '@components';
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
@@ -13,10 +14,15 @@ interface Props {
     scenario: UploadDownloadScenario;
     assetUrn?: string;
     schemaField?: string;
+    validateFileOptions?: {
+        maxSize?: number;
+        allowedTypes?: string[];
+    };
 }
 
 export function useUploadFileHandler(props: Props) {
-    const { uploadFile: onFileUpload } = useFileUpload(props);
+    const { validateFileOptions, ...uploadProps } = props;
+    const { uploadFile: onFileUpload } = useFileUpload(uploadProps);
     const analyticsCallbacks = useFileUploadAnalyticsCallbacks(props);
 
     const handleFileUpload = useCallback(
@@ -24,7 +30,7 @@ export function useUploadFileHandler(props: Props) {
             try {
                 analyticsCallbacks.onFileUploadAttempt?.(file.type, file.size, 'button');
 
-                const validation = validateFile(file);
+                const validation = validateFile(file, validateFileOptions);
 
                 if (!validation.isValid) {
                     console.error(validation.error);
@@ -35,7 +41,7 @@ export function useUploadFileHandler(props: Props) {
                         validation.failureType || FileUploadFailureType.UNKNOWN,
                     );
                     notification.error({
-                        message: 'Upload Failed',
+                        message: i18next.t('shared.product:upload.failedTitle'),
                         description: validation.displayError || validation.error,
                     });
 
@@ -58,8 +64,8 @@ export function useUploadFileHandler(props: Props) {
                             `${uploadError}`,
                         );
                         notification.error({
-                            message: 'Upload Failed',
-                            description: 'Something went wrong',
+                            message: i18next.t('shared.product:upload.failedTitle'),
+                            description: i18next.t('common.feedback:somethingWentWrong'),
                         });
                         return null;
                     }
@@ -76,14 +82,14 @@ export function useUploadFileHandler(props: Props) {
                     `${error}`,
                 );
                 notification.error({
-                    message: 'Upload Failed',
-                    description: 'Something went wrong',
+                    message: i18next.t('shared.product:upload.failedTitle'),
+                    description: i18next.t('common.feedback:somethingWentWrong'),
                 });
 
                 return null;
             }
         },
-        [analyticsCallbacks, onFileUpload],
+        [analyticsCallbacks, onFileUpload, validateFileOptions],
     );
 
     return handleFileUpload;

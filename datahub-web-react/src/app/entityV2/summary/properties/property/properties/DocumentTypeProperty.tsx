@@ -1,4 +1,7 @@
+import { Text } from '@components';
+import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -10,22 +13,51 @@ import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
-const TypeSelectWrapper = styled.div`
-    overflow: hidden;
-`;
+const TypeSelectWrapper = styled.div``;
 
 const NONE_VALUE = '';
 
 const typeOptions = [
-    { label: 'None', value: NONE_VALUE },
-    { label: 'Runbook', value: 'Runbook' },
-    { label: 'FAQ', value: 'FAQ' },
-    { label: 'Insight', value: 'Insight' },
-    { label: 'Definition', value: 'Definition' },
-    { label: 'Decision', value: 'Decision' },
+    {
+        get label() {
+            return i18next.t('common.labels:none');
+        },
+        value: NONE_VALUE,
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentType.runbook');
+        },
+        value: 'Runbook',
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentType.faq');
+        },
+        value: 'FAQ',
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentType.insight');
+        },
+        value: 'Insight',
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentType.definition');
+        },
+        value: 'Definition',
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentType.decision');
+        },
+        value: 'Decision',
+    },
 ];
 
 export default function DocumentTypeProperty(props: PropertyComponentProps) {
+    const { t: tl } = useTranslation('common.labels');
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const refetch = useRefetch();
@@ -64,10 +96,15 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
 
     const renderValue = () => {
         if (!canEditType) {
-            // Show read-only value
-            const displayValue = optimisticType === NONE_VALUE ? 'None' : optimisticType;
-            return <span>{displayValue}</span>;
+            const displayValue = optimisticType === NONE_VALUE ? tl('none') : optimisticType;
+            return <Text>{displayValue}</Text>;
         }
+
+        // If the actual type is not in the options, add it to the options
+        const isCustomType = optimisticType !== NONE_VALUE && !typeOptions.some((opt) => opt.value === optimisticType);
+        const finalTypeOptions = isCustomType
+            ? [...typeOptions, { label: optimisticType, value: optimisticType }]
+            : typeOptions;
 
         return (
             <TypeSelectWrapper data-testid="document-type-select">
@@ -75,7 +112,7 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
                     values={[optimisticType]}
                     onUpdate={handleTypeChange}
                     isDisabled={!canEditType}
-                    options={typeOptions}
+                    options={finalTypeOptions}
                     size="sm"
                     width="fit-content"
                     showClear={false}

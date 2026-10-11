@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static com.linkedin.metadata.Constants.APP_SOURCE;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 import static org.testng.Assert.assertFalse;
@@ -42,6 +45,7 @@ public class CreateStructuredPropertyResolverTest {
           null,
           null,
           new ArrayList<>(),
+          null,
           null);
 
   @Test
@@ -83,6 +87,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             null);
 
     // Execute resolver
@@ -159,6 +164,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -172,6 +178,28 @@ public class CreateStructuredPropertyResolverTest {
     // Validate ingest is not called
     Mockito.verify(mockEntityClient, Mockito.times(0))
         .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
+  public void testCreatePropertyDefinitionMcpHasUiSource() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+
+    MetadataChangeProposal definitionMcp = mcpCaptor.getValue().get(0);
+    assertEquals(definitionMcp.getAspectName(), STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    assertEquals(definitionMcp.getSystemMetadata().getProperties().get(APP_SOURCE), UI_SOURCE);
   }
 
   @Test
@@ -195,6 +223,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -234,6 +263,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -285,6 +315,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver

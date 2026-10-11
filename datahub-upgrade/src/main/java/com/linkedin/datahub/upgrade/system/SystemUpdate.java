@@ -3,8 +3,8 @@ package com.linkedin.datahub.upgrade.system;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.kubernetes.ScaleDownEvaluationStep;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -23,14 +23,14 @@ public class SystemUpdate implements Upgrade {
   public SystemUpdate(
       @NonNull final List<BlockingSystemUpgrade> blockingSystemUpgrades,
       @NonNull final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      @Nullable final DataHubStartupStep dataHubStartupStep,
       @Nullable final BootstrapMCP bootstrapMCPBlocking,
       @Nullable final BootstrapMCP bootstrapMCPNonBlocking) {
 
     steps = new LinkedList<>();
     cleanupSteps = new LinkedList<>();
 
-    // blocking upgrades
+    // evaluate whether any blocking upgrade requires K8 scale-down, then run blocking steps
+    steps.add(new ScaleDownEvaluationStep(blockingSystemUpgrades));
     steps.addAll(blockingSystemUpgrades.stream().flatMap(up -> up.steps().stream()).toList());
     cleanupSteps.addAll(
         blockingSystemUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()).toList());
@@ -39,11 +39,6 @@ public class SystemUpdate implements Upgrade {
     if (bootstrapMCPBlocking != null) {
       steps.addAll(bootstrapMCPBlocking.steps());
       cleanupSteps.addAll(bootstrapMCPBlocking.cleanupSteps());
-    }
-
-    // emit system update message if blocking upgrade(s) present
-    if (dataHubStartupStep != null && !blockingSystemUpgrades.isEmpty()) {
-      steps.add(dataHubStartupStep);
     }
 
     // bootstrap non-blocking only

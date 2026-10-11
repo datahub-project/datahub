@@ -5,14 +5,18 @@ import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ViewBuilderState } from '@app/entity/view/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { FetchedEntity } from '@app/lineage/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
-import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import {
+    GetDatasetDocument,
+    GetDatasetSchemaDocument,
+    GetDatasetSchemaStructuralDocument,
+    UpdateDatasetDocument,
+} from '@graphql/dataset.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { GetMeDocument } from '@graphql/me.generated';
 import { GetMlModelDocument } from '@graphql/mlModel.generated';
@@ -32,7 +36,6 @@ import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
     AppConfig,
-    BusinessAttribute,
     Container,
     DataFlow,
     DataHubView,
@@ -62,7 +65,7 @@ import {
     SearchResult,
 } from '@types';
 
-export const entityPrivileges: EntityPrivileges = {
+const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
     canEditDomains: true,
     canEditDataProducts: true,
@@ -123,6 +126,7 @@ export const user1 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -144,8 +148,18 @@ const user2 = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
-    properties: {
+    info: {
         __typename: 'CorpUserInfo',
+        email: 'john@domain.com',
+        active: true,
+        displayName: 'john',
+        title: 'Eng',
+        firstName: 'John',
+        lastName: 'Joyce',
+        fullName: 'John Joyce',
+    },
+    properties: {
+        __typename: 'CorpUserProperties',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -197,18 +211,18 @@ const user2 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:3',
+                context: null,
                 attribution: null,
             },
         ],
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
     },
     editableInfo: null,
-    info: null,
 };
 
 export const dataPlatform = {
@@ -333,6 +347,8 @@ export const dataset1 = {
         ],
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -354,11 +370,15 @@ export const dataset1 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    incidents: null,
+    siblings: null,
+    siblingsSearch: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
     settings: null,
 };
@@ -427,6 +447,8 @@ export const dataset2 = {
         },
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -455,11 +477,15 @@ export const dataset2 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    incidents: null,
+    siblings: null,
+    siblingsSearch: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
     settings: null,
 };
@@ -580,6 +606,7 @@ export const dataset3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                context: null,
                 attribution: null,
             },
         ],
@@ -608,6 +635,7 @@ export const dataset3 = {
                 },
                 attribution: null,
                 associatedUrn: 'urn:li:dataset:3',
+                context: null,
                 actor: {
                     __typename: 'CorpUser',
                     urn: 'urn:li:corpuser:admin',
@@ -730,9 +758,11 @@ export const dataset3 = {
     settings: null,
 } as Dataset;
 
-export const dataset3WithSchema = {
+const dataset3WithSchema = {
     dataset: {
         __typename: 'Dataset',
+        // Both schema queries select the urn; the hook only accepts results for the current dataset.
+        urn: 'urn:li:dataset:3',
         schemaMetadata: {
             __typename: 'SchemaMetadata',
             aspectVersion: 0,
@@ -796,7 +826,7 @@ export const dataset3WithSchema = {
     },
 };
 
-export const dataset4 = {
+const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
     urn: 'urn:li:dataset:4',
@@ -809,7 +839,7 @@ export const dataset4 = {
     },
 };
 
-export const dataset5 = {
+const dataset5 = {
     ...dataset3,
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
@@ -823,7 +853,7 @@ export const dataset5 = {
     },
 };
 
-export const dataset6 = {
+const dataset6 = {
     ...dataset3,
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
@@ -835,228 +865,6 @@ export const dataset6 = {
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
         lastModified: dataset3.properties?.lastModified,
-    },
-};
-
-export const dataset7 = {
-    ...dataset3,
-    name: 'Seventh Test Dataset',
-    urn: 'urn:li:dataset:7',
-    properties: {
-        name: 'Seventh Test Dataset',
-        description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
-        externalUrl: 'https://data.hub',
-    },
-};
-
-export const dataset3WithLineage = {
-    ...dataset3,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset4,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 0,
-        total: 0,
-        relationships: [],
-    },
-};
-
-export const dataset4WithLineage = {
-    ...dataset4,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset5WithCyclicalLineage = {
-    ...dataset5,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset3,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
-    },
-};
-
-export const dataset5WithLineage = {
-    ...dataset5,
-    upstream: null,
-    downstream: {
-        start: 0,
-        count: 3,
-        total: 3,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset6WithLineage = {
-    ...dataset6,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset7WithLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset7WithSelfReferentialLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
     },
 };
 
@@ -1072,6 +880,7 @@ export const container1 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -1087,6 +896,7 @@ export const container2 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -1214,7 +1024,7 @@ const glossaryTerm2 = {
     __typename: 'GlossaryTerm',
 };
 
-export const glossaryTerm3 = {
+const glossaryTerm3 = {
     urn: 'urn:li:glossaryTerm:example.glossaryterm2',
     type: 'GLOSSARY_TERM',
     name: 'glossaryterm2',
@@ -1278,6 +1088,7 @@ export const glossaryTerm3 = {
     },
     deprecation: null,
     autoRenderAspects: [],
+    parentNodes: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1333,19 +1144,6 @@ export const glossaryNode4 = {
     __typename: 'GlossaryNode',
 } as GlossaryNode;
 
-export const glossaryNode5 = {
-    urn: 'urn:li:glossaryNode:example.glossarynode5',
-    type: 'GLOSSARY_NODE',
-    properties: {
-        name: 'Glossary Node 5',
-    },
-    parentNodes: {
-        count: 1,
-        nodes: [glossaryNode4],
-    },
-    __typename: 'GlossaryNode',
-} as GlossaryNode;
-
 export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
     type: EntityType.Tag,
@@ -1375,10 +1173,11 @@ export const sampleTag = {
         description: 'sample tag description',
         colorHex: 'sample tag color',
     },
+    deprecation: null,
     autoRenderAspects: [],
 };
 
-export const dataFlow1 = {
+const dataFlow1 = {
     __typename: 'DataFlow',
     urn: 'urn:li:dataFlow:1',
     type: EntityType.DataFlow,
@@ -1433,6 +1232,7 @@ export const dataFlow1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataFlow:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1519,6 +1319,7 @@ export const dataJob1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:1',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1546,108 +1347,8 @@ export const dataJob1 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
-
-export const businessAttribute = {
-    urn: 'urn:li:businessAttribute:ba1',
-    type: EntityType.BusinessAttribute,
-    __typename: 'BusinessAttribute',
-    properties: {
-        name: 'TestBusinessAtt-2',
-        description: 'lorem upsum updated 12',
-        created: {
-            time: 1705857132786,
-        },
-        lastModified: {
-            time: 1705857132786,
-        },
-        glossaryTerms: {
-            terms: [
-                {
-                    term: {
-                        urn: 'urn:li:glossaryTerm:1',
-                        type: EntityType.GlossaryTerm,
-                        hierarchicalName: 'SampleHierarchicalName',
-                        name: 'SampleName',
-                    },
-                    attribution: null,
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                },
-            ],
-            __typename: 'GlossaryTerms',
-        },
-        tags: {
-            __typename: 'GlobalTags',
-            tags: [
-                {
-                    tag: {
-                        urn: 'urn:li:tag:abc-sample-tag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'abc-sample-tag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-                {
-                    tag: {
-                        urn: 'urn:li:tag:TestTag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'TestTag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-            ],
-        },
-        customProperties: [
-            {
-                key: 'prop2',
-                value: 'val2',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop1',
-                value: 'val1',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop3',
-                value: 'val3',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-        ],
-    },
-    ownership: {
-        owners: [
-            {
-                owner: {
-                    ...user1,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DATAOWNER',
-                attribution: null,
-            },
-            {
-                owner: {
-                    ...user2,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DELEGATE',
-                attribution: null,
-            },
-        ],
-        lastModified: {
-            time: 0,
-        },
-    },
-} as BusinessAttribute;
 
 export const dataJob2 = {
     __typename: 'DataJob',
@@ -1710,6 +1411,7 @@ export const dataJob2 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:2',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1722,6 +1424,7 @@ export const dataJob2 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1787,6 +1490,7 @@ export const dataJob3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:3',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1800,9 +1504,10 @@ export const dataJob3 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
-export const mlModel = {
+const mlModel = {
     __typename: 'MLModel',
     urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
     type: EntityType.Mlmodel,
@@ -1875,6 +1580,7 @@ export const mlModel = {
                     },
                 },
                 associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+                context: null,
                 attribution: null,
             },
         ],
@@ -1888,29 +1594,7 @@ export const mlModel = {
     autoRenderAspects: [],
 } as MlModel;
 
-export const dataset1FetchedEntity = {
-    urn: dataset1.urn,
-    name: dataset1.name,
-    type: dataset1.type,
-    upstreamChildren: [],
-    downstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset2 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-} as FetchedEntity;
-
-export const dataset2FetchedEntity = {
-    urn: dataset2.urn,
-    name: 'test name',
-    type: dataset2.type,
-    upstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset1 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-    downstreamChildren: [],
-} as FetchedEntity;
-
-export const mlModelGroup = {
+const mlModelGroup = {
     __typename: 'MLModelGroup',
     urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
     type: EntityType.MlmodelGroup,
@@ -1979,7 +1663,7 @@ export const mlModelGroup = {
     deprecation: null,
 } as MlModelGroup;
 
-export const recommendationModules = [
+const recommendationModules = [
     {
         title: 'Most Popular',
         moduleId: 'MostPopular',
@@ -1988,6 +1672,11 @@ export const recommendationModules = [
             {
                 entity: {
                     ...dataset2,
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
                 },
             },
         ],
@@ -2028,6 +1717,11 @@ export const recommendationModules = [
                     urn: 'urn:li:tag:TestTag',
                     name: 'TestTag',
                 },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
             },
         ],
     },
@@ -2064,6 +1758,22 @@ export const mocks = [
             query: GetDatasetSchemaDocument,
             variables: {
                 urn: 'urn:li:dataset:3',
+            },
+        },
+        result: {
+            data: {
+                ...dataset3WithSchema,
+            },
+        },
+    },
+    {
+        // Phase-1 (structural) query of the two-phase schema load: same payload as the full
+        // schema mock — the structural selection is a subset of it.
+        request: {
+            query: GetDatasetSchemaStructuralDocument,
+            variables: {
+                urn: 'urn:li:dataset:3',
+                skipSiblingsSearch: false,
             },
         },
         result: {
@@ -3271,7 +2981,7 @@ export const mocks = [
                             ],
                         },
                     ],
-                    searchFlags: { getSuggestions: true },
+                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
                 },
             },
         },
@@ -3778,6 +3488,7 @@ export const mocks = [
                         viewManageTags: true,
                         createDomains: true,
                         createTags: true,
+                        createLogicalModels: true,
                         manageUserCredentials: true,
                         manageGlossaries: true,
                         viewTests: false,
@@ -3787,6 +3498,7 @@ export const mocks = [
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
+                        manageGlobalSettings: true,
                         manageOwnershipTypes: true,
                         manageGlobalAnnouncements: true,
                         createBusinessAttributes: true,
@@ -3797,6 +3509,7 @@ export const mocks = [
                         manageFeatures: true,
                         manageHomePageTemplates: true,
                         manageDocuments: true,
+                        createDocuments: true,
                     },
                 },
             },
@@ -4061,6 +3774,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewAnalytics: true,
     managePolicies: true,
     manageIdentities: true,
+    manageServiceAccounts: true,
     generatePersonalAccessTokens: true,
     manageDomains: true,
     manageIngestion: true,
@@ -4074,12 +3788,15 @@ export const platformPrivileges: PlatformPrivileges = {
     viewManageTags: true,
     createTags: true,
     createDomains: true,
+    createLogicalModels: true,
     manageGlobalViews: true,
+    manageGlobalSettings: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
     manageDocuments: true,
+    createDocuments: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
     manageApplications: true,
@@ -4122,7 +3839,7 @@ export const DomainMock1 = {
     supportedCapabilities: () => new Set(),
 } as Entity<any>;
 
-export const DomainMock2 = {
+const DomainMock2 = {
     urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
     id: 'bebdad41-c523-469f-9b62-de94f938f603',
     type: 'DOMAIN',
@@ -4408,26 +4125,4 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             ],
         },
     ],
-};
-
-export const useEntityDataFunc = () => {
-    const value = {
-        entityData: {
-            parentContainers: {
-                containers: [
-                    {
-                        properties: {
-                            name: 'name1',
-                        },
-                    },
-                    {
-                        properties: {
-                            name: 'name2',
-                        },
-                    },
-                ],
-            },
-        },
-    };
-    return value;
 };

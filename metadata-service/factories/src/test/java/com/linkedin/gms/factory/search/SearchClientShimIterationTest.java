@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
       "elasticsearch.port=9200",
       "elasticsearch.threadCount=1",
       "elasticsearch.connectionRequestTimeout=5000",
+      "elasticsearch.socketTimeout=30000",
       "elasticsearch.username=",
       "elasticsearch.password=",
       "elasticsearch.useSSL=false",
@@ -42,9 +43,12 @@ import org.testng.annotations.Test;
 @EnableConfigurationProperties(ConfigurationProvider.class)
 public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTests {
 
-  // We mock this bean because this test is testing the util, not a live env. This avoids
+  // We mock these beans because this test is testing the util, not a live env. This avoids
   // IOException due to missing env
   // with auto-detection
+  @MockitoBean(name = "searchClientShims", answers = Answers.RETURNS_MOCKS)
+  SearchClientShims searchClientShims;
+
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
 
@@ -52,10 +56,10 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
   @DataProvider(name = "searchEngineTypes")
   public Object[][] searchEngineTypes() {
     return new Object[][] {
-      {SearchEngineType.ELASTICSEARCH_7},
       {SearchEngineType.ELASTICSEARCH_8},
       {SearchEngineType.ELASTICSEARCH_9},
-      {SearchEngineType.OPENSEARCH_2}
+      {SearchEngineType.OPENSEARCH_2},
+      {SearchEngineType.OPENSEARCH_3}
     };
   }
 
@@ -73,6 +77,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     assertNotNull(config);
@@ -82,6 +87,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
     assertFalse(config.isUseSSL());
     assertEquals(config.getThreadCount(), Integer.valueOf(1));
     assertEquals(config.getConnectionRequestTimeout(), Integer.valueOf(5000));
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
 
     log.info("Configuration test passed for engine type: {}", engineType);
   }
@@ -107,16 +113,6 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
 
     // Test client compatibility based on engine type
     switch (engineType) {
-      case ELASTICSEARCH_7:
-        assertTrue(isElasticsearch);
-        assertFalse(isOpenSearch);
-        assertTrue(engineType.supportsEs7HighLevelClient());
-        assertFalse(engineType.requiresEs8JavaClient());
-        assertFalse(engineType.requiresOpenSearchClient());
-        assertEquals(engineType.getEngine(), "elasticsearch");
-        assertEquals(engineType.getMajorVersion(), "7");
-        break;
-
       case ELASTICSEARCH_8:
       case ELASTICSEARCH_9:
         assertTrue(isElasticsearch);
@@ -134,9 +130,19 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
         assertTrue(isOpenSearch);
         assertTrue(engineType.supportsEs7HighLevelClient());
         assertFalse(engineType.requiresEs8JavaClient());
-        assertFalse(engineType.requiresOpenSearchClient()); // Uses ES 7.x compatible client
+        assertTrue(engineType.requiresOpenSearchClient());
         assertEquals(engineType.getEngine(), "opensearch");
         assertEquals(engineType.getMajorVersion(), "2");
+        break;
+
+      case OPENSEARCH_3:
+        assertFalse(isElasticsearch);
+        assertTrue(isOpenSearch);
+        assertFalse(engineType.supportsEs7HighLevelClient());
+        assertFalse(engineType.requiresEs8JavaClient());
+        assertTrue(engineType.requiresOpenSearchClient());
+        assertEquals(engineType.getEngine(), "opensearch");
+        assertEquals(engineType.getMajorVersion(), "3");
         break;
 
       default:
@@ -162,6 +168,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     try {
@@ -243,6 +250,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withAwsIamAuth(false, "us-west-2")
             .withThreadCount(4)
             .withConnectionRequestTimeout(10000)
+            .withSocketTimeout(300000)
             .build();
 
     assertNotNull(fullConfig);
@@ -257,6 +265,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
     assertEquals(fullConfig.getRegion(), "us-west-2");
     assertEquals(fullConfig.getThreadCount(), Integer.valueOf(4));
     assertEquals(fullConfig.getConnectionRequestTimeout(), Integer.valueOf(10000));
+    assertEquals(fullConfig.getSocketTimeout(), Integer.valueOf(300000));
 
     log.info("Configuration builder test passed for engine type: {}", engineType);
   }

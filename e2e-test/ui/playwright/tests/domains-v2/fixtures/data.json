@@ -1,0 +1,12 @@
+[
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:playwright-domain",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"PlaywrightDomain\", \"description\": \"Parent domain for Playwright E2E tests\" }",
+      "contentType": "application/json"
+    }
+  }
+]

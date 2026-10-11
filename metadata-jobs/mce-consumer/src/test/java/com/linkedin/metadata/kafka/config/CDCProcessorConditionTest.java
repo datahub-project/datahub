@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.config;
 
+import com.linkedin.metadata.config.messaging.MessagingTransport;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.env.Environment;
@@ -23,6 +24,8 @@ public class CDCProcessorConditionTest {
     mockMetadata = Mockito.mock(AnnotatedTypeMetadata.class);
 
     Mockito.when(mockContext.getEnvironment()).thenReturn(mockEnvironment);
+    Mockito.when(mockEnvironment.getProperty(MessagingTransport.PROPERTY, MessagingTransport.KAFKA))
+        .thenReturn(MessagingTransport.KAFKA);
   }
 
   @Test
@@ -39,6 +42,20 @@ public class CDCProcessorConditionTest {
     Assert.assertTrue(
         result,
         "CDC condition should match when both mclProcessing.cdcSource.enabled and MCE_CONSUMER_ENABLED are true");
+  }
+
+  @Test
+  public void testCondition_NoMatchWhenTransportIsPgQueue() {
+    Mockito.when(mockEnvironment.getProperty(MessagingTransport.PROPERTY, MessagingTransport.KAFKA))
+        .thenReturn(MessagingTransport.PGQUEUE);
+    Mockito.when(mockEnvironment.getProperty("mclProcessing.cdcSource.enabled", "false"))
+        .thenReturn("true");
+    Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
+
+    boolean result = condition.matches(mockContext, mockMetadata);
+
+    Assert.assertFalse(
+        result, "CDC condition should not match when messaging transport is pgqueue");
   }
 
   @Test

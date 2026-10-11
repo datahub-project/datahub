@@ -64,13 +64,14 @@ public class SearchableAnnotation {
 
   Optional<String> systemModifiedAtFieldName;
 
-  // Search tier for the field (integer value)
+  // Deprecated no-op: search indices no longer build tier fields. Still parsed and validated so
+  // existing models keep loading
   Optional<Integer> searchTier;
 
   // Unified label for search operations
   Optional<String> searchLabel;
 
-  // Whether to index the field as a KEYWORD outside of _search when searchTier is present
+  // Deprecated no-op, like searchTier: every searchable field is indexed under its own name
   Optional<Boolean> searchIndexed;
 
   // If set, this field will be copied to _search.<entityFieldName> and the root alias will point
@@ -81,6 +82,10 @@ public class SearchableAnnotation {
   // Whether to set eager_global_ordinals to true for this field
   // This improves aggregation performance for frequently aggregated keyword fields
   Optional<Boolean> eagerGlobalOrdinals;
+
+  // Whether to sanitize rich text content (HTML, Markdown, base64 images) before indexing
+  // This prevents indexing failures due to term size limits and improves search relevance
+  boolean sanitizeRichText;
 
   public enum FieldType {
     KEYWORD,
@@ -161,6 +166,8 @@ public class SearchableAnnotation {
         AnnotationUtils.getField(map, "entityFieldName", String.class);
     final Optional<Boolean> eagerGlobalOrdinals =
         AnnotationUtils.getField(map, "eagerGlobalOrdinals", Boolean.class);
+    final Optional<Boolean> sanitizeRichText =
+        AnnotationUtils.getField(map, "sanitizeRichText", Boolean.class);
 
     // Validate new fields
     validateSearchTier(searchTier, resolvedFieldType, context);
@@ -168,6 +175,7 @@ public class SearchableAnnotation {
     validateElasticsearchFieldName(searchLabel, "searchLabel", context);
     validateElasticsearchFieldName(entityFieldName, "entityFieldName", context);
     validateEagerGlobalOrdinals(eagerGlobalOrdinals, resolvedFieldType, context);
+    validateSanitizeRichText(sanitizeRichText, resolvedFieldType, context);
 
     return new SearchableAnnotation(
         fieldName.orElse(schemaFieldName),
@@ -190,7 +198,8 @@ public class SearchableAnnotation {
         searchLabel,
         searchIndexed,
         entityFieldName,
-        eagerGlobalOrdinals);
+        eagerGlobalOrdinals,
+        sanitizeRichText.orElse(false));
   }
 
   private static FieldType getFieldType(
@@ -441,6 +450,19 @@ public class SearchableAnnotation {
         throw new ModelValidationException(
             String.format(
                 "Failed to validate @%s annotation declared at %s: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types, but was %s",
+                ANNOTATION_NAME, context, fieldType));
+      }
+    }
+  }
+
+  /** Validates that sanitizeRichText is only used with TEXT or TEXT_PARTIAL field types */
+  private static void validateSanitizeRichText(
+      Optional<Boolean> sanitizeRichText, FieldType fieldType, String context) {
+    if (sanitizeRichText.isPresent() && sanitizeRichText.get()) {
+      if (fieldType != FieldType.TEXT && fieldType != FieldType.TEXT_PARTIAL) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotation declared at %s: sanitizeRichText can only be used with TEXT or TEXT_PARTIAL field types, but was %s",
                 ANNOTATION_NAME, context, fieldType));
       }
     }

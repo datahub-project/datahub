@@ -31,6 +31,9 @@ public class DataPlatformPropertiesMapper
     if (input.getLogoUrl() != null) {
       result.setLogoUrl(input.getLogoUrl().toString());
     }
+    if (input.isLogical() != null) {
+      result.setLogical(input.isLogical());
+    }
     return result;
   }
 }

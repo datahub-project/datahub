@@ -1,0 +1,157 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { css } from 'styled-components';
+
+import { Button } from '@components/components/Button';
+import { Card } from '@components/components/Card';
+import { Icon } from '@components/components/Icon';
+import { Text } from '@components/components/Text';
+import spacing from '@components/theme/foundations/spacing';
+
+export type CalloutPosition = 'inline' | 'fixed-top-right' | 'fixed-bottom-center';
+
+const getPositionStyles = (position: CalloutPosition) => {
+    switch (position) {
+        case 'inline':
+            return css`
+                position: relative;
+                height: 0;
+                display: flex;
+                justify-content: center;
+            `;
+        case 'fixed-top-right':
+            return css`
+                position: fixed;
+                top: 80px;
+                right: 40px;
+                z-index: 1000;
+            `;
+        case 'fixed-bottom-center':
+            return css`
+                position: fixed;
+                bottom: 40px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+            `;
+        default:
+            return '';
+    }
+};
+
+const CalloutContainer = styled.div<{ $position: CalloutPosition }>`
+    ${({ $position }) => getPositionStyles($position)}
+`;
+
+const CardWrapper = styled.div<{ $isInline: boolean; $size: 'sm' | 'md' }>`
+    min-width: ${({ $size }) => ($size === 'sm' ? '300px' : '400px')};
+    max-width: ${({ $size }) => ($size === 'sm' ? '400px' : '500px')};
+
+    ${({ $isInline }) =>
+        $isInline &&
+        css`
+            position: absolute;
+            top: 16px;
+            z-index: 100;
+        `}
+`;
+
+const Content = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: 1.5;
+`;
+
+const Footer = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+`;
+
+const StyledIcon = styled(Icon)`
+    :hover {
+        cursor: pointer;
+    }
+`;
+
+export interface CalloutCardProps {
+    /** Icon element to display */
+    icon: React.ReactNode;
+    /** Title text */
+    title: string;
+    /** Content - can be string or React node */
+    children: React.ReactNode;
+    /** Position of the callout card */
+    position?: CalloutPosition;
+    /** Size of the card */
+    size?: 'sm' | 'md';
+    /** Primary button text */
+    primaryButtonText: string;
+    /** Primary button click handler */
+    onPrimaryClick: () => void;
+    /** Show secondary close button */
+    showCloseButton?: boolean;
+    /** Show close button in header */
+    showCloseButtonInHeader?: boolean;
+    /** Close button click handler */
+    onClose?: () => void;
+}
+
+/**
+ * A floating card component that can be positioned inline or fixed on the screen.
+ * Useful for guided tours, feature announcements, tips, and onboarding flows.
+ *
+ * Unlike Popover (which requires a trigger element), CalloutCard is standalone
+ * and can be positioned at fixed screen locations.
+ */
+export const CalloutCard = ({
+    icon,
+    title,
+    children,
+    position = 'inline',
+    size = 'sm',
+    primaryButtonText,
+    onPrimaryClick,
+    showCloseButtonInHeader = false,
+    showCloseButton = false,
+    onClose,
+}: CalloutCardProps) => {
+    const { t: tc } = useTranslation('common.actions');
+    return (
+        <CalloutContainer $position={position}>
+            <CardWrapper $isInline={position === 'inline'} $size={size}>
+                <Card
+                    title={
+                        <Text size={size === 'sm' ? 'md' : 'lg'} weight="bold" color="gray" colorLevel={600}>
+                            {title}
+                        </Text>
+                    }
+                    button={
+                        showCloseButtonInHeader && onClose ? (
+                            <StyledIcon icon={X} color="gray" size="xl" onClick={onClose} />
+                        ) : null
+                    }
+                    icon={icon}
+                    iconAlignment="horizontal"
+                    isCardClickable={false}
+                    width="100%"
+                    padding={spacing.sm}
+                    gap={spacing.xsm}
+                >
+                    <Content>{children}</Content>
+                    <Footer>
+                        {showCloseButton && onClose && (
+                            <Button variant="text" onClick={onClose}>
+                                {tc('close')}
+                            </Button>
+                        )}
+                        <Button variant="filled" onClick={onPrimaryClick}>
+                            {primaryButtonText}
+                        </Button>
+                    </Footer>
+                </Card>
+            </CardWrapper>
+        </CalloutContainer>
+    );
+};

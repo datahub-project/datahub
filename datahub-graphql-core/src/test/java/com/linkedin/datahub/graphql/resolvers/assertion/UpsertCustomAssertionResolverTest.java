@@ -8,16 +8,27 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionStdAggregation;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionStdParameter;
+import com.linkedin.assertion.AssertionStdParameterType;
+import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
+import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
 import com.linkedin.datahub.graphql.generated.PlatformInput;
+import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpsertCustomAssertionInput;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -27,7 +38,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -55,34 +68,85 @@ public class UpsertCustomAssertionResolverTest {
   private static final String customAssertionLogic = "custom script of assertion";
 
   private static final UpsertCustomAssertionInput TEST_INPUT =
-      new UpsertCustomAssertionInput(
-          TEST_DATASET_URN.toString(),
-          customAssertionType,
-          customAssertionDescription,
-          "field1",
-          new PlatformInput(null, "DQplatform"),
-          customAssertionUrl,
-          customAssertionLogic);
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_DATASET_URN.toString())
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPath("field1")
+          .setPlatform(new PlatformInput(null, "DQplatform"))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .build();
 
   private static final UpsertCustomAssertionInput TEST_INPUT_MISSING_PLATFORM =
-      new UpsertCustomAssertionInput(
-          TEST_DATASET_URN.toString(),
-          customAssertionType,
-          customAssertionDescription,
-          "field1",
-          new PlatformInput(null, null),
-          customAssertionUrl,
-          customAssertionLogic);
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_DATASET_URN.toString())
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPath("field1")
+          .setPlatform(new PlatformInput(null, null))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .build();
+
+  private static final UpsertCustomAssertionInput TEST_INPUT_BLANK_FIELD_PATH =
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_DATASET_URN.toString())
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPath("   ")
+          .setPlatform(new PlatformInput(null, "DQplatform"))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .build();
+
+  private static final UpsertCustomAssertionInput TEST_INPUT_BLANK_FIELD_PATHS_ENTRY =
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_DATASET_URN.toString())
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPaths(List.of("field1", "   "))
+          .setPlatform(new PlatformInput(null, "DQplatform"))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .build();
 
   private static final UpsertCustomAssertionInput TEST_INPUT_INVALID_ENTITY_URN =
-      new UpsertCustomAssertionInput(
-          TEST_INVALID_DATASET_URN,
-          customAssertionType,
-          customAssertionDescription,
-          "field1",
-          new PlatformInput(null, "DQplatform"),
-          customAssertionUrl,
-          customAssertionLogic);
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_INVALID_DATASET_URN)
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPath("field1")
+          .setPlatform(new PlatformInput(null, "DQplatform"))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .build();
+
+  private static final UpsertCustomAssertionInput TEST_INPUT_STRUCTURED =
+      UpsertCustomAssertionInput.builder()
+          .setEntityUrn(TEST_DATASET_URN.toString())
+          .setType(customAssertionType)
+          .setDescription(customAssertionDescription)
+          .setFieldPaths(List.of("field1"))
+          .setPlatform(new PlatformInput(null, "DQplatform"))
+          .setExternalUrl(customAssertionUrl)
+          .setLogic(customAssertionLogic)
+          .setScope(com.linkedin.datahub.graphql.generated.DatasetAssertionScope.DATASET_COLUMN)
+          .setAggregation(com.linkedin.datahub.graphql.generated.AssertionStdAggregation.IDENTITY)
+          .setOperator(com.linkedin.datahub.graphql.generated.AssertionStdOperator.NOT_NULL)
+          .setParameters(
+              AssertionStdParametersInput.builder()
+                  .setValue(
+                      AssertionStdParameterInput.builder()
+                          .setType(
+                              com.linkedin.datahub.graphql.generated.AssertionStdParameterType
+                                  .NUMBER)
+                          .setValue("1")
+                          .build())
+                  .build())
+          .setNativeType("not_null")
+          .setNativeParameters(List.of(new StringMapEntryInput("column_name", "field1")))
+          .build();
 
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
@@ -101,6 +165,7 @@ public class UpsertCustomAssertionResolverTest {
                   .setEntity(TEST_DATASET_URN)
                   .setType(customAssertionType)
                   .setField(TEST_FIELD_URN)
+                  .setFields(new UrnArray(TEST_FIELD_URN))
                   .setLogic(customAssertionLogic));
 
   private static final DataPlatformInstance TEST_DATA_PLATFORM_INSTANCE =
@@ -202,6 +267,72 @@ public class UpsertCustomAssertionResolverTest {
   }
 
   @Test
+  public void testGetSuccessCreateAssertionWithStructuredFields() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_STRUCTURED);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockedService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            mockedService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_DATA_PLATFORM_INSTANCE.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    Assertion assertion = resolver.get(mockEnv).get();
+    assertNotNull(assertion);
+    assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
+
+    ArgumentCaptor<CustomAssertionInfo> customAssertionCaptor =
+        ArgumentCaptor.forClass(CustomAssertionInfo.class);
+    Mockito.verify(mockedService, Mockito.times(1))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(customAssertionDescription),
+            Mockito.eq(customAssertionUrl),
+            Mockito.eq(TEST_DATA_PLATFORM_INSTANCE),
+            customAssertionCaptor.capture());
+
+    CustomAssertionInfo customAssertion = customAssertionCaptor.getValue();
+    assertEquals(customAssertion.getType(), customAssertionType);
+    assertEquals(customAssertion.getEntity(), TEST_DATASET_URN);
+    assertEquals(customAssertion.getField(), TEST_FIELD_URN);
+    assertEquals(customAssertion.getFields(), new UrnArray(TEST_FIELD_URN));
+    assertEquals(customAssertion.getLogic(), customAssertionLogic);
+    assertEquals(customAssertion.getScope(), DatasetAssertionScope.DATASET_COLUMN);
+    assertEquals(customAssertion.getAggregation(), AssertionStdAggregation.IDENTITY);
+    assertEquals(customAssertion.getOperator(), AssertionStdOperator.NOT_NULL);
+    assertEquals(customAssertion.getNativeType(), "not_null");
+    assertEquals(
+        customAssertion.getParameters(),
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1")));
+    StringMap expectedNativeParameters = new StringMap();
+    expectedNativeParameters.put("column_name", "field1");
+    assertEquals(customAssertion.getNativeParameters(), expectedNativeParameters);
+  }
+
+  @Test
   public void testGetUpdateAssertionUnauthorized() throws Exception {
     // Update resolver
     AssertionService mockedService = Mockito.mock(AssertionService.class);
@@ -249,6 +380,59 @@ public class UpsertCustomAssertionResolverTest {
     assert e.getMessage()
         .contains(
             "Failed to upsert Custom Assertion. Platform Name or Platform Urn must be specified.");
+
+    Mockito.verify(mockedService, Mockito.times(0))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  @Test
+  public void testGetUpsertAssertionBlankFieldPathFailure() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_BLANK_FIELD_PATH);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assert e.getMessage().contains("fieldPath must not be blank when provided");
+
+    Mockito.verify(mockedService, Mockito.times(0))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  @Test
+  public void testGetUpsertAssertionBlankFieldPathsEntryFailure() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_BLANK_FIELD_PATHS_ENTRY);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assert e.getMessage().contains("fieldPaths must not contain blank entries");
 
     Mockito.verify(mockedService, Mockito.times(0))
         .upsertCustomAssertion(

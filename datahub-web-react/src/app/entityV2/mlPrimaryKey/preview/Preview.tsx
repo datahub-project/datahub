@@ -2,11 +2,12 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '@types';
+import { DataPlatform, DataProduct, Deprecation, EntityPath, EntityType, Owner } from '@types';
 
 export const Preview = ({
     urn,
@@ -21,6 +22,8 @@ export const Preview = ({
     degree,
     paths,
     isOutputPort,
+    deprecation,
+    headerDropdownItems,
     previewType,
 }: {
     urn: string;
@@ -35,6 +38,8 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
+    deprecation?: Deprecation | null;
+    headerDropdownItems?: Set<EntityMenuItems>;
     previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -57,6 +62,8 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
+            deprecation={deprecation}
+            headerDropdownItems={headerDropdownItems}
             previewType={previewType}
         />
     );

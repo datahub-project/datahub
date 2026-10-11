@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Vissza",
+    "confirmationModal.areYouSure": "Biztos benne?",
+    "copyUrn.tooltip": "URN másolása. Az URN egyedileg azonosít egy entitást a DataHubban.",
+    "customIcon.alt": "Ikon",
+    "entityCountCard.viewCountTooltip": "{{formattedCount}} {{tooltipDescriptor}} megtekintése",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Kérjük, töltse ki az összes kötelező mezőt, mielőtt a következő lépésre lép",
+    "noEntityFound.subtitle": "Sajnáljuk, nem találjuk ezt az entitást a DataHubban",
+    "noEntityFound.title": "Nem található",
+    "noPageFound.backToHome": "Vissza a kezdőlapra",
+    "noPageFound.subtitle": "A kért oldal nem található.",
+    "platformIcon.alt": "Platform logója"
+}

@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     IconContainer,
@@ -24,7 +25,7 @@ export const switchDefaults: SwitchProps = {
 };
 
 export const Switch = ({
-    label = switchDefaults.label,
+    label: labelProp,
     labelPosition = switchDefaults.labelPosition,
     icon, // undefined by default
     colorScheme = switchDefaults.colorScheme,
@@ -38,6 +39,8 @@ export const Switch = ({
     labelStyle,
     ...props
 }: SwitchProps) => {
+    const { t } = useTranslation('alchemy');
+    const label = labelProp ?? t('switch.label');
     const [checked, setChecked] = useState(isChecked);
 
     useEffect(() => {
@@ -59,7 +62,7 @@ export const Switch = ({
                 onChange={() => setChecked(!checked)}
                 customSize={size}
                 disabled={isDisabled}
-                colorScheme={colorScheme || 'violet'}
+                colorScheme={colorScheme || 'primary'}
                 aria-labelledby={id}
                 aria-checked={checked}
                 {...props}
@@ -70,7 +73,7 @@ export const Switch = ({
                         {icon && (
                             <StyledIcon
                                 icon={icon}
-                                color={checked ? colorScheme || 'violet' : 'inherit'}
+                                color={checked ? colorScheme || 'primary' : 'inherit'}
                                 size={size || 'md'}
                                 checked={checked}
                             />

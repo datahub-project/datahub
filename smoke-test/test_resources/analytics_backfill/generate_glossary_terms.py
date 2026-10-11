@@ -10,18 +10,20 @@ import argparse
 import json
 import logging
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
-from datahub.emitter.mce_builder import make_term_urn, make_dataset_urn
+from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
-    AuditStampClass,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Business glossary terms organized by category
@@ -29,15 +31,24 @@ GLOSSARY_TERMS = {
     "Customer Data": {
         "terms": [
             ("Customer ID", "Unique identifier for a customer"),
-            ("Customer Lifetime Value", "Total revenue expected from a customer over their lifetime"),
-            ("Customer Segment", "Classification of customers based on behavior or demographics"),
+            (
+                "Customer Lifetime Value",
+                "Total revenue expected from a customer over their lifetime",
+            ),
+            (
+                "Customer Segment",
+                "Classification of customers based on behavior or demographics",
+            ),
             ("Churn Rate", "Percentage of customers who stop using the service"),
         ]
     },
     "Financial Metrics": {
         "terms": [
             ("Revenue", "Total income generated from business operations"),
-            ("Annual Recurring Revenue", "Predictable revenue stream from subscriptions"),
+            (
+                "Annual Recurring Revenue",
+                "Predictable revenue stream from subscriptions",
+            ),
             ("Gross Margin", "Revenue minus cost of goods sold"),
             ("Operating Expenses", "Costs incurred during normal business operations"),
         ]
@@ -60,7 +71,10 @@ GLOSSARY_TERMS = {
     },
     "Operations": {
         "terms": [
-            ("Service Level Agreement", "Commitment between service provider and customer"),
+            (
+                "Service Level Agreement",
+                "Commitment between service provider and customer",
+            ),
             ("Incident", "Unplanned interruption or reduction in service quality"),
             ("Mean Time To Resolution", "Average time to resolve an incident"),
             ("Uptime", "Percentage of time a system is operational"),
@@ -70,14 +84,17 @@ GLOSSARY_TERMS = {
 
 
 def create_glossary_term(
-    term_name: str, definition: str, category: str, actor_urn: str = "urn:li:corpuser:datahub"
-) -> List[MetadataChangeProposalWrapper]:
+    term_name: str,
+    definition: str,
+    category: str,
+    actor_urn: str = "urn:li:corpuser:datahub",
+) -> Tuple[List[MetadataChangeProposalWrapper], str]:
     """Create a glossary term with its metadata."""
     # Create a URL-friendly term ID
     term_id = term_name.lower().replace(" ", "_")
     term_urn = make_term_urn(term_id)
 
-    mcps = []
+    mcps: List[MetadataChangeProposalWrapper] = []
 
     # GlossaryTermInfo aspect
     term_info = GlossaryTermInfoClass(
@@ -106,20 +123,6 @@ def attach_terms_to_dataset(
     dataset_urn: str, term_urns: List[str], actor_urn: str = "urn:li:corpuser:datahub"
 ) -> MetadataChangeProposalWrapper:
     """Attach glossary terms to a dataset."""
-    glossary_terms = GlossaryTermsClass(
-        terms=[
-            AuditStampClass(
-                time=0,
-                actor=actor_urn,
-            )
-            for _ in term_urns
-        ],
-        auditStamp=AuditStampClass(
-            time=0,
-            actor=actor_urn,
-        ),
-    )
-
     # Create GlossaryTerms aspect with term associations
     from datahub.metadata.schema_classes import GlossaryTermAssociationClass
 
@@ -146,15 +149,15 @@ def attach_terms_to_dataset(
 def generate_and_emit_glossary_terms(
     gms_url: str,
     token: str,
-    entity_urns_file: str = None,
-    output_file: str = None,
+    entity_urns_file: Optional[str] = None,
+    output_file: Optional[str] = None,
 ) -> Dict:
     """Generate glossary terms and attach them to datasets."""
     logger.info("Generating glossary terms...")
 
     emitter = DataHubRestEmitter(gms_server=gms_url, token=token)
     created_terms = []
-    term_urn_map = {}
+    term_urn_map: Dict[str, List[str]] = {}
 
     # Create all glossary terms
     for category, data in GLOSSARY_TERMS.items():
@@ -165,7 +168,12 @@ def generate_and_emit_glossary_terms(
                 emitter.emit_mcp(mcp)
 
             created_terms.append(
-                {"name": term_name, "urn": term_urn, "category": category, "definition": definition}
+                {
+                    "name": term_name,
+                    "urn": term_urn,
+                    "category": category,
+                    "definition": definition,
+                }
             )
             term_urn_map[category] = term_urn_map.get(category, []) + [term_urn]
 
@@ -179,7 +187,9 @@ def generate_and_emit_glossary_terms(
                 all_urns = json.load(f)
                 # Filter to only datasets
                 dataset_urns = [urn for urn in all_urns if ":dataset:" in urn]
-            logger.info(f"Loaded {len(dataset_urns)} dataset URNs from {entity_urns_file}")
+            logger.info(
+                f"Loaded {len(dataset_urns)} dataset URNs from {entity_urns_file}"
+            )
         except FileNotFoundError:
             logger.warning(f"Entity URNs file not found: {entity_urns_file}")
 
@@ -190,12 +200,14 @@ def generate_and_emit_glossary_terms(
 
         # Distribute terms across datasets
         # Some datasets get multiple terms, some get one, some get none
-        for i, dataset_urn in enumerate(dataset_urns):
+        for dataset_urn in dataset_urns:
             # 70% of datasets get terms
             if random.random() < 0.7:
                 # Randomly select 1-3 categories
                 num_categories = random.randint(1, min(3, len(term_urn_map)))
-                selected_categories = random.sample(list(term_urn_map.keys()), num_categories)
+                selected_categories = random.sample(
+                    list(term_urn_map.keys()), num_categories
+                )
 
                 # Pick one random term from each selected category
                 selected_term_urns = []

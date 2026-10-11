@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "id": "sp-1",
+      "name": "MySQL to Snowflake CDC",
+      "projectId": "proj-1",
+      "environmentId": "env-1",
+      "sourceType": "mysql",
+      "targetType": "snowflake",
+      "sourceConnectionId": "conn-src-1",
+      "targetConnectionId": "conn-tgt-1",
+      "status": "running",
+      "description": "Real-time CDC from MySQL to Snowflake",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

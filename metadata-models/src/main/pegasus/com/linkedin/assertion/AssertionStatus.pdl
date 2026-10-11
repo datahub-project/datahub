@@ -1,0 +1,11 @@
+namespace com.linkedin.assertion
+
+/**
+ * Latest assertion status derived from run results and monitor errors.
+ */
+enum AssertionStatus {
+  PASSING,
+  FAILING,
+  ERROR,
+  INIT
+}

@@ -1,4 +1,6 @@
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,6 +19,7 @@ import { PageRoutes } from '@conf/Global';
 import { AndFilterInput } from '@types';
 
 export default function HierarchyViewModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const history = useHistory();
     const { showViewAll = true } = props;
     const { isReloading } = useModuleContext();
@@ -73,9 +76,9 @@ export default function HierarchyViewModule(props: ModuleProps) {
         <LargeModule {...props} onClickViewAll={showViewAll ? onClickViewAll : undefined} dataTestId="hierarchy-module">
             {assetUrns.length === 0 ? (
                 <EmptyContent
-                    icon="Stack"
-                    title="No Assets"
-                    description="Edit the module and add assets to see them in this list"
+                    icon={Stack}
+                    title={t('hierarchy.emptyTitle')}
+                    description={t('hierarchy.emptyDescription')}
                 />
             ) : (
                 <AssetsTreeView

@@ -27,4 +27,23 @@ public class EntityTypeUrnMapperTest {
         EntityTypeUrnMapper.getEntityTypeUrn(Constants.DATASET_ENTITY_NAME),
         "urn:li:entityType:datahub.dataset");
   }
+
+  @Test
+  public void testMetricRoundTrip() throws Exception {
+    final String metricUrn = "urn:li:entityType:datahub.metric";
+    assertEquals(EntityTypeUrnMapper.getName(metricUrn), Constants.METRIC_ENTITY_NAME);
+    assertEquals(EntityTypeUrnMapper.getEntityType(metricUrn), EntityType.METRIC);
+    assertEquals(EntityTypeUrnMapper.getEntityTypeUrn(Constants.METRIC_ENTITY_NAME), metricUrn);
+  }
+
+  @Test
+  public void testSemanticModelRoundTrip() throws Exception {
+    final String semanticModelUrn = "urn:li:entityType:datahub.semanticModel";
+    assertEquals(
+        EntityTypeUrnMapper.getName(semanticModelUrn), Constants.SEMANTIC_MODEL_ENTITY_NAME);
+    assertEquals(EntityTypeUrnMapper.getEntityType(semanticModelUrn), EntityType.SEMANTIC_MODEL);
+    assertEquals(
+        EntityTypeUrnMapper.getEntityTypeUrn(Constants.SEMANTIC_MODEL_ENTITY_NAME),
+        semanticModelUrn);
+  }
 }

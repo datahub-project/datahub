@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultError;
 import com.linkedin.assertion.AssertionResultErrorType;
+import com.linkedin.assertion.AssertionResultSeverity;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -105,6 +106,11 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
     }
     if (input.getProperties() != null) {
       assertionResult.setNativeResults(mapContextParameters(input.getProperties()));
+    }
+    // Severity is only meaningful on FAILURE results; ignore it otherwise so callers
+    // can't accidentally stamp a severity onto a SUCCESS or ERROR.
+    if (assertionResult.getType() == AssertionResultType.FAILURE && input.getSeverity() != null) {
+      assertionResult.setSeverity(AssertionResultSeverity.valueOf(input.getSeverity().toString()));
     }
     return assertionResult;
   }

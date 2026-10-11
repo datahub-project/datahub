@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityContext, useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -17,6 +18,9 @@ interface Props {
 }
 
 export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
+    const { t } = useTranslation('modules');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const { entityType, urn } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
@@ -53,25 +57,21 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: `Added Glossary Term to entities!`,
-                            duration: 2,
-                        });
+                        toast.success(t('assets.addedTermSuccess'), { duration: 2, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: `Failed to add glossary term: \n ${e.message || ''}`,
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addTermError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);
@@ -92,12 +92,9 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: `Added assets to Domain!`,
-                            duration: 3,
-                        });
+                        toast.success(t('assets.addedToDomainSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         entityState?.setShouldRefetchContents(true);
@@ -110,13 +107,12 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addToDomainError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);
@@ -135,12 +131,9 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: `Added assets to Data Product!`,
-                            duration: 3,
-                        });
+                        toast.success(t('assets.addedToDataProductSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
@@ -152,13 +145,12 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Data Product. An unknown error occurred.`,
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addToDataProductError'),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);
@@ -169,8 +161,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
         <>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
-                    titleText="Add Glossary Term to assets"
-                    continueText="Add"
+                    titleText={t('assets.addTermModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -180,8 +172,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             )}
             {isBatchSetDomainModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Domain"
-                    continueText="Add"
+                    titleText={t('assets.addToDomainModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -191,8 +183,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             )}
             {isBatchSetDataProductModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Data Product"
-                    continueText="Add"
+                    titleText={t('assets.addToDataProductModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDataProduct}
                     onCancel={() => setIsBatchSetDataProductModalVisible(false)}
                     fixedEntityTypes={Array.from(

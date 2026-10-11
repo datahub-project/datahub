@@ -5,8 +5,8 @@ import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/Ent
 import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { EntitySidebarSection } from '@app/entity/shared/types';
 
-export const MAX_SIDEBAR_WIDTH = 800;
-export const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
 
 const Sidebar = styled.div<{ $width: number; backgroundColor?: string }>`
     max-height: 100%;
@@ -31,9 +31,10 @@ interface Props {
     backgroundColor?: string;
     topSection?: EntitySidebarSection;
     alignLeft?: boolean;
+    loading?: boolean;
 }
 
-export default function ProfileSidebar({ sidebarSections, backgroundColor, topSection, alignLeft }: Props) {
+export default function ProfileSidebar({ sidebarSections, backgroundColor, topSection, alignLeft, loading }: Props) {
     const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
         ...sidebarSection,
         display: { ...DEFAULT_SIDEBAR_SECTION, ...sidebarSection.display },
@@ -46,7 +47,11 @@ export default function ProfileSidebar({ sidebarSections, backgroundColor, topSe
             <>
                 <Sidebar $width={sidebarWidth} backgroundColor={backgroundColor} id="entity-profile-sidebar">
                     <ScrollWrapper>
-                        <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} topSection={topSection} />
+                        <EntitySidebar
+                            sidebarSections={sideBarSectionsWithDefaults}
+                            topSection={topSection}
+                            loading={loading}
+                        />
                     </ScrollWrapper>
                 </Sidebar>
                 <ProfileSidebarResizer
@@ -70,7 +75,11 @@ export default function ProfileSidebar({ sidebarSections, backgroundColor, topSe
             />
             <Sidebar $width={sidebarWidth} backgroundColor={backgroundColor} id="entity-profile-sidebar">
                 <ScrollWrapper>
-                    <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} topSection={topSection} />
+                    <EntitySidebar
+                        sidebarSections={sideBarSectionsWithDefaults}
+                        topSection={topSection}
+                        loading={loading}
+                    />
                 </ScrollWrapper>
             </Sidebar>
         </>

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
@@ -16,6 +17,8 @@ export default function useSearchResultsOptions(
     isInitialized?: boolean,
     shouldCombineSiblings?: boolean,
 ): SectionOption[] {
+    const { t } = useTranslation('search');
+
     return useMemo(() => {
         const hasResults = (entitiesWithMatchedFields?.length ?? 0) > 0;
         if (!isLoading && !hasResults) return [];
@@ -37,7 +40,7 @@ export default function useSearchResultsOptions(
 
         return [
             {
-                label: <SectionHeader text="Best Matches" />,
+                label: <SectionHeader text={t('searchBar.sections.bestMatches')} />,
                 options: combinedEntities.map((combinedEntity) => ({
                     value: combinedEntity.entity.urn,
                     label: (
@@ -55,5 +58,5 @@ export default function useSearchResultsOptions(
                 })),
             },
         ];
-    }, [shouldCombineSiblings, entitiesWithMatchedFields, searchQuery, isLoading, isInitialized]);
+    }, [shouldCombineSiblings, entitiesWithMatchedFields, searchQuery, isLoading, isInitialized, t]);
 }

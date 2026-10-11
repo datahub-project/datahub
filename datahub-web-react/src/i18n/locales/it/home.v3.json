@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Modifica della home page predefinita dell'organizzazione",
+    "header.discoverLabel": "Scopri",
+    "error.failedToAddSummaryElement": "Impossibile aggiungere l'elemento di riepilogo",
+    "error.failedToRemoveSummaryElement": "Impossibile rimuovere l'elemento di riepilogo",
+    "error.failedToReplaceSummaryElement": "Impossibile sostituire l'elemento di riepilogo",
+    "error.noTemplateAvailable": "Nessun modello disponibile da aggiornare",
+    "toast.editedDescription": "Per reimpostare la home page, fai clic su \"Reimposta su predefinita dell'organizzazione\"",
+    "toast.editedTitle": "La home page è stata modificata"
+}

@@ -16,8 +16,13 @@ from datahub.metadata.urns import (
     DataFlowUrn,
     DataJobUrn,
     DatasetUrn,
+    DocumentUrn,
+    GlossaryNodeUrn,
+    GlossaryTermUrn,
+    MetricUrn,
     MlModelGroupUrn,
     MlModelUrn,
+    SemanticModelUrn,
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
@@ -28,9 +33,14 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.document import Document
 from datahub.sdk.entity import Entity
+from datahub.sdk.glossary_node import GlossaryNode
+from datahub.sdk.glossary_term import GlossaryTerm
+from datahub.sdk.metric import Metric
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
+from datahub.sdk.semantic_model import SemanticModel
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -62,6 +72,8 @@ class EntityClient:
     @overload
     def get(self, urn: DatasetUrn) -> Dataset: ...
     @overload
+    def get(self, urn: DocumentUrn) -> Document: ...
+    @overload
     def get(self, urn: MlModelUrn) -> MLModel: ...
     @overload
     def get(self, urn: MlModelGroupUrn) -> MLModelGroup: ...
@@ -73,6 +85,14 @@ class EntityClient:
     def get(self, urn: DashboardUrn) -> Dashboard: ...
     @overload
     def get(self, urn: ChartUrn) -> Chart: ...
+    @overload
+    def get(self, urn: GlossaryNodeUrn) -> GlossaryNode: ...
+    @overload
+    def get(self, urn: GlossaryTermUrn) -> GlossaryTerm: ...
+    @overload
+    def get(self, urn: SemanticModelUrn) -> SemanticModel: ...
+    @overload
+    def get(self, urn: MetricUrn) -> Metric: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:

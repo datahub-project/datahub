@@ -7,6 +7,8 @@ import type {
     FontWeightOptions,
 } from '@components/theme/config';
 
+import { Theme } from '@conf/theme/types';
+
 export interface HeadingPropsDefaults {
     type: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
     color: FontColorOptions;
@@ -18,4 +20,6 @@ export interface HeadingProps extends Partial<HeadingPropsDefaults>, Omit<HTMLAt
     colorLevel?: FontColorLevelOptions;
 }
 
-export type HeadingStyleProps = Omit<HeadingPropsDefaults, 'type'> & Pick<HeadingProps, 'colorLevel'>;
+export interface HeadingStyleProps extends Omit<HeadingPropsDefaults, 'type'>, Pick<HeadingProps, 'colorLevel'> {
+    theme: Theme;
+}

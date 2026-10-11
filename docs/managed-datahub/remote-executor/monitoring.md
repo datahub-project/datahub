@@ -3,8 +3,6 @@ title: Monitoring Remote Executor
 description: Learn how to monitor and observe Remote Executor health and performance
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Monitoring Remote Executor

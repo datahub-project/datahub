@@ -665,7 +665,7 @@ curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>?aspects=List(up
 
 #### Retrieving Entities (Legacy)
 
-> Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retriving Entity Aspects** section above for the
+> Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retrieving Entity Aspects** section above for the
 > latest guidance.
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity.
@@ -1349,6 +1349,8 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
     "endTimeMillis": "<your-end-time-ms>"
 }'
 ```
+
+`getTimeseriesAspectValues` requires authorization to view the entity and, for `datasetProfile`, `datasetUsageStatistics`, `operation`, and dashboard `dashboardUsageStatistics`, the corresponding View Dataset Profile / Usage / Operations privilege. When REST API authorization is enabled, **Get Timeseries Aspect API** is also required.
 
 For example, to fetch "datasetProfile" timeseries aspects for a dataset with urn `urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)`
 that were reported after July 26, 2021 and before July 28, 2021, you could issue the following query:

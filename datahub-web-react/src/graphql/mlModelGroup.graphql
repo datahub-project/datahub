@@ -1,4 +1,4 @@
-query getMLModelGroup($urn: String!) {
+query getMLModelGroup($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlModelGroup(urn: $urn) {
         urn
         type
@@ -9,6 +9,7 @@ query getMLModelGroup($urn: String!) {
                 time
                 actor
             }
+            createdAt
             lastModified {
                 time
                 actor
@@ -46,9 +47,6 @@ query getMLModelGroup($urn: String!) {
             properties {
                 ...structuredPropertiesFields
             }
-        }
-        forms {
-            ...formsFields
         }
         ...notes
     }

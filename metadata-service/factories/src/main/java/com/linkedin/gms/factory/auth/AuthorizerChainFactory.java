@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
@@ -48,9 +49,11 @@ public class AuthorizerChainFactory {
   @Scope("singleton")
   @Nonnull
   protected AuthorizerChain getInstance(
-      final DataHubAuthorizer dataHubAuthorizer, final SystemEntityClient systemEntityClient) {
+      final DataHubAuthorizer dataHubAuthorizer,
+      final SystemEntityClient systemEntityClient,
+      @Qualifier("groupService") final GroupService groupService) {
     final EntitySpecResolver resolver =
-        initResolver(dataHubAuthorizer.getSystemOpContext(), systemEntityClient);
+        initResolver(dataHubAuthorizer.getSystemOpContext(), systemEntityClient, groupService);
 
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(resolver));
@@ -66,8 +69,10 @@ public class AuthorizerChainFactory {
   }
 
   private EntitySpecResolver initResolver(
-      @Nonnull OperationContext systemOpContext, SystemEntityClient systemEntityClient) {
-    return new DefaultEntitySpecResolver(systemOpContext, systemEntityClient);
+      @Nonnull OperationContext systemOpContext,
+      SystemEntityClient systemEntityClient,
+      GroupService groupService) {
+    return new DefaultEntitySpecResolver(systemOpContext, systemEntityClient, groupService);
   }
 
   private List<Authorizer> initCustomAuthorizers(EntitySpecResolver resolver) {
@@ -137,7 +142,7 @@ public class AuthorizerChainFactory {
             customAuthorizers.add(authorizer);
             log.info("Plugin {} is initialized", pluginConfig.getName());
           } catch (ClassNotFoundException e) {
-            log.debug(String.format("Failed to init the plugin", pluginConfig.getName()));
+            log.debug("Failed to init the plugin {}", pluginConfig.getName());
             throw new RuntimeException(e);
           } finally {
             Thread.currentThread().setContextClassLoader(contextClassLoader);

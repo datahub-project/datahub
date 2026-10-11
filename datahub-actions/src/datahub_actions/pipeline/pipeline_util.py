@@ -14,15 +14,18 @@
 
 import logging
 import re
-from typing import Optional
+from typing import List, Optional
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub_actions.action.action import Action
 from datahub_actions.action.action_registry import action_registry
 from datahub_actions.api.action_graph import AcrylDataHubGraph
+from datahub_actions.filter.filter import Filter
+from datahub_actions.filter.filter_registry import filter_registry
 from datahub_actions.pipeline.pipeline_config import (
     ActionConfig,
     FilterConfig,
+    FilterSpec,
     SourceConfig,
     TransformConfig,
 )
@@ -92,6 +95,41 @@ def create_filter_transformer(
         raise Exception(
             "Caught exception while attempting to instantiate Filter transformer"
         ) from e
+
+
+def create_filter(filter_spec: FilterSpec, ctx: PipelineContext) -> Filter:
+    filter_type = filter_spec.type
+    filter_class = filter_registry.get(filter_type)
+    filter_instance = None
+    try:
+        logger.debug(
+            f"Attempting to instantiate new Filter of type {filter_spec.type}.."
+        )
+        filter_config = filter_spec.config if filter_spec.config is not None else {}
+        filter_instance = filter_class.create(filter_config, ctx)
+    except Exception as e:
+        raise Exception(
+            f"Caught exception while attempting to instantiate Filter with type {filter_type}"
+        ) from e
+
+    if filter_instance is None:
+        raise Exception(
+            f"Failed to create Filter with type {filter_type}. Filter create method returned 'None'."
+        )
+
+    return filter_instance
+
+
+def create_filters(
+    filter_specs: Optional[List[FilterSpec]], ctx: PipelineContext
+) -> List[Filter]:
+    if filter_specs is None:
+        return []
+    return [create_filter(spec, ctx) for spec in filter_specs]
+
+
+def get_filter_name(f: Filter) -> str:
+    return type(f).__name__
 
 
 def create_transformer(

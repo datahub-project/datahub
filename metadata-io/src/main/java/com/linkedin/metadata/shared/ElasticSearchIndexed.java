@@ -26,6 +26,15 @@ public interface ElasticSearchIndexed {
   ESIndexBuilder getIndexBuilder();
 
   /**
+   * Builder for the cluster that owns {@code indexName}. Graph, timeseries and system-metadata
+   * services are 1:1 with a cluster and keep the no-arg builder. Entity search overrides this when
+   * Search V2 / V3 / semantic live on different clusters.
+   */
+  default ESIndexBuilder getIndexBuilder(@Nonnull String indexName) {
+    return getIndexBuilder();
+  }
+
+  /**
    * Mirrors the service's functions which are expected to build/reindex as needed based on the
    * reindex configurations above
    */
@@ -40,7 +49,7 @@ public interface ElasticSearchIndexed {
       boolean dryRun) {
     try {
       for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
-        getIndexBuilder().tweakReplicas(config, dryRun);
+        getIndexBuilder(config.name()).tweakReplicas(opContext, config, dryRun);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);

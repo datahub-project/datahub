@@ -389,6 +389,9 @@ body {
       background-repeat: no-repeat;
       background-position: 50% 50%;
       background-size: 20px 20px;
+      // Infima rotates .menu__link--sublist::after when the category collapses,
+      // which inadvertently rotates this icon too. Override to keep it upright.
+      transform: none;
 
       [data-theme="dark"] & {
         filter: invert(1);

@@ -1,7 +1,8 @@
-import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination } from 'antd';
+import { Button, EmptyState, Loader, Pagination } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -10,7 +11,6 @@ import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContex
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -33,11 +33,7 @@ const ResultsWrapper = styled.div`
     flex-direction: column;
     padding: 16px;
     gap: 12px;
-    background: ${REDESIGN_COLORS.BACKGROUND};
-`;
-
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const LoadingWrapper = styled.div`
@@ -49,6 +45,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const { t } = useTranslation('entity.types');
     const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -108,15 +105,16 @@ export default function DataProductsTab() {
         <>
             <TabToolbar>
                 <Button
-                    type="text"
+                    variant="text"
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreateModalVisible(true)}
                     data-testid="create-data-product-button"
                 >
-                    <PlusOutlined /> New Data Product
+                    {t('dataProduct.newDataProduct')}
                 </Button>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search data products..."
+                    placeholderText={t('dataProduct.searchPlaceholder')}
                     suggestions={[]}
                     style={{
                         maxWidth: 220,
@@ -134,15 +132,11 @@ export default function DataProductsTab() {
             </TabToolbar>
             <ResultsWrapper>
                 {!loading && !displayedDataProducts.length && (
-                    <Empty
-                        description="No Data Products"
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: ANTD_GRAY[7] }}
-                    />
+                    <EmptyState title={t('dataProduct.noDataProductsEmpty')} size="sm" />
                 )}
                 {loading && (
                     <LoadingWrapper>
-                        <StyledLoading />
+                        <Loader size="md" />
                     </LoadingWrapper>
                 )}
                 {!loading &&
@@ -157,11 +151,11 @@ export default function DataProductsTab() {
             </ResultsWrapper>
             <DataProductsPaginationWrapper>
                 <Pagination
-                    current={page}
-                    pageSize={DEFAULT_PAGE_SIZE}
+                    currentPage={page}
+                    itemsPerPage={DEFAULT_PAGE_SIZE}
                     total={totalResults}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </DataProductsPaginationWrapper>

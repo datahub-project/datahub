@@ -22,6 +22,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.ForeignKeyConstraint;
 import com.linkedin.schema.ForeignKeyConstraintArray;
@@ -58,7 +60,12 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull AspectDao aspectDao,
       @Nonnull EventProducer producer,
       PreProcessHooks preProcessHooks) {
-    super(aspectDao, producer, true, preProcessHooks, true);
+    super(
+        aspectDao,
+        producer,
+        preProcessHooks,
+        new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+        mock(MetricUtils.class));
     setUpdateIndicesService(mock(UpdateIndicesService.class));
   }
 

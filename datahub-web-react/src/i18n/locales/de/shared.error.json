@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Bitte melde die Fehlermeldungen aus deinem Browser an deinen DataHub-Administrator",
+    "bulkEditUnauthorized": "Deine Auswahl für die Massenbearbeitung enthielt Entitäten, zu deren Aktualisierung du nicht berechtigt bist. Die durchgeführte Massenbearbeitung wird nicht gespeichert.",
+    "fallback.defaultMessage": "Unser Team wurde über diesen unerwarteten Fehler benachrichtigt und arbeitet an einer Lösung.",
+    "fallback.subtitle": "Etwas ist nicht wie geplant verlaufen.",
+    "fallback.title": "Hoppla!",
+    "section.description": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es später erneut oder wende dich an deinen Administrator",
+    "section.needSupport": "<bold>Brauchst du Unterstützung?</bold> Sieh dir diese Ressourcen an:",
+    "section.title": "Etwas ist schiefgelaufen.",
+    "unauthorized": "Nicht berechtigt. Bitte wende dich an deinen DataHub-Administrator."
+}

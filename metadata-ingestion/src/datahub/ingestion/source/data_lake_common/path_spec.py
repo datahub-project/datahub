@@ -20,7 +20,14 @@ from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
+SUPPORTED_FILE_TYPES: List[str] = [
+    "csv",
+    "tsv",
+    "json",
+    "jsonl",
+    "parquet",
+    "avro",
+]
 
 # These come from the smart_open library.
 SUPPORTED_COMPRESSIONS: List[str] = [
@@ -99,7 +106,7 @@ class PathSpec(ConfigModel):
 
     default_extension: Optional[str] = Field(
         None,
-        description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
+        description="Assume this file type for files where the format cannot be inferred from the file name. This includes files with no extension and files whose apparent extension (the part after the last dot) is not a recognised format (which can happen for file names whose stem contains dots, e.g. ``foo.bar.baz-<hash>.gz``). If unset, such files are skipped.",
     )
 
     table_name: Optional[str] = Field(
@@ -148,6 +155,17 @@ class PathSpec(ConfigModel):
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
+    emit_folders_only: bool = Field(
+        False,
+        description="If set, this path_spec emits each matching storage folder as a DataHub "
+        "Container and creates no dataset entities. Folder depth is set by the number of "
+        "wildcard levels in `include` (e.g. `.../*/` one level deep, `.../*/*/` two levels). "
+        "`exclude` and `include_hidden_folders` still apply to the folder walk; file/dataset "
+        "fields (`file_types`, `default_extension`, `table_name`, `tables_filter_pattern`) are "
+        "rejected since no datasets are produced. `include` must end at a folder and must not "
+        "contain `{table}` or `**`.",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -183,15 +201,74 @@ class PathSpec(ConfigModel):
         if not self.tables_filter_pattern.allowed(table_name):
             return False
 
-        ext = os.path.splitext(path)[1].strip(".")
-
         if not ignore_ext:
-            if (ext == "" and self.default_extension is None) and (
-                ext != "*" and ext not in self.file_types
-            ):
+            # A glob like ``*`` with no explicit extension matches any file type.
+            if os.path.splitext(path)[1].strip(".").lower() == "*":
+                return True
+
+            fmt = self._recognised_format(path)
+            if fmt is not None:
+                # A recognised format: keep it only if this path_spec wants it.
+                if fmt not in self.file_types:
+                    return False
+            elif self.default_extension is None or self._is_disabled_compression(path):
+                # Nothing to go on: either no real format extension (empty, or a fake
+                # one from a dotted stem like ``foo.bar.baz-<hash>``) with no default
+                # to fall back on, or a compression suffix while ``enable_compression``
+                # is off. In the latter case the file can't be read as its inner
+                # format, so the ``default_extension`` fallback must not admit it.
                 return False
 
         return True
+
+    def _is_disabled_compression(self, path: str) -> bool:
+        """True if ``path`` ends in a compression suffix but compression is disabled.
+
+        Such a file cannot be decompressed to read its inner format, so it must not
+        be admitted via the ``default_extension`` fallback in ``allowed()``.
+        """
+        if self.enable_compression:
+            return False
+        return os.path.splitext(path)[1].strip(".").lower() in SUPPORTED_COMPRESSIONS
+
+    def _recognised_format(self, path: str) -> Optional[str]:
+        """Return the file's format from its name (compression stripped), or None.
+
+        ``os.path.splitext`` / ``pathlib.suffix`` are purely lexical (everything
+        after the last dot), so file names whose stem contains dots (e.g.
+        ``foo.bar.baz-<hash>.gz``) produce a fake extension that is not a real file
+        format. We only return an extension if it matches one of the supported file
+        types; a compression suffix (e.g. ``.gz``) is stripped first so the inner
+        format is checked. This is the single rule shared by ``allowed()`` (file
+        selection) and ``resolve_format_extension()`` (parser selection), so the two
+        cannot drift.
+        """
+        ext = os.path.splitext(path)[1].strip(".").lower()
+        if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+            ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+        return ext if ext in SUPPORTED_FILE_TYPES else None
+
+    def resolve_format_extension(self, path: str) -> str:
+        """Resolve the format extension (e.g. ``.json``) for a file name.
+
+        Returns the recognised format from the file name, falling back to
+        ``default_extension`` when the name has no recognised format, and ``""``
+        when neither is available so no inferrer is selected. Shared with
+        ``allowed()`` via ``_recognised_format`` so file selection and schema
+        inference agree on the format.
+
+        Behaviour:
+
+        * ``data.json``            -> ``.json``
+        * ``data.json.gz``         -> ``.json`` (compression stripped, inner kept)
+        * ``data.parquet.gz``      -> ``.parquet``
+        * ``data.gz``              -> ``default_extension`` if set, else ``""``
+        * ``data`` (no extension)  -> ``default_extension`` if set, else ``""``
+        * ``foo.bar.baz-<hash>.gz`` -> ``default_extension`` (was ``.baz-<hash>``)
+        * ``foo.bar.baz-<hash>``    -> ``default_extension`` (was ``.baz-<hash>``)
+        """
+        fmt = self._recognised_format(path) or self.default_extension
+        return f".{fmt.lower()}" if fmt else ""
 
     def dir_allowed(self, path: str) -> bool:
         if not path.endswith("/"):
@@ -231,6 +308,23 @@ class PathSpec(ConfigModel):
             return False
         # logger.debug(f"{path} is passed table name check")
 
+        return True
+
+    def folder_allowed(self, path: str) -> bool:
+        """Filter for folders-only traversal. Applies the folder-relevant rules —
+        hidden-folder skipping and `exclude` — but not the file-extension or table-name
+        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
+        `is_path_hidden` inspects every path component and `exclude` globs match the full
+        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+        if self.is_path_hidden(path) and not self.include_hidden_folders:
+            return False
+        if self.exclude:
+            candidate = path.rstrip("/")
+            for exclude_path in self.exclude:
+                if pathlib.PurePath(candidate).globmatch(
+                    exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
+                ):
+                    return False
         return True
 
     @classmethod
@@ -277,6 +371,42 @@ class PathSpec(ConfigModel):
         By combining related validations, we ensure they execute in the correct sequence
         and have access to all field values after Pydantic has processed defaults.
         """
+        # Folders-only path specs catalog storage paths; they have no dataset/table
+        # concept, and depth must be explicit wildcard levels (not recursive **).
+        if self.emit_folders_only:
+            if "{table}" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '{table}' when "
+                    "emit_folders_only is set"
+                )
+            if "**" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '**' when "
+                    "emit_folders_only is set; use explicit '*' levels to set depth"
+                )
+            # File/dataset-selection fields have no effect in folders-only mode. Reject
+            # them explicitly rather than silently ignoring a value the user set.
+            # (exclude and include_hidden_folders DO apply and are handled in the walk.)
+            if self.table_name is not None:
+                raise ValueError(
+                    "path_spec.table_name is not applicable when emit_folders_only is set"
+                )
+            if self.default_extension is not None:
+                raise ValueError(
+                    "path_spec.default_extension is not applicable when "
+                    "emit_folders_only is set"
+                )
+            if self.file_types != SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    "path_spec.file_types is not applicable when emit_folders_only is set"
+                )
+            if self.tables_filter_pattern != AllowDenyPattern.allow_all():
+                raise ValueError(
+                    "path_spec.tables_filter_pattern is not applicable when "
+                    "emit_folders_only is set; use exclude to skip folders"
+                )
+            return self
+
         # Handle autodetect_partitions logic first
         if self.autodetect_partitions:
             include = self.include

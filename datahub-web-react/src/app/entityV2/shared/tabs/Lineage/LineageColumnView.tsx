@@ -1,24 +1,21 @@
-import {
-    ArrowDownOutlined,
-    ArrowUpOutlined,
-    CaretDownFilled,
-    CaretDownOutlined,
-    LoadingOutlined,
-    ReloadOutlined,
-    SubnodeOutlined,
-} from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ColumnsLineageSelect from '@app/entityV2/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -32,6 +29,14 @@ import { Direction } from '@src/app/lineage/types';
 
 import { EntityType, LineageDirection, LineageSearchPath } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
     z-index: 2;
@@ -45,30 +50,31 @@ const LeftButtonsWrapper = styled.div`
 const RightButtonsWrapper = styled.div`
     align-items: center;
     display: flex;
+    gap: 4px;
 `;
 
-const ManageLineageIcon = styled(SubnodeOutlined)`
-    &&& {
-        margin-right: -2px;
-    }
-`;
+const StyledCaretDown = styled(CaretDown).attrs({ size: 12 })``;
 
-const StyledCaretDown = styled(CaretDownFilled)`
-    &&& {
-        font-size: 10px;
-        margin-left: 4px;
+const ToolbarActionButton = styled(Button)`
+    && {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: auto;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
     }
 `;
 
 const StyledSelect = styled(Select)`
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
-const RefreshCacheButton = styled(Button)`
-    margin-left: 8px;
-`;
+const RefreshCacheButton = styled(ToolbarActionButton)``;
 
 interface SchemaFieldEntityData extends GenericEntityProperties {
     fieldPath?: string;
@@ -80,9 +86,12 @@ interface Props {
 }
 
 export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
     const { urn, entityType, entityData } = useEntityData();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -114,14 +123,10 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const directionOptions = [
         {
             label: (
-                <Tooltip
-                    placement="right"
-                    title={`View the data assets that depend on ${entityName}`}
-                    showArrow={false}
-                >
+                <Tooltip placement="right" title={t('direction.downstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-downstream">
-                        <ArrowDownOutlined style={{ marginRight: 4 }} />
-                        <b>Downstreams</b>
+                        <ArrowDown style={{ marginRight: 4 }} />
+                        <b>{t('direction.downstreams')}</b>
                     </span>
                 </Tooltip>
             ),
@@ -129,14 +134,10 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
         },
         {
             label: (
-                <Tooltip
-                    placement="right"
-                    title={`View the data assets that ${entityName} depends on`}
-                    showArrow={false}
-                >
+                <Tooltip placement="right" title={t('direction.upstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-upstream">
-                        <ArrowUpOutlined style={{ marginRight: 4 }} />
-                        <b>Upstreams</b>
+                        <ArrowUp style={{ marginRight: 4 }} />
+                        <b>{t('direction.upstreams')}</b>
                     </span>
                 </Tooltip>
             ),
@@ -153,7 +154,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        suffixIcon={<CaretDown style={{ color: theme.colors.text }} />}
                         data-testid="lineage-tab-direction-select"
                     />
                 </LeftButtonsWrapper>
@@ -161,13 +162,13 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <ManageLineageMenuForImpactAnalysis
                         setVisualizeViewInEditMode={setVisualizeViewInEditMode}
                         menuIcon={
-                            <Button type="text">
-                                <ManageLineageIcon />
+                            <ToolbarActionButton type="text">
+                                <Graph size={16} />
                                 <Typography.Text>
-                                    <b>Edit</b>
+                                    <b>{tcAction('edit')}</b>
                                 </Typography.Text>
                                 <StyledCaretDown />
-                            </Button>
+                            </ToolbarActionButton>
                         }
                         entityType={entityType}
                         canEditLineage={canEditLineage}
@@ -182,11 +183,11 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         />
                     )}
                     <LineageTabTimeSelector />
-                    <Tooltip title={isLoading ? 'Refreshing data' : 'Refresh lineage'} showArrow={false}>
+                    <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
-                            {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
+                            {isLoading ? <SpinningCircleNotch size={16} /> : <ArrowsClockwise size={16} />}
                             <Typography.Text>
-                                <b>Refresh</b>
+                                <b>{tcAction('refresh')}</b>
                             </Typography.Text>
                         </RefreshCacheButton>
                     </Tooltip>

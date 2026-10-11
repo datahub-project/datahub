@@ -1,6 +1,9 @@
 import { Button, Icon, Text } from '@components';
+import { ArrowsCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React from 'react';
 import { FallbackProps } from 'react-error-boundary';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import SmallModule from '@app/homeV3/module/components/SmallModule';
@@ -28,15 +31,16 @@ interface Props {
 }
 
 export default function SmallModuleFallback({ moduleProps, fallbackProps }: Props) {
+    const { t } = useTranslation('modules');
     return (
         <SmallModule {...moduleProps}>
             <Container>
-                <StyledIcon icon="ExclamationMark" source="phosphor" color="gray" colorLevel={1800} size="4xl" />
+                <StyledIcon icon={ExclamationMark} color="gray" colorLevel={1800} size="4xl" />
                 <StyledText weight="bold" size="lg" color="gray" colorLevel={600}>
-                    Error loading. Try refreshing.
+                    {t('error.smallText')}
                 </StyledText>
                 <Button
-                    icon={{ icon: 'ArrowsCounterClockwise', source: 'phosphor', size: '2xl' }}
+                    icon={{ icon: ArrowsCounterClockwise, size: '2xl' }}
                     variant="link"
                     onClick={() => fallbackProps.resetErrorBoundary()}
                 />

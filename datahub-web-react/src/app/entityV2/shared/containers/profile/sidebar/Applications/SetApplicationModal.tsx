@@ -1,8 +1,15 @@
 import { Modal, Select, Typography, message } from 'antd';
-import React, { useState } from 'react';
+import debounce from 'lodash/debounce';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { useBatchSetApplicationMutation, useGetApplicationsListQuery } from '@graphql/application.generated';
+import { useBatchSetApplicationMutation, useGetApplicationsListLazyQuery } from '@graphql/application.generated';
 import { Application, EntityType } from '@types';
+
+const SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_RESULT_COUNT = 100;
+// Minimum chars before switching from wildcard to keyword search; short queries return no results
+const MIN_SEARCH_LENGTH = 3;
 
 interface Props {
     urns: string[];
@@ -11,17 +18,45 @@ interface Props {
 }
 
 export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const [applicationUrn, setApplicationUrn] = useState<string | undefined>(undefined);
-    const { data, loading, error } = useGetApplicationsListQuery({
-        variables: {
-            input: {
-                start: 0,
-                count: 1000,
-                query: '',
-                types: [EntityType.Application],
+
+    const [getApplications, { data, loading, error }] = useGetApplicationsListLazyQuery();
+
+    useEffect(() => {
+        getApplications({
+            variables: {
+                input: {
+                    start: 0,
+                    count: DEFAULT_RESULT_COUNT,
+                    query: '*',
+                    types: [EntityType.Application],
+                },
             },
-        },
-    });
+        });
+    }, [getApplications]);
+
+    const handleSearch = useMemo(() => {
+        const fetch = (text: string) => {
+            const trimmed = text.trim();
+            getApplications({
+                variables: {
+                    input: {
+                        start: 0,
+                        count: DEFAULT_RESULT_COUNT,
+                        query: trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : '*',
+                        types: [EntityType.Application],
+                    },
+                },
+            });
+        };
+        return debounce(fetch, SEARCH_DEBOUNCE_MS);
+    }, [getApplications]);
+
+    const onSearch = (value: string) => {
+        handleSearch(value);
+    };
+
     const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
 
     const onOk = () => {
@@ -37,13 +72,16 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
             },
         })
             .then(() => {
-                message.success({ content: 'Application set', duration: 2 });
+                message.success({ content: t('sidebar.application.setSuccess'), duration: 2 });
                 refetch?.();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to set application: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: t('sidebar.application.setFailed', { message: e.message || '' }),
+                        duration: 3,
+                    });
                 }
             })
             .finally(() => {
@@ -59,21 +97,35 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
                 return {
                     value: appEntity.urn,
                     label: appEntity.properties?.name || '',
+                    'data-testid': `application-option-${appEntity.urn}`,
                 };
             }) || [];
 
+    const notFoundContent = () => {
+        if (loading) return null;
+        return 'No applications found';
+    };
+
     return (
-        <Modal title="Set Application" open onOk={onOk} onCancel={onCloseModal} closable>
+        <Modal title={t('sidebar.application.modalTitle')} open onOk={onOk} onCancel={onCloseModal} closable>
             <Select
+                data-testid="application-select"
                 showSearch
                 style={{ width: '100%' }}
-                placeholder="Select an application"
+                placeholder={t('sidebar.application.selectPlaceholder')}
                 onChange={(value) => setApplicationUrn(value)}
-                filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                onSearch={onSearch}
+                filterOption={false}
                 options={applicationOptions}
                 loading={loading}
+                value={applicationUrn}
+                notFoundContent={notFoundContent()}
             />
-            {error && <Typography.Text type="danger">Failed to load applications: {error.message}</Typography.Text>}
+            {error && (
+                <Typography.Text type="danger">
+                    {t('sidebar.application.loadFailed', { message: error.message })}
+                </Typography.Text>
+            )}
         </Modal>
     );
 };

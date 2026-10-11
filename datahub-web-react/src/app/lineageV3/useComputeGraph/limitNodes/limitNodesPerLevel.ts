@@ -12,7 +12,7 @@ import {
 
 import { EntityType, LineageDirection } from '@types';
 
-export interface LimitedGraphResult {
+interface LimitedGraphResult {
     limitedNodes: LineageNode[];
     levelsInfo: LevelsInfo;
     levelsMap: Map<string, number>;

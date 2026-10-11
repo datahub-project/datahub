@@ -1,6 +1,8 @@
-import { DatePicker } from 'antd';
-import moment, { Moment } from 'moment';
 import React from 'react';
+
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 interface Props {
     selectedValues: any[];
@@ -8,11 +10,11 @@ interface Props {
 }
 
 export default function DateInput({ selectedValues, updateSelectedValues }: Props) {
-    function updateInput(_: Moment | null, value: string) {
+    function updateInput(_: Dayjs | null, value: string) {
         updateSelectedValues([value]);
     }
 
-    const currentValue = selectedValues[0] ? moment(selectedValues[0]) : undefined;
+    const currentValue = selectedValues[0] ? dayjs(selectedValues[0]) : undefined;
 
     return <DatePicker onChange={updateInput} value={currentValue} />;
 }

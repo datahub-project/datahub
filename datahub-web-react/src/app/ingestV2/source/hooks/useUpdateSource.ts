@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
@@ -19,7 +20,7 @@ export function useUpdateIngestionSource() {
                         resolve();
                     })
                     .catch((e) => {
-                        reject(new Error(`Failed to update ingestion source!: \n ${e.message || ''}`));
+                        reject(new Error(i18next.t('ingestion:source.updateError', { error: e.message || '' })));
                     });
             });
         },

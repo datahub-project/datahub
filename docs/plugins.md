@@ -87,14 +87,14 @@ By default, authentication is disabled in DataHub GMS.
 
 Follow below steps to enable GMS authentication
 
-1. Download docker-compose.quickstart.yml: Download docker compose file [docker-compose.quickstart.yml](../docker/quickstart/docker-compose.quickstart.yml)
+1. Download docker-compose.quickstart-profile.yml: Download docker compose file [docker-compose.quickstart-profile.yml](../docker/quickstart/docker-compose.quickstart-profile.yml)
 
 2. Set environment variable: Set `METADATA_SERVICE_AUTH_ENABLED` environment variable to `true`
 
 3. Redeploy DataHub GMS: Below is quickstart command to redeploy DataHub GMS
 
    ```shell
-   datahub docker quickstart -f docker-compose.quickstart.yml
+   datahub docker quickstart -f docker-compose.quickstart-profile.yml
    ```
 
 ## Authorization

@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.ApplicationService;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,6 +32,20 @@ public class ApplicationAuthorizationUtils {
   public static boolean canManageApplications(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
         context.getOperationContext(), MANAGE, List.of(APPLICATION_ENTITY_NAME));
+  }
+
+  /**
+   * Returns true if the current user is authorized to create any application entity. This is true
+   * if the user has the EDIT_ENTITY privilege for applications.
+   */
+  public static boolean canCreateApplications(@Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(context, APPLICATION_ENTITY_NAME, "", orPrivilegeGroups);
   }
 
   /**
@@ -71,11 +87,23 @@ public class ApplicationAuthorizationUtils {
       @Nonnull ApplicationService applicationService,
       @Nonnull QueryContext context,
       @Nonnull String operationName) {
-    for (String resource : resources) {
-      Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!applicationService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+    if (resources.isEmpty()) {
+      return;
+    }
+
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    // Existence of every resource is resolved in one request, but the existence-then-authorization
+    // order per resource is preserved so the reported failure is the same as a per-resource check.
+    final Set<Urn> existingUrns =
+        applicationService.filterExistingEntities(context.getOperationContext(), resourceUrns);
+
+    for (int i = 0; i < resourceUrns.size(); i++) {
+      final Urn resourceUrn = resourceUrns.get(i);
+      if (!existingUrns.contains(resourceUrn)) {
         throw new RuntimeException(
-            String.format("Failed to %s, %s in resources does not exist", operationName, resource));
+            String.format(
+                "Failed to %s, %s in resources does not exist", operationName, resources.get(i)));
       }
       verifyEditApplicationsAuthorization(resourceUrn, context);
     }

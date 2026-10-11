@@ -1,10 +1,8 @@
 import { Loader } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import {
     BrowseProvider,
@@ -29,13 +27,19 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform } from '@types';
 
+const CSS_TRANSFORM_ROTATE_90 = 'rotate(90deg)';
+const CSS_TRANSITION_TRANSFORM = 'transform 200ms ease';
+const CSS_DISPLAY_NONE = 'none';
+
 const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;
     color: ${(props) => props.color};
     padding: 2px 8px;
     margin-left: 8px;
     ${(props) => props.$isPlatformBrowse && `border-radius: 8px;`}
-    ${(props) => props.$isPlatformBrowse && `background-color: ${props.isOpen ? '#fff' : ANTD_GRAY[3]};`}
+    ${(props) =>
+        props.$isPlatformBrowse &&
+        `background-color: ${props.isOpen ? props.theme.colors.bg : props.theme.colors.bgSurface};`}
 `;
 
 type Props = {
@@ -46,6 +50,7 @@ type Props = {
 };
 
 const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollapse, collapsed = true }: Props) => {
+    const theme = useTheme();
     const isPlatformBrowse = useIsPlatformBrowseMode();
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
@@ -85,14 +90,14 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
 
     const { error, groups, loading, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
-    const color = REDESIGN_COLORS.TEXT_HEADING;
+    const color = theme.colors.text;
 
     const nodeStyle = {
         padding: '4px',
         margin: '0px',
-        background: collapsed ? '#fff' : isOpen && REDESIGN_COLORS.BACKGROUND_GRAY_4,
-        borderLeft: isOpen && '1px solid #fff',
-        borderRight: isOpen && '1px solid #fff',
+        background: collapsed ? theme.colors.bg : isOpen && theme.colors.bgSurfaceBrand,
+        borderLeft: isOpen && `1px solid ${theme.colors.borderWhite}`,
+        borderRight: isOpen && `1px solid ${theme.colors.borderWhite}`,
         justifyContent: collapsed ? 'center' : 'start',
         display: 'flex',
         flexDirection: 'column',
@@ -123,15 +128,15 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                             dataTestId={`browse-platform-${label}`}
                             style={{
                                 marginRight: 4,
-                                transform: isOpen && 'rotate(90deg)',
-                                transition: 'transform 200ms ease',
-                                ...(collapsed && { display: 'none' }),
+                                transform: isOpen && CSS_TRANSFORM_ROTATE_90,
+                                transition: CSS_TRANSITION_TRANSFORM,
+                                ...(collapsed && { display: CSS_DISPLAY_NONE }),
                             }}
                         />
                         <PlatformIcon
                             platform={platformAggregation.entity as DataPlatform}
                             size={iconSize}
-                            color={REDESIGN_COLORS.BORDER_1}
+                            color={theme.colors.icon}
                         />
                         {!collapsed && (
                             <ExpandableNode.Title

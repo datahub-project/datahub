@@ -1,6 +1,8 @@
-import { Icon, colors } from '@components';
-import { Typography } from 'antd';
+import { Icon, Tooltip } from '@components';
+import React from 'react';
 import styled from 'styled-components';
+
+import { TextProps } from '@components/components/Text/types';
 
 import VectorBackground from '@images/homepage-vector.svg?react';
 
@@ -13,7 +15,6 @@ export const PageWrapper = styled.div`
     }
     display: flex;
     flex-direction: column;
-    box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.08);
     align-items: center;
 `;
 
@@ -22,9 +23,9 @@ export const HomePageContainer = styled.div`
     flex: 1;
     overflow: hidden;
     margin: 5px;
-    border: 1px solid ${colors.gray[100]};
     border-radius: 12px;
-    position: relative;
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 export const StyledVectorBackground = styled(VectorBackground)`
@@ -35,7 +36,8 @@ export const StyledVectorBackground = styled(VectorBackground)`
     transform: rotate(0deg);
     pointer-events: none;
     border-radius: 12px;
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
+    ${(props) => props.theme.id === 'themeV2Dark' && 'opacity: 0;'}
 `;
 
 export const contentWidth = (additionalWidth = 0) => `
@@ -105,16 +107,75 @@ export const FloatingRightHeaderSection = styled.div`
     height: 100%;
 `;
 
-export const NameContainer = styled(Typography.Text)`
-    color: ${colors.gray[600]};
+type EllipsisTextProps = TextProps & {
+    ellipsis?: {
+        tooltip?: {
+            showArrow?: boolean;
+            color?: string;
+            overlayInnerStyle?: React.CSSProperties;
+        };
+    };
+};
+
+function EllipsisText({ ellipsis, children, ...props }: EllipsisTextProps) {
+    const textRef = React.useRef<HTMLSpanElement>(null);
+    const [isTruncated, setIsTruncated] = React.useState(false);
+    const htmlProps = { ...props };
+    delete htmlProps.color;
+    delete htmlProps.size;
+    delete htmlProps.weight;
+    delete htmlProps.type;
+    delete htmlProps.theme;
+
+    React.useEffect(() => {
+        const element = textRef.current;
+        if (!element) return undefined;
+
+        const updateTruncation = () => setIsTruncated(element.scrollWidth > element.clientWidth);
+        updateTruncation();
+
+        const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateTruncation);
+        observer?.observe(element);
+        window.addEventListener('resize', updateTruncation);
+
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener('resize', updateTruncation);
+        };
+    }, [children]);
+
+    const text = React.createElement('span', { ...htmlProps, ref: textRef }, children);
+
+    return ellipsis
+        ? React.createElement(
+              Tooltip,
+              {
+                  title: isTruncated ? children : undefined,
+                  showArrow: ellipsis.tooltip?.showArrow,
+                  color: ellipsis.tooltip?.color,
+                  overlayInnerStyle: ellipsis.tooltip?.overlayInnerStyle,
+              },
+              text,
+          )
+        : text;
+}
+
+export const NameContainer = styled(EllipsisText)`
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
     font-size: 16px;
     line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
-export const DescriptionContainer = styled(Typography.Text)`
-    color: ${colors.gray[500]};
+export const DescriptionContainer = styled(EllipsisText)`
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
     font-size: 12px;
     line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;

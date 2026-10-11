@@ -1,0 +1,13 @@
+{
+    "viewDefinitionTab.detailsHeading": "Details",
+    "viewDefinitionTab.formatCompiled": "Kompiliert",
+    "viewDefinitionTab.formatFormatted": "Formatiert",
+    "viewDefinitionTab.formatRaw": "Roh",
+    "viewDefinitionTab.formatSource": "Quelle",
+    "viewDefinitionTab.languageLabel": "Sprache",
+    "viewDefinitionTab.logicHeading": "Logik",
+    "viewDefinitionTab.materializedFalse": "Nein",
+    "viewDefinitionTab.materializedLabel": "Materialisiert",
+    "viewDefinitionTab.materializedTrue": "Ja",
+    "viewDefinitionTab.noViewPermission": "Du hast keine Berechtigung, die SQL-Logik für diese View anzuzeigen."
+}

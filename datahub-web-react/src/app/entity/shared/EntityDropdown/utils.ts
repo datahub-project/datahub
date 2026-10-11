@@ -1,6 +1,10 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { EntityType, PlatformPrivileges } from '@types';
+import { EntityPrivileges, EntityType, PlatformPrivileges } from '@types';
+
+export function canShowEditDeprecation(privileges?: EntityPrivileges | null): boolean {
+    return privileges?.canEditDeprecation !== false;
+}
 
 export function isDeleteDisabled(
     entityType: EntityType,

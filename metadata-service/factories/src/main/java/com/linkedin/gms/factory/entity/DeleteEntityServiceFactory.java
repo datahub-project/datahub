@@ -1,12 +1,17 @@
 package com.linkedin.gms.factory.entity;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -26,9 +31,32 @@ public class DeleteEntityServiceFactory {
   @Qualifier("entitySearchService")
   private EntitySearchService _entitySearchService;
 
+  @Autowired(required = false)
+  @Qualifier("objectStorageClient")
+  @Nullable
+  private ObjectStorageClient _objectStorageClient;
+
+  @Autowired(required = false)
+  @Nullable
+  private MetricUtils _metricUtils;
+
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider _configurationProvider;
+
+  @Value("${entityService.deleteReferenceWriteLimit:3}")
+  private int _deleteReferenceWriteLimit;
+
   @Bean(name = "deleteEntityService")
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
-    return new DeleteEntityService(_entityService, _graphService, _entitySearchService);
+    return new DeleteEntityService(
+        _entityService,
+        _graphService,
+        _entitySearchService,
+        _objectStorageClient,
+        _metricUtils,
+        _configurationProvider.getFeatureFlags().isReliableHardDelete(),
+        _deleteReferenceWriteLimit);
   }
 }

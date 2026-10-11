@@ -8,6 +8,13 @@ import React from 'react';
 
 import { ChartWrapper } from '@app/dataviz/components';
 
+/* eslint-disable rulesdir/no-hardcoded-colors -- decorative SVG sparkline brand gradient; these specific
+   chart colors have no semantic theme-token equivalent */
+const GRADIENT_START_COLOR = '#20D3BD';
+const GRADIENT_END_COLOR = '#9F33CC';
+const MARKER_STROKE_COLOR = '#fff';
+/* eslint-enable rulesdir/no-hardcoded-colors */
+
 interface Props {
     data: any;
 }
@@ -46,18 +53,24 @@ export const SimpleLineChart = ({ data }: Props) => {
                         <svg width={width} height={height}>
                             <defs>
                                 <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#20D3BD" />
-                                    <stop offset="100%" stopColor="#9F33CC" />
+                                    <stop offset="0%" stopColor={GRADIENT_START_COLOR} />
+                                    <stop offset="100%" stopColor={GRADIENT_END_COLOR} />
                                 </linearGradient>
                             </defs>
-                            <MarkerCircle id="marker-circle" fill="#9F33CC" stroke="#fff" strokeWidth={2} size={3} />
+                            <MarkerCircle
+                                id="marker-circle"
+                                fill={GRADIENT_END_COLOR}
+                                stroke={MARKER_STROKE_COLOR}
+                                strokeWidth={2}
+                                size={3}
+                            />
                             <LinePath
                                 data={data}
                                 x={(d: Data) => xScale(getDate(d))}
                                 y={(d: Data) => yScale(getValue(d))}
                                 curve={curveCatmullRom}
                                 markerEnd={markerEnd}
-                                stroke="#9F33CC"
+                                stroke={GRADIENT_END_COLOR}
                             />
                         </svg>
                     );

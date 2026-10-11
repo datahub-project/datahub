@@ -18,6 +18,10 @@ class LookerView(StrEnum):
     HISTORY = "history"
     USER = "user"
     LOOK = "look"
+    # The `query` view in System Activity describes what an execution ran
+    # against, including the model and the explore (Looker calls the explore
+    # the query's `view`).
+    QUERY = "query"
 
 
 class LookerField(StrEnum):
@@ -27,6 +31,9 @@ class LookerField(StrEnum):
     ID = "id"
     DASHBOARD_USER = "dashboard_user"
     COUNT = "count"
+    MODEL = "model"
+    VIEW = "view"
+    FIELDS = "fields"
 
 
 class ViewField(StrEnum):
@@ -53,6 +60,16 @@ class UserViewField(ViewField):
 
 class LookViewField(ViewField):
     LOOK_ID = f"{LookerView.LOOK}.{LookerField.ID}"
+
+
+class QueryViewField(ViewField):
+    # `query.view` is the explore the query ran against (Looker's naming, not a
+    # LookML view). Together with `query.model` it identifies the explore.
+    QUERY_MODEL = f"{LookerView.QUERY}.{LookerField.MODEL}"
+    QUERY_VIEW = f"{LookerView.QUERY}.{LookerField.VIEW}"
+    # System Activity's list of fully-qualified `view.field` names each query
+    # referenced.  Returned as a single delimited string (not an array).
+    QUERY_FIELDS = f"{LookerView.QUERY}.{LookerField.FIELDS}"
 
 
 @dataclass

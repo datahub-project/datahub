@@ -1,4 +1,5 @@
-import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Card, Row, Space, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -13,15 +14,15 @@ const styles = {
 
 const ResultCard = styled(Card)`
     && {
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+        border-color: ${(props) => props.theme.colors.border};
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 `;
 
-export interface BrowseResultProps {
+interface BrowseResultProps {
     url: string;
     name: string;
     count?: number | undefined;
@@ -39,7 +40,7 @@ export default function BrowseResultCard({ url, count, name, type, onClick }: Br
             <ResultCard hoverable>
                 <Row style={styles.row} justify="space-between">
                     <Space size="middle" align="center">
-                        <FolderOutlined width={28} />
+                        <Folder width={28} />
                         <Typography.Title style={styles.title} level={5}>
                             {name}
                         </Typography.Title>
@@ -50,7 +51,7 @@ export default function BrowseResultCard({ url, count, name, type, onClick }: Br
                                 {count} {displayType}
                             </Typography.Text>
                         )}
-                        <ArrowRightOutlined />
+                        <ArrowRight />
                     </Space>
                 </Row>
             </ResultCard>

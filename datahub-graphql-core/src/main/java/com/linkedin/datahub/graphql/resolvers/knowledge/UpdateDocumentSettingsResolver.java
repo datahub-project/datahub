@@ -10,6 +10,8 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentSettingsInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -52,9 +54,12 @@ public class UpdateDocumentSettingsResolver implements DataFetcher<CompletableFu
                 context.getOperationContext(),
                 documentUrn,
                 settings,
-                UrnUtils.getUrn(context.getActorUrn()));
+                UrnUtils.getUrn(context.getActorUrn()),
+                SearchIndexMode.SYNC);
 
             return true;
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
           } catch (Exception e) {
             log.error(
                 "Failed to update settings for document {}. Error: {}",

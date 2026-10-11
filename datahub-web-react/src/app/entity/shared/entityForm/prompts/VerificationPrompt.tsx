@@ -1,5 +1,6 @@
 import { Button, Divider, message } from 'antd';
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityContext, useMutationUrn } from '@app/entity/shared/EntityContext';
@@ -31,23 +32,25 @@ interface Props {
 }
 
 export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
+    const { t } = useTranslation('entity.form');
     const urn = useMutationUrn();
-    const { refetch } = useEntityContext();
+    const { refetch, refetchForms } = useEntityContext();
     const [verifyFormMutation] = useVerifyFormMutation();
 
     function verifyForm() {
         verifyFormMutation({ variables: { input: { entityUrn: associatedUrn || urn || '', formUrn } } })
             .then(() => {
                 refetch();
+                refetchForms?.();
             })
             .catch(() => {
-                message.error('Error when verifying responses on form');
+                message.error(t('verifyError'));
             });
     }
 
-    const verificationPrompt = useRef(null);
+    const verificationPrompt = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        (verificationPrompt?.current as any)?.scrollIntoView({
+        verificationPrompt.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'start',
             inline: 'nearest',
@@ -59,9 +62,9 @@ export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
             <Divider />
             <PromptWrapper ref={verificationPrompt}>
                 <ContentWrapper>
-                    <span>All questions for verification have been completed. Please verify your responses.</span>
+                    <span>{t('verificationComplete')}</span>
                     <VerifyButton type="primary" onClick={verifyForm}>
-                        Verify Responses
+                        {t('verifyResponses')}
                     </VerifyButton>
                 </ContentWrapper>
             </PromptWrapper>

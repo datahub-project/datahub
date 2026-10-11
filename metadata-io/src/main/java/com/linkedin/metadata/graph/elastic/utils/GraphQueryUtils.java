@@ -6,8 +6,10 @@ import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
@@ -16,6 +18,8 @@ import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -62,11 +66,14 @@ public final class GraphQueryUtils {
       org.opensearch.index.query.BoolQueryBuilder rootQuery) {
     org.opensearch.index.query.BoolQueryBuilder orQuery =
         org.opensearch.index.query.QueryBuilders.boolQuery();
-    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : filter.getOr()) {
+    final ConjunctiveCriterionArray disjunction =
+        filter.getOr() != null ? filter.getOr() : new ConjunctiveCriterionArray();
+    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : disjunction) {
       final org.opensearch.index.query.BoolQueryBuilder andQuery =
           org.opensearch.index.query.QueryBuilders.boolQuery();
+      final CriterionArray criterionAndOrNull = conjunction.getAnd(GetMode.NULL);
       final List<com.linkedin.metadata.query.filter.Criterion> criterionArray =
-          conjunction.getAnd();
+          criterionAndOrNull != null ? criterionAndOrNull : new CriterionArray();
       if (!criterionArray.stream()
           .allMatch(
               criterion ->
@@ -149,6 +156,21 @@ public final class GraphQueryUtils {
       finalQuery.filter(relationshipQuery);
     }
 
+    // Triplet-based edge filter: OR over (sourceType, destType, relType) triples.
+    // Applied additively — all other filters above still apply.
+    if (graphFilters.getAllowedEdgeTriplets() != null
+        && !graphFilters.getAllowedEdgeTriplets().isEmpty()) {
+      BoolQueryBuilder tripletQuery = QueryBuilders.boolQuery();
+      graphFilters
+          .getAllowedEdgeTriplets()
+          .forEach(
+              pair ->
+                  tripletQuery.should(
+                      GraphFilterUtils.getAggregationFilter(pair, pair.getValue().getDirection())));
+      tripletQuery.minimumShouldMatch(1);
+      finalQuery.filter(tripletQuery);
+    }
+
     // general filter
     Optional.ofNullable(graphFilters.getRelationshipFilter())
         .map(RelationshipFilter::getOr)
@@ -187,14 +209,20 @@ public final class GraphQueryUtils {
     return (path.size() != urnSet.size());
   }
 
-  /** Check if a URN's platform matches any of the provided platforms. */
+  /**
+   * Check if a URN's platform matches any of the provided platforms. Entity types that have no
+   * platform to read match nothing, rather than failing the lineage query they are part of.
+   */
   public static boolean platformMatches(Urn urn, UrnArray platforms) {
+    final DataPlatformUrn platform;
+    try {
+      platform = DataPlatformInstanceUtils.getDataPlatform(urn);
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not read a platform from {}, treating it as unmatched", urn, e);
+      return false;
+    }
     return platforms.stream()
-        .anyMatch(
-            platform ->
-                DataPlatformInstanceUtils.getDataPlatform(urn)
-                    .toString()
-                    .equals(platform.toString()));
+        .anyMatch(candidate -> platform.toString().equals(candidate.toString()));
   }
 
   /** Clone a path by creating a new UrnArray with the same contents. */

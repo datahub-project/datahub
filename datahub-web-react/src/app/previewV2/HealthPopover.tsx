@@ -1,11 +1,12 @@
-import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { Typography } from 'antd';
+import i18next from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
@@ -16,7 +17,7 @@ const Content = styled.div`
     gap: 8px;
     min-width: 180px;
 
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-size: 16px;
 `;
 
@@ -37,7 +38,7 @@ const StyledLink = styled(Link)`
     border-radius: 14px;
 
     :hover {
-        background-color: ${REDESIGN_COLORS.BACKGROUND_SECONDARY_GRAY};
+        background-color: ${(props) => props.theme.colors.bgHover};
 
         ${Message} {
             text-decoration: underline;
@@ -53,9 +54,9 @@ const Icon = styled.div`
     align-items: center;
     border-radius: 50%;
     padding: 5px;
-    background: #f7f7f7;
-    border: 1px solid #eeeeee;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {
@@ -80,20 +81,24 @@ export default function HealthPopover({ health, baseUrl }: Props) {
 function healthIcon({ type }: Health) {
     switch (type) {
         case HealthStatusType.Incidents:
-            return <ReportProblemOutlinedIcon fontSize="inherit" />;
+            return <Warning size="1em" />;
         case HealthStatusType.Assertions:
-            return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+            return <WarningCircle size="1em" />;
+        case HealthStatusType.Tests:
+            return <SealCheck size="1em" />;
         default:
             return null;
     }
 }
 
-function healthUrlSuffix({ type }: Health) {
+export function healthUrlSuffix({ type }: Pick<Health, 'type'>) {
     switch (type) {
         case HealthStatusType.Incidents:
             return '/Incidents';
         case HealthStatusType.Assertions:
             return '/Quality/List';
+        case HealthStatusType.Tests:
+            return '/Governance/Tests';
         default:
             return null;
     }
@@ -104,9 +109,11 @@ function healthMessage({ message, status, type }: Health) {
     if (status === HealthStatus.Pass) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'All assertions are passing';
+                return i18next.t('entity.preview:health.assertionsPassing');
             case HealthStatusType.Incidents:
-                return 'No active incidents';
+                return i18next.t('entity.preview:health.noActiveIncidents');
+            case HealthStatusType.Tests:
+                return i18next.t('entity.preview:health.noFailingGovernanceTests');
             default:
                 return null;
         }

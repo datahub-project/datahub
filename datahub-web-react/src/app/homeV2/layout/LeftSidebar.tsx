@@ -29,7 +29,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         `
         margin: 5px;
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
 
     /* Hide scrollbar for Chrome, Safari, and Opera */
@@ -39,11 +39,11 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '18px'};
     min-height: 100%;
-    ${(props) => !props.$isShowNavBarRedesign && 'border: 1.5px solid #efefef;'}
+    ${(props) => !props.$isShowNavBarRedesign && `border: 1.5px solid ${props.theme.colors.border};`}
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`

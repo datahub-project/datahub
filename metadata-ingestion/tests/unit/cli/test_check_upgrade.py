@@ -139,3 +139,7 @@ def test_non_cloud_server_shows_version_warnings(mock_echo):
     assert "❗Client-Server Incompatible❗" in call_args
     assert "0.9.7" in call_args  # Client version
     assert "0.9.5" in call_args  # Server version
+
+    # The warning must go to stderr, so that stdout stays machine-parseable
+    # for commands that emit JSON (e.g. `datahub get`).
+    assert mock_echo.call_args[1].get("err") is True

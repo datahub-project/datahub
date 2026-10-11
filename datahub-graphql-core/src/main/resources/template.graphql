@@ -17,22 +17,24 @@ type DataHubPageTemplate implements Entity {
   """
   A primary key associated with the Page Template
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The main properties of a DataHub page template
   """
   properties: DataHubPageTemplateProperties!
+    @aspectMapping(aspects: ["dataHubPageTemplateProperties"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -159,6 +161,7 @@ Different types of elements in asset summaries
 enum SummaryElementType {
   CREATED
   LAST_MODIFIED
+  LAST_INGESTED
   TAGS
   GLOSSARY_TERMS
   OWNERS
@@ -166,6 +169,7 @@ enum SummaryElementType {
   STRUCTURED_PROPERTY
   DOCUMENT_STATUS
   DOCUMENT_TYPE
+  SEMANTIC_MODEL
 }
 
 """

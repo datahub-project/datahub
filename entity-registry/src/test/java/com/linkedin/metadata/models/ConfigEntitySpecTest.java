@@ -26,19 +26,15 @@ public class ConfigEntitySpecTest {
   }
 
   @Test
-  public void testConfigEntitySpecWithDefaultSearchIndexGroup() {
+  public void testConfigEntitySpecWithUnsetSearchGroup() {
     AspectSpec mockAspectSpec = createMockAspectSpec("testAspect");
 
     ConfigEntitySpec entitySpec =
-        new ConfigEntitySpec(
-            "testEntity",
-            "testKey",
-            Arrays.asList(mockAspectSpec),
-            EntityAnnotation.DEFAULT_SEARCH_GROUP);
+        new ConfigEntitySpec("testEntity", "testKey", Arrays.asList(mockAspectSpec), null);
 
     assertEquals(entitySpec.getName(), "testEntity");
     assertEquals(entitySpec.getKeyAspectName(), "testKey");
-    assertEquals(entitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertEquals(entitySpec.getSearchGroup(), null);
     assertEquals(entitySpec.getAspectSpecs().size(), 1);
     assertNotNull(entitySpec.getAspectSpec("testAspect"));
   }
@@ -113,9 +109,17 @@ public class ConfigEntitySpecTest {
     assertEquals(annotation.getSearchGroup(), "primary");
   }
 
+  @Test
+  public void testAspectSpecGetAspectAnnotation() {
+    AspectSpec aspectSpec = createMockAspectSpec("domains");
+
+    assertEquals(aspectSpec.getAspectAnnotation().getName(), "domains");
+    assertEquals(aspectSpec.getAspectAnnotation().getSchemaVersion(), 1L);
+  }
+
   private AspectSpec createMockAspectSpec(String name) {
     return new AspectSpec(
-        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null),
+        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null, 1L),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),

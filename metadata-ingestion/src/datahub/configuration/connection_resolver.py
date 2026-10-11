@@ -1,16 +1,13 @@
-from typing import TYPE_CHECKING, Type
+from typing import Any, Type
 
 from pydantic import model_validator
 
 from datahub.ingestion.api.global_context import get_graph_context
 
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1RootValidator
-
 
 def auto_connection_resolver(
     connection_field: str = "connection",
-) -> "V1RootValidator":
+) -> Any:
     def _resolve_connection(cls: Type, values: dict) -> dict:
         if connection_field in values:
             connection_urn = values.pop(connection_field)

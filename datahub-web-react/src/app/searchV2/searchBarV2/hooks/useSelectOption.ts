@@ -6,14 +6,13 @@ import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig } from '@app/useAppConfig';
 import analytics, { Event, EventType } from '@src/app/analytics';
-import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/entityData';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { FacetFilterInput } from '@src/types.generated';
 
 export default function useSelectOption(
     onSearch: (query: string, filters?: FacetFilterInput[]) => void,
-    onClear: () => void,
     filters: FacetFilterInput[],
 ) {
     const history = useHistory();
@@ -35,7 +34,6 @@ export default function useSelectOption(
             } else if (isEntityType(option.type)) {
                 // Navigate directly to the entity profile.
                 history.push(getEntityPath(option.type, value, entityRegistry, false, false));
-                onClear();
                 analytics.event({
                     type: EventType.SelectAutoCompleteOption,
                     optionType: option.type,
@@ -48,6 +46,6 @@ export default function useSelectOption(
                 console.warn('Unknown entity type', option.type);
             }
         },
-        [onSearch, onClear, entityRegistry, filters, history, searchAPIVariant],
+        [onSearch, entityRegistry, filters, history, searchAPIVariant],
     );
 }

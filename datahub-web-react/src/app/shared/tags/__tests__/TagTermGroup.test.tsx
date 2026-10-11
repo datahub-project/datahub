@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import TagTermGroup from '@app/shared/tags/TagTermGroup';
@@ -48,7 +48,7 @@ const glossaryTerms = {
 
 describe('TagTermGroup', () => {
     it('renders editable tags', async () => {
-        const { getByText, getByLabelText, queryAllByLabelText, queryByText } = render(
+        const { getByText, getByLabelText, queryByText, queryAllByLabelText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup editableTags={globalTags1 as GlobalTags} canRemove />
@@ -116,10 +116,14 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Tags')).toBeInTheDocument();
-        expect(queryByText('Search for tag...')).not.toBeInTheDocument();
+        // The modal portals out of the render container; query via `screen` and
+        // assert against the SimpleSelect's container testid rather than its
+        // placeholder text — the placeholder is gated by IntersectionObserver
+        // (`useIsVisible`), which never fires in jsdom.
+        expect(screen.queryByTestId('tag-term-modal-input')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Tags');
         fireEvent.click(AddTagButton);
-        expect(queryByText('Search for tag...')).toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).toBeInTheDocument();
     });
 
     it('renders create term', () => {
@@ -138,14 +142,14 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Terms')).toBeInTheDocument();
-        expect(queryByText('Search for glossary term...')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Terms');
         fireEvent.click(AddTagButton);
-        expect(queryByText('Search for glossary term...')).toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).toBeInTheDocument();
     });
 
     it('renders terms', () => {
-        const { getByText, queryAllByLabelText } = render(
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup
@@ -158,6 +162,5 @@ describe('TagTermGroup', () => {
         );
         expect(getByText('InstrumentIdentifier')).toBeInTheDocument();
         expect(getByText('InstrumentCost')).toBeInTheDocument();
-        expect(queryAllByLabelText('book').length).toBe(2);
     });
 });

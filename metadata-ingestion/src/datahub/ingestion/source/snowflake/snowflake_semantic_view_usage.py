@@ -1,0 +1,472 @@
+"""Semantic view usage and query extraction for Snowflake.
+
+This module extracts usage statistics and query entities for Snowflake Semantic Views.
+It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
+
+- DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN.
+  Only emitted in legacy dataset mode (semantic_views.emit_semantic_model_entities is
+  disabled): semanticModel entities have no usage aspect, so nothing is emitted
+  here in the new mode.
+- Query entities: individual queries for the Queries tab, emitted in both legacy and
+  semanticModel modes; the subject follows the dataset-vs-semanticModel URN choice.
+
+QUERY_HISTORY-derived semantic view names are matched against discovered semantic
+views case-insensitively, since result casing is not guaranteed. However, the
+emitted dataset/semanticModel URN is always built from the canonical identifier
+discovered during schema generation (see _build_identifier_lookup in
+SemanticViewUsageExtractor), never from the lowercased match key - otherwise, with
+convert_urns_to_lowercase=False, the URN would silently diverge from the one
+schema generation already wrote to the graph.
+"""
+
+import json
+import logging
+import re
+from datetime import timezone
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
+from datahub.emitter.mce_builder import make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SemanticViewQuery,
+    SemanticViewUsageRecord,
+    UserQueryCount,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetUsageStatistics,
+    DatasetUserUsageCounts,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.query import (
+    QueryLanguage,
+    QueryProperties,
+    QuerySource,
+    QueryStatement,
+    QuerySubject,
+    QuerySubjects,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
+from datahub.metadata.schema_classes import AuditStampClass
+from datahub.metadata.urns import QueryUrn
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SemanticViewUsageExtractor:
+    """Extracts usage statistics and query entities for Snowflake Semantic Views."""
+
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        connection: SnowflakeConnection,
+        identifiers: SnowflakeIdentifierBuilder,
+    ) -> None:
+        self.config = config
+        self.report = report
+        self.connection = connection
+        self.identifiers = identifiers
+
+    def get_semantic_view_usage_workunits(
+        self,
+        discovered_semantic_views: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract usage statistics for semantic views (legacy dataset mode only).
+
+        semanticModel entities have no usage aspect, so this is a no-op when
+        semantic_views.emit_semantic_model_entities is enabled.
+
+        Args:
+            discovered_semantic_views: Set of discovered semantic view identifiers
+                                       (e.g., "db.schema.view_name")
+
+        Yields:
+            MetadataWorkUnit for DatasetUsageStatistics
+        """
+        if self.config.semantic_views.emit_semantic_model_entities:
+            return
+
+        if not self.config.semantic_views.include_usage:
+            return
+
+        if not discovered_semantic_views:
+            logger.info("No semantic views discovered, skipping usage extraction")
+            return
+
+        logger.info(
+            f"Extracting usage statistics for {len(discovered_semantic_views)} semantic views"
+        )
+
+        # Materialized inside the try and consumed by the emit loop below, which
+        # runs outside the try so a downstream consumer error raised back into
+        # `yield` is not swallowed and mislabeled as a usage-extraction failure.
+        records: List[SemanticViewUsageRecord] = []
+        identifier_lookup: Dict[str, str] = {}
+        try:
+            start_time_millis = int(self.config.start_time.timestamp() * 1000)
+            end_time_millis = int(self.config.end_time.timestamp() * 1000)
+
+            results = self.connection.query(
+                SnowflakeQuery.semantic_view_usage_statistics(
+                    start_time_millis=start_time_millis,
+                    end_time_millis=end_time_millis,
+                    time_bucket_size=self.config.bucket_duration,
+                )
+            )
+
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
+            records = list(self._parse_usage_results(results))
+
+        except Exception as e:
+            self.report.warning(
+                message="Failed to extract semantic view usage statistics",
+                context="semantic-view-usage",
+                exc=e,
+            )
+            return
+
+        for record in records:
+            # Match case-insensitively, but resolve back to the canonical
+            # (correctly-cased) identifier discovered during schema generation -
+            # see _build_identifier_lookup for why.
+            normalized_name = self._normalize_semantic_view_name(
+                record.semantic_view_name
+            )
+            canonical_identifier = identifier_lookup.get(normalized_name)
+            if canonical_identifier is None:
+                logger.debug(
+                    f"Skipping usage for {record.semantic_view_name} - not in discovered semantic views"
+                )
+                continue
+
+            wu = self._build_usage_statistics_workunit(record, canonical_identifier)
+            if wu:
+                yield wu
+
+    def _parse_usage_results(
+        self, results: Iterable[Dict[str, Any]]
+    ) -> Iterable[SemanticViewUsageRecord]:
+        """Parse query results into SemanticViewUsageRecord objects."""
+        for row in results:
+            # Skip rows with no semantic view name
+            semantic_view_name = row.get("SEMANTIC_VIEW_NAME")
+            if not semantic_view_name:
+                continue
+
+            user_counts_raw = row.get("USER_COUNTS")
+            user_counts: List[UserQueryCount] = []
+            if user_counts_raw:
+                try:
+                    raw_list = (
+                        json.loads(user_counts_raw)
+                        if isinstance(user_counts_raw, str)
+                        else list(user_counts_raw)
+                    )
+                    for uc in raw_list:
+                        if uc.get("user_name"):
+                            user_counts.append(
+                                UserQueryCount(
+                                    user_name=uc["user_name"],
+                                    query_count=uc.get("query_count", 0),
+                                )
+                            )
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug(f"Failed to parse user_counts: {e}")
+
+            # Parse top SQL queries
+            top_sql_queries_raw = row.get("TOP_SQL_QUERIES")
+            top_sql_queries: List[str] = []
+            if top_sql_queries_raw:
+                try:
+                    if isinstance(top_sql_queries_raw, str):
+                        top_sql_queries = json.loads(top_sql_queries_raw)
+                    else:
+                        top_sql_queries = list(top_sql_queries_raw)
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug(f"Failed to parse top_sql_queries: {e}")
+
+            yield SemanticViewUsageRecord(
+                semantic_view_name=semantic_view_name,
+                bucket_start_time=row["BUCKET_START_TIME"].astimezone(tz=timezone.utc),
+                total_queries=row["TOTAL_QUERIES"],
+                unique_users=row["UNIQUE_USERS"],
+                direct_sql_queries=row["DIRECT_SQL_QUERIES"],
+                cortex_analyst_queries=row["CORTEX_ANALYST_QUERIES"],
+                avg_execution_time_ms=row["AVG_EXECUTION_TIME_MS"] or 0.0,
+                total_rows_produced=row["TOTAL_ROWS_PRODUCED"] or 0,
+                user_counts=user_counts,
+                top_sql_queries=top_sql_queries,
+            )
+
+    def _normalize_semantic_view_name(self, name: str) -> str:
+        """Normalize semantic view name to lowercase for matching."""
+        return name.lower()
+
+    def _build_identifier_lookup(
+        self, discovered_semantic_views: Set[str]
+    ) -> Dict[str, str]:
+        """Map a lowercase-normalized identifier to its canonical form.
+
+        QUERY_HISTORY-derived names are matched case-insensitively against
+        discovered_semantic_views (Snowflake session/query-result casing isn't
+        guaranteed), but the semanticModel/dataset URN must be built from the
+        identifier exactly as schema generation produced it (i.e. already passed
+        through SnowflakeIdentifierBuilder.snowflake_identifier for the configured
+        casing mode - see get_dataset_identifier in snowflake_v2.py). Building the
+        URN from a freshly-lowercased match key instead would silently diverge from
+        the schema-gen URN whenever convert_urns_to_lowercase=False, since Snowflake
+        identifiers are commonly uppercase.
+        """
+        return {
+            identifier.lower(): identifier for identifier in discovered_semantic_views
+        }
+
+    def _semantic_model_urn_from_identifier(self, identifier: str) -> str:
+        """Build the semanticModel URN from a db.schema.view identifier.
+
+        `identifier` must be the canonical, already-config-cased identifier (as
+        produced by _build_identifier_lookup), not a freshly-lowercased match key -
+        see that method's docstring for why.
+        """
+        # maxsplit=2 protects the view name (matching existing patterns); assumes
+        # db/schema names contain no dots - the same caveat as dataset URN construction.
+        db_name, schema_name, view_name = identifier.split(".", 2)
+        return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
+
+    def _build_usage_statistics_workunit(
+        self, record: SemanticViewUsageRecord, dataset_identifier: str
+    ) -> Optional[MetadataWorkUnit]:
+        """Build a DatasetUsageStatistics workunit for a semantic view.
+
+        Legacy dataset mode only - see get_semantic_view_usage_workunits.
+        """
+        try:
+            user_counts = self._map_user_counts(record.user_counts)
+
+            stats = DatasetUsageStatistics(
+                timestampMillis=int(record.bucket_start_time.timestamp() * 1000),
+                eventGranularity=TimeWindowSize(
+                    unit=self.config.bucket_duration, multiple=1
+                ),
+                totalSqlQueries=record.total_queries,
+                uniqueUserCount=record.unique_users,
+                userCounts=user_counts,
+                topSqlQueries=record.top_sql_queries
+                if record.top_sql_queries
+                else None,
+            )
+
+            return MetadataChangeProposalWrapper(
+                entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
+                aspect=stats,
+            ).as_workunit()
+
+        except Exception as e:
+            self.report.warning(
+                message="Failed to build usage statistics for semantic view",
+                context=dataset_identifier,
+                exc=e,
+            )
+            return None
+
+    def _get_user_urn_and_email(self, user_name: str) -> Tuple[str, Optional[str]]:
+        """Generate user URN and email for a given user name."""
+        user_email = None
+        if self.config.email_domain and user_name:
+            user_email = f"{user_name}@{self.config.email_domain}".lower()
+
+        user_urn = make_user_urn(
+            self.identifiers.get_user_identifier(user_name, user_email)
+        )
+        return user_urn, user_email
+
+    def _map_user_counts(
+        self, user_counts: List[UserQueryCount]
+    ) -> List[DatasetUserUsageCounts]:
+        """Map user counts to DatasetUserUsageCounts."""
+        result = []
+        for user_count in user_counts:
+            user_urn, user_email = self._get_user_urn_and_email(user_count.user_name)
+            result.append(
+                DatasetUserUsageCounts(
+                    user=user_urn,
+                    count=user_count.query_count,
+                    userEmail=user_email,
+                )
+            )
+        return sorted(result, key=lambda v: v.user)
+
+    def get_semantic_view_query_workunits(
+        self,
+        discovered_semantic_views: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract queries against semantic views.
+
+        This populates the Queries tab with Query entities.
+
+        Args:
+            discovered_semantic_views: Set of discovered semantic view identifiers
+
+        Yields:
+            MetadataWorkUnit for Query entities
+        """
+        if not self.config.semantic_views.include_queries:
+            return
+
+        if not discovered_semantic_views:
+            return
+
+        logger.info("Extracting queries for semantic views")
+
+        # Declared before the try so they remain bound for the emit loop, which
+        # runs outside the try (see below).
+        queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
+        identifier_lookup: Dict[str, str] = {}
+        try:
+            start_time_millis = int(self.config.start_time.timestamp() * 1000)
+            end_time_millis = int(self.config.end_time.timestamp() * 1000)
+
+            results = self.connection.query(
+                SnowflakeQuery.semantic_view_queries(
+                    start_time_millis=start_time_millis,
+                    end_time_millis=end_time_millis,
+                    max_queries=self.config.semantic_views.max_queries_per_view
+                    * len(discovered_semantic_views),
+                )
+            )
+
+            # Group queries by semantic view, limiting during collection to avoid memory issues
+            max_per_view = self.config.semantic_views.max_queries_per_view
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
+
+            for row in results:
+                # Skip rows where REGEXP_SUBSTR failed to extract a name
+                semantic_view_name = row["SEMANTIC_VIEW_NAME"]
+                if not semantic_view_name:
+                    continue
+
+                normalized_name = self._normalize_semantic_view_name(semantic_view_name)
+                if normalized_name not in identifier_lookup:
+                    continue
+
+                # Skip if we've already collected enough queries for this view
+                if (
+                    normalized_name in queries_by_view
+                    and len(queries_by_view[normalized_name]) >= max_per_view
+                ):
+                    continue
+
+                query = SemanticViewQuery(
+                    query_id=row["QUERY_ID"],
+                    query_text=row["QUERY_TEXT"],
+                    semantic_view_name=semantic_view_name,
+                    user_name=row["USER_NAME"] or "",
+                    role_name=row["ROLE_NAME"] or "",
+                    warehouse_name=row["WAREHOUSE_NAME"] or "",
+                    start_time=row["START_TIME"].astimezone(tz=timezone.utc),
+                    total_elapsed_time=row["TOTAL_ELAPSED_TIME"] or 0,
+                    rows_produced=row["ROWS_PRODUCED"] or 0,
+                    query_source=row["QUERY_SOURCE"] or "DIRECT_SQL",
+                )
+
+                if normalized_name not in queries_by_view:
+                    queries_by_view[normalized_name] = []
+                queries_by_view[normalized_name].append(query)
+
+        except Exception as e:
+            # Narrowed to fetch + grouping: the emit loop below stays outside this
+            # try so a downstream consumer error raised back into `yield from` is
+            # not swallowed and mislabeled as a query-extraction failure.
+            self.report.warning(
+                message="Failed to extract semantic view queries",
+                context="semantic-view-queries",
+                exc=e,
+            )
+            return
+
+        # Emit query entities, using the canonical (schema-gen) identifier for
+        # URN construction rather than the lowercased grouping key - see
+        # _build_identifier_lookup.
+        for normalized_name, queries in queries_by_view.items():
+            canonical_identifier = identifier_lookup[normalized_name]
+            logger.debug(
+                f"Emitting {len(queries)} query entities for {canonical_identifier}"
+            )
+
+            for query in queries:
+                yield from self._build_query_workunits(query, canonical_identifier)
+
+    def _build_query_workunits(
+        self, query: SemanticViewQuery, dataset_identifier: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Build Query entity workunits for a query."""
+        query_urn = QueryUrn(query.query_id).urn()
+        subject_entity_urn = (
+            self._semantic_model_urn_from_identifier(dataset_identifier)
+            if self.config.semantic_views.emit_semantic_model_entities
+            else self.identifiers.gen_dataset_urn(dataset_identifier)
+        )
+        user_urn, _ = self._get_user_urn_and_email(query.user_name)
+        timestamp_millis = int(query.start_time.timestamp() * 1000)
+
+        description = (
+            "Cortex Analyst generated query"
+            if query.query_source == "CORTEX_ANALYST"
+            else "Direct SQL query against semantic view"
+        )
+        query_properties = QueryProperties(
+            statement=QueryStatement(
+                value=query.query_text,
+                language=QueryLanguage.SQL,
+            ),
+            source=QuerySource.SYSTEM,
+            name=self._generate_query_name(query.query_text),
+            description=description,
+            created=AuditStampClass(time=timestamp_millis, actor=user_urn),
+            lastModified=AuditStampClass(time=timestamp_millis, actor=user_urn),
+            customProperties={
+                "query_source": query.query_source,
+                "query_id": query.query_id,
+                "warehouse": query.warehouse_name or "",
+                "role_name": query.role_name or "",
+                "execution_time_ms": str(query.total_elapsed_time),
+                "rows_produced": str(query.rows_produced),
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=query_properties,
+        ).as_workunit()
+
+        query_subjects = QuerySubjects(
+            subjects=[QuerySubject(entity=subject_entity_urn)]
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=query_subjects,
+        ).as_workunit()
+
+    def _generate_query_name(self, query_text: str, max_length: int = 50) -> str:
+        """Generate a readable name from SQL query text."""
+        # Extract semantic view name from SEMANTIC_VIEW(db.schema.name ...) pattern
+        match = re.search(r"SEMANTIC_VIEW\s*\(\s*([\w\.]+)", query_text, re.IGNORECASE)
+        if match:
+            view_name = match.group(1).split(".")[-1]  # Get last part
+            name = f"Query on {view_name}"
+            return name[:max_length] if len(name) > max_length else name
+
+        # Fallback: truncate query text
+        if len(query_text) > max_length:
+            return query_text[: max_length - 3] + "..."
+        return query_text

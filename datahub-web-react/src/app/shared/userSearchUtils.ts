@@ -5,7 +5,6 @@ import {
     EntityType,
     FilterOperator,
     SearchAcrossEntitiesInput,
-    SearchInput,
 } from '@types';
 
 /**
@@ -45,23 +44,6 @@ export const addUserFiltersToMultiEntitySearchInput = (
 };
 
 /**
- * Adds filtering on active=true or displayName to SearchInput when the entity type is CorpUser.
- *
- * @param input - The search input object to modify
- * @param entityType - The entity type being searched
- * @returns The modified input object with user filters applied if needed
- */
-export const addUserFiltersToSearchInput = (input: SearchInput, entityType: EntityType): SearchInput => {
-    if (entityType === EntityType.CorpUser) {
-        return {
-            ...input,
-            orFilters: getUserFilters(),
-        };
-    }
-    return input;
-};
-
-/**
  * Adds filtering on active=true or displayName to AutoCompleteInput when the entity type is CorpUser.
  *
  * @param input - The autocomplete input object to modify
@@ -81,13 +63,6 @@ export const addUserFiltersToAutoCompleteInput = (
     return input;
 };
 
-/**
- * Adds filtering on active=true or displayName to AutoCompleteMultipleInput when CorpUser is included in types.
- *
- * @param input - The autocomplete input object to modify
- * @param entityTypes - Array of entity types being searched
- * @returns The modified input object with user filters applied if CorpUser is included
- */
 export const addUserFiltersToAutoCompleteMultipleInput = (
     input: AutoCompleteMultipleInput,
     entityTypes: EntityType[],

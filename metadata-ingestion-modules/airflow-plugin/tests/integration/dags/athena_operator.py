@@ -14,7 +14,7 @@ def _fake_athena_execute(*args, **kwargs):
 with DAG(
     "athena_operator",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
 ) as dag:
     # HACK: We don't want to send real requests to Athena. As a workaround,

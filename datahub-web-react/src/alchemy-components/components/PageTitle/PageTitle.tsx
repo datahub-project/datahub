@@ -34,8 +34,7 @@ export const PageTitle = ({
                 {subTitle ? <SubTitle variant={variant}>{subTitle}</SubTitle> : null}
             </Container>
             {actionButton ? (
-                <Button onClick={actionButton.onClick} size="md">
-                    {actionButton.icon && actionButton.icon}
+                <Button size="md" {...actionButton}>
                     {actionButton.label}
                 </Button>
             ) : null}

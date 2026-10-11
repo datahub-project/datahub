@@ -1,18 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
@@ -23,7 +18,6 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -63,7 +57,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
             // Check whether the actor has permission to edit the incident
             // Currently only supporting a single entity. TODO: Support multiple incident entities.
             final Urn resourceUrn = info.getEntities().get(0);
-            if (isAuthorizedToUpdateIncident(resourceUrn, context)) {
+            if (IncidentUtils.isAuthorizedToEditIncidentForResource(resourceUrn, context)) {
               info.setStatus(
                   new IncidentStatus()
                       .setState(IncidentState.valueOf(input.getState().name()))
@@ -97,16 +91,5 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
-    return AuthorizationUtils.isAuthorized(
-        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

@@ -20,7 +20,6 @@ Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
 # Run from the project root
 ./gradlew quickstart          # Uses the 'quickstart' profile
 ./gradlew quickstartDebug     # Uses the 'debug' profile
-./gradlew quickstartCypress   # Uses the 'debug' profile with custom project name 'dh-cypress'
 ```
 
 Use Control-c (`^c`) to terminate the running system. This will automatically stop all running containers.
@@ -31,7 +30,6 @@ To remove the containers and volumes, you can use the gradle nuke tasks:
 # Remove containers and volumes for specific projects
 ./gradlew quickstartNuke          # For default project (datahub)
 ./gradlew quickstartDebugNuke     # For debug project (datahub)
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
 Alternatively, you can use docker compose directly:
@@ -50,9 +48,12 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
-Note: Quickstart profiles use docker images with the `head` tag. These images up updated when changes are committed
-to the DataHub github repository. This can be overridden to use a stable release tag by prefixing the commands with
-`DATAHUB_VERSION=v0.12.1` for example.
+**Search engine names:** Unversioned profiles (`quickstart`, `debug`) always use the **current
+default** OpenSearch (today **2.x**). Versioned Gradle keys pin an engine across a future default
+change: `./gradlew quickstartOS2` / `quickstartOS2Debug` stay on 2.x; `quickstartOS3` /
+`quickstartOS3Debug` stay on 3.x. Do not treat `quickstart` as an alias of `quickstartOS3`.
+
+Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
 ### `quickstart`
 
@@ -64,7 +65,32 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 ### `quickstart-postgres`
 
-Identical to `quickstart` with Postgres instead of MySQL.
+Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
+
+### `quickstart-opensearch2`
+
+Same application set as image-based `quickstart` (MySQL, Kafka, frontend, GMS, actions) with
+**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`).
+Unversioned `quickstart` uses this engine today; use `./gradlew quickstartOS2` when you must stay
+on 2.x after the default flips to 3.x.
+
+```bash
+./gradlew quickstartOS2
+```
+
+### `quickstart-opensearch3`
+
+Same application set as `quickstart` (MySQL, Kafka, frontend, GMS, actions), but the search
+backend is **OpenSearch 3.7** (`opensearchproject/opensearch:3.7.0`; override with
+`DATAHUB_OS3_SEARCH_IMAGE` / `DATAHUB_OS3_SEARCH_TAG`). GMS pins
+`ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables schema-field document-id hashing
+because 3.x enforces the 512-byte `_id` limit. Uses a separate volume from OpenSearch 2.x
+(`os3data`). This is the image-based profile for CI (`./gradlew quickstartOS3`). For local
+bind-mount development, use `debug-opensearch3` / `./gradlew quickstartOS3Debug`.
+
+```bash
+./gradlew quickstartOS3
+```
 
 ### `quickstart-cassandra`
 
@@ -77,15 +103,17 @@ of docker.
 
 ### Quickstart Profiles Table
 
-| Profile Name         | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
-| -------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
-| quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
-| quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
-| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-cassandra |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-consumers | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
-| quickstart-storage   | X     |          |           |       |          |     |         |              |     |     | X     | X          |
+| Profile Name           | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
+| ---------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
+| quickstart             | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-frontend    | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
+| quickstart-backend     | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
+| quickstart-postgres    |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
+| quickstart-opensearch2 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |
+| quickstart-opensearch3 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |
+| quickstart-cassandra   |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-consumers   | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
+| quickstart-storage     | X     |          |           |       |          |     |         |              |     |     | X     | X          |
 
 ## Development Profiles
 
@@ -93,6 +121,7 @@ of docker.
 - JVM Debug Mode Enabled
 - Exposes local jars and scripts to the containers
 - Can run non-default one-off configurations (neo4j, cassandra, elasticsearch)
+- Micrometer Actuator (Prometheus scrape and health) listens on container port **4319** by default (`MANAGEMENT_SERVER_PORT` in `start.sh`), separate from the main HTTP port. Compose **`expose`s 4319** for on-network scraping; **GMS** also publishes **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host, parallel to **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`**. `./gradlew quickstartDebug` uses compose in **this directory**, not `docker/quickstart/` alone.
 
 The docker images used are the `debug` images which are created by building locally. These images are
 created by running the gradle command.
@@ -100,6 +129,8 @@ created by running the gradle command.
 ```bash
 ./gradlew dockerTagDebug
 ```
+
+Debug GMS, system-update, and actions bind-mount `~/.aws`. For a named or SSO profile, export `AWS_PROFILE` in the host environment (or `scripts/dev/datahub-dev.sh env set AWS_PROFILE=...`) before start; Compose also sets `AWS_SDK_LOAD_CONFIG=1`. Unset `AWS_PROFILE` keeps the SDK default-profile / env-credential chain.
 
 For a complete list of profiles see the table at the end of this section.
 
@@ -111,31 +142,46 @@ Run everything except for the `frontend` component. Useful for running just a lo
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
-### `quickstartCypress`
+### `debug-opensearch2`
 
-Runs the same configuration as `debug` but uses a custom project name (`dh-cypress`) instead of the default `datahub` project name. This is useful for Cypress testing scenarios where you need to isolate the docker compose project from other running instances.
-
-To load test data for Cypress testing, you can use the `:smoke-test:cypressData` gradle task:
+Same application set as `debug`, with OpenSearch **2.x** pinned. Use
+`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x after unversioned `debug` moves to
+3.x.
 
 ```bash
-./gradlew :smoke-test:cypressData
+./gradlew quickstartOS2Debug
 ```
 
-This will populate the running DataHub instance with sample data suitable for Cypress testing scenarios.
+### `debug-opensearch3`
+
+Same application set as `debug`, but the search backend is **OpenSearch 3.7**
+(`opensearchproject/opensearch:3.7.0`; override with `DATAHUB_OS3_SEARCH_IMAGE` /
+`DATAHUB_OS3_SEARCH_TAG`). GMS pins `ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables
+schema-field document-id hashing because 3.x enforces the 512-byte `_id` limit. Uses a separate
+volume from OpenSearch 2.x (`os3data`). Prefer this for local development; CI should use
+`quickstart-opensearch3` / `./gradlew quickstartOS3` so system-update runs from the image JAR
+instead of a host bind-mount.
+
+```bash
+./gradlew quickstartOS3Debug
+```
 
 ### Development Profiles Table
 
-| Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
-| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
-| debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
-| debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-postgres      |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-cassandra     |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
-| debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
-| debug-backend-aws   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
+| Profile Name             | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
+| ------------------------ | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
+| debug                    | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-frontend           | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
+| debug-backend            | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-postgres           |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |               |                  |
+| debug-postgres-consumers |       | X        |           |       | X        | X   | X       | X            | X   | X   |       | X          |               |                  |
+| debug-cassandra          |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
+| debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-opensearch2        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |               |                  |
+| debug-opensearch3        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |               |                  |
+| debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
 

@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.query.request;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
@@ -10,10 +12,16 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
+import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,10 +35,16 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.FieldConfiguration;
+import com.linkedin.metadata.config.search.custom.HighlightFields;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -42,7 +56,9 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -50,7 +66,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
+import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,21 +79,28 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.TotalHits;
+import org.opensearch.OpenSearchException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.DisMaxQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -119,6 +144,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
+    SearchValidationConfiguration searchValidationConfiguration =
+        new SearchValidationConfiguration();
+
     testQueryConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
@@ -127,13 +155,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .exactMatch(exactMatchConfiguration)
                     .wordGram(wordGramConfiguration)
                     .partial(partialConfiguration)
+                    .validation(searchValidationConfiguration)
                     .build())
             .entityIndex(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex()) // Preserve entityIndex configuration
             .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
             .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
             .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
-            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            // idHashAlgo now travels with entityIndex.v2, preserved above
             .index(TEST_ES_SEARCH_CONFIG.getIndex())
             .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();
@@ -682,6 +711,492 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
   }
 
+  @Test
+  public void testV3FilterQueryAlwaysScopesRequestedEntityTypes() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+
+    BoolQueryBuilder query =
+        SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            null,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            entityIndex);
+
+    assertTrue(
+        query.filter().stream()
+            .filter(BoolQueryBuilder.class::isInstance)
+            .flatMap(bool -> ((BoolQueryBuilder) bool).should().stream())
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .anyMatch(
+                term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
+  }
+
+  /** V3 root fields keep the V2 .keyword subfield, so filters and value counts use it as on V2. */
+  @Test
+  public void testV3FiltersAndValueCountsUseKeywordSubfields() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+
+    SearchRequestHandler v3Handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            testQueryConfig.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    String valueCounts =
+        v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
+    assertTrue(valueCounts.contains("\"field\":\"platform.keyword\""), valueCounts);
+    String keywordValueCounts =
+        v3Handler
+            .getAggregationRequest(operationContext, "platform.keyword", null, 10)
+            .source()
+            .toString();
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform.keyword\""), keywordValueCounts);
+  }
+
+  /**
+   * V3 root fields keep the V2 .keyword subfield, so filters resolve as on V2; entity type enum
+   * names, as the UI sends them, still match the V3 _entityType field.
+   */
+  @Test
+  public void testV3FilterNormalizesCallerFilters() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+    // V3 stores the registry entity name in _entityType, a keyword field without a subfield
+    assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
+    assertFalse(v3Filter.contains("_entityType.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
+    assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
+    // The caller's filter is left as given
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
+  private static final ElasticSearchConfiguration V3_READ_CONFIG =
+      testQueryConfig.toBuilder()
+          .entityIndex(
+              EntityIndexConfiguration.builder()
+                  .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                  .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                  .build())
+          .build();
+
+  // The root fields of _search.columns, an array each, as long as the dataset's schema
+  private static final Set<String> COLUMN_ARRAYS =
+      Set.of(
+          "fieldPaths",
+          "fieldLabels",
+          "fieldDescriptions",
+          "editedFieldDescriptions",
+          "fieldTags",
+          "editedFieldTags",
+          "fieldGlossaryTerms",
+          "editedFieldGlossaryTerms");
+
+  /**
+   * V3 runs the Stage 1 query, with a dis_max root, where V2 runs the V2 query. V3 finds matched
+   * fields from the fetched values instead of highlighting.
+   */
+  @Test
+  public void testV3FullTextQueryUsesStage1() {
+    OperationContext fulltext = operationContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (String query :
+        List.of("test query", "\"test query\"", STRUCTURED_QUERY_PREFIX + "name:test")) {
+      SearchSourceBuilder v2 = getDatasetSearchSource(fulltext, testQueryConfig, query);
+      SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, query);
+      assertTrue(relevancyQuery(v2) instanceof BoolQueryBuilder, query);
+      assertTrue(relevancyQuery(v3) instanceof DisMaxQueryBuilder, query);
+      assertNotNull(v2.highlighter(), query);
+      assertNull(v3.highlighter(), query);
+    }
+  }
+
+  /**
+   * Deliberate V3 change: the full-text query reads the shared _search fields, and matched fields
+   * come from the fetched root values that feed them, so V3 sets no highlighter. The columns'
+   * arrays are searched but never fetched: a fetch cannot cut them short, so a dataset with
+   * thousands of fields would send all of them with every hit.
+   */
+  @Test
+  public void testV3FullTextQueryReadsSharedFieldsWithoutFetchingColumnArrays() {
+    OperationContext fulltext =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, "test query");
+
+    String query = v3.query().toString();
+    assertTrue(query.contains("_search.entityName.text"), query);
+    assertTrue(query.contains("_search.columns.text"), query);
+    assertTrue(query.contains("_search.columns.stemmed"), query);
+    assertTrue(query.contains("_search.structuredProperties.text"), query);
+    assertFalse(query.contains(".delimited"), query);
+    assertNull(v3.highlighter());
+    Set<String> fetched = Set.of(v3.fetchSource().includes());
+    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(
+        fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
+    // Structured property values are searched, never fetched for matched fields
+    assertTrue(
+        fetched.stream().noneMatch(field -> field.startsWith("structuredProperties")),
+        fetched.toString());
+  }
+
+  /** V3 fetches no matched-field sources when highlighting is skipped or configured off. */
+  @Test
+  public void testV3MatchedFieldSourcesFollowHighlightSettings() {
+    OperationContext skipped =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(true));
+    assertEquals(
+        Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn"));
+
+    // Naming a column array does not fetch it either
+    OperationContext custom =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(
+                            List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
+    assertEquals(
+        Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn", "name"));
+    // V2 highlight fields name subfields, which V3 reads from their root field
+    OperationContext v2Subfields =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(
+                            List.of("name.delimited", "name.keyword", "description.*"))));
+    assertEquals(
+        Set.of(
+            getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn", "name", "description"));
+
+    CustomSearchConfiguration highlightConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "names",
+                    FieldConfiguration.builder()
+                        .highlightFields(HighlightFields.builder().replace(List.of("name")).build())
+                        .build(),
+                    // V2 highlight fields name subfields, and a field the query does not read
+                    // cannot match
+                    "subfields",
+                    FieldConfiguration.builder()
+                        .highlightFields(
+                            HighlightFields.builder()
+                                .replace(List.of("name.delimited", "notSearched"))
+                                .build())
+                        .build(),
+                    "off",
+                    FieldConfiguration.builder()
+                        .highlightFields(HighlightFields.builder().enabled(false).build())
+                        .build(),
+                    // As the bundled excludeColumnHighlight configuration writes it, which
+                    // changes nothing on V3, where the columns' arrays are never fetched
+                    "noColumns",
+                    FieldConfiguration.builder()
+                        .highlightFields(
+                            HighlightFields.builder()
+                                .remove(List.of("fieldPaths", "fieldPaths.*"))
+                                .build())
+                        .build()))
+            .build();
+    for (Map.Entry<String, Set<String>> expected :
+        Map.of(
+                "names",
+                Set.of("urn", "name"),
+                "subfields",
+                Set.of("urn", "name"),
+                "off",
+                Set.of("urn"))
+            .entrySet()) {
+      OperationContext configured =
+          operationContext.withSearchFlags(
+              flags ->
+                  flags
+                      .setFulltext(true)
+                      .setSkipHighlighting(false)
+                      .setFieldConfiguration(expected.getKey()));
+      SearchSourceBuilder source =
+          getDatasetSearchSource(configured, V3_READ_CONFIG, highlightConfig, "test");
+      assertEquals(Set.of(source.fetchSource().includes()), expected.getValue(), expected.getKey());
+    }
+
+    OperationContext noColumns =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setFieldConfiguration("noColumns"));
+    Set<String> fetched =
+        Set.of(
+            getDatasetSearchSource(noColumns, V3_READ_CONFIG, highlightConfig, "test")
+                .fetchSource()
+                .includes());
+    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+
+    // A query of only stop words can match no field, so nothing is fetched for it
+    OperationContext highlighting =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    assertEquals(
+        Set.of(
+            getDatasetSearchSource(highlighting, V3_READ_CONFIG, "the").fetchSource().includes()),
+        Set.of("urn"));
+  }
+
+  /**
+   * Of _search.other, V3 matched fields fetch only what names or tags an entity: a document's text,
+   * semantic text and custom properties are searched but never fetched, even when highlighting
+   * names them.
+   */
+  @Test
+  public void testV3DocumentSearchFetchesNoFreeText() {
+    Set<String> freeText = Set.of("text", "semanticText", "customProperties");
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("document"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    OperationContext fulltext =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    SearchSourceBuilder source =
+        handler.getSearchRequest(fulltext, "runbook", null, null, 0, 10, List.of()).source();
+
+    String query = source.query().toString();
+    assertTrue(query.contains("_search.other.text"), query);
+    Set<String> fetched = Set.of(source.fetchSource().includes());
+    assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
+    assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
+
+    OperationContext naming =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(List.of("title", "text", "customProperties"))));
+    assertEquals(
+        Set.of(
+            handler
+                .getSearchRequest(naming, "runbook", null, null, 0, 10, List.of())
+                .source()
+                .fetchSource()
+                .includes()),
+        Set.of("urn", "title"));
+  }
+
+  /**
+   * On V3 the fields a hit matched on come from its fetched values and the search input; a
+   * structured query or a missing input reports none.
+   */
+  @Test
+  public void testV3ExtractResultFindsMatchedFieldsFromSource() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchResponse response = mock(SearchResponse.class);
+    SearchHits hits = mock(SearchHits.class);
+    when(response.getHits()).thenReturn(hits);
+    when(hits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mock(SearchHit.class);
+    // A wide schema's column array, which the engine may still return (as an extra field to
+    // fetch) but which matching never reads
+    List<Object> fieldPaths =
+        new AbstractList<>() {
+          @Override
+          public Object get(int index) {
+            throw new AssertionError("Matched fields read a column array");
+          }
+
+          @Override
+          public int size() {
+            return 5000;
+          }
+        };
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            Map.of(
+                "urn",
+                "urn:li:dataset:(urn:li:dataPlatform:hive,db.revenue,PROD)",
+                "name",
+                "orders table",
+                "description",
+                "daily revenue",
+                "fieldPaths",
+                fieldPaths));
+    when(hits.getHits()).thenReturn(new SearchHit[] {hit});
+    OperationContext highlighting =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+
+    MatchedFieldArray matched =
+        handler
+            .extractResult(highlighting, response, null, 0, 10, "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields();
+    assertEquals(matched.size(), 1, matched.toString());
+    assertEquals(matched.get(0).getName(), "name");
+    assertEquals(matched.get(0).getValue(), "orders table");
+    // Scrolling finds them the same way
+    when(hit.getSortValues()).thenReturn(new Object[] {"orders"});
+    assertEquals(
+        handler
+            .extractScrollResult(highlighting, response, null, "5m", 10, true, "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields(),
+        matched);
+
+    // A search that is not full text runs a structured query too
+    assertTrue(
+        handler
+            .extractResult(
+                highlighting.withSearchFlags(flags -> flags.setFulltext(false)),
+                response,
+                null,
+                0,
+                10,
+                "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields()
+            .isEmpty());
+    for (String input : Arrays.asList(STRUCTURED_QUERY_PREFIX + "name:orders", null)) {
+      assertTrue(
+          handler
+              .extractResult(highlighting, response, null, 0, 10, input)
+              .getEntities()
+              .get(0)
+              .getMatchedFields()
+              .isEmpty(),
+          String.valueOf(input));
+    }
+  }
+
+  private static QueryBuilder relevancyQuery(SearchSourceBuilder source) {
+    return ((FunctionScoreQueryBuilder) ((BoolQueryBuilder) source.query()).must().get(0)).query();
+  }
+
+  private SearchSourceBuilder getDatasetSearchSource(
+      OperationContext opContext, ElasticSearchConfiguration config, String query) {
+    return getDatasetSearchSource(opContext, config, null, query);
+  }
+
+  private SearchSourceBuilder getDatasetSearchSource(
+      OperationContext opContext,
+      ElasticSearchConfiguration config,
+      CustomSearchConfiguration customConfig,
+      String query) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(opContext, query, null, null, 0, 10, List.of())
+        .source();
+  }
+
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testInvalidStructuredProperty() {
     AspectRetriever aspectRetriever = mock(AspectRetriever.class);
@@ -692,7 +1207,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     Urn structPropUrn = StructuredPropertyUtils.toURNFromFQN("under.scores.and.dots.make_a_mess");
     aspectResponse.put(structPropUrn, ImmutableMap.of(STATUS_ASPECT_NAME, status));
     when(aspectRetriever.getLatestAspectObjects(
-            Collections.singleton(structPropUrn), ImmutableSet.of(STATUS_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(Collections.singleton(structPropUrn)),
+            eq(ImmutableSet.of(STATUS_ASPECT_NAME))))
         .thenReturn(aspectResponse);
     OperationContext mockRetrieverContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
@@ -755,7 +1272,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "editedFieldTags",
             "displayName",
             "title",
-            "applications");
+            "applications",
+            "dataProduct");
 
     Map<EntityType, Set<String>> expectedQueryByDefault =
         ImmutableMap.<EntityType, Set<String>>builder()
@@ -807,6 +1325,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 Stream.concat(COMMON.stream(), Stream.of("parentDomain"))
                     .collect(Collectors.toSet()))
             .put(
+                EntityType.DATA_PRODUCT,
+                Stream.concat(COMMON.stream(), Stream.of("parentDataProduct"))
+                    .collect(Collectors.toSet()))
+            .put(
                 EntityType.SCHEMA_FIELD,
                 Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
                     .collect(Collectors.toSet()))
@@ -819,17 +1341,29 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 EntityType.DOCUMENT,
                 Stream.concat(
                         COMMON.stream(),
-                        Stream.of("parentDocument", "relatedAssets", "relatedDocuments", "text"))
+                        Stream.of(
+                            "parentDocument",
+                            "relatedAssets",
+                            "relatedDocuments",
+                            "text",
+                            "semanticText"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.METRIC,
+                Stream.concat(COMMON.stream(), Stream.of("path", "semanticModel", "parentMetric"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.SEMANTIC_MODEL,
+                Stream.concat(COMMON.stream(), Stream.of("path")).collect(Collectors.toSet()))
             .build();
 
-    for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
+    for (String entityName : parseCsv(DEFAULT_SEARCH_ENTITY_TYPES)) {
+      EntityType entityType = EntityTypeMapper.getType(entityName);
       Set<String> expectedEntityQueryByDefault =
           expectedQueryByDefault.getOrDefault(entityType, COMMON);
       assertFalse(expectedEntityQueryByDefault.isEmpty());
 
-      EntitySpec entitySpec =
-          operationContext.getEntityRegistry().getEntitySpec(EntityTypeMapper.getName(entityType));
+      EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec(entityName);
       SearchRequestHandler handler =
           SearchRequestHandler.getBuilder(
               operationContext,
@@ -1471,6 +2005,352 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         operationContext, mockResponse, null, "5m", requestedSize, true);
   }
 
+  @Test
+  public void testExtractResultSkipsHitsWithInvalidUrn() {
+    // Regression test for #13181: a hit whose document is missing/has an invalid URN must be
+    // skipped (not crash the whole search), and the remaining valid hits must still be returned.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    // Build the hits as locals first — invoking the stubbing helpers inside the when(...) call
+    // above would nest Mockito stubbing and trigger UnfinishedStubbingException.
+    SearchHit validHit1 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)");
+    SearchHit invalidHit = mockHitWithMissingUrn();
+    SearchHit validHit2 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {validHit1, invalidHit, validHit2});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().stream()
+            .map(e -> e.getEntity().toString())
+            .collect(Collectors.toList()),
+        List.of(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
+    // The reported total still reflects what the search engine matched.
+    assertEquals(result.getNumEntities().intValue(), 3);
+  }
+
+  @Test
+  public void testExtractScrollResultSkipsHitsWithInvalidUrn() {
+    // Same regression as above, exercised through the scroll/pagination code path.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+    SearchHit validHit1 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)");
+    SearchHit invalidHit = mockHitWithMissingUrn();
+    SearchHit validHit2 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {validHit1, invalidHit, validHit2});
+
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 10, true);
+
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().stream()
+            .map(e -> e.getEntity().toString())
+            .collect(Collectors.toList()),
+        List.of(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
+  }
+
+  @Test
+  public void testExtractResultAllHitsInvalidReturnsEmpty() {
+    // When every hit is invalid the search must not crash; it returns an empty result while the
+    // engine-reported total is preserved.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(2L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit invalidHit1 = mockHitWithMissingUrn();
+    SearchHit invalidHit2 = mockHitWithMissingUrn();
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {invalidHit1, invalidHit2});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertTrue(result.getEntities().isEmpty());
+    assertEquals(result.getNumEntities().intValue(), 2);
+  }
+
+  @Test
+  public void testExtractResultHandlesNullHighlightsAndMatchedQueries() {
+    // A valid hit with no highlights and no named-query match (the search engine returns null for
+    // both) must still be returned — not crash the search now that getResultSafely only catches
+    // InvalidSearchHitException.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            ImmutableMap.of(
+                "urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)"));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(null);
+    when(hit.getMatchedQueries()).thenReturn(null);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 1);
+    assertEquals(
+        result.getEntities().get(0).getEntity().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)");
+  }
+
+  @Test
+  public void testFetchSourceDefaultsToUrnOnly() {
+    SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchRequest searchRequest =
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    FetchSourceContext fetchSource = searchRequest.source().fetchSource();
+    assertNotNull(fetchSource);
+    assertEquals(Set.of(fetchSource.includes()), Set.of("urn"));
+  }
+
+  @Test
+  public void testFetchSourceIncludesRequestedExtraFields() {
+    SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchRequest searchRequest =
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(false)
+                        .setFetchExtraFields(new StringArray(List.of("parentDomain")))),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    FetchSourceContext fetchSource = searchRequest.source().fetchSource();
+    assertNotNull(fetchSource);
+    assertEquals(Set.of(fetchSource.includes()), Set.of("urn", "parentDomain"));
+  }
+
+  @Test
+  public void testExtractResultCopiesOnlyRequestedExtraFields() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            ImmutableMap.of(
+                "urn",
+                "urn:li:dataset:(urn:li:dataPlatform:hdfs,withParent,PROD)",
+                "parentDomain",
+                "urn:li:domain:root",
+                "name",
+                "should-not-appear"));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(hit.getMatchedQueries()).thenReturn(new String[0]);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchResult withoutFlag = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+    assertNull(withoutFlag.getEntities().get(0).getExtraFields());
+
+    SearchResult withFlag =
+        handler.extractResult(
+            operationContext.withSearchFlags(
+                flags -> flags.setFetchExtraFields(new StringArray(List.of("parentDomain")))),
+            mockResponse,
+            null,
+            0,
+            10);
+    assertEquals(withFlag.getEntities().get(0).getExtraFields().keySet(), Set.of("parentDomain"));
+    assertEquals(
+        withFlag.getEntities().get(0).getExtraFields().get("parentDomain"),
+        "\"urn:li:domain:root\"");
+  }
+
+  @Test
+  public void testSearchTypeFlag() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // DFS in either case; any other value is QUERY_THEN_FETCH
+    Map<String, SearchType> expected =
+        Map.of(
+            "DFS_QUERY_THEN_FETCH", SearchType.DFS_QUERY_THEN_FETCH,
+            "dfs_query_then_fetch", SearchType.DFS_QUERY_THEN_FETCH,
+            "QUERY_THEN_FETCH", SearchType.QUERY_THEN_FETCH,
+            "QUERY_AND_FETCH", SearchType.QUERY_THEN_FETCH);
+    for (Map.Entry<String, SearchType> entry : expected.entrySet()) {
+      SearchRequest request =
+          handler.getSearchRequest(
+              operationContext.withSearchFlags(
+                  flags -> flags.setFulltext(false).setSearchType(entry.getKey())),
+              "testQuery",
+              null,
+              null,
+              0,
+              10,
+              List.of());
+      assertEquals(request.searchType(), entry.getValue(), entry.getKey());
+    }
+
+    SearchRequest unset =
+        handler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    assertEquals(unset.searchType(), SearchType.QUERY_THEN_FETCH);
+  }
+
+  @Test
+  public void testExtractResultsAddExplanation() throws Exception {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,explained,PROD)");
+    when(hit.getExplanation())
+        .thenReturn(
+            Explanation.match(2.0f, "sum of:", Explanation.match(2.0f, "weight(name:explained)")));
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchEntity searched =
+        handler.extractResult(operationContext, mockResponse, null, 0, 10).getEntities().get(0);
+    JsonNode explain = new ObjectMapper().readTree(searched.getExtraFields().get("_explain"));
+    assertEquals(explain.get("value").floatValue(), 2.0f);
+    assertEquals(explain.get("description").asText(), "sum of:");
+    assertTrue(explain.get("match").asBoolean());
+    assertEquals(
+        explain.get("details").get(0).get("description").asText(), "weight(name:explained)");
+    assertFalse(explain.get("details").get(0).has("details"));
+
+    // Scroll adds its per-hit scrollId next to the explanation
+    SearchEntity scrolled =
+        handler
+            .extractScrollResult(operationContext, mockResponse, null, null, 10, false)
+            .getEntities()
+            .get(0);
+    assertTrue(scrolled.getExtraFields().keySet().containsAll(Set.of("_explain", "scrollId")));
+  }
+
+  private SearchHit mockHitWithUrn(String urn) {
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", urn));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(hit.getMatchedQueries()).thenReturn(new String[0]);
+    when(hit.getSortValues()).thenReturn(new Object[] {"sort-" + urn});
+    return hit;
+  }
+
+  private SearchHit mockHitWithMissingUrn() {
+    SearchHit hit = mock(SearchHit.class);
+    // Source map without a "urn" field — mirrors the legacy bootstrap document from #13181.
+    when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("someOtherField", "value"));
+    when(hit.getIndex()).thenReturn("test-index");
+    when(hit.getId()).thenReturn("bad-doc-id");
+    return hit;
+  }
+
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
     return getQuery(filterCriterion, TestEntitySpecBuilder.getSpec(), true);
   }
@@ -1536,5 +2416,135 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 10)
             .source()
             .query();
+  }
+
+  private SearchRequestHandler shardFailureTestHandler() {
+    return SearchRequestHandler.getBuilder(
+        operationContext,
+        TestEntitySpecBuilder.getSpec(),
+        testQueryConfig,
+        null,
+        QueryFilterRewriteChain.EMPTY,
+        TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  @Test
+  public void testExtractResultThrowsOnDeterministicShardFailure() {
+    // A terms aggregation on a dynamically-mapped text field fails per shard with
+    // illegal_argument_exception while the response is still HTTP 200 — the hits from failing
+    // shards were previously dropped silently.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=illegal_argument_exception, reason=Text fields"
+                          + " are not optimised for operations that require per-document field"
+                          + " data]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    expectThrows(
+        ESQueryException.class,
+        () -> shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10));
+  }
+
+  @Test
+  public void testExtractScrollResultThrowsOnDeterministicShardFailureCause() {
+    // Same classification when the failure carries the raw cause instead of a parsed reason.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new IllegalArgumentException(
+                      "Text fields are not optimised for operations that require per-document"
+                          + " field data"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(2);
+
+    expectThrows(
+        ESQueryException.class,
+        () ->
+            shardFailureTestHandler()
+                .extractScrollResult(operationContext, mockResponse, null, "5m", 10, true));
+  }
+
+  @Test
+  public void testExtractResultThrowsOnFielddataFailureWithoutTypeToken() {
+    // The ES8 client shim rebuilds shard failures from the reason message only, dropping the
+    // exception type. The text-fielddata symptom — the structured-property poisoning case — must
+    // still classify as deterministic on the reason substring alone, with no illegal_argument type
+    // token or IllegalArgumentException cause present.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "Text fields are not optimised for operations that require per-document field"
+                          + " data like aggregations and sorting"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(3);
+
+    expectThrows(
+        ESQueryException.class,
+        () -> shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10));
+  }
+
+  @Test
+  public void testExtractResultToleratesTransientShardFailure() {
+    // Transient failures on a busy cluster (circuit breaker, timeout, rejected execution) must not
+    // fail the request — partial results are returned and the failure is only logged/counted.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(5L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=circuit_breaking_exception, reason=[parent] Data"
+                          + " too large]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    SearchResult result =
+        shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getNumEntities().intValue(), 5);
+    assertEquals(result.getEntities().size(), 0);
+  }
+
+  @Test
+  public void testExtractScrollResultToleratesTransientShardFailure() {
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(5L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=search_phase_execution_exception,"
+                          + " reason=Partial shards failure (timed out)]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    ScrollResult result =
+        shardFailureTestHandler()
+            .extractScrollResult(operationContext, mockResponse, null, "5m", 10, true);
+
+    assertEquals(result.getNumEntities().intValue(), 5);
+    assertEquals(result.getEntities().size(), 0);
   }
 }

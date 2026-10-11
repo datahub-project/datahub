@@ -1,7 +1,8 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Typography, message } from 'antd';
+import { Button, EmptyState, Heading, Pagination, Text, toast } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { AlignType } from 'rc-table/lib/interface';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -40,15 +41,15 @@ const BusinessAttributesContainer = styled.div`
     padding-top: 0px;
 `;
 
+// Alchemy's Heading does not forward className, so styled(Heading) cannot set the
+// title's spacing — the gap lives on the container instead.
 const BusinessAttributeHeaderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
     && {
         padding-left: 0px;
-    }
-`;
-
-const BusinessAttributeTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
     }
 `;
 
@@ -70,6 +71,8 @@ const searchBarInputStyle = {
 const DEFAULT_PAGE_SIZE = 10;
 
 export const BusinessAttributes = () => {
+    const { t } = useTranslation('misc');
+    const { t: tl } = useTranslation('common.labels');
     const [isCreatingBusinessAttribute, setIsCreatingBusinessAttribute] = useState(false);
     const entityRegistry = useEntityRegistry();
 
@@ -118,6 +121,12 @@ export const BusinessAttributes = () => {
         businessAttributeRefetch,
     );
 
+    useEffect(() => {
+        if (businessAttributeError) {
+            toast.error(t('businessAttribute.loadError'));
+        }
+    }, [businessAttributeError, t]);
+
     const totalBusinessAttributes = businessAttributeData?.listBusinessAttributes?.total || 0;
     const businessAttributes = useMemo(
         () => (businessAttributeData?.listBusinessAttributes?.businessAttributes || []) as BusinessAttribute[],
@@ -142,7 +151,7 @@ export const BusinessAttributes = () => {
     const tableColumns = [
         {
             width: '20%',
-            title: 'Name',
+            title: tl('name'),
             dataIndex: ['properties', 'name'],
             key: 'name',
             render: (name: string, record: any) => (
@@ -150,7 +159,7 @@ export const BusinessAttributes = () => {
             ),
         },
         {
-            title: 'Description',
+            title: tl('description'),
             dataIndex: ['properties', 'description'],
             key: 'description',
             width: '20%',
@@ -159,7 +168,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '20%',
-            title: 'Tags',
+            title: tl('tags'),
             dataIndex: ['properties', 'tags'],
             key: 'tags',
             render: tagRenderer,
@@ -167,7 +176,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '20%',
-            title: 'Glossary Terms',
+            title: t('businessAttribute.columnGlossaryTerms'),
             dataIndex: ['properties', 'glossaryTags'],
             key: 'glossaryTags',
             render: termRenderer,
@@ -175,7 +184,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '13%',
-            title: 'Data Type',
+            title: t('businessAttribute.dataType'),
             dataIndex: ['properties', 'businessAttributeDataType'],
             key: 'businessAttributeDataType',
             render: (dataType: string) => dataType || '',
@@ -198,27 +207,27 @@ export const BusinessAttributes = () => {
     return (
         <SourceContainer>
             {businessAttributeLoading && !businessAttributeData && (
-                <Message type="loading" content="Loading businessAttributes..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content={t('businessAttribute.loading')} style={{ marginTop: '10%' }} />
             )}
-            {businessAttributeError && message.error('Failed to load businessAttributes :(')}
             <BusinessAttributesContainer>
                 <BusinessAttributeHeaderContainer>
-                    <BusinessAttributeTitle level={2}>Business Attribute</BusinessAttributeTitle>
-                    <Typography.Paragraph type="secondary">View your Business Attributes</Typography.Paragraph>
+                    <Heading type="h2">{t('businessAttribute.pageTitle')}</Heading>
+                    <Text color="textSecondary">{t('businessAttribute.pageSubtitle')}</Text>
                 </BusinessAttributeHeaderContainer>
             </BusinessAttributesContainer>
             <TabToolbar>
                 <Button
-                    type="text"
+                    variant="text"
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreatingBusinessAttribute(true)}
                     data-testid="add-business-attribute-button"
                     disabled={!canCreateBusinessAttributes}
                 >
-                    <PlusOutlined /> Create Business Attribute
+                    {t('businessAttribute.createButton')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search Business Attributes..."
+                    placeholderText={t('businessAttribute.searchPlaceholder')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}
@@ -232,18 +241,17 @@ export const BusinessAttributes = () => {
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Business Attributes!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: <EmptyState title={t('businessAttribute.empty')} size="sm" />,
                 }}
                 pagination={false}
             />
             <PaginationContainer>
                 <Pagination
-                    style={{ margin: 40 }}
-                    current={page}
-                    pageSize={pageSize}
+                    currentPage={page}
+                    itemsPerPage={pageSize}
                     total={totalBusinessAttributes}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationContainer>

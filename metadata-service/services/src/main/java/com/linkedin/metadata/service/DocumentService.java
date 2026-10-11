@@ -1,11 +1,20 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
+import com.linkedin.common.SemanticText;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.knowledge.DocumentContents;
@@ -26,13 +35,20 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -46,16 +62,49 @@ import lombok.extern.slf4j.Slf4j;
  * contents and relationships - Updating document contents and relationships - Moving documents
  * within the hierarchy - Searching and listing documents - Deleting documents
  *
- * <p>Note that no Authorization is performed within the service. The expectation is that the caller
- * has already verified the permissions of the active Actor.
+ * <p>Authorization is enforced on public mutating methods and single-document reads via {@link
+ * DocumentAuthorizationUtils}. {@link #searchDocuments} returns only documents the actor can view;
+ * search totals/facets may still reflect the broader index hit set. System authentication
+ * short-circuits those checks so bridge and other system writers continue to work.
  */
 @Slf4j
 public class DocumentService {
+
+  private static final String WILDCARD_QUERY = "*";
+  private static final String PARENT_DOCUMENT_FIELD = "parentDocument";
 
   private final SystemEntityClient entityClient;
 
   public DocumentService(@Nonnull SystemEntityClient entityClient) {
     this.entityClient = entityClient;
+  }
+
+  /**
+   * Builds an UPSERT proposal honoring the caller's {@link SearchIndexMode}. SYNC proposals are
+   * marked so GMS updates the indices in the request path and the MAE consumer skips them; ASYNC
+   * proposals are indexed by the consumer. Every proposal a mutation emits must use the same mode —
+   * splitting one document's writes across the two index writers is exactly the out-of-order stale
+   * state {@link SearchIndexMode} warns about.
+   */
+  @Nonnull
+  private static MetadataChangeProposal buildProposal(
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nonnull com.linkedin.data.template.RecordTemplate aspect,
+      @Nonnull SearchIndexMode indexMode) {
+    // Fail fast rather than silently routing a null mode down the ASYNC path — a caller that
+    // didn't choose a mode must not accidentally split the document across two index writers.
+    Objects.requireNonNull(indexMode, "indexMode is required");
+    if (indexMode == SearchIndexMode.SYNC) {
+      return AspectUtils.buildSynchronousMetadataChangeProposal(urn, aspectName, aspect);
+    }
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setChangeType(ChangeType.UPSERT);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    return proposal;
   }
 
   /**
@@ -66,16 +115,15 @@ public class DocumentService {
    * @param subTypes optional list of document sub-types
    * @param title optional title
    * @param source optional source information for externally ingested documents
-   * @param state optional initial state (UNPUBLISHED or PUBLISHED). If draftOfUrn is provided, this
-   *     will be forced to UNPUBLISHED.
+   * @param state optional initial state (UNPUBLISHED or PUBLISHED)
    * @param text the document text text
    * @param parentDocumentUrn optional parent document URN
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
-   * @param draftOfUrn optional URN of the published document this is a draft of
    * @param settings optional document settings (defaults to showInGlobalContext=true if not
    *     provided)
    * @param actorUrn the URN of the user creating the document
+   * @param indexMode how the write is applied to the search index (one mode per document)
    * @return the URN of the created document
    * @throws Exception if creation fails
    */
@@ -91,9 +139,48 @@ public class DocumentService {
       @Nullable Urn parentDocumentUrn,
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
-      @Nullable Urn draftOfUrn,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
+      throws Exception {
+    return createDocument(
+        opContext,
+        id,
+        subTypes,
+        title,
+        source,
+        state,
+        text,
+        parentDocumentUrn,
+        relatedAssetUrns,
+        relatedDocumentUrns,
+        settings,
+        null,
+        actorUrn,
+        indexMode);
+  }
+
+  /**
+   * Creates a new document with its initial ownership in the same ingest batch.
+   *
+   * @param owners optional initial owners; defaults to the creator
+   */
+  @Nonnull
+  public Urn createDocument(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable List<String> subTypes,
+      @Nullable String title,
+      @Nullable com.linkedin.knowledge.DocumentSource source,
+      @Nullable com.linkedin.knowledge.DocumentState state,
+      @Nonnull String text,
+      @Nullable Urn parentDocumentUrn,
+      @Nullable List<Urn> relatedAssetUrns,
+      @Nullable List<Urn> relatedDocumentUrns,
+      @Nullable com.linkedin.knowledge.DocumentSettings settings,
+      @Nullable List<Owner> owners,
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     // Generate document URN
@@ -102,18 +189,22 @@ public class DocumentService {
         Urn.createFromString(
             String.format("urn:li:%s:%s", Constants.DOCUMENT_ENTITY_NAME, documentId));
 
+    DocumentAuthorizationUtils.assertCanCreate(opContext, documentUrn);
+
     // Check if document already exists
     if (entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
           String.format("Document with ID %s already exists", documentId));
     }
 
-    // Validate: if draftOfUrn is provided, state must be UNPUBLISHED (or null, which will default
-    // to UNPUBLISHED)
-    if (draftOfUrn != null && state == com.linkedin.knowledge.DocumentState.PUBLISHED) {
-      throw new IllegalArgumentException(
-          "Cannot create a draft document with PUBLISHED state. Draft documents must be UNPUBLISHED.");
+    if (parentDocumentUrn != null) {
+      if (documentUrn.equals(parentDocumentUrn)) {
+        throw new IllegalArgumentException("Cannot create a Document with itself as parent");
+      }
+      assertParentIsLive(opContext, parentDocumentUrn);
     }
+
+    // Draft feature is not yet implemented in the UI
 
     // Create document key
     final DocumentKey documentKey = new DocumentKey();
@@ -147,23 +238,13 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     documentInfo.setLastModified(lastModified);
 
-    // Set status (default to UNPUBLISHED if not provided, force UNPUBLISHED if draftOfUrn is set)
+    // Set status (default to UNPUBLISHED if not provided)
     final com.linkedin.knowledge.DocumentStatus status =
         new com.linkedin.knowledge.DocumentStatus();
     com.linkedin.knowledge.DocumentState finalState =
         state != null ? state : com.linkedin.knowledge.DocumentState.UNPUBLISHED;
-    if (draftOfUrn != null) {
-      finalState = com.linkedin.knowledge.DocumentState.UNPUBLISHED;
-    }
     status.setState(finalState);
     documentInfo.setStatus(status, SetMode.IGNORE_NULL);
-
-    // Set draftOf if provided
-    if (draftOfUrn != null) {
-      final com.linkedin.knowledge.DraftOf draftOf = new com.linkedin.knowledge.DraftOf();
-      draftOf.setDocument(draftOfUrn);
-      documentInfo.setDraftOf(draftOf, SetMode.IGNORE_NULL);
-    }
 
     // Embed relationships inside DocumentInfo before serializing
     if (parentDocumentUrn != null) {
@@ -194,10 +275,9 @@ public class DocumentService {
       documentInfo.setRelatedDocuments(documentsArray, SetMode.IGNORE_NULL);
     }
 
-    // Create synchronous MCP for document info with all relationships embedded
+    // Create MCP for document info with all relationships embedded
     final MetadataChangeProposal infoMcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, documentInfo, indexMode);
 
     // Prepare list of MCPs to ingest
     final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
@@ -209,8 +289,7 @@ public class DocumentService {
       subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
 
       final MetadataChangeProposal subTypesMcp =
-          AspectUtils.buildSynchronousMetadataChangeProposal(
-              documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect);
+          buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode);
       mcps.add(subTypesMcp);
     }
 
@@ -227,9 +306,26 @@ public class DocumentService {
     finalSettings.setLastModified(settingsAuditStamp, SetMode.IGNORE_NULL);
 
     final MetadataChangeProposal settingsMcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
+        buildProposal(
+            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings, indexMode);
     mcps.add(settingsMcp);
+
+    final List<Owner> initialOwners;
+    if (owners != null && !owners.isEmpty()) {
+      initialOwners = owners;
+    } else {
+      final Owner creatorOwner = new Owner();
+      creatorOwner.setOwner(actorUrn);
+      creatorOwner.setType(OwnershipType.TECHNICAL_OWNER);
+      initialOwners = Collections.singletonList(creatorOwner);
+    }
+    final MetadataChangeProposal ownershipMcp =
+        buildProposal(
+            documentUrn,
+            Constants.OWNERSHIP_ASPECT_NAME,
+            buildOwnership(initialOwners, actorUrn),
+            indexMode);
+    mcps.add(ownershipMcp);
 
     // Ingest the document with all aspects
     entityClient.batchIngestProposals(opContext, mcps, false);
@@ -249,6 +345,13 @@ public class DocumentService {
   @Nullable
   public DocumentInfo getDocumentInfo(@Nonnull OperationContext opContext, @Nonnull Urn documentUrn)
       throws Exception {
+    DocumentAuthorizationUtils.assertCanView(opContext, documentUrn);
+    return getDocumentInfoWithoutAuthorization(opContext, documentUrn);
+  }
+
+  @Nullable
+  private DocumentInfo getDocumentInfoWithoutAuthorization(
+      @Nonnull OperationContext opContext, @Nonnull Urn documentUrn) throws Exception {
 
     final EntityResponse response =
         entityClient.getV2(
@@ -282,11 +385,39 @@ public class DocumentService {
       @Nullable String text,
       @Nullable String title,
       @Nullable List<String> subTypes,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
+      throws Exception {
+    updateDocumentContents(
+        opContext, documentUrn, text, null, title, subTypes, actorUrn, indexMode);
+  }
+
+  /**
+   * Updates the contents of a document, including an optional dedicated semantic-search payload.
+   *
+   * @param opContext the operation context
+   * @param documentUrn the document URN
+   * @param text the new display text
+   * @param semanticText optional semantic-search content
+   * @param title optional updated title
+   * @param subTypes optional updated sub-types
+   * @throws Exception if update fails
+   */
+  public void updateDocumentContents(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nullable String text,
+      @Nullable String semanticText,
+      @Nullable String title,
+      @Nullable List<String> subTypes,
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Get existing info
-    final DocumentInfo existingInfo = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo existingInfo = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (existingInfo == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -294,9 +425,10 @@ public class DocumentService {
 
     // Update text if provided
     if (text != null) {
-      final DocumentContents documentContents = new DocumentContents();
-      documentContents.setText(text);
-      existingInfo.setContents(documentContents);
+      if (!existingInfo.hasContents()) {
+        existingInfo.setContents(new DocumentContents());
+      }
+      existingInfo.getContents().setText(text);
     }
 
     // Update title if provided
@@ -314,26 +446,26 @@ public class DocumentService {
     final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
 
     // Ingest updated info
-    final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-    infoMcp.setEntityUrn(documentUrn);
-    infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    infoMcp.setChangeType(ChangeType.UPSERT);
-    infoMcp.setAspect(GenericRecordUtils.serializeAspect(existingInfo));
-    mcps.add(infoMcp);
+    mcps.add(
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, existingInfo, indexMode));
+
+    // semanticText is a standalone aspect. Only write it when the caller opts in so ordinary
+    // document body/title mutations leave an existing curated embedding source untouched.
+    if (semanticText != null) {
+      mcps.add(
+          buildProposal(
+              documentUrn,
+              Constants.SEMANTIC_TEXT_ASPECT_NAME,
+              new SemanticText().setText(semanticText),
+              indexMode));
+    }
 
     // Update subTypes if provided
     if (subTypes != null && !subTypes.isEmpty()) {
       final com.linkedin.common.SubTypes subTypesAspect = new com.linkedin.common.SubTypes();
       subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
-
-      final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
-      subTypesMcp.setEntityUrn(documentUrn);
-      subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
-      subTypesMcp.setChangeType(ChangeType.UPSERT);
-      subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
-      mcps.add(subTypesMcp);
+      mcps.add(
+          buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode));
     }
 
     // Batch ingest all proposals
@@ -358,11 +490,14 @@ public class DocumentService {
       @Nonnull Urn documentUrn,
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -407,16 +542,24 @@ public class DocumentService {
     info.setLastModified(lastModified);
 
     // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(info));
+    final MetadataChangeProposal mcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
     log.debug("Updated related entities for document {}", documentUrn);
+  }
+
+  /**
+   * Rejects a parent that was never stored or is soft-deleted. {@code includeSoftDelete=false}
+   * treats both as absent.
+   */
+  private void assertParentIsLive(@Nonnull OperationContext opContext, @Nonnull Urn parentUrn)
+      throws RemoteInvocationException {
+    if (!entityClient.exists(opContext, parentUrn, false)) {
+      throw new IllegalArgumentException(
+          String.format("Parent Document with URN %s does not exist", parentUrn));
+    }
   }
 
   /**
@@ -431,8 +574,11 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nullable Urn newParentUrn,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
+
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
@@ -440,12 +586,9 @@ public class DocumentService {
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Verify new parent exists if provided
+    // A missing or soft-deleted parent would make this document an orphan.
     if (newParentUrn != null) {
-      if (!entityClient.exists(opContext, newParentUrn)) {
-        throw new IllegalArgumentException(
-            String.format("Parent Document with URN %s does not exist", newParentUrn));
-      }
+      assertParentIsLive(opContext, newParentUrn);
 
       // Prevent moving document to itself
       if (documentUrn.equals(newParentUrn)) {
@@ -460,7 +603,7 @@ public class DocumentService {
     }
 
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -481,10 +624,9 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     info.setLastModified(lastModified);
 
-    // Ingest updated info with synchronous MCP
+    // Ingest updated info
     final MetadataChangeProposal mcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info);
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -504,8 +646,11 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull com.linkedin.knowledge.DocumentState newState,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
+
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
@@ -514,7 +659,7 @@ public class DocumentService {
     }
 
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -533,12 +678,8 @@ public class DocumentService {
     info.setLastModified(lastModified);
 
     // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(info));
+    final MetadataChangeProposal mcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -558,8 +699,11 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull com.linkedin.knowledge.DocumentSettings settings,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
+
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
@@ -574,27 +718,19 @@ public class DocumentService {
     settings.setLastModified(lastModified, SetMode.IGNORE_NULL);
 
     // Create metadata change proposal for DocumentSettings
-    final MetadataChangeProposal settingsMcp = new MetadataChangeProposal();
-    settingsMcp.setEntityUrn(documentUrn);
-    settingsMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    settingsMcp.setAspectName(Constants.DOCUMENT_SETTINGS_ASPECT_NAME);
-    settingsMcp.setChangeType(ChangeType.UPSERT);
-    settingsMcp.setAspect(GenericRecordUtils.serializeAspect(settings));
+    final MetadataChangeProposal settingsMcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, settings, indexMode);
 
     // Also update lastModified timestamp in DocumentInfo
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info != null) {
       final AuditStamp infoLastModified = new AuditStamp();
       infoLastModified.setTime(System.currentTimeMillis());
       infoLastModified.setActor(actorUrn);
       info.setLastModified(infoLastModified);
 
-      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-      infoMcp.setEntityUrn(documentUrn);
-      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-      infoMcp.setChangeType(ChangeType.UPSERT);
-      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+      final MetadataChangeProposal infoMcp =
+          buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
       // Batch ingest both proposals
       entityClient.batchIngestProposals(
@@ -620,8 +756,11 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nullable String subType,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
+
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
@@ -640,27 +779,19 @@ public class DocumentService {
     }
 
     // Create metadata change proposal for SubTypes
-    final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
-    subTypesMcp.setEntityUrn(documentUrn);
-    subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
-    subTypesMcp.setChangeType(ChangeType.UPSERT);
-    subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
+    final MetadataChangeProposal subTypesMcp =
+        buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode);
 
     // Also update lastModified timestamp in DocumentInfo
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info != null) {
       final AuditStamp lastModified = new AuditStamp();
       lastModified.setTime(System.currentTimeMillis());
       lastModified.setActor(actorUrn);
       info.setLastModified(lastModified);
 
-      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-      infoMcp.setEntityUrn(documentUrn);
-      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-      infoMcp.setChangeType(ChangeType.UPSERT);
-      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+      final MetadataChangeProposal infoMcp =
+          buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
       // Batch ingest both proposals
       entityClient.batchIngestProposals(
@@ -674,31 +805,301 @@ public class DocumentService {
   }
 
   /**
-   * Soft deletes a document by setting the Status aspect removed field to true.
+   * Soft deletes a document and every live document under it by setting {@code status.removed} to
+   * true. Deleting a document deletes its live subtree.
+   *
+   * <p>Authorization is checked on the root only. Descendant lookup uses system search privileges
+   * so drafts, unpublished documents, and documents hidden from global context are included. Status
+   * writes still use {@code opContext}, so the audit stamp stays the acting user.
+   *
+   * <p>{@code exists} includes soft-deleted rows. A retry of an already-removed root is not "does
+   * not exist"; the walk only sees documents that are still {@code removed=false}.
    *
    * @param opContext the operation context
    * @param documentUrn the document URN to soft delete
+   * @return the deleted URNs, root included, deepest first
+   * @throws DocumentDeleteLimitException when the live subtree exceeds {@link
+   *     DocumentDeleteResult#MAX_DESCENDANTS} or {@link DocumentDeleteResult#MAX_DEPTH}; nothing is
+   *     written
    * @throws Exception if deletion fails
    */
-  public void deleteDocument(@Nonnull OperationContext opContext, @Nonnull Urn documentUrn)
+  @Nonnull
+  public DocumentDeleteResult deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
-    // Verify document exists
+    DocumentAuthorizationUtils.assertCanDelete(opContext, documentUrn);
+
+    // Include soft-deleted rows. A missing key still throws; an already-removed root does not.
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Soft delete by setting Status aspect removed = true with synchronous MCP
-    final com.linkedin.common.Status status = new com.linkedin.common.Status();
-    status.setRemoved(true);
+    final OperationContext scrollContext = descendantScrollContext(opContext);
+    final List<Urn> deleteOrder = collectDeleteOrder(scrollContext, documentUrn);
 
-    final MetadataChangeProposal statusProposal =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.STATUS_ASPECT_NAME, status);
+    final Map<Urn, Status> storedStatus = loadStoredStatus(scrollContext, deleteOrder);
+    final List<MetadataChangeProposal> proposals = new ArrayList<>(deleteOrder.size());
+    for (Urn urn : deleteOrder) {
+      final Urn documentUrnToRemove = Objects.requireNonNull(urn);
+      final Status existing = storedStatus.get(documentUrnToRemove);
+      // Copy the stored aspect so lifecycleStage and lifecycleLastUpdated stay.
+      final Status status = existing == null ? new Status() : new Status(existing.data().copy());
+      status.setRemoved(true);
+      proposals.add(
+          buildProposal(documentUrnToRemove, Constants.STATUS_ASPECT_NAME, status, indexMode));
+    }
 
-    entityClient.ingestProposal(opContext, statusProposal, false);
-    log.debug("Soft deleted document {}", documentUrn);
+    // One call. JavaEntityClient partitions at the ingest batch size, deepest first so a failed
+    // later batch leaves the root live and a retry still finds the remaining removed=false nodes.
+    entityClient.batchIngestProposals(opContext, proposals, false);
+    final int descendantCount = deleteOrder.size() - 1;
+    log.debug("Soft deleted document {} and {} nested documents", documentUrn, descendantCount);
+    return new DocumentDeleteResult(deleteOrder, descendantCount);
+  }
+
+  /**
+   * Search flags for a live document subtree. Removed documents stay excluded. Hidden lifecycle
+   * stages stay included, and query rewrite stays off so {@code DocumentExpansionRewriter} cannot
+   * truncate the walk. Drafts and documents that opt out of global context are already returned:
+   * those filters are applied by GraphQL, not by this service-level scroll.
+   */
+  @Nonnull
+  public static OperationContext withLiveSubtreeSearchFlags(@Nonnull OperationContext opContext) {
+    return Objects.requireNonNull(
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setIncludeSoftDeleted(false)
+                    .setIncludeHiddenLifecycleStages(true)
+                    .setRewriteQuery(false)
+                    .setSkipCache(true)
+                    .setSkipHighlighting(true)
+                    .setSkipAggregates(true)));
+  }
+
+  /**
+   * Scroll context for descendant lookup. {@code isSystemAuth} is true only when the session actor
+   * is the system actor, so a user session has to be rebuilt on the context's system
+   * authentication. Search access control would otherwise drop documents the caller cannot read.
+   */
+  @Nonnull
+  private OperationContext descendantScrollContext(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return withLiveSubtreeSearchFlags(opContext);
+    }
+    final Authentication systemAuthentication =
+        Objects.requireNonNull(
+            opContext
+                .getSystemAuthentication()
+                .orElseThrow(
+                    () ->
+                        new IllegalStateException(
+                            "System authentication is required to collect documents for deletion")));
+    final OperationContext systemContext =
+        opContext.toBuilder()
+            .operationContextConfig(
+                Objects.requireNonNull(
+                    opContext.getOperationContextConfig().toBuilder()
+                        .allowSystemAuthentication(true)
+                        .build()))
+            .build(
+                systemAuthentication,
+                opContext.getSessionActorContext().isEnforceExistenceEnabled());
+    return withLiveSubtreeSearchFlags(systemContext);
+  }
+
+  /**
+   * Live descendants, deepest first, root last. A tree past either cap throws before any proposal
+   * is built. Visited URNs are deleted once, so a cycle or a diamond does not write twice.
+   */
+  @Nonnull
+  private List<Urn> collectDeleteOrder(@Nonnull OperationContext scrollContext, @Nonnull Urn root)
+      throws Exception {
+    final List<List<Urn>> levels = new ArrayList<>();
+    levels.add(new ArrayList<>(List.of(root)));
+    final Set<Urn> visited = new HashSet<>();
+    visited.add(root);
+
+    for (int depth = 0; ; depth++) {
+      // A non-empty level only exists when the previous pass found a new child.
+      if (depth > DocumentDeleteResult.MAX_DEPTH) {
+        throw deleteLimit(
+            root,
+            Objects.requireNonNull(
+                String.format("live subtree exceeds depth %s", DocumentDeleteResult.MAX_DEPTH)));
+      }
+
+      final List<Urn> nextLevel = new ArrayList<>();
+      final List<Urn> level = levels.get(depth);
+      for (int start = 0; start < level.size(); start += DocumentDeleteResult.SCROLL_PAGE_SIZE) {
+        final int end = Math.min(start + DocumentDeleteResult.SCROLL_PAGE_SIZE, level.size());
+        final List<Urn> parents = new ArrayList<>(level.subList(start, end));
+        nextLevel.addAll(scrollChildDocuments(scrollContext, parents, root, visited));
+      }
+      if (nextLevel.isEmpty()) {
+        break;
+      }
+      levels.add(nextLevel);
+    }
+
+    final List<Urn> deleteOrder = new ArrayList<>(visited.size());
+    for (int depth = levels.size() - 1; depth >= 0; depth--) {
+      deleteOrder.addAll(levels.get(depth));
+    }
+    return deleteOrder;
+  }
+
+  /**
+   * Direct children of {@code parents}. One scroll covers the whole chunk. A hit is kept when its
+   * stored {@code parentDocument} is one of {@code parents}: a stale index entry whose stored
+   * parent left this wave is skipped, and a child stored under another parent in the same wave is
+   * kept. Accepted children are added to {@code visited}. Another page is not requested once {@link
+   * DocumentDeleteResult#MAX_DESCENDANTS} new documents are already accepted.
+   */
+  @Nonnull
+  private List<Urn> scrollChildDocuments(
+      @Nonnull OperationContext scrollContext,
+      @Nonnull List<Urn> parents,
+      @Nonnull Urn root,
+      @Nonnull Set<Urn> visited)
+      throws Exception {
+    final Set<Urn> parentSet = new HashSet<>(parents);
+    final List<Urn> children = new ArrayList<>();
+    String scrollId = null;
+    do {
+      final ScrollResult page =
+          entityClient.scrollAcrossEntities(
+              scrollContext,
+              Objects.requireNonNull(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+              WILDCARD_QUERY,
+              buildParentDocumentsFilter(parents),
+              scrollId,
+              DocumentDeleteResult.SCROLL_KEEP_ALIVE,
+              null,
+              DocumentDeleteResult.SCROLL_PAGE_SIZE,
+              List.of());
+      if (page == null) {
+        throw new IllegalStateException(
+            String.format("Scroll for children of %s returned no result", parents));
+      }
+      final String nextScrollId = page.getScrollId();
+      final List<SearchEntity> entities = page.getEntities();
+      // An empty page that still carries a scroll id is a broken scroll, not the end of the tree.
+      if (entities == null || entities.isEmpty()) {
+        if (nextScrollId != null) {
+          throw new IllegalStateException(
+              String.format(
+                  "Scroll for children of %s returned an empty page with scroll id %s",
+                  parents, nextScrollId));
+        }
+        break;
+      }
+      final List<Urn> candidates = new ArrayList<>();
+      for (SearchEntity entity : entities) {
+        if (entity == null || entity.getEntity() == null) {
+          continue;
+        }
+        candidates.add(Objects.requireNonNull(entity.getEntity()));
+      }
+      if (!candidates.isEmpty()) {
+        final Map<Urn, EntityResponse> stored =
+            Objects.requireNonNull(
+                entityClient.batchGetV2(
+                    scrollContext,
+                    Constants.DOCUMENT_ENTITY_NAME,
+                    Objects.requireNonNull(new HashSet<>(candidates)),
+                    Set.of(Constants.DOCUMENT_INFO_ASPECT_NAME),
+                    false));
+        for (Urn candidate : candidates) {
+          final Urn child = Objects.requireNonNull(candidate);
+          final Urn storedParent = storedParent(stored.get(child));
+          // Storage decides membership. A child stored under another parent in this wave stays;
+          // one stored outside the wave was indexed here after it moved.
+          if (storedParent == null || !parentSet.contains(storedParent)) {
+            continue;
+          }
+          if (visited.contains(child)) {
+            continue;
+          }
+          if (visited.size() - 1 >= DocumentDeleteResult.MAX_DESCENDANTS) {
+            throw deleteLimit(
+                root,
+                Objects.requireNonNull(
+                    String.format(
+                        "live subtree exceeds %s descendants",
+                        DocumentDeleteResult.MAX_DESCENDANTS)));
+          }
+          visited.add(child);
+          children.add(child);
+        }
+      }
+      scrollId = nextScrollId;
+    } while (scrollId != null);
+    return children;
+  }
+
+  @Nullable
+  private static Urn storedParent(@Nullable EntityResponse response) {
+    if (response == null || response.getAspects() == null) {
+      return null;
+    }
+    final EnvelopedAspect aspect = response.getAspects().get(Constants.DOCUMENT_INFO_ASPECT_NAME);
+    if (aspect == null || aspect.getValue() == null) {
+      return null;
+    }
+    final DocumentInfo info = new DocumentInfo(aspect.getValue().data());
+    final ParentDocument parent = info.getParentDocument();
+    if (parent == null || !parent.hasDocument()) {
+      return null;
+    }
+    return parent.getDocument();
+  }
+
+  @Nonnull
+  private Map<Urn, Status> loadStoredStatus(
+      @Nonnull OperationContext scrollContext, @Nonnull List<Urn> urns) throws Exception {
+    final Map<Urn, Status> stored = new HashMap<>();
+    for (int start = 0; start < urns.size(); start += DocumentDeleteResult.SCROLL_PAGE_SIZE) {
+      final int end = Math.min(start + DocumentDeleteResult.SCROLL_PAGE_SIZE, urns.size());
+      final Map<Urn, EntityResponse> page =
+          Objects.requireNonNull(
+              entityClient.batchGetV2(
+                  scrollContext,
+                  Constants.DOCUMENT_ENTITY_NAME,
+                  Objects.requireNonNull(new HashSet<>(urns.subList(start, end))),
+                  Set.of(Constants.STATUS_ASPECT_NAME),
+                  false));
+      for (Map.Entry<Urn, EntityResponse> entry : page.entrySet()) {
+        final Urn urn = entry.getKey();
+        final Status status = statusFrom(entry.getValue());
+        if (urn != null && status != null) {
+          stored.put(urn, status);
+        }
+      }
+    }
+    return stored;
+  }
+
+  @Nullable
+  private static Status statusFrom(@Nullable EntityResponse response) {
+    if (response == null || response.getAspects() == null) {
+      return null;
+    }
+    final EnvelopedAspect aspect = response.getAspects().get(Constants.STATUS_ASPECT_NAME);
+    if (aspect == null || aspect.getValue() == null) {
+      return null;
+    }
+    return new Status(aspect.getValue().data());
+  }
+
+  @Nonnull
+  private DocumentDeleteLimitException deleteLimit(@Nonnull Urn rootUrn, @Nonnull String reason) {
+    log.warn("Refusing to delete document {}: {}", rootUrn, reason);
+    return new DocumentDeleteLimitException(rootUrn, reason);
   }
 
   /**
@@ -713,33 +1114,38 @@ public class DocumentService {
   public void setDocumentOwnership(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
-      @Nonnull java.util.List<com.linkedin.common.Owner> owners,
-      @Nonnull Urn actorUrn)
+      @Nonnull List<Owner> owners,
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
-    // Create Ownership aspect
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
+    // Create MCP for ownership
+    final MetadataChangeProposal mcp =
+        buildProposal(
+            documentUrn,
+            Constants.OWNERSHIP_ASPECT_NAME,
+            buildOwnership(owners, actorUrn),
+            indexMode);
+
+    entityClient.ingestProposal(opContext, mcp, false);
+
+    log.debug("Set ownership for document {} with {} owners", documentUrn, owners.size());
+  }
+
+  @Nonnull
+  private static Ownership buildOwnership(@Nonnull List<Owner> owners, @Nonnull Urn actorUrn) {
     final Ownership ownership = new Ownership();
     final OwnerArray ownerArray = new OwnerArray();
     ownerArray.addAll(owners);
     ownership.setOwners(ownerArray);
 
-    // Set last modified
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(System.currentTimeMillis());
     auditStamp.setActor(actorUrn);
     ownership.setLastModified(auditStamp);
-
-    // Create MCP for ownership
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(ownership));
-
-    entityClient.ingestProposal(opContext, mcp, false);
-
-    log.debug("Set ownership for document {} with {} owners", documentUrn, owners.size());
+    return ownership;
   }
 
   /**
@@ -769,14 +1175,45 @@ public class DocumentService {
             ? sortCriterion
             : new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING);
 
-    return entityClient.search(
-        opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-        Constants.DOCUMENT_ENTITY_NAME,
-        query,
-        filter,
-        Collections.singletonList(sort),
-        start,
-        count);
+    SearchResult result =
+        entityClient.search(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            Constants.DOCUMENT_ENTITY_NAME,
+            query,
+            filter,
+            Collections.singletonList(sort),
+            start,
+            count);
+    // Filter unauthorized hits rather than failing the whole page: GraphQL search callers expect
+    // mixed-access result sets, and bridge inheritance can authorize only a subset of documents.
+    result.setEntities(
+        new com.linkedin.metadata.search.SearchEntityArray(
+            result.getEntities().stream()
+                .filter(
+                    entity ->
+                        DocumentAuthorizationUtils.isAuthorizedDocumentOperation(
+                            opContext, READ, entity.getEntity()))
+                .toList()));
+    return result;
+  }
+
+  @Nonnull
+  private static Filter buildParentDocumentsFilter(@Nonnull List<Urn> parents) {
+    final StringArray values = new StringArray();
+    for (Urn parent : parents) {
+      values.add(Objects.requireNonNull(parent).toString());
+    }
+    final Criterion parentCriterion =
+        new Criterion()
+            .setField(PARENT_DOCUMENT_FIELD)
+            .setValues(values)
+            .setCondition(Condition.EQUAL);
+    return Objects.requireNonNull(
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(Collections.singletonList(parentCriterion))))));
   }
 
   /**
@@ -793,8 +1230,8 @@ public class DocumentService {
 
     final Criterion parentCriterion =
         new Criterion()
-            .setField("parentDocument")
-            .setValue(parentDocumentUrn.toString())
+            .setField(PARENT_DOCUMENT_FIELD)
+            .setValues(new StringArray(Collections.singletonList(parentDocumentUrn.toString())))
             .setCondition(Condition.EQUAL);
 
     return new Filter()
@@ -854,7 +1291,7 @@ public class DocumentService {
 
     try {
       // Get the parent's document info
-      DocumentInfo parentInfo = getDocumentInfo(opContext, currentParent);
+      DocumentInfo parentInfo = getDocumentInfoWithoutAuthorization(opContext, currentParent);
       if (parentInfo != null && parentInfo.hasParentDocument()) {
         // Recursively check the parent's parent
         Urn grandParent = parentInfo.getParentDocument().getDocument();
@@ -867,138 +1304,5 @@ public class DocumentService {
 
     // No parent found, no cycle
     return false;
-  }
-
-  /**
-   * Merge a draft document into its parent (the document it is a draft of). This copies the draft's
-   * content to the published document and optionally deletes the draft.
-   *
-   * @param opContext the operation context
-   * @param draftUrn the URN of the draft document to merge
-   * @param deleteDraft whether to delete the draft after merging (default: true)
-   * @param actorUrn the URN of the user performing the merge
-   * @throws Exception if merge fails
-   */
-  public void mergeDraftIntoParent(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn draftUrn,
-      boolean deleteDraft,
-      @Nonnull Urn actorUrn)
-      throws Exception {
-
-    // Get draft document info
-    DocumentInfo draftInfo = getDocumentInfo(opContext, draftUrn);
-    if (draftInfo == null) {
-      throw new IllegalArgumentException(
-          String.format("Draft document %s does not exist", draftUrn));
-    }
-
-    // Verify this is a draft
-    if (!draftInfo.hasDraftOf()) {
-      throw new IllegalArgumentException(
-          String.format("Document %s is not a draft (draftOf field not set)", draftUrn));
-    }
-
-    // Get the published document URN
-    Urn publishedUrn = draftInfo.getDraftOf().getDocument();
-
-    // Get published document info
-    DocumentInfo publishedInfo = getDocumentInfo(opContext, publishedUrn);
-    if (publishedInfo == null) {
-      throw new IllegalArgumentException(
-          String.format("Published document %s does not exist", publishedUrn));
-    }
-
-    // Copy draft content to published document (preserving published document's draftOf=null)
-    publishedInfo.setContents(draftInfo.getContents());
-    if (draftInfo.hasTitle()) {
-      publishedInfo.setTitle(draftInfo.getTitle());
-    }
-    if (draftInfo.hasRelatedAssets()) {
-      publishedInfo.setRelatedAssets(draftInfo.getRelatedAssets(), SetMode.IGNORE_NULL);
-    }
-    if (draftInfo.hasRelatedDocuments()) {
-      publishedInfo.setRelatedDocuments(draftInfo.getRelatedDocuments(), SetMode.IGNORE_NULL);
-    }
-    if (draftInfo.hasParentDocument()) {
-      publishedInfo.setParentDocument(draftInfo.getParentDocument(), SetMode.IGNORE_NULL);
-    }
-
-    // Update lastModified
-    final AuditStamp now = new AuditStamp();
-    now.setTime(System.currentTimeMillis());
-    now.setActor(actorUrn);
-    publishedInfo.setLastModified(now);
-
-    // Ensure draftOf is NOT set on published document
-    publishedInfo.setDraftOf(null, SetMode.REMOVE_IF_NULL);
-
-    // Ingest updated published document
-    final MetadataChangeProposal infoProposal = new MetadataChangeProposal();
-    infoProposal.setEntityUrn(publishedUrn);
-    infoProposal.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    infoProposal.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    infoProposal.setChangeType(ChangeType.UPSERT);
-    infoProposal.setAspect(GenericRecordUtils.serializeAspect(publishedInfo));
-    entityClient.ingestProposal(opContext, infoProposal, false);
-
-    log.debug("Merged draft {} into published document {}", draftUrn, publishedUrn);
-
-    // Delete draft if requested
-    if (deleteDraft) {
-      deleteDocument(opContext, draftUrn);
-      log.debug("Deleted draft document {} after merge", draftUrn);
-    }
-  }
-
-  /**
-   * Get all draft documents for a published document.
-   *
-   * @param opContext the operation context
-   * @param publishedDocumentUrn the URN of the published document
-   * @param start starting offset
-   * @param count number of results to return
-   * @return SearchResult containing draft documents
-   * @throws Exception if search fails
-   */
-  @Nonnull
-  public SearchResult getDraftDocuments(
-      @Nonnull OperationContext opContext, @Nonnull Urn publishedDocumentUrn, int start, int count)
-      throws Exception {
-
-    // Build filter for draftOf = publishedDocumentUrn
-    final Filter filter = buildDraftOfFilter(publishedDocumentUrn);
-
-    // Search for draft documents
-    return entityClient.search(
-        opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-        Constants.DOCUMENT_ENTITY_NAME,
-        "*",
-        filter,
-        null, // sort criterion
-        start,
-        count);
-  }
-
-  /** Build a filter to find documents that are drafts of a specific document. */
-  public static Filter buildDraftOfFilter(@Nonnull Urn draftOfUrn) {
-    final Criterion criterion = new Criterion();
-    criterion.setField("draftOf");
-    criterion.setValue(draftOfUrn.toString());
-    criterion.setCondition(Condition.EQUAL);
-
-    final CriterionArray criterionArray = new CriterionArray();
-    criterionArray.add(criterion);
-
-    final ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    conjunctiveCriterion.setAnd(criterionArray);
-
-    final ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
-    conjunctiveCriterionArray.add(conjunctiveCriterion);
-
-    final Filter filter = new Filter();
-    filter.setOr(conjunctiveCriterionArray);
-
-    return filter;
   }
 }

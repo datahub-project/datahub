@@ -1,5 +1,5 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Dropdown } from 'antd';
+import { Dropdown } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +7,9 @@ import FilterOption from '@app/searchV2/filters/FilterOption';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { useElementDimensions } from '@app/searchV2/filters/utils';
+
+const CSS_SIDE_RIGHT = 'right';
+const CSS_SIDE_LEFT = 'left';
 
 const IconNameWrapper = styled.span`
     display: flex;
@@ -66,7 +69,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                     style={{
                         position: 'absolute',
                         top: -height,
-                        [isElementOutsideWindow ? 'right' : 'left']: width,
+                        [isElementOutsideWindow ? CSS_SIDE_RIGHT : CSS_SIDE_LEFT]: width,
                     }}
                 />
             )}
@@ -82,7 +85,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                     {icon && <IconWrapper>{icon}</IconWrapper>}
                     {title} {isSelected ? `(1) ` : ''}
                 </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
+                <CaretRight size={12} weight="fill" />
             </MoreFilterOptionLabel>
         </Dropdown>
     );

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.datahub.upgrade.cleanup.Cleanup;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
@@ -13,8 +14,8 @@ import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.inject.Named;
 import java.util.List;
-import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -31,6 +32,13 @@ public class UpgradeCli implements CommandLineRunner {
 
     @CommandLine.Option(names = {"-a", "--arg"})
     List<String> args;
+
+    @CommandLine.Option(
+        names = {"-n", "--nonblocking-classname"},
+        description =
+            "Run only the specified non-blocking upgrade(s). Supports comma-delimited list "
+                + "(e.g., BackfillBrowsePathsV2,BackfillPolicyFields). Only applicable with SystemUpdateNonBlocking.")
+    String nonBlockingClassnames;
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
@@ -78,6 +86,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Autowired(required = false)
   @Named("reindexDebug")
   private ReindexDebug reindexDebug;
+
+  @Autowired(required = false)
+  @Named("cleanup")
+  private Cleanup cleanup;
 
   @Override
   public void run(String... cmdLineArgs) {
@@ -142,10 +154,23 @@ public class UpgradeCli implements CommandLineRunner {
       log.info("ReindexDebug upgrade not available - bean not found");
     }
 
+    if (cleanup != null) {
+      _upgradeManager.register(cleanup);
+    } else {
+      log.info("Cleanup upgrade not available - bean not found");
+    }
+
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
+
+    List<String> execArgs =
+        args.args != null ? new java.util.ArrayList<>(args.args) : new java.util.ArrayList<>();
+    if (args.nonBlockingClassnames != null && !args.nonBlockingClassnames.isBlank()) {
+      execArgs.add("nonBlockingClassnames=" + args.nonBlockingClassnames.trim());
+    }
+
     UpgradeResult result =
-        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), args.args);
+        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), execArgs);
 
     if (DataHubUpgradeState.FAILED.equals(result.result())) {
       System.exit(1);

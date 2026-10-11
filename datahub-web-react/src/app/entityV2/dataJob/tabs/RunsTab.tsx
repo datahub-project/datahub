@@ -1,11 +1,13 @@
-import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Pagination, Table, Typography } from 'antd';
+import { Pagination, Table, Text, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { DefaultTheme, useTheme } from 'styled-components';
+
+import { Column } from '@components/components/Table/types';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { notEmpty } from '@app/entityV2/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -13,15 +15,16 @@ import {
 } from '@app/ingest/source/utils';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 
-import { useGetDataJobRunsQuery } from '@graphql/dataJob.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
+import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus, Entity } from '@types';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PaginationControlContainer = styled.div`
@@ -52,96 +55,128 @@ function getStatusForStyling(status?: DataProcessRunStatus, resultType?: DataPro
     return 'RUNNING';
 }
 
-const columns = [
-    {
-        title: 'Time',
-        dataIndex: 'time',
-        key: 'time',
-        render: (value) => (
-            <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
-        ),
-    },
-    {
-        title: 'Run ID',
-        dataIndex: 'name',
-        key: 'name',
-    },
-    {
-        title: 'Status',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status: any, row) => {
-            const statusForStyling = getStatusForStyling(status, row?.resultType);
-            const text = getExecutionRequestStatusDisplayText(statusForStyling);
-            const color = getExecutionRequestStatusDisplayColor(statusForStyling);
-            return (
-                <>
-                    <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                        <LastRunIcon status={status} resultType={row?.resultType} />
-                        <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                            {text || 'N/A'}
-                        </Typography.Text>
-                    </div>
-                </>
-            );
-        },
-    },
-    {
-        title: 'Inputs',
-        dataIndex: 'inputs',
-        key: 'inputs',
-        render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
-        width: 150,
-    },
-    {
-        title: 'Outputs',
-        dataIndex: 'outputs',
-        key: 'outputs',
-        render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
-        width: 150,
-    },
-    {
-        title: '',
-        dataIndex: 'externalUrl',
-        key: 'externalUrl',
-        render: (externalUrl) =>
-            externalUrl && (
-                <Tooltip title="View task run details">
-                    <ExternalUrlLink href={externalUrl}>
-                        <DeliveredProcedureOutlined />
-                    </ExternalUrlLink>
-                </Tooltip>
-            ),
-    },
-];
-
 const PAGE_SIZE = 20;
+
+type RunRow = {
+    time?: number | null;
+    name?: string | null;
+    status?: DataProcessRunStatus | null;
+    resultType?: DataProcessInstanceRunResultType | null;
+    inputs?: Entity[];
+    outputs?: Entity[];
+    externalUrl?: string | null;
+};
 
 export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
 
-    const { loading, data } = useGetDataJobRunsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE },
+    const theme = useTheme();
+
+    const columns: Column<RunRow>[] = [
+        {
+            title: t('shared.timeColumn'),
+            key: 'time',
+            render: (record) => (
+                <Tooltip title={new Date(Number(record.time)).toUTCString()}>
+                    {new Date(Number(record.time)).toLocaleString()}
+                </Tooltip>
+            ),
+        },
+        {
+            title: t('shared.runIdColumn'),
+            key: 'name',
+            render: (record) => <div data-testid={`run-name-${record.name}`}>{record.name}</div>,
+        },
+        {
+            title: tl('status'),
+            key: 'status',
+            render: (record) => {
+                const statusForStyling = getStatusForStyling(
+                    record.status ?? undefined,
+                    record.resultType ?? undefined,
+                );
+                const text = getExecutionRequestStatusDisplayText(statusForStyling);
+                const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
+                return (
+                    <div data-testid={`run-status-${record.name}`}>
+                        <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
+                            <LastRunIcon
+                                theme={theme}
+                                status={record.status ?? undefined}
+                                resultType={record.resultType ?? undefined}
+                            />
+                            <Text weight="bold" style={{ color, marginLeft: 8 }}>
+                                {text || tl('na')}
+                            </Text>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            title: t('shared.inputs'),
+            key: 'inputs',
+            render: (record) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={record.inputs ?? []} placement="right" />
+                </div>
+            ),
+            width: '150px',
+        },
+        {
+            title: t('shared.outputs'),
+            key: 'outputs',
+            render: (record) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={record.outputs ?? []} placement="right" />
+                </div>
+            ),
+            width: '150px',
+        },
+        {
+            title: '',
+            key: 'externalUrl',
+            render: (record) =>
+                record.externalUrl && (
+                    <Tooltip title={t('shared.viewTaskRunDetails')}>
+                        <ExternalUrlLink href={safeUrl(record.externalUrl)}>
+                            <ArrowSquareOut />
+                        </ExternalUrlLink>
+                    </Tooltip>
+                ),
+        },
+    ];
+
+    const { loading, data } = useGetExecutionRunsQuery({
+        variables: {
+            urn,
+            start: (page - 1) * PAGE_SIZE,
+            count: PAGE_SIZE,
+        },
     });
-    const runs = data && data?.dataJob?.runs?.runs;
+    const runsData = data?.entity && ('runs' in data?.entity ? data?.entity?.runs : null);
+    const runs = runsData?.runs;
 
     const tableData = runs
         ?.filter((run) => run?.state?.length)
         .map((run) => ({
+            key: run?.name,
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {
         return (
             <LoadingContainer>
                 <LoadingSvg height={80} width={80} />
-                <LoadingText>Fetching runs...</LoadingText>
+                <LoadingText>{t('shared.fetchingRuns')}</LoadingText>
             </LoadingContainer>
         );
     }
@@ -153,14 +188,14 @@ export const RunsTab = () => {
 
     return (
         <>
-            <Table dataSource={tableData} columns={columns} pagination={false} />
+            <Table data={tableData ?? []} columns={columns} />
             <PaginationControlContainer>
                 <Pagination
-                    current={page}
-                    pageSize={PAGE_SIZE}
-                    total={data?.dataJob?.runs?.total || 0}
+                    currentPage={page}
+                    itemsPerPage={PAGE_SIZE}
+                    total={runsData?.total || 0}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationControlContainer>
@@ -169,16 +204,17 @@ export const RunsTab = () => {
 };
 
 interface LastRunIconProps {
+    theme: DefaultTheme;
     status?: DataProcessRunStatus;
     resultType?: DataProcessInstanceRunResultType;
     showTooltip?: boolean;
 }
 
-export function LastRunIcon({ status, resultType, showTooltip }: LastRunIconProps): JSX.Element {
+export function LastRunIcon({ theme, status, resultType, showTooltip }: LastRunIconProps): JSX.Element {
     const statusForStyling = getStatusForStyling(status, resultType);
     const text = getExecutionRequestStatusDisplayText(statusForStyling);
     const Icon = getExecutionRequestStatusIcon(statusForStyling);
-    const color = getExecutionRequestStatusDisplayColor(statusForStyling);
+    const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
 
     const icon = Icon && <Icon style={{ color, fontSize: 'inherit' }} />;
 

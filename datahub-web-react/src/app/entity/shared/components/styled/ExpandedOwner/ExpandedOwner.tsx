@@ -1,5 +1,6 @@
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -11,7 +12,7 @@ import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkP
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
-import { EntityType, Owner } from '@types';
+import { Owner } from '@types';
 
 const OwnerTag = styled(Tag)`
     margin: 0;
@@ -31,26 +32,22 @@ type Props = {
 };
 
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
-    let name = '';
     let ownershipTypeName = '';
-    if (owner.owner.__typename === 'CorpGroup') {
-        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
-    }
-    if (owner.owner.__typename === 'CorpUser') {
-        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
-    }
+    const name = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
     if (owner.ownershipType && owner.ownershipType.info) {
         ownershipTypeName = owner.ownershipType.info.name;
     } else if (owner.type) {
         ownershipTypeName = getNameFromType(owner.type);
     }
     const pictureLink =
-        (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
+        ('editableProperties' in owner.owner && owner.owner.editableProperties?.pictureLink) || undefined;
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -65,7 +62,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     },
                 },
             });
-            message.success({ content: 'Owner Removed', duration: 2 });
+            message.success({ content: t('expandedOwner.ownerRemoved'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -75,7 +72,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('expandedOwner.removeError', { message: e.message || '' }), duration: 3 });
             }
         }
         refetch?.();
@@ -83,20 +80,24 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
+            title: t('expandedOwner.removeConfirmTitle', { name }),
+            content: t('expandedOwner.removeConfirmContent', { name, ownershipTypeName }),
             onOk() {
                 onDelete();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
     };
 
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
+        <OwnerTag
+            onClose={onClose}
+            closable={!!entityUrn && !readOnly}
+            data-testid={`owner-tag-for-${owner.owner.urn}`}
+        >
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>

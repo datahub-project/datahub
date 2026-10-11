@@ -3,11 +3,16 @@ package io.datahubproject.openapi.health;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.gms.factory.search.SearchClusterRegistry.ClusterConnection;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -15,6 +20,8 @@ import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -29,13 +36,33 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/")
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
+
+  private static final Logger log = LoggerFactory.getLogger(HealthCheckController.class);
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
 
   @Autowired
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
+
+  @Autowired
   @Qualifier("bootstrapManager")
   private BootstrapManager bootstrapManager;
+
+  /**
+   * Graceful shutdown handler for detecting when service is shutting down.
+   *
+   * <p>Only present when {@code server.shutdown=graceful} is configured (via @ConditionalOnProperty
+   * in GracefulShutdownHandler). When null (immediate shutdown mode), the health endpoint does not
+   * check shutdown state. This dual-mechanism design allows shutdown behavior to be toggled via
+   * configuration.
+   *
+   * <p>Uses {@code required = false} to gracefully handle both enabled and disabled modes.
+   */
+  @Autowired(required = false)
+  private GracefulShutdownHandler shutdownHandler;
 
   private final Supplier<ResponseEntity<String>> memoizedSupplier;
 
@@ -73,12 +100,13 @@ public class HealthCheckController {
    */
   @GetMapping(path = "/health")
   public ResponseEntity<Void> getBootstrapAwareHealth() {
-    if (!bootstrapManager.areBlockingStepsComplete()) {
-      // Service is still bootstrapping - not ready for traffic
+    boolean isShuttingDown = shutdownHandler != null && shutdownHandler.isShutdownInProgress();
+    if (!bootstrapManager.areBlockingStepsComplete() || isShuttingDown) {
+      // Service is either still bootstrapping or shutting down - not ready for traffic
       return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
-    // Bootstrap complete - service ready for traffic
+    // Bootstrap complete and not shutting down - service ready for traffic
     return ResponseEntity.ok().build();
   }
 
@@ -95,6 +123,41 @@ public class HealthCheckController {
   public ResponseEntity<Void> getLivenessCheck() {
     // Always return 200 if we can process the request - process is alive
     return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Detailed health endpoint that consolidates all health checks into a single JSON response.
+   * Designed for agent tooling (datahub-dev status) to get a comprehensive view in one call.
+   *
+   * <p>Returns a JSON object with bootstrap status, elasticsearch health, and overall readiness.
+   * Always returns HTTP 200 with the status in the body (so agents can parse the response even when
+   * unhealthy).
+   */
+  @GetMapping(path = "/health/detailed", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, Object>> getDetailedHealth() {
+    Map<String, Object> result = new LinkedHashMap<>();
+
+    boolean bootstrapped = bootstrapManager.areBlockingStepsComplete();
+    result.put("bootstrapped", bootstrapped);
+
+    // Elasticsearch health
+    ResponseEntity<String> esHealth;
+    try {
+      esHealth = getElasticDebugWithCache();
+    } catch (Exception e) {
+      log.error("Unexpected error getting Elasticsearch health", e);
+      esHealth = ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
+    }
+    boolean esHealthy = esHealth.getStatusCode() == HttpStatus.OK;
+    String esStatus = esHealthy ? "green" : "unhealthy";
+    result.put("elasticsearch", esStatus);
+    result.put("elasticsearch_detail", esHealth.getBody());
+
+    boolean ready = bootstrapped && esHealthy;
+    result.put("ready", ready);
+    result.put("timestamp", System.currentTimeMillis());
+
+    return ResponseEntity.ok(result);
   }
 
   /**
@@ -153,16 +216,39 @@ public class HealthCheckController {
   }
 
   /**
-   * Query ElasticSearch health endpoint
-   *
-   * @return A response including the result from ElasticSearch
+   * Query ElasticSearch health. Cached by {@link #memoizedSupplier} so readiness polling does not
+   * hit the cluster on every request. Split-cluster deploys probe each distinct connection once per
+   * cache window; names that share a client are not pinged twice.
    */
   private ResponseEntity<String> getElasticHealth() {
+    Collection<ClusterConnection> connections =
+        searchClusterRegistry != null ? searchClusterRegistry.uniqueConnections() : List.of();
+    if (connections.isEmpty()) {
+      return probeCluster("primary", elasticClient);
+    }
+
+    List<String> details = new ArrayList<>();
+    boolean allHealthy = true;
+    for (ClusterConnection connection : connections) {
+      ResponseEntity<String> result = probeCluster(connection.getName(), connection.getClient());
+      details.add(connection.getName() + "=" + result.getBody());
+      if (!result.getStatusCode().is2xxSuccessful()) {
+        allHealthy = false;
+      }
+    }
+    String body = String.join("; ", details);
+    if (allHealthy) {
+      return ResponseEntity.ok(body);
+    }
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+  }
+
+  private static ResponseEntity<String> probeCluster(
+      String clusterName, SearchClientShim<?> client) {
     String responseString = null;
     try {
-      ClusterHealthRequest request = new ClusterHealthRequest();
-      ClusterHealthResponse response = elasticClient.clusterHealth(request, RequestOptions.DEFAULT);
-
+      ClusterHealthResponse response =
+          client.clusterHealth(new ClusterHealthRequest(), RequestOptions.DEFAULT);
       boolean isHealthy = !response.isTimedOut() && response.getStatus() != ClusterHealthStatus.RED;
       responseString = response.toString();
       if (isHealthy) {
@@ -170,8 +256,7 @@ public class HealthCheckController {
       }
     } catch (Exception e) {
       if (responseString == null) {
-        // Couldn't get a response, fill in the string from the exception message
-        responseString = e.getMessage();
+        responseString = clusterName + ": " + e.getMessage();
       }
     }
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(responseString);

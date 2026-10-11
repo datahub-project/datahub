@@ -1,13 +1,13 @@
 package com.linkedin.datahub.upgrade.sqlsetup.config;
 
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
-import com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParser;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.postgres.DatabaseType;
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.utils.EnvironmentUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
@@ -15,17 +15,21 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
 
 @Slf4j
 @Configuration
 @Import(SystemAuthenticationFactory.class)
+@EnableConfigurationProperties(PostgresSqlSetupProperties.class)
 public class SqlSetupConfig {
 
   @Value("${ebean.url:}")
@@ -33,21 +37,38 @@ public class SqlSetupConfig {
   @Getter
   private String ebeanUrl;
 
+  @Value("${featureFlags.createSchemaVersionIndex:false}")
+  private boolean createSchemaVersionIndex;
+
   /**
-   * Provides a no-op MetricUtils for SqlSetup context to avoid dependency on system telemetry. This
-   * allows LocalEbeanConfigFactory to work without requiring the full metrics infrastructure.
+   * When set (running inside Spring), SqlSetup skips {@link
+   * PostgresSqlSetupProperties#applySqlSetupSchemaFromJdbcUrl} if {@code postgres.schema} is
+   * explicitly set in the environment (profile/env/YAML); otherwise a blank schema defaults to
+   * {@code public} from the JDBC URL hook.
    */
-  @Bean
-  public MetricUtils metricUtils() {
-    return MetricUtils.builder().build();
-  }
+  @Autowired(required = false)
+  private Environment environment;
+
+  /**
+   * Absent in bare {@link SqlSetupConfig} unit tests; {@link #createSetupArgs()} falls back to a
+   * fresh {@link PostgresSqlSetupProperties} instance for JDBC-derived schema resolution.
+   */
+  @Autowired(required = false)
+  private PostgresSqlSetupProperties postgresSqlSetupProperties;
+
+  /**
+   * Used to align pgQueue topic catalog with {@code kafka.topics.*} when {@code
+   * postgres.pgQueue.inheritKafkaTopics} is true. Absent in lightweight SqlSetup unit tests.
+   */
+  @Autowired(required = false)
+  private ConfigurationProvider configurationProvider;
 
   @Bean(name = "systemOperationContext")
   @ConditionalOnMissingBean
-  public OperationContext operationContext(EntityRegistry entityRegistry) {
+  public OperationContext operationContext() {
     // Create a minimal OperationContext for SqlSetup that essentially does nothing
     // This avoids the need for complex dependencies like entity services, search, etc.
-    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Bean(name = "sqlSetupArgs")
@@ -59,6 +80,8 @@ public class SqlSetupConfig {
     // Configure based on SqlSetup-specific environment variables only
     boolean createTables = EnvironmentUtils.getBoolean("CREATE_TABLES", true);
     boolean createDatabase = EnvironmentUtils.getBoolean("CREATE_DB", true);
+    // When false, schema must already exist (pre-provisioned); SqlSetup only sets search_path.
+    boolean createSchema = EnvironmentUtils.getBoolean("CREATE_SCHEMA", true);
     boolean createUser = EnvironmentUtils.getBoolean("CREATE_USER", false);
     boolean cdcEnabled = EnvironmentUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
     String cdcUser = EnvironmentUtils.getString("CDC_USER", "datahub_cdc");
@@ -99,10 +122,25 @@ public class SqlSetupConfig {
       createUserPassword = null;
     }
 
+    String postgresMetadataSchema = null;
+    PostgresSqlSetupProperties postgresForArgs = null;
+    if (dbType == DatabaseType.POSTGRES) {
+      PostgresSqlSetupProperties pgProps =
+          postgresSqlSetupProperties != null
+              ? postgresSqlSetupProperties
+              : new PostgresSqlSetupProperties();
+      if (environment == null || !environment.containsProperty("postgres.schema")) {
+        pgProps.applySqlSetupSchemaFromJdbcUrl(ebeanUrl);
+      }
+      postgresMetadataSchema = pgProps.normalizedPostgresSchema();
+      postgresForArgs = pgProps;
+    }
+
     SqlSetupArgs args =
         new SqlSetupArgs(
             createTables,
             createDatabase,
+            createSchema,
             createUser,
             iamAuthEnabled,
             dbType,
@@ -113,7 +151,10 @@ public class SqlSetupConfig {
             createUserPassword,
             host,
             port,
-            databaseName);
+            databaseName,
+            postgresMetadataSchema,
+            createSchemaVersionIndex,
+            postgresForArgs);
 
     // Validate authentication configuration
     validateAuthenticationConfig(args);
@@ -214,6 +255,16 @@ public class SqlSetupConfig {
   @Nonnull
   public SqlSetup createInstance(
       final Database ebeanServer, @Qualifier("sqlSetupArgs") final SqlSetupArgs setupArgs) {
+    PostgresSqlSetupProperties pg = setupArgs.getPostgres();
+    if (pg != null) {
+      if (environment == null || !environment.containsProperty("postgres.schema")) {
+        pg.applySqlSetupSchemaFromJdbcUrl(ebeanUrl);
+      }
+      pg.validateForUse(setupArgs.getDbType());
+      if (configurationProvider != null) {
+        pg.setKafkaConfiguration(configurationProvider.getKafka());
+      }
+    }
     return new SqlSetup(ebeanServer, setupArgs);
   }
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { CardContainer } from '@components/components/Card/components';
@@ -33,6 +34,7 @@ export function GraphCard({
     loading,
     graphHeight = '350px',
     width = '100%',
+    gap,
     renderGraph,
     renderControls,
     isEmpty,
@@ -40,17 +42,19 @@ export function GraphCard({
     moreInfoModalContent,
     showHeader = true,
     showEmptyMessageHeader = true,
-    emptyMessage = 'No stats collected for this asset at the moment.',
+    emptyMessage = undefined,
     dataTestId,
 }: GraphCardProps) {
+    const { t } = useTranslation('alchemy');
     const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
+    const resolvedEmptyMessage = emptyMessage ?? t('graphCard.noStats');
 
     const handleModalClose = () => {
         setShowInfoModal(false);
     };
 
     return (
-        <CardContainer maxWidth={width} data-testid={dataTestId}>
+        <CardContainer maxWidth={width} gap={gap} data-testid={dataTestId}>
             {showHeader && (
                 <GraphCardHeader>
                     <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
@@ -66,7 +70,11 @@ export function GraphCard({
 
             {!loading && (
                 <GraphCardBody>
-                    <GraphContainer $height={graphHeight} $isEmpty={isEmpty}>
+                    <GraphContainer
+                        $height={graphHeight}
+                        $isEmpty={isEmpty}
+                        data-testid={isEmpty ? `${dataTestId}-chart-empty` : `${dataTestId}-chart`}
+                    >
                         {renderGraph()}
                     </GraphContainer>
                     {isEmpty &&
@@ -74,14 +82,14 @@ export function GraphCard({
                             <EmptyMessageContainer>
                                 <EmptyMessageWrapper>
                                     {showEmptyMessageHeader && (
-                                        <Text size="2xl" weight="bold" color="gray">
-                                            No Data
+                                        <Text size="2xl" weight="bold">
+                                            {t('noData')}
                                         </Text>
                                     )}
-                                    <Text color="gray">{emptyMessage}</Text>
+                                    <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
-                                            More info
+                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
+                                            {t('graphCard.moreInfo')}
                                         </LinkText>
                                     )}
                                 </EmptyMessageWrapper>

@@ -1,0 +1,87 @@
+namespace com.linkedin.lifecycle
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a lifecycle stage type.
+ *
+ * Lifecycle stages control entity visibility and behavior in the platform.
+ * Each stage can apply to specific entity types and define search visibility
+ * and transition policies.
+ *
+ * When an entity's Status.lifecycleStage is set to a lifecycle stage type URN,
+ * the stage's settings determine how the entity is treated (e.g., hidden from
+ * default search when hideInSearch=true).
+ *
+ * The entityTypes field controls which entity types this stage can be applied to:
+ *   - null/absent: the stage applies to ALL entity types
+ *   - empty list: the stage applies to NO entity types (disabled)
+ *   - explicit list: the stage only applies to those entity types
+ */
+@Aspect = {
+  "name": "lifecycleStageTypeInfo"
+}
+record LifecycleStageTypeInfo {
+  /**
+   * Display name of the lifecycle stage type.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Description of what this lifecycle stage represents.
+   */
+  description: optional string
+
+  /**
+   * Entity type names this stage applies to (e.g., ["document", "glossaryTerm"]).
+   * When null/absent, applies to all entity types.
+   * When empty, applies to no entity types (effectively disabled).
+   */
+  entityTypes: optional array[string]
+
+  /**
+   * Settings that control platform behavior for entities in this stage.
+   */
+  settings: LifecycleStageSettings
+
+  /**
+   * Optional policy defining which prior stages can transition INTO this stage.
+   * When null, any prior stage can transition to this one (no enforcement).
+   */
+  transitionPolicy: optional LifecycleStageTransitionPolicy
+
+  /**
+   * Audit stamp capturing the time and actor who created this lifecycle stage type.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldType": "DATETIME",
+      "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * Audit stamp capturing the time and actor who last modified this lifecycle stage type.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldType": "DATETIME",
+      "fieldName": "lastModifiedAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "lastModifiedBy"
+    }
+  }
+  lastModified: AuditStamp
+}

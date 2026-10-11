@@ -1,0 +1,9 @@
+{
+  "id": 141,
+  "name": "actor_id",
+  "display_name": "Actor ID",
+  "table_id": 22,
+  "base_type": "type/Integer",
+  "semantic_type": "type/PK",
+  "description": null
+}

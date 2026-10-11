@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
 import { GraphCard, WhiskerChart } from '@src/alchemy-components';
 import { WhiskerDatum } from '@src/alchemy-components/components/WhiskerChart/types';
 
 export default function NumericDistributionChart() {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
     const fieldProfile = properties?.fieldProfile;
 
@@ -32,10 +34,12 @@ export default function NumericDistributionChart() {
 
     return (
         <GraphCard
-            title="Numeric Column Distribution"
-            subTitle="Numeric distribution for this column"
+            title={t('statsV2Charts.numericDistributionTitle')}
+            subTitle={t('statsV2Charts.numericDistributionSubtitle')}
             graphHeight="200px"
-            renderGraph={() => <WhiskerChart data={[whiskerData]} axisLabel="Column Value" />}
+            renderGraph={() => (
+                <WhiskerChart data={[whiskerData]} axisLabel={t('statsV2Charts.columnValueAxisLabel')} />
+            )}
         />
     );
 }

@@ -43,7 +43,7 @@ export default function DocItemFooter() {
   return (
     <>
       <footer className={clsx(ThemeClassNames.docs.docFooter, "docusaurus-mt-lg")}>
-        <SlackUtm pageId={unversionedId}/>
+        <SlackUtm />
         {canDisplayTagsRow && <TagsRow tags={tags} />}
         {canDisplayEditMetaRow && (
           <EditMetaRow

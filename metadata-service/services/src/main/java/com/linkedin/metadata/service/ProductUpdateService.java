@@ -42,7 +42,10 @@ public class ProductUpdateService {
     this(
         jsonUrl,
         fallbackResource,
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS)).build());
+        HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build());
   }
 
   public ProductUpdateService(

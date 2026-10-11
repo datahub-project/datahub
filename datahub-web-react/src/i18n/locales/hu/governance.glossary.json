@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "{{count}} kifejezéscsoportot tartalmaz",
+    "card.nodeGroupCountTooltip_other": "{{count}} kifejezéscsoportot tartalmaz",
+    "card.termCountTooltip_one": "{{count}} kifejezést tartalmaz",
+    "card.termCountTooltip_other": "{{count}} kifejezést tartalmaz",
+    "empty.addTerm": "Kifejezés hozzáadása",
+    "empty.addTermGroup": "Kifejezéscsoport hozzáadása",
+    "empty.description": "Hozzon létre kifejezéseket és kifejezéscsoportokat az adateszközök közös szókincs alapján történő rendszerezéséhez.",
+    "empty.title": "Üres fogalomtár",
+    "list.error": "Nem sikerült betölteni a fogalomtárat! Váratlan hiba történt.",
+    "list.loading": "Fogalomtár betöltése...",
+    "page.createGlossary": "Fogalomtár létrehozása",
+    "page.subtitle": "Osztályozza adateszközeit és oszlopait adatszótárak segítségével",
+    "page.title": "Üzleti fogalomtár",
+    "section.glossaryTerms": "Fogalomtári kifejezések",
+    "section.termGroups": "Kifejezéscsoportok",
+    "sidebar.collapse": "Fogalomtár összecsukása",
+    "sidebar.expand": "Fogalomtár kibontása",
+    "sidebar.home": "Fogalomtár kezdőlapja",
+    "sidebar.section.allTerms": "Összes fogalomtári kifejezés"
+}

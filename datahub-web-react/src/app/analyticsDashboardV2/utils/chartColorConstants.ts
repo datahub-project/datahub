@@ -4,53 +4,51 @@
  * This file contains:
  * - Semantic color mappings for DataHub entity types
  * - High-contrast qualitative color palettes
- * - Colorblind-safe fallback palettes
  */
+import { DefaultTheme } from 'styled-components';
 
 /**
  * Semantic color dictionary for DataHub entity types
  * Colors are organized by category for better visual grouping
  */
-export const DATAHUB_ENTITY_COLORS: Record<string, string> = {
+export const getDatahubEntityColors = (theme: DefaultTheme) => ({
     // Core Data Assets (Blues)
-    dataset: '#1E40AF',
-    dataget: '#2563EB',
-    dashboard: '#3B82F6',
-    chart: '#60A5FA',
+    dataset: theme.colors.tagsCobaltBlueText,
+    dataget: theme.colors.chartsInformationHigh,
+    dashboard: theme.colors.chartsInformationMedium,
+    chart: theme.colors.chartsInformationLow,
 
     // Schema & Structure (Purples)
-    schema: '#7C3AED',
-    dataproduct: '#8B5CF6',
-    dataplatform: '#A78BFA',
+    schema: theme.colors.chartsBrandHigh,
+    dataproduct: theme.colors.chartsBrandMedium,
+    dataplatform: theme.colors.chartsBrandLow,
 
     // Quality & Validation (Oranges/Reds)
-    incidents: '#DC2626',
-    validation: '#EA580C',
-    assertion: '#F59E0B',
-    properties: '#D97706',
+    incidents: theme.colors.iconError,
+    validation: theme.colors.chartsRedMedium,
+    assertion: theme.colors.iconWarning,
+    properties: theme.colors.textWarning,
 
     // Operations & Processes (Greens)
-    container: '#059669',
-    glossary: '#10B981',
-    corpgroup: '#16A34A',
-    dataprocess: '#22C55E',
+    container: theme.colors.iconSuccess,
+    glossary: theme.colors.chartsGreenHigh,
+    corpgroup: theme.colors.chartsGreenMedium,
+    dataprocess: theme.colors.chartsGreenLow,
 
     // Platform & Infrastructure (Teals/Grays)
-    dataflow: '#0891B2',
-    mlmodel: '#0D9488',
-    mlfeature: '#14B8A6',
-    domain: '#6B7280',
-};
-
-/**
- * Default color for unknown entities
- */
-export const DEFAULT_ENTITY_COLOR = '#9CA3AF';
+    dataflow: theme.colors.chartsBlueHigh,
+    mlmodel: theme.colors.chartsSeafoamHigh,
+    mlfeature: theme.colors.chartsSeafoamMedium,
+    domain: theme.colors.textTertiary,
+});
 
 /**
  * High-contrast qualitative palette based on ColorBrewer Set3
  * Provides reliable visual distinction for up to 12 series
  */
+
+// Disabling no hardcoded colors rule for qualitative colors because it's and external ColorBrewer Set3
+/* eslint-disable rulesdir/no-hardcoded-colors */
 export const QUALITATIVE_COLORS = [
     '#8dd3c7',
     '#ffffb3',
@@ -65,21 +63,7 @@ export const QUALITATIVE_COLORS = [
     '#ccebc5',
     '#ffed6f',
 ];
-
-/**
- * Okabe-Ito colorblind-safe palette
- * Backup palette optimized for deuteranopia/protanopia
- */
-export const COLORBLIND_SAFE_COLORS = [
-    '#E69F00',
-    '#56B4E9',
-    '#009E73',
-    '#F0E442',
-    '#0072B2',
-    '#D55E00',
-    '#CC79A7',
-    '#999999',
-];
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 /**
  * Options for dynamic color generation

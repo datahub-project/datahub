@@ -1,31 +1,52 @@
-import { forcePluralize } from '@app/shared/textUtil';
+import i18next from 'i18next';
 
 import { OwnershipType, OwnershipTypeEntity } from '@types';
+
+// Built-in ownership types carry URNs under this prefix (e.g. __system__technical_owner).
+// Their English display names pluralize with a naive "s"; custom types do not — especially
+// in non-English languages where plural rules differ — so custom type names are shown verbatim.
+const SYSTEM_OWNERSHIP_TYPE_URN_PREFIX = 'urn:li:ownershipType:__system__';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,
  * we intend to make this configurable.
  */
-export const OWNERSHIP_DISPLAY_TYPES = [
+const OWNERSHIP_DISPLAY_TYPES = [
     {
         type: OwnershipType.TechnicalOwner,
-        name: 'Technical Owner',
-        description: 'Involved in the production, maintenance, or distribution of the asset(s).',
+        get name() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerName');
+        },
+        get description() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerDescription');
+        },
     },
     {
         type: OwnershipType.BusinessOwner,
-        name: 'Business Owner',
-        description: 'Principle stakeholders or domain experts associated with the asset(s).',
+        get name() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerName');
+        },
+        get description() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerDescription');
+        },
     },
     {
         type: OwnershipType.DataSteward,
-        name: 'Data Steward',
-        description: 'Involved in governance of the asset(s).',
+        get name() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardName');
+        },
+        get description() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardDescription');
+        },
     },
     {
         type: OwnershipType.None,
-        name: 'None',
-        description: 'No ownership type specified.',
+        get name() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.noneName');
+        },
+        get description() {
+            return i18next.t('entity.shared.containers:sidebar.ownership.type.noneDescription');
+        },
     },
 ];
 
@@ -38,10 +59,14 @@ export const getNameFromType = (type: OwnershipType) => {
     return ownershipTypeToDetails.get(type)?.name || type;
 };
 
-export const getDescriptionFromType = (type: OwnershipType) => {
-    return ownershipTypeToDetails.get(type)?.description || 'No description';
-};
-
 export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
-    return (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) || 'Other';
+    const name = ownershipType?.info?.name;
+    if (!name) {
+        return i18next.t('entity.shared.containers:sidebar.ownership.type.otherName');
+    }
+    // Only the built-in system types get a pluralized label; custom types are shown as-is.
+    if (ownershipType?.urn?.startsWith(SYSTEM_OWNERSHIP_TYPE_URN_PREFIX)) {
+        return i18next.t('entity.shared.containers:sidebar.ownership.type.pluralName', { name });
+    }
+    return name;
 }

@@ -7,7 +7,6 @@ and checks if they differ from the committed versions.
 
 import subprocess
 import sys
-import os
 
 
 def run_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -100,7 +99,7 @@ def restore_lockfiles():
     print("Restoring lockfiles to original state...")
     try:
         run_command(["git", "checkout", "**gradle.lockfile"], check=False)
-    except:
+    except subprocess.CalledProcessError as _:
         pass
 
 

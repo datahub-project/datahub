@@ -1,0 +1,52 @@
+# ThoughtSpot ingestion recipe for integration testing
+# This recipe is used to generate golden files and test the connector
+
+source:
+  type: thoughtspot
+  config:
+    # Connection configuration
+    connection:
+      base_url: "https://test.thoughtspot.cloud"
+      auth:
+        type: trusted
+        username: "testuser"
+        secret_key: "test-secret-key-12345"
+      timeout_seconds: 30
+      max_retries: 3
+
+    # Platform instance for multi-instance deployments
+    platform_instance: "prod"
+
+    # Entity filtering patterns (default: allow all)
+    workspace_pattern:
+      allow:
+        - ".*"
+
+    liveboard_pattern:
+      allow:
+        - ".*"
+
+    answer_pattern:
+      allow:
+        - ".*"
+
+    worksheet_pattern:
+      allow:
+        - ".*"
+
+    # Feature toggles
+    include_ownership: true
+    # Keep usage stats off in the integration golden to preserve the
+    # current aspect set; behavior is unit-tested in
+    # TestUsageStatsFromMetadataSearch / TestMetadataSearchIncludeStats.
+    include_usage_stats: false
+
+    # Stateful ingestion for deletion detection
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: file
+  config:
+    filename: "./thoughtspot_mces.json"

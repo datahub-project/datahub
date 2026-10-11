@@ -36,12 +36,14 @@ platform_patterns = {
     "informix": r"informix",
     "sybase": r"sybase",
     "teradata": r"teradata",
-    "hadoop": r"(hadoop|hive)",
+    "hive": r"hive",
+    "hadoop": r"hadoop",
     "snowflake": r"snowflake",
     "redshift": r"redshift",
     "bigquery": r"bigquery",
     "athena": r"(athena|aws\s*athena)",
     "databricks": r"(databricks|spark)",
+    "elasticsearch": r"elasticsearch",
 }
 
 powerbi_platform_names = {
@@ -57,12 +59,14 @@ powerbi_platform_names = {
     "informix": "IBM Informix",
     "sybase": "SAP Sybase",
     "teradata": "Teradata",
+    "hive": "Hive",
     "hadoop": "Hadoop",
     "snowflake": "Snowflake",
     "redshift": "Amazon Redshift",
     "bigquery": "Google BigQuery",
     "athena": "Amazon Athena",
     "databricks": "Databricks",
+    "elasticsearch": "Elasticsearch",
 }
 
 

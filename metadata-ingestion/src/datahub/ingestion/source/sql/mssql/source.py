@@ -1,21 +1,63 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import sqlalchemy.dialects.mssql
-from pydantic import ValidationInfo, field_validator
+from pydantic import PrivateAttr, ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.base import Connection
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.exc import (
+    DatabaseError,
+    DBAPIError,
+    InterfaceError,
+    OperationalError,
+    ProgrammingError,
+    ResourceClosedError,
+)
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Enables,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    parent_required,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -25,20 +67,40 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_datajob_input_output_to_patch,
+    datajob_lineage_is_empty,
+)
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    StructuredLogLevel,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    JobContainerSubTypes,
+    SourceCapabilityModifier,
+)
+from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
     MSSQLDataJob,
     MSSQLJob,
     MSSQLProceduresContainer,
+    ProcedureDependencies,
     ProcedureDependency,
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.mssql.query import (
+    MSSQL_SYSTEM_DATABASES,
+    MSSQLQuery,
+)
+from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
+    MSSQLLineageExtractor,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -46,15 +108,94 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
+    ProbeEngineSettings,
+    sql_structural_verdict,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    ForeignKeyConstraintClass,
+    MetadataChangeProposalClass,
+    SchemaFieldClass,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+
 logger: logging.Logger = logging.getLogger(__name__)
+
+# MSSQL uses 3-part naming: database.schema.table
+MSSQL_QUALIFIED_NAME_PARTS = 3
+
+
+def _validate_int_range(
+    value: int, field_name: str, min_val: int, max_val: Optional[int] = None
+) -> int:
+    """
+    Helper to validate integer is within acceptable range.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value < min_val:
+        min_desc = (
+            "positive"
+            if min_val == 1
+            else "non-negative"
+            if min_val == 0
+            else f">= {min_val}"
+        )
+        raise ValueError(
+            f"{field_name} must be {min_desc}. Please set it to a value >= {min_val}."
+        )
+
+    if max_val is not None and value > max_val:
+        raise ValueError(
+            f"{field_name} must be <= {max_val} to avoid memory issues. "
+            f"Please reduce the value to {max_val} or less."
+        )
+
+    return value
+
+
+def _validate_string_list_limits(
+    value: Optional[List[str]],
+    field_name: str,
+    max_count: int,
+    max_item_length: int,
+) -> Optional[List[str]]:
+    """
+    Helper to validate list of strings has reasonable limits.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value is None:
+        return value
+
+    if len(value) > max_count:
+        raise ValueError(
+            f"{field_name} cannot exceed {max_count} patterns (got {len(value)})"
+        )
+
+    for i, item in enumerate(value):
+        if not item or not item.strip():
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} is empty or whitespace-only"
+            )
+
+        if len(item) > max_item_length:
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} exceeds {max_item_length} characters (got {len(item)})"
+            )
+
+    return value
+
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -65,27 +206,139 @@ register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTy
 # Patterns copied from Snowflake source
 DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
-    r".*__DBT_TMP$",  # dbt
+    r".*__DBT_TMP$",  # dbt (for databases without native temp tables; MSSQL uses #temp instead)
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
 ]
 
+# A denial applies to the whole database, so it is worth remembering; every other
+# SQL Server error is per-statement and must not be.
+_PERMISSION_DENIED_ERROR_NUMBERS = frozenset({229, 230, 262, 297, 300})
+# pyodbc and pymssql leave the error number only in the message text, as "(229)" and
+# "(229, b'...')". Requiring the bracket or comma avoids matching row counts.
+_BRACKETED_NUMBER = re.compile(r"\((\d+)[,)]")
 
-class SQLServerConfig(BasicSQLAlchemyConfig):
-    # defaults
+
+def _is_permission_denied(exc: DBAPIError) -> bool:
+    """Whether the server refused the statement for lack of permission.
+
+    pytds records the number on the wrapped exception; other drivers do not.
+    """
+    orig = getattr(exc, "orig", None)
+    number = getattr(orig, "msg_no", None) or getattr(orig, "number", None)
+    if isinstance(number, int) and number:
+        return number in _PERMISSION_DENIED_ERROR_NUMBERS
+    return any(
+        int(found) in _PERMISSION_DENIED_ERROR_NUMBERS
+        for found in _BRACKETED_NUMBER.findall(str(orig or exc))
+    )
+
+
+def database_name_from_url(url: URL) -> str:
+    """What ingestion calls the database an engine is on (get_db_name).
+
+    The URL's database, or DATABASE= inside an ODBC connect string; "" when
+    neither names one, in which case the login's default database is used and
+    ingestion qualifies nothing with it.
+    """
+    if url.database:
+        return str(url.database).strip('"')
+    query = url.query
+    if "odbc_connect" in query:
+        # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+        database = re.search(
+            r"DATABASE=([^;]*);",
+            urllib.parse.unquote_plus(str(query["odbc_connect"])),
+            flags=re.IGNORECASE,
+        )
+        if database and database.group(1):
+            return database.group(1)
+    return ""
+
+
+def _handle_sql_variant_as_string(value: bytes) -> str:
+    try:
+        return value.decode("utf-16le")
+    except UnicodeDecodeError:
+        return value.decode("Windows-1251")
+
+
+def add_sql_variant_converter(dbapi_connection: Any) -> None:
+    """Teach a pyodbc connection to read sql_variant (ODBC type -150).
+
+    sys.extended_properties.value is sql_variant, so without this every
+    description read over ODBC raises.
+    """
+    # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
+    # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
+    try:
+        dbapi_connection.add_output_converter(-150, _handle_sql_variant_as_string)
+    except AttributeError as e:
+        logger.debug(
+            "Failed to mount output converter for MSSQL data type -150 due to %s",
+            e,
+        )
+
+
+def _read_sql_variant_on_each_connection(engine: Engine) -> None:
+    """_add_output_converters for the probe's engine, which never runs
+    SQLServerSource.__init__, where ingestion installs it. pyodbc only: the
+    converter is an ODBC hook."""
+    if engine.dialect.driver != "pyodbc":
+        return
+
+    def _on_connect(dbapi_connection: Any, _record: Any) -> None:
+        add_sql_variant_converter(dbapi_connection)
+
+    event.listen(engine, "connect", _on_connect)
+
+
+def procedure_full_name(database: str, schema: str, procedure: str) -> str:
+    """The name procedure_pattern is matched against, never lowercased."""
+    return f"{database}.{schema}.{procedure}"
+
+
+def qualified_identifier(
+    config: "SQLServerConfig",
+    current_database: Optional[str],
+    schema: str,
+    entity: str,
+) -> str:
+    """SQLServerSource.get_identifier, given the database ingestion is
+    walking (None for a recipe that reads one database)."""
+    regular = f"{schema}.{entity}"
+    qualified_table_name = regular
+    if config.database:
+        qualified_table_name = f"{config.database}.{regular}"
+    if current_database:
+        qualified_table_name = f"{current_database}.{regular}"
+    return (
+        qualified_table_name.lower()
+        if config.convert_urns_to_lowercase
+        else qualified_table_name
+    )
+
+
+class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
-    include_stored_procedures: bool = Field(
+    # SQLAlchemySource.get_schema_level_workunits reaches
+    # loop_stored_procedures only when this is set.
+    include_stored_procedures: Annotated[
+        bool, Enables(JobContainerSubTypes.STORED_PROCEDURE)
+    ] = Field(
         default=True,
         description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
     )
     include_stored_procedures_code: bool = Field(
         default=True, description="Include information about object code."
     )
-    procedure_pattern: AllowDenyPattern = Field(
+    procedure_pattern: Annotated[
+        AllowDenyPattern, Filters(JobContainerSubTypes.STORED_PROCEDURE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion."
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
@@ -97,15 +350,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    use_odbc: bool = Field(
-        default=False,
-        description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
-    )
+    _use_odbc_removed = pydantic_removed_field("use_odbc", month="January", year=2026)
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -116,6 +368,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility.",
     )
     include_lineage: bool = Field(
         default=True,
@@ -135,52 +391,211 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
+    _is_odbc: bool = PrivateAttr(default=False)
     is_aws_rds: Optional[bool] = Field(
         default=None,
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
     )
 
+    include_query_lineage: bool = Field(
+        default=False,
+        description=(
+            "Enable query-based lineage extraction from Query Store or DMVs. "
+            "Query Store is preferred (SQL Server 2016+) and must be enabled on the database. "
+            "Falls back to DMV-based extraction (sys.dm_exec_cached_plans) for older versions. "
+            "Requires VIEW SERVER STATE permission. See documentation for setup instructions."
+        ),
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description=(
+            "Maximum number of queries to extract for lineage analysis. "
+            "Queries are prioritized by execution time and frequency."
+        ),
+    )
+
+    min_query_calls: int = Field(
+        default=1,
+        description=(
+            "Minimum number of executions required for a query to be included. "
+            "Set higher to focus on frequently-used queries."
+        ),
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "SQL LIKE patterns to exclude from query extraction. "
+            "Example: ['%sys.%', '%temp_%'] to exclude system and temp tables."
+        ),
+    )
+
+    include_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Generate usage statistics from query history. Requires include_query_lineage to be enabled. "
+            "Collects metrics like unique user counts, query frequencies, and column access patterns. "
+            "Statistics appear in DataHub UI under the Dataset Profile > Usage tab."
+        ),
+    )
+
     @field_validator("uri_args", mode="after")
     @classmethod
-    def passwords_match(
+    def validate_uri_args(
         cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
     ) -> Dict[str, Any]:
-        if (
-            info.data["use_odbc"]
-            and not info.data["sqlalchemy_uri"]
-            and "driver" not in v
-        ):
-            raise ValueError("uri_args must contain a 'driver' option")
-        elif not info.data["use_odbc"] and v:
-            raise ValueError("uri_args is not supported when ODBC is disabled")
+        is_odbc = info.context.get("is_odbc", False) if info.context else False
+        if is_odbc and not info.data["sqlalchemy_uri"] and "driver" not in v:
+            raise ValueError(
+                "uri_args must contain a 'driver' option when using mssql-odbc source type"
+            )
+        elif not is_odbc and v:
+            raise ValueError(
+                "uri_args is not supported for source type 'mssql'. Use source type 'mssql-odbc' instead."
+            )
         return v
+
+    @classmethod
+    def probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]:
+        # SQLServerSource.create validates through this too: the registered
+        # name is the only thing that tells an ODBC recipe from a pytds one,
+        # and validate_uri_args reads it from the context.
+        return {"is_odbc": source_type == "mssql-odbc"}
+
+    @model_validator(mode="after")
+    def _record_odbc(self, info: ValidationInfo) -> "SQLServerConfig":
+        # Only when validated with a context: validate_assignment reruns this
+        # without one, and must not forget the driver.
+        if info.context and "is_odbc" in info.context:
+            self._is_odbc = bool(info.context["is_odbc"])
+        return self
+
+    def uses_odbc(self) -> bool:
+        """Whether this recipe connects through pyodbc: the source type it
+        was validated for (probe_validation_context)."""
+        return self._is_odbc
+
+    def database_url(self, database: Optional[str] = None) -> str:
+        """The URL ingestion opens `database` with; the recipe's own when
+        None. get_inspectors and the probe both dial this."""
+        return self.get_sql_alchemy_url(current_db=database, is_odbc=self.uses_odbc())
+
+    def probe_sql_alchemy_url(self) -> str:
+        return self.database_url()
+
+    def schema_argument(self, schema: str) -> Union[str, quoted_name]:
+        """`schema` as get_allowed_schemas hands it to the dialect, which reads
+        an unquoted `a.b` as database `a`, owner `b`."""
+        return quoted_name(schema, True) if self.quote_schemas else schema
+
+    def is_single_database_recipe(self) -> bool:
+        # The condition get_inspectors branches on: one inspector, no
+        # enumeration, no database_pattern, no system-database exclusion.
+        return bool(self.database) or bool(self.sqlalchemy_uri)
+
+    def pinned_database_name(self) -> str:
+        """What get_db_name reports for a single-database recipe's inspector.
+
+        "" when the connection names no database, so the login's default one
+        is read and its name is not knowable without connecting.
+        """
+        # Not cached: validate_assignment can change the fields it reads, and
+        # parsing the URL is cheap next to the verdicts that ask for it.
+        return database_name_from_url(make_url(self.database_url()))
+
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return (
+            super()
+            .probe_engine_settings(budget)
+            .followed_by(_read_sql_variant_on_each_connection)
+        )
+
+    @classmethod
+    def probe_sqlglot_dialect(cls) -> Optional[str]:
+        # sqlglot's name for T-SQL, pinned rather than resolved through the
+        # "mssql" platform alias so the grammar cannot change under the gate.
+        return "tsql"
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        return _validate_int_range(
+            value, "max_queries_to_extract", min_val=1, max_val=10000
+        )
+
+    @field_validator("min_query_calls")
+    @classmethod
+    def validate_min_query_calls(cls, value: int) -> int:
+        """Validate min_query_calls is non-negative."""
+        return _validate_int_range(value, "min_query_calls", min_val=0)
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        return _validate_string_list_limits(
+            value, "query_exclude_patterns", max_count=100, max_item_length=500
+        )
+
+    @model_validator(mode="after")
+    def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
+        """Validate that include_usage_statistics requires include_query_lineage."""
+        if self.include_usage_statistics and not self.include_query_lineage:
+            raise ValueError(
+                "include_usage_statistics requires include_query_lineage to be enabled. "
+                "Please add 'include_query_lineage: true' to your configuration."
+            )
+        return self
+
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
+    def list_databases(self, conn: Connection) -> List[str]:
+        # Raw database listing shared by get_inspectors() and the probe's
+        # `databases` command (SqlServerMetadataProbe) -- no database_pattern
+        # applied here; get_inspectors() applies it, and the probe leaves it to
+        # `probe filter`, so the two read the exact same rows instead of each
+        # re-deriving the listing SQL.
+        return MSSQLQuery.list_databases(conn)
+
+    @classmethod
+    def default_databases(cls) -> FrozenSet[str]:
+        # Databases this source drops regardless of database_pattern -- SQL
+        # Server's own system databases plus the reporting services pair.
+        # Same shape as SQLCommonConfig.default_schemas() one level down: lets
+        # `probe filter --kind Database` report one of these as
+        # excluded_by: "default_database" instead of it silently never
+        # appearing. Reuses MSSQLQuery's own exclusion list so the probe and
+        # the query it mirrors cannot drift apart.
+        return frozenset(MSSQL_SYSTEM_DATABASES)
 
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
+        is_odbc: bool = False,
     ) -> str:
         current_db = current_db or self.database
 
-        if self.use_odbc:
-            # Ensure that the import is available.
-            import pyodbc  # noqa: F401
-
-            self.scheme = "mssql+pyodbc"
+        scheme = self.scheme
+        if is_odbc:
+            scheme = "mssql+pyodbc"
 
             # ODBC requires a database name, otherwise it will interpret host_port
             # as a pre-defined ODBC connection name.
             current_db = current_db or "master"
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
             current_db,
             uri_opts=uri_opts,
         )
-        if self.use_odbc:
+        if is_odbc:
             final_uri_args = self.uri_args.copy()
             if final_uri_args and current_db:
                 final_uri_args.update({"database": current_db})
@@ -196,10 +611,175 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def db(self):
         return self.database
 
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        if ctx.kind != JobContainerSubTypes.STORED_PROCEDURE:
+            return super().probe_match_target(ctx)
+        # loop_stored_procedures: f"{db_name}.{schema}.{name}", by hand and
+        # never lowercased -- get_identifier (the default route) would
+        # lowercase it under convert_urns_to_lowercase, a string ingestion
+        # never matches.
+        if parent_required(ctx):
+            return None
+        schema = ctx.parent_path[-1]
+        if self.is_single_database_recipe():
+            # get_db_name of the one inspector, whatever --parent says; a
+            # --parent naming another database is excluded by the Database
+            # verdict above it.
+            database = self.pinned_database_name()
+        else:
+            database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else ""
+        if database:
+            return procedure_full_name(database, schema, ctx.name)
+        if self.is_single_database_recipe():
+            # No target to get right: ingestion emits no procedure here, and
+            # probe_verdict_override says so and why.
+            return None
+        ctx.warn(
+            "no database given, so procedures were judged on their bare "
+            "names; procedure_pattern matches database.schema.procedure, so "
+            "pass the database and the schema as --parent"
+        )
+        return None
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # loop_stored_procedures runs inside the allowed-schema loop of each
+        # allowed database (SQLAlchemySource.get_schema_level_workunits).
+        if kind == JobContainerSubTypes.STORED_PROCEDURE:
+            return (DatasetContainerSubTypes.DATABASE, DatasetContainerSubTypes.SCHEMA)
+        return super().probe_ancestor_kinds(kind)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # get_inspectors' single-inspector branch: the pin is read whatever
+        # database_pattern and MSSQL_SYSTEM_DATABASES say, and nothing else
+        # is. So a pinned recipe's databases skip sql_structural_verdict on
+        # purpose: a pinned `master` is read.
+        if ctx.kind == JobContainerSubTypes.STORED_PROCEDURE:
+            unpinned = self._unpinned_procedure_verdict(ctx)
+            if unpinned is not None:
+                return unpinned
+            return sql_structural_verdict(self, ctx)
+        if (
+            ctx.kind != DatasetContainerSubTypes.DATABASE
+            or not self.is_single_database_recipe()
+        ):
+            return sql_structural_verdict(self, ctx)
+        pinned = self.pinned_database_name()
+        if not pinned:
+            # The login's default database -- often `master` -- whose name is
+            # not knowable offline. Included rather than left to the default
+            # rules: the single branch consults neither database_pattern nor the
+            # system list, so either excluding it would be a verdict ingestion
+            # never makes, and one inherited by every table under it.
+            ctx.warn(
+                "this recipe's connection names no database, so ingestion reads "
+                "only the login's default one, whatever database_pattern and "
+                "the system-database list say; a database named here is read "
+                "only if it is that default, which cannot be told without "
+                "connecting"
+            )
+            return Verdict.include()
+        if ctx.name.casefold() == pinned.casefold():
+            return Verdict.include()
+        return Verdict.exclude("sqlalchemy_uri" if self.sqlalchemy_uri else "database")
+
+    def _unpinned_procedure_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # loop_stored_procedures reads `[{get_db_name}].[sys].[procedures]`;
+        # with no database in the connection that is `[]`, which SQL Server
+        # rejects as an empty identifier, so the schema's procedures are
+        # reported as a failure and none is emitted, whatever
+        # procedure_pattern says.
+        if ctx.structural is not None:
+            return None
+        if not self.is_single_database_recipe() or self.pinned_database_name():
+            return None
+        ctx.warn(
+            "this recipe's connection names no database, so ingestion's "
+            "procedure listing has no database to read and emits no "
+            "procedures; name the database in sqlalchemy_uri (a `database` "
+            "field beside it does not reach that query)"
+        )
+        return Verdict.exclude("sqlalchemy_uri")
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # get_identifier qualifies with current_database, which ingestion sets
+        # to each database as it walks them (the node's Database ancestor).
+        if self.is_single_database_recipe():
+            # get_inspectors' single branch never sets it, so a --parent
+            # database must not reach get_identifier: it would prefix a
+            # database a sqlalchemy_uri recipe never names, or the caller's
+            # spelling of a `database` one. A --parent naming another
+            # database is excluded by the Database verdict above, so the
+            # target only has to be right for the pin.
+            database = None
+        elif database is None:
+            # Without it get_identifier builds `schema.table`, which
+            # ingestion -- always carrying current_database on this kind of
+            # recipe -- never matches.
+            warn(
+                "this recipe sets no `database`, so ingestion qualifies each "
+                "table with the database it was found in; pass that database "
+                "as the first --parent, or the name is judged on 'schema.table', "
+                "which ingestion never matches"
+            )
+        return qualified_identifier(self, database, schema, entity)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports this module
+        from datahub.ingestion.source.sql.mssql.mssql_probe import (
+            SqlServerMetadataProbe,
+        )
+
+        return SqlServerMetadataProbe
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # `sys` is NOT allowed wholesale: it holds sql_modules (procedure source),
+        # syscomments (the same, legacy) and the dm_exec_* dynamic views, which
+        # carry executed SQL and cached plans -- our own source reads
+        # sys.dm_exec_cached_plans, so this is not hypothetical. Relations are named
+        # individually: the ones ingestion reads, plus the structural counterparts
+        # an agent would reach for.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "sys.tables",
+                    "sys.views",
+                    "sys.columns",
+                    "sys.all_columns",
+                    "sys.objects",
+                    "sys.schemas",
+                    "sys.types",
+                    "sys.indexes",
+                    "sys.index_columns",
+                    "sys.foreign_keys",
+                    "sys.foreign_key_columns",
+                    "sys.key_constraints",
+                    "sys.procedures",
+                    "sys.parameters",
+                    "sys.extended_properties",
+                    "sys.databases",
+                    # Read by ingestion and omitted at first: the dependency
+                    # view drives lineage (source.py), and query_store_options
+                    # is Query Store *configuration* -- capture mode and
+                    # retention, not captured text. sys.query_store_query_text
+                    # is the one that carries statements, and stays out.
+                    "sys.sql_expression_dependencies",
+                    "sys.database_query_store_options",
+                }
+            ),
+        )
+
 
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -222,75 +802,99 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 )
 class SQLServerSource(SQLAlchemySource):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, views and tables
-    - Column types associated with each table/view
-    - Table, row, and column statistics via optional SQL profiling
-    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
-    If you do use pyodbc, make sure to change the source type from `mssql` to `mssql-odbc` so that we pull in the right set of dependencies. This will be needed in most cases where encryption is required, such as managed SQL Server services in Azure.
+    Source that extracts metadata from Microsoft SQL Server via SQLAlchemy.
+
+    Implementation notes:
+    - Supports both python-tds (mssql) and pyodbc (mssql-odbc) backends
+    - Uses MSSQLLineageExtractor for extracting stored procedure and view lineage via T-SQL parsing
+    - Implements SqlParsingAggregator for query-based lineage from Query Store or DMVs
+    - Fetches extended properties for table and column descriptions
+    - Uses three-part naming (database.schema.table) for URN generation
     """
 
     report: SQLSourceReport
 
-    def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
+    def __init__(
+        self,
+        config: SQLServerConfig,
+        ctx: PipelineContext,
+        is_odbc: Optional[bool] = None,
+    ):
+        if is_odbc is not None and is_odbc != config.uses_odbc():
+            # For a config validated without the source type's context. A
+            # copy, so the caller's config keeps its own flag.
+            config = config.model_copy()
+            config._is_odbc = is_odbc
         super().__init__(config, ctx, "mssql")
-        # Cache the table and column descriptions
         self.config: SQLServerConfig = config
-        self.current_database = None
+        self.current_database: Optional[str] = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
+        self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
+        self._discovered_table_cache: Dict[str, bool] = {}
+        self._discovered_procedure_urns: Optional[Set[str]] = None
+        # Databases whose sys.sql_expression_dependencies reads have already failed.
+        self._dependency_reads_denied: Set[str] = set()
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_urns_to_lowercase' to True.",
             )
+        if (
+            self.config.include_lineage
+            and not self.config.convert_column_urns_to_lowercase
+        ):
+            self.report.warning(
+                title="Potential issue with column-level lineage",
+                message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
+            )
+
+        if self.config.include_query_lineage:
+            if self.config.include_usage_statistics and self.ctx.graph is None:
+                raise ValueError(
+                    "Usage statistics generation requires a DataHub graph connection (ctx.graph). "
+                    "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
+                    "Please provide a graph connection in your pipeline configuration or disable usage statistics."
+                )
+            logger.info("Query-based lineage enabled for mssql source")
 
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
-                    if self.config.use_odbc:
+                    if self.config.uses_odbc():
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
 
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        if self.config.include_query_lineage:
+            return SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                # Always True here: query lineage requires lineage generation regardless
+                # of the stored-procedure include_lineage flag on the parent class.
+                generate_lineage=True,
+                generate_queries=True,
+                generate_usage_statistics=self.config.include_usage_statistics,
+                usage_config=self.config
+                if self.config.include_usage_statistics
+                else None,
+                eager_graph_load=False,
+            )
+        return super()._create_aggregator()
+
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
-        def handle_sql_variant_as_string(value):
-            try:
-                return value.decode("utf-16le")
-            except UnicodeDecodeError:
-                return value.decode("Windows-1251")
-
-        # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
-        # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
-        try:
-            conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
-        except AttributeError as e:
-            logger.debug(
-                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
-            )
+        add_sql_variant_converter(conn.connection)
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
-        # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
-        # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata = conn.execute(
-            """
-            SELECT
-              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
-              T.NAME AS table_name,
-              EP.VALUE AS table_description
-            FROM sys.tables AS T
-            INNER JOIN sys.extended_properties AS EP
-              ON EP.MAJOR_ID = T.[OBJECT_ID]
-              AND EP.MINOR_ID = 0
-              AND EP.NAME = 'MS_Description'
-              AND EP.CLASS = 1
-            """
-        )
+        table_metadata = conn.execute(text(MSSQLQuery.TABLE_DESCRIPTIONS)).mappings()
         for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
@@ -298,7 +902,8 @@ class SQLServerSource(SQLAlchemySource):
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
         column_metadata = conn.execute(
-            """
+            text(
+                """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
@@ -313,7 +918,8 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
             """
-        )
+            )
+        ).mappings()
         for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
@@ -321,31 +927,41 @@ class SQLServerSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
-        config = SQLServerConfig.model_validate(config_dict)
+        # Determine ODBC mode based on source type.
+        # Use 'mssql-odbc' for ODBC connections, 'mssql' for non-ODBC (pytds) connections.
+        source_type = getattr(
+            getattr(ctx.pipeline_config, "source", None), "type", None
+        )
+        # The same hook `probe filter` validates with, so the two cannot
+        # disagree about which recipes are ODBC ones.
+        context = (
+            SQLServerConfig.probe_validation_context(source_type=source_type or "")
+            or {}
+        )
+        config = SQLServerConfig.model_validate(config_dict, context=context)
         return cls(config, ctx)
 
-    # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
         )
-        # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
             f"{db_name}.{schema}.{table}", description
         )
         return description, properties, location_urn
 
-    # override to get column descriptions
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
-        columns: List[Dict] = super()._get_columns(
-            dataset_name, inspector, schema, table
-        )
-        # Update column description if available.
+        # Copy each column: the reflected dicts are the Inspector's cached
+        # objects, so attaching descriptions in place would leak into the cache.
+        columns: List[Dict] = [
+            dict(column)
+            for column in super()._get_columns(dataset_name, inspector, schema, table)
+        ]
         db_name: str = self.get_db_name(inspector)
         for column in columns:
             description: Optional[str] = self.column_descriptions.get(
@@ -354,6 +970,23 @@ class SQLServerSource(SQLAlchemySource):
             if description:
                 column["comment"] = description
         return columns
+
+    def get_schema_fields(
+        self,
+        dataset_name: str,
+        columns: Sequence[Mapping[str, Any]],
+        inspector: Inspector,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
+        partition_keys: Optional[List[str]] = None,
+        tags: Optional[Dict[str, List[str]]] = None,
+    ) -> List[SchemaFieldClass]:
+        schema_fields = super().get_schema_fields(
+            dataset_name, columns, inspector, pk_constraints, partition_keys, tags
+        )
+        if self.config.convert_column_urns_to_lowercase:
+            for field in schema_fields:
+                field.fieldPath = field.fieldPath.lower()
+        return schema_fields
 
     def get_database_level_workunits(
         self,
@@ -377,41 +1010,85 @@ class SQLServerSource(SQLAlchemySource):
 
     def _detect_rds_environment(self, conn: Connection) -> bool:
         """
-        Detect if we're running in an RDS/managed environment vs on-premises.
-        Uses explicit configuration if provided, otherwise attempts automatic detection.
-        Returns True if RDS/managed, False if on-premises.
+        Detect if running on AWS RDS vs on-premises SQL Server.
+
+        RDS restricts msdb table access; on-prem allows faster direct queries.
+        Detection errors fall back to on-prem mode with automatic retry logic.
+
+        IMPORTANT: For production use, set is_aws_rds explicitly in config to avoid
+        heuristic detection failures. This method uses best-effort pattern matching.
         """
         if self.config.is_aws_rds is not None:
             logger.info(
-                f"Using explicit is_aws_rds configuration: {self.config.is_aws_rds}"
+                "Using explicit is_aws_rds configuration: %s", self.config.is_aws_rds
             )
             return self.config.is_aws_rds
 
         try:
-            result = conn.execute("SELECT @@servername AS server_name")
+            result = conn.execute(text("SELECT @@servername AS server_name")).mappings()
             server_name_row = result.fetchone()
             if server_name_row:
                 server_name = server_name_row["server_name"].lower()
 
-                aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
-                is_rds = any(indicator in server_name for indicator in aws_indicators)
+                # Primary patterns: Official RDS/AWS domain suffixes (high confidence)
+                high_confidence_patterns = [
+                    ".rds.amazonaws.com",  # Official RDS endpoint: mydb.abc123.us-east-1.rds.amazonaws.com
+                    ".rds.amazonaws.com.cn",  # China region RDS
+                ]
+
+                # Secondary patterns: Common AWS naming (medium confidence)
+                medium_confidence_patterns = [
+                    "-rds-",  # Custom names with RDS marker: mycompany-rds-prod
+                    ".ec2-",  # EC2 instance pattern: ip-10-0-0-1.ec2-internal
+                ]
+
+                # Tertiary patterns: Prefix-based (low confidence, only match at start)
+                # Uses startswith() to avoid false positives like "amazing_server"
+                prefix_patterns = [
+                    "amazon-",  # Amazon-prefixed: amazon-rds-prod (NOT "amazing")
+                    "amzn-",  # AWS standard prefix: amzn-sqlserver-001
+                    "aws-",  # AWS-prefixed: aws-rds-db
+                ]
+
+                # Check in order of confidence
+                is_rds = any(
+                    pattern in server_name for pattern in high_confidence_patterns
+                )
+
+                if not is_rds:
+                    is_rds = any(
+                        pattern in server_name for pattern in medium_confidence_patterns
+                    )
+
+                if not is_rds:
+                    is_rds = any(
+                        server_name.startswith(pattern) for pattern in prefix_patterns
+                    )
+
                 if is_rds:
-                    logger.info(f"AWS RDS detected based on server name: {server_name}")
+                    logger.info(
+                        "AWS RDS detected based on server name pattern: %s", server_name
+                    )
                 else:
                     logger.info(
-                        f"Non-RDS environment detected based on server name: {server_name}"
+                        "Non-RDS environment detected (server name: %s). "
+                        "If this is incorrect, set 'is_aws_rds: true' in config.",
+                        server_name,
                     )
 
                 return is_rds
             else:
                 logger.warning(
-                    "Could not retrieve server name, assuming non-RDS environment"
+                    "Could not retrieve server name, assuming non-RDS. "
+                    "Set 'is_aws_rds' explicitly in config if needed."
                 )
                 return False
 
         except Exception as e:
             logger.warning(
-                f"Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment ({e})"
+                "Failed to detect RDS environment (error: %s), assuming non-RDS. "
+                "Set 'is_aws_rds' explicitly in config to avoid detection issues.",
+                e,
             )
             return False
 
@@ -419,78 +1096,90 @@ class SQLServerSource(SQLAlchemySource):
         """
         Get job information with environment detection to choose optimal method first.
         """
-        jobs: Dict[str, Dict[str, Any]] = {}
-
-        # Detect environment to choose optimal method first
         is_rds = self._detect_rds_environment(conn)
+        methods = (
+            [self._get_jobs_via_stored_procedures, self._get_jobs_via_direct_query]
+            if is_rds
+            else [self._get_jobs_via_direct_query, self._get_jobs_via_stored_procedures]
+        )
+
+        return self._get_jobs_with_fallback(conn, db_name, methods, is_rds)
+
+    def _get_jobs_with_fallback(
+        self,
+        conn: Connection,
+        db_name: str,
+        methods: List[Callable],
+        is_rds: bool,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Try each method in order, handle all exception types once."""
+        context_suffix = "managed" if is_rds else "on_prem"
+        env_desc = "managed environment" if is_rds else "on-premises environment"
+        last_exception: Optional[Exception] = None
+
+        for method in methods:
+            method_name = getattr(
+                method, "__name__", getattr(method, "_mock_name", str(method))
+            )
+            try:
+                jobs = method(conn, db_name)
+                logger.info("Retrieved jobs using %s (%s)", method_name, env_desc)
+                return jobs
+            except (DatabaseError, OperationalError, ProgrammingError) as e:
+                logger.warning("%s failed: %s", method_name, e)
+                last_exception = e
+            except (KeyError, TypeError) as e:
+                logger.error("Job structure error %s: %s", method_name, e)
+                last_exception = e
+                self.report.failure(
+                    message="Job structure error",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_structure_error_{context_suffix}",
+                    exc=e,
+                )
+            except Exception as e:
+                logger.error("Unexpected error %s: %s", method_name, e, exc_info=True)
+                last_exception = e
+                self.report.failure(
+                    message="Unexpected error during job extraction",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_extraction_error_{context_suffix}",
+                    exc=e,
+                )
 
         if is_rds:
-            # Managed environment - try stored procedures first
-            try:
-                jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using stored procedures (managed environment)"
-                )
-                return jobs
-            except Exception as sp_error:
-                logger.warning(
-                    f"Failed to retrieve jobs via stored procedures in managed environment: {sp_error}"
-                )
-                # Try direct query as fallback (might work in some managed environments)
-                try:
-                    jobs = self._get_jobs_via_direct_query(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using direct query fallback in managed environment"
-                    )
-                    return jobs
-                except Exception as direct_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in managed environment",
-                        title="SQL Server Jobs Extraction",
-                        context="Both stored procedures and direct query methods failed",
-                        exc=direct_error,
-                    )
+            self.report.failure(
+                message="Failed to retrieve jobs in managed environment (both stored procedures and direct query). "
+                "This is expected on AWS RDS and some managed SQL instances that restrict msdb access. "
+                "Jobs extraction will be skipped.",
+                title="SQL Server Jobs Extraction",
+                context="managed_environment_msdb_restricted",
+                exc=last_exception,
+            )
         else:
-            # On-premises environment - try direct query first (usually faster)
-            try:
-                jobs = self._get_jobs_via_direct_query(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using direct query (on-premises environment)"
-                )
-                return jobs
-            except Exception as direct_error:
-                logger.warning(
-                    f"Failed to retrieve jobs via direct query in on-premises environment: {direct_error}"
-                )
-                # Try stored procedures as fallback
-                try:
-                    jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
-                    )
-                    return jobs
-                except Exception as sp_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in on-premises environment",
-                        title="SQL Server Jobs Extraction",
-                        context="Both direct query and stored procedures methods failed",
-                        exc=sp_error,
-                    )
+            self.report.failure(
+                message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
+                "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
+                "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
+                title="SQL Server Jobs Extraction",
+                context="on_prem_msdb_permission_denied",
+                exc=last_exception,
+            )
 
-        return jobs
+        logger.error(
+            "All job retrieval methods failed for %s",
+            "RDS/managed" if is_rds else "on-premises",
+        )
+        return {}
 
     def _get_jobs_via_stored_procedures(
         self, conn: Connection, db_name: str
     ) -> Dict[str, Dict[str, Any]]:
         jobs: Dict[str, Dict[str, Any]] = {}
 
-        # First, get all jobs
-        jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
+        jobs_result = conn.execute(text("EXEC msdb.dbo.sp_help_job"))
         jobs_data = {}
 
-        # SQLAlchemy 1.3 support was dropped in Sept 2023 (PR #8810)
-        # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
-        # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
         for row in jobs_result.mappings():
             job_id = str(row["job_id"])
             jobs_data[job_id] = {
@@ -502,18 +1191,16 @@ class SQLServerSource(SQLAlchemySource):
                 "enabled": row.get("enabled", 1),
             }
 
-        # Now get job steps for each job, filtering by database
         for job_id, job_info in jobs_data.items():
             try:
-                # Get steps for this specific job
+                # job_id from sp_help_job output (database metadata)
                 steps_result = conn.execute(
-                    f"EXEC msdb.dbo.sp_help_jobstep @job_id = '{job_id}'"
+                    text("EXEC msdb.dbo.sp_help_jobstep @job_id = :job_id"),
+                    {"job_id": job_id},
                 )
 
                 job_steps = {}
-                # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
                 for step_row in steps_result.mappings():
-                    # Only include steps that run against our target database
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
                         step_data = {
@@ -530,13 +1217,30 @@ class SQLServerSource(SQLAlchemySource):
                         }
                         job_steps[step_row["step_id"]] = step_data
 
-                # Only add job if it has relevant steps
                 if job_steps:
                     jobs[job_info["name"]] = job_steps
 
-            except Exception as step_error:
+            except (DatabaseError, OperationalError, ProgrammingError) as step_error:
                 logger.warning(
-                    f"Failed to get steps for job {job_info['name']}: {step_error}"
+                    "Database error retrieving steps for job %s (job may be inaccessible or deleted): %s",
+                    job_info["name"],
+                    step_error,
+                )
+                continue
+            except (KeyError, TypeError, AttributeError) as struct_error:
+                logger.warning(
+                    "Data structure error processing steps for job %s: %s. Job will be skipped.",
+                    job_info["name"],
+                    struct_error,
+                )
+                continue
+            except Exception as unexpected_error:
+                logger.error(
+                    "Unexpected error retrieving steps for job %s: %s (%s). Job will be skipped.",
+                    job_info["name"],
+                    unexpected_error,
+                    type(unexpected_error).__name__,
+                    exc_info=True,
                 )
                 continue
 
@@ -549,7 +1253,8 @@ class SQLServerSource(SQLAlchemySource):
         Original method using direct table access for on-premises SQL Server.
         """
         jobs_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 job.job_id,
                 job.name,
@@ -569,7 +1274,8 @@ class SQLServerSource(SQLAlchemySource):
                 job.job_id = steps.job_id
             where database_name = '{db_name}'
             """
-        )
+            )
+        ).mappings()
 
         jobs: Dict[str, Dict[str, Any]] = {}
         for row in jobs_data:
@@ -608,10 +1314,10 @@ class SQLServerSource(SQLAlchemySource):
                 jobs = self._get_jobs(conn, db_name)
 
                 if not jobs:
-                    logger.info(f"No jobs found for database: {db_name}")
+                    logger.info("No jobs found for database: %s", db_name)
                     return
 
-                logger.info(f"Found {len(jobs)} jobs for database: {db_name}")
+                logger.info("Found %d jobs for database: %s", len(jobs), db_name)
 
                 for job_name, job_steps in jobs.items():
                     try:
@@ -626,11 +1332,13 @@ class SQLServerSource(SQLAlchemySource):
                         yield from self.loop_job_steps(job, job_steps)
 
                     except Exception as job_error:
-                        logger.warning(f"Failed to process job {job_name}: {job_error}")
+                        logger.warning(
+                            "Failed to process job %s: %s", job_name, job_error
+                        )
                         self.report.warning(
-                            message=f"Failed to process job {job_name}",
+                            message="Failed to process job",
                             title="SQL Server Jobs Extraction",
-                            context="Error occurred while processing individual job",
+                            context=job_name,
                             exc=job_error,
                         )
                         continue
@@ -689,9 +1397,9 @@ class SQLServerSource(SQLAlchemySource):
             procedures_data_list = self._get_stored_procedures(conn, db_name, schema)
             procedures: List[StoredProcedure] = []
             for procedure_data in procedures_data_list:
-                procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
-                if not self.config.procedure_pattern.allowed(procedure_full_name):
-                    self.report.report_dropped(procedure_full_name)
+                full_name = procedure_full_name(db_name, schema, procedure_data["name"])
+                if not self.config.procedure_pattern.allowed(full_name):
+                    self.report.report_dropped(full_name)
                     continue
                 procedures.append(
                     StoredProcedure(flow=mssql_default_job, **procedure_data)
@@ -700,21 +1408,59 @@ class SQLServerSource(SQLAlchemySource):
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:
-                yield from self._process_stored_procedure(conn, procedure)
+                # Only a schema-level handler exists above, so anything escaping here
+                # drops every remaining procedure.
+                try:
+                    yield from self._process_stored_procedure(conn, procedure)
+                except DBAPIError as e:
+                    # A dead connection fails every remaining procedure the same way,
+                    # so stop instead. pytds often leaves connection_invalidated False
+                    # on a disconnect, hence the InterfaceError check.
+                    if e.connection_invalidated or isinstance(e, InterfaceError):
+                        raise
+                    self._report_unprocessed_procedure(procedure, e)
+                # pytds raises socket failures as bare OSErrors. ConnectionError is the
+                # dead socket; a plain OSError is not (a query timeout is one, and it
+                # leaves the connection usable).
+                except ConnectionError:
+                    raise
+                except Exception as e:
+                    self._report_unprocessed_procedure(procedure, e)
+
+    def _report_unprocessed_procedure(
+        self, procedure: StoredProcedure, exc: Exception
+    ) -> None:
+        # A failure, not a warning: StaleEntityRemovalHandler suppresses soft-deletion
+        # only on a reported failure, and a procedure we skipped must not be deleted.
+        self.report.failure(
+            title="Failed to process stored procedure",
+            message=(
+                "The procedure was skipped and its metadata is not up to date. "
+                "Stale-entity removal is suppressed for this run so it is not "
+                "soft-deleted."
+            ),
+            context=procedure.full_name,
+            exc=exc,
+        )
 
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
-        upstream = self._get_procedure_upstream(conn, procedure)
-        downstream = self._get_procedure_downstream(conn, procedure)
         data_job = MSSQLDataJob(
             entity=procedure,
         )
         # TODO: because of this upstream and downstream are more dependencies,
         #  can't be used as DataJobInputOutput.
         #  Should be reorganized into lineage.
-        data_job.add_property("procedure_depends_on", str(upstream.as_property))
-        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+        dependencies = self._get_procedure_dependencies(conn, procedure)
+        if dependencies.upstream is not None:
+            data_job.add_property(
+                "procedure_depends_on", str(dependencies.upstream.as_property)
+            )
+        if dependencies.downstream is not None:
+            data_job.add_property(
+                "depending_on_procedure", str(dependencies.downstream.as_property)
+            )
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
         procedure.code = procedure_code
         if procedure_definition:
@@ -731,12 +1477,99 @@ class SQLServerSource(SQLAlchemySource):
         for property_name, property_value in properties.items():
             data_job.add_property(property_name, str(property_value))
         if self.config.include_lineage:
-            # These will be used to construct lineage
             self.stored_procedures.append(procedure)
         yield from self.construct_job_workunits(
             data_job,
-            # For stored procedure lineage is ingested later
             include_lineage=False,
+        )
+
+    def _get_procedure_dependencies(
+        self, conn: Connection, procedure: StoredProcedure
+    ) -> ProcedureDependencies:
+        """Read the procedure's catalogue dependencies, each direction independently.
+
+        These queries need VIEW DEFINITION plus SELECT on
+        sys.sql_expression_dependencies, granted to db_owner only by default. Reading
+        the directions separately keeps one denial from discarding the other's result
+        or reporting it as empty. A denial is database-wide, so the first one
+        short-circuits the rest of that database.
+
+        Only a missing SELECT raises. SELECT without VIEW DEFINITION silently filters
+        the rows instead, which is indistinguishable from having no dependencies.
+        """
+        if procedure.db in self._dependency_reads_denied:
+            return ProcedureDependencies(upstream=None, downstream=None)
+
+        upstream = self._read_dependency_stream(
+            lambda: self._get_procedure_upstream(conn, procedure), procedure
+        )
+        # Re-checked between the reads: a denial on the first applies to the second.
+        if procedure.db in self._dependency_reads_denied:
+            return ProcedureDependencies(upstream=upstream, downstream=None)
+
+        return ProcedureDependencies(
+            upstream=upstream,
+            downstream=self._read_dependency_stream(
+                lambda: self._get_procedure_downstream(conn, procedure), procedure
+            ),
+        )
+
+    def _read_dependency_stream(
+        self,
+        read: Callable[[], ProcedureLineageStream],
+        procedure: StoredProcedure,
+    ) -> Optional[ProcedureLineageStream]:
+        try:
+            return read()
+        except DBAPIError as e:
+            # A dropped connection is an OperationalError too, so it would otherwise
+            # read as a permissions problem. pytds reports a disconnect as
+            # ClosedConnectionError (an InterfaceError) without setting
+            # connection_invalidated, so that needs its own check; a permission denial
+            # is never an InterfaceError, so re-raising it is safe.
+            if e.connection_invalidated or isinstance(e, InterfaceError):
+                raise
+            # Only a denial is database-wide. A deadlock or lock timeout on the
+            # catalogue views is an OperationalError too, and caching on that would
+            # drop dependency properties for the whole database over one blip.
+            if _is_permission_denied(e):
+                self._dependency_reads_denied.add(procedure.db)
+                self.report.warning(
+                    title="Permission denied reading stored procedure dependencies",
+                    message=(
+                        "Grant VIEW DEFINITION on the database and SELECT on "
+                        "sys.sql_expression_dependencies to the ingestion principal. "
+                        "Dependency properties are omitted for this database and the "
+                        "queries are skipped for its remaining procedures."
+                    ),
+                    context=procedure.full_name,
+                    exc=e,
+                )
+            else:
+                self._warn_dependency_read_failed(procedure, e)
+            return None
+        # A pytds query timeout is the builtin TimeoutError -- an OSError, not a
+        # pytds.Error -- so SQLAlchemy never wraps it and the handler above cannot see
+        # it. Handled here it costs the dependency properties, like a deadlock on the
+        # same query; left to the per-procedure guard it would cost the procedure.
+        except ConnectionError:
+            raise  # The socket is gone; let the caller stop the schema.
+        except OSError as e:
+            self._warn_dependency_read_failed(procedure, e)
+            return None
+
+    def _warn_dependency_read_failed(
+        self, procedure: StoredProcedure, exc: Exception
+    ) -> None:
+        self.report.warning(
+            title="Unable to read stored procedure dependencies",
+            message=(
+                "Could not query sys.sql_expression_dependencies, so this "
+                "procedure's dependency properties are omitted. Other "
+                "procedures are unaffected."
+            ),
+            context=procedure.full_name,
+            exc=exc,
         )
 
     @staticmethod
@@ -744,7 +1577,8 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
         downstream_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT DISTINCT OBJECT_SCHEMA_NAME ( referencing_id ) AS [schema],
                 OBJECT_NAME(referencing_id) AS [name],
                 o.type_desc AS [type]
@@ -754,7 +1588,8 @@ class SQLServerSource(SQLAlchemySource):
             WHERE referenced_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND o.type_desc in ('TABLE_TYPE', 'VIEW', 'USER_TABLE')
             """
-        )
+            )
+        ).mappings()
         downstream_dependencies = []
         for row in downstream_data:
             downstream_dependencies.append(
@@ -774,7 +1609,8 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
         upstream_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT DISTINCT
                 coalesce(lower(referenced_database_name), db_name()) AS db,
                 referenced_schema_name AS [schema],
@@ -787,7 +1623,8 @@ class SQLServerSource(SQLAlchemySource):
                 AND referenced_schema_name is not null
                 AND o1.type_desc in ('TABLE_TYPE', 'VIEW', 'SQL_STORED_PROCEDURE', 'USER_TABLE')
             """
-        )
+            )
+        ).mappings()
         upstream_dependencies = []
         for row in upstream_data:
             upstream_dependencies.append(
@@ -807,14 +1644,16 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> List[ProcedureParameter]:
         inputs_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 name,
                 type_name(user_type_id) AS 'type'
             FROM sys.parameters
             WHERE object_id = object_id('{procedure.escape_full_name}')
             """
-        )
+            )
+        ).mappings()
         inputs_list = []
         for row in inputs_data:
             inputs_list.append(ProcedureParameter(name=row["name"], type=row["type"]))
@@ -824,9 +1663,16 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
+        # procedure.db and escape_full_name from sys.procedures (database metadata)
+        query = (
+            "EXEC ["
+            + procedure.db
+            + "].dbo.sp_helptext '"
+            + procedure.escape_full_name
+            + "'"
+        )
         try:
-            code_data = conn.execute(query)
+            code_data = conn.execute(text(query)).mappings()
         except ProgrammingError:
             logger.warning(
                 "Denied permission for read text from procedure '%s'",
@@ -843,6 +1689,7 @@ class SQLServerSource(SQLAlchemySource):
                     code_slice_index = index
             definition = "".join(code_list[:code_slice_index])
             code = "".join(code_list[code_slice_index:])
+
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
@@ -856,14 +1703,16 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> Dict[str, Any]:
         properties_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 create_date as date_created,
                 modify_date as date_modified
             FROM sys.procedures
             WHERE object_id = object_id('{procedure.escape_full_name}')
             """
-        )
+            )
+        ).mappings()
         properties = {}
         for row in properties_data:
             properties = dict(
@@ -875,18 +1724,25 @@ class SQLServerSource(SQLAlchemySource):
     def _get_stored_procedures(
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
+        # The schema is bound and the database bracket-quoted (with `]`
+        # doubled), so a name holding a quote or a bracket reads its own
+        # procedures instead of breaking -- or rewriting -- the statement.
+        database = db_name.replace("]", "]]")
         stored_procedures_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 pr.name as procedure_name,
                 s.name as schema_name
             FROM
-                [{db_name}].[sys].[procedures] pr
+                [{database}].[sys].[procedures] pr
             INNER JOIN
-                [{db_name}].[sys].[schemas] s ON pr.schema_id = s.schema_id
-            where s.name = '{schema}'
+                [{database}].[sys].[schemas] s ON pr.schema_id = s.schema_id
+            where s.name = :schema
             """
-        )
+            ),
+            {"schema": str(schema)},
+        ).mappings()
         procedures_list = []
         for row in stored_procedures_data:
             procedures_list.append(
@@ -974,107 +1830,372 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
 
+    def get_foreign_key_metadata(
+        self,
+        dataset_urn: str,
+        schema: str,
+        fk_dict: Mapping[str, Any],
+        inspector: Inspector,
+    ) -> ForeignKeyConstraintClass:
+        if self.config.convert_column_urns_to_lowercase:
+            fk_dict = {
+                **fk_dict,
+                "constrained_columns": [
+                    f.lower() for f in fk_dict["constrained_columns"]
+                ],
+                "referred_columns": [f.lower() for f in fk_dict["referred_columns"]],
+            }
+        return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
+        url = self.config.database_url()
+        logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
-        if (
-            self.config.database
-            and self.config.database != ""
-            or (self.config.sqlalchemy_uri and self.config.sqlalchemy_uri != "")
-        ):
+        if self.config.is_single_database_recipe():
             inspector = inspect(engine)
             yield inspector
         else:
             with engine.begin() as conn:
-                databases = conn.execute(
-                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
-                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
-                       'distribution' , 'reportserver', 'reportservertempdb'); "
-                ).fetchall()
+                databases = self.config.list_databases(conn)
 
-            for db in databases:
-                if self.config.database_pattern.allowed(db["name"]):
-                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                    engine = create_engine(url, **self.config.options)
-                    inspector = inspect(engine)
-                    self.current_database = db["name"]
+            for db_name in databases:
+                if self.config.database_pattern.allowed(db_name):
+                    url = self.config.database_url(db_name)
+                    try:
+                        engine = create_engine(url, **self.config.options)
+                        inspector = inspect(engine)
+                    except OperationalError as e:
+                        if re.search(r"(?i)login failed", str(e)):
+                            logger.warning(
+                                f"Error logging in to database {db_name}: {e}"
+                            )
+                            self.report.warning(
+                                message="Error logging in to database",
+                                context=db_name,
+                                exc=e,
+                                log=False,
+                            )
+                            continue
+                        raise
+                    self.current_database = db_name
                     yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
-        regular = f"{schema}.{entity}"
-        qualified_table_name = regular
-        if self.config.database:
-            qualified_table_name = f"{self.config.database}.{regular}"
-        if self.current_database:
-            qualified_table_name = f"{self.current_database}.{regular}"
-        return (
-            qualified_table_name.lower()
-            if self.config.convert_urns_to_lowercase
-            else qualified_table_name
+        return qualified_identifier(self.config, self.current_database, schema, entity)
+
+    def _is_discovered_procedure(self, urn: str) -> bool:
+        """True if this run emitted a dataJob for the procedure that URN names.
+
+        Safe to ask here: lineage runs at the end of `get_workunits_internal`, after
+        every schema has been walked, so `stored_procedures` is complete. The call
+        site composes its URN the same way the procedure's own dataJob does, platform
+        instance included, so plain membership is enough.
+
+        Known cost: a genuine call into a database excluded by `database_pattern` is
+        dropped with the rest. A dangling edge is worse than a missing one -- nothing
+        removes it later, and under `incremental_lineage` a patch never removes.
+        """
+        if self._discovered_procedure_urns is None:
+            self._discovered_procedure_urns = {
+                MSSQLDataJob(entity=procedure).urn
+                for procedure in self.stored_procedures
+            }
+        return urn in self._discovered_procedure_urns
+
+    def _filter_procedure_lineage(
+        self,
+        mcps: Iterable[MetadataChangeProposalWrapper],
+        procedure_name: Optional[str] = None,
+    ) -> Iterator[MetadataChangeProposalWrapper]:
+        """
+        Filter out unqualified table URNs from stored procedure lineage.
+
+        Delegates to MSSQLAliasFilter to handle TSQL-specific alias quirks.
+        See alias_filter.py module docstring for detailed explanation.
+        """
+        if self.tsql_alias_cleaner is None:
+            platform_instance = self.get_schema_resolver().platform_instance
+            self.tsql_alias_cleaner = MSSQLAliasFilter(
+                is_discovered_table=self.is_discovered_table,
+                platform_instance=platform_instance,
+                is_discovered_procedure=self._is_discovered_procedure,
+            )
+
+        yield from self.tsql_alias_cleaner.filter_procedure_lineage(
+            mcps, procedure_name
         )
+
+    def _populate_aggregator_with_query_history(self) -> None:
+        """Populate the shared aggregator with query-history lineage.
+
+        Feeds query-history entries into self.aggregator so they merge with
+        view-DDL lineage. MCPs are emitted later by the parent's single
+        _generate_aggregator_workunits pass. Keeping all lineage in one
+        aggregator prevents double-emit of upstreamLineage (the bug introduced
+        by #16084, where a second aggregator SET-overwrote v0 with a partial payload).
+        """
+        logger.info(
+            "Starting query-based lineage extraction from SQL Server query history"
+        )
+
+        for inspector in self.get_inspectors():
+            db_name = self.get_db_name(inspector)
+            with inspector.engine.connect() as connection:
+                lineage_extractor = MSSQLLineageExtractor(
+                    config=self.config,
+                    connection=connection,
+                    report=self.report,
+                    sql_aggregator=self.aggregator,
+                    default_schema="dbo",
+                )
+
+                try:
+                    lineage_extractor.populate_lineage_from_queries()
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error during query lineage extraction for database '%s': %s. "
+                        "Continuing with other lineage sources.",
+                        db_name,
+                        e,
+                    )
+                    self.report.failure(
+                        message=(
+                            "Query lineage extraction failed. "
+                            "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
+                            "See documentation for setup instructions: "
+                            "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
+                        ),
+                        context=db_name,
+                        exc=e,
+                    )
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.include_query_lineage:
+            # Populate shared aggregator with query history before generating MCPs
+            # so view lineage (from view definitions) and query lineage merge into
+            # a single upstreamLineage MCP per downstream URN.
+            self._populate_aggregator_with_query_history()
+        yield from super()._generate_aggregator_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
         # This is done at the end so that we will have access to tables
         # from all databases in schema_resolver and discovered_tables
-        for procedure in self.stored_procedures:
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
+        if self.stored_procedures:
+            logger.info(
+                "Processing %d stored procedure(s) for lineage extraction",
+                len(self.stored_procedures),
+            )
+
+            for procedure in self.stored_procedures:
+                with self.report.report_exc(
+                    message="Failed to parse stored procedure lineage",
+                    context=procedure.full_name,
+                    level=StructuredLogLevel.WARN,
+                ):
+                    for workunit in auto_workunit(
+                        self._filter_procedure_lineage(
+                            generate_procedure_lineage(
+                                schema_resolver=self.get_schema_resolver(),
+                                procedure=procedure.to_base_procedure(),
+                                procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                                is_temp_table=lambda name: (
+                                    not self.is_discovered_table(name)
+                                ),
+                                default_db=procedure.db,
+                                default_schema=procedure.schema,
+                                report_failure=lambda name: (
+                                    self._report_procedure_failure(name)
+                                ),
+                            ),
+                            procedure_name=procedure.name,
+                        )
+                    ):
+                        yield workunit
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # Must run after AutoLowercaseUrns and AutoResolveLineageUrns, which need the
+        # typed upsert aspect, and appending is a source's only insertion point. So
+        # the report counts the pre-patch upsert; AutoSystemMetadata.stamp is appended
+        # later still, so patches are stamped.
+        #
+        # The natural home is AutoIncrementalLineageProcessor, which is gated on this
+        # same flag and does exactly this for UpstreamLineageClass. Kept here to bound
+        # the blast radius: moving it would change dataJob lineage for every source
+        # with the flag on.
+        return [
+            *super().get_workunit_processors(),
+            self._convert_procedure_lineage_to_patch
+            if self.config.incremental_lineage
+            else None,
+        ]
+
+    def _convert_procedure_lineage_to_patch(
+        self, stream: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Re-emit dataJobInputOutput as a patch when `incremental_lineage` is enabled.
+
+        A full upsert replaces the aspect, dropping the `*Edges` fields that hold
+        manually added lineage; a patch only adds the parsed edges. Opt-in because a
+        patch never removes, so lineage to a dropped table persists.
+
+        Only registered when the flag is on, so reaching here means it is.
+        """
+        for workunit in stream:
+            aspect = workunit.get_aspect_of_type(DataJobInputOutputClass)
+            urn = workunit.get_urn()
+            if not (
+                aspect
+                and urn
+                # An MCE can carry other aspects alongside lineage, so converting it
+                # would drop them. Both MCP forms hold one aspect and convert safely;
+                # MSSQL emits wrappers today, but a raw one slipping through would
+                # reinstate the overwrite this exists to prevent. A raw MCP is an
+                # upsert by the time it gets here -- `try_from_mcpc` deserializes
+                # nothing else -- while a wrapper's aspect is read whatever its change
+                # type, so this converts every wrapper MSSQL emits, all of them
+                # upserts today.
+                and isinstance(
+                    workunit.metadata,
+                    (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
+                )
             ):
-                yield from auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure.to_base_procedure(),
-                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                        is_temp_table=self.is_temp_table,
-                        default_db=procedure.db,
-                        default_schema=procedure.schema,
+                yield workunit
+                continue
+
+            if datajob_lineage_is_empty(aspect):
+                # Job steps always emit one of these; an empty upsert would wipe
+                # manual edges, so dropping it is both correct and unremarkable.
+                logger.debug("Skipping empty lineage aspect for %s", urn)
+                continue
+
+            try:
+                patch = convert_datajob_input_output_to_patch(
+                    urn, aspect, workunit.metadata.systemMetadata
+                )
+            except Exception as e:
+                # A workunit processor wraps the whole stream, so anything the
+                # converter does not handle per edge would abort the run. The aspect
+                # is dropped rather than sent as an upsert: an upsert here would wipe
+                # the manual edges this processor exists to keep.
+                self.report.failure(
+                    title="Failed to convert dataJob lineage to a patch",
+                    message="The lineage aspect was dropped for this dataJob.",
+                    context=urn,
+                    exc=e,
+                )
+                continue
+
+            if patch.workunits:
+                yield from patch.workunits
+                if patch.skipped:
+                    # The rest converted, so the aspect is still emitted and the run
+                    # looks clean. Without this the partial loss is log-only.
+                    self.report.warning(
+                        title="Dropped part of a dataJob's lineage",
+                        message=(
+                            "Some edges could not be expressed as a patch and were "
+                            "omitted. The rest of the aspect was emitted."
+                        ),
+                        context=f"{urn}: {', '.join(patch.skipped)}",
                     )
+            else:
+                self.report.warning(
+                    title="Dropped dataJob lineage",
+                    message="No part of the lineage aspect could be expressed as a patch.",
+                    context=urn,
                 )
 
-    def is_temp_table(self, name: str) -> bool:
+    def _report_procedure_failure(self, procedure_name: str) -> None:
+        """Report a stored procedure lineage extraction failure to the aggregator."""
+        if hasattr(self, "aggregator") and self.aggregator is not None:
+            self.aggregator.report.num_procedures_failed += 1
+            self.aggregator.report.procedure_parse_failures.append(procedure_name)
+
+    def is_discovered_table(self, name: str) -> bool:
+        """
+        Check if a table name refers to a discovered/real table in the schema.
+
+        Returns True if the table exists in discovered schemas, False if it's
+        a temp table, alias, or undiscovered table that should be filtered out.
+
+        Note: Uses instance-level caching to improve performance for repeated calls.
+        """
+        if name in self._discovered_table_cache:
+            return self._discovered_table_cache[name]
+
+        result = self._compute_is_discovered_table(name)
+        self._discovered_table_cache[name] = result
+        return result
+
+    def _compute_is_discovered_table(self, name: str) -> bool:
+        """Branch logic without caching; the caller caches the result."""
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            logger.debug(f"temp table matched by pattern {name}")
-            return True
+            return False
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
-            schema_name = parts[-2]
-            db_name = parts[-3]
 
             if table_name.startswith("#"):
-                return True
+                return False
 
-            # This is also a temp table if
-            #   1. this name would be allowed by the dataset patterns, and
-            #   2. we have a list of discovered tables, and
-            #   3. it's not in the discovered tables list
-            if (
-                self.config.database_pattern.allowed(db_name)
-                and self.config.schema_pattern.allowed(schema_name)
-                and self.config.table_pattern.allowed(name)
-                and self.standardize_identifier_case(name)
-                not in self.discovered_datasets
-            ):
-                logger.debug(f"inferred as temp table {name}")
-                return True
+            standardized_name = self.standardize_identifier_case(name)
 
-        except Exception:
-            logger.warning(f"Error parsing table name {name} ")
-        return False
+            if hasattr(self, "aggregator") and self.aggregator is not None:
+                schema_resolver = self.get_schema_resolver()
+
+                urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=standardized_name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
+
+                if schema_resolver.has_urn(urn):
+                    return True
+
+            if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
+                schema_name = parts[-2]
+                db_name = parts[-3]
+
+                if (
+                    self.config.database_pattern.allowed(db_name)
+                    and self.config.schema_pattern.allowed(schema_name)
+                    and self.config.table_pattern.allowed(name)
+                ):
+                    return standardized_name in self.discovered_datasets
+                return False
+
+            # TSQL procedures reference tables as `schema.table` even though
+            # discovery records them as `db.schema.table`; match on the
+            # trailing `.schema.table` so these don't get dropped as temp.
+            # Cross-DB collisions are intentional (first-match-wins): this is
+            # a keep/drop gate for lineage, not a precise resolver. No pattern
+            # filtering needed here since discovered_datasets already passed it.
+            if len(parts) == 2:
+                for discovered_name in self.discovered_datasets:
+                    # Leading "." requires a db-qualified match on a segment
+                    # boundary (so "dbo" won't match schema "xdbo").
+                    if discovered_name.endswith(f".{standardized_name}"):
+                        return True
+
+            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
+            # treat as undiscovered since we can't verify
+            return False
+
+        except Exception as e:
+            logger.warning("Error parsing table name %s: %s", name, e)
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (
@@ -1085,42 +2206,21 @@ class SQLServerSource(SQLAlchemySource):
 
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         for schema in super().get_allowed_schemas(inspector, db_name):
-            if self.config.quote_schemas:
-                yield quoted_name(schema, True)
-            else:
-                yield schema
+            yield self.config.schema_argument(schema)
 
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine
 
         try:
-            if (
-                engine
-                and hasattr(engine, "url")
-                and hasattr(engine.url, "database")
-                and engine.url.database
-            ):
-                return str(engine.url.database).strip('"')
-
-            if (
-                engine
-                and hasattr(engine, "url")
-                and hasattr(engine.url, "query")
-                and "odbc_connect" in engine.url.query
-            ):
-                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
-                database = re.search(
-                    r"DATABASE=([^;]*);",
-                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
-                    flags=re.IGNORECASE,
-                )
-
-                if database and database.group(1):
-                    return database.group(1)
-
+            if engine and hasattr(engine, "url"):
+                return database_name_from_url(engine.url)
             return ""
 
         except Exception as e:
             raise RuntimeError(
                 "Unable to get database name from Sqlalchemy inspector"
             ) from e
+
+    def close(self) -> None:
+        self.aggregator.close()
+        super().close()

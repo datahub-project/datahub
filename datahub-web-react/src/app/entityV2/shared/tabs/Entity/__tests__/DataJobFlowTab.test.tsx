@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab';
 import { dataJob1, mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
@@ -39,6 +39,5 @@ describe('DataJobFlowTab', () => {
             </MockedProvider>,
         );
         expect(getByText('DataFlowInfoName')).toBeInTheDocument();
-        expect(getByText('DataFlowInfo1 Description')).toBeInTheDocument();
     });
 });

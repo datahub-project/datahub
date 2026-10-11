@@ -1,5 +1,6 @@
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
@@ -7,7 +8,7 @@ import { EntityActionProps } from '@app/entity/shared/components/styled/search/E
 import { FilterSet } from '@app/entity/shared/components/styled/search/types';
 import { UnionType } from '@app/search/utils/constants';
 
-import { FacetFilterInput } from '@types';
+import { FacetFilterInput, SearchFlags } from '@types';
 
 const SearchContainer = styled.div`
     height: 500px;
@@ -35,6 +36,7 @@ type Props = {
     applyView?: boolean;
     isViewAllMode?: boolean | false;
     handleViewAllClickWarning?: () => void;
+    searchFlags?: SearchFlags;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -52,7 +54,9 @@ export const EmbeddedListSearchModal = ({
     applyView,
     isViewAllMode,
     handleViewAllClickWarning,
+    searchFlags,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -80,7 +84,7 @@ export const EmbeddedListSearchModal = ({
             title={title}
             open
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>{tc('close')}</Button>}
         >
             <SearchContainer>
                 <EmbeddedListSearch
@@ -104,6 +108,7 @@ export const EmbeddedListSearchModal = ({
                     applyView={applyView}
                     isViewAllMode={isViewAllMode}
                     handleViewAllClickWarning={handleViewAllClickWarning}
+                    searchFlags={searchFlags}
                 />
             </SearchContainer>
         </Modal>

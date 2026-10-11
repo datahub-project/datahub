@@ -1,38 +1,63 @@
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
-import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
 import { Preview } from '@app/entityV2/domain/preview/Preview';
-import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DocumentationTab,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarEntityHeader,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
+const DomainSummaryTab = lazyProfileComponent('DomainSummaryTab', () =>
+    import('@app/entityV2/domain/summary/DomainSummaryTab').then((module) => ({
+        default: module.DomainSummaryTab,
+    })),
+);
+
+const DataProductsTab = lazyProfileComponent(
+    'DataProductsTab',
+    () => import('@app/entityV2/domain/DataProductsTab/DataProductsTab'),
+);
+const DomainEntitiesTab = lazyProfileComponent('DomainEntitiesTab', () =>
+    import('@app/entityV2/domain/DomainEntitiesTab').then((module) => ({
+        default: module.DomainEntitiesTab,
+    })),
+);
+const SidebarEntitiesSection = lazyProfileComponent(
+    'SidebarEntitiesSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection'),
+);
+
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -44,14 +69,6 @@ export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DomainIcon />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path
@@ -63,7 +80,14 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <Globe
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+            />
+        );
     };
 
     isSearchEnabled = () => true;
@@ -78,9 +102,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Domain';
+    getEntityName = () => i18next.t('entity.types:domain.name');
 
-    getCollectionName = () => 'Domains';
+    getCollectionName = () => i18next.t('entity.types:domain.namePlural');
 
     useEntityQuery = useGetDomainQuery;
 
@@ -128,9 +152,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -140,42 +164,42 @@ export class DomainEntity implements Entity<Domain> {
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
-                name: 'Summary',
+                name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : DomainSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
-                name: 'Assets',
+                name: i18next.t('entity.types:tab.assets'),
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
                 component: DomainEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             ...(!showSummaryTab
                 ? [
                       {
                           id: EntityProfileTab.DOCUMENTATION_TAB,
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: File,
                       },
                   ]
                 : []),
             {
                 id: EntityProfileTab.DATA_PRODUCTS_TAB,
-                name: 'Data Products',
+                name: i18next.t('entity.types:dataProduct.namePlural'),
                 getCount: (entityData, _) => {
                     return entityData?.dataProducts?.total;
                 },
                 component: DataProductsTab,
-                icon: FileDoneOutlined,
+                icon: FileText,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };
@@ -192,6 +216,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -211,6 +236,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
@@ -237,6 +263,11 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
+        ]);
     };
 }

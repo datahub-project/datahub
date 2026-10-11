@@ -1,7 +1,10 @@
-import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { useActive, useCommands } from '@remirror/react';
 import { Dropdown, Menu } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledDropdownButton = styled(Dropdown.Button)`
@@ -21,51 +24,38 @@ const StyledDropdownButton = styled(Dropdown.Button)`
 `;
 
 export const TableCellMenu = () => {
+    const { t } = useTranslation('alchemy');
     const active = useActive();
     const commands = useCommands();
 
     const menu = (
         <Menu>
-            <Menu.Item
-                icon={<PlusOutlined />}
-                disabled={active.tableHeaderCell()}
-                onClick={() => commands.addTableRowBefore()}
-            >
-                Insert row above
+            <Menu.Item icon={<Plus />} disabled={active.tableHeaderCell()} onClick={() => commands.addTableRowBefore()}>
+                {t('editor.table.insertRowAbove')}
             </Menu.Item>
-            <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableRowAfter()}>
-                Insert row below
+            <Menu.Item icon={<Plus />} onClick={() => commands.addTableRowAfter()}>
+                {t('editor.table.insertRowBelow')}
             </Menu.Item>
-            <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableColumnBefore()}>
-                Insert column left
+            <Menu.Item icon={<Plus />} onClick={() => commands.addTableColumnBefore()}>
+                {t('editor.table.insertColumnLeft')}
             </Menu.Item>
-            <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableColumnAfter()}>
-                Insert column right
+            <Menu.Item icon={<Plus />} onClick={() => commands.addTableColumnAfter()}>
+                {t('editor.table.insertColumnRight')}
             </Menu.Item>
             <Menu.Divider />
-            <Menu.Item
-                icon={<DeleteOutlined />}
-                disabled={active.tableHeaderCell()}
-                onClick={() => commands.deleteTableRow()}
-            >
-                Delete row
+            <Menu.Item icon={<Trash />} disabled={active.tableHeaderCell()} onClick={() => commands.deleteTableRow()}>
+                {t('editor.table.deleteRow')}
             </Menu.Item>
-            <Menu.Item icon={<DeleteOutlined />} onClick={() => commands.deleteTableColumn()}>
-                Delete column
+            <Menu.Item icon={<Trash />} onClick={() => commands.deleteTableColumn()}>
+                {t('editor.table.deleteColumn')}
             </Menu.Item>
-            <Menu.Item icon={<DeleteOutlined />} onClick={() => commands.deleteTable()}>
-                Delete table
+            <Menu.Item icon={<Trash />} onClick={() => commands.deleteTable()}>
+                {t('editor.table.deleteTable')}
             </Menu.Item>
         </Menu>
     );
 
     return (
-        <StyledDropdownButton
-            size="small"
-            icon={<DownOutlined />}
-            placement="bottomLeft"
-            overlay={menu}
-            type="primary"
-        />
+        <StyledDropdownButton size="small" icon={<CaretDown />} placement="bottomLeft" overlay={menu} type="primary" />
     );
 };

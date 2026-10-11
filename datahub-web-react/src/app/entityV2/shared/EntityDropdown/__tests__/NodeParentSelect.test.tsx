@@ -1,4 +1,4 @@
-import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/nodeParentSelectUtils';
 import { glossaryNode1, glossaryNode2, glossaryNode3, glossaryNode4 } from '@src/Mocks';
 
 describe('filterResultsForMove', () => {

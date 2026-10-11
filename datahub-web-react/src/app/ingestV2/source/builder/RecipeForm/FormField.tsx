@@ -1,10 +1,12 @@
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
-import Button from 'antd/lib/button';
+import { Button, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { Checkbox, Form, Input, Select } from 'antd';
+import AntButton from 'antd/lib/button';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import DictField, {
     ErrorWrapper,
     Label,
@@ -13,16 +15,16 @@ import DictField, {
 } from '@app/ingestV2/source/builder/RecipeForm/DictField';
 import SecretField, { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import DatePicker from '@utils/DayjsDatePicker';
 
 import { Secret } from '@types';
 
-const StyledButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
+const StyledButton = styled(AntButton)`
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 80%;
 `;
 
-const StyledRemoveIcon = styled(MinusCircleOutlined)`
-    font-size: 14px;
+const RemoveButton = styled(Button)`
     margin-left: 10px;
 `;
 
@@ -32,6 +34,8 @@ interface CommonFieldProps {
 }
 
 function ListField({ field, removeMargin }: CommonFieldProps) {
+    const { t } = useTranslation('common.actions');
+
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -47,10 +51,16 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                             <Form.Item {...item} noStyle>
                                 <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
-                            <StyledRemoveIcon onClick={() => remove(item.name)} />
+                            <RemoveButton
+                                variant="text"
+                                isCircle
+                                icon={{ icon: Trash, size: 'lg' }}
+                                aria-label={t('remove')}
+                                onClick={() => remove(item.name)}
+                            />
                         </Form.Item>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<Plus />}>
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>
@@ -69,11 +79,14 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             tooltip={field.tooltip}
             $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
+            data-testid={`field-${field.name}`}
         >
             {field.options && (
                 <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
-                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                        <Select.Option key={option.value} value={option.value} data-testid={`option-${option.value}`}>
+                            {option.label}
+                        </Select.Option>
                     ))}
                 </Select>
             )}
@@ -106,6 +119,14 @@ interface Props {
 
 function FormField(props: Props) {
     const { field, secrets, refetchSecrets, removeMargin, updateFormValue } = props;
+    const form = Form.useFormInstance();
+    const values = Form.useWatch([], form) || {};
+
+    // Handle dynamic visibility - check both static hidden and dynamic callback
+    const isHidden = field.hidden || (field.dynamicHidden && field.dynamicHidden(values));
+    if (isHidden) {
+        return null;
+    }
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 

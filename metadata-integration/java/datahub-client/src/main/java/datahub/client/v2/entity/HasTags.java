@@ -216,8 +216,7 @@ public interface HasTags<T extends Entity & HasTags<T>> {
       @Nonnull MetadataChangeProposal patch, @Nonnull EntityClient client)
       throws IOException, ExecutionException, InterruptedException {
 
-    log.debug(
-        "Transforming tag patch to full aspect for entity: {}", patch.getEntityUrn().toString());
+    log.debug("Transforming tag patch to full aspect for entity: {}", patch.getEntityUrn());
 
     // Step 1: Fetch current globalTags aspect
     datahub.client.v2.operations.AspectWithMetadata<GlobalTags> aspectWithMetadata =
@@ -315,7 +314,8 @@ public interface HasTags<T extends Entity & HasTags<T>> {
           // Extract tag URN from path (encoded in path after /tags/)
           String encodedTagUrn = path.substring("/tags/".length());
           // The tag URN is URL-encoded in the path, decode it
-          String tagUrnString = java.net.URLDecoder.decode(encodedTagUrn, StandardCharsets.UTF_8);
+          String tagUrnString =
+              java.net.URLDecoder.decode(encodedTagUrn, StandardCharsets.UTF_8.name());
 
           try {
             TagUrn tagUrn = TagUrn.createFromString(tagUrnString);

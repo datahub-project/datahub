@@ -72,7 +72,7 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                         GLOSSARY_TERM_REMOVED_FORMAT,
                         baseGlossaryTermAssociation.getUrn().getId(),
                         entityUrn))
-                .termUrn(baseGlossaryTermAssociation.getUrn())
+                .glossaryTermAssociation(baseGlossaryTermAssociation)
                 .auditStamp(auditStamp)
                 .build());
         ++baseGlossaryTermIdx;
@@ -90,7 +90,7 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                         GLOSSARY_TERM_ADDED_FORMAT,
                         targetGlossaryTermAssociation.getUrn().getId(),
                         entityUrn))
-                .termUrn(targetGlossaryTermAssociation.getUrn())
+                .glossaryTermAssociation(targetGlossaryTermAssociation)
                 .auditStamp(auditStamp)
                 .build());
         ++targetGlossaryTermIdx;
@@ -112,7 +112,7 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                       GLOSSARY_TERM_REMOVED_FORMAT,
                       baseGlossaryTermAssociation.getUrn().getId(),
                       entityUrn))
-              .termUrn(baseGlossaryTermAssociation.getUrn())
+              .glossaryTermAssociation(baseGlossaryTermAssociation)
               .auditStamp(auditStamp)
               .build());
       ++baseGlossaryTermIdx;
@@ -133,7 +133,7 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
                       GLOSSARY_TERM_ADDED_FORMAT,
                       targetGlossaryTermAssociation.getUrn().getId(),
                       entityUrn))
-              .termUrn(targetGlossaryTermAssociation.getUrn())
+              .glossaryTermAssociation(targetGlossaryTermAssociation)
               .auditStamp(auditStamp)
               .build());
       ++targetGlossaryTermIdx;

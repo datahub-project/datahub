@@ -1091,7 +1091,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 }
             ],
             "fineGrainedLineages": [
@@ -1106,7 +1106,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1119,7 +1119,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"annual_salary\" AS \"annual_salary\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1132,7 +1132,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1145,7 +1145,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"job_history\" AS \"job_history\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1158,7 +1158,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"department_budgets\" AS \"department_budgets\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1171,7 +1171,7 @@
                     ],
                     "transformOperation": "COPY: \"test_table\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                    "query": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4"
                 }
             ]
         }
@@ -1184,7 +1184,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1213,7 +1213,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1272,7 +1272,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1305,7 +1305,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110"
                 }
             ],
             "fineGrainedLineages": [
@@ -1320,7 +1320,7 @@
                     ],
                     "transformOperation": "COPY: \"test_view_1\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1333,7 +1333,7 @@
                     ],
                     "transformOperation": "COPY: \"test_view_1\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1346,7 +1346,7 @@
                     ],
                     "transformOperation": "COPY: \"test_view_1\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110"
                 }
             ]
         }
@@ -1359,7 +1359,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1388,7 +1388,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1429,7 +1429,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1445,7 +1445,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_f8cea387c89508b80756d0190a293e47403cb8680ec8d7a2966d4b64b087dbf4",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1461,7 +1461,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_bc4f282c49f16b4aef1694d9c43098a7c556d42155872f7703246fe2a1370110",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -1,0 +1,71 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,orders.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "orders",
+                "odcs.schemaName": "Orders",
+                "odcs.qualityRuleCount": "0",
+                "odcs.version": "0.0.1",
+                "odcs.apiVersion": "v3.0.2",
+                "odcs.status": "production",
+                "odcs.physicalName": "orders",
+                "odcs.sourceFile": "schema__kafka-schemaregistry.odcs.yaml"
+            },
+            "name": "Orders Event Stream \u2014 Orders",
+            "description": "Orders Kafka topic",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__kafka-schemaregistry",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,orders.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://schema-registry:8081",
+                    "description": "implementation",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__kafka-schemaregistry",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,orders.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__kafka-schemaregistry",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

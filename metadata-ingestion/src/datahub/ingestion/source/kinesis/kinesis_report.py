@@ -1,0 +1,156 @@
+from dataclasses import dataclass, field
+from typing import Optional, Union
+
+from botocore.exceptions import BotoCoreError, ClientError
+
+from datahub.ingestion.source.aws.aws_common import aws_error_code
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
+from datahub.utilities.lossy_collections import LossyList
+
+
+@dataclass
+class KinesisSourceReport(StaleEntityRemovalSourceReport):
+    """Custom report for Kinesis ingestion.
+
+    Tracks per-resource scan counts and recoverable-error contexts so users can
+    diagnose ingestion outcomes from the report summary alone.
+    """
+
+    # Entity counts
+    streams_scanned: int = 0
+    firehose_streams_scanned: int = 0
+
+    # Filtered entities (pattern-based)
+    filtered_streams: LossyList[str] = field(default_factory=LossyList)
+    filtered_firehose_streams: LossyList[str] = field(default_factory=LossyList)
+
+    # Recoverable error contexts
+    streams_failed: LossyList[str] = field(default_factory=LossyList)
+    firehose_streams_failed: LossyList[str] = field(default_factory=LossyList)
+    unsupported_destinations: LossyList[str] = field(default_factory=LossyList)
+    # Distinct from unsupported_destinations: the handler MATCHED but couldn't
+    # build a URN (e.g. malformed BucketARN, unparseable JDBC URL, missing
+    # Snowflake db/schema/table). Records "<firehose_stream>: <handler_name>"
+    # so users can debug "Firehose DataFlow exists but no lineage edge".
+    destination_parse_failures: LossyList[str] = field(default_factory=LossyList)
+    schema_resolution_failures: LossyList[str] = field(default_factory=LossyList)
+
+    # Stateful ingestion config tracking
+    include_streams: bool = False
+    include_firehose: bool = False
+    glue_schema_registry_enabled: bool = False
+
+    # Account id derived at source init from a resource ARN. Populated only when the
+    # user did not set platform_instance explicitly; lets users see which account the
+    # connector actually hit when diagnosing "zero streams returned" scenarios.
+    account_id: Optional[str] = None
+    platform_instance_resolved: Optional[str] = None
+
+    # Firehose SchemaConfiguration -> Glue table lineage edges.
+    # `firehose_glue_schema_lineage_emitted` counts edges successfully added to
+    # the DataJob's inputDatasets. `firehose_glue_schema_skipped` records
+    # "<delivery_stream_name>: <reason>" for any SchemaConfiguration that was
+    # present but missing required fields (CatalogId / DatabaseName / TableName)
+    # — surfaces strict-mode skips so users can spot real-AWS shapes our checks
+    # may be too strict for.
+    firehose_glue_schema_lineage_emitted: int = 0
+    firehose_glue_schema_skipped: LossyList[str] = field(default_factory=LossyList)
+
+    # GSR naming-convention probe misses (use_naming_convention=true, stream name
+    # didn't match any schema in the registry). This is the EXPECTED outcome for
+    # streams without GSR schemas, not an error — surfaced separately from
+    # schema_resolution_failures (which is for real errors: AccessDenied,
+    # ValidationException, explicit-mapping resolution failures, etc.).
+    gsr_naming_convention_misses: LossyList[str] = field(default_factory=LossyList)
+
+    def report_stream_scanned(self) -> None:
+        self.streams_scanned += 1
+
+    def report_stream_filtered(self, stream_name: str) -> None:
+        self.filtered_streams.append(stream_name)
+
+    def report_firehose_stream_scanned(self) -> None:
+        self.firehose_streams_scanned += 1
+
+    def report_firehose_stream_filtered(self, firehose_stream_name: str) -> None:
+        self.filtered_firehose_streams.append(firehose_stream_name)
+
+    def report_stream_failed(self, stream_name: str, reason: str) -> None:
+        self.streams_failed.append(f"{stream_name}: {reason}")
+
+    def report_firehose_stream_failed(
+        self, firehose_stream_name: str, reason: str
+    ) -> None:
+        self.firehose_streams_failed.append(f"{firehose_stream_name}: {reason}")
+
+    def report_unsupported_destination(
+        self, destination_type: str, firehose_stream_name: str
+    ) -> None:
+        self.unsupported_destinations.append(
+            f"{firehose_stream_name}: type={destination_type}"
+        )
+
+    def report_destination_parse_failure(
+        self, firehose_stream_name: str, handler_name: str
+    ) -> None:
+        self.destination_parse_failures.append(
+            f"{firehose_stream_name}: handler={handler_name}"
+        )
+
+    def report_schema_resolution_failure(self, stream_name: str, reason: str) -> None:
+        self.schema_resolution_failures.append(f"{stream_name}: {reason}")
+
+    def report_firehose_glue_schema_emitted(self) -> None:
+        self.firehose_glue_schema_lineage_emitted += 1
+
+    def report_firehose_glue_schema_skipped(
+        self, firehose_stream_name: str, reason: str
+    ) -> None:
+        self.firehose_glue_schema_skipped.append(f"{firehose_stream_name}: {reason}")
+
+    def report_gsr_naming_convention_miss(self, stream_name: str) -> None:
+        self.gsr_naming_convention_misses.append(stream_name)
+
+    def report_listing_failure(
+        self,
+        *,
+        pages_fetched: int,
+        exc: Union[ClientError, BotoCoreError],
+        service_label: str,
+        api_label: str,
+        section_label: str,
+        resource_plural: str,
+    ) -> None:
+        """Report a paginated-listing failure, shared by the KDS and Firehose
+        list methods.
+
+        A first-page failure (``pages_fetched == 0``) is a recoverable warning —
+        the user may intentionally lack IAM for this section. A mid-pagination
+        failure escalates to ``failure`` because pages already yielded are
+        persisted as workunits, and stateful ingestion would otherwise
+        soft-delete every entity beyond the failure point on the next run.
+        """
+        code = aws_error_code(exc)
+        if pages_fetched == 0:
+            self.warning(
+                title="Permission denied listing resources",
+                message="Listing API call was denied; skipping this section entirely.",
+                context=f"{service_label}: {api_label} returned {code}; skipping {section_label} section",
+                exc=exc,
+            )
+        else:
+            self.failure(
+                title="Listing aborted mid-pagination",
+                message=(
+                    "Listing failed partway through pagination; entities beyond the "
+                    "failure point were NOT scanned. Stateful ingestion may incorrectly "
+                    "soft-delete un-listed entities on the next run; re-run to recover."
+                ),
+                context=(
+                    f"{service_label}: {api_label} returned {code} after "
+                    f"{pages_fetched} page(s); {resource_plural} beyond this point not scanned"
+                ),
+                exc=exc,
+            )

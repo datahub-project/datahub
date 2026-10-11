@@ -11,7 +11,9 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link NonBlockingSystemUpgrade} upgrade job that generates schema fields from schema metadata.
+ * Non-blocking system upgrade that re-ingests dataset schemaMetadata/status to materialize
+ * schemaField entities via {@code SchemaFieldSideEffect}, including optional domain/ownership
+ * backfill or cleanup based on current MCP mirror flags.
  */
 @Slf4j
 public class GenerateSchemaFieldsFromSchemaMetadata implements NonBlockingSystemUpgrade {
@@ -25,12 +27,23 @@ public class GenerateSchemaFieldsFromSchemaMetadata implements NonBlockingSystem
       boolean enabled,
       Integer batchSize,
       Integer batchDelayMs,
-      Integer limit) {
+      Integer limit,
+      boolean reprocessEnabled,
+      boolean domainEnabled,
+      boolean ownershipEnabled) {
     if (enabled) {
       _steps =
           ImmutableList.of(
               new GenerateSchemaFieldsFromSchemaMetadataStep(
-                  opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
+                  opContext,
+                  entityService,
+                  aspectDao,
+                  batchSize,
+                  batchDelayMs,
+                  limit,
+                  reprocessEnabled,
+                  domainEnabled,
+                  ownershipEnabled));
     } else {
       _steps = ImmutableList.of();
     }

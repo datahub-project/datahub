@@ -3,6 +3,7 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const MYSQL_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host and Port',
+    helper: 'MySQL host and port',
     tooltip:
         "The host and port where Postgres is running. For example, 'localhost:5432'. Note: this host must be accessible on the network where DataHub is running (or allowed via an IP Allow List, AWS PrivateLink, etc).",
     type: FieldType.TEXT,
@@ -15,6 +16,7 @@ export const MYSQL_HOST_PORT: RecipeField = {
 export const MYSQL_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
+    helper: 'MySQL username for metadata',
     tooltip: 'The MySQL username used to extract metadata.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -26,6 +28,7 @@ export const MYSQL_USERNAME: RecipeField = {
 export const MYSQL_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
+    helper: 'MySQL password for user',
     tooltip: 'The MySQL password for the user.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',

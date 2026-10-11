@@ -18,6 +18,8 @@ dependencies {
   implementation(project(':metadata-service:factories')) {
     exclude group: 'org.neo4j.test'
   }
+  implementation project(':metadata-io')
+  implementation project(':metadata-jobs:common')
   implementation externalDependency.springKafka
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

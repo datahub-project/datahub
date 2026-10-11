@@ -8,9 +8,13 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +27,24 @@ public class MetricUtils {
   public static final String DROPWIZARD_NAME = "dwizName";
 
   /* Micrometer. See https://prometheus.io/docs/practices/naming/ */
-  public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
+  public static final String MESSAGING_QUEUE_TIME = "messaging.queue.time";
+
+  /**
+   * @deprecated Use {@link #MESSAGING_QUEUE_TIME} with {@link #MESSAGING_SYSTEM} tag.
+   */
+  @Deprecated public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
+
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
   public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
+
+  /** Human login attempts (success/failure). Tags: outcome, login_source, denial_reason. */
+  public static final String DATAHUB_LOGIN = "datahub.login";
+
+  public static final String MESSAGING_SYSTEM_KAFKA = "kafka";
+  public static final String MESSAGING_SYSTEM_PGQUEUE = "pgqueue";
+  public static final String MESSAGING_TOPIC = "topic";
+  public static final String MESSAGING_CONSUMER_GROUP = "consumer.group";
+  public static final String MESSAGING_PRIORITY = "messaging.priority";
 
   /* OpenTelemetry */
   public static final String CACHE_HIT_ATTR = "cache.hit";
@@ -44,17 +63,68 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   @Builder.Default @NonNull private final MeterRegistry registry = new CompositeMeterRegistry();
+
+  /**
+   * When true, skip the per-request {@link #DATAHUB_REQUEST_COUNT} Micrometer counter. Set when
+   * usage aggregation Micrometer export owns that meter name (flush tags differ from the legacy
+   * {@code user_category} set; Micrometer allows only one tag-key set per name).
+   *
+   * <p>Default false so Mockito mocks keep the legacy path unless explicitly stubbed.
+   */
+  @Builder.Default private final boolean suppressLegacyRequestCountMicrometer = false;
+
   private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
   private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
   private static final Map<String, DistributionSummary> legacyHistogramCache =
       new ConcurrentHashMap<>();
   private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
   private static final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
+  private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
+  private static final Map<String, DistributionSummary> micrometerDistributionCache =
+      new ConcurrentHashMap<>();
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
   public MeterRegistry getRegistry() {
     return registry;
+  }
+
+  public boolean isSuppressLegacyRequestCountMicrometer() {
+    return suppressLegacyRequestCountMicrometer;
+  }
+
+  /**
+   * Records end-to-end queue lag for an inbound metadata message (legacy Dropwizard {@code
+   * kafkaLag} histogram + transport-neutral Micrometer timer). For pgQueue, pass {@code priority}
+   * (WFQ band).
+   */
+  public static void recordInboundMessageQueueLag(
+      MetricUtils metricUtils,
+      Class<?> histogramScopeClass,
+      String logicalTopic,
+      String consumerGroupId,
+      long enqueuedAtEpochMillis,
+      String messagingSystem,
+      @Nullable Integer priority) {
+    long queueTimeMs = System.currentTimeMillis() - enqueuedAtEpochMillis;
+    metricUtils.histogram(histogramScopeClass, "kafkaLag", queueTimeMs);
+
+    List<String> tags = new ArrayList<>();
+    tags.add(MESSAGING_SYSTEM);
+    tags.add(messagingSystem);
+    tags.add(MESSAGING_TOPIC);
+    tags.add(logicalTopic);
+    tags.add(MESSAGING_CONSUMER_GROUP);
+    tags.add(consumerGroupId);
+    if (MESSAGING_SYSTEM_PGQUEUE.equals(messagingSystem) && priority != null) {
+      tags.add(MESSAGING_PRIORITY);
+      tags.add(String.valueOf(priority));
+    }
+
+    metricUtils
+        .getRegistry()
+        .timer(MESSAGING_QUEUE_TIME, tags.toArray(String[]::new))
+        .record(Duration.ofMillis(queueTimeMs));
   }
 
   @Deprecated
@@ -107,6 +177,36 @@ public class MetricUtils {
     Counter counter =
         micrometerCounterCache.computeIfAbsent(cacheKey, key -> registry.counter(metricName, tags));
     counter.increment(increment);
+  }
+
+  /**
+   * Record a timer measurement using Micrometer metrics library.
+   *
+   * @param metricName The name of the metric
+   * @param durationNanos The duration in nanoseconds
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void recordTimer(String metricName, long durationNanos, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    Timer timer =
+        micrometerTimerCache.computeIfAbsent(
+            cacheKey, key -> Timer.builder(metricName).tags(tags).register(registry));
+    timer.record(durationNanos, TimeUnit.NANOSECONDS);
+  }
+
+  /**
+   * Record a distribution summary (histogram) using Micrometer metrics library.
+   *
+   * @param metricName The name of the metric
+   * @param value The value to record
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void recordDistribution(String metricName, long value, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    DistributionSummary summary =
+        micrometerDistributionCache.computeIfAbsent(
+            cacheKey, key -> DistributionSummary.builder(metricName).tags(tags).register(registry));
+    summary.record(value);
   }
 
   /**

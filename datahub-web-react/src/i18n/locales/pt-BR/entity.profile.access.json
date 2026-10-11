@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Acesso já concedido",
+    "accessManagement.accessGrantedTooltip": "Você já tem acesso a esta função",
+    "accessManagement.columnAccess": "Acesso",
+    "accessManagement.columnAccessType": "Tipo de Acesso",
+    "accessManagement.columnRoleName": "Nome da Função",
+    "accessManagement.granted": "Concedido",
+    "accessManagement.request": "Solicitar",
+    "accessManagement.requestAccess": "Solicitar acesso",
+    "accessManagement.tableAriaLabel": "Tabela de funções de gerenciamento de acesso"
+}

@@ -1,6 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Select } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
@@ -18,17 +19,6 @@ const EntitySelect = styled(Select)`
     }
 `;
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 24px;
-        width: 24px;
-    }
-`;
-
 interface Props {
     structuredProperty: StructuredPropertyEntity;
     selectedValues: any[];
@@ -36,6 +26,7 @@ interface Props {
 }
 
 export default function UrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+    const { t } = useTranslation('entity.form');
     const {
         onSelectValue,
         onDeselectValue,
@@ -47,7 +38,9 @@ export default function UrnInput({ structuredProperty, selectedValues, updateSel
         entityTypeNames,
     } = useUrnInput({ structuredProperty, selectedValues, updateSelectedValues });
 
-    const placeholder = `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'entities'}...`;
+    const placeholder = entityTypeNames
+        ? t('searchForPlaceholder', { entityTypes: entityTypeNames.join(', ') })
+        : t('searchForEntitiesPlaceholder');
 
     return (
         <EntitySelect
@@ -62,13 +55,7 @@ export default function UrnInput({ structuredProperty, selectedValues, updateSel
             tagRender={tagRender}
             value={selectedEntities.map((e) => e.urn)}
             loading={loading}
-            notFoundContent={
-                loading ? (
-                    <LoadingWrapper>
-                        <LoadingOutlined />
-                    </LoadingWrapper>
-                ) : undefined
-            }
+            notFoundContent={loading ? <Loader size="sm" padding={8} /> : undefined}
         >
             {searchResults?.map((searchResult) => (
                 <Select.Option value={searchResult.urn} key={searchResult.urn}>

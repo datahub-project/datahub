@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export function useWindowResize(callback: () => void): void {
+function useWindowResize(callback: () => void): void {
     useEffect(() => {
         window.addEventListener('resize', callback);
 

@@ -1,6 +1,8 @@
-import { FormOutlined, MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Button, Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import DownloadAsCsvButton from '@app/entity/shared/components/styled/search/DownloadAsCsvButton';
@@ -10,7 +12,7 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 
 import { AndFilterInput } from '@types';
 
-const MenuIcon = styled(MoreOutlined)`
+const MenuIcon = styled(DotsThreeVertical)`
     font-size: 20px;
     height: 20px;
 `;
@@ -39,6 +41,7 @@ export default function SearchExtendedMenu({
     totalResults,
     setShowSelectMode,
 }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
 
@@ -60,8 +63,8 @@ export default function SearchExtendedMenu({
                   label: (
                       <MenuItemStyle>
                           <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                              <FormOutlined />
-                              Edit...
+                              <PencilLine className="anticon" />
+                              {t('searchExtendedMenu.edit')}
                           </SelectButton>
                       </MenuItemStyle>
                   ),

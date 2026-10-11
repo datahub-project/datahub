@@ -1,5 +1,5 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,7 +7,7 @@ import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
-import { getFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
+import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { TabContextType } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
@@ -20,7 +20,6 @@ const LoadingWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 85vh;
-    font-size: 50px;
 `;
 
 const SidebarWrapper = styled.div`
@@ -49,8 +48,20 @@ interface Props<T> {
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
     const entityRegistry = useEntityRegistryV2();
-    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+    const {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        refetch,
+    } = useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+
+    // Only compute sidebar tabs when entityData.type is available to avoid unnecessary work during loading.
+    const sidebarTabs = entityData?.type ? entityRegistry.getSidebarTabs(entityData.type) : [];
+    const sidebarSections = entityData?.type ? entityRegistry.getSidebarSections(entityData.type) : [];
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections, TabContextType.CHROME_SIDEBAR);
 
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
@@ -58,16 +69,13 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
 
     if (!entityData?.type) return null;
 
-    const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
-    const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
-
     return (
         <EntityContext.Provider
             value={{
                 urn,
                 entityType,
                 entityData,
+                rootEntityData,
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
@@ -78,7 +86,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         >
             {loading && (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader size="xl" />
                 </LoadingWrapper>
             )}
             {!loading && entityData && entityData.type && (

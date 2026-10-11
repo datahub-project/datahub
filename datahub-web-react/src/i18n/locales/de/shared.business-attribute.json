@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Attribut hinzufügen",
+    "addError": "Hinzufügen fehlgeschlagen: \n {{error}}",
+    "addSuccess": "Attribut hinzugefügt!",
+    "modal.addTitle": "{{entityName}} hinzufügen",
+    "modal.removeTitle": "{{entityName}} entfernen",
+    "removeAttributeError": "Attribut konnte nicht entfernt werden: \n {{error}}",
+    "removeConfirm.content": "Möchtest du das Attribut {{attributeName}} wirklich entfernen?",
+    "removeConfirm.title": "Möchtest du das Attribut {{attributeName}} entfernen?",
+    "removeError": "Entfernen fehlgeschlagen: \n {{error}}",
+    "removeSuccess": "Attribut entfernt!",
+    "searchPlaceholder": "Nach {{entityName}} suchen..."
+}

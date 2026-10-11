@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Aucune statistique collectée pour cet asset pour le moment.",
+    "graph.rowCount_one": "{{formattedCount}} ligne",
+    "graph.rowCount_other": "{{formattedCount}} lignes",
+    "graph.statName": "nombre de lignes",
+    "graph.title": "Nombre de lignes",
+    "percentile.high": "Élevé",
+    "percentile.low": "Faible",
+    "percentile.med": "Moy.",
+    "upstream.directUpstreams": "En amont direct",
+    "upstream.indirectUpstreams": "En amont indirect",
+    "upstream.unhealthy": "Certains éléments en amont sont défaillants"
+}

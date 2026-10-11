@@ -1,0 +1,204 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "orders",
+              "description": "orders",
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "playwright_column_controls.orders",
+              "platform": "urn:li:dataPlatform:snowflake",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "nullable": true,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "order_mode",
+                  "nullable": true,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_column_controls.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "orders",
+              "description": "orders",
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "playwright_column_controls.orders",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "nullable": true,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "order_mode",
+                  "nullable": true,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": [
+                {
+                  "upstreamType": "FIELD_SET",
+                  "downstreamType": "FIELD",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD),order_id)"
+                  ],
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_column_controls.orders,PROD),order_id)"
+                  ],
+                  "confidenceScore": 1.0
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.order_details,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "order_details",
+              "description": "order_details",
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "playwright_column_controls.order_details",
+              "platform": "urn:li:dataPlatform:snowflake",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_mode",
+                  "nullable": true,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": [
+                {
+                  "upstreamType": "FIELD_SET",
+                  "downstreamType": "FIELD",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD),order_mode)"
+                  ],
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.order_details,PROD),order_mode)"
+                  ],
+                  "confidenceScore": 1.0
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -1,3 +1,7 @@
+---
+description: "Use Apache Airflow to schedule DataHub metadata ingestion recipes alongside your existing data pipelines and DAGs."
+---
+
 # Using Airflow
 
 If you are using Apache Airflow for your scheduling then you might want to also use it for scheduling your ingestion recipes. For any Airflow specific questions you can go through [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/) for more details.

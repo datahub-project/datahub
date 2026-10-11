@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "Tiedot",
+    "viewDefinitionTab.formatCompiled": "Käännetty",
+    "viewDefinitionTab.formatFormatted": "Muotoiltu",
+    "viewDefinitionTab.formatRaw": "Raaka",
+    "viewDefinitionTab.formatSource": "Lähde",
+    "viewDefinitionTab.languageLabel": "Kieli",
+    "viewDefinitionTab.logicHeading": "Logiikka",
+    "viewDefinitionTab.materializedFalse": "Ei",
+    "viewDefinitionTab.materializedLabel": "Materialisoitu",
+    "viewDefinitionTab.materializedTrue": "Kyllä"
+}

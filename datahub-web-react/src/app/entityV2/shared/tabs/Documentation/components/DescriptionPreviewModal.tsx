@@ -1,11 +1,14 @@
 import { Modal } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useRouteToTab } from '@app/entity/shared/EntityContext';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreview';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+
+const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const modalStyle = {
     top: '5%',
@@ -27,6 +30,7 @@ type DescriptionPreviewModalProps = {
 };
 
 export const DescriptionPreviewModal = ({ description, editMode, onClose }: DescriptionPreviewModalProps) => {
+    const { t } = useTranslation('entity.profile.documentation');
     const routeToTab = useRouteToTab();
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
@@ -53,13 +57,13 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
             >
                 {(editMode && (
                     <DescriptionEditor
-                        onComplete={() => routeToTab({ tabName: 'Documentation', tabParams: { modal: true } })}
+                        onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { modal: true } })}
                     />
                 )) || (
                     <DescriptionPreview
                         description={description}
                         onEdit={() =>
-                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true, modal: true } })
+                            routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true, modal: true } })
                         }
                     />
                 )}
@@ -68,8 +72,8 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModal(false)}
                 handleConfirm={onClose}
-                modalTitle="Exit View Editor"
-                modalText="Are you sure you want to exit View editor? All changes will be lost"
+                modalTitle={t('exitViewEditor.title')}
+                modalText={t('exitViewEditor.description')}
             />
         </ClickOutside>
     );

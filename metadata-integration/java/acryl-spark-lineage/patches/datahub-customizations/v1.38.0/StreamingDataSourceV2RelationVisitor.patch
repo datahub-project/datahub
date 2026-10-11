@@ -1,0 +1,58 @@
+# Patch for DataHub customizations in StreamingDataSourceV2RelationVisitor.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/StreamingDataSourceV2RelationVisitor.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java	2025-10-02 14:47:51.648391168 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java	2025-09-12 19:50:04.456795324 +0200
+@@ -24,6 +24,8 @@
+       "org.apache.spark.sql.connector.kinesis.KinesisV2MicrobatchStream";
+   private static final String MONGO_MICRO_BATCH_STREAM_CLASS_NAME =
+       "com.mongodb.spark.sql.connector.read.MongoMicroBatchStream";
++  private static final String FILE_STREAM_MICRO_BATCH_STREAM_CLASS_NAME =
++      "org.apache.spark.sql.execution.streaming.sources.FileStreamSourceV2";
+ 
+   public StreamingDataSourceV2RelationVisitor(@NonNull OpenLineageContext context) {
+     super(context);
+@@ -68,6 +70,9 @@
+       streamStrategy = new KinesisMicroBatchStreamStrategy(inputDataset(), relation);
+     } else if (MONGO_MICRO_BATCH_STREAM_CLASS_NAME.equals(streamClassName)) {
+       streamStrategy = new MongoMicroBatchStreamStrategy(inputDataset(), relation);
++    } else if (FILE_STREAM_MICRO_BATCH_STREAM_CLASS_NAME.equals(streamClassName)
++        || isFileBasedStreamingSource(streamClassName)) {
++      streamStrategy = new FileStreamMicroBatchStreamStrategy(inputDataset(), relation);
+     } else {
+       log.warn(
+           "The {} has been selected because no rules have matched for the stream class of {}",
+@@ -81,7 +86,28 @@
+               ScalaConversionUtils.asJavaOptional(relation.startOffset()));
+     }
+ 
+-    log.info("Selected this strategy: {}", streamStrategy.getClass().getSimpleName());
++    log.info(
++        "Selected this strategy: {} for stream class: {}",
++        streamStrategy.getClass().getSimpleName(),
++        streamClassName);
+     return streamStrategy;
+   }
++
++  /** Check if the stream class name indicates a file-based streaming source. */
++  private boolean isFileBasedStreamingSource(String streamClassName) {
++    if (streamClassName == null) {
++      return false;
++    }
++
++    return streamClassName.contains("FileStreamSource")
++        || streamClassName.contains("TextFileStreamSource")
++        || streamClassName.contains("FileSource")
++        || streamClassName.contains("ParquetFileSource")
++        || streamClassName.contains("JsonFileSource")
++        || streamClassName.contains("CsvFileSource")
++        || streamClassName.contains("org.apache.spark.sql.execution.streaming.sources")
++        || streamClassName.contains("org.apache.spark.sql.execution.datasources.v2.csv")
++        || streamClassName.contains("org.apache.spark.sql.execution.datasources.v2.json")
++        || streamClassName.contains("org.apache.spark.sql.execution.datasources.v2.parquet");
++  }
+ }

@@ -1,18 +1,10 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Button, Input } from 'antd';
+import { Button, Input } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-
 const MultiStringWrapper = styled.div``;
-
-const StyledInput = styled(Input)`
-    width: 75%;
-    min-width: 350px;
-    max-width: 500px;
-    border: 1px solid ${ANTD_GRAY_V2[6]};
-`;
 
 const InputWrapper = styled.div`
     display: flex;
@@ -30,13 +22,16 @@ const DeleteButton = styled(Button)`
     margin-left: 4px;
 `;
 
-interface Props {
-    selectedValues: any[];
+type Props = {
+    selectedValues: (string | number | null)[];
     inputType?: string;
-    updateSelectedValues: (values: any[]) => void;
-}
+    updateSelectedValues: (values: (string | number | null)[]) => void;
+};
 
 export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
+
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];
@@ -63,24 +58,30 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
                     const key = `${index}`;
                     return (
                         <InputWrapper key={key}>
-                            <StyledInput
+                            <Input
                                 type={inputType}
-                                value={selectedValue}
-                                onChange={(e) => updateInput(e.target.value, index)}
+                                value={selectedValue === null ? '' : String(selectedValue)}
+                                setValue={(value) => updateInput(value, index)}
                             />
-                            <DeleteButton type="text" icon={<DeleteOutlined />} onClick={() => deleteValue(index)} />
+                            <DeleteButton
+                                variant="text"
+                                color="gray"
+                                icon={{ icon: Trash }}
+                                onClick={() => deleteValue(index)}
+                                aria-label={tc('remove')}
+                            />
                         </InputWrapper>
                     );
                 })}
             {selectedValues.length <= 1 && (
-                <StyledInput
+                <Input
                     type={inputType}
-                    value={selectedValues[0] || ''}
-                    onChange={(e) => updateInput(e.target.value, 0)}
+                    value={selectedValues[0] === null ? '' : String(selectedValues[0] ?? '')}
+                    setValue={(value) => updateInput(value, 0)}
                 />
             )}
-            <StyledButton type="link" onClick={addNewValue}>
-                + Add More
+            <StyledButton variant="link" onClick={addNewValue}>
+                {t('structuredProperty.addMore')}
             </StyledButton>
         </MultiStringWrapper>
     );

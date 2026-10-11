@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Se mislykkede assertioner →",
+    "failChecks": "Se mislykkede kontroller →",
+    "failIncidents": "Se aktive hendelser →",
+    "passAssertions": "Alle assertioner består",
+    "passChecks": "Alle kontroller består",
+    "passIncidents": "Ingen aktive hendelser",
+    "summaryHealthy": "Denne ressursen er i god stand",
+    "summaryUnhealthy": "Denne ressursen kan være i dårlig stand",
+    "typeAssertions": "Assertioner",
+    "typeIncidents": "Hendelser",
+    "typeTests": "Tester",
+    "warnAssertions": "Noen assertioner har problemer.",
+    "warnChecks": "Noen kontroller har problemer."
+}

@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Hallitse ulkoasuasetuksiasi.",
+    "appearance.title": "Ulkoasu",
+    "language.description": "Valitse haluamasi käyttöliittymän kieli",
+    "language.title": "Käyttöliittymän kieli",
+    "noSettings": "Ulkoasuasetuksia ei löytynyt.",
+    "showApplications.description": "Sovellukset ovat toinen tapa järjestää tietojasi, samaan tapaan kuin toimialueet. Ne on oletuksena piilotettu.",
+    "showApplications.successMessage": "Asetus päivitetty!",
+    "showApplications.title": "Näytä sovellukset"
+}

@@ -116,16 +116,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
                 }
             ]
         }
@@ -221,16 +211,6 @@
                             }
                         ],
                         "type": "PIE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
                     }
                 }
             ]
@@ -344,16 +324,6 @@
                         ],
                         "type": "LINE"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
                 }
             ]
         }
@@ -385,7 +355,7 @@
                             "CertificationDetails": "Approved"
                         },
                         "title": "test_dashboard_title_1",
-                        "description": "",
+                        "description": "test dashboard description 1",
                         "charts": [
                             "urn:li:chart:(superset,10)",
                             "urn:li:chart:(superset,11)"

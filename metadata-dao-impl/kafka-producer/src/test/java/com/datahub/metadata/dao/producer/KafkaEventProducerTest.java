@@ -18,9 +18,9 @@ import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.GenericPayload;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -31,6 +31,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -61,7 +62,6 @@ public class KafkaEventProducerTest {
   private static final String MCP_TOPIC = "MetadataChangeProposal_v1";
   private static final String FMCP_TOPIC = "FailedMetadataChangeProposal_v1";
   private static final String PLATFORM_EVENT_TOPIC = "PlatformEvent_v1";
-  private static final String UPGRADE_HISTORY_TOPIC = "DataHubUpgradeHistory_v1";
 
   @BeforeMethod
   public void setup() {
@@ -77,7 +77,6 @@ public class KafkaEventProducerTest {
     when(mockTopicConvention.getMetadataChangeProposalTopicName()).thenReturn(MCP_TOPIC);
     when(mockTopicConvention.getFailedMetadataChangeProposalTopicName()).thenReturn(FMCP_TOPIC);
     when(mockTopicConvention.getPlatformEventTopicName()).thenReturn(PLATFORM_EVENT_TOPIC);
-    when(mockTopicConvention.getDataHubUpgradeHistoryTopicName()).thenReturn(UPGRADE_HISTORY_TOPIC);
 
     // Setup health checker callback
     Callback mockCallback = mock(Callback.class);
@@ -91,7 +90,11 @@ public class KafkaEventProducerTest {
 
     eventProducer =
         new KafkaEventProducer(
-            mockProducer, mockTopicConvention, mockHealthChecker, mockMetricUtils);
+            mockProducer,
+            mockTopicConvention,
+            mockHealthChecker,
+            mockMetricUtils,
+            new OutboundContextResolver(List.of()));
   }
 
   @DataProvider(name = "writabilityConfig")
@@ -116,7 +119,7 @@ public class KafkaEventProducerTest {
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
 
-    Future<?> result = eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    Future<?> result = eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
     assertNotNull(result);
 
@@ -150,7 +153,7 @@ public class KafkaEventProducerTest {
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
 
-    Future<?> result = eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    Future<?> result = eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
     assertNotNull(result);
 
@@ -174,7 +177,7 @@ public class KafkaEventProducerTest {
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
 
-    Future<?> result = eventProducer.produceMetadataChangeProposal(urn, mcp);
+    Future<?> result = eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     assertNotNull(result);
 
@@ -241,7 +244,7 @@ public class KafkaEventProducerTest {
     payload.setContentType("application/json");
     event.setPayload(payload);
 
-    Future<?> result = eventProducer.producePlatformEvent(eventName, key, event);
+    Future<?> result = eventProducer.producePlatformEvent(opContext, eventName, key, event);
 
     assertNotNull(result);
 
@@ -273,7 +276,7 @@ public class KafkaEventProducerTest {
     payload.setContentType("application/json");
     event.setPayload(payload);
 
-    Future<?> result = eventProducer.producePlatformEvent(eventName, null, event);
+    Future<?> result = eventProducer.producePlatformEvent(opContext, eventName, null, event);
 
     assertNotNull(result);
 
@@ -283,34 +286,6 @@ public class KafkaEventProducerTest {
       verify(mockProducer, never()).send(any(ProducerRecord.class), any(Callback.class));
       assertTrue(result.isDone());
     }
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventAlwaysWrites() {
-    // Set to read-only
-    eventProducer.setWritable(false);
-
-    DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent();
-    event.setVersion("1.0.0");
-
-    // Should still write even when not writable
-    eventProducer.produceDataHubUpgradeHistoryEvent(event);
-
-    // Verify it was sent despite being read-only
-    verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventWhenWritable() {
-    // Set to writable
-    eventProducer.setWritable(true);
-
-    DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent();
-    event.setVersion("2.0.0");
-
-    eventProducer.produceDataHubUpgradeHistoryEvent(event);
-
-    verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
   @Test
@@ -324,7 +299,7 @@ public class KafkaEventProducerTest {
     mcp1.setEntityType(CORP_USER_ENTITY_NAME);
     mcp1.setChangeType(ChangeType.UPSERT);
 
-    eventProducer.produceMetadataChangeProposal(urn, mcp1);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp1);
     verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
 
     // Set to read-only
@@ -335,7 +310,7 @@ public class KafkaEventProducerTest {
     mcp2.setEntityType(CORP_USER_ENTITY_NAME);
     mcp2.setChangeType(ChangeType.UPSERT);
 
-    eventProducer.produceMetadataChangeProposal(urn, mcp2);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp2);
     // Still only 1 call from before
     verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
 
@@ -347,7 +322,7 @@ public class KafkaEventProducerTest {
     mcp3.setEntityType(CORP_USER_ENTITY_NAME);
     mcp3.setChangeType(ChangeType.UPSERT);
 
-    eventProducer.produceMetadataChangeProposal(urn, mcp3);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp3);
     verify(mockProducer, times(2)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
@@ -365,13 +340,14 @@ public class KafkaEventProducerTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(false);
     MetadataChangeLog mcl = new MetadataChangeLog();
     mcl.setEntityUrn(urn);
-    Future<?> mclResult = eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    Future<?> mclResult =
+        eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
     assertTrue(mclResult.isDone());
 
     // 2. produceMetadataChangeProposal
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(urn);
-    Future<?> mcpResult = eventProducer.produceMetadataChangeProposal(urn, mcp);
+    Future<?> mcpResult = eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
     assertTrue(mcpResult.isDone());
 
     // 3. produceFailedMetadataChangeProposalAsync
@@ -384,7 +360,7 @@ public class KafkaEventProducerTest {
     // 4. producePlatformEvent
     PlatformEvent event = new PlatformEvent();
     event.setName("testEvent");
-    Future<?> peResult = eventProducer.producePlatformEvent("testEvent", "key", event);
+    Future<?> peResult = eventProducer.producePlatformEvent(opContext, "testEvent", "key", event);
     assertTrue(peResult.isDone());
 
     // Verify no Kafka sends happened
@@ -407,13 +383,13 @@ public class KafkaEventProducerTest {
     mcl.setEntityUrn(urn);
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(urn);
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     Set<Throwable> throwables = new HashSet<>();
     throwables.add(new RuntimeException("Test"));
@@ -428,7 +404,7 @@ public class KafkaEventProducerTest {
     payload.setValue(new ByteString(new ArrayList<>(), 0));
     payload.setContentType("application/json");
     event.setPayload(payload);
-    eventProducer.producePlatformEvent("migrationEvent", "key", event);
+    eventProducer.producePlatformEvent(opContext, "migrationEvent", "key", event);
 
     // No Kafka operations should have been executed
     verify(mockProducer, never()).send(any(ProducerRecord.class), any(Callback.class));
@@ -437,7 +413,7 @@ public class KafkaEventProducerTest {
     eventProducer.setWritable(true);
 
     // Writes should work again
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
     verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
@@ -453,7 +429,7 @@ public class KafkaEventProducerTest {
     mcp1.setEntityUrn(urn);
     mcp1.setEntityType(CORP_USER_ENTITY_NAME);
     mcp1.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeProposal(urn, mcp1);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp1);
 
     AspectSpec mockAspectSpec = mock(AspectSpec.class);
     when(mockAspectSpec.isTimeseries()).thenReturn(false);
@@ -461,7 +437,7 @@ public class KafkaEventProducerTest {
     mcl.setEntityUrn(urn);
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
     PlatformEvent event = new PlatformEvent();
     event.setName("seqEvent");
@@ -472,7 +448,7 @@ public class KafkaEventProducerTest {
     payload.setValue(new ByteString(new ArrayList<>(), 0));
     payload.setContentType("application/json");
     event.setPayload(payload);
-    eventProducer.producePlatformEvent("seqEvent", "key", event);
+    eventProducer.producePlatformEvent(opContext, "seqEvent", "key", event);
 
     verify(mockProducer, times(3)).send(any(ProducerRecord.class), any(Callback.class));
 
@@ -484,9 +460,9 @@ public class KafkaEventProducerTest {
     mcp2.setEntityUrn(urn);
     mcp2.setEntityType(CORP_USER_ENTITY_NAME);
     mcp2.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeProposal(urn, mcp2);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp2);
 
-    eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
     // Count should not increase
     verify(mockProducer, times(3)).send(any(ProducerRecord.class), any(Callback.class));
@@ -499,7 +475,7 @@ public class KafkaEventProducerTest {
     mcp3.setEntityUrn(urn);
     mcp3.setEntityType(CORP_USER_ENTITY_NAME);
     mcp3.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeProposal(urn, mcp3);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp3);
     verify(mockProducer, times(4)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
@@ -562,23 +538,6 @@ public class KafkaEventProducerTest {
   }
 
   @Test
-  public void testUpgradeHistoryEventBypassesWritabilityCheck() {
-    // Explicitly test that upgrade history events bypass the writability check
-    eventProducer.setWritable(false);
-
-    DataHubUpgradeHistoryEvent event1 = new DataHubUpgradeHistoryEvent();
-    event1.setVersion("1.0.0");
-    eventProducer.produceDataHubUpgradeHistoryEvent(event1);
-
-    DataHubUpgradeHistoryEvent event2 = new DataHubUpgradeHistoryEvent();
-    event2.setVersion("1.1.0");
-    eventProducer.produceDataHubUpgradeHistoryEvent(event2);
-
-    // Both should have been sent despite being read-only
-    verify(mockProducer, times(2)).send(any(ProducerRecord.class), any(Callback.class));
-  }
-
-  @Test
   public void testProducerRecordContainsCorrectTopicWhenWritable() throws Exception {
     eventProducer.setWritable(true);
 
@@ -591,17 +550,18 @@ public class KafkaEventProducerTest {
     mcl.setEntityUrn(urn);
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
 
-    // Verify the correct topic was used (through topic convention call)
-    verify(mockTopicConvention, times(1)).getMetadataChangeLogVersionedTopicName();
+    // Verify the correct topic was used (through topic convention call). Called twice:
+    // once by the wrapper to enrich trace metadata, once by produceMCL to route the send.
+    verify(mockTopicConvention, times(2)).getMetadataChangeLogVersionedTopicName();
 
     // Test MCP topic
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(urn);
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     verify(mockTopicConvention, times(1)).getMetadataChangeProposalTopicName();
   }
@@ -616,7 +576,7 @@ public class KafkaEventProducerTest {
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
 
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     // Verify health checker callback was requested
     verify(mockHealthChecker, times(1))
@@ -633,7 +593,7 @@ public class KafkaEventProducerTest {
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
 
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     // Verify health checker callback was never requested
     verify(mockHealthChecker, never()).getKafkaCallBack(any(), anyString(), anyString());
@@ -652,7 +612,8 @@ public class KafkaEventProducerTest {
     mcl.setEntityUrn(urn);
     mcl.setEntityType(CORP_USER_ENTITY_NAME);
     mcl.setChangeType(ChangeType.UPSERT);
-    Future<?> mclFuture = eventProducer.produceMetadataChangeLog(urn, mockAspectSpec, mcl);
+    Future<?> mclFuture =
+        eventProducer.produceMetadataChangeLog(opContext, urn, mockAspectSpec, mcl);
     assertTrue(mclFuture.isDone());
     assertTrue(mclFuture.get() instanceof Optional);
     assertTrue(((Optional<?>) mclFuture.get()).isEmpty());
@@ -661,7 +622,7 @@ public class KafkaEventProducerTest {
     mcp.setEntityUrn(urn);
     mcp.setEntityType(CORP_USER_ENTITY_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
-    Future<?> mcpFuture = eventProducer.produceMetadataChangeProposal(urn, mcp);
+    Future<?> mcpFuture = eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
     assertTrue(mcpFuture.isDone());
     assertTrue(mcpFuture.get() instanceof Optional);
     assertTrue(((Optional<?>) mcpFuture.get()).isEmpty());
@@ -678,7 +639,7 @@ public class KafkaEventProducerTest {
 
     PlatformEvent event = new PlatformEvent();
     event.setName("test");
-    Future<?> peFuture = eventProducer.producePlatformEvent("test", "key", event);
+    Future<?> peFuture = eventProducer.producePlatformEvent(opContext, "test", "key", event);
     assertTrue(peFuture.isDone());
     assertTrue(peFuture.get() instanceof Optional);
     assertTrue(((Optional<?>) peFuture.get()).isEmpty());
@@ -689,7 +650,11 @@ public class KafkaEventProducerTest {
     // Create a second instance
     KafkaEventProducer secondProducer =
         new KafkaEventProducer(
-            mockProducer, mockTopicConvention, mockHealthChecker, mockMetricUtils);
+            mockProducer,
+            mockTopicConvention,
+            mockHealthChecker,
+            mockMetricUtils,
+            new OutboundContextResolver(List.of()));
 
     eventProducer.setWritable(false);
 
@@ -702,11 +667,11 @@ public class KafkaEventProducerTest {
     mcp.setChangeType(ChangeType.UPSERT);
 
     // First instance operations blocked
-    eventProducer.produceMetadataChangeProposal(urn, mcp);
+    eventProducer.produceMetadataChangeProposal(opContext, urn, mcp);
     verify(mockProducer, never()).send(any(ProducerRecord.class), any(Callback.class));
 
     // Second instance operations work
-    secondProducer.produceMetadataChangeProposal(urn, mcp);
+    secondProducer.produceMetadataChangeProposal(opContext, urn, mcp);
     verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
   }
 }

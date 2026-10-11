@@ -1,3 +1,7 @@
+---
+description: "Create, update, and manage Dashboard entities (Looker, Tableau, PowerBI, etc.) in DataHub using the Java SDK V2."
+---
+
 # Dashboard Entity
 
 The Dashboard entity represents collections of visualizations and reports in BI tools (e.g., Looker, Tableau, PowerBI). This guide covers comprehensive dashboard operations in SDK V2.

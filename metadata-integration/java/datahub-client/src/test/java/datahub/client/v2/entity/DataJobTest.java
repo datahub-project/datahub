@@ -708,6 +708,29 @@ public class DataJobTest {
   }
 
   @Test
+  public void testDataJobGetDefaultAspects() throws Exception {
+    DataJob dataJob =
+        DataJob.builder()
+            .orchestrator("airflow")
+            .flowId("etl_pipeline")
+            .jobId("extract_task")
+            .build();
+
+    List<?> aspects = dataJob.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include DataJobInfo", aspects.contains(com.linkedin.datajob.DataJobInfo.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
+
+  @Test
   public void testDataJobRemoveOwner() throws Exception {
     DataJob dataJob =
         DataJob.builder()

@@ -47,6 +47,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -100,6 +101,35 @@ public class JavaEntityClient implements EntityClient {
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
+  // Null for the system client and where ReliableHardDeleteFactory is not scanned.
+  @Nullable private final ReliableHardDelete reliableHardDelete;
+
+  public JavaEntityClient(
+      final EntityService<?> entityService,
+      final DeleteEntityService deleteEntityService,
+      final EntitySearchService entitySearchService,
+      final CachingEntitySearchService cachingEntitySearchService,
+      final SearchService searchService,
+      final LineageSearchService lineageSearchService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final RollbackService rollbackService,
+      final EventProducer eventProducer,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
+    this(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        entityClientConfig,
+        metricUtils,
+        null);
+  }
 
   @Override
   @Nullable
@@ -348,10 +378,6 @@ public class JavaEntityClient implements EntityClient {
     auditStamp.setTime(Clock.systemUTC().millis());
 
     entityService.ingestEntity(opContext, entity, auditStamp, systemMetadata);
-    tryIndexRunId(
-        opContext,
-        com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()),
-        systemMetadata);
   }
 
   @SneakyThrows
@@ -638,6 +664,10 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
+    if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
+      reliableHardDelete.delete(opContext, urn);
+      return;
+    }
     entityService.deleteUrn(opContext, urn);
   }
 
@@ -681,6 +711,13 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete)
       throws RemoteInvocationException {
     return entityService.exists(opContext, urn, includeSoftDelete);
+  }
+
+  @Override
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    return entityService.exists(opContext, urns, true);
   }
 
   @SneakyThrows
@@ -779,7 +816,6 @@ public class JavaEntityClient implements EntityClient {
 
               List<IngestResult> results =
                   entityService.ingestProposal(opContext, aspectsBatch, async);
-              entitySearchService.appendRunId(opContext, results);
 
               Map<Pair<Urn, String>, List<IngestResult>> resultMap =
                   results.stream()
@@ -806,11 +842,6 @@ public class JavaEntityClient implements EntityClient {
                                     .filter(Objects::nonNull)
                                     .distinct()
                                     .collect(Collectors.toList());
-
-                            // Update runIds
-                            urnsForRequest.forEach(
-                                urn ->
-                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
 
                             return urnsForRequest.isEmpty()
                                 ? null
@@ -871,7 +902,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String key,
       @Nonnull PlatformEvent event)
       throws Exception {
-    eventProducer.producePlatformEvent(name, key, event);
+    eventProducer.producePlatformEvent(opContext, name, key, event);
   }
 
   @Override
@@ -879,13 +910,6 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull Authorizer authorizer)
       throws Exception {
     rollbackService.rollbackIngestion(opContext, runId, false, true, authorizer);
-  }
-
-  private void tryIndexRunId(
-      @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
-    if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
-    }
   }
 
   protected <T> T withRetry(@Nonnull final Supplier<T> block, @Nullable String counterPrefix) {

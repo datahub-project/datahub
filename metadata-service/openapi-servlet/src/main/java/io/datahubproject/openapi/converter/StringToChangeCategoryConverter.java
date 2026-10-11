@@ -4,6 +4,7 @@ import static com.linkedin.metadata.timeline.data.ChangeCategory.*;
 
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.springframework.core.convert.ConversionFailedException;
@@ -11,10 +12,22 @@ import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.Converter;
 
 public class StringToChangeCategoryConverter implements Converter<String, ChangeCategory> {
+
+  // Backward-compat aliases for renamed enum values.
+  // OWNER was renamed to OWNERSHIP; existing REST callers using ?categories=OWNER still work.
+  private static final Map<String, ChangeCategory> ALIASES = Map.of("OWNER", OWNERSHIP);
+
   @Override
   public ChangeCategory convert(String source) {
     try {
       String upperCase = source.toUpperCase();
+
+      // Check backward-compat aliases first
+      ChangeCategory aliased = ALIASES.get(upperCase);
+      if (aliased != null) {
+        return aliased;
+      }
+
       // For compound enums, want to support different cases i.e. technical_schema, technical
       // schema, technical-schema, etc.
       Optional<ChangeCategory> compoundCategory =

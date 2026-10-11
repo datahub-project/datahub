@@ -5,7 +5,7 @@ source:
   config:
     username: system
     password: example
-    host_port: localhost:51521
+    host_port: "localhost:${ORACLE_PORT}"
     service_name: XEPDB1
     
     # Enable all new features

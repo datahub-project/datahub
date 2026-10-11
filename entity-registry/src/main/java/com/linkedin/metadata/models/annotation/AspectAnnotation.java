@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.annotation;
 
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
+
 import com.linkedin.data.DataMap;
 import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Map;
@@ -18,11 +20,18 @@ public class AspectAnnotation {
   private static final String AUTO_RENDER_FIELD = "autoRender";
   private static final String IS_KEY_FIELD = "isKey";
   private static final String TIMESERIES_TYPE = "timeseries";
+  private static final String SCHEMA_VERSION_FIELD = "schemaVersion";
 
   String name;
   boolean isTimeseries;
   boolean autoRender;
   DataMap renderSpec;
+
+  /**
+   * Schema version from the {@code @Aspect} PDL annotation; defaults to {@link
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION}.
+   */
+  long schemaVersion;
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
@@ -46,11 +55,17 @@ public class AspectAnnotation {
     boolean isTimeseries = type.isPresent() && type.get().equals(TIMESERIES_TYPE);
     Optional<Boolean> autoRender = AnnotationUtils.getField(map, AUTO_RENDER_FIELD, Boolean.class);
     Optional<DataMap> renderSpec = AnnotationUtils.getField(map, RENDER_SPEC_FIELD, DataMap.class);
+    // PDL integers are deserialized as Integer, so read via Number to avoid a type-mismatch
+    long schemaVersion =
+        AnnotationUtils.getField(map, SCHEMA_VERSION_FIELD, Number.class)
+            .map(Number::longValue)
+            .orElse(DEFAULT_SCHEMA_VERSION);
 
     return new AspectAnnotation(
         name.get(),
         isTimeseries,
         autoRender.orElseGet(() -> false),
-        renderSpec.orElseGet(() -> null));
+        renderSpec.orElseGet(() -> null),
+        schemaVersion);
   }
 }

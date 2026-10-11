@@ -43,7 +43,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
     }
 
     OwnerInput ownerInput = ownerInputBuilder.build();
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn, _entityClient);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn, _entityClient, _entityService);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

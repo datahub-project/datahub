@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} coluna",
+    "columnCount_other": "{{count}} colunas",
+    "matchCount_one": "{{count}} correspondência",
+    "matchCount_other": "{{count}} correspondências",
+    "ownerCount_one": "{{count}} responsável",
+    "ownerCount_other": "{{count}} responsáveis",
+    "queryCount_one": "{{count}} consulta",
+    "queryCount_other": "{{count}} consultas",
+    "rowCount_one": "{{count}} linha",
+    "rowCount_other": "{{count}} linhas",
+    "tagCount_one": "{{count}} tag",
+    "tagCount_other": "{{count}} tags",
+    "termCount_one": "{{count}} termo",
+    "termCount_other": "{{count}} termos"
+}

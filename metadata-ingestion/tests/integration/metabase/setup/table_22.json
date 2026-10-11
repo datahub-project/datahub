@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "entity_type": "entity/GenericTable",
+  "schema": "public",
+  "name": "actor",
+  "display_name": "Actor",
+  "id": 22,
+  "db_id": 2,
+  "active": true,
+  "visibility_type": null,
+  "field_order": "database"
+}

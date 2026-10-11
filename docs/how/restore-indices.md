@@ -1,3 +1,7 @@
+---
+description: "Rebuild DataHub's Elasticsearch, OpenSearch, or Neo4j indices from the metadata_aspect_v2 table when search or graph services drift."
+---
+
 # Search and Graph Reindexing
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
@@ -289,12 +293,12 @@ To improve write performance during restoration:
 
 ##### Refresh Interval Adjustment:
 
-Temporarily increase the refresh_interval setting from the default (typically 1s) to something like 30s or 60s.
-Run the system update job with the following environment variable `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`
+Temporarily increase the refresh interval. `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS` is the fallback for entity search, graph, and system metadata. `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITY_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_GRAPH_SECONDS`, `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_SYSTEM_METADATA_SECONDS`, and a per-entity `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ENTITIES` value replace that fallback. Timeseries and usage use `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS` and `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS` (default 60). A per-aspect `ELASTICSEARCH_INDEX_REFRESH_INTERVAL_ASPECTS` value replaces the timeseries default.
+Run the system update job with those variables set, for example `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=60`.
 
 :::caution
 Remember to reset this after restoration completes!
-:::caution
+:::
 
 ##### Bulk Processing Improvements:
 
@@ -313,6 +317,8 @@ Remember to reset this after restoration completes!
 
 Consider using a read replica as the source of the job's data. If you configure a read-only replica
 you must also provide the parameter `createDefaultAspects=false`.
+
+For **GMS** serving live traffic, you can optionally enable the entity-aspect [read pool](../deploy/primary-storage-read-pool.md) (`EBEAN_READ_POOL_*` or `CASSANDRA_READ_POOL_*`) so non-locking reads use a replica or a dedicated read connection pool. Restore/load jobs and upgrade tooling still use the primary pool only.
 
 #### Kafka & Consumers
 

@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.form;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,12 +20,9 @@ import javax.annotation.Nonnull;
 public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final FormService _formService;
-  private final GroupService _groupService;
 
-  public VerifyFormResolver(
-      @Nonnull final FormService formService, @Nonnull final GroupService groupService) {
+  public VerifyFormResolver(@Nonnull final FormService formService) {
     _formService = Objects.requireNonNull(formService, "formService must not be null");
-    _groupService = Objects.requireNonNull(groupService, "groupService must not be null");
   }
 
   @Override
@@ -45,7 +41,8 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           try {
             final List<Urn> groupsForUser =
-                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
+                List.copyOf(
+                    context.getOperationContext().getSessionActorContext().getGroupMembership());
             if (!_formService.isFormAssignedToUser(
                 context.getOperationContext(), formUrn, entityUrn, actorUrn, groupsForUser)) {
               throw new AuthorizationException(

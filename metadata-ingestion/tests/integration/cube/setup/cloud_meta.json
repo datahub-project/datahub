@@ -1,0 +1,54 @@
+{
+  "cubes": [
+    {
+      "name": "orders",
+      "title": "Orders",
+      "description": "Order transactions",
+      "type": "cube",
+      "fileName": "model/cubes/orders.yml",
+      "measures": [
+        {
+          "name": "orders.count",
+          "title": "Count",
+          "type": "count",
+          "aggType": "count",
+          "format": "number",
+          "drillMembers": ["orders.id", "orders.status"]
+        }
+      ],
+      "dimensions": [
+        { "name": "orders.id", "title": "Id", "type": "number", "primaryKey": true },
+        { "name": "orders.status", "title": "Status", "type": "string" }
+      ],
+      "segments": [],
+      "joins": [{ "name": "users", "relationship": "many_to_one" }],
+      "hierarchies": [],
+      "folders": []
+    },
+    {
+      "name": "orders_view",
+      "title": "Orders View",
+      "description": "Curated, query-ready orders",
+      "type": "view",
+      "fileName": "model/views/orders_view.yml",
+      "measures": [
+        {
+          "name": "orders_view.count",
+          "title": "Count",
+          "type": "count",
+          "aliasMember": "orders.count",
+          "format": "number"
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "orders_view.status",
+          "title": "Status",
+          "type": "string",
+          "aliasMember": "orders.status"
+        }
+      ],
+      "folders": [{ "name": "Key Metrics", "members": ["orders_view.count"] }]
+    }
+  ]
+}

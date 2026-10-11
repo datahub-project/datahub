@@ -1,39 +1,25 @@
-import '@app/homeV3/toast/notification-toast-styles.less';
+import { Text, toast } from '@components';
+import React, { useCallback } from 'react';
+import styled from 'styled-components';
 
-import { Icon, Text, colors } from '@components';
-import { notification } from 'antd';
-import React from 'react';
-
-const notificationStyles = {
-    backgroundColor: colors.blue[0],
-    borderRadius: 8,
-    width: 'max-content',
-    padding: '8px 4px',
-    right: 50,
-    bottom: -8,
-};
+const Content = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
 
 export default function useShowToast() {
-    function showToast(title: string, description?: string, dataTestId?: string) {
-        notification.open({
-            message: (
-                <Text color="blue" colorLevel={1000} weight="semiBold" lineHeight="sm" data-testid={dataTestId}>
+    const showToast = useCallback((title: string, description?: string, dataTestId?: string) => {
+        toast.info(
+            <Content>
+                <Text weight="semiBold" lineHeight="sm" data-testid={dataTestId}>
                     {title}
                 </Text>
-            ),
-            description: (
-                <Text color="blue" colorLevel={1000} lineHeight="sm">
-                    {description}
-                </Text>
-            ),
-            placement: 'bottomRight',
-            duration: 0,
-            icon: <Icon icon="Info" weight="fill" source="phosphor" color="blue" />,
-            closeIcon: (
-                <Icon icon="X" source="phosphor" color="blue" size="lg" data-testid="toast-notification-close-icon" />
-            ),
-            style: notificationStyles,
-        });
-    }
+                {description && <Text lineHeight="sm">{description}</Text>}
+            </Content>,
+            { duration: 0, placement: 'bottomRight', key: dataTestId },
+        );
+    }, []);
+
     return { showToast };
 }

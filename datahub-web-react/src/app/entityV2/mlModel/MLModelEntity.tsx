@@ -1,36 +1,52 @@
-import { CodeSandboxOutlined, PartitionOutlined, WarningOutlined } from '@ant-design/icons';
-import { ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlModel/preview/Preview';
-import MLModelGroupsTab from '@app/entityV2/mlModel/profile/MLModelGroupsTab';
-import MLModelSummary from '@app/entityV2/mlModel/profile/MLModelSummary';
-import MlModelFeaturesTab from '@app/entityV2/mlModel/profile/MlModelFeaturesTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+} from '@app/entityV2/shared/profileChunks';
 import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '@types';
+
+const MLModelGroupsTab = lazyProfileComponent(
+    'MLModelGroupsTab',
+    () => import('@app/entityV2/mlModel/profile/MLModelGroupsTab'),
+);
+const MLModelSummary = lazyProfileComponent(
+    'MLModelSummary',
+    () => import('@app/entityV2/mlModel/profile/MLModelSummary'),
+);
+const MlModelFeaturesTab = lazyProfileComponent(
+    'MlModelFeaturesTab',
+    () => import('@app/entityV2/mlModel/profile/MlModelFeaturesTab'),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
@@ -47,20 +63,12 @@ export class MLModelEntity implements Entity<MlModel> {
     type: EntityType = EntityType.Mlmodel;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
-            );
-        }
-
         return (
-            <CodeSandboxOutlined
+            <Cube
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -77,9 +85,9 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getPathName = () => 'mlModels';
 
-    getEntityName = () => 'ML Model';
+    getEntityName = () => i18next.t('entity.types:mlModel.name');
 
-    getCollectionName = () => 'ML Models';
+    getCollectionName = () => i18next.t('entity.types:mlModel.namePlural');
 
     getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
         return {
@@ -101,34 +109,34 @@ export class MLModelEntity implements Entity<MlModel> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: MLModelSummary,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Group',
+                    name: i18next.t('entity.types:group.name'),
                     component: MLModelGroupsTab,
                 },
                 {
-                    name: 'Features',
+                    name: i18next.t('entity.types:mlFeature.namePlural'),
                     component: MlModelFeaturesTab,
                 },
                 {
-                    name: 'Incidents',
-                    icon: WarningOutlined,
+                    name: i18next.t('entity.types:tab.incidents'),
+                    icon: Warning,
                     component: IncidentTab,
                     getCount: (_, mlModel) => {
                         return mlModel?.mlModel?.activeIncidents?.total;
@@ -178,18 +186,18 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -238,6 +246,10 @@ export class MLModelEntity implements Entity<MlModel> {
         return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: MlModel) => {
+        return data?.properties?.created?.time || data?.properties?.date;
+    };
+
     getGenericEntityProperties = (mlModel: MlModel) => {
         return getDataForEntityType({
             data: mlModel,
@@ -257,6 +269,12 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
+    };
+
+    getPlatformProperties = (data: MlModel) => {
+        return data?.platform;
     };
 }

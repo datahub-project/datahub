@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -41,15 +42,19 @@ type Props = {
 };
 
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const isUpdating = initialState?.urn !== undefined;
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
 
     const createQuery = () => {
         if (datasetUrn) {
+            setIsSaving(true);
             createQueryMutation({
                 variables: {
                     input: {
@@ -70,23 +75,22 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                         analytics.event({
                             type: EventType.CreateQueryEvent,
                         });
-                        message.success({
-                            content: `Created Query!`,
-                            duration: 3,
-                        });
+                        toast.success(t('queryBuilderModal.createSuccess'), { duration: 3 });
                         onSubmit?.(data?.createQuery);
                         setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
-                    message.destroy();
-                    message.error({ content: 'Failed to create Query! An unexpected error occurred' });
-                });
+                    toast.destroy();
+                    toast.error(t('queryBuilderModal.createError'));
+                })
+                .finally(() => setIsSaving(false));
         }
     };
 
     const updateQuery = () => {
         if (initialState) {
+            setIsSaving(true);
             updateQueryMutation({
                 variables: {
                     urn: initialState?.urn as string,
@@ -107,18 +111,16 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                         analytics.event({
                             type: EventType.UpdateQueryEvent,
                         });
-                        message.success({
-                            content: `Edited Query!`,
-                            duration: 3,
-                        });
+                        toast.success(t('queryBuilderModal.editSuccess'), { duration: 3 });
                         onSubmit?.(data?.updateQuery);
                         setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
-                    message.destroy();
-                    message.error({ content: 'Failed to edit Query! An unexpected error occurred' });
-                });
+                    toast.destroy();
+                    toast.error(t('queryBuilderModal.editError'));
+                })
+                .finally(() => setIsSaving(false));
         }
     };
 
@@ -135,23 +137,28 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
             <StyledModal
                 width={MODAL_WIDTH}
                 bodyStyle={MODAL_BODY_STYLE}
-                title={isUpdating ? 'Edit Query' : 'New Query'}
+                title={isUpdating ? t('queryBuilderModal.editTitle') : t('queryBuilderModal.newTitle')}
                 className="query-builder-modal"
                 open
                 onCancel={() => setShowConfirmationModal(true)}
                 buttons={[
                     {
-                        text: 'Cancel',
+                        text: tc('cancel'),
                         variant: 'text',
                         onClick: () => onClose?.(),
                         buttonDataTestId: 'query-builder-cancel-button',
                     },
                     {
-                        text: 'Save',
+                        text: tc('save'),
                         variant: 'filled',
                         id: 'createQueryButton',
                         buttonDataTestId: 'query-builder-save-button',
                         onClick: saveQuery,
+                        // The mutation takes long enough to click Save again, which would create
+                        // duplicate queries. isLoading is cosmetic — Button still forwards onClick
+                        // while loading — so the disabled flag is what actually blocks the retry.
+                        isLoading: isSaving,
+                        disabled: isSaving,
                     },
                 ]}
                 data-testid="query-builder-modal"
@@ -165,8 +172,8 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                     setBuilderState(DEFAULT_STATE);
                     onClose?.();
                 }}
-                modalTitle="Exit Query Editor"
-                modalText="Are you sure you want to exit the editor? Any unsaved changes will be lost."
+                modalTitle={t('queryBuilderModal.exitConfirmTitle')}
+                modalText={t('queryBuilderModal.exitConfirmBody')}
             />
         </ClickOutside>
     );

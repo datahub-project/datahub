@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Rapporter feilmeldingene fra nettleseren din til DataHub-administratoren din",
+    "bulkEditUnauthorized": "Utvalget ditt for masseredigering inneholdt entiteter du ikke har tilgang til å oppdatere. Masseredigeringen som utføres, vil ikke bli lagret.",
+    "fallback.defaultMessage": "Teamet vårt har blitt varslet om denne uventede feilen og jobber med en løsning.",
+    "fallback.subtitle": "Noe gikk ikke som planlagt.",
+    "fallback.title": "Oisann!",
+    "section.description": "En uventet feil oppstod. Prøv igjen senere, eller kontakt administratoren din",
+    "section.needSupport": "<bold>Trenger du hjelp?</bold> Sjekk ut disse ressursene:",
+    "section.title": "Noe gikk galt.",
+    "unauthorized": "Ikke autorisert. Kontakt DataHub-administratoren din."
+}

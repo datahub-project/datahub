@@ -1,7 +1,8 @@
 import pathlib
+from datetime import datetime, timezone
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -9,6 +10,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2025-02-24 09:00:00"
+FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 TESTS_DIR = pathlib.Path(__file__).parent
 GOLDEN_FILES_DIR = TESTS_DIR / "golden"
 DOCKER_DIR = TESTS_DIR / "docker"
@@ -25,7 +27,7 @@ def druid_up(docker_compose_runner):
         yield
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
 def test_druid_ingest(
     pytestconfig,

@@ -24,6 +24,8 @@ public class DefaultUpgradeContext implements UpgradeContext {
   private final List<String> args;
   private final Map<String, Optional<String>> parsedArgs;
 
+  private boolean scaleDownRequired;
+
   public DefaultUpgradeContext(
       @Nonnull OperationContext opContext,
       Upgrade upgrade,
@@ -41,5 +43,15 @@ public class DefaultUpgradeContext implements UpgradeContext {
   @Override
   public List<UpgradeStepResult> stepResults() {
     return previousStepResults;
+  }
+
+  @Override
+  public boolean isScaleDownRequired() {
+    return scaleDownRequired;
+  }
+
+  @Override
+  public void setScaleDownRequired(boolean scaleDownRequired) {
+    this.scaleDownRequired = scaleDownRequired;
   }
 }

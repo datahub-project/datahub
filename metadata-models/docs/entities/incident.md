@@ -154,12 +154,12 @@ Tags can be added to incidents to categorize them by team, system, severity, or 
 
 </details>
 
-### Query Incident via REST API
+### Query Incident via the Python SDK
 
-After creating incidents, you can retrieve them using the DataHub REST API to integrate with external monitoring or ticketing systems.
+After creating incidents, you can retrieve them using the Python SDK to integrate with external monitoring or ticketing systems.
 
 <details>
-<summary>Query incident using REST API</summary>
+<summary>Python SDK: Query an incident</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/incident_query_rest_api.py show_path_as_comment }}

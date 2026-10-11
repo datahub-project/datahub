@@ -8,6 +8,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import io.ebean.SqlUpdate;
@@ -17,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.function.Function;
 import javax.sql.DataSource;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -42,6 +44,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -52,8 +55,10 @@ public class CreateCdcUserStepTest {
             null, // createUserPassword
             "localhost", // host
             3306, // port
-            "testdb" // databaseName
-            );
+            "testdb", // databaseName
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
     createCdcUserStep = new CreateCdcUserStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
@@ -104,6 +109,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -114,7 +120,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     CreateCdcUserStep disabledCdcStep = new CreateCdcUserStep(mockDatabase, disabledCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = disabledCdcStep.executable();
@@ -137,6 +146,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -147,7 +157,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     CreateCdcUserStep mysqlCdcStep = new CreateCdcUserStep(mockDatabase, mysqlCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = mysqlCdcStep.executable();
@@ -171,6 +184,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -181,7 +195,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             5432,
-            "testdb");
+            "testdb",
+            "testdb",
+            false,
+            null);
     CreateCdcUserStep postgresCdcStep = new CreateCdcUserStep(mockDatabase, postgresCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = postgresCdcStep.executable();
@@ -259,6 +276,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -269,7 +287,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             5432,
-            "custom_db");
+            "custom_db",
+            "custom_db",
+            false,
+            null);
     CreateCdcUserStep customCdcStep = new CreateCdcUserStep(mockDatabase, customCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = customCdcStep.executable();
@@ -292,6 +313,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -302,7 +324,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     CreateCdcUserStep defaultCdcStep = new CreateCdcUserStep(mockDatabase, defaultCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = defaultCdcStep.executable();
@@ -324,6 +349,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -334,7 +360,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             5432,
-            "testdb");
+            "testdb",
+            "testdb",
+            false,
+            null);
     CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -350,6 +379,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -360,7 +390,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -376,6 +409,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -386,7 +420,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             5432,
-            "testdb");
+            "testdb",
+            "testdb",
+            false,
+            null);
     CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -402,6 +439,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -412,7 +450,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -434,6 +475,7 @@ public class CreateCdcUserStepTest {
           new SqlSetupArgs(
               true,
               true,
+              true, // createSchema
               false,
               false,
               DatabaseType.MYSQL,
@@ -444,7 +486,10 @@ public class CreateCdcUserStepTest {
               null,
               "localhost",
               3306,
-              "testdb");
+              "testdb",
+              null,
+              false,
+              null);
       createCdcUserStep.createCdcUser(testArgs);
       assertTrue(false, "Expected RuntimeException to be thrown");
     } catch (Exception e) {
@@ -456,11 +501,13 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserSuccess() throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(false);
 
     SqlSetupArgs testArgs =
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -471,7 +518,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -482,6 +532,45 @@ public class CreateCdcUserStepTest {
     verify(mockDatabase).dataSource();
     verify(mockConnection, times(6)).prepareStatement(anyString());
     verify(mockPreparedStatement, times(6)).executeUpdate();
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(false);
+    order.verify(mockConnection).commit();
+    order.verify(mockConnection).setAutoCommit(false);
+  }
+
+  @Test
+  public void testCreateCdcUserSuccessWithAutoCommitTrue() throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(true);
+
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            true, // createSchema
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null,
+            false,
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
+
+    assertNotNull(result);
+    assertEquals(result.isCdcUserCreated(), true);
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(false);
+    order.verify(mockConnection).commit();
+    order.verify(mockConnection).setAutoCommit(true);
   }
 
   @Test
@@ -491,6 +580,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -501,7 +591,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -517,6 +610,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -527,7 +621,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -547,6 +644,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -557,7 +655,10 @@ public class CreateCdcUserStepTest {
             null,
             "localhost",
             3306,
-            "testdb");
+            "testdb",
+            null,
+            false,
+            null);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);

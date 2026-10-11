@@ -1,0 +1,66 @@
+.tour {
+  margin: 1.75rem 0;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  height: 0; // height comes from inline padding-top (aspect ratio)
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  box-shadow: 0 10px 34px rgba(9, 30, 66, 0.14);
+  background: var(--ifm-background-surface-color);
+}
+
+.iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.caption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  text-align: right;
+}
+
+// Desktop-only embed: the tours render a 2880px app DOM that doesn't fit a phone,
+// so on narrow screens hide the iframe and offer a link card instead.
+.fallback {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .frame,
+  .caption {
+    display: none;
+  }
+
+  .fallback {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.2rem;
+    border-radius: 12px;
+    border: 1px solid var(--ifm-color-emphasis-300);
+    background: var(--ifm-background-surface-color);
+    color: var(--ifm-font-color-base);
+    text-decoration: none;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .play {
+    color: var(--ifm-color-primary);
+    font-size: 1.1rem;
+  }
+
+  .hint {
+    font-weight: 400;
+    color: var(--ifm-color-emphasis-600);
+  }
+}

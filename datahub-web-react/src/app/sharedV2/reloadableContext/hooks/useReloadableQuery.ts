@@ -1,9 +1,9 @@
-import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { OperationVariables, QueryHookOptions, QueryResult } from '@apollo/client';
 import { useEffect } from 'react';
 
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
-export function useReloadableQuery<T, K>(
+export function useReloadableQuery<T, K extends OperationVariables = OperationVariables>(
     queryHook: (options: QueryHookOptions<T, K>) => QueryResult<T, K>,
     key: { type: string; id?: string },
     options: QueryHookOptions<T, K>,

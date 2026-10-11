@@ -1,6 +1,7 @@
-import { FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
@@ -64,20 +65,21 @@ export default function EmbeddedListSearchHeader({
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entityV1.shared.components');
 
     return (
         <>
             <TabToolbar>
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
-                        <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
+                        <Funnel className="anticon" />
+                        <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
-                            data-testid="embedded-search-bar"
+                            dataTestId="embedded-search-bar"
                             initialQuery=""
-                            placeholderText={placeholderText || 'Search entities...'}
+                            placeholderText={placeholderText || t('embeddedListSearch.searchPlaceholder')}
                             suggestions={[]}
                             style={
                                 searchBarStyle || {

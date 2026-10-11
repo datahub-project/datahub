@@ -13,6 +13,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -95,7 +96,8 @@ public class ElasticsearchRawController {
                     actorUrnStr,
                     request,
                     "getRawEntity",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
+                    urns.stream().map(Urn::getEntityType).distinct().toList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -143,7 +145,8 @@ public class ElasticsearchRawController {
                     actorUrnStr,
                     request,
                     "getRawSystemMetadata",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
+                    urns.stream().map(Urn::getEntityType).distinct().toList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -191,7 +194,8 @@ public class ElasticsearchRawController {
                     actorUrnStr,
                     request,
                     "getRawTimeseries",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
+                    urns.stream().map(Urn::getEntityType).distinct().toList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -244,7 +248,8 @@ public class ElasticsearchRawController {
                     actorUrnStr,
                     request,
                     "getRawGraph",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
+                    urns.stream().map(Urn::getEntityType).distinct().toList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 

@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from datahub_actions.api.action_graph import AcrylDataHubGraph
+
+if TYPE_CHECKING:
+    from datahub_actions.source.event_source import EventSource
 
 
 @dataclass
@@ -29,3 +34,6 @@ class PipelineContext:
 
     # An instance of a DataHub client.
     graph: Optional[AcrylDataHubGraph]
+
+    # Provided so that actions can manually acknowledge events, e.g. for bulk processing
+    event_source: Optional[EventSource] = None

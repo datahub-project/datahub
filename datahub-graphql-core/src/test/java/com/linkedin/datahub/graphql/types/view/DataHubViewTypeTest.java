@@ -4,7 +4,13 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +39,11 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -284,5 +294,199 @@ public class DataHubViewTypeTest {
     assertThrows(
         RuntimeException.class,
         () -> type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), context));
+  }
+
+  @Test
+  public void testBatchLoadWithViewAuthorizationEnabled_UserCanViewAll() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+
+    Urn viewUrn1 = Urn.createFromString(TEST_VIEW_URN);
+    Urn viewUrn2 = Urn.createFromString(TEST_VIEW_URN_2);
+
+    Map<String, EnvelopedAspect> view1Aspects = new HashMap<>();
+    view1Aspects.put(
+        Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_VALID_VIEW_INFO.data())));
+    Map<String, EnvelopedAspect> view2Aspects = new HashMap<>();
+    view2Aspects.put(
+        Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_VALID_VIEW_INFO.data())));
+
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(viewUrn1, viewUrn2)),
+                Mockito.eq(
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                viewUrn1,
+                new EntityResponse()
+                    .setEntityName(Constants.DATAHUB_VIEW_ENTITY_NAME)
+                    .setUrn(viewUrn1)
+                    .setAspects(new EnvelopedAspectMap(view1Aspects)),
+                viewUrn2,
+                new EntityResponse()
+                    .setEntityName(Constants.DATAHUB_VIEW_ENTITY_NAME)
+                    .setUrn(viewUrn2)
+                    .setAspects(new EnvelopedAspectMap(view2Aspects))));
+
+    com.linkedin.datahub.graphql.types.view.DataHubViewType type =
+        new com.linkedin.datahub.graphql.types.view.DataHubViewType(client);
+
+    // Create authorizer that allows all VIEW_ENTITY_PAGE requests
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Create user context with view authorization enabled
+    OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+
+    List<DataFetcherResult<DataHubView>> result =
+        type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), mockContext);
+
+    // Verify both views were fetched
+    Mockito.verify(client, Mockito.times(1))
+        .batchGetV2(
+            any(),
+            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(viewUrn1, viewUrn2)),
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
+
+    assertEquals(result.size(), 2);
+    assertNotNull(result.get(0).getData());
+    assertNotNull(result.get(1).getData());
+    assertEquals(result.get(0).getData().getUrn(), TEST_VIEW_URN);
+    assertEquals(result.get(1).getData().getUrn(), TEST_VIEW_URN_2);
+  }
+
+  @Test
+  public void testBatchLoadWithViewAuthorizationEnabled_UserCanViewNone() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+
+    // Create authorizer that denies all VIEW_ENTITY_PAGE requests
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+
+    // Create user context with view authorization enabled
+    OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
+
+    com.linkedin.datahub.graphql.types.view.DataHubViewType type =
+        new com.linkedin.datahub.graphql.types.view.DataHubViewType(client);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+
+    List<DataFetcherResult<DataHubView>> result =
+        type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), mockContext);
+
+    // Verify no views were fetched (empty set passed to batchGetV2)
+    Mockito.verify(client, Mockito.times(1))
+        .batchGetV2(
+            any(),
+            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+            Mockito.eq(Collections.emptySet()),
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
+
+    assertEquals(result.size(), 2);
+    assertNull(result.get(0));
+    assertNull(result.get(1));
+  }
+
+  @Test
+  public void testBatchLoadWithViewAuthorizationEnabled_UserCanViewPartial() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+
+    Urn viewUrn1 = Urn.createFromString(TEST_VIEW_URN);
+    Urn viewUrn2 = Urn.createFromString(TEST_VIEW_URN_2);
+
+    Map<String, EnvelopedAspect> view1Aspects = new HashMap<>();
+    view1Aspects.put(
+        Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_VALID_VIEW_INFO.data())));
+
+    // Only view1 should be fetched
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(viewUrn1)),
+                Mockito.eq(
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                viewUrn1,
+                new EntityResponse()
+                    .setEntityName(Constants.DATAHUB_VIEW_ENTITY_NAME)
+                    .setUrn(viewUrn1)
+                    .setAspects(new EnvelopedAspectMap(view1Aspects))));
+
+    // Create authorizer that allows view1 but denies view2
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              if (request.getResourceSpec().isPresent()
+                  && request.getResourceSpec().get().getEntity().equals(TEST_VIEW_URN)) {
+                return new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
+              }
+              return new AuthorizationResult(null, AuthorizationResult.Type.DENY, "");
+            });
+
+    // Create user context with view authorization enabled
+    OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
+
+    com.linkedin.datahub.graphql.types.view.DataHubViewType type =
+        new com.linkedin.datahub.graphql.types.view.DataHubViewType(client);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+
+    List<DataFetcherResult<DataHubView>> result =
+        type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), mockContext);
+
+    // Verify only view1 was fetched
+    Mockito.verify(client, Mockito.times(1))
+        .batchGetV2(
+            any(),
+            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(viewUrn1)),
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
+
+    assertEquals(result.size(), 2);
+    assertNotNull(result.get(0).getData());
+    assertEquals(result.get(0).getData().getUrn(), TEST_VIEW_URN);
+    assertNull(result.get(1));
+  }
+
+  private OperationContext createUserContextWithViewAuth(Authorizer authorizer) {
+    Authentication userAuth =
+        new Authentication(new Actor(ActorType.USER, TEST_USER_URN.getId()), "");
+
+    OperationContext systemContext =
+        TestOperationContexts.systemContext(
+            () ->
+                OperationContextConfig.builder()
+                    .viewAuthorizationConfiguration(
+                        ViewAuthorizationConfiguration.builder().enabled(true).build())
+                    .build(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+    return systemContext.asSession(RequestContext.TEST, authorizer, userAuth);
   }
 }

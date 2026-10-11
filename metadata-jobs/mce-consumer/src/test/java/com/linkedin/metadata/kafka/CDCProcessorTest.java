@@ -13,6 +13,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -22,7 +23,6 @@ import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -35,7 +35,7 @@ public class CDCProcessorTest {
   private OperationContext mockOperationContext;
   private EntityService mockEntityService;
   private ThrottleSensor mockKafkaThrottle;
-  private KafkaListenerEndpointRegistry mockRegistry;
+  private ConsumerPauseSupport mockConsumerPauseSupport;
   private ConfigurationProvider mockProvider;
   private ObjectMapper mockObjectMapper;
   private EntityRegistry mockEntityRegistry;
@@ -45,7 +45,7 @@ public class CDCProcessorTest {
     mockOperationContext = mock(OperationContext.class);
     mockEntityService = mock(EntityService.class);
     mockKafkaThrottle = mock(ThrottleSensor.class);
-    mockRegistry = mock(KafkaListenerEndpointRegistry.class);
+    mockConsumerPauseSupport = mock(ConsumerPauseSupport.class);
     mockProvider = mock(ConfigurationProvider.class);
     mockObjectMapper = mock(ObjectMapper.class);
     mockEntityRegistry = mock(EntityRegistry.class);
@@ -56,7 +56,11 @@ public class CDCProcessorTest {
 
     cdcProcessor =
         new CDCProcessor(
-            mockOperationContext, mockEntityService, mockKafkaThrottle, mockRegistry, mockProvider);
+            mockOperationContext,
+            mockEntityService,
+            mockKafkaThrottle,
+            mockProvider,
+            mockConsumerPauseSupport);
   }
 
   @Test
@@ -67,8 +71,8 @@ public class CDCProcessorTest {
               mockOperationContext,
               mockEntityService,
               mockKafkaThrottle,
-              mockRegistry,
-              mockProvider);
+              mockProvider,
+              mockConsumerPauseSupport);
 
       cdcProcessor.cdcMclProcessingEnabled = true;
       cdcProcessor.cdcConsumerGroupId = "cdc-consumer-job-client";
@@ -78,7 +82,10 @@ public class CDCProcessorTest {
       mockedUtil.verify(
           () ->
               KafkaListenerUtil.registerThrottle(
-                  mockKafkaThrottle, mockProvider, mockRegistry, "cdc-consumer-job-client"));
+                  mockKafkaThrottle,
+                  mockProvider,
+                  mockConsumerPauseSupport,
+                  "cdc-consumer-job-client"));
     }
   }
 
@@ -91,8 +98,8 @@ public class CDCProcessorTest {
               mockOperationContext,
               mockEntityService,
               mockKafkaThrottle,
-              mockRegistry,
-              mockProvider);
+              mockProvider,
+              mockConsumerPauseSupport);
 
       // Execute
       cdcProcessor.registerConsumerThrottle();
@@ -119,7 +126,7 @@ public class CDCProcessorTest {
     when(mockObjectMapper.readTree("test-record")).thenReturn(mockCdcRecord);
 
     // Execute
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify
     verify(mockObjectMapper).readTree("test-record");
@@ -140,7 +147,7 @@ public class CDCProcessorTest {
     cdcProcessor.cdcMclProcessingEnabled = true;
 
     // Execute
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify that no processing occurs when record is null
     verify(mockObjectMapper, never()).readTree(any(String.class));
@@ -368,7 +375,7 @@ public class CDCProcessorTest {
         .thenThrow(new RuntimeException("Test exception"));
 
     // Execute - should not throw exception
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify that exception is handled gracefully
     verify(mockObjectMapper).readTree("test-record");

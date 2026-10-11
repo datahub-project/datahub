@@ -1,0 +1,11 @@
+source:
+  type: iceberg
+  config:
+    catalog:
+      my_catalog:
+        type: "glue"
+        s3.region: "us-west-2"
+        region_name: "us-west-2"
+
+sink:
+  # sink configs

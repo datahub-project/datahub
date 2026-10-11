@@ -1,13 +1,9 @@
 # metadata-ingestion/examples/library/corpuser_add_tag.py
-import logging
 
 from datahub.emitter.mce_builder import make_tag_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # User to add tag to
 user_urn = make_user_urn("jdoe")
@@ -43,6 +39,6 @@ if not tag_exists:
 
     # Emit the change
     datahub_graph.emit(mcp)
-    log.info(f"Added tag {tag_urn} to user {user_urn}")
+    print(f"Added tag {tag_urn} to user {user_urn}")
 else:
-    log.info(f"Tag {tag_urn} already exists on user {user_urn}")
+    print(f"Tag {tag_urn} already exists on user {user_urn}")

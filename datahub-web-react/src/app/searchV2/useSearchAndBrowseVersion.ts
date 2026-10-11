@@ -12,7 +12,7 @@ export const useSearchVersion = () => {
     return useSearchAndBrowseVersion().searchVersion;
 };
 
-export const useBrowseVersion = () => {
+const useBrowseVersion = () => {
     return useSearchAndBrowseVersion().browseVersion;
 };
 

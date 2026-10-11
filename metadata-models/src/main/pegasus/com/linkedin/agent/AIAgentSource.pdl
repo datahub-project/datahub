@@ -1,0 +1,41 @@
+namespace com.linkedin.agent
+
+import com.linkedin.common.Urn
+
+/**
+ * The source or origin of an AI agent definition.
+ * Follows the same pattern as AssertionSource.
+ */
+record AIAgentSource {
+  /**
+   * The source type of the agent
+   */
+  @Searchable = {
+    "fieldName": "sourceType",
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
+  type: AIAgentSourceType
+
+  /**
+   * If this agent was cloned from another agent, the URN of the source agent.
+   * Null on SYSTEM agents and original NATIVE/EXTERNAL agents.
+   *
+   * Used to group clones into an Agent Family — the base + all its clones share
+   * one frontend module, one tool palette, and one set of instructions. Clones
+   * inherit configuration verbatim from the base; what differs is their
+   * stewardship set (the artifacts they manage).
+   */
+  @Relationship = {
+    "name": "ClonedFromAgent",
+    "entityTypes": [ "aiAgent" ]
+  }
+  @Searchable = {
+    "fieldName": "clonedFrom",
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Cloned From",
+    "queryByDefault": false
+  }
+  clonedFrom: optional Urn
+}

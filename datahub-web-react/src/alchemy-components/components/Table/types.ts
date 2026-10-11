@@ -14,6 +14,7 @@ export interface Column<T> {
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
     onCellClick?: (record: T) => void;
+    isCellClickable?: (record: T) => boolean;
     cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 
@@ -28,6 +29,12 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     isExpandedInnerTable?: boolean;
     expandable?: ExpandableProps<T>;
     onRowClick?: (record: T) => void;
+    /**
+     * When set (including `null`), row highlight is controlled by this key
+     * instead of the table's internal click-to-focus state. Pass `null` to
+     * show no focused row.
+     */
+    focusedRowKey?: string | null;
     rowClassName?: (record: T) => string;
     rowDataTestId?: (record: T) => string;
     onExpand?: (record: T) => void;
@@ -48,7 +55,7 @@ export interface RowSelectionProps<T> {
     };
 }
 
-export interface ExpandableProps<T> {
+interface ExpandableProps<T> {
     expandedRowRender?: (record: T, index: number) => React.ReactNode;
     rowExpandable?: (record: T) => boolean;
     defaultExpandedRowKeys?: string[];

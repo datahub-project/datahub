@@ -33,7 +33,7 @@ export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface)
     return result;
 };
 
-export const transformGenericEntityPropertiesToCsvRow = (
+const transformGenericEntityPropertiesToCsvRow = (
     entityRegistry: EntityRegistry,
     properties: GenericEntityProperties | null,
     entityUrl: string,

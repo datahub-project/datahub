@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
@@ -18,20 +19,20 @@ public interface CachingAspectRetriever extends AspectRetriever {
     @Nonnull
     @Override
     public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
-        Set<Urn> urns, Set<String> aspectNames) {
+        @Nonnull OperationFingerprint context, Set<Urn> urns, Set<String> aspectNames) {
       return Collections.emptyMap();
     }
 
     @Nonnull
     @Override
     public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
-        Map<Urn, Set<String>> urnAspectNames) {
+        @Nonnull OperationFingerprint context, Map<Urn, Set<String>> urnAspectNames) {
       return Collections.emptyMap();
     }
 
     @Nonnull
     @Override
-    public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    public Map<Urn, Boolean> entityExists(@Nonnull OperationFingerprint context, Set<Urn> urns) {
       return Collections.emptyMap();
     }
 

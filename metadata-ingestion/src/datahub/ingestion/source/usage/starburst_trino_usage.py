@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from dateutil import parser
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
@@ -111,21 +111,21 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
-@platform_name("Trino")
+@platform_name("Trino", id="trino")
 @config_class(TrinoUsageConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """
-    If you are using Starburst Trino you can collect usage stats the following way.
+    Source that extracts usage statistics from Starburst Trino via Event Logger audit logs.
 
-    #### Prerequsities
-    1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
-
-    2. Install starbust-trino-usage plugin
-    Run pip install 'acryl-datahub[starburst-trino-usage]'.
-
+    Implementation notes:
+    - Queries completed_queries table from Starburst Event Logger
+    - Uses SQLAlchemy to connect to audit PostgreSQL database
+    - Parses accessed_metadata JSON to extract table and column access
+    - Aggregates usage by time bucket using BaseUsageConfig
+    - Only processes SELECT queries with FINISHED state
     """
 
     config: TrinoUsageConfig
@@ -166,7 +166,10 @@ class TrinoUsageSource(Source):
     def _get_trino_history(self):
         query = self._make_usage_query()
         engine = self._make_sql_engine()
-        results = engine.execute(query)
+        # SA 2.0 removed Engine.execute() and rejects bare SQL strings; run on a
+        # connection and materialize before it closes so the loop below is unchanged.
+        with engine.connect() as conn:
+            results = conn.execute(text(query)).fetchall()
         events = []
         for row in results:
             event_dict = row._asdict()

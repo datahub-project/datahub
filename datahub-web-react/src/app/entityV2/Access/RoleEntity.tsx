@@ -1,17 +1,23 @@
-import { TagFilled, TagOutlined } from '@ant-design/icons';
+import { IdentificationBadge } from '@phosphor-icons/react/dist/csr/IdentificationBadge';
+import i18next from 'i18next';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import RoleEntityProfile from '@app/entityV2/Access/RoleEntityProfile';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 
 import { EntityType, Role, SearchResult } from '@types';
 
-const PreviewTagIcon = styled(TagOutlined)`
+const RoleEntityProfile = lazyProfileComponent(
+    'RoleEntityProfile',
+    () => import('@app/entityV2/Access/RoleEntityProfile'),
+);
+
+const PreviewRoleIcon = styled(IdentificationBadge).attrs({ weight: 'regular' })`
     font-size: 20px;
 `;
 // /**
@@ -21,18 +27,12 @@ export class RoleEntity implements Entity<Role> {
     type: EntityType = EntityType.Role;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
-            <TagOutlined
+            <IdentificationBadge
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -47,9 +47,9 @@ export class RoleEntity implements Entity<Role> {
 
     getPathName: () => string = () => 'role';
 
-    getCollectionName: () => string = () => 'Roles';
+    getCollectionName: () => string = () => i18next.t('entity.types:role.namePlural');
 
-    getEntityName: () => string = () => 'Role';
+    getEntityName: () => string = () => i18next.t('entity.types:role.name');
 
     renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
 
@@ -62,7 +62,7 @@ export class RoleEntity implements Entity<Role> {
                 name={this.displayName(data)}
                 urn={data.urn}
                 url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-                logoComponent={<PreviewTagIcon />}
+                logoComponent={<PreviewRoleIcon />}
                 entityType={EntityType.Role}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}

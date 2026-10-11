@@ -1,0 +1,36 @@
+services:
+  test-postgres:
+    image: postgres:15
+    container_name: test-postgres
+    environment:
+      POSTGRES_USER: cube
+      POSTGRES_PASSWORD: cube
+      POSTGRES_DB: cube_demo
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cube -d cube_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-cube:
+    image: cubejs/cube:v1.6.60
+    container_name: test-cube
+    ports:
+      - "4000"
+    environment:
+      CUBEJS_DEV_MODE: "true"
+      CUBEJS_DB_TYPE: postgres
+      CUBEJS_DB_HOST: test-postgres
+      CUBEJS_DB_PORT: "5432"
+      CUBEJS_DB_NAME: cube_demo
+      CUBEJS_DB_USER: cube
+      CUBEJS_DB_PASS: cube
+      CUBEJS_API_SECRET: datahub-test-secret-0123456789abcdef
+      CUBEJS_TELEMETRY: "false"
+    volumes:
+      - ./model:/cube/conf/model
+    depends_on:
+      test-postgres:
+        condition: service_healthy

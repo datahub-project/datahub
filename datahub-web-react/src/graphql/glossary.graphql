@@ -20,7 +20,7 @@ query getRootGlossaryNodes {
     }
 }
 
-query getRelatedTerms($urn: String!) {
+query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
     glossaryTerm(urn: $urn) {
         urn
         type

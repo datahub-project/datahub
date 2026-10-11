@@ -8,8 +8,13 @@ services:
     container_name: vertica-ce
     image: vertica/vertica-ce:23.4.0-0
     ports:
-      - "5433:5433"
-      - "5444:5444"
+      # Ephemeral: neither port is baked into any advertised-address config,
+      # so letting Docker pick free host ports avoids collisions with a
+      # leaked container from a prior run. 5433 (client protocol) is used
+      # by the test via docker_services.port_for; 5444 (management console)
+      # isn't used by tests but is exposed ephemerally for the same reason.
+      - "5433"
+      - "5444"
     deploy:
       mode: global
     volumes:

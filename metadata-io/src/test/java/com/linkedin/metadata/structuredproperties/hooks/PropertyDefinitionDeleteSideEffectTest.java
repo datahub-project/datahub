@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -85,7 +86,9 @@ public class PropertyDefinitionDeleteSideEffectTest {
     mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
         .thenReturn(new Aspect(TEST_PROPERTY_DEFINITION.data()));
 
     mockSearchRetriever = mock(SearchRetriever.class);
@@ -113,6 +116,7 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     List<MCPItem> result =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCL.builder()
                         .changeType(ChangeType.DELETE)
@@ -130,7 +134,9 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     verify(mockAspectRetriever, times(1))
         .getLatestAspectObject(
-            eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
     verify(mockSearchRetriever, times(1))
         .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
 
@@ -140,12 +146,44 @@ public class PropertyDefinitionDeleteSideEffectTest {
   }
 
   @Test
+  public void testDeletePropertyKeyWithoutDefinitionSkipsCleanup() {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
+        .thenReturn(null);
+
+    List<MCPItem> result =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(TEST_PROPERTY_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec("structuredProperty")
+                                .getAspectSpec(STRUCTURED_PROPERTY_KEY_ASPECT_NAME))
+                        .build()),
+                retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(0, result.size());
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  @Test
   public void testDeletePropertyDefinition() {
     PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
 
     List<MCPItem> result =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCL.builder()
                         .changeType(ChangeType.DELETE)
@@ -162,8 +200,10 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     assertEquals(1, result.size());
 
-    verify(mockAspectRetriever, times(0)).getLatestAspectObject(any(), any());
-    verify(mockAspectRetriever, times(0)).getLatestAspectObjects(any(), any());
+    verify(mockAspectRetriever, times(0))
+        .getLatestAspectObject(any(OperationFingerprint.class), any(), any());
+    verify(mockAspectRetriever, times(0))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
     verify(mockSearchRetriever, times(1))
         .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
 

@@ -1,0 +1,112 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bank.com",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: bank.com",
+            "name": "bank.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609511,
+        "runId": "rdf-test-domains",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bank.com.trading",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: trading",
+            "parentNode": "urn:li:glossaryNode:bank.com",
+            "name": "trading"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765406906947,
+        "runId": "rdf-test-domains",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bank.com.trading.loans",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: loans",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading",
+            "name": "loans"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765406906947,
+        "runId": "rdf-test-domains",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bank.com.trading.loans.Customer_Name",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://bank.com/trading/loans/Customer_Name",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix trading: <http://bank.com/trading/loans/> .\n\ntrading:Customer_Name a skos:Concept ;\n    skos:definition \"The name of the customer\" ;\n    skos:prefLabel \"Customer Name\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Customer Name. Definition: The name of the customer."
+            },
+            "name": "Customer Name",
+            "definition": "The name of the customer",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading.loans",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://bank.com/trading/loans/Customer_Name",
+            "sourceUrl": "http://bank.com/trading/loans/Customer_Name"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632452740,
+        "runId": "rdf-test-domains",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bank.com.trading.loans.Loan_Amount",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://bank.com/trading/loans/Loan_Amount",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix trading: <http://bank.com/trading/loans/> .\n\ntrading:Loan_Amount a skos:Concept ;\n    skos:definition \"The principal amount of the loan\" ;\n    skos:prefLabel \"Loan Amount\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Loan Amount. Definition: The principal amount of the loan."
+            },
+            "name": "Loan Amount",
+            "definition": "The principal amount of the loan",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading.loans",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://bank.com/trading/loans/Loan_Amount",
+            "sourceUrl": "http://bank.com/trading/loans/Loan_Amount"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632452740,
+        "runId": "rdf-test-domains",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

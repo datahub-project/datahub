@@ -3,13 +3,13 @@ import logging
 import warnings
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 
 import requests
-from pydantic import model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -73,6 +73,29 @@ class SchemaExtractionStats:
         )
 
 
+class OpenApiGetTokenConfig(ConfigModel):
+    request_type: Literal["get", "post"] = Field(
+        description="HTTP method used to retrieve an auth token."
+    )
+    url_complement: str = Field(
+        description="Path appended to the base URL for the token request. "
+        "For request_type=get, must contain {username} and {password} placeholders."
+    )
+
+    @model_validator(mode="after")
+    def validate_get_placeholders(self) -> "OpenApiGetTokenConfig":
+        if self.request_type == "get":
+            if "{username}" not in self.url_complement:
+                raise ValueError(
+                    "When request_type is 'get', url_complement must contain {username}"
+                )
+            if "{password}" not in self.url_complement:
+                raise ValueError(
+                    "When request_type is 'get', url_complement must contain {password}"
+                )
+        return self
+
+
 class OpenApiConfig(ConfigModel):
     """
     Configuration for OpenAPI source ingestion.
@@ -98,8 +121,9 @@ class OpenApiConfig(ConfigModel):
     username: str = Field(
         default="", description="Username used for basic HTTP authentication."
     )
-    password: str = Field(
-        default="", description="Password used for basic HTTP authentication."
+    password: TransparentSecretStr = Field(
+        default=SecretStr(""),
+        description="Password used for basic HTTP authentication.",
     )
     proxies: Optional[dict] = Field(
         default=None,
@@ -108,18 +132,20 @@ class OpenApiConfig(ConfigModel):
         "If authentication is required, add it to the proxy url directly e.g. "
         "`http://user:pass@10.10.1.10:3128/`.",
     )
-    forced_examples: dict = Field(
-        default={},
-        description="If no example is provided for a route, it is possible to create one using forced_example.",
+    forced_examples: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Path-parameter examples keyed by endpoint path. Values may be "
+        "scalars (str/int/float; bool is accepted via int) and are stringified for "
+        "URL composition.",
     )
-    token: Optional[str] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
     )
-    bearer_token: Optional[str] = Field(
+    bearer_token: Optional[TransparentSecretStr] = Field(
         default=None, description="Bearer token for endpoint authentication."
     )
-    get_token: dict = Field(
-        default={}, description="Retrieving a token from the endpoint."
+    get_token: Optional[OpenApiGetTokenConfig] = Field(
+        default=None, description="Retrieving a token from the endpoint."
     )
     verify_ssl: bool = Field(
         default=True, description="Enable SSL certificate verification"
@@ -132,15 +158,68 @@ class OpenApiConfig(ConfigModel):
     )
     schema_resolution_max_depth: int = Field(
         default=10,
+        ge=1,
+        le=100,
         description="Maximum recursion depth for resolving schema references. "
         "Prevents infinite recursion from deeply nested or circular references. "
-        "Default is 10 levels.",
+        "Default is 10 levels; capped at 100 to avoid RecursionError.",
     )
+
+    @field_validator("get_token", mode="before")
+    @classmethod
+    def empty_get_token_to_none(cls, value: Any) -> Any:
+        # Recipes historically used get_token: {} to mean "unset".
+        if value == {} or value is None:
+            return None
+        return value
+
+    @field_validator("forced_examples", mode="before")
+    @classmethod
+    def stringify_forced_examples(cls, value: Any) -> Any:
+        # Docs/recipes use numeric path params (e.g. /pet/{petId}: [1]).
+        # Only coerce documented scalars — leave null/objects untouched so List[str]
+        # validation rejects them instead of silently emitting "None" in URLs.
+        if not isinstance(value, dict):
+            return value
+        coerced: Dict[str, Any] = {}
+        for endpoint, examples in value.items():
+            if not isinstance(examples, list):
+                coerced[endpoint] = examples
+                continue
+            coerced[endpoint] = [
+                # bool must be handled before int (it is a subclass): the docs
+                # promise "bool via int", so True/False become "1"/"0" rather
+                # than str(True) == "True", which most APIs reject for a boolean
+                # path param.
+                str(int(item))
+                if isinstance(item, bool)
+                else str(item)
+                if isinstance(item, (str, int, float))
+                else item
+                for item in examples
+            ]
+        return coerced
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
-        if self.bearer_token is not None and self.token is not None:
-            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
+        # Truthiness, not `is not None`: an empty SecretStr("") (e.g. an unset
+        # env var substituted into token/bearer_token) is falsy and get_swagger()
+        # treats it as unconfigured, so it must not count as "configured" here.
+        configured = [
+            name
+            for name, value in (
+                ("token", self.token),
+                ("bearer_token", self.bearer_token),
+                ("get_token", self.get_token),
+            )
+            if value
+        ]
+        if len(configured) > 1:
+            raise ValueError(
+                "Unable to use "
+                + ", ".join(repr(name) for name in configured)
+                + " together; configure only one of 'token', 'bearer_token', or 'get_token'."
+            )
         return self
 
     def get_swagger(self) -> Dict:
@@ -154,10 +233,15 @@ class OpenApiConfig(ConfigModel):
             Dictionary containing the parsed OpenAPI specification
 
         Raises:
-            KeyError: If invalid token retrieval method is specified
-            AssertionError: If required URL complement parameters are missing
+            ValueError: If token retrieval fails or the token response has an
+                unexpected shape (get_token's request_type/url_complement are
+                validated at config construction time by OpenApiGetTokenConfig).
         """
-        if self.get_token or self.token or self.bearer_token is not None:
+        # Truthiness (not `is not None`) for all three: an empty SecretStr("") is
+        # falsy, and treating it as "configured" here would fall through to the
+        # else below and hit `assert self.get_token is not None` with neither
+        # get_token nor a real token/bearer_token actually set.
+        if self.get_token or self.token or self.bearer_token:
             if self.token:
                 pass
             elif self.bearer_token:
@@ -165,40 +249,32 @@ class OpenApiConfig(ConfigModel):
                 # token's value to the properly formatted bearer token.
                 # TODO: We should just create a requests.Session and set all the auth
                 # details there once, and then use that session for all requests.
-                self.token = f"Bearer {self.bearer_token}"
+                self.token = SecretStr(f"Bearer {self.bearer_token.get_secret_value()}")
             else:
-                assert "url_complement" in self.get_token, (
-                    "When 'request_type' is set to 'get', an url_complement is needed for the request."
-                )
-                if self.get_token["request_type"] == "get":
-                    assert "{username}" in self.get_token["url_complement"], (
-                        "we expect the keyword {username} to be present in the url"
-                    )
-                    assert "{password}" in self.get_token["url_complement"], (
-                        "we expect the keyword {password} to be present in the url"
-                    )
-                    url4req = self.get_token["url_complement"].replace(
+                assert self.get_token is not None
+                if self.get_token.request_type == "get":
+                    url4req = self.get_token.url_complement.replace(
                         "{username}", self.username
                     )
-                    url4req = url4req.replace("{password}", self.password)
-                elif self.get_token["request_type"] == "post":
-                    url4req = self.get_token["url_complement"]
-                else:
-                    raise KeyError(
-                        "This tool accepts only 'get' and 'post' as method for getting tokens"
+                    url4req = url4req.replace(
+                        "{password}", self.password.get_secret_value()
                     )
-                self.token = get_tok(
-                    url=self.url,
-                    username=self.username,
-                    password=self.password,
-                    tok_url=url4req,
-                    method=self.get_token["request_type"],
-                    proxies=self.proxies,
-                    verify_ssl=self.verify_ssl,
+                else:
+                    url4req = self.get_token.url_complement
+                self.token = SecretStr(
+                    get_tok(
+                        url=self.url,
+                        username=self.username,
+                        password=self.password.get_secret_value(),
+                        tok_url=url4req,
+                        method=self.get_token.request_type,
+                        proxies=self.proxies,
+                        verify_ssl=self.verify_ssl,
+                    )
                 )
             sw_dict = get_swag_json(
                 self.url,
-                token=self.token,
+                token=self.token.get_secret_value(),
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
                 verify_ssl=self.verify_ssl,
@@ -208,7 +284,7 @@ class OpenApiConfig(ConfigModel):
             sw_dict = get_swag_json(
                 self.url,
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
                 verify_ssl=self.verify_ssl,
@@ -222,7 +298,7 @@ class ApiWorkUnit(MetadataWorkUnit):
 
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
@@ -247,31 +323,13 @@ class ApiWorkUnit(MetadataWorkUnit):
 )
 class APISource(Source, ABC):
     """
+    Source that extracts API endpoint metadata from OpenAPI v2/v3 specifications.
 
-    This plugin is meant to gather dataset-like information about OpenApi Endpoints.
-
-    The plugin focuses on extracting schemas from OpenAPI specifications for GET, POST, PUT, and PATCH
-    methods with 200 response codes. It prioritizes schema extraction from the OpenAPI spec over
-    making actual API calls.
-
-    API calls are only made for GET methods when credentials are provided (username/password, token,
-    bearer_token, or get_token configuration). This ensures safe and authenticated access to endpoints.
-
-    As example, if by calling GET at the endpoint at `https://test_endpoint.com/api/users/` you obtain as result:
-    ```JSON
-    [{"user": "albert_physics",
-      "name": "Albert Einstein",
-      "job": "nature declutterer",
-      "is_active": true},
-      {"user": "phytagoras",
-      "name": "Phytagoras of Kroton",
-      "job": "Phylosopher on steroids",
-      "is_active": true}
-    ]
-    ```
-
-    in Datahub you will see a dataset called `test_endpoint/users` which contains as fields `user`, `name` and `job`.
-
+    Implementation notes:
+    - Uses openapi_parser module for spec parsing and schema extraction
+    - Supports multi-step schema extraction: spec → examples → live API calls (GET only)
+    - Represents endpoints as datasets with API_ENDPOINT subtype
+    - Optional authenticated API calls controlled by enable_api_calls_for_schema_extraction
     """
 
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):
@@ -297,34 +355,39 @@ class APISource(Source, ABC):
             Exception: For unhandled status codes
         """
         if status_code == 400:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Bad request body when retrieving data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 403:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unauthorized to Extract Metadata",
                 message="Received unauthorized response when attempting to retrieve data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 404:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Unable to find an example for endpoint. Please add it to the list of forced examples.",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 500:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Received unknown server error from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 504:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Timed out when attempting to retrieve data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         else:
             raise Exception(
@@ -719,7 +782,7 @@ class APISource(Source, ABC):
         if self.config.token:
             return request_call(
                 url,
-                token=self.config.token,
+                token=self.config.token.get_secret_value(),
                 proxies=self.config.proxies,
                 verify_ssl=self.config.verify_ssl,
             )
@@ -727,7 +790,7 @@ class APISource(Source, ABC):
             return request_call(
                 url,
                 username=self.config.username,
-                password=self.config.password,
+                password=self.config.password.get_secret_value(),
                 proxies=self.config.proxies,
                 verify_ssl=self.config.verify_ssl,
             )
@@ -854,7 +917,7 @@ class APISource(Source, ABC):
             for w in warn_c:
                 w_msg = w.message
                 w_spl = w_msg.args[0].split(" --- ")  # type: ignore
-                self.report.report_warning(message=w_spl[1], context=w_spl[0])
+                self.report.warning(message=w_spl[1], context=w_spl[0], log=False)
 
         # Sample from "listing endpoint" for guessing composed endpoints
         root_dataset_samples: Dict[str, Any] = {}
@@ -891,10 +954,11 @@ class APISource(Source, ABC):
             ):
                 method = endpoint_dets.get("method", "").lower()
                 if method != "get":
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to Extract Endpoint Metadata",
-                        message=f"No schema found in OpenAPI spec for {endpoint_dets.get('method', 'unknown')} method (API calls only made for GET methods with credentials)",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        message="No schema found in OpenAPI spec for non-GET method (API calls only made for GET methods with credentials)",
+                        context=f"method={endpoint_dets.get('method', 'unknown')}, endpoint={endpoint_k}, name={dataset_name}",
+                        log=False,
                     )
                     continue
 
@@ -929,16 +993,18 @@ class APISource(Source, ABC):
                     and self.config.enable_api_calls_for_schema_extraction
                     and not self._has_credentials()
                 ):
-                    self.report.report_warning(
+                    self.report.warning(
                         title="No Schema Extracted - Missing Credentials",
                         message="Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        log=False,
                     )
                 else:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="No Schema Extracted",
                         message="Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        log=False,
                     )
 
     def get_report(self):

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -20,6 +21,10 @@ import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -142,17 +147,67 @@ public class MoveDomainResolverTest {
   }
 
   @Test
-  public void testGetFailureParentIsNotDomain() throws Exception {
+  public void testGetFailureMoveUnderDescendant() throws Exception {
     EntityService<?> mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
+    String parentUrn = "urn:li:domain:parent";
+    String childUrn = "urn:li:domain:child";
+    MoveDomainInput cycleInput = new MoveDomainInput(childUrn, parentUrn);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(childUrn)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument("input")).thenReturn(INVALID_INPUT);
+    Mockito.when(mockEnv.getArgument("input")).thenReturn(cycleInput);
+
+    QueryContext mockContext = getMockAllowContext();
+    OperationContext base = mockContext.getOperationContext();
+    EntityGraphCache entityGraphCache = Mockito.mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        com.linkedin.metadata.graph.cache.EntityGraphBinding.builder()
+            .graphId("domain")
+            .source(com.linkedin.metadata.graph.cache.GraphSnapshotSource.SEARCH)
+            .build();
+    Mockito.when(entityGraphCache.bindingForPolicyField("DOMAIN"))
+        .thenReturn(java.util.Optional.empty());
+    Mockito.when(
+            entityGraphCache.bindingForKnownGraph(
+                com.linkedin.metadata.graph.cache.KnownEntityGraph.DOMAIN))
+        .thenReturn(java.util.Optional.of(binding));
+    Mockito.when(
+            entityGraphCache.expand(
+                eq("domain"),
+                eq(com.linkedin.metadata.graph.cache.GraphSnapshotSource.SEARCH),
+                eq(com.linkedin.metadata.graph.cache.TraversalDirection.REVERSE),
+                eq(java.util.Set.of(parentUrn)),
+                anyInt(),
+                eq(com.linkedin.metadata.graph.cache.EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+                eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(java.util.Set.of(parentUrn, childUrn)));
+
+    io.datahubproject.metadata.context.RetrieverContext retrieverContext =
+        io.datahubproject.metadata.context.RetrieverContext.builder()
+            .graphRetriever(base.getRetrieverContext().getGraphRetriever())
+            .aspectRetriever(base.getRetrieverContext().getAspectRetriever())
+            .cachingAspectRetriever(base.getRetrieverContext().getCachingAspectRetriever())
+            .searchRetriever(base.getRetrieverContext().getSearchRetriever())
+            .entityGraphCache(entityGraphCache)
+            .build();
+    OperationContext operationContext =
+        base.toBuilder()
+            .retrieverContext(retrieverContext)
+            .build(base.getSessionAuthentication(), false);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(parentUrn)),
+                eq(DOMAIN_PROPERTIES_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new DomainProperties().setName("parent"));
 
     MoveDomainResolver resolver = new MoveDomainResolver(mockService, mockClient);
-    setupTests(mockEnv, mockService, mockClient);
-
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     verifyNoIngestProposal(mockService);
   }

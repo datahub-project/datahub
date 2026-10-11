@@ -9,15 +9,14 @@ ext {
 }
 
 application {
-    mainClassName = javaMainClass
+    mainClass = javaMainClass
 }
 
 dependencies {
     // Existing dependencies remain unchanged
     implementation 'info.picocli:picocli:4.7.5'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
-    implementation 'ch.qos.logback:logback-classic:1.2.11'
-    implementation 'ch.qos.logback:logback-core:1.2.11'
+    implementation externalDependency.logbackClassic
     implementation project(':metadata-integration:java:datahub-client')
     implementation project(':metadata-integration:java:datahub-schematron:lib')
     implementation externalDependency.avro
@@ -47,7 +46,7 @@ task validatePythonEnv {
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
         def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
         
-        def result = exec {
+        def result = execOps.exec {
             commandLine pythonExe, "-c", "import sys; print(sys.executable)"
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
@@ -88,7 +87,7 @@ task updateGoldenFiles {
             
             println "Updating golden file for ${baseName}..."
             
-            exec {
+            execOps.exec {
                 commandLine pythonExe,
                         'scripts/mce_diff.py',
                         '--update-golden-diff',

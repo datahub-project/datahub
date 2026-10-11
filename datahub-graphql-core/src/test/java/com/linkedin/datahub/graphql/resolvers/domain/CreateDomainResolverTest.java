@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -183,25 +182,16 @@ public class CreateDomainResolverTest {
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_PARENT_DOMAIN_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(any(), Mockito.eq(TEST_OWNER_URN), eq(true))).thenReturn(true);
+    // Includes the ownership type urns that OwnerUtils.addOwnersToResources checks for.
+    stubExistingUrns(
+        mockService,
+        TEST_OWNER_URN,
+        UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner"),
+        UrnUtils.getUrn("urn:li:ownershipType:__system__none"));
 
     // Mock the domain URN that will be returned from ingestProposal
     Mockito.when(mockClient.ingestProposal(any(), any(), Mockito.eq(false)))
         .thenReturn(TEST_DOMAIN_URN.toString());
-
-    // Mock ownership type URNs that OwnerUtils.addOwnersToResources checks for
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner")),
-                Mockito.eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__none")),
-                Mockito.eq(true)))
-        .thenReturn(true);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -255,25 +245,16 @@ public class CreateDomainResolverTest {
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
-    Mockito.when(mockService.exists(any(), Mockito.eq(TEST_OWNER_URN), eq(true))).thenReturn(true);
+    // Includes the ownership type urns that OwnerUtils.addOwnersToResources checks for.
+    stubExistingUrns(
+        mockService,
+        TEST_OWNER_URN,
+        UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner"),
+        UrnUtils.getUrn("urn:li:ownershipType:__system__none"));
 
     // Mock the domain URN that will be returned from ingestProposal
     Mockito.when(mockClient.ingestProposal(any(), any(), Mockito.eq(false)))
         .thenReturn(TEST_DOMAIN_URN.toString());
-
-    // Mock ownership type URNs that OwnerUtils.addOwnersToResources checks for
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner")),
-                Mockito.eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__none")),
-                Mockito.eq(true)))
-        .thenReturn(true);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

@@ -3,3 +3,4 @@
 *.tsx text eol=lf
 gradlew text eol=lf
 metadata-utils/src/test/resources/filterQuery/* text eol=lf
+

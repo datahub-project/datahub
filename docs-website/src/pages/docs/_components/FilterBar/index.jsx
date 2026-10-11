@@ -7,14 +7,14 @@
 
 /* eslint-disable jsx-a11y/no-autofocus */
 
-import React, { useEffect, useState, useReducer, useRef } from "react";
+import React, { useEffect, useState, useReducer, useRef, useCallback } from "react";
 
 import clsx from "clsx";
 import { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
 import DropDownFilter from "../../_components/DropDownFilter";
-import { FilterFilled, CloseCircleFilled } from "@ant-design/icons";
-import { Card, Button, Tag, Switch } from "antd";
+import { FilterFilled } from "@ant-design/icons";
+import { Tag, Switch } from "antd";
 
 function FilterBar({
   textState,
@@ -24,10 +24,23 @@ function FilterBar({
   filterOptions,
   allowExclusivity,
   setIsExclusive,
+  categoryCounts,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [isSelectedExclusive, setIsSelectedExclusive] = useState(false);
+  const searchTimerRef = useRef(null);
+
+  const trackSearch = useCallback((query) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      if (query.trim().length >= 2) {
+        window.gtag?.("event", "integration_search", {
+          search_term: query.trim().toLowerCase(),
+        });
+      }
+    }, 800);
+  }, []);
   function toggleFilters() {
     setFiltersOpen(!filtersOpen);
   }
@@ -36,6 +49,11 @@ function FilterBar({
   }
 
   function applyFilters() {
+    window.gtag?.("event", "integration_filter_apply", {
+      filters: selectedFilters.join(", "),
+      filter_count: selectedFilters.length,
+      match_mode: isSelectedExclusive ? "all" : "any",
+    });
     setFilterState(selectedFilters);
     setFiltersOpen(false);
     setIsExclusive(isSelectedExclusive);
@@ -49,6 +67,21 @@ function FilterBar({
   function removeFilter(filter) {
     setSelectedFilters(selectedFilters.filter((f) => f !== filter));
     setFilterState(filterState.filter((f) => f !== filter));
+  }
+
+  function toggleCategoryPill(category) {
+    const isRemoving = filterState.includes(category);
+    window.gtag?.("event", "integration_category_click", {
+      category_name: category,
+      action: isRemoving ? "remove" : "add",
+    });
+    if (isRemoving) {
+      removeFilter(category);
+    } else {
+      const next = [...filterState, category];
+      setSelectedFilters(next);
+      setFilterState(next);
+    }
   }
 
   return (
@@ -73,7 +106,10 @@ function FilterBar({
                 message: "Filter",
                 description: "The ARIA label for search page input",
               })}
-              onChange={(e) => setTextState(e.target.value)}
+              onChange={(e) => {
+                setTextState(e.target.value);
+                trackSearch(e.target.value);
+              }}
               value={textState}
               autoComplete="off"
               autoFocus
@@ -104,41 +140,49 @@ function FilterBar({
               fill={filtersOpen ? "blue" : "var(--docsearch-muted-color)"}
             />
           </form>
+          {categoryCounts &&
+            Object.keys(categoryCounts).length > 0 &&
+            !filtersOpen && (
+              <div className={styles.categoryPills}>
+                {Object.entries(categoryCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([category, count]) => (
+                    <button
+                      key={category}
+                      className={`${styles.categoryPill} ${
+                        filterState.includes(category)
+                          ? styles.categoryPillActive
+                          : ""
+                      }`}
+                      onClick={() => toggleCategoryPill(category)}
+                    >
+                      {category}
+                      <span className={styles.categoryPillCount}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
           {filtersOpen && (
-            <Card
-              style={{
-                display: "flex",
-                width: "auto",
-                boxSizing: "border-box",
-                boxShadow: "5px 8px 24px 5px rgba(208, 216, 243, 0.6)",
-              }}
-              bodyStyle={{
-                display: "flex",
-                justifyContent: "center",
-                width: "100%",
-                flexDirection: "column",
-                padding: "1rem",
-              }}
-            >
-              <CloseCircleFilled
-                onClick={toggleFilters}
-                className={clsx("DocSearch-Close-Icon", styles.closeIcon)}
-              />{" "}
+            <div className={styles.filterPanel}>
+              <div className={styles.filterPanelHeader}>
+                <span className={styles.filterPanelTitle}>Advanced Filters</span>
+                <button
+                  onClick={toggleFilters}
+                  className={styles.filterPanelClose}
+                  aria-label="Close filters"
+                >
+                  ✕
+                </button>
+              </div>
               <DropDownFilter
                 filterState={selectedFilters}
                 setFilterState={setSelectedFilters}
                 filterOptions={filterOptions}
+                excludeKeys={categoryCounts ? ["Platform Type"] : []}
               />
-              <div
-                style={{
-                  display: "flex",
-                  width: "100%",
-                  justifyContent: allowExclusivity
-                    ? "space-between"
-                    : "flex-end",
-                  paddingTop: "1rem",
-                }}
-              >
+              <div className={styles.filterPanelActions}>
                 {allowExclusivity && (
                   <div>
                     <Switch
@@ -150,34 +194,31 @@ function FilterBar({
                       : "Matches any tags "}
                   </div>
                 )}
-                <div>
-                  <Button
+                <div className={styles.filterPanelButtons}>
+                  <button
                     onClick={removeFilters}
-                    className={clsx(
-                      "DocSearch-Reset-Button",
-                      styles.resetButton
-                    )}
-                    style={{ marginRight: "1rem" }}
+                    className={styles.filterPanelReset}
                   >
                     Reset
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     onClick={applyFilters}
-                    type="primary"
-                    className={clsx(
-                      "DocSearch-Filter-Button",
-                      styles.filterButton
-                    )}
+                    className={styles.filterPanelApply}
                   >
-                    Search
-                  </Button>
+                    Apply Filters
+                  </button>
                 </div>
               </div>
-            </Card>
+            </div>
           )}
           {!filtersOpen && selectedFilters.length > 0 && (
             <div>
-              {filterState.map((filter, i) => (
+              {filterState
+                .filter(
+                  (filter) =>
+                    !categoryCounts || !(filter in categoryCounts)
+                )
+                .map((filter, i) => (
                 <Tag
                   closable
                   onClose={() => removeFilter(filter)}

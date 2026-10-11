@@ -55,8 +55,10 @@ def _build_prefix_groups(names: List[str], max_batch_size: int) -> List[PrefixGr
 def _batch_prefix_groups(
     groups: List[PrefixGroup], max_batch_size: int, max_groups_in_batch: int
 ) -> List[List[PrefixGroup]]:
-    """Batch the groups together, so that no batch's total is larger than `max_batch_size`
-    and no group in a batch is larger than `max_group_size`."""
+    """Batch the groups together, so that no batch holds more than
+    `max_groups_in_batch` groups and the total size of names in a batch
+    does not exceed `max_batch_size` (a single oversized group is allowed
+    to exceed `max_batch_size` on its own, since groups are atomic)."""
 
     # A batch is a set of groups.
 
@@ -67,9 +69,14 @@ def _batch_prefix_groups(
     current_batch_size = 0
     batch: List[PrefixGroup] = []
     for group in groups:
+        # Both the name-count check and the group-count check ask the same
+        # question: "would adding this group push us over the cap?" — i.e.
+        # (current state) + (incoming delta) > cap. If either trips, close
+        # the current batch before appending. The `+ 1` is the incoming
+        # group itself.
         if (
             current_batch_size + len(group.names) > max_batch_size
-            or len(batch) > max_groups_in_batch
+            or len(batch) + 1 > max_groups_in_batch
         ):
             batches.append(batch)
             batch = []

@@ -1,0 +1,7 @@
+# Minimal retention config for unit tests (wildcard only)
+- entity: "*"
+  aspect: "*"
+  config:
+    retention:
+      version:
+        maxVersions: 20

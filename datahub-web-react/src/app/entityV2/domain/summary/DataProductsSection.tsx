@@ -1,12 +1,12 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { navigateToDomainDataProducts } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { DataProductMiniPreview } from '@app/entityV2/shared/links/DataProductMiniPreview';
@@ -24,12 +24,12 @@ import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataProduct, EntityType } from '@types';
 
 const ViewAllButton = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 2px;
 
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.text};
         text-decoration: underline;
     }
 `;
@@ -39,10 +39,13 @@ const StyledCarousel = styled(Carousel)`
 `;
 
 export const DataProductsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const domainUrn = entityData?.urn || '';
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const { data, loading } = useGetSearchResultsForMultipleQuery({
         skip: !domainUrn,
@@ -70,17 +73,22 @@ export const DataProductsSection = () => {
             <SummaryTabHeaderWrapper>
                 <SummaryHeaderButtonGroup>
                     <SummaryTabHeaderTitle
-                        icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, ANTD_GRAY[8])}
-                        title={`Data Products (${numDataProducts})`}
+                        icon={entityRegistry.getIcon(
+                            EntityType.DataProduct,
+                            16,
+                            IconStyleType.ACCENT,
+                            theme.colors.text,
+                        )}
+                        title={t('domain.dataProductsCountTitle', { count: numDataProducts })}
                     />
                     <SectionActionButton
-                        tip="Create Data Product"
-                        button={<AddRoundedIcon />}
+                        tip={t('dataProduct.createTitle')}
+                        icon={Plus}
                         onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
                     />
                 </SummaryHeaderButtonGroup>
                 <ViewAllButton onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}

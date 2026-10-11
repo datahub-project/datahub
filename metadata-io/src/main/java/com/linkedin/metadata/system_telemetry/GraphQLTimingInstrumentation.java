@@ -1,6 +1,9 @@
 package com.linkedin.metadata.system_telemetry;
 
+import com.datahub.authentication.Actor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLShapeLoggingConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import graphql.execution.instrumentation.InstrumentationContext;
@@ -8,21 +11,29 @@ import graphql.execution.instrumentation.InstrumentationState;
 import graphql.execution.instrumentation.SimpleInstrumentationContext;
 import graphql.execution.instrumentation.SimplePerformantInstrumentation;
 import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
+import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
+import graphql.language.Document;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLOutputType;
 import graphql.schema.GraphQLTypeUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentation {
 
@@ -31,6 +42,17 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
   private final Set<String> fieldInstrumentedOperations;
   private final List<PathMatcher> fieldInstrumentedPaths;
   private final double[] percentiles;
+
+  @Nullable private final GraphQLShapeLoggingConfiguration shapeLoggingConfig;
+
+  /** Dedicated logger for shape log entries — inherits the ASYNC_GRAPHQL_DEBUG_FILE appender. */
+  private static final Logger SHAPE_LOG = LoggerFactory.getLogger("com.datahub.graphql.shape");
+
+  /** Context map key for actor identity. */
+  public static final String GRAPHQL_CONTEXT_ACTOR_KEY = "actor";
+
+  /** Used only for serialising shape log payloads. ObjectMapper is thread-safe and stateless. */
+  private static final ObjectMapper shapeObjectMapper = new ObjectMapper();
 
   // Inner class for path matching
   private static class PathMatcher {
@@ -72,13 +94,34 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
     }
   }
 
+  /**
+   * Full constructor.
+   *
+   * @param meterRegistry Micrometer registry for metrics
+   * @param config GraphQL metrics configuration
+   * @param shapeLoggingConfig optional shape logging configuration; pass {@code null} to disable
+   */
   public GraphQLTimingInstrumentation(
-      MeterRegistry meterRegistry, GraphQLMetricsConfiguration config) {
+      MeterRegistry meterRegistry,
+      GraphQLMetricsConfiguration config,
+      @Nullable GraphQLShapeLoggingConfiguration shapeLoggingConfig) {
     this.meterRegistry = meterRegistry;
     this.config = config;
     this.fieldInstrumentedOperations = parseOperationsList(config.getFieldLevelOperations());
     this.fieldInstrumentedPaths = parsePathPatterns(config.getFieldLevelPaths());
     this.percentiles = MetricUtils.parsePercentiles(config.getPercentiles());
+    this.shapeLoggingConfig = shapeLoggingConfig;
+  }
+
+  /**
+   * Backward-compatible constructor — shape logging is disabled.
+   *
+   * @param meterRegistry Micrometer registry for metrics
+   * @param config GraphQL metrics configuration
+   */
+  public GraphQLTimingInstrumentation(
+      MeterRegistry meterRegistry, GraphQLMetricsConfiguration config) {
+    this(meterRegistry, config, null);
   }
 
   private Set<String> parseOperationsList(String operationsList) {
@@ -128,13 +171,30 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
     timingState.operationName = operationName;
     timingState.filteringMode = determineFilteringMode(operationName);
 
+    // Extract actorUrn for caller attribution (best-effort)
+    try {
+      Object actorContext = parameters.getGraphQLContext().get(GRAPHQL_CONTEXT_ACTOR_KEY);
+      if (actorContext instanceof Actor actor) {
+        timingState.actorUrn = actor.toUrnStr();
+      }
+    } catch (Exception innerEx) {
+      // ActorUrn extraction is optional — log at debug (not error, to avoid flooding error logs)
+      SHAPE_LOG.debug("Could not extract actorUrn from ExecutionContext", innerEx);
+    }
     return SimpleInstrumentationContext.whenCompleted(
         (result, t) -> {
           long duration = System.nanoTime() - timingState.startTime;
 
+          // Use AST-based operation type from queryShape if available (more accurate than string
+          // prefix)
+          String operationType =
+              timingState.queryShape != null
+                  ? timingState.queryShape.getOperationType()
+                  : getOperationType(parameters);
+
           Timer.builder("graphql.request.duration")
               .tag("operation", operationName)
-              .tag("operation.type", getOperationType(parameters))
+              .tag("operation.type", operationType)
               .tag("success", String.valueOf(t == null && result.getErrors().isEmpty()))
               .tag("field.filtering", timingState.filteringMode.toString())
               .register(meterRegistry)
@@ -148,7 +208,7 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
                     "operation",
                     operationName,
                     "operation.type",
-                    getOperationType(parameters))
+                    operationType)
                 .increment();
           }
 
@@ -163,7 +223,36 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
                     timingState.filteringMode.toString())
                 .increment(timingState.fieldsInstrumented);
           }
+
+          // Shape logging (threshold-based, best-effort)
+          if (shapeLoggingConfig != null
+              && shapeLoggingConfig.isEnabled()
+              && timingState.queryShape != null) {
+            long durationMs = TimeUnit.NANOSECONDS.toMillis(duration);
+            evaluateAndLogShape(timingState, result, durationMs);
+          }
         });
+  }
+
+  @Override
+  public InstrumentationContext<ExecutionResult> beginExecuteOperation(
+      InstrumentationExecuteOperationParameters parameters, InstrumentationState state) {
+
+    if (shapeLoggingConfig == null || !shapeLoggingConfig.isEnabled()) {
+      return SimpleInstrumentationContext.noOp();
+    }
+
+    TimingState timingState = (TimingState) state;
+    try {
+      Document document = parameters.getExecutionContext().getDocument();
+      timingState.queryShape = QueryShapeAnalyzer.analyze(document, timingState.operationName);
+      // Always-on cheap shape metrics — emitted regardless of thresholds
+      emitShapeMetrics(timingState.queryShape);
+    } catch (Exception e) {
+      // Shape analysis is best-effort — never propagate
+      SHAPE_LOG.debug("Shape analysis failed", e);
+    }
+    return SimpleInstrumentationContext.noOp();
   }
 
   enum FilteringMode {
@@ -234,20 +323,16 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
 
     TimingState timingState = (TimingState) state;
 
-    // Get the field path
     String fieldPath = parameters.getExecutionStepInfo().getPath().toString();
 
-    // Check if we should instrument this field
     if (!shouldInstrumentField(timingState.operationName, fieldPath, timingState.filteringMode)) {
       return dataFetcher;
     }
 
-    // Skip trivial data fetchers unless explicitly included
     if (parameters.isTrivialDataFetcher() && !config.isTrivialDataFetchersEnabled()) {
       return dataFetcher;
     }
 
-    // Increment counter of instrumented fields
     timingState.fieldsInstrumented++;
 
     return environment -> {
@@ -303,8 +388,9 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
     if (parameters.getExecutionInput() != null) {
       String query = parameters.getExecutionInput().getQuery();
       if (query != null) {
-        if (query.trim().startsWith("mutation")) return "mutation";
-        if (query.trim().startsWith("subscription")) return "subscription";
+        String trimmed = query.trim();
+        if (trimmed.startsWith("mutation")) return "mutation";
+        if (trimmed.startsWith("subscription")) return "subscription";
       }
     }
     return "query";
@@ -357,10 +443,130 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
         .replaceAll("/\\d+", "/*"); // Replace /0, /1, etc. with /*
   }
 
+  /**
+   * Evaluates all configured thresholds against the completed request and emits a structured JSON
+   * log entry at DEBUG level when at least one threshold is crossed.
+   *
+   * <p>Response shape analysis (the more expensive part) is deferred until at least one threshold
+   * has already been exceeded.
+   */
+  private void evaluateAndLogShape(TimingState state, ExecutionResult result, long durationMs) {
+    try {
+      QueryShapeAnalyzer.QueryShape qs = state.queryShape;
+
+      // Early exit: check cheap thresholds first (no response analysis)
+      boolean fieldCountCrossed = qs.getFieldCount() >= shapeLoggingConfig.getFieldCountThreshold();
+      boolean durationCrossed = durationMs >= shapeLoggingConfig.getDurationThresholdMs();
+      boolean errorCountCrossed =
+          result.getErrors().size() >= shapeLoggingConfig.getErrorCountThreshold();
+
+      if (!fieldCountCrossed && !durationCrossed && !errorCountCrossed) {
+        return; // No threshold crossed, no allocation
+      }
+
+      // Expensive: analyze response only if a threshold already crossed
+      ResponseShapeAnalyzer.ResponseShape responseShape = ResponseShapeAnalyzer.analyze(result);
+      long responseBytesEstimate =
+          (long) responseShape.getFieldCount() * GraphQLShapeConstants.BYTES_PER_FIELD_ESTIMATE;
+      boolean responseSizeCrossed =
+          responseBytesEstimate >= shapeLoggingConfig.getResponseSizeThresholdBytes();
+
+      // Build crossed list (pre-allocate, max 4 items)
+      List<String> crossed = new ArrayList<>(4);
+      if (fieldCountCrossed) crossed.add("field_count");
+      if (durationCrossed) crossed.add("duration");
+      if (errorCountCrossed) crossed.add("error_count");
+      if (responseSizeCrossed) crossed.add("response_size");
+
+      // Build payload (pre-allocate with known capacity for better cache locality)
+      Map<String, Object> payload = new LinkedHashMap<>(15);
+
+      // Operation metadata
+      payload.put("operation", state.operationName);
+      payload.put("operationType", qs.getOperationType());
+      payload.put("topLevelResolvers", qs.getTopLevelFields());
+      if (state.actorUrn != null) {
+        payload.put("actorUrn", state.actorUrn);
+      }
+
+      // Timing & size
+      payload.put("durationMs", durationMs);
+      payload.put("responseBytesEstimate", responseBytesEstimate);
+
+      // Request structure (query shape)
+      payload.put("requestQueryShape", qs.getNormalizedShape());
+      payload.put("requestQueryShapeHash", qs.getShapeHash());
+      payload.put("requestFieldCount", qs.getFieldCount());
+      payload.put("requestMaxDepth", qs.getMaxDepth());
+
+      // Response structure (actual response shape)
+      payload.put("responseNormalizedShape", responseShape.getNormalizedShape());
+      payload.put("responseFieldCount", responseShape.getFieldCount());
+
+      // Heavy fields: arrays with their sizes (extracted during AST traversal)
+      if (!responseShape.getHeavyFields().isEmpty()) {
+        List<Map<String, Object>> heavyFieldsList = new ArrayList<>();
+        for (ResponseShapeAnalyzer.HeavyField hf : responseShape.getHeavyFields()) {
+          Map<String, Object> entry = new LinkedHashMap<>(2);
+          entry.put("path", hf.path());
+          entry.put("size", hf.size());
+          heavyFieldsList.add(entry);
+        }
+        payload.put("heavyFields", heavyFieldsList);
+      }
+
+      // Diagnostic info
+      payload.put("thresholdsCrossed", crossed);
+      payload.put("errorCount", result.getErrors().size());
+      payload.put("timestamp", Instant.now().toString());
+
+      SHAPE_LOG.info(shapeObjectMapper.writeValueAsString(payload));
+    } catch (Exception e) {
+      // Never propagate shape logging errors — best-effort only
+      SHAPE_LOG.error("Shape log evaluation failed", e);
+    }
+  }
+
+  /**
+   * Emits always-on (cheap) Micrometer metrics for the query shape. Called unconditionally when
+   * shape logging is enabled, regardless of threshold evaluation.
+   *
+   * <p>Metrics emitted:
+   *
+   * <ul>
+   *   <li>{@code graphql.shape.requests.total} — counter tagged with top-level fields and operation
+   *       type
+   *   <li>{@code graphql.shape.field_count} — summary of request field counts (request complexity)
+   *   <li>{@code graphql.shape.max_depth} — summary of request max depth (nesting complexity)
+   * </ul>
+   */
+  private void emitShapeMetrics(QueryShapeAnalyzer.QueryShape qs) {
+    meterRegistry
+        .counter(
+            "graphql.shape.requests.total",
+            "top_level_fields",
+            qs.getTopLevelFields(),
+            "operation_type",
+            qs.getOperationType())
+        .increment();
+
+    meterRegistry.summary("graphql.shape.field_count").record(qs.getFieldCount());
+    meterRegistry.summary("graphql.shape.max_depth").record(qs.getMaxDepth());
+  }
+
   static class TimingState implements InstrumentationState {
     long startTime;
     String operationName;
     FilteringMode filteringMode;
     int fieldsInstrumented = 0;
+
+    /** Set during {@code beginExecuteOperation}; null until shape logging fires. */
+    QueryShapeAnalyzer.QueryShape queryShape;
+
+    /**
+     * Actor URN extracted from ExecutionContext; null if unavailable. Used in logs for caller
+     * attribution.
+     */
+    @Nullable String actorUrn;
   }
 }

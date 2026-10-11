@@ -1,5 +1,6 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -29,15 +30,14 @@ interface Props {
 }
 
 export default function FormSelector({ selectFormUrn }: Props) {
+    const { t } = useTranslation('entity.form');
     const { entityData } = useEntityData();
     const formAssociations = getFormAssociations(entityData);
 
     return (
         <FormSelectorWrapper>
-            <HeaderText>Choose Which Form to View</HeaderText>
-            <Subheader>
-                There are multiple open requests for this entity. Choose which one you’d like to view or complete.
-            </Subheader>
+            <HeaderText>{t('selectFormTitle')}</HeaderText>
+            <Subheader>{t('selectFormDescription')}</Subheader>
             {formAssociations.map((formAssociation, index) => (
                 <div key={formAssociation.form.urn}>
                     <FormItem formAssociation={formAssociation} selectFormUrn={selectFormUrn} />

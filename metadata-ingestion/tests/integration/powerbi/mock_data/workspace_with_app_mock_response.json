@@ -94,35 +94,12 @@
             ]
         }
     },
-    "https://api.powerbi.com/v1.0/myorg/groups/8F756DE6-26AD-45FF-A201-44276FF1F561/dashboards": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "value": [
-                {
-                    "id": "A700E2C1-D008-42DF-AFCA-A70A87D0B2A3",
-                    "isReadOnly": true,
-                    "displayName": "test_dashboard",
-                    "description": "Description of test dashboard",
-                    "embedUrl": "https://localhost/dashboards/embed/1",
-                    "webUrl": "https://localhost/dashboards/web/1"
-                }
-            ]
-        }
-    },
     "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/6147FCEB-7531-4449-8FB6-1F7A5431BF2D": {
         "method": "GET",
         "status_code": 200,
         "json": {
             "status": "SUCCEEDED"
         }
-    },
-    "https://api.powerbi.com/v1.0/myorg/groups/8F756DE6-26AD-45FF-A201-44276FF1F561/dashboards/A700E2C1-D008-42DF-AFCA-A70A87D0B2A3/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": []
-            }
     },
     "https://api.powerbi.com/v1.0/myorg/admin/apps?%24skip=0&%24top=1000": {
         "method": "GET",

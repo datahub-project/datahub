@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="S1">
+      <EntityType Name="FACT_SALES">
+        <Key>
+          <PropertyRef Name="SALE_ID"/>
+        </Key>
+        <Property Name="SALE_ID" Type="Edm.Int64" Nullable="false"/>
+        <Property Name="SALE_DATE" Type="Edm.Date" Nullable="false"/>
+        <Property Name="CUSTOMER_ID" Type="Edm.String" Nullable="false"/>
+        <Property Name="PRODUCT_ID" Type="Edm.String" Nullable="false"/>
+        <Property Name="QUANTITY" Type="Edm.Int32" Nullable="true"/>
+        <Property Name="AMOUNT_USD" Type="Edm.Decimal" Precision="18" Scale="2" Nullable="true"/>
+        <Property Name="CURRENCY_CODE" Type="Edm.String" Nullable="true"/>
+        <Property Name="LAST_UPDATED" Type="Edm.DateTimeOffset" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="S1.FACT_SALES">
+        <Annotation Term="Common.Label" String="Sales Transactions Fact Table"/>
+      </Annotations>
+      <Annotations Target="S1.FACT_SALES/AMOUNT_USD">
+        <Annotation Term="Common.IsCurrency"/>
+        <Annotation Term="Common.Label" String="Amount in USD"/>
+      </Annotations>
+      <Annotations Target="S1.FACT_SALES/CURRENCY_CODE">
+        <Annotation Term="Common.IsUnit"/>
+      </Annotations>
+      <Annotations Target="S1.FACT_SALES/QUANTITY">
+        <Annotation Term="Common.Label" String="Quantity sold"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

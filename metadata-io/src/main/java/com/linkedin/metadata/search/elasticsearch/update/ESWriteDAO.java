@@ -7,6 +7,11 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -14,16 +19,18 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.delete.DeleteRequest;
@@ -38,21 +45,73 @@ import org.opensearch.client.tasks.TaskId;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
+  @Nonnull private final SearchWriteAccess writeAccess;
   private boolean canWrite = true;
+
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor,
+      @Nonnull SearchWriteAccess writeAccess) {
+    this.config = config;
+    this.searchClient = searchClient;
+    this.bulkProcessor = bulkProcessor;
+    this.writeAccess = writeAccess;
+  }
+
+  @Nonnull
+  private ESBulkProcessor bulkProcessorFor(
+      @Nonnull OperationContext opContext, @Nonnull SearchComponent component) {
+    return writeAccess.bulkProcessorFor(component);
+  }
+
+  @Nonnull
+  private ESBulkProcessor bulkProcessorForIndex(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return writeAccess.bulkProcessorForIndex(
+        opContext.getSearchContext().getIndexConvention(), indexName);
+  }
+
+  /**
+   * This DAO serves every DataHub-managed index, not just entity families: graph, timeseries,
+   * system-metadata and usage all route through here by name.
+   */
+  @Nonnull
+  private SearchClientShim<?> clientForIndex(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return SearchClients.forIndex(opContext, indexName);
+  }
+
+  /**
+   * Cleanup patterns are wildcards ({@code *index_v3*}), not always aliases. Resolve the family
+   * from the marker so V3 patterns are not sent to the V2 client.
+   */
+  @Nonnull
+  private SearchClientShim<?> clientForPattern(
+      @Nonnull OperationContext opContext, @Nonnull String pattern) {
+    return SearchClients.forEntityIndices(opContext, pattern);
+  }
 
   public void setWritable(boolean writable) {
     canWrite = writable;
+  }
+
+  /**
+   * V3 search-group indices only exist when the V3 entity index is enabled. Writing to them
+   * otherwise would auto-create an unmapped index.
+   */
+  private boolean isV3Enabled() {
+    EntityIndexConfiguration entityIndex = config.getEntityIndex();
+    return entityIndex != null && entityIndex.getV3() != null && entityIndex.getV3().isEnabled();
   }
 
   /** Result of a delete by query operation */
@@ -90,19 +149,25 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    // Route by docId (URL-encoded URN) so repeated aspect writes for the same entity
+    // land on the same bulk processor thread. Without this, concurrent same-URN updates
+    // race on OpenSearch's seqNo and retryOnConflict cannot converge — partial updates
+    // are silently dropped and the indexed doc ends up with only bootstrap fields.
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V2).add(opContext, docId, updateRequest);
   }
 
   /**
-   * Updates or inserts the given search document in the specified index. This method works directly
-   * with index names, useful for V3 multi-entity indices.
+   * Updates or inserts the given search document in a named index.
    *
    * @param indexName name of the index
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
   public void upsertDocumentByIndexName(
-      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -114,7 +179,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
 
   /**
@@ -129,7 +194,8 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V2)
+        .add(opContext, docId, new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
   /**
@@ -139,12 +205,30 @@ public class ESWriteDAO {
    * @param indexName name of the index
    * @param docId the ID of the document to delete
    */
-  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+  public void deleteDocumentByIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String docId) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+    bulkProcessorForIndex(opContext, indexName)
+        .add(opContext, docId, new DeleteRequest(indexName).id(docId));
+  }
+
+  /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    try {
+      return clientForIndex(opContext, indexName)
+          .indexExists(opContext, new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.warn("Error checking if index {} exists: {}", indexName, e.getMessage());
+      return false;
+    }
   }
 
   /**
@@ -161,6 +245,10 @@ public class ESWriteDAO {
       @Nonnull String searchGroup,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping upsert for searchGroup {}", searchGroup);
+      return;
+    }
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -172,8 +260,9 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(updateRequest);
+    // using it as the routing key serializes concurrent aspect writes for the same entity
+    // on one bulk processor thread (preventing version_conflict_engine_exception).
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, docId, updateRequest);
   }
 
   /**
@@ -186,18 +275,44 @@ public class ESWriteDAO {
    */
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping delete for searchGroup {}", searchGroup);
+      return;
+    }
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
+    // Stable-id routing — see upsertDocumentBySearchGroup above.
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3)
+        .add(opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
   /** Applies a script to a particular document */
   public void applyScriptUpdate(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        opContext, toIndexName(opContext, entityName), docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
+   * Applies a script to a particular document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
@@ -215,41 +330,121 @@ public class ESWriteDAO {
             scriptParams // The parameters map
             );
     UpdateRequest updateRequest =
-        new UpdateRequest(toIndexName(opContext, entityName), docId)
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
             .script(script)
             .upsert(upsert);
-    bulkProcessor.add(updateRequest);
+    // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
+    bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
 
-  /** Clear all documents in all the indices */
-  public void clear(@Nonnull OperationContext opContext) {
+  /**
+   * Applies a script to a particular document in the V3 index for the specified search group.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping script update for searchGroup {}", searchGroup);
+      return;
+    }
+    applyScriptUpdateByIndexName(
+        opContext,
+        toIndexNameV3(opContext, searchGroup),
+        docId,
+        scriptSource,
+        scriptParams,
+        upsert);
+  }
+
+  /**
+   * Delete the index
+   *
+   * @param opContext the operation context
+   * @return set of index names that were deleted
+   */
+  @Nonnull
+  public Set<String> clear(@Nonnull OperationContext opContext) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
-      return;
+      return Collections.emptySet();
     }
     List<String> patterns =
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndicesCleanupPatterns(config.getEntityIndex());
+            .getEntityIndicesCleanupPatterns(opContext, config.getEntityIndex());
     List<String> allIndices = new ArrayList<>();
     for (String pattern : patterns) {
-      allIndices.addAll(Arrays.asList(getIndices(pattern)));
+      allIndices.addAll(Arrays.asList(getIndices(opContext, pattern)));
     }
-    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), allIndices.toArray(new String[0]));
+
+    // Track which indices (aliases or concrete) were deleted so the caller can recreate them
+    Set<String> deletedIndexNames = new HashSet<>();
+
+    // Instead of deleting all documents (inefficient), delete the indices themselves
+    for (String indexName : allIndices) {
+      try {
+        String nameToTrack =
+            IndexDeletionUtils.deleteIndex(
+                clientForIndex(opContext, indexName), opContext, indexName);
+        if (nameToTrack != null) {
+          deletedIndexNames.add(nameToTrack);
+        }
+      } catch (IOException e) {
+        log.error("Failed to delete index {} during clear operation", indexName, e);
+        throw new RuntimeException("Failed to clear index: " + indexName, e);
+      }
+    }
+
+    if (deletedIndexNames.isEmpty()) {
+      log.info("No indices were deleted");
+    } else {
+      log.info(
+          "Deleted {} indices. Caller should recreate them if needed.", deletedIndexNames.size());
+    }
+
+    return deletedIndexNames;
   }
 
-  private String[] getIndices(String pattern) {
+  private String[] getIndices(@Nonnull OperationContext opContext, String pattern) {
     try {
       GetIndexResponse response =
-          searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+          clientForPattern(opContext, pattern)
+              .getIndex(opContext, new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
-      log.error("Failed to get indices using pattern {}", pattern);
-      return new String[] {};
+      // Only treat index_not_found_exception as "no indices"
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      // For real errors (ES down, network issues, etc.), propagate the exception
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
+    } catch (Exception e) {
+      // Handle OpenSearchStatusException and similar
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
     }
   }
 
@@ -259,6 +454,41 @@ public class ESWriteDAO {
    */
   @Nonnull
   public CompletableFuture<String> deleteByQueryAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query,
+      @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(StringUtils.EMPTY);
+    }
+    return deleteByQueryAsync(
+        clientForIndex(opContext, indexName), opContext, indexName, query, overrideConfig);
+  }
+
+  @Nonnull
+  public CompletableFuture<String> deleteByQueryAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchComponent component,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query,
+      @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(StringUtils.EMPTY);
+    }
+    return deleteByQueryAsync(
+        SearchClients.forComponent(opContext, component),
+        opContext,
+        indexName,
+        query,
+        overrideConfig);
+  }
+
+  @Nonnull
+  private CompletableFuture<String> deleteByQueryAsync(
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
@@ -276,7 +506,8 @@ public class ESWriteDAO {
             DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
             // Submit the task asynchronously
-            String taskId = searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
+            String taskId =
+                client.submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
 
             log.info("Started async delete by query task: {} for index: {}", taskId, indexName);
 
@@ -294,10 +525,44 @@ public class ESWriteDAO {
    */
   @Nonnull
   public DeleteByQueryResult deleteByQuerySync(
+      @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return DeleteByQueryResult.builder().build();
+    }
+    return deleteByQuerySync(
+        clientForIndex(opContext, indexName), opContext, indexName, query, overrideConfig);
+  }
 
+  @Nonnull
+  public DeleteByQueryResult deleteByQuerySync(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchComponent component,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query,
+      @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return DeleteByQueryResult.builder().build();
+    }
+    return deleteByQuerySync(
+        SearchClients.forComponent(opContext, component),
+        opContext,
+        indexName,
+        query,
+        overrideConfig);
+  }
+
+  @Nonnull
+  private DeleteByQueryResult deleteByQuerySync(
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query,
+      @Nullable BulkDeleteConfiguration overrideConfig) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return DeleteByQueryResult.builder().build();
@@ -312,7 +577,7 @@ public class ESWriteDAO {
 
     try {
       // Get initial document count
-      long initialCount = countDocuments(indexName, query);
+      long initialCount = countDocuments(client, opContext, indexName, query);
       if (initialCount == 0) {
         return DeleteByQueryResult.builder()
             .timeTaken(System.currentTimeMillis() - startTime)
@@ -334,7 +599,7 @@ public class ESWriteDAO {
         DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
         String taskSubmission =
-            searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
+            client.submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
         TaskId taskId = parseTaskId(taskSubmission);
         lastTaskId = taskId;
 
@@ -342,7 +607,8 @@ public class ESWriteDAO {
 
         // Monitor the task with context for proper tracking
         DeleteByQueryResult iterationResult =
-            monitorDeleteByQueryTask(taskId, finalConfig.getTimeoutDuration(), indexName, query);
+            monitorDeleteByQueryTask(
+                client, opContext, taskId, finalConfig.getTimeoutDuration(), indexName, query);
 
         // Calculate deleted count based on document count change
         remainingDocs = iterationResult.getRemainingDocuments();
@@ -430,11 +696,23 @@ public class ESWriteDAO {
   @VisibleForTesting
   @Nonnull
   public DeleteByQueryResult monitorDeleteByQueryTask(
+      @Nonnull OperationContext opContext,
       @Nonnull TaskId taskId,
       @Nullable Duration timeout,
       @Nonnull String indexName,
       @Nonnull QueryBuilder query) {
+    return monitorDeleteByQueryTask(
+        clientForIndex(opContext, indexName), opContext, taskId, timeout, indexName, query);
+  }
 
+  @Nonnull
+  private DeleteByQueryResult monitorDeleteByQueryTask(
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull OperationContext opContext,
+      @Nonnull TaskId taskId,
+      @Nullable Duration timeout,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query) {
     Duration finalTimeout = timeout != null ? timeout : config.getBulkDelete().getTimeoutDuration();
     long startTime = System.currentTimeMillis();
 
@@ -444,11 +722,11 @@ public class ESWriteDAO {
       getTaskRequest.setTimeout(TimeValue.timeValueMillis(finalTimeout.toMillis()));
 
       Optional<GetTaskResponse> taskResponse =
-          searchClient.getTask(getTaskRequest, RequestOptions.DEFAULT);
+          client.getTask(getTaskRequest, RequestOptions.DEFAULT);
 
       if (taskResponse.isEmpty() || !taskResponse.get().isCompleted()) {
         // Count remaining documents to determine if any progress was made
-        long remainingDocs = countDocuments(indexName, query);
+        long remainingDocs = countDocuments(client, opContext, indexName, query);
 
         return DeleteByQueryResult.builder()
             .timeTaken(System.currentTimeMillis() - startTime)
@@ -461,7 +739,7 @@ public class ESWriteDAO {
       }
 
       // Task completed - count remaining documents to determine success
-      long remainingDocs = countDocuments(indexName, query);
+      long remainingDocs = countDocuments(client, opContext, indexName, query);
 
       // We can't get exact delete count from task API, but we can infer success
       // from whether documents remain
@@ -480,7 +758,7 @@ public class ESWriteDAO {
       // Try to get remaining count even on error
       long remainingDocs = -1;
       try {
-        remainingDocs = countDocuments(indexName, query);
+        remainingDocs = countDocuments(client, opContext, indexName, query);
       } catch (Exception countError) {
         log.error("Failed to count remaining documents", countError);
       }
@@ -501,12 +779,15 @@ public class ESWriteDAO {
     return opContext
         .getSearchContext()
         .getIndexConvention()
-        .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+        .getIndexName(opContext, opContext.getEntityRegistry().getEntitySpec(entityName));
   }
 
   private static String toIndexNameV3(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup) {
-    return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup);
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(opContext, searchGroup);
   }
 
   private DeleteByQueryRequest buildDeleteByQueryRequest(
@@ -539,12 +820,16 @@ public class ESWriteDAO {
     return request;
   }
 
-  private long countDocuments(@Nonnull String indexName, @Nonnull QueryBuilder query)
+  private long countDocuments(
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query)
       throws IOException {
 
     CountRequest countRequest = new CountRequest(indexName);
     countRequest.query(query);
-    CountResponse countResponse = searchClient.count(countRequest, RequestOptions.DEFAULT);
+    CountResponse countResponse = client.count(opContext, countRequest, RequestOptions.DEFAULT);
     return countResponse.getCount();
   }
 

@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import org.mockito.Answers;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.RequestOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,8 @@ import org.testng.annotations.Test;
 
 @TestPropertySource(locations = "classpath:/application.yaml")
 @SpringBootTest(classes = {ElasticSearchBulkProcessorFactory.class})
+// Bulk settings are read from bound configuration rather than individual @Value placeholders, so
+// that a cluster can overlay them.
 @EnableConfigurationProperties(ConfigurationProvider.class)
 public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringContextTests {
   @Autowired ESBulkProcessor test;
@@ -32,5 +35,12 @@ public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringC
   void testInjection() {
     assertNotNull(test);
     assertEquals(WriteRequest.RefreshPolicy.NONE, test.getWriteRequestRefreshPolicy());
+  }
+
+  @Test
+  void byQueryRequestOptionsUsesConfiguredSocketTimeoutMs() {
+    RequestOptions opts = ElasticSearchBulkProcessorFactory.buildByQueryRequestOptions(180);
+    assertNotNull(opts.getRequestConfig());
+    assertEquals(180_000, opts.getRequestConfig().getSocketTimeout());
   }
 }

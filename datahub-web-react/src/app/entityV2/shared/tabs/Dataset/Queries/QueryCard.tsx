@@ -1,51 +1,40 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import QueryCardDetails from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardDetails';
 import QueryCardHeader from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardHeader';
 import QueryCardQuery from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardQuery';
 
 const Card = styled.div<{ isCompact?: boolean }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     max-width: 450px;
 
     ${(props) => !props.isCompact && `height: 380px;`}
     ${(props) => props.isCompact && `max-width: 650px;`}
 `;
 
-export type Props = {
-    urn?: string;
+type Props = {
     query: string;
     title?: string;
     description?: string;
     createdAtMs?: number;
-    showDelete?: boolean;
-    showEdit?: boolean;
     showDetails?: boolean;
     showHeader?: boolean;
-    onDeleted?: () => void;
     onClickExpand?: () => void;
-    onClickEdit?: () => void;
     index?: number;
     isCompact?: boolean;
 };
 
 export default function QueryCard({
-    urn,
     query,
     title,
     description,
     createdAtMs,
-    showDelete,
-    showEdit,
     showDetails = true,
     showHeader = true,
-    onDeleted,
     onClickExpand,
-    onClickEdit,
     index,
     isCompact,
 }: Props) {
@@ -63,16 +52,10 @@ export default function QueryCard({
             />
             {showDetails && (
                 <QueryCardDetails
-                    urn={urn}
                     title={title}
                     description={description}
                     createdAtMs={createdAtMs}
-                    showEdit={showEdit}
-                    showDelete={showDelete}
-                    onDeleted={onDeleted}
-                    onClickEdit={onClickEdit}
                     onClickExpand={onClickExpand}
-                    index={index}
                 />
             )}
         </Card>

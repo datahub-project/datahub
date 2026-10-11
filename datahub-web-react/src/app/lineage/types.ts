@@ -1,6 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { FullLineageResultsFragment } from '@graphql/lineage.generated';
 import {
     Chart,
     Dashboard,
@@ -31,12 +30,6 @@ export type EntitySelectParams = {
     urn: string;
 };
 
-export type LineageExpandParams = {
-    type: EntityType;
-    urn: string;
-    direction: Direction;
-};
-
 export type FetchedEntity = {
     urn: string;
     name: string;
@@ -58,6 +51,7 @@ export type FetchedEntity = {
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: FineGrainedLineage[];
+    upstreamSchemaFieldUrns?: string[];
     siblings?: Maybe<SiblingProperties>;
     siblingsSearch?: Maybe<ScrollResults>;
     schemaMetadata?: SchemaMetadata;
@@ -129,11 +123,6 @@ export enum Direction {
     Downstream = 'Downstream',
 }
 
-export type LineageExplorerParams = {
-    type: string;
-    urn: string;
-};
-
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
@@ -184,17 +173,11 @@ export type EntityAndType =
           entity: MlPrimaryKey;
       };
 
-export interface LineageResult {
-    urn: string;
-    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-}
-
 export interface UpdatedLineages {
     [urn: string]: UpdatedLineage;
 }
 
-export interface UpdatedLineage {
+interface UpdatedLineage {
     lineageDirection: Direction;
     entitiesToAdd: Entity[];
     urnsToRemove: string[];

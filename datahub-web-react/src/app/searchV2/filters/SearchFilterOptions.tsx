@@ -11,25 +11,25 @@ import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import { convertToAvailableFilterPredictes, sortFacets } from '@app/searchV2/filters/utils';
-import { ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
-import { useAppConfig } from '@src/app/useAppConfig';
+import { ORIGIN_FILTER_NAME, PARENT_DOCUMENT_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import { useAppConfig, useIsContextDocumentsEnabled } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 
-export const FlexWrapper = styled.div`
+const FlexWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
 `;
 
-export const FlexSpacer = styled.div`
+const FlexSpacer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const FilterButtonsWrapper = styled.div`
+const FilterButtonsWrapper = styled.div`
     display: flex;
     flex-wrap: nowrap;
 `;
@@ -53,6 +53,7 @@ export default function SearchFilterOptions({
     const userContext = useUserContext();
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
     const fieldsWithCustomRenderers = Array.from(filterRendererRegistry.fieldNameToRenderer.keys());
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
@@ -60,7 +61,9 @@ export default function SearchFilterOptions({
     let filterSet = availableFilters;
     if (filterSet.length) {
         // Include non-facet filters and remove any duplicates in filterSet
-        const nonFacetFilters = NON_FACET_FILTER_FIELDS.map(
+        const nonFacetFilters = NON_FACET_FILTER_FIELDS.filter(
+            (filterField) => filterField.field !== PARENT_DOCUMENT_FILTER_NAME || isContextDocumentsEnabled,
+        ).map(
             ({ field, displayName }): FacetMetadata => ({
                 field,
                 displayName,
@@ -76,6 +79,7 @@ export default function SearchFilterOptions({
     const dynamicFilterOptions = filterSet
         ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true)) // only want Environment filter if there's 2 or more envs
         .filter((f) => !FILTERS_TO_REMOVE.includes(f.field))
+        .filter((f) => f.field !== PARENT_DOCUMENT_FILTER_NAME || isContextDocumentsEnabled)
         .filter((f) => {
             if (fieldsWithCustomRenderers.includes(f.field)) {
                 // If there are no true aggregations, these fields needn't be rendered

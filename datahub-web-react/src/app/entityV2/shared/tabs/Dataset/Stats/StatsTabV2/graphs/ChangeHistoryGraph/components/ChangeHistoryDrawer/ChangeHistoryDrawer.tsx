@@ -1,5 +1,6 @@
 import { Drawer, SelectOption } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import ChangeHistoryTimeline from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/ChangeHistoryTimeline';
@@ -56,6 +57,7 @@ export const ChangeHistoryDrawer = ({
     onClose,
     allOperationTypesOptions,
 }: ChangeHistoryDrawerProps) => {
+    const { t } = useTranslation('entity.profile.stats');
     const [selectedOperationTypes, setSelectedOperationTypes] = useState<AnyOperationType[]>([]);
     const operationTypesOptions = useMemo(() => {
         const operationKeys = Object.entries(operationsData?.operations || {})
@@ -91,7 +93,7 @@ export const ChangeHistoryDrawer = ({
 
     return (
         <Drawer
-            title="Change History Details"
+            title={t('changeHistoryDrawer.title')}
             open={open}
             onClose={onClose}
             width={542}

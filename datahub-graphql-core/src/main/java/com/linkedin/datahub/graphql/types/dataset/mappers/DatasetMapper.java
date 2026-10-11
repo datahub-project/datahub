@@ -51,18 +51,21 @@ import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
+import com.linkedin.datahub.graphql.types.semanticmodel.mappers.SemanticModelPropertiesMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.SemanticModelProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -119,7 +122,14 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setSchema(SchemaMapper.map(context, new SchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
-    mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
+    mappingHelper.mapToResult(
+        VIEW_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) -> mapViewProperties(context, entity, dataMap, entityUrn));
+    mappingHelper.mapToResult(
+        SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME,
+        (dataset, dataMap) ->
+            dataset.setSemanticModelProperties(
+                SemanticModelPropertiesMapper.map(new SemanticModelProperties(dataMap))));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
@@ -286,14 +296,30 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     dataset.setEditableProperties(editableProperties);
   }
 
-  private void mapViewProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+  /**
+   * {@code logic}/{@code formattedLogic} carry the view's SQL text, so they are withheld — same as
+   * a Query entity's SQL — unless {@link EntityAspectAuthorizationUtils#canViewQueriesOnEntity}
+   * grants it; a {@code null} context (no request to authorize against) is treated as unrestricted,
+   * matching this mapper's other context-optional aspects.
+   */
+  private void mapViewProperties(
+      @Nullable QueryContext context,
+      @Nonnull Dataset dataset,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     final ViewProperties properties = new ViewProperties(dataMap);
     final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties =
         new com.linkedin.datahub.graphql.generated.ViewProperties();
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
-    graphqlProperties.setLogic(properties.getViewLogic());
-    graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    if (context == null
+        || EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+            context.getOperationContext(), entityUrn)) {
+      graphqlProperties.setLogic(properties.getViewLogic());
+      if (properties.hasFormattedViewLogic()) {
+        graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+      }
+    }
     dataset.setViewProperties(graphqlProperties);
   }
 

@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.testng.annotations.BeforeTest;
@@ -56,6 +58,7 @@ public class CreateIfNotExistsValidatorTest {
 
     Set<AspectValidationException> exceptions =
         test.validatePreCommit(
+                OperationFingerprint.EMPTY,
                 List.of(
                     // Request aspect
                     TestMCP.builder()
@@ -102,7 +105,8 @@ public class CreateIfNotExistsValidatorTest {
 
     // missing key aspect
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,
@@ -113,12 +117,48 @@ public class CreateIfNotExistsValidatorTest {
   }
 
   @Test
+  public void testCreateIfEntityNotExistsFilteredWhenPrecondition() {
+    // Reproduces the "id already exists" case an optional caller-provided id relies on
+    // (raiseIncident, CreateTagResolver-style resolvers): a CREATE_ENTITY proposal with
+    // If-None-Match: * should be dropped, not rejected as a hard validation failure, when the
+    // entity already exists.
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
+    Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
+
+    ChangeMCP testItem =
+        TestMCP.builder()
+            .changeType(ChangeType.CREATE_ENTITY)
+            .urn(testEntityUrn)
+            .entitySpec(entityRegistry.getEntitySpec(testEntityUrn.getEntityType()))
+            .aspectSpec(
+                entityRegistry.getEntitySpec(testEntityUrn.getEntityType()).getAspectSpec("status"))
+            .recordTemplate(new Status().setRemoved(false))
+            .headers(
+                Map.of(
+                    CreateIfNotExistsValidator.FILTER_EXCEPTION_HEADER,
+                    CreateIfNotExistsValidator.FILTER_EXCEPTION_VALUE))
+            .build();
+
+    // missing key aspect: the entity already exists
+    Set<AspectValidationException> exceptions =
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
+
+    assertEquals(
+        exceptions,
+        Set.of(
+            AspectValidationException.forFilter(
+                testItem, "Dropping write per precondition header If-None-Match: *")));
+  }
+
+  @Test
   public void testCreateIfNotExistsSuccess() {
     CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     Set<AspectValidationException> exceptions =
         test.validatePreCommit(
+                OperationFingerprint.EMPTY,
                 List.of(
                     TestMCP.builder()
                         .changeType(ChangeType.CREATE)
@@ -156,7 +196,8 @@ public class CreateIfNotExistsValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,

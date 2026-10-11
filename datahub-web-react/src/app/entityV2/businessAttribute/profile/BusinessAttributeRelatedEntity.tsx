@@ -1,10 +1,12 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 import { UnionType } from '@app/search/utils/constants';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 export default function BusinessAttributeRelatedEntity() {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
 
     const entityUrn = entityData?.urn;
@@ -36,7 +38,7 @@ export default function BusinessAttributeRelatedEntity() {
                 filters: fixedOrFilters,
             }}
             emptySearchQuery="*"
-            placeholderText="Filter entities..."
+            placeholderText={t('shared.filterEntitiesPlaceholder')}
             skipCache
             applyView
         />

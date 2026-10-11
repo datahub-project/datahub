@@ -1,0 +1,42 @@
+# see https://docs.datahub.com/docs/generated/ingestion/sources/bigid/ for complete documentation
+source:
+  type: bigid
+  config:
+    bigid_url: "https://bigid.example.com"
+    # Provide a long-lived user token (exchanged for a short-lived access token at startup).
+    user_token: "${BIGID_USER_TOKEN}"
+
+    env: PROD
+
+    # Enrichment mode by default: emit GlossaryTerms, Tags, and DatasetProfiles onto
+    # existing datasets. Set create_datasets: true to also emit Dataset + SchemaMetadata
+    # for objects not yet present in DataHub.
+    # create_datasets: false
+
+    # Scope ingestion to a subset of BigID connections (data sources). Useful for large
+    # deployments that expose hundreds of connections.
+    connection_pattern:
+      allow:
+        - ".*"
+      # deny:
+      #   - "sandbox-.*"
+
+    # Only sync classification findings at or above this confidence (0.0–1.0).
+    # BigID ranks map to HIGH = 0.75, MEDIUM = 0.50, LOW = 0.25.
+    # minimum_confidence_threshold: 0.5
+
+    # Optional: map BigID connection name -> DataHub platform when auto-detection
+    # from the ds-connections API is insufficient.
+    # datasource_platform_mapping:
+    #   "my-snowflake-conn":
+    #     platform: snowflake
+    #     platform_instance: snowflake_prod
+    #     env: PROD
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

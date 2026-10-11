@@ -1,5 +1,6 @@
 import { Drawer } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { IncidentDrawerHeader } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDrawerHeader';
 import { IncidentEditor } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentEditor';
@@ -29,6 +30,7 @@ export const IncidentDetailDrawer = ({
     incident,
     privileges,
 }: IncidentDetailDrawerProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -67,11 +69,10 @@ export const IncidentDetailDrawer = ({
                 />
                 {showEditor ? (
                     <IncidentEditor
-                        onClose={onCancel}
+                        entity={entity}
                         data={incident}
                         mode={mode}
                         incidentUrn={incident?.urn}
-                        entity={entity}
                         onSubmit={handleSubmit}
                     />
                 ) : (
@@ -82,8 +83,8 @@ export const IncidentDetailDrawer = ({
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModal(false)}
                 handleConfirm={() => onCancel?.()}
-                modalTitle="Exit View Editor"
-                modalText="Are you sure you want to exit View editor? All changes will be lost"
+                modalTitle={t('drawer.exitTitle')}
+                modalText={t('drawer.exitConfirmation')}
             />
         </ClickOutside>
     );

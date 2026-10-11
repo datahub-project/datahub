@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+import { Deprecation, Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
 
 interface Props {
     urn: string;
@@ -22,6 +23,7 @@ interface Props {
     externalUrl?: string | null;
     degree?: number;
     paths?: EntityPath[];
+    deprecation?: Deprecation | null;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType: PreviewType;
     actions?: EntityMenuActions;
@@ -40,11 +42,34 @@ export const Preview = ({
     externalUrl,
     degree,
     paths,
+    deprecation,
     headerDropdownItems,
     previewType,
     actions,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+
+    // Local copy so deprecate/un-deprecate via the badge popup or the three-dot
+    // menu updates the badge immediately, without requiring a full search refetch
+    // (no DataProductsContext equivalent exists like DomainsContext does for domains).
+    const [localDeprecation, setLocalDeprecation] = useState<Deprecation | null>(deprecation ?? null);
+    useEffect(() => {
+        setLocalDeprecation(deprecation ?? null);
+    }, [deprecation]);
+
+    const handleDeprecationChange = (formData?: DeprecationFormData) => {
+        if (!formData) {
+            setLocalDeprecation(null);
+            return;
+        }
+        setLocalDeprecation({
+            deprecated: true,
+            note: formData.note ?? null,
+            actor: null,
+            decommissionTime: formData.decommissionTime ?? null,
+            replacement: formData.replacement ?? null,
+        });
+    };
 
     return (
         <DefaultPreviewCard
@@ -54,7 +79,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             entityType={EntityType.DataProduct}
-            typeIcon={entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT)}
+            typeIcon={entityRegistry.getIcon(EntityType.DataProduct, 14, IconStyleType.ACCENT)}
             qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
@@ -65,6 +90,8 @@ export const Preview = ({
             externalUrl={externalUrl}
             degree={degree}
             paths={paths}
+            deprecation={localDeprecation}
+            refetchDeprecation={handleDeprecationChange}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             actions={actions}

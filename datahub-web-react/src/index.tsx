@@ -2,7 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 import { App } from '@src/App';
+import '@src/i18n/i18n';
 import reportWebVitals from '@src/reportWebVitals';
+import '@utils/dayjs';
 
 ReactDOM.render(
     <React.StrictMode>

@@ -1,6 +1,9 @@
-import { Collapse, Form, message } from 'antd';
-import React, { useCallback, useState } from 'react';
-import styled from 'styled-components';
+import { toast } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { Label } from '@components/components/TextArea/components';
 
@@ -9,6 +12,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
+import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -16,24 +20,45 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { Input, Modal, TextArea } from '@src/alchemy-components';
+import { ColorPicker, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { DataHubPageModuleType, EntityType } from '@types';
+import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
+import { DataHubPageModuleType, EntityType, IconLibrary } from '@types';
 
-const FormItem = styled(Form.Item)`
-    .ant-form-item-label {
-        padding-bottom: 2px;
-    }
-`;
-
-const FormItemWithMargin = styled(FormItem)`
+const Field = styled.div`
     margin-bottom: 16px;
 `;
 
-const FormItemNoMargin = styled(FormItem)`
-    margin-bottom: 0px;
+const AdvancedHeader = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 0;
+    background: transparent;
+    border: 0;
+    color: ${(p) => p.theme.colors.text};
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+        color: ${(p) => p.theme.colors.textSecondary};
+    }
 `;
+
+const AdvancedLabel = styled(Label)`
+    margin-bottom: 0;
+`;
+
+const AdvancedBody = styled.div`
+    padding-top: 4px;
+`;
+
+const MODAL_BODY_STYLE: React.CSSProperties = {
+    maxHeight: 'calc(90vh - 140px)',
+    overflowY: 'auto',
+};
 
 type Props = {
     onClose: () => void;
@@ -46,42 +71,101 @@ type Props = {
     ) => void;
 };
 
-const ID_FIELD_NAME = 'id';
-const NAME_FIELD_NAME = 'name';
-const DESCRIPTION_FIELD_NAME = 'description';
-
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation('governance.domain');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
+    const [updateDisplayPropertiesMutation] = useUpdateDisplayPropertiesMutation();
     const { entityData, setNewDomain } = useDomainsContextV2();
+    const theme = useTheme();
     const [selectedParentUrn, setSelectedParentUrn] = useState<string>(
         (isNestedDomainsEnabled && entityData?.urn) || '',
     );
-    const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
-    const [form] = Form.useForm();
+    const [name, setName] = useState('');
+    const [nameTouched, setNameTouched] = useState(false);
+    const [description, setDescription] = useState('');
+    const [descriptionTouched, setDescriptionTouched] = useState(false);
+    const [customId, setCustomId] = useState('');
+    const [idTouched, setIdTouched] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [selectedColor, setSelectedColor] = useState<string>(theme.colors.colorPickerDefault);
+    // Whether the user has explicitly picked a color. If false, we let the backend fall back to
+    // the deterministic palette color generated from the URN instead of persisting the default
+    // gray placeholder and overriding it.
+    const [colorWasPicked, setColorWasPicked] = useState(false);
+    const [selectedIcon, setSelectedIcon] = useState<string>('');
+    const [iconWasPicked, setIconWasPicked] = useState(false);
+    const { loaded: userLoaded, user } = useUserContext();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const { user } = useUserContext();
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
 
-    // Simply provide current user as placeholder - OwnersSection will handle auto-selection
-    const defaultOwners = user ? [user] : [];
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
-    // Stable callback for setting owner URNs
-    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: React.SetStateAction<string[]>) => {
+    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: string[]) => {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
     const { reloadByKeyType } = useReloadableContext();
 
+    const nameError = useMemo(() => {
+        const trimmed = name.trim();
+        if (!trimmed) return t('create.nameRequired');
+        if (trimmed.length > 150) {
+            return t('create.nameTooLong', {
+                defaultValue: 'Domain name must be 150 characters or fewer.',
+            });
+        }
+        return undefined;
+    }, [name, t]);
+
+    // Optional field: empty is fine; reject whitespace-only or overlong values.
+    const descriptionError = useMemo(() => {
+        if (!description) return undefined;
+        if (!description.trim()) {
+            return t('create.descriptionInvalid', {
+                defaultValue: 'Description cannot be only whitespace.',
+            });
+        }
+        if (description.trim().length > 500) {
+            return t('create.descriptionTooLong', {
+                defaultValue: 'Description must be 500 characters or fewer.',
+            });
+        }
+        return undefined;
+    }, [description, t]);
+
+    const idError = useMemo(() => {
+        if (!customId) return undefined;
+        if (!validateCustomUrnId(customId)) return t('create.idInvalid');
+        return undefined;
+    }, [customId, t]);
+
+    const createButtonEnabled = !nameError && !descriptionError && !idError;
+
     const onCreateDomain = () => {
-        // Create owner input objects from selected owner URNs using utility
+        setNameTouched(true);
+        setDescriptionTouched(true);
+        setIdTouched(true);
+        if (!createButtonEnabled) return;
+
         const ownerInputs = createOwnerInputs(selectedOwnerUrns);
+        const trimmedName = name.trim();
+        const trimmedDescription = description.trim() || undefined;
+        const id = customId || undefined;
 
         createDomainMutation({
             variables: {
                 input: {
-                    id: form.getFieldValue(ID_FIELD_NAME),
-                    name: form.getFieldValue(NAME_FIELD_NAME),
-                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                    id,
+                    name: trimmedName,
+                    description: trimmedDescription,
                     parentDomain: selectedParentUrn || undefined,
                     owners: ownerInputs,
                 },
@@ -93,30 +177,58 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         type: EventType.CreateDomainEvent,
                         parentDomainUrn: selectedParentUrn || undefined,
                     });
-                    message.success({
-                        content: `Created domain!`,
-                        duration: 3,
-                    });
-                    onCreate?.(
-                        data?.createDomain || '',
-                        form.getFieldValue(ID_FIELD_NAME),
-                        form.getFieldValue(NAME_FIELD_NAME),
-                        form.getFieldValue(DESCRIPTION_FIELD_NAME),
-                        selectedParentUrn || undefined,
-                    );
+                    toast.success(t('create.success'), { duration: 3 });
+                    const newDomainUrn = data?.createDomain || '';
+                    // Only persist display props the user actually set. Otherwise we'd save the
+                    // gray placeholder color and override the deterministic palette from the URN.
+                    // Best-effort follow-up so a display-properties failure doesn't block creation.
+                    if (newDomainUrn && (colorWasPicked || iconWasPicked)) {
+                        updateDisplayPropertiesMutation({
+                            variables: {
+                                urn: newDomainUrn,
+                                input: {
+                                    ...(colorWasPicked ? { colorHex: selectedColor } : {}),
+                                    ...(iconWasPicked
+                                        ? {
+                                              icon: {
+                                                  iconLibrary: IconLibrary.Phosphor,
+                                                  name: selectedIcon,
+                                                  style: 'regular',
+                                              },
+                                          }
+                                        : {}),
+                                },
+                            },
+                        }).catch((e) => {
+                            console.error('Failed to set domain display properties after creation', e);
+                        });
+                    }
+                    onCreate?.(newDomainUrn, id, trimmedName, trimmedDescription, selectedParentUrn || undefined);
                     const newDomain: UpdatedDomain = {
-                        urn: data?.createDomain || '',
+                        urn: newDomainUrn,
                         type: EntityType.Domain,
-                        id: form.getFieldValue(ID_FIELD_NAME),
+                        id: id ?? newDomainUrn,
                         properties: {
-                            name: form.getFieldValue(NAME_FIELD_NAME),
-                            description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                            name: trimmedName,
+                            description: trimmedDescription,
                         },
+                        // Optimistic sidebar/list icon+color before the follow-up mutation / refetch.
+                        displayProperties:
+                            colorWasPicked || iconWasPicked
+                                ? {
+                                      colorHex: colorWasPicked ? selectedColor : null,
+                                      icon: iconWasPicked
+                                          ? {
+                                                name: selectedIcon,
+                                                style: 'regular',
+                                                iconLibrary: IconLibrary.Phosphor,
+                                            }
+                                          : null,
+                                  }
+                                : null,
                         parentDomain: selectedParentUrn || undefined,
                     };
                     setNewDomain(newDomain);
-                    form.resetFields();
-                    // Reload modules
                     // ChildHierarchy - to reload shown child domains on asset summary tab
                     reloadByKeyType(
                         [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy)],
@@ -125,112 +237,126 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
+                toast.error(t('create.error', { errorMessage: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 onClose();
             });
     };
 
-    // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#createDomainButton',
     });
 
     return (
         <Modal
-            title="Create New Domain"
+            title={t('create.title')}
             open
             onCancel={onClose}
+            bodyStyle={MODAL_BODY_STYLE}
+            width={640}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Save',
+                    text: tc('save'),
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
-                    disabled: !createButtonEnabled,
+                    disabled: !createButtonEnabled || !hasInitializedDefaultOwner,
                 },
             ]}
         >
-            <Form
-                form={form}
-                initialValues={{}}
-                layout="vertical"
-                onFieldsChange={() => {
-                    setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
-                }}
-            >
-                <FormItemWithMargin
-                    name={NAME_FIELD_NAME}
-                    rules={[
-                        {
-                            required: true,
-                            message: 'Enter a Domain name.',
-                        },
-                        { whitespace: true },
-                        { min: 1, max: 150 },
-                    ]}
-                    hasFeedback
-                >
-                    <Input label="Name" data-testid="create-domain-name" placeholder="A name for your domain" />
-                </FormItemWithMargin>
-                <FormItemWithMargin
-                    name={DESCRIPTION_FIELD_NAME}
-                    rules={[{ whitespace: true }, { min: 1, max: 500 }]}
-                    hasFeedback
-                >
-                    <TextArea
-                        label="Description"
-                        placeholder="A description for your domain"
-                        data-testid="create-domain-description"
+            <Field>
+                <Input
+                    label={tl('name')}
+                    data-testid="create-domain-name"
+                    placeholder={t('create.namePlaceholder')}
+                    value={name}
+                    setValue={(v) => {
+                        setName(v);
+                        setNameTouched(true);
+                    }}
+                    isRequired
+                    error={nameTouched ? nameError : undefined}
+                />
+            </Field>
+            <Field>
+                <TextArea
+                    label={tl('description')}
+                    placeholder={t('create.descriptionPlaceholder')}
+                    data-testid="create-domain-description"
+                    value={description}
+                    onChange={(e) => {
+                        setDescription(e.target.value);
+                        setDescriptionTouched(true);
+                    }}
+                    error={descriptionTouched ? descriptionError : undefined}
+                />
+            </Field>
+            <Field>
+                <Label>{tl('color')}</Label>
+                <ColorPicker
+                    initialColor={selectedColor}
+                    onChange={(c) => {
+                        setSelectedColor(c);
+                        setColorWasPicked(true);
+                    }}
+                />
+            </Field>
+            <Field>
+                <Label>{tl('icon')}</Label>
+                <ChatIconPicker
+                    color={selectedColor}
+                    selectedIcon={selectedIcon || null}
+                    onIconPick={(iconName) => {
+                        setSelectedIcon(iconName);
+                        setIconWasPicked(true);
+                    }}
+                />
+            </Field>
+            {isNestedDomainsEnabled && (
+                <Field>
+                    <Label>{t('create.parentLabel')}</Label>
+                    <DomainSelector
+                        selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
+                        onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
+                        placeholder={t('create.parentPlaceholder')}
+                        label=""
+                        isMultiSelect={false}
                     />
-                </FormItemWithMargin>
-                {isNestedDomainsEnabled && (
-                    <FormItemWithMargin>
-                        <Label>Parent Domains</Label>
-                        <DomainSelector
-                            selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
-                            onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
-                            placeholder="Select parent domain"
-                            label=""
-                            isMultiSelect={false}
-                        />
-                    </FormItemWithMargin>
-                )}
-                {/* Owners Section */}
-                <FormItemNoMargin>
-                    <OwnersSection
-                        selectedOwnerUrns={selectedOwnerUrns}
-                        setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        defaultOwners={defaultOwners}
+                </Field>
+            )}
+            <Field>
+                <OwnersSection
+                    selectedOwnerUrns={selectedOwnerUrns}
+                    setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
+                    isDisabled={!hasInitializedDefaultOwner}
+                    isLoading={!hasInitializedDefaultOwner}
+                />
+            </Field>
+            <AdvancedHeader type="button" onClick={() => setShowAdvanced((prev) => !prev)}>
+                <AdvancedLabel>{t('create.advancedOptions')}</AdvancedLabel>
+                {showAdvanced ? <CaretDown size={14} /> : <CaretRight size={14} />}
+            </AdvancedHeader>
+            {showAdvanced && (
+                <AdvancedBody>
+                    <Input
+                        label={t('create.idLabel')}
+                        data-testid="create-domain-id"
+                        placeholder={t('create.idPlaceholder')}
+                        value={customId}
+                        setValue={(v) => {
+                            setCustomId(v);
+                            setIdTouched(true);
+                        }}
+                        error={idTouched ? idError : undefined}
                     />
-                </FormItemNoMargin>
-                <Collapse ghost>
-                    <Collapse.Panel header={<Label>Advanced Options</Label>} key="1">
-                        <FormItemWithMargin
-                            name={ID_FIELD_NAME}
-                            rules={[
-                                () => ({
-                                    validator(_, value) {
-                                        if (value && validateCustomUrnId(value)) {
-                                            return Promise.resolve();
-                                        }
-                                        return Promise.reject(new Error('Please enter a valid Domain id'));
-                                    },
-                                }),
-                            ]}
-                        >
-                            <Input label="Custom Id" data-testid="create-domain-id" placeholder="engineering" />
-                        </FormItemWithMargin>
-                    </Collapse.Panel>
-                </Collapse>
-            </Form>
+                </AdvancedBody>
+            )}
         </Modal>
     );
 }

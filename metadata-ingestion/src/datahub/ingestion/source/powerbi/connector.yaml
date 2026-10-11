@@ -1,0 +1,3 @@
+# Exception: powerbi_report_server source is also covered by powerbi tests.
+extra_source_paths:
+  - src/datahub/ingestion/source/powerbi_report_server/

@@ -1,0 +1,182 @@
+"""Helper functions and utilities for Dataplex source."""
+
+import json
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+from google.cloud import dataplex_v1
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class EntryDataTuple:
+    """Immutable Dataplex/DataHub identity tuple for lineage tracking.
+
+    Used in sets for lineage extraction, so must be hashable (frozen=True).
+    """
+
+    dataplex_entry_short_name: str
+    dataplex_entry_name: str
+    dataplex_location: str
+    dataplex_entry_type_short_name: str
+    dataplex_entry_fqn: str
+    datahub_platform: str
+    datahub_dataset_name: str
+    datahub_dataset_urn: str
+
+
+@dataclass(frozen=True)
+class ExportedEntry:
+    """One entry parsed from metadata-export output, with its entries location."""
+
+    entry: dataplex_v1.Entry
+    location: str
+
+
+@dataclass(frozen=True)
+class GcsPath:
+    """A parsed ``gs://bucket[/prefix]`` URI."""
+
+    bucket: str
+    prefix: Optional[str]
+
+    @property
+    def list_prefix(self) -> Optional[str]:
+        """Prefix argument for ``list_blobs`` (trailing slash, or None for bucket root)."""
+        return f"{self.prefix}/" if self.prefix else None
+
+    @property
+    def uri(self) -> str:
+        """Normalized ``gs://bucket/prefix/`` form."""
+        if self.prefix:
+            return f"gs://{self.bucket}/{self.prefix}/"
+        return f"gs://{self.bucket}/"
+
+
+GCS_URI_SCHEME = "gs://"
+
+
+def parse_gcs_path(path: str) -> GcsPath:
+    """Parse a ``gs://bucket[/prefix]`` URI, raising ValueError when malformed."""
+    if not path.startswith(GCS_URI_SCHEME):
+        raise ValueError(f"GCS path must start with '{GCS_URI_SCHEME}': '{path}'")
+    remainder = path[len(GCS_URI_SCHEME) :].strip("/")
+    if not remainder:
+        raise ValueError(f"GCS path has no bucket name: '{path}'")
+    bucket, _, prefix = remainder.partition("/")
+    return GcsPath(bucket=bucket, prefix=prefix.strip("/") or None)
+
+
+def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
+    """Create audit stamp from GCP timestamp."""
+    if timestamp:
+        return {
+            "time": int(timestamp.timestamp() * 1000),
+            "actor": "urn:li:corpuser:dataplex",
+        }
+    return None
+
+
+def serialize_field_value(field_value: Any) -> str:
+    """Serialize a protobuf field value to string.
+
+    Handles proto MapComposite objects, RepeatedComposite (proto lists), and primitives.
+
+    Args:
+        field_value: Value from protobuf message field
+
+    Returns:
+        JSON string representation for complex types, string for primitives
+    """
+    # Handle None
+    if field_value is None:
+        return ""
+
+    # Get the class name for type checking
+    class_name = str(field_value.__class__) if hasattr(field_value, "__class__") else ""
+
+    # Handle proto RepeatedComposite (list-like) objects FIRST
+    # This is what contains the list of MapComposite objects
+    if "RepeatedComposite" in class_name or "Repeated" in class_name:
+        try:
+            # RepeatedComposite is iterable, convert items to list
+            serializable_list = []
+            for item in field_value:
+                item_class = str(item.__class__) if hasattr(item, "__class__") else ""
+                if "MapComposite" in item_class:
+                    # Convert MapComposite to regular dict with primitive values
+                    item_dict = {}
+                    for key, value in dict(item).items():
+                        # Recursively handle nested proto objects
+                        if hasattr(value, "__class__") and (
+                            "MapComposite" in str(value.__class__)
+                            or "RepeatedComposite" in str(value.__class__)
+                        ):
+                            # Recursively serialize nested proto objects
+                            item_dict[key] = json.loads(serialize_field_value(value))
+                        else:
+                            # Primitives - keep as is
+                            item_dict[key] = str(value)
+                    serializable_list.append(item_dict)
+                else:
+                    # Handle primitives in the list
+                    serializable_list.append(item)
+            return json.dumps(serializable_list)
+        except Exception as e:
+            logger.warning(
+                f"Failed to serialize RepeatedComposite: {e}. Returning length."
+            )
+            try:
+                return f"[{len(list(field_value))} items]"
+            except Exception as e:
+                logger.warning(f"Failed to get length of RepeatedComposite: {e}")
+                return "[unknown items]"
+
+    # Handle proto MapComposite (dict-like) objects
+    if "MapComposite" in class_name:
+        try:
+            dict_value = dict(field_value)
+            return json.dumps(dict_value)
+        except Exception as e:
+            logger.warning(
+                f"Failed to serialize MapComposite to JSON: {e}. Returning type name."
+            )
+            return str(type(field_value).__name__)
+
+    # Handle regular Python lists/tuples
+    if isinstance(field_value, (list, tuple)):
+        # Check if it's a list of proto objects
+        if field_value and hasattr(field_value[0], "__class__"):
+            first_class = str(field_value[0].__class__)
+            if "proto" in first_class.lower() or "MapComposite" in first_class:
+                # Try to serialize as JSON
+                try:
+                    # Convert proto objects to dicts if possible
+                    serializable_list2: list[Any] = []
+                    for item in field_value:
+                        if hasattr(item, "__class__") and "MapComposite" in str(
+                            item.__class__
+                        ):
+                            serializable_list2.append(dict(item))
+                        else:
+                            serializable_list2.append(str(item))
+                    return json.dumps(serializable_list2)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to serialize list of proto objects: {e}. Returning length."
+                    )
+                    return f"[{len(field_value)} items]"
+        # Regular list of primitives
+        return json.dumps(field_value)
+
+    # Handle primitives (str, int, float, bool)
+    if isinstance(field_value, (str, int, float, bool)):
+        return str(field_value)
+
+    # Fallback: try JSON serialization, then string conversion
+    try:
+        return json.dumps(field_value)
+    except (TypeError, ValueError):
+        return str(field_value)

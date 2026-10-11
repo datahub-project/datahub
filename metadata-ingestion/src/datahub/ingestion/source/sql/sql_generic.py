@@ -16,6 +16,14 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
+try:
+    # SQLAlchemy loads pyhive's dialects via entry points at create_engine() time, so
+    # hive:// / presto:// / databricks+pyhive:// URIs need the SA 2.0 patches applied
+    # first. pyhive is optional here; without it those URIs can't work anyway.
+    import datahub.ingestion.source.sql._pyhive_compat  # noqa: F401
+except ImportError:
+    pass
+
 
 @dataclass
 class BaseColumn:
@@ -55,7 +63,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         description="Name of platform being ingested, used in constructing URNs."
     )
     connect_uri: str = Field(
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls"
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls"
     )
 
     def get_sql_alchemy_url(self):
@@ -64,20 +72,18 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
-    The `sqlalchemy` source is useful if we don't have a pre-built source for your chosen
-    database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)
-    defined elsewhere. In order to use this, you must `pip install` the required dialect packages yourself.
+    Generic source for databases with SQLAlchemy dialect support but no dedicated connector.
 
-    This plugin extracts the following:
-
-    - Metadata for databases, schemas, views, and tables
-    - Column types associated with each table
-    - Table, row, and column statistics via optional SQL profiling.
+    Implementation notes:
+    - Uses SQLAlchemy reflection to discover schema metadata
+    - Requires user to install appropriate dialect package separately
+    - Platform name is configurable via config.platform parameter
+    - Inherits all SQLAlchemySource capabilities (profiling, filtering, domains)
     """
 
     def __init__(self, config: SQLAlchemyGenericConfig, ctx: PipelineContext):

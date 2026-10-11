@@ -1,16 +1,10 @@
-import { Text } from '@components';
+import { EmptyState as AlchemyEmptyState } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
-import EmptyFormsImage from '@src/images/empty-forms.svg?react';
-
-export const TextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-`;
 
 export enum EmptyReasons {
     FILTERS_APPLIED = 'filtersApplied',
@@ -22,28 +16,19 @@ interface Props {
 }
 
 export default function EmptyState({ reason }: Props) {
+    const { t } = useTranslation('ingestion');
     const renderContent = () => {
         switch (reason) {
             case EmptyReasons.FILTERS_APPLIED:
                 return (
-                    <TextContainer>
-                        <Text size="lg" color="gray" weight="bold">
-                            No results!
-                        </Text>
-                        <Text size="sm" color="gray" weight="normal">
-                            Try clearing filters...
-                        </Text>
-                    </TextContainer>
+                    <AlchemyEmptyState
+                        icon={MagnifyingGlass}
+                        title={t('executions.emptyFilteredTitle')}
+                        description={t('executions.emptyFilteredSubtitle')}
+                    />
                 );
             case EmptyReasons.NO_ITEMS:
-                return (
-                    <>
-                        <EmptyFormsImage />
-                        <Text size="md" color="gray" weight="bold">
-                            No executions yet!
-                        </Text>
-                    </>
-                );
+                return <AlchemyEmptyState icon={ClockCounterClockwise} title={t('executions.emptyTitle')} />;
             default:
                 return null;
         }

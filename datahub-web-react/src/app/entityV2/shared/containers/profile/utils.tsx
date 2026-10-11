@@ -1,22 +1,21 @@
-import { BookOpen } from '@phosphor-icons/react';
-import { isEqual } from 'lodash';
-import queryString from 'query-string';
-import React, { useEffect } from 'react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import isEqual from 'lodash/isEqual';
+import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
+import { ENTITY_TAB_NAME_REGEX_PATTERN } from '@app/entityV2/shared/containers/profile/entityData';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { useExtraSidebarTabs } from '@app/entityV2/shared/containers/profile/useExtraSidebarTabs';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -39,108 +38,20 @@ import {
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { EntityType, FeatureFlagsConfig } from '@types';
-
-/**
- * The structure of our path will be
- *
- * /<entity-name>/<entity-urn>/<tab-name>
- */
-const ENTITY_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/([^/]+).*';
+import { EntityType } from '@types';
 
 export type SidebarStatsColumn = {
     title: React.ReactNode;
     content: React.ReactNode;
 };
 
-export function getDataForEntityType<T>({
-    data: entityData,
-    getOverrideProperties,
-    isHideSiblingMode,
-    flags,
-}: {
-    data: T;
-    entityType?: EntityType;
-    getOverrideProperties?: (T, flags?: FeatureFlagsConfig) => GenericEntityProperties;
-    isHideSiblingMode?: boolean;
-    flags?: FeatureFlagsConfig;
-}): GenericEntityProperties | null {
-    if (!entityData) {
-        return null;
-    }
-    const anyEntityData = entityData as any;
-    let modifiedEntityData = entityData;
-    // Bring 'customProperties' field to the root level.
-    const customProperties = anyEntityData.properties?.customProperties || anyEntityData.info?.customProperties;
-    if (customProperties) {
-        modifiedEntityData = {
-            ...entityData,
-            customProperties,
-        };
-    }
-    if (anyEntityData.tags) {
-        modifiedEntityData = {
-            ...modifiedEntityData,
-            globalTags: anyEntityData.tags,
-        };
-    }
-
-    if (
-        anyEntityData?.siblingsSearch?.searchResults?.filter((sibling) => sibling.entity.exists).length > 0 &&
-        !isHideSiblingMode
-    ) {
-        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblingsSearch?.searchResults?.map(
-            (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
-        );
-
-        const allPlatforms = anyEntityData.siblings?.isPrimary
-            ? [anyEntityData.platform, genericSiblingProperties?.[0]?.platform]
-            : [genericSiblingProperties?.[0]?.platform, anyEntityData.platform];
-
-        modifiedEntityData = {
-            ...modifiedEntityData,
-            siblingPlatforms: allPlatforms,
-        };
-    }
-
-    return {
-        ...modifiedEntityData,
-        ...getOverrideProperties?.(entityData, flags),
-    };
-}
-
-export function getEntityPath(
-    entityType: EntityType,
-    urn: string,
-    entityRegistry: EntityRegistry,
-    isLineageMode: boolean,
-    isHideSiblingMode: boolean,
-    tabName?: string,
-    tabParams?: Record<string, any>,
-) {
-    if (entityType === EntityType.SchemaField) {
-        return getSchemaFieldParentLink(urn);
-    }
-
-    const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
-
-    if (!tabName) {
-        return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
-    }
-    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
-        isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
-    }${tabParamsString}`;
-}
-
-export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
-    const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const entityRegistry = useEntityRegistry();
-    return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
-}
+export {
+    getDataForEntityType,
+    getEntityPath,
+    useEntityQueryParams,
+    useGlossaryActiveTabPath,
+} from '@app/entityV2/shared/containers/profile/entityData';
 
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
@@ -156,48 +67,9 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     return undefined;
 }
 
-export function useIsOnTab(tabName: string): boolean {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        return selectedTabPath === tabName;
-    }
-    // No match found!
-    return false;
-}
-
-export function useGlossaryActiveTabPath(): string {
-    const { pathname, search } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-
-    if (match && match[1]) {
-        const selectedTabPath = match[1] + (search || ''); // Include all query parameters
-        return selectedTabPath;
-    }
-
-    // No match found!
-    return '';
-}
-
 export function formatDateString(time: number) {
     const date = new Date(time);
     return date.toLocaleDateString('en-US');
-}
-
-export function useEntityQueryParams() {
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const response = {};
-    if (isHideSiblingMode) {
-        response[SEPARATE_SIBLINGS_URL_PARAM] = true;
-    }
-
-    return response;
 }
 
 export function useUpdateGlossaryEntityDataOnChange(
@@ -265,7 +137,11 @@ export const defaultTabDisplayConfig = {
     enabled: (_, _1) => true,
 };
 
-export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySidebarSection[]) => {
+const getFinalSidebarTabs = (
+    tabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[],
+    t: (key: string) => string,
+) => {
     const sidebarTabsWithDefaults = tabs.map((tab) => ({
         ...tab,
         display: { ...defaultTabDisplayConfig, ...tab.display },
@@ -277,7 +153,7 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
-                name: 'Summary',
+                name: t('profile.defaultSummaryTabLabel'),
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {
@@ -294,15 +170,30 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
     return finalTabs;
 };
 
-export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | null {
+export function getPopularityColumn(tier: PopularityTier, t: (key: string) => string): SidebarStatsColumn | null {
     if (tier === undefined) return null;
 
     const status = getBarsStatusFromPopularityTier(tier);
     if (status) {
         return {
-            title: 'Popularity',
+            title: t('profile.popularityColumnTitle'),
             content: <SidebarPopularityHeaderSection />,
         };
     }
     return null;
+}
+
+/**
+ * Hook to get final sidebar tabs with all additions applied.
+ * In OSS, this is a simple wrapper around getFinalSidebarTabs.
+ * In SaaS, additional tabs like "Ask DataHub" are added on top.
+ */
+export function useFinalSidebarTabs(
+    baseTabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[] | undefined,
+    contextType: TabContextType,
+) {
+    const { t } = useTranslation('entity.shared.containers');
+    const extraTabs = useExtraSidebarTabs(baseTabs, contextType);
+    return useMemo(() => getFinalSidebarTabs(extraTabs, sidebarSections || [], t), [extraTabs, sidebarSections, t]);
 }

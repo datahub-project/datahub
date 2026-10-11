@@ -134,7 +134,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -146,7 +146,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -159,11 +159,11 @@
                         "platform": "urn:li:dataPlatform:kafka",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -268,7 +268,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -278,7 +278,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
@@ -294,7 +294,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -304,11 +304,11 @@
                 {
                     "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "editableSchemaFieldInfo": [
@@ -331,11 +331,11 @@
                         "platform": "urn:li:dataPlatform:hdfs",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -473,7 +473,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -483,7 +483,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
@@ -499,7 +499,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -512,11 +512,11 @@
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -608,7 +608,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -618,7 +618,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
@@ -634,7 +634,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -647,11 +647,11 @@
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -758,7 +758,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -768,7 +768,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
@@ -797,7 +797,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -810,11 +810,11 @@
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -908,7 +908,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -918,7 +918,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
@@ -926,7 +926,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
@@ -942,7 +942,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -955,11 +955,11 @@
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -1095,7 +1095,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -1150,7 +1150,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -1208,7 +1208,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -1246,11 +1246,11 @@
                         "description": "Baz Chart 1",
                         "lastModified": {
                             "created": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:jdoe"
                             },
                             "lastModified": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:datahub"
                             }
                         },
@@ -1296,11 +1296,11 @@
                         "description": "Baz Chart 2",
                         "lastModified": {
                             "created": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:jdoe"
                             },
                             "lastModified": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:datahub"
                             }
                         },
@@ -1340,7 +1340,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -1361,11 +1361,11 @@
                         "dashboards": [],
                         "lastModified": {
                             "created": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:jdoe"
                             },
                             "lastModified": {
-                                "time": 0,
+                                "time": 1742778000000,
                                 "actor": "urn:li:corpuser:datahub"
                             }
                         }
@@ -1399,7 +1399,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 0,
+                            "time": 1742778000000,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -1443,7 +1443,7 @@
                                 "url": "https://www.linkedin.com",
                                 "description": "Sample doc",
                                 "createStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 }
                             }
@@ -1550,7 +1550,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -1590,7 +1590,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3219,7 +3219,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3265,7 +3265,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3306,7 +3306,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3346,7 +3346,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3398,7 +3398,7 @@
                         ],
                         "ownerTypes": {},
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         }
                     }
@@ -3408,7 +3408,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1674291843000,
+                                    "time": 1747341257143,
                                     "actor": "urn:li:corpuser:jdoe"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
@@ -3423,11 +3423,11 @@
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "lastModified": {
-                            "time": 1674291843000,
+                            "time": 1747341257143,
                             "actor": "urn:li:corpuser:jdoe"
                         },
                         "hash": "",
@@ -3508,7 +3508,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1735823280000,
+            "timestampMillis": 1774223999999,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3554,7 +3554,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1723488954865,
+            "timestampMillis": 1765263085714,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3599,7 +3599,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1711138093000,
+            "timestampMillis": 1751821714285,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3621,7 +3621,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1629107200000,
+            "timestampMillis": 1742860800000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3643,7 +3643,7 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1674291843000,
+            "timestampMillis": 1747341257143,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
@@ -3678,7 +3678,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1674291843000,
+        "lastObserved": 1747341257143,
         "runId": "demo-data-2025_09_22-16_12_20-modc1r",
         "lastRunId": "no-run-id-provided"
     }
@@ -3881,8 +3881,8 @@
     "aspectName": "assertionRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1730554659000,
-            "runId": "2021-12-28T12:00:00Z",
+            "timestampMillis": 1769743542856,
+            "runId": "2025-12-28T12:00:00Z",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
             "status": "COMPLETE",
             "result": {
@@ -3926,11 +3926,11 @@
             "name": "TestQuery",
             "description": "TestDescription",
             "created": {
-                "time": 0,
+                "time": 1742778000000,
                 "actor": "urn:li:corpuser:test"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1742778000000,
                 "actor": "urn:li:corpuser:test"
             }
         }
@@ -3983,7 +3983,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1712548844816,
+        "lastObserved": 1756302171428,
         "runId": "demo-data-2025_09_22-16_12_20-modc1r",
         "lastRunId": "no-run-id-provided"
     }
@@ -4010,7 +4010,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1712548844816,
+        "lastObserved": 1756302171428,
         "runId": "demo-data-2025_09_22-16_12_20-modc1r",
         "lastRunId": "no-run-id-provided"
     }
@@ -4037,7 +4037,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1712548844817,
+        "lastObserved": 1756302171429,
         "runId": "demo-data-2025_09_22-16_12_20-modc1r",
         "lastRunId": "no-run-id-provided"
     }

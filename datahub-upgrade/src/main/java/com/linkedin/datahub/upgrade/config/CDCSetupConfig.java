@@ -1,53 +1,55 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
-import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetup;
+import jakarta.annotation.PostConstruct;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 
 /**
- * Spring configuration for CDC setup. Automatically discovers and injects enabled CDC source
- * implementations based on application.yaml configuration.
+ * Spring configuration for CDC setup discovery.
  *
- * <p>Only one CDC implementation should be active at a time. If multiple implementations are
- * enabled, a warning will be logged.
+ * <p>CDC implementations (e.g. {@code DebeziumCDCSourceSetup}) are {@code @Component} beans that
+ * already implement {@code BlockingSystemUpgrade}. Do <b>not</b> re-export them as a second {@code
+ * BlockingSystemUpgrade} bean — {@code SystemUpdate} injects {@code List<BlockingSystemUpgrade>} by
+ * bean definition, so a duplicate registration runs Wait/Configure Debezium steps twice and the
+ * second create fails with Kafka Connect HTTP 409.
  */
 @Configuration
 @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
 @Slf4j
 public class CDCSetupConfig {
 
+  @Autowired(required = false)
+  private List<CDCSourceSetup> cdcSourceSetups;
+
+  @PostConstruct
+  void logCdcSetups() {
+    logCdcSetups(cdcSourceSetups);
+  }
+
   /**
-   * Creates the CDC setup upgrade bean from available CDC source implementations.
+   * Validates and logs discovered CDC source setups. Package-visible for unit tests.
    *
-   * @param cdcSourceSetups List of conditionally-enabled CDC source implementations
-   * @return The first CDC setup implementation, or null if none are enabled
+   * @param setups discovered CDC source implementations, or null/empty when CDC is disabled
    */
-  @Order(Integer.MAX_VALUE)
-  @Bean(name = "cdcSetup")
-  public BlockingSystemUpgrade cdcSetup(
-      @Autowired(required = false) List<CDCSourceSetup> cdcSourceSetups) {
-    if (cdcSourceSetups == null || cdcSourceSetups.isEmpty()) {
+  void logCdcSetups(List<CDCSourceSetup> setups) {
+    if (setups == null || setups.isEmpty()) {
       log.info("No CDC source setups found - CDC configuration is disabled or not configured");
-      return null;
+      return;
     }
 
-    if (cdcSourceSetups.size() > 1) {
+    if (setups.size() > 1) {
       log.warn(
-          "Multiple CDC source setups detected ({}). Only one should be enabled at a time. Using first: {}. Found: {}",
-          cdcSourceSetups.size(),
-          cdcSourceSetups.get(0).id(),
-          cdcSourceSetups.stream().map(CDCSourceSetup::id).toList());
+          "Multiple CDC source setups detected ({}). Only one should be enabled at a time. Using"
+              + " component discovery order. Found: {}",
+          setups.size(),
+          setups.stream().map(CDCSourceSetup::id).toList());
     } else {
-      log.info("CDC source setup enabled: {}", cdcSourceSetups.get(0).id());
+      log.info("CDC source setup enabled: {}", setups.get(0).id());
     }
-
-    return cdcSourceSetups.get(0);
   }
 }

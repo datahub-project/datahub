@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -23,7 +24,7 @@ interface Props {
 export default function RecommendedOption({ text }: Props) {
     return (
         <RecommendedOptionWrapper>
-            <Icon icon="MagnifyingGlass" source="phosphor" />
+            <Icon icon={MagnifyingGlass} />
             <TextWrapper>{text}</TextWrapper>
         </RecommendedOptionWrapper>
     );

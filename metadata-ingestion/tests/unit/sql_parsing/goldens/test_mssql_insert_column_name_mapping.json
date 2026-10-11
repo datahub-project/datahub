@@ -1,0 +1,54 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "6272afcfe92b379a2e5ad2d4ab40d11732b192ab1864aded07aab925de1266d9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,source_db.dbo.source_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,target_db.dbo.target_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,target_db.dbo.target_table,PROD)",
+                "column": "target_col_a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,source_db.dbo.source_table,PROD)",
+                    "column": "source_col_x"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_table].[source_col_x] AS [target_col_a]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,target_db.dbo.target_table,PROD)",
+                "column": "target_col_b",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,source_db.dbo.source_table,PROD)",
+                    "column": "source_col_y"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_table].[source_col_y] AS [target_col_b]"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO target_db.dbo.target_table (target_col_a, target_col_b) SELECT source_col_x, source_col_y FROM source_db.dbo.source_table"
+    }
+}

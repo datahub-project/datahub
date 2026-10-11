@@ -1,3 +1,7 @@
+---
+description: "Architectural overview of the DataHub Java SDK V2, covering type-safe APIs, design patterns, and engineering principles."
+---
+
 # Design Principles of Java SDK V2
 
 This document provides an architectural overview of DataHub Java SDK V2, exploring the engineering principles and design patterns that enable its type-safe, efficient metadata management capabilities.

@@ -1,9 +1,8 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 
 const Wrapper = styled.div`
@@ -39,23 +38,16 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     z-index: 2;
 
     border-radius: 100px;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: ${REDESIGN_COLORS.WHITE};
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
+    background-color: ${(props) => props.theme.colors.bg};
 
     :hover {
-        color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     ${({ left }) => left && 'left: -10px;'}
     ${({ right }) => right && 'right: -10px;'}
-`;
-
-const NavigateBeforeOutlinedIconStyle = styled(NavigateBeforeOutlinedIcon)`
-    font-size: 14px !important;
-`;
-const NavigateNextOutlinedIconStyle = styled(NavigateNextOutlinedIcon)`
-    font-size: 14px !important;
 `;
 
 type Props = {
@@ -139,12 +131,12 @@ export function Carousel({ children, className }: Props) {
         <Wrapper>
             {showPrevButton && (
                 <ButtonContainer className="scroll-btn" left onClick={prev}>
-                    <NavigateBeforeOutlinedIconStyle />
+                    <CaretLeft size={14} />
                 </ButtonContainer>
             )}
             {showNextButton && (
                 <ButtonContainer className="scroll-btn" right onClick={next}>
-                    <NavigateNextOutlinedIconStyle />
+                    <CaretRight size={14} />
                 </ButtonContainer>
             )}
             <CarouselHorizontalList ref={scrollRef} hideMask={!showNextButton} className={className}>

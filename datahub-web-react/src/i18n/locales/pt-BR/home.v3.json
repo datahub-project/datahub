@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Editando Página Inicial Padrão da Organização",
+    "header.discoverLabel": "Descobrir",
+    "error.failedToAddSummaryElement": "Falha ao adicionar elemento de resumo",
+    "error.failedToRemoveSummaryElement": "Falha ao remover elemento de resumo",
+    "error.failedToReplaceSummaryElement": "Falha ao substituir elemento de resumo",
+    "error.noTemplateAvailable": "Nenhum template disponível para atualizar",
+    "toast.editedDescription": "Para redefinir sua página inicial, clique em \"Redefinir para o Padrão da Organização\"",
+    "toast.editedTitle": "Você editou sua página inicial"
+}

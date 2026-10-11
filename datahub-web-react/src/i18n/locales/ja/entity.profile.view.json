@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "詳細",
+    "viewDefinitionTab.formatCompiled": "コンパイル済み",
+    "viewDefinitionTab.formatFormatted": "整形済み",
+    "viewDefinitionTab.formatRaw": "生データ",
+    "viewDefinitionTab.formatSource": "ソース",
+    "viewDefinitionTab.languageLabel": "言語",
+    "viewDefinitionTab.logicHeading": "ロジック",
+    "viewDefinitionTab.materializedFalse": "False",
+    "viewDefinitionTab.materializedLabel": "マテリアライズ",
+    "viewDefinitionTab.materializedTrue": "True"
+}

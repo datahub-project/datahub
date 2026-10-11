@@ -3,7 +3,7 @@ import { EntityType, StringMapEntry } from '@types';
 /**
  * URN for the DataHub system actor
  */
-export const DATAHUB_SYSTEM_ACTOR_URN = 'urn:li:corpuser:__datahub_system';
+const DATAHUB_SYSTEM_ACTOR_URN = 'urn:li:corpuser:__datahub_system';
 
 /**
  * Checks if an actor is the DataHub system actor.
@@ -63,10 +63,12 @@ export function getActorDisplayName(
     entityRegistry: { getDisplayName: (type: EntityType, data: any) => string },
 ): string {
     if (!actor) {
+        /* untranslated-text -- actor display name fallback when no actor present */
         return 'System';
     }
 
     if (isSystemActor(actor)) {
+        /* untranslated-text -- DataHub system actor display name (proper noun) */
         return 'DataHub AI';
     }
 

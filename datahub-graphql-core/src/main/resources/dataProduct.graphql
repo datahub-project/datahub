@@ -1,0 +1,58 @@
+extend type Query {
+  """
+  Fetch the Data Products that directly contain each of the given entities, in bulk
+  """
+  bulkEntityDataProducts(
+    input: BulkEntityDataProductsInput!
+  ): BulkEntityDataProductsResult!
+}
+
+"""
+Input for fetching the Data Products containing a set of entities
+"""
+input BulkEntityDataProductsInput {
+  """
+  The urns of the entities to fetch Data Products for
+  """
+  urns: [String!]!
+}
+
+"""
+Result for fetching the Data Products containing a set of entities
+"""
+type BulkEntityDataProductsResult {
+  """
+  The Data Products for each requested entity, one entry per requested urn
+  """
+  entities: [EntityDataProducts!]!
+}
+
+"""
+The Data Products containing a single entity
+"""
+type EntityDataProducts {
+  """
+  The urn of the entity
+  """
+  urn: String!
+
+  """
+  The Data Products that directly contain the entity, and whether the entity is an output port of each
+  """
+  dataProductAssociations: [EntityDataProductAssociation!]!
+}
+
+"""
+A Data Product that contains an entity, along with the entity's relationship to it
+"""
+type EntityDataProductAssociation {
+  """
+  The Data Product that contains the entity
+  """
+  dataProduct: DataProduct!
+
+  """
+  Whether the entity is an output port of the Data Product
+  """
+  isOutputPort: Boolean!
+}

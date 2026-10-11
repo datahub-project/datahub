@@ -6,6 +6,7 @@ import pandas as pd
 from neo4j import GraphDatabase
 from pydantic import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -19,13 +20,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -47,7 +46,7 @@ class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
     username: str = Field(description="Neo4j Username")
-    password: str = Field(description="Neo4j Password")
+    password: TransparentSecretStr = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -64,7 +63,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
 @capability(
     SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
 )
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class Neo4jSource(StatefulIngestionSourceBase):
     config: Neo4jConfig
     report: Neo4jSourceReport
@@ -136,7 +135,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
         except Exception as e:
             log.error(e)
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to process dataset",
                 context=dataset,
                 exc=e,
@@ -145,7 +144,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
     def get_neo4j_metadata(self, query: str) -> Optional[pd.DataFrame]:
         driver = GraphDatabase.driver(
-            self.config.uri, auth=(self.config.username, self.config.password)
+            self.config.uri,
+            auth=(self.config.username, self.config.password.get_secret_value()),
         )
         """
         This process retrieves the metadata for Neo4j objects using an APOC query,
@@ -272,14 +272,6 @@ class Neo4jSource(StatefulIngestionSourceBase):
     def get_relationships(self, record: dict) -> dict:
         return record.get("relationships", {})
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         query = (
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key "
@@ -308,11 +300,12 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
             except Exception as e:
                 log.warning(f"Failed to process row {row['key']}: {str(e)}")
-                self.report.report_warning(
+                self.report.warning(
                     title="Error processing Neo4j metadata",
                     message="Some entities will be missed",
                     context=row["key"],
                     exc=e,
+                    log=False,
                 )
                 self.report.obj_failures += 1
 

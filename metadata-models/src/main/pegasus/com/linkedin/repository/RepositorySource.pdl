@@ -1,0 +1,22 @@
+namespace com.linkedin.repository
+
+/**
+ * The source binding for a Repository — where the repository lives and how it is
+ * identified in its source system. Reusable across any synced or native repo.
+ */
+@Aspect = {
+  "name": "repositorySource"
+}
+record RepositorySource {
+
+  /**
+   * The web or clone URL of the repository in its source system.
+   */
+  externalUrl: optional string
+
+  /**
+   * The identifier of the repository in its source system (e.g. a GitHub
+   * numeric repo id or an org/name slug).
+   */
+  externalId: optional string
+}

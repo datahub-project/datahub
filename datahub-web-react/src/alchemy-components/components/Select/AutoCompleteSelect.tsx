@@ -1,5 +1,6 @@
-import { Dropdown, Text } from '@components';
+import { Dropdown, Loader, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -24,6 +25,12 @@ const NoSuggestions = styled.div`
     padding: 8px;
 `;
 
+const LoadingSuggestions = styled.div`
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+`;
+
 const defaults: Partial<Props<any>> = {
     label: '',
     size: 'md',
@@ -31,7 +38,6 @@ const defaults: Partial<Props<any>> = {
     isReadOnly: false,
     isRequired: false,
     width: 255,
-    placeholder: 'Select an option ',
     disabledValues: [],
 };
 
@@ -49,11 +55,15 @@ type Props<T> = Pick<
     | 'isRequired'
     | 'disabledValues'
     | 'width'
+    | 'minWidth'
     | 'placeholder'
     | 'icon'
     | 'optionListTestId'
+    | 'isLoading'
 > & {
     render: (data: T) => React.ReactNode;
+    /** Pre-selected suggestion. May resolve asynchronously, and is adopted until the user picks. */
+    initialValue?: Suggestion<T>;
     emptySuggestions?: Suggestion<T>[];
     autoCompleteSuggestions?: Suggestion<T>[];
     onSearch: (query: string) => void;
@@ -65,6 +75,7 @@ type Props<T> = Pick<
 
 export default function AutoCompleteSelect<T>({
     render,
+    initialValue,
     emptySuggestions,
     autoCompleteSuggestions,
     onSearch,
@@ -75,16 +86,20 @@ export default function AutoCompleteSelect<T>({
     isReadOnly = defaults.isReadOnly,
     isRequired = defaults.isRequired,
     size = defaults.size,
-    placeholder = defaults.placeholder,
+    placeholder,
     disabledValues = defaults.disabledValues,
     icon,
     searchPlaceholder,
     optionListTestId,
+    isLoading,
     className,
     ...props
 }: Props<T>) {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedPlaceholder = placeholder ?? t('select.placeholder');
     const [query, setQuery] = useState('');
-    const [selectedValue, setSelectedValue] = useState<Suggestion<T> | undefined>(undefined);
+    const [selectedValue, setSelectedValue] = useState<Suggestion<T> | undefined>(initialValue);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const {
@@ -94,6 +109,16 @@ export default function AutoCompleteSelect<T>({
         toggle: toggleDropdown,
     } = useSelectDropdown(false, selectRef, dropdownRef);
 
+    // Callers may only be able to resolve the pre-selection after a fetch, so adopt it when it
+    // arrives — including a cleared one, hence the unconditional assignment. Once the user has
+    // picked for themselves their choice wins, so a late-arriving initial value can't undo it.
+    const hasUserPicked = useRef(false);
+    useEffect(() => {
+        if (!hasUserPicked.current) setSelectedValue(initialValue);
+        // Keyed on the value rather than the object so a re-rendered caller changes nothing.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialValue?.value]);
+
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
             toggleDropdown();
@@ -102,14 +127,19 @@ export default function AutoCompleteSelect<T>({
 
     const handleOptionChange = useCallback(
         (option: Suggestion<T>) => {
+            // A disabled option is not a choice, so it neither selects nor counts as the user having
+            // picked — otherwise it would also block a pre-selection that is still resolving.
+            if (disabledValues?.includes(option.value)) return;
+            hasUserPicked.current = true;
             setSelectedValue(option);
             onUpdate?.(option.data);
             closeDropdown();
         },
-        [closeDropdown, onUpdate],
+        [closeDropdown, onUpdate, disabledValues],
     );
 
     const handleClearSelection = useCallback(() => {
+        hasUserPicked.current = true;
         setSelectedValue(undefined);
         closeDropdown();
         onUpdate?.(undefined);
@@ -131,6 +161,7 @@ export default function AutoCompleteSelect<T>({
             className={className}
             size={size || 'md'}
             width={props.width || 255}
+            $minWidth={props.minWidth}
             isSelected={selectedValue !== undefined}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
@@ -150,23 +181,34 @@ export default function AutoCompleteSelect<T>({
                                 }}
                             />
                             <OptionList data-testid={optionListTestId}>
-                                {!displayedSuggestions.length && (
-                                    <NoSuggestions>
-                                        <Text type="span" color="gray" weight="semiBold">
-                                            No results found
-                                        </Text>
-                                    </NoSuggestions>
+                                {/* Suggestions for an earlier keystroke are not shown as if they
+                                    matched what is typed now: a click on one would pick the wrong
+                                    entity. */}
+                                {isLoading ? (
+                                    <LoadingSuggestions>
+                                        <Loader size="sm" />
+                                    </LoadingSuggestions>
+                                ) : (
+                                    <>
+                                        {!displayedSuggestions.length && (
+                                            <NoSuggestions>
+                                                <Text type="span" weight="semiBold">
+                                                    {tc('noResults')}
+                                                </Text>
+                                            </NoSuggestions>
+                                        )}
+                                        {displayedSuggestions?.map((option) => (
+                                            <OptionLabel
+                                                key={option.value}
+                                                onClick={() => handleOptionChange(option)}
+                                                isSelected={selectedValue?.value === option.value}
+                                                isDisabled={disabledValues?.includes(option.value)}
+                                            >
+                                                <OptionContainer>{render(option.data)}</OptionContainer>
+                                            </OptionLabel>
+                                        ))}
+                                    </>
                                 )}
-                                {displayedSuggestions?.map((option) => (
-                                    <OptionLabel
-                                        key={option.value}
-                                        onClick={() => handleOptionChange(option)}
-                                        isSelected={selectedValue?.value === option.value}
-                                        isDisabled={disabledValues?.includes(option.value)}
-                                    >
-                                        <OptionContainer>{render(option.data)}</OptionContainer>
-                                    </OptionLabel>
-                                ))}
                             </OptionList>
                         </DropdownContainer>
                     )}
@@ -183,7 +225,9 @@ export default function AutoCompleteSelect<T>({
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}
                             <LabelsWrapper>
-                                {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
+                                {!selectedValue && resolvedPlaceholder && (
+                                    <Placeholder>{resolvedPlaceholder}</Placeholder>
+                                )}
                                 {selectedValue && render(selectedValue.data)}
                             </LabelsWrapper>
                         </SelectLabelContainer>
@@ -196,8 +240,9 @@ export default function AutoCompleteSelect<T>({
                             fontSize={size}
                             showClear
                         />
+                        {/* Nested inside SelectBase because antd's Dropdown takes a single child. */}
+                        <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
                     </SelectBase>
-                    <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
                 </Dropdown>
             )}
         </Container>

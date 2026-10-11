@@ -1,31 +1,27 @@
-import { useGetEntities } from '@app/sharedV2/useGetEntities';
+import { isPropagated } from '@app/entity/shared/propagation/utils';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
+import { PropagationContext } from '@app/sharedV2/tags/usePropagationContextEntities';
 
-import { StringMapEntry } from '@types';
-
-export enum PropagationRelationshipType {
-    LINEAGE = 'lineage',
-    HIERARCHY = 'hierarchy',
-    SIBLINGS = 'siblings',
+export function parsePropagationContext(context?: string | null): PropagationContext | null {
+    if (!context) return null;
+    try {
+        return JSON.parse(context) as PropagationContext;
+    } catch (e) {
+        console.warn('Failed to parse propagation context as JSON:', context, e);
+        return null;
+    }
 }
 
-export function usePropagationDetails(sourceDetail?: StringMapEntry[] | null) {
-    const isPropagated = !!sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
-    const originEntityUrn = sourceDetail?.find((mapEntry) => mapEntry.key === 'origin')?.value || '';
-    const viaEntityUrn = sourceDetail?.find((mapEntry) => mapEntry.key === 'via')?.value || '';
-
-    const { entities } = useGetEntities([originEntityUrn, viaEntityUrn]);
-    const originEntity = entities.find((e) => e.urn === originEntityUrn);
-    const viaEntity = entities.find((e) => e.urn === viaEntityUrn);
-
-    return {
-        isPropagated,
-        origin: {
-            urn: originEntityUrn,
-            entity: originEntity,
-        },
-        via: {
-            urn: viaEntityUrn,
-            entity: viaEntity,
-        },
-    };
+/**
+ * Whether `HoverCardAttributionDetails` will render anything.
+ *
+ * Attribution rides along with most associations, so the mere presence of `propagationDetails`
+ * says nothing — only propagated ones produce output. Callers that reserve layout space for the
+ * section must agree with this predicate, or they reserve space for a component that renders null.
+ */
+export function hasPropagationDetails(propagationDetails?: AttributionDetails): boolean {
+    return (
+        isPropagated(propagationDetails?.attribution?.sourceDetail) ||
+        !!parsePropagationContext(propagationDetails?.context)?.propagated
+    );
 }

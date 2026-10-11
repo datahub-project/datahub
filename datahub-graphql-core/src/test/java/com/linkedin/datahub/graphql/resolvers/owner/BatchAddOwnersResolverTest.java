@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.owner;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -58,26 +57,15 @@ public class BatchAddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1),
+        Urn.createFromString(TEST_OWNER_URN_2),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())));
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
@@ -111,11 +99,7 @@ public class BatchAddOwnersResolverTest {
 
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -147,37 +131,18 @@ public class BatchAddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalOwnership);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1),
+        Urn.createFromString(TEST_OWNER_URN_2),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())));
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
@@ -211,11 +176,7 @@ public class BatchAddOwnersResolverTest {
 
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -231,10 +192,8 @@ public class BatchAddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(false);
+    // The owner does not exist.
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN_1));
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
@@ -289,12 +248,11 @@ public class BatchAddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1));
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 

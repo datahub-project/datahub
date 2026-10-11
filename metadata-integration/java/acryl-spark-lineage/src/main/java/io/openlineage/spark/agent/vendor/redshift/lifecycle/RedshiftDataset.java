@@ -60,7 +60,8 @@ public class RedshiftDataset {
         return Collections.emptyList();
       }
 
-      return Collections.singletonList(factory.getDataset(table, namespace, schema));
+      return Collections.singletonList(
+          factory.sparkDatasetBuilder().dataset(table, namespace).schema(schema).build());
     } else if (query.isPresent()) {
       return SqlUtils.getDatasets(factory, query.get(), "redshift", namespace, db, DEFAULT_SCHEMA);
     } else {

@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} oszlop",
+    "columnCount_other": "{{count}} oszlop",
+    "matchCount_one": "{{count}} találat",
+    "matchCount_other": "{{count}} találat",
+    "ownerCount_one": "{{count}} tulajdonos",
+    "ownerCount_other": "{{count}} tulajdonos",
+    "queryCount_one": "{{count}} lekérdezés",
+    "queryCount_other": "{{count}} lekérdezés",
+    "rowCount_one": "{{count}} sor",
+    "rowCount_other": "{{count}} sor",
+    "tagCount_one": "{{count}} címke",
+    "tagCount_other": "{{count}} címke",
+    "termCount_one": "{{count}} kifejezés",
+    "termCount_other": "{{count}} kifejezés"
+}

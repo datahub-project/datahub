@@ -1,0 +1,8 @@
+source:
+  type: datahub-documents
+  config:
+    # Minimal configuration - uses smart defaults
+    # Automatically connects to DataHub using DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN environment variables
+    # Fetches embedding configuration from server
+    # Enables event-driven mode and incremental processing
+    # No sink needed when deploying to DataHub (writes back to itself)

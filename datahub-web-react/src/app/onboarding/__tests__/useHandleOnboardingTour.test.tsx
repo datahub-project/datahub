@@ -14,6 +14,8 @@ const mockContextValue = {
     setIsTourOpen: mockSetIsTourOpen,
     isUserInitializing: false,
     setIsUserInitializing: vi.fn(),
+    isOnboardingAvailable: false,
+    setIsOnboardingAvailable: vi.fn(),
 };
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (

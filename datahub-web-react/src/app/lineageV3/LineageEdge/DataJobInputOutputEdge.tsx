@@ -1,10 +1,11 @@
-import { colors } from '@components';
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import styled from 'styled-components';
 
-import { DataJobInputOutputEdgeData, LINEAGE_NODE_HEIGHT, LineageDisplayContext } from '@app/lineageV3/common';
+import useEdgeHighlight from '@app/lineageV3/LineageEdge/LineageEdge.hooks';
+import { DataJobInputOutputEdgeData, LINEAGE_NODE_HEIGHT } from '@app/lineageV3/common';
+import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 
 import { LineageDirection } from '@types';
 
@@ -13,8 +14,18 @@ export const DATA_JOB_INPUT_OUTPUT_EDGE_NAME = 'datajob-input-output';
 const CENTER_X_OFFSET = 20;
 const CENTER_Y_OFFSET = LINEAGE_NODE_HEIGHT;
 
-const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted }) => (isHighlighted ? `stroke: ${colors.violet[300]}; stroke-width: 2px;` : '')};
+const StyledPath = styled.path<{
+    isHighlighted: boolean;
+    highlightStroke?: string;
+    isColumnSelected: boolean;
+    isManual?: boolean;
+}>`
+    /* React Flow's stylesheet sets a light-only default stroke here. */
+    stroke: ${({ theme }) => theme.colors.icon};
+    ${({ isHighlighted, highlightStroke, theme }) =>
+        isHighlighted
+            ? `stroke: ${highlightStroke ?? theme.colors.borderHover}; stroke-width: ${HIGHLIGHTED_EDGE_STROKE_WIDTH}px;`
+            : ''};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;
@@ -49,12 +60,7 @@ export function DataJobInputOutputEdge({
         originalId: '',
     };
 
-    const { selectedColumn, highlightedEdges } = useContext(LineageDisplayContext);
-
-    const isHighlighted = useMemo(
-        () => !selectedColumn && (highlightedEdges.has(id) || highlightedEdges.has(originalId)),
-        [id, originalId, selectedColumn, highlightedEdges],
-    );
+    const { isHighlighted, highlightStroke, isColumnSelected, anyHighlighted } = useEdgeHighlight(id, originalId);
 
     const intermediateX = direction === LineageDirection.Upstream ? targetX - 100 : sourceX + 100;
     const intermediateY = direction === LineageDirection.Upstream ? sourceY : targetY;
@@ -82,7 +88,7 @@ export function DataJobInputOutputEdge({
     const [debouncedLabelPosition, setDebouncedLabelPosition] = useState({ labelX, labelY });
     useDebounce(() => setDebouncedLabelPosition({ labelX, labelY }), 10, [labelX, labelY]);
 
-    const opacity = highlightedEdges.size && !isHighlighted ? 0.5 : 1;
+    const opacity = anyHighlighted && !isHighlighted ? 0.5 : 1;
     return (
         <>
             {isInInterior && (
@@ -93,7 +99,8 @@ export function DataJobInputOutputEdge({
                     className="react-flow__edge-path"
                     markerStart={markerStart}
                     isHighlighted={isHighlighted}
-                    isColumnSelected={!!selectedColumn}
+                    highlightStroke={highlightStroke}
+                    isColumnSelected={isColumnSelected}
                     isManual={isManual}
                     opacity={opacity}
                 />
@@ -105,7 +112,8 @@ export function DataJobInputOutputEdge({
                 className="react-flow__edge-path"
                 markerEnd={markerEnd}
                 isHighlighted={isHighlighted}
-                isColumnSelected={!!selectedColumn}
+                highlightStroke={highlightStroke}
+                isColumnSelected={isColumnSelected}
                 isManual={isManual}
                 opacity={opacity}
             />

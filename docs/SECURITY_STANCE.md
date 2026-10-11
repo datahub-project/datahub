@@ -1,3 +1,7 @@
+---
+description: "DataHub's commitment to security, including vulnerability handling, dependency scanning, and community-driven disclosures."
+---
+
 # DataHub's Commitment to Security
 
 ## Introduction

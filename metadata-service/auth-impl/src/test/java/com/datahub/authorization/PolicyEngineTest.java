@@ -5,6 +5,7 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,9 +21,12 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.policy.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -45,7 +49,8 @@ public class PolicyEngineTest {
   private static final String OTHER_OWNERSHIP_TYPE_URN =
       "urn:li:ownershipType:__system__data_steward";
 
-  private EntityClient _entityClient;
+  private SystemEntityClient _entityClient;
+  private GroupService _groupService;
   private OperationContext systemOperationContext;
   private PolicyEngine _policyEngine;
 
@@ -57,9 +62,15 @@ public class PolicyEngineTest {
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
+    _entityClient = Mockito.mock(SystemEntityClient.class);
+    _groupService =
+        new GroupService(
+            _entityClient,
+            Mockito.mock(EntityService.class),
+            Mockito.mock(GraphClient.class),
+            Mockito.mock(GraphService.class));
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _policyEngine = new PolicyEngine(_entityClient);
+    _policyEngine = new PolicyEngine(_entityClient, _groupService);
 
     authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
     resolvedAuthorizedUserSpec =
@@ -394,7 +405,207 @@ public class PolicyEngineTest {
   }
 
   @Test
-  // Write a test to verify that the policy engine is able to evaluate a policy with a role match
+  public void testEvaluatePolicyWithSeededGroupMembershipSkipsUserFetch() throws Exception {
+    final DataHubPolicyInfo groupPolicy = createGroupMatchPolicy();
+    final ResolvedEntitySpec actorWithoutGroupMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final PolicyEngine.PolicyEvaluationContext seededContext =
+        _policyEngine.createSeededEvaluationContext(
+            List.of(Urn.createFromString(AUTHORIZED_GROUP)), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            groupPolicy,
+            actorWithoutGroupMembership,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            seededContext);
+
+    assertTrue(result.isGranted());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithSeededRolesSkipsUserFetch() throws Exception {
+    final DataHubPolicyInfo rolePolicy = createRoleMatchPolicy();
+    final ResolvedEntitySpec actorWithoutMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final Urn adminRole = Urn.createFromString("urn:li:dataHubRole:admin");
+    final Urn groupUrn = Urn.createFromString(AUTHORIZED_GROUP);
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(createGroupRoleBatchResponse(groupUrn, adminRole));
+
+    final PolicyEngine.PolicyEvaluationContext seededContext =
+        _policyEngine.createSeededEvaluationContext(List.of(groupUrn), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            rolePolicy,
+            actorWithoutMembership,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            seededContext);
+
+    assertTrue(result.isGranted());
+    verify(_entityClient, never())
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Collections.singleton(authorizedUserUrn)),
+            any());
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testSharedSeededContextFetchesGroupRolesOnceAcrossPolicies() throws Exception {
+    final DataHubPolicyInfo rolePolicy = createRoleMatchPolicy();
+    final ResolvedEntitySpec actorWithoutMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final Urn adminRole = Urn.createFromString("urn:li:dataHubRole:admin");
+    final Urn groupUrn = Urn.createFromString(AUTHORIZED_GROUP);
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(createGroupRoleBatchResponse(groupUrn, adminRole));
+
+    final PolicyEngine.PolicyEvaluationContext sharedContext =
+        _policyEngine.createSeededEvaluationContext(List.of(groupUrn), Collections.emptySet());
+
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                rolePolicy,
+                actorWithoutMembership,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+    assertFalse(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                rolePolicy,
+                actorWithoutMembership,
+                "EDIT_ENTITY_DOMAINS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+    verify(_entityClient, never())
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Collections.singleton(authorizedUserUrn)),
+            any());
+  }
+
+  @Test
+  public void testSharedContextFetchesResourceOwnersOnceAcrossPolicies() throws Exception {
+    // An ownership-based policy: the actor matches ONLY via resource ownership (no user/group/role
+    // match), so each evaluation reaches the ownership lookup.
+    final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
+    ownerPolicy.setType(METADATA_POLICY_TYPE);
+    ownerPolicy.setState(ACTIVE_POLICY_STATE);
+    ownerPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    ownerPolicy.setDisplayName("Owner policy");
+    ownerPolicy.setDescription("Owner policy");
+    ownerPolicy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    ownerPolicy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    ownerPolicy.setResources(resourceFilter);
+
+    final EntityResponse ownershipResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    ownershipResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(ownershipResponse);
+
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Shared per-request context: the resource-owner cache lives here.
+    final PolicyEngine.PolicyEvaluationContext sharedContext =
+        _policyEngine.createSeededEvaluationContext(
+            Collections.emptyList(), Collections.emptySet());
+
+    // Evaluate the ownership policy twice against the SAME resource, sharing one context.
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+
+    // Ownership fetched exactly once across both evaluations, thanks to the per-context cache.
+    verify(_entityClient, times(1))
+        .getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterRoleMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
@@ -2445,6 +2656,545 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
   }
 
+  private DataHubPolicyInfo createGroupMatchPolicy() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Seeded group policy");
+    dataHubPolicyInfo.setDescription("Seeded group policy");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray groupsUrnArray = new UrnArray();
+    groupsUrnArray.add(Urn.createFromString(AUTHORIZED_GROUP));
+    actorFilter.setGroups(groupsUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+    return dataHubPolicyInfo;
+  }
+
+  private DataHubPolicyInfo createRoleMatchPolicy() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Seeded role policy");
+    dataHubPolicyInfo.setDescription("Seeded role policy");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray rolesUrnArray = new UrnArray();
+    rolesUrnArray.add(Urn.createFromString("urn:li:dataHubRole:admin"));
+    actorFilter.setRoles(rolesUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+    return dataHubPolicyInfo;
+  }
+
+  // ---- Structured Property Matching Tests ----
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyEqualsMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with structured property filter");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with structured property criterion
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
+    propValue.setValues(new StringArray("high"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with matching structured property
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:data_classification", ImmutableSet.of("high")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyEqualsNoMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with structured property filter");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with structured property criterion
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
+    propValue.setValues(new StringArray("high"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with non-matching structured property
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:data_classification", ImmutableSet.of("low")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyStartsWithMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with structured property filter");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with STARTS_WITH condition
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.STARTS_WITH);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:expiration_date"));
+    propValue.setValues(new StringArray("2025-"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with date starting with 2025
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:expiration_date", ImmutableSet.of("2025-12-31")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyNotEqualsMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with structured property filter");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with NOT_EQUALS condition
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
+    propValue.setValues(new StringArray("open"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with classification != open
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:data_classification", ImmutableSet.of("high")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyMultipleStructuredPropertiesAndLogic() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Multi Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with multiple structured properties");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with two structured property criteria
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+
+    final StructuredPropertyCriterionValue propValue1 = new StructuredPropertyCriterionValue();
+    propValue1.setPropertyUrn(
+        Urn.createFromString("urn:li:structuredProperty:data_classification"));
+    propValue1.setValues(new StringArray("high"));
+
+    final StructuredPropertyCriterionValue propValue2 = new StructuredPropertyCriterionValue();
+    propValue2.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:owner_team"));
+    propValue2.setValues(new StringArray("data-eng"));
+
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue1);
+    propValues.add(propValue2);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with both properties matching (AND logic)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:data_classification", ImmutableSet.of("high"),
+                "urn:li:structuredProperty:owner_team", ImmutableSet.of("data-eng")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyMultipleStructuredPropertiesPartialMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Multi Property Policy");
+    dataHubPolicyInfo.setDescription("Policy with multiple structured properties");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with two structured property criteria
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+
+    final StructuredPropertyCriterionValue propValue1 = new StructuredPropertyCriterionValue();
+    propValue1.setPropertyUrn(
+        Urn.createFromString("urn:li:structuredProperty:data_classification"));
+    propValue1.setValues(new StringArray("high"));
+
+    final StructuredPropertyCriterionValue propValue2 = new StructuredPropertyCriterionValue();
+    propValue2.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:owner_team"));
+    propValue2.setValues(new StringArray("data-eng"));
+
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue1);
+    propValues.add(propValue2);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with only one property matching (partial match fails AND logic)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:data_classification", ImmutableSet.of("high")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEmptyStructuredPropertyCriteria_EqualsCondition() throws Exception {
+    // Empty/null structured property criterion with EQUALS should DENY access
+    final DataHubPolicyInfo dataHubPolicyInfo =
+        createEmptyStructuredPropertyPolicy(PolicyMatchCondition.EQUALS);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptyMap());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyEmptyStructuredPropertyCriteria_NotEqualsCondition()
+      throws Exception {
+    // Empty/null structured property criterion with NOT_EQUALS should GRANT access
+    final DataHubPolicyInfo dataHubPolicyInfo =
+        createEmptyStructuredPropertyPolicy(PolicyMatchCondition.NOT_EQUALS);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptyMap());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  private DataHubPolicyInfo createEmptyStructuredPropertyPolicy(PolicyMatchCondition condition) {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setDisplayName("Test Policy");
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(ACTIVE_POLICY_STATE);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setGroups(new UrnArray());
+    actorFilter.setUsers(new UrnArray());
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    policy.setActors(actorFilter);
+
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setValues(new StringArray());
+    criterion.setCondition(condition);
+    criterion.setStructuredPropertyValues(new StructuredPropertyCriterionValueArray());
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    policy.setResources(resourceFilter);
+
+    return policy;
+  }
+
+  private Map<Urn, EntityResponse> createGroupRoleBatchResponse(
+      final Urn groupUrn, final Urn roleUrn) throws URISyntaxException {
+    final RoleMembership roleMembership = new RoleMembership();
+    roleMembership.setRoles(new UrnArray(roleUrn));
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(groupUrn);
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        ROLE_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(roleMembership.data())));
+    entityResponse.setAspects(aspectMap);
+    return Collections.singletonMap(groupUrn, entityResponse);
+  }
+
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)
       throws Exception {
     final Ownership ownershipAspect = new Ownership();
@@ -2536,6 +3286,223 @@ public class PolicyEngineTest {
       Set<String> containers,
       Set<String> groups,
       Set<String> tags) {
+    return buildEntityResolversWithStructuredProperties(
+        entityType, entityUrn, owners, domains, containers, groups, tags, Collections.emptyMap());
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyNumericEquals() throws Exception {
+    // Test: numeric values should match even if string representation differs (42 vs 42.0)
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Numeric Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy matching numeric structured properties");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with numeric value criterion
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:priority_score"));
+    // User enters integer 42
+    propValue.setValues(new StringArray("42"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with double value 42.0 (as stored from database, with DOUBLE: prefix)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should match: 42 (integer criterion) equals 42.0 (double resource value)
+    assertTrue(result.isGranted(), "42 should match 42.0 when comparing numeric values");
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyNumericNotEquals() throws Exception {
+    // Test: NOT_EQUALS should return false when numeric values match (42 == 42.0)
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Numeric NOT_EQUALS Policy");
+    dataHubPolicyInfo.setDescription("Policy with NOT_EQUALS on numeric structured property");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with NOT_EQUALS condition
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:priority_score"));
+    propValue.setValues(new StringArray("42"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Resource has 42.0, which numerically equals 42 (with DOUBLE: prefix)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should NOT match: 42.0 numerically equals 42, so NOT_EQUALS should be false
+    assertFalse(result.isGranted(), "42.0 should match 42 numerically, so NOT_EQUALS should fail");
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyStringNumericLikeNotMatch() throws Exception {
+    // Test: STRING properties with numeric-like values should NOT match via numeric comparison
+    // This verifies the P1 bug fix: "001" should NOT match "1" for STRING properties
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("String Property Numeric-Like Policy");
+    dataHubPolicyInfo.setDescription("Policy with STRING property containing numeric-like values");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with criterion value "1"
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:version_code"));
+    propValue.setValues(new StringArray("1"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Resource has string value "001" (not a double, so no DOUBLE: prefix)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of("urn:li:structuredProperty:version_code", ImmutableSet.of("001")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should NOT match: "001" (STRING) should NOT match "1" (criterion)
+    // STRING properties use exact string comparison only, no numeric fallback
+    assertFalse(result.isGranted(), "STRING property \"001\" should NOT match criterion \"1\"");
+  }
+
+  public static ResolvedEntitySpec buildEntityResolversWithStructuredProperties(
+      String entityType,
+      String entityUrn,
+      Set<String> owners,
+      Set<String> domains,
+      Set<String> containers,
+      Set<String> groups,
+      Set<String> tags,
+      Map<String, Set<String>> structuredPropertyMap) {
+    // Direct map-based approach (no delimiter parsing)
+    // Create a FieldValue with structured property map
+    FieldResolver.FieldValue structuredPropFieldValue =
+        FieldResolver.FieldValue.builder()
+            .values(Collections.emptySet())
+            .structuredPropertyValues(structuredPropertyMap)
+            .build();
+
+    // Create a FieldResolver that returns the map-based FieldValue
+    FieldResolver structuredPropertyResolver =
+        new FieldResolver(
+            () -> java.util.concurrent.CompletableFuture.completedFuture(structuredPropFieldValue));
+
     return new ResolvedEntitySpec(
         new EntitySpec(entityType, entityUrn),
         ImmutableMap.of(
@@ -2552,6 +3519,8 @@ public class PolicyEngineTest {
             EntityFieldType.GROUP_MEMBERSHIP,
             FieldResolver.getResolverFromValues(groups),
             EntityFieldType.TAG,
-            FieldResolver.getResolverFromValues(tags)));
+            FieldResolver.getResolverFromValues(tags),
+            EntityFieldType.STRUCTURED_PROPERTY,
+            structuredPropertyResolver));
   }
 }

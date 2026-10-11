@@ -1,12 +1,12 @@
 import { Icon } from '@components';
-import { Image } from 'antd';
+import { NotePencil } from '@phosphor-icons/react/dist/csr/NotePencil';
 import React from 'react';
 import styled from 'styled-components';
 
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 
-const PlatformLogo = styled(Image)`
+const PlatformLogo = styled.img`
     max-height: 32px;
     height: 32px;
     width: auto;
@@ -29,8 +29,8 @@ export default function SourceLogo({ sourceName }: Props) {
 
     let logoComponent;
     if (sourceName === CUSTOM) {
-        logoComponent = <StyledIcon icon="NotePencil" source="phosphor" color="gray" />;
+        logoComponent = <StyledIcon icon={NotePencil} color="icon" />;
     }
 
-    return logoUrl ? <PlatformLogo preview={false} src={logoUrl} alt={sourceName} /> : logoComponent || null;
+    return logoUrl ? <PlatformLogo src={logoUrl} alt={sourceName} /> : logoComponent || null;
 }

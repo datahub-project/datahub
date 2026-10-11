@@ -60,6 +60,20 @@ public class RecommendationsServiceTest {
                   TestEntityUtil.getTestEntityUrn(),
                   TestEntityUtil.getTestEntityUrn(),
                   TestEntityUtil.getTestEntityUrn())));
+  private final TestSource domainsSource =
+      new TestSource(
+          "domains",
+          "domains",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
+          getContentFromString(ImmutableList.of("test")));
+  private final TestSource platformsSource =
+      new TestSource(
+          "platforms",
+          "PLATFORMS",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
+          getContentFromString(ImmutableList.of("test")));
   private final RecommendationModuleRanker ranker = new SimpleRecommendationRanker();
 
   private List<RecommendationContent> getContentFromString(List<String> values) {
@@ -158,5 +172,51 @@ public class RecommendationsServiceTest {
     assertEquals(module.getModuleId(), "multiValues");
     assertEquals(module.getRenderType(), RecommendationRenderType.ENTITY_NAME_LIST);
     assertEquals(module.getContent(), multiValuesSource.getContents());
+  }
+
+  @Test
+  public void testModuleFilter() throws URISyntaxException, AccessDeniedException {
+    RecommendationsService service =
+        new RecommendationsService(ImmutableList.of(domainsSource, platformsSource), ranker);
+
+    // Requesting a single module only returns that module, regardless of casing/separators
+    List<RecommendationModule> result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext()
+                .setScenario(ScenarioType.HOME)
+                .setModules(
+                    new RecommendationModuleIDArray(
+                        ImmutableList.of(RecommendationModuleID.DOMAINS))),
+            null,
+            10);
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getModuleId(), "domains");
+
+    // Requesting multiple modules returns the union
+    result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext()
+                .setScenario(ScenarioType.HOME)
+                .setModules(
+                    new RecommendationModuleIDArray(
+                        ImmutableList.of(
+                            RecommendationModuleID.DOMAINS, RecommendationModuleID.PLATFORMS))),
+            null,
+            10);
+    assertEquals(result.size(), 2);
+
+    // No modules requested returns all eligible sources
+    result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
+            10);
+    assertEquals(result.size(), 2);
   }
 }

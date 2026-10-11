@@ -1,6 +1,6 @@
-import { Tooltip } from '@components';
-import { Col, Pagination, Row } from 'antd';
+import { Pagination, Tooltip } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,6 +14,7 @@ type Props = {
     urn: string;
     initialRelationships?: Array<EntityRelationship> | null;
     pageSize: number;
+    totalRelationships: number;
 };
 
 const GroupsViewWrapper = styled.div`
@@ -34,12 +35,34 @@ const GroupsViewWrapper = styled.div`
     }
 `;
 
-const GroupItemColumn = styled(Col)`
+const GroupsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    @media (max-width: 992px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 576px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+`;
+
+const GroupItemColumn = styled.div`
     padding: 10px;
 `;
 
+const GroupRow = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const PaginationRow = styled.div`
+    display: flex;
+`;
+
 const GroupItem = styled.div`
-    border: 1px solid #eaeaea;
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 10px;
     min-height: 107px;
     max-height: 107px;
@@ -58,7 +81,7 @@ const GroupTitle = styled.span`
     font-size: 14px;
     line-height: 22px;
     font-weight: bold;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -68,7 +91,7 @@ const GroupMember = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 23px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-left: 7px;
 `;
 
@@ -76,14 +99,15 @@ const GroupDescription = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
 `;
 
-export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
+export default function UserGroups({ urn, initialRelationships, pageSize, totalRelationships }: Props) {
+    const { t } = useTranslation('entity.types');
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
@@ -97,48 +121,45 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     };
 
     const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
-    const total = relationships?.length || 0;
-    const userGroups = relationships?.map((rel) => rel.entity as CorpGroup) || [];
-
+    const userGroups = [...(relationships || [])].map((rel) => rel.entity as CorpGroup);
     return (
         <GroupsViewWrapper>
-            <Row justify="start">
+            <GroupsGrid>
                 {userGroups &&
                     userGroups.map((item) => {
                         return (
-                            <GroupItemColumn xl={8} lg={8} md={12} sm={12} xs={24} key={item.urn}>
+                            <GroupItemColumn key={item.urn}>
                                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.urn)}>
                                     <GroupItem>
-                                        <Row className="title-row">
+                                        <GroupRow className="title-row">
                                             <GroupTitle>{item.info?.displayName || item.name}</GroupTitle>
                                             <GroupMember>
-                                                {item.relationships?.total}
-                                                {item.relationships?.total === 1 ? ' member' : ' members'}
+                                                {t('shared.membersCount', { count: item.relationships?.total || 0 })}
                                             </GroupMember>
-                                        </Row>
-                                        <Row className="description-row">
+                                        </GroupRow>
+                                        <GroupRow className="description-row">
                                             <GroupDescription>
                                                 <Tooltip title={item.info?.description}>
                                                     {item.info?.description}
                                                 </Tooltip>
                                             </GroupDescription>
-                                        </Row>
+                                        </GroupRow>
                                     </GroupItem>
                                 </Link>
                             </GroupItemColumn>
                         );
                     })}
-            </Row>
-            <Row className="user-group-pagination">
+            </GroupsGrid>
+            <PaginationRow className="user-group-pagination">
                 <Pagination
-                    current={page}
-                    pageSize={pageSize}
-                    total={total}
+                    currentPage={page}
+                    itemsPerPage={pageSize}
+                    total={totalRelationships}
                     showLessItems
-                    onChange={onChangeGroupsPage}
+                    onPageChange={onChangeGroupsPage}
                     showSizeChanger={false}
                 />
-            </Row>
+            </PaginationRow>
         </GroupsViewWrapper>
     );
 }

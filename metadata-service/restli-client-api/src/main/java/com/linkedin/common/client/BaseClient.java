@@ -2,6 +2,7 @@ package com.linkedin.common.client;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.callback.FutureCallback;
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
@@ -10,6 +11,7 @@ import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.Response;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -22,12 +24,41 @@ public abstract class BaseClient implements AutoCloseable {
   protected final Client client;
   protected final EntityClientConfig entityClientConfig;
 
+  /**
+   * Resolver that applies every registered {@link
+   * com.linkedin.common.client.restli.RestliRequestContextEnricher} to outbound requests. Pulled
+   * out as its own collaborator so deployment-specific decoration (routing headers, region headers,
+   * tracing tokens) lands on every Restli call without each subclass having to opt in.
+   *
+   * <p>When no enrichers are registered the resolver is a pass-through and the call path is
+   * unchanged. Deployments that need outbound decoration register enrichers that stamp headers the
+   * receiving GMS can act on.
+   */
+  protected final RestliRequestContextResolver restliRequestContextResolver;
+
   protected static final Set<String> NON_RETRYABLE =
       Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
 
+  /**
+   * Construct a {@link BaseClient} with no outbound enrichers — convenience for tests and paths
+   * that never need request decoration. Production code should prefer the constructor that takes a
+   * {@link RestliRequestContextResolver} so any registered enrichers' headers land on every
+   * outbound call.
+   */
   protected BaseClient(@Nonnull Client restliClient, EntityClientConfig entityClientConfig) {
+    this(
+        restliClient,
+        entityClientConfig,
+        new RestliRequestContextResolver(Collections.emptyList()));
+  }
+
+  protected BaseClient(
+      @Nonnull Client restliClient,
+      EntityClientConfig entityClientConfig,
+      @Nonnull RestliRequestContextResolver restliRequestContextResolver) {
     client = Objects.requireNonNull(restliClient);
     this.entityClientConfig = entityClientConfig;
+    this.restliRequestContextResolver = Objects.requireNonNull(restliRequestContextResolver);
   }
 
   protected <T> Response<T> sendClientRequest(
@@ -48,6 +79,11 @@ public abstract class BaseClient implements AutoCloseable {
     if (authentication != null) {
       requestBuilder.addHeader(HttpHeaders.AUTHORIZATION, authentication.getCredentials());
     }
+
+    // Single chokepoint for deployment-specific outbound header decoration. Pass-through when no
+    // enrichers are registered; otherwise each registered enricher stamps its headers (e.g. a
+    // routing header the receiving GMS can recover) here.
+    restliRequestContextResolver.resolve(requestBuilder, opContext);
 
     int attemptCount = 0;
 

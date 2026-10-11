@@ -1,0 +1,32 @@
+namespace com.linkedin.common
+
+/**
+ * AI-specific context attached to a metric, semantic model, or schema field to
+ * improve disambiguation, retrieval, and generation quality (OSI ai_context shape).
+ */
+@Aspect = {
+  "name": "aiContext",
+  "schemaVersion": 1
+}
+record AiContext {
+
+  /**
+   * Alternative names or abbreviations by which this entity is known.
+   */
+  synonyms: optional array[string]
+
+  /**
+   * Human-readable guidance for AI models on how to interpret this entity.
+   */
+  instructions: optional string
+
+  /**
+   * Example values or usage patterns to ground AI reasoning.
+   */
+  examples: optional array[string]
+
+  /**
+   * Additional free-form instructions for AI model customisation.
+   */
+  customInstructions: optional string
+}

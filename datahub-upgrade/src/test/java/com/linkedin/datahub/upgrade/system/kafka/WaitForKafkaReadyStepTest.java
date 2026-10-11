@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.SetupConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,7 +24,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.Node;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -159,14 +160,20 @@ public class WaitForKafkaReadyStepTest {
 
   @Test
   public void testCreateAdminClientMethod() {
-    // Test that the createAdminClient method exists and can be called
-    // This will fail in tests since we don't have real Kafka configuration,
-    // but it verifies the method structure
+    // Verify createAdminClient() builds a client. There is no broker in tests, so close it
+    // immediately -- otherwise its background network thread spins in connection-retry loops
+    // for the rest of the JVM's life, spewing thousands of NetworkClient WARNs and burning CPU.
+    AdminClient adminClient = null;
     try {
-      step.createAdminClient();
+      adminClient = step.createAdminClient();
+      assertNotNull(adminClient);
     } catch (Exception e) {
-      // Expected to fail in test environment, but method should exist
+      // createAdminClient may throw on invalid config; the method still exists.
       assertNotNull(e);
+    } finally {
+      if (adminClient != null) {
+        adminClient.close(Duration.ZERO);
+      }
     }
   }
 }

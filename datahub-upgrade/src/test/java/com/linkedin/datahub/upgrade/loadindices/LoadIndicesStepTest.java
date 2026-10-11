@@ -27,6 +27,7 @@ import io.ebean.Database;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -117,7 +118,7 @@ public class LoadIndicesStepTest {
     aspectV2.setAspect(aspect);
     aspectV2.setVersion(version);
     aspectV2.setMetadata("{}"); // Required field
-    aspectV2.setCreatedOn(Timestamp.from(createdTime));
+    aspectV2.setCreatedOn(Timestamp.from(createdTime.truncatedTo(ChronoUnit.MILLIS)));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
   }
@@ -130,7 +131,7 @@ public class LoadIndicesStepTest {
     aspectV2.setVersion(version);
     // Provide valid container aspect JSON data
     aspectV2.setMetadata("{\"container\":{\"urn\":\"" + urn + "\"}}");
-    aspectV2.setCreatedOn(Timestamp.from(createdTime));
+    aspectV2.setCreatedOn(Timestamp.from(createdTime.truncatedTo(ChronoUnit.MILLIS)));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
   }
@@ -151,9 +152,9 @@ public class LoadIndicesStepTest {
     assertNotNull(executable);
 
     // Mock successful index manager operations
-    doNothing().when(mockIndexManager).optimizeForBulkOperations();
+    doNothing().when(mockIndexManager).optimizeForBulkOperations(any(OperationContext.class));
     when(mockIndexManager.isSettingsOptimized()).thenReturn(true);
-    doNothing().when(mockIndexManager).restoreFromConfiguration();
+    doNothing().when(mockIndexManager).restoreFromConfiguration(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -163,8 +164,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.SUCCEEDED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, times(1)).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, times(1)).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test
@@ -175,7 +176,7 @@ public class LoadIndicesStepTest {
     // Mock index manager disable failure
     doThrow(new IOException("Failed to optimize settings"))
         .when(mockIndexManager)
-        .optimizeForBulkOperations();
+        .optimizeForBulkOperations(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -185,8 +186,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.FAILED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, never()).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, never()).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test
@@ -195,11 +196,11 @@ public class LoadIndicesStepTest {
     assertNotNull(executable);
 
     // Mock successful optimization but failed restore
-    doNothing().when(mockIndexManager).optimizeForBulkOperations();
+    doNothing().when(mockIndexManager).optimizeForBulkOperations(any(OperationContext.class));
     when(mockIndexManager.isSettingsOptimized()).thenReturn(true);
     doThrow(new IOException("Failed to restore settings"))
         .when(mockIndexManager)
-        .restoreFromConfiguration();
+        .restoreFromConfiguration(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -211,8 +212,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.SUCCEEDED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, times(1)).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, times(1)).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test
@@ -531,7 +532,7 @@ public class LoadIndicesStepTest {
     assertTrue(result.aspectNames == null || result.aspectNames.isEmpty());
     assertTrue(result.urnLike == null);
     assertEquals(result.gePitEpochMs, Long.valueOf(0L));
-    assertTrue(result.lePitEpochMs > 0); // Should be current time
+    assertEquals(result.lePitEpochMs, Long.valueOf(0L));
     assertEquals(result.limit, 1000);
     assertFalse(result.urnBasedPagination);
     assertTrue(result.lastUrn == null || result.lastUrn.isEmpty());

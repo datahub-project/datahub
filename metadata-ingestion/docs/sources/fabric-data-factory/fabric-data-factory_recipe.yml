@@ -1,0 +1,51 @@
+# Example recipe for Fabric Data Factory source
+# See README.md for full configuration options
+
+source:
+  type: fabric-data-factory
+  config:
+    # Authentication (using service principal)
+    credential:
+      authentication_method: service_principal
+      client_id: ${AZURE_CLIENT_ID}
+      client_secret: ${AZURE_CLIENT_SECRET}
+      tenant_id: ${AZURE_TENANT_ID}
+
+    # Optional: Filter workspaces by name pattern
+    workspace_pattern:
+      allow:
+        - ".*" # Allow all workspaces by default
+      deny: []
+
+    # Optional: Filter pipelines by name pattern
+    pipeline_pattern:
+      allow:
+        - ".*" # Allow all pipelines by default
+      deny: []
+
+    # Feature flags
+    extract_pipelines: true
+    include_lineage: true
+    include_execution_history: true
+    execution_history_days: 7 # 1-90 days
+
+    # Optional: Map Fabric connection names to platform instances for accurate lineage
+    # platform_instance_map:
+    #   "my-snowflake-connection": "prod_snowflake"
+    #   "my-bigquery-connection": "analytics_project"
+
+    # Optional: Platform instance for this Fabric Data Factory connector
+    # platform_instance: "my-fabric-tenant"
+
+    # Environment
+    env: PROD
+
+    # Optional: Stateful ingestion for stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: ${DATAHUB_GMS_TOKEN}

@@ -1,0 +1,1342 @@
+{
+  "definitions": {
+    "Test_Analytic_Model": {
+      "kind": "entity",
+      "@EndUserText.label": "Test Analytic Model",
+      "elements": {
+        "BusinessPartner": {
+          "@EndUserText.label": "BusinessPartner",
+          "@ObjectModel.foreignKey.association": {
+            "=": "_BusinessPartner"
+          }
+        },
+        "_BusinessPartner": {
+          "type": "cds.Association",
+          "on": [
+            {
+              "ref": [
+                "BusinessPartner"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartner"
+              ]
+            }
+          ],
+          "target": "FINANCE_DATA.BusinessPartner_DIM_GE",
+          "@EndUserText.label": "BusinessPartner"
+        },
+        "BusinessPartner_Location": {
+          "@EndUserText.label": "BusinessPartner_Location",
+          "@ObjectModel.foreignKey.association": {
+            "=": "_BusinessPartner_Loc"
+          }
+        },
+        "_BusinessPartner_Loc": {
+          "type": "cds.Association",
+          "on": [
+            {
+              "ref": [
+                "BusinessPartner_Location"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Business Partner from S4/HC"
+              ]
+            }
+          ],
+          "target": "FINANCE_DATA.Purchasing_Power_DIM_GE",
+          "@EndUserText.label": "BusinessPartner_Location"
+        },
+        "BW_ORDERID": {
+          "@EndUserText.label": "BW_ORDERID"
+        },
+        "BW_Athena_YEAR": {
+          "@EndUserText.label": "BW_Athena_YEAR"
+        },
+        "BW_Athena_MONTH": {
+          "@EndUserText.label": "BW_Athena_MONTH"
+        },
+        "BW_SALESAGENT": {
+          "@EndUserText.label": "BW_SALESAGENT"
+        },
+        "BW_Athena_COUNTRY": {
+          "@EndUserText.label": "BW_Athena_COUNTRY"
+        },
+        "BW_Athena_CUSTOMERSTATUS": {
+          "@EndUserText.label": "BW_Athena_CUSTOMERSTATUS"
+        },
+        "BW_Athena_PRODUCT": {
+          "@EndUserText.label": "BW_Athena_PRODUCT"
+        },
+        "BW_Athena_PRODUCTTYPE": {
+          "@EndUserText.label": "BW_Athena_PRODUCTTYPE"
+        },
+        "Opportunity_Id": {
+          "@EndUserText.label": "Opportunity_Id"
+        },
+        "ForecastCategory": {
+          "@EndUserText.label": "ForecastCategory"
+        },
+        "HasOpenActivity": {
+          "@EndUserText.label": "HasOpenActivity"
+        },
+        "HasOpportunityLineItem": {
+          "@EndUserText.label": "HasOpportunityLineItem"
+        },
+        "IsClosed": {
+          "@EndUserText.label": "IsClosed"
+        },
+        "IsDeleted": {
+          "@EndUserText.label": "IsDeleted"
+        },
+        "IsWon": {
+          "@EndUserText.label": "IsWon"
+        },
+        "LeadSource": {
+          "@EndUserText.label": "LeadSource"
+        },
+        "MainCompetitors": {
+          "@EndUserText.label": "MainCompetitors"
+        },
+        "Name": {
+          "@EndUserText.label": "Name"
+        },
+        "OrderNumber": {
+          "@EndUserText.label": "OrderNumber"
+        },
+        "OrderNumber__c_0": {
+          "@EndUserText.label": "OrderNumber__c_0"
+        },
+        "Probability": {
+          "@EndUserText.label": "Probability"
+        },
+        "StageName": {
+          "@EndUserText.label": "StageName"
+        },
+        "Type": {
+          "@EndUserText.label": "Type"
+        },
+        "Sold to party": {
+          "@EndUserText.label": "Sold to party"
+        },
+        "Company Code": {
+          "@EndUserText.label": "Company Code"
+        },
+        "BusinessPartnerCategory_Busin": {
+          "@EndUserText.label": "BusinessPartnerCategory",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "BusinessPartnerCategory"
+          ]
+        },
+        "BusinessPartnerName_Busin": {
+          "@EndUserText.label": "BusinessPartnerName",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "BusinessPartnerName"
+          ]
+        },
+        "CreationDate_Busin": {
+          "@EndUserText.label": "CreationDate",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "CreationDate"
+          ]
+        },
+        "LastChangeDate_Busin": {
+          "@EndUserText.label": "LastChangeDate",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "LastChangeDate"
+          ]
+        },
+        "BusinessPartnerIsBlocked_Busin": {
+          "@EndUserText.label": "BusinessPartnerIsBlocked",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "BusinessPartnerIsBlocked"
+          ]
+        },
+        "IsBusinessPurposeComplet_Busin": {
+          "@EndUserText.label": "IsBusinessPurposeCompleted",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "IsBusinessPurposeCompleted"
+          ]
+        },
+        "OrganizationBPName1_Busin": {
+          "@EndUserText.label": "OrganizationBPName",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "OrganizationBPName1"
+          ]
+        },
+        "InternationalLocationNum_Busin": {
+          "@EndUserText.label": "InternationalLocationNumber",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "InternationalLocationNumber1"
+          ]
+        },
+        "LegalForm_Busin": {
+          "@EndUserText.label": "LegalForm",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "LegalForm"
+          ]
+        },
+        "IsNaturalPerson_Busin": {
+          "@EndUserText.label": "IsNaturalPerson",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "IsNaturalPerson"
+          ]
+        },
+        "BusinessPartnerGrouping_Busin": {
+          "@EndUserText.label": "BusinessPartnerGrouping",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "BusinessPartnerGrouping"
+          ]
+        },
+        "BusinessPartnerType_Busin": {
+          "@EndUserText.label": "BusinessPartnerType",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "BusinessPartnerType"
+          ]
+        },
+        "Risk_Class_Busin": {
+          "@EndUserText.label": "Risk_Class",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "Risk_Class"
+          ]
+        },
+        "Rating_Payment_Behav_Busin": {
+          "@EndUserText.label": "Rating_Payment_Behav",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner",
+            "Rating_Payment_Behav"
+          ]
+        },
+        "Country_Bus1": {
+          "@EndUserText.label": "Country",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "Country"
+          ]
+        },
+        "Region_Bus1": {
+          "@EndUserText.label": "Region",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "Region"
+          ]
+        },
+        "State_Bus1": {
+          "@EndUserText.label": "State",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "State"
+          ]
+        },
+        "City_Bus1": {
+          "@EndUserText.label": "City",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "City"
+          ]
+        },
+        "City_Population_Bus1": {
+          "@EndUserText.label": "City_Population",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "City_Population"
+          ]
+        },
+        "Average_income_per_head_y_Bus1": {
+          "@EndUserText.label": "Average_income_per_head_year",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "Average_income_per_head_year"
+          ]
+        },
+        "Purchasing_Power_per_Year_Bus1": {
+          "@EndUserText.label": "Purchasing_Power_per_Year",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "Purchasing_Power_per_Year"
+          ]
+        },
+        "Location_Bus1": {
+          "@EndUserText.label": "Location",
+          "@Analytics.navigationAttributeRef": [
+            "_BusinessPartner_Loc",
+            "Location"
+          ]
+        },
+        "BW_ORDERVALUE": {
+          "@EndUserText.label": "BW_ORDERVALUE",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        },
+        "BW_UNITSSOLD": {
+          "@EndUserText.label": "BW_UNITSSOLD",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        },
+        "BW_NOCUSTOMERMEETINGS": {
+          "@EndUserText.label": "BW_NOCUSTOMERMEETINGS",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        },
+        "Athena_Planned_ORDERVALUE": {
+          "@EndUserText.label": "Athena_Planned_ORDERVALUE",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        },
+        "Sales_Amount": {
+          "@EndUserText.label": "Sales_Amount",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        },
+        "Sales_ExpectedRevenue": {
+          "@EndUserText.label": "Sales_ExpectedRevenue",
+          "@AnalyticsDetails.measureType": {
+            "#": "BASE"
+          }
+        }
+      },
+      "@ObjectModel.modelingPattern": {
+        "#": "ANALYTICAL_CUBE"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "ANALYTICAL_PROVIDER"
+        },
+        {
+          "#": "_DWC_AM_EDITABLE_DIMENSION_NAMES"
+        }
+      ],
+      "@DataWarehouse.editorType": {
+        "#": "DWCQueryModelEditor"
+      },
+      "@DataWarehouse.hanaCatalog.viewType": {
+        "#": "CALCULATION_VIEW"
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "ref": [
+              "FINANCE_DATA.SALES_ALL_GE"
+            ],
+            "as": "FINANCE_DATASALES_A"
+          },
+          "columns": [
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BusinessPartner"
+              ],
+              "as": "BusinessPartner"
+            },
+            {
+              "ref": [
+                "_BusinessPartner"
+              ]
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BusinessPartner_Location"
+              ],
+              "as": "BusinessPartner_Location"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc"
+              ]
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_ORDERID"
+              ],
+              "as": "BW_ORDERID"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_YEAR"
+              ],
+              "as": "BW_Athena_YEAR"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_MONTH"
+              ],
+              "as": "BW_Athena_MONTH"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_SALESAGENT"
+              ],
+              "as": "BW_SALESAGENT"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_COUNTRY"
+              ],
+              "as": "BW_Athena_COUNTRY"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_CUSTOMERSTATUS"
+              ],
+              "as": "BW_Athena_CUSTOMERSTATUS"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_PRODUCT"
+              ],
+              "as": "BW_Athena_PRODUCT"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_Athena_PRODUCTTYPE"
+              ],
+              "as": "BW_Athena_PRODUCTTYPE"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Opportunity_Id"
+              ],
+              "as": "Opportunity_Id"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "ForecastCategory"
+              ],
+              "as": "ForecastCategory"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "HasOpenActivity"
+              ],
+              "as": "HasOpenActivity"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "HasOpportunityLineItem"
+              ],
+              "as": "HasOpportunityLineItem"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "IsClosed"
+              ],
+              "as": "IsClosed"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "IsDeleted"
+              ],
+              "as": "IsDeleted"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "IsWon"
+              ],
+              "as": "IsWon"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "LeadSource"
+              ],
+              "as": "LeadSource"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "MainCompetitors"
+              ],
+              "as": "MainCompetitors"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Name"
+              ],
+              "as": "Name"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "OrderNumber"
+              ],
+              "as": "OrderNumber"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "OrderNumber__c_0"
+              ],
+              "as": "OrderNumber__c_0"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Probability"
+              ],
+              "as": "Probability"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "StageName"
+              ],
+              "as": "StageName"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Type"
+              ],
+              "as": "Type"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Sold to party"
+              ],
+              "as": "Sold to party"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Company Code"
+              ],
+              "as": "Company Code"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartnerCategory"
+              ],
+              "as": "BusinessPartnerCategory_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartnerName"
+              ],
+              "as": "BusinessPartnerName_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "CreationDate"
+              ],
+              "as": "CreationDate_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "LastChangeDate"
+              ],
+              "as": "LastChangeDate_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartnerIsBlocked"
+              ],
+              "as": "BusinessPartnerIsBlocked_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "IsBusinessPurposeCompleted"
+              ],
+              "as": "IsBusinessPurposeComplet_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "OrganizationBPName1"
+              ],
+              "as": "OrganizationBPName1_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "InternationalLocationNumber1"
+              ],
+              "as": "InternationalLocationNum_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "LegalForm"
+              ],
+              "as": "LegalForm_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "IsNaturalPerson"
+              ],
+              "as": "IsNaturalPerson_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartnerGrouping"
+              ],
+              "as": "BusinessPartnerGrouping_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "BusinessPartnerType"
+              ],
+              "as": "BusinessPartnerType_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "Risk_Class"
+              ],
+              "as": "Risk_Class_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner",
+                "Rating_Payment_Behav"
+              ],
+              "as": "Rating_Payment_Behav_Busin"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Country"
+              ],
+              "as": "Country_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Region"
+              ],
+              "as": "Region_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "State"
+              ],
+              "as": "State_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "City"
+              ],
+              "as": "City_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "City_Population"
+              ],
+              "as": "City_Population_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Average_income_per_head_year"
+              ],
+              "as": "Average_income_per_head_y_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Purchasing_Power_per_Year"
+              ],
+              "as": "Purchasing_Power_per_Year_Bus1"
+            },
+            {
+              "ref": [
+                "_BusinessPartner_Loc",
+                "Location"
+              ],
+              "as": "Location_Bus1"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_ORDERVALUE"
+              ],
+              "as": "BW_ORDERVALUE"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_UNITSSOLD"
+              ],
+              "as": "BW_UNITSSOLD"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "BW_NOCUSTOMERMEETINGS"
+              ],
+              "as": "BW_NOCUSTOMERMEETINGS"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Athena_Planned_ORDERVALUE"
+              ],
+              "as": "Athena_Planned_ORDERVALUE"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Sales_Amount"
+              ],
+              "as": "Sales_Amount"
+            },
+            {
+              "ref": [
+                "FINANCE_DATASALES_A",
+                "Sales_ExpectedRevenue"
+              ],
+              "as": "Sales_ExpectedRevenue"
+            }
+          ],
+          "mixin": {
+            "_BusinessPartner": {
+              "type": "cds.Association",
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "BusinessPartner"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_BusinessPartner",
+                    "BusinessPartner"
+                  ]
+                }
+              ],
+              "target": "FINANCE_DATA.BusinessPartner_DIM_GE"
+            },
+            "_BusinessPartner_Loc": {
+              "type": "cds.Association",
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "BusinessPartner_Location"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_BusinessPartner_Loc",
+                    "Business Partner from S4/HC"
+                  ]
+                }
+              ],
+              "target": "FINANCE_DATA.Purchasing_Power_DIM_GE"
+            }
+          }
+        }
+      }
+    }
+  },
+  "businessLayerDefinitions": {
+    "Test_Analytic_Model": {
+      "identifier": {
+        "key": "Test_Analytic_Model"
+      },
+      "text": "Test Analytic Model",
+      "sourceModel": {
+        "factSources": {
+          "FINANCE_DATASALES_A": {
+            "text": "SALES_ALL_GE",
+            "dataEntity": {
+              "key": "FINANCE_DATA.SALES_ALL_GE"
+            }
+          }
+        },
+        "dimensionSources": {
+          "_BusinessPartner": {
+            "text": "BusinessPartner",
+            "dataEntity": {
+              "key": "FINANCE_DATA.BusinessPartner_DIM_GE"
+            },
+            "associationContexts": [
+              {
+                "sourceKey": "FINANCE_DATASALES_A",
+                "sourceType": "AnalyticModelSourceType.Fact",
+                "associationSteps": [
+                  "_BusinessP"
+                ]
+              }
+            ],
+            "technicalAffix": {
+              "text": "_Busin",
+              "type": "AnalyticModelDimensionAffixType.SUFFIX"
+            }
+          },
+          "_BusinessPartner_Loc": {
+            "text": "BusinessPartner_Location",
+            "dataEntity": {
+              "key": "FINANCE_DATA.Purchasing_Power_DIM_GE"
+            },
+            "associationContexts": [
+              {
+                "sourceKey": "FINANCE_DATASALES_A",
+                "sourceType": "AnalyticModelSourceType.Fact",
+                "associationSteps": [
+                  "_Purchasin"
+                ]
+              }
+            ],
+            "technicalAffix": {
+              "text": "_Bus1",
+              "type": "AnalyticModelDimensionAffixType.SUFFIX"
+            }
+          }
+        }
+      },
+      "exposedAssociations": {},
+      "attributes": {
+        "BW_ORDERID": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_ORDERID"
+            }
+          },
+          "text": "BW_ORDERID",
+          "duplicated": false
+        },
+        "BW_Athena_YEAR": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_YEAR"
+            }
+          },
+          "text": "BW_Athena_YEAR",
+          "duplicated": false
+        },
+        "BW_Athena_MONTH": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_MONTH"
+            }
+          },
+          "text": "BW_Athena_MONTH",
+          "duplicated": false
+        },
+        "BW_SALESAGENT": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_SALESAGENT"
+            }
+          },
+          "text": "BW_SALESAGENT",
+          "duplicated": false
+        },
+        "BusinessPartner": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BusinessPartner"
+            }
+          },
+          "text": "BusinessPartner",
+          "duplicated": false,
+          "usedForDimensionSourceKey": "_BusinessPartner"
+        },
+        "BW_Athena_COUNTRY": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_COUNTRY"
+            }
+          },
+          "text": "BW_Athena_COUNTRY",
+          "duplicated": false
+        },
+        "BW_Athena_CUSTOMERSTATUS": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_CUSTOMERSTATUS"
+            }
+          },
+          "text": "BW_Athena_CUSTOMERSTATUS",
+          "duplicated": false
+        },
+        "BW_Athena_PRODUCT": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_PRODUCT"
+            }
+          },
+          "text": "BW_Athena_PRODUCT",
+          "duplicated": false
+        },
+        "BW_Athena_PRODUCTTYPE": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_Athena_PRODUCTTYPE"
+            }
+          },
+          "text": "BW_Athena_PRODUCTTYPE",
+          "duplicated": false
+        },
+        "Opportunity_Id": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Opportunity_Id"
+            }
+          },
+          "text": "Opportunity_Id",
+          "duplicated": false
+        },
+        "ForecastCategory": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "ForecastCategory"
+            }
+          },
+          "text": "ForecastCategory",
+          "duplicated": false
+        },
+        "HasOpenActivity": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "HasOpenActivity"
+            }
+          },
+          "text": "HasOpenActivity",
+          "duplicated": false
+        },
+        "HasOpportunityLineItem": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "HasOpportunityLineItem"
+            }
+          },
+          "text": "HasOpportunityLineItem",
+          "duplicated": false
+        },
+        "IsClosed": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "IsClosed"
+            }
+          },
+          "text": "IsClosed",
+          "duplicated": false
+        },
+        "IsDeleted": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "IsDeleted"
+            }
+          },
+          "text": "IsDeleted",
+          "duplicated": false
+        },
+        "IsWon": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "IsWon"
+            }
+          },
+          "text": "IsWon",
+          "duplicated": false
+        },
+        "LeadSource": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "LeadSource"
+            }
+          },
+          "text": "LeadSource",
+          "duplicated": false
+        },
+        "MainCompetitors": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "MainCompetitors"
+            }
+          },
+          "text": "MainCompetitors",
+          "duplicated": false
+        },
+        "Name": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Name"
+            }
+          },
+          "text": "Name",
+          "duplicated": false
+        },
+        "OrderNumber": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "OrderNumber"
+            }
+          },
+          "text": "OrderNumber",
+          "duplicated": false
+        },
+        "OrderNumber__c_0": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "OrderNumber__c_0"
+            }
+          },
+          "text": "OrderNumber__c_0",
+          "duplicated": false
+        },
+        "Probability": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Probability"
+            }
+          },
+          "text": "Probability",
+          "duplicated": false
+        },
+        "StageName": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "StageName"
+            }
+          },
+          "text": "StageName",
+          "duplicated": false
+        },
+        "Type": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Type"
+            }
+          },
+          "text": "Type",
+          "duplicated": false
+        },
+        "Sold to party": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Sold to party"
+            }
+          },
+          "text": "Sold to party",
+          "duplicated": false
+        },
+        "Company Code": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Company Code"
+            }
+          },
+          "text": "Company Code",
+          "duplicated": false
+        },
+        "BusinessPartner_Location": {
+          "attributeType": "AnalyticModelAttributeType.FactSourceAttribute",
+          "attributeMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BusinessPartner_Location"
+            }
+          },
+          "text": "BusinessPartner_Location",
+          "duplicated": false,
+          "usedForDimensionSourceKey": "_BusinessPartner_Loc"
+        },
+        "BusinessPartnerCategory_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "BusinessPartnerCategory",
+          "text": "BusinessPartnerCategory",
+          "duplicated": false
+        },
+        "BusinessPartnerName_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "BusinessPartnerName",
+          "text": "BusinessPartnerName",
+          "duplicated": false
+        },
+        "CreationDate_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "CreationDate",
+          "text": "CreationDate",
+          "duplicated": false
+        },
+        "LastChangeDate_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "LastChangeDate",
+          "text": "LastChangeDate",
+          "duplicated": false
+        },
+        "BusinessPartnerIsBlocked_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "BusinessPartnerIsBlocked",
+          "text": "BusinessPartnerIsBlocked",
+          "duplicated": false
+        },
+        "IsBusinessPurposeComplet_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "IsBusinessPurposeCompleted",
+          "text": "IsBusinessPurposeCompleted",
+          "duplicated": false
+        },
+        "OrganizationBPName1_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "OrganizationBPName1",
+          "text": "OrganizationBPName",
+          "duplicated": false
+        },
+        "InternationalLocationNum_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "InternationalLocationNumber1",
+          "text": "InternationalLocationNumber",
+          "duplicated": false
+        },
+        "LegalForm_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "LegalForm",
+          "text": "LegalForm",
+          "duplicated": false
+        },
+        "IsNaturalPerson_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "IsNaturalPerson",
+          "text": "IsNaturalPerson",
+          "duplicated": false
+        },
+        "BusinessPartnerGrouping_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "BusinessPartnerGrouping",
+          "text": "BusinessPartnerGrouping",
+          "duplicated": false
+        },
+        "BusinessPartnerType_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "BusinessPartnerType",
+          "text": "BusinessPartnerType",
+          "duplicated": false
+        },
+        "Risk_Class_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "Risk_Class",
+          "text": "Risk_Class",
+          "duplicated": false
+        },
+        "Rating_Payment_Behav_Busin": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner",
+          "key": "Rating_Payment_Behav",
+          "text": "Rating_Payment_Behav",
+          "duplicated": false
+        },
+        "Country_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "Country",
+          "text": "Country",
+          "duplicated": false
+        },
+        "Region_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "Region",
+          "text": "Region",
+          "duplicated": false
+        },
+        "State_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "State",
+          "text": "State",
+          "duplicated": false
+        },
+        "City_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "City",
+          "text": "City",
+          "duplicated": false
+        },
+        "City_Population_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "City_Population",
+          "text": "City_Population",
+          "duplicated": false
+        },
+        "Average_income_per_head_y_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "Average_income_per_head_year",
+          "text": "Average_income_per_head_year",
+          "duplicated": false
+        },
+        "Purchasing_Power_per_Year_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "Purchasing_Power_per_Year",
+          "text": "Purchasing_Power_per_Year",
+          "duplicated": false
+        },
+        "Location_Bus1": {
+          "attributeType": "AnalyticModelAttributeType.DimensionSourceAttribute",
+          "sourceKey": "_BusinessPartner_Loc",
+          "key": "Location",
+          "text": "Location",
+          "duplicated": false
+        }
+      },
+      "measures": {
+        "BW_ORDERVALUE": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_ORDERVALUE"
+            }
+          },
+          "text": "BW_ORDERVALUE",
+          "isAuxiliary": false
+        },
+        "BW_UNITSSOLD": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_UNITSSOLD"
+            }
+          },
+          "text": "BW_UNITSSOLD",
+          "isAuxiliary": false
+        },
+        "BW_NOCUSTOMERMEETINGS": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "BW_NOCUSTOMERMEETINGS"
+            }
+          },
+          "text": "BW_NOCUSTOMERMEETINGS",
+          "isAuxiliary": false
+        },
+        "Athena_Planned_ORDERVALUE": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Athena_Planned_ORDERVALUE"
+            }
+          },
+          "text": "Athena_Planned_ORDERVALUE",
+          "isAuxiliary": false
+        },
+        "Sales_Amount": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Sales_Amount"
+            }
+          },
+          "text": "Sales_Amount",
+          "isAuxiliary": false
+        },
+        "Sales_ExpectedRevenue": {
+          "measureType": "AnalyticModelMeasureType.FactSourceMeasure",
+          "measureMapping": {
+            "FINANCE_DATASALES_A": {
+              "key": "Sales_ExpectedRevenue"
+            }
+          },
+          "text": "Sales_ExpectedRevenue",
+          "isAuxiliary": false
+        }
+      },
+      "crossCalculations": {},
+      "version": "1.7.1",
+      "supportedCapabilities": {},
+      "variables": {}
+    }
+  }
+}

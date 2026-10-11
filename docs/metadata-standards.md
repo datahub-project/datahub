@@ -1,3 +1,7 @@
+---
+description: "How DataHub serves as a de-facto metadata standard for the modern data and AI stack across datasets, dashboards, and ML models."
+---
+
 # Metadata Standards
 
 The data and AI tooling and infrastructure stack is constantly evolving and adding new concepts (from datasets to dashboards, to models and training runs). DataHub’s goal is to harmonize this complexity and make it understandable for humans and machines, while not sacrificing fidelity. As a result, [over 10 years of iteration](https://www.linkedin.com/blog/engineering/data-management/datahub-popular-metadata-architectures-explained), the DataHub project has evolved into a comprehensive living metadata model that serves as a de-facto standard for metadata in the data and AI stack.

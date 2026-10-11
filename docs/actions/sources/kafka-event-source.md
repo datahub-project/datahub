@@ -1,3 +1,7 @@
+---
+description: "Configure the Kafka event source to consume DataHub metadata change events directly from Kafka topics for custom Action pipelines."
+---
+
 # Kafka Event Source
 
 ## Overview
@@ -29,6 +33,12 @@ fail to be processed will simply be logged to a `failed_events.log` file for fur
 
 If you've configured your Action pipeline `failure_mode` to be `THROW`, then events which fail to be processed result in an Action Pipeline error. This in turn terminates the pipeline before committing offsets back to Kafka. Thus the message will not be marked as "processed" by the Action consumer.
 
+### Connection Failures
+
+When a pipeline starts, the Kafka Event Source waits until the cluster answers a metadata request before it subscribes, and logs `Kafka event source for pipeline '<name>' connected to Kafka at <bootstrap>.` once it has. If the cluster cannot be reached or the client cannot authenticate (for example a client configured for `PLAINTEXT` against a `SASL_SSL` listener, or wrong SASL credentials), the source keeps retrying for 60 seconds, logging the client error at ERROR, and then fails the pipeline. When no pipeline in the process is running any more and at least one of them failed, the `datahub-actions` process exits with code 1, so a container runtime restarts it instead of leaving it up without consuming anything. If every pipeline finished cleanly, it exits with code 0.
+
+After a pipeline has connected, Kafka client errors are logged (at ERROR for authentication failures and all brokers being down, otherwise at WARNING) and the client keeps reconnecting on its own.
+
 ## Supported Events
 
 The Kafka Event Source produces
@@ -59,7 +69,7 @@ source:
         #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
     # Topic Routing - which topics to read from.
     topic_routes:
-      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLog_v1 events.
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLogEvent_v1 events.
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1} # Topic name for PlatformEvent_v1 events.
 action:
   # action configs
@@ -75,7 +85,26 @@ action:
   | `connection.consumer_config` | ❌ | {} | A set of key-value pairs that represents arbitrary Kafka Consumer configs |
   | `topic_routes.mcl` | ❌  | `MetadataChangeLog_v1` | The name of the topic containing MetadataChangeLog events |
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
+  | `async_commit_enabled` | ❌ | `true` | Use async (periodic background) offset commits. Set to `false` for batch-processing actions. |
+  | `async_commit_interval` | ❌ | `10000` | Milliseconds between background offset commits (only used when `async_commit_enabled` is `true`) |
+  | `commit_retry_count` | ❌ | `5` | Number of retries on synchronous commit failure (only used when `async_commit_enabled` is `false`) |
+  | `commit_retry_backoff` | ❌ | `10.0` | Seconds between synchronous commit retries (only used when `async_commit_enabled` is `false`) |
 </details>
+
+### Consumer Properties from Environment Variables
+
+The Kafka Event Source also reads Kafka client properties from `KAFKA_PROPERTIES_*` environment variables, which is how
+the DataHub Helm chart passes Kafka settings to the actions pod. The part of the name after the prefix is lowercased and
+its underscores become dots, so `KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN` sets `sasl.mechanism: PLAIN`.
+`KAFKA_PROPERTIES_OAUTH_CB` sets `oauth_cb` (for example `datahub_actions.utils.kafka_msk_iam:oauth_cb` for AWS MSK IAM),
+which is resolved to a function the same way as `oauth_cb` in `consumer_config`. Empty values are ignored.
+
+- Values in `connection.consumer_config` take precedence over environment variables.
+- Properties that librdkafka does not accept are skipped: Java-only settings (`sasl.jaas.config`, `ssl.truststore.*`,
+  `ssl.keystore.*`, `ssl.protocol`, `ssl.enabled.protocols`, the `sasl.*.class` settings, `kafkastore.*`), schema registry
+  settings (`basic.auth.*`, `schema.registry.*`) and `partition.assignment.strategy`. `group.id` is skipped too, because
+  each pipeline consumes under its own name. Set any of these in `consumer_config` if you need them.
+- Set `DATAHUB_ACTIONS_KAFKA_ENV_PROPERTIES_ENABLED=false` to turn this off and use only `consumer_config`.
 
 ## Schema Registry Configuration
 
@@ -113,7 +142,59 @@ source:
 
 ### AWS Glue Schema Registry
 
-If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](/docs/deploy/aws#aws-glue-schema-registry) for details.
+If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](../../deploy/aws.md/#aws-glue-schema-registry) for details.
+
+## Offset Commit Modes
+
+The Kafka Event Source supports two offset commit strategies, controlled by the `async_commit_enabled` configuration option.
+
+### Async Commits (default)
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: true # default
+    async_commit_interval: 10000 # ms between background commits (default: 10s)
+```
+
+After each event is processed, the offset is stored locally via `store_offsets()`. A background thread
+in librdkafka periodically commits all stored offsets to Kafka at the configured interval. This is the
+[manual store + auto commit](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit)
+pattern.
+
+**Tradeoff:** On consumer crash, up to `async_commit_interval` milliseconds of events may be
+redelivered. For idempotent actions (all built-in actions), this is a non-issue.
+
+**Performance:** Async commits eliminate the ~3ms synchronous Kafka round-trip per event, which can
+yield up to 25x throughput improvement for high-volume pipelines.
+
+### Sync Commits
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: false
+    commit_retry_count: 5 # retries on commit failure (default: 5)
+    commit_retry_backoff: 10.0 # seconds between retries (default: 10)
+```
+
+After each event is processed, the consumer performs a blocking synchronous commit to Kafka. This
+provides tighter delivery guarantees at the cost of throughput (~326 events/sec per pod vs ~8,200
+with async).
+
+### Batch-Processing Actions
+
+Batch-processing actions (where `act()` returns `False` to defer acknowledgment) work with both
+commit modes. When an action returns `False`, no offset is stored or committed for that event.
+The action later calls `ctx.event_source.ack(event, processed=True)` to commit the offset when
+the batch is ready.
+
+| Mode                | Commit Timing               | Throughput            | Use Case                              |
+| ------------------- | --------------------------- | --------------------- | ------------------------------------- |
+| **Async** (default) | Background thread, periodic | High (~8,200 evt/sec) | All actions, including batch          |
+| **Sync**            | Immediate, per-event        | Lower (~326 evt/sec)  | When tighter offset control is needed |
 
 ## FAQ
 
@@ -122,7 +203,3 @@ If you're using AWS Glue Schema Registry, you'll need to configure it differentl
 Currently, the only way is to change the `name` of the Action in its configuration file. In the future,
 we are hoping to add first-class support for configuring the action to be "stateless", ie only process
 messages that are received while the Action is running.
-
-2. Is there a way to asynchronously commit offsets back to Kafka?
-
-Currently, all consumer offset commits are made synchronously for each message received. For now we've optimized for correctness over performance.

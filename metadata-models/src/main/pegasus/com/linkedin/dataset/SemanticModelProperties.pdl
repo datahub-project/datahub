@@ -1,0 +1,39 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Urn
+
+/**
+ * Properties specific to a Dataset that represents a logical dataset (view) exposed by a
+ * SemanticModel — i.e. a Dataset carrying the `Semantic Model Dataset` subtype. Mirrors how other
+ * physical-to-semantic projections (dbt Sources, Looker Views, Snowflake Dynamic Tables) are
+ * modeled: their own Dataset entity, with the standard `viewProperties` and `upstreamLineage`
+ * aspects (already registered on `dataset`) carrying the native SQL and physical/column-level
+ * lineage respectively.
+ */
+@Aspect = {
+  "name": "semanticModelProperties"
+}
+record SemanticModelProperties {
+
+  /**
+   * Logical alias used to reference this dataset within its owning semantic model
+   * (e.g. as `from`/`to` in a `SemanticModelRelationship` join).
+   */
+  alias: string
+
+  /**
+   * The SemanticModel that this Dataset is a logical dataset of.
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "semanticModel" ]
+  }
+  @Searchable = {
+    "fieldName": "semanticModel",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasSemanticModel",
+    "queryByDefault": false
+  }
+  semanticModel: Urn
+
+}

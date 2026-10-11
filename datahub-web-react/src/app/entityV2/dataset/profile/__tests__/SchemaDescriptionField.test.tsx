@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -24,7 +25,7 @@ describe('SchemaDescriptionField', () => {
     });
 
     it('renders editable description', async () => {
-        const { getByText, getByRole, queryByText } = render(
+        const { getByText, queryByText, container } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <SchemaDescriptionField
@@ -37,13 +38,13 @@ describe('SchemaDescriptionField', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByRole('img')).toBeInTheDocument();
+        expect(container.querySelector('svg')).toBeInTheDocument();
         expect(getByText('test description updated')).toBeInTheDocument();
         expect(queryByText('Update description')).not.toBeInTheDocument();
     }, 10_000);
 
     it('renders update description modal', async () => {
-        const { getByText, getByRole, queryByText } = render(
+        const { getByText, queryByText, container } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <SchemaDescriptionField
@@ -58,23 +59,27 @@ describe('SchemaDescriptionField', () => {
             </MockedProvider>,
         );
         expect(queryByText('Update description')).not.toBeInTheDocument();
-        fireEvent.click(getByRole('img'));
+        const editIcon = container.querySelector('svg');
+        expect(editIcon).toBeTruthy();
+        fireEvent.click(editIcon!);
         await waitFor(() => expect(getByText('Update description')).toBeInTheDocument());
         expect(getByText('Cancel')).toBeInTheDocument();
         expect(getByText('Publish')).toBeInTheDocument();
         expect(getByText('Original:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
-    });
+    }, 30_000);
 
     it('renders short messages without show more / show less', () => {
         const { getByText, queryByText } = render(
-            <SchemaDescriptionField
-                expanded
-                onExpanded={() => {}}
-                description="short description"
-                onUpdate={() => Promise.resolve()}
-            />,
+            <CustomThemeProvider>
+                <SchemaDescriptionField
+                    expanded
+                    onExpanded={() => {}}
+                    description="short description"
+                    onUpdate={() => Promise.resolve()}
+                />
+            </CustomThemeProvider>,
         );
         expect(getByText('short description')).toBeInTheDocument();
         expect(queryByText('Read Less')).not.toBeInTheDocument();

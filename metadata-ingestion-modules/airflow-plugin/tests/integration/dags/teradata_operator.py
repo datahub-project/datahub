@@ -14,7 +14,7 @@ def _fake_teradata_execute(*args, **kwargs):
 with DAG(
     "teradata_operator",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,  # Airflow 3.x uses 'schedule' instead of 'schedule_interval'
     catchup=False,
 ) as dag:
     TeradataOperator.execute = _fake_teradata_execute

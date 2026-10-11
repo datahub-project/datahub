@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useCallback, useState } from 'react';
 
 import useOptions from '@app/searchV2/filtersV2/filters/BaseEntityFilter/hooks/useOptions';

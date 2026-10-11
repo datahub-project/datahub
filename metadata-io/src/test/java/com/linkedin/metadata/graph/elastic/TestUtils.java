@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,16 +29,27 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.testng.Assert;
 
 /**
  * Utility class for testing graph query functionality. Contains methods moved from ESGraphQueryDAO
  * for testing purposes.
  */
 public class TestUtils {
+
+  /**
+   * Asserts a lineage query explicitly matches nothing. A clause-less bool would instead behave as
+   * match_all and scan the whole graph index, so the distinction matters.
+   */
+  public static void assertMatchesNothing(QueryBuilder query) {
+    Assert.assertTrue(
+        query instanceof MatchNoneQueryBuilder, "expected a match-none query but got: " + query);
+  }
 
   /**
    * Builds a lineage query for a specific entity type. This method is used for testing the query
@@ -161,10 +173,13 @@ public class TestUtils {
     final long finalTotalHits = totalHits;
 
     try {
-      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenAnswer(
               invocation -> {
-                SearchRequest request = invocation.getArgument(0);
+                // PR6: arg 0 is now OperationContext/OperationFingerprint, SearchRequest moved to
+                // position 1 when the shim was widened.
+                SearchRequest request = invocation.getArgument(1);
 
                 // Check if this is a slice-based search
                 if (request.source() != null && request.source().slice() != null) {

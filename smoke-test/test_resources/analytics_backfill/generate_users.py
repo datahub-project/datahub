@@ -11,7 +11,7 @@ import json
 import logging
 import random
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,38 +23,110 @@ from datahub.metadata.schema_classes import (
     CorpUserStatusClass,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Sample data for generating realistic user profiles
 FIRST_NAMES = [
-    "Alice", "Bob", "Carol", "David", "Emma", "Frank", "Grace", "Henry",
-    "Isabel", "Jack", "Kate", "Liam", "Maya", "Noah", "Olivia", "Peter",
-    "Quinn", "Rachel", "Sam", "Tara", "Uma", "Victor", "Wendy", "Xander",
-    "Yara", "Zoe", "Alex", "Blake", "Casey", "Drew"
+    "Alice",
+    "Bob",
+    "Carol",
+    "David",
+    "Emma",
+    "Frank",
+    "Grace",
+    "Henry",
+    "Isabel",
+    "Jack",
+    "Kate",
+    "Liam",
+    "Maya",
+    "Noah",
+    "Olivia",
+    "Peter",
+    "Quinn",
+    "Rachel",
+    "Sam",
+    "Tara",
+    "Uma",
+    "Victor",
+    "Wendy",
+    "Xander",
+    "Yara",
+    "Zoe",
+    "Alex",
+    "Blake",
+    "Casey",
+    "Drew",
 ]
 
 LAST_NAMES = [
-    "Anderson", "Brown", "Chen", "Davis", "Evans", "Fischer", "Garcia", "Harris",
-    "Ivanov", "Johnson", "Kim", "Lee", "Miller", "Nelson", "O'Brien", "Patel",
-    "Quinn", "Rodriguez", "Smith", "Taylor", "Upton", "Vargas", "Wilson", "Xavier",
-    "Yang", "Zhang"
+    "Anderson",
+    "Brown",
+    "Chen",
+    "Davis",
+    "Evans",
+    "Fischer",
+    "Garcia",
+    "Harris",
+    "Ivanov",
+    "Johnson",
+    "Kim",
+    "Lee",
+    "Miller",
+    "Nelson",
+    "O'Brien",
+    "Patel",
+    "Quinn",
+    "Rodriguez",
+    "Smith",
+    "Taylor",
+    "Upton",
+    "Vargas",
+    "Wilson",
+    "Xavier",
+    "Yang",
+    "Zhang",
 ]
 
 DEPARTMENTS = [
-    "Engineering", "Data Science", "Product", "Marketing", "Sales",
-    "Finance", "Operations", "Legal", "HR", "Customer Success"
+    "Engineering",
+    "Data Science",
+    "Product",
+    "Marketing",
+    "Sales",
+    "Finance",
+    "Operations",
+    "Legal",
+    "HR",
+    "Customer Success",
 ]
 
 TITLES = [
-    "Data Engineer", "Data Scientist", "Product Manager", "Software Engineer",
-    "Analytics Engineer", "Data Analyst", "ML Engineer", "BI Developer",
-    "Platform Engineer", "Data Architect"
+    "Data Engineer",
+    "Data Scientist",
+    "Product Manager",
+    "Software Engineer",
+    "Analytics Engineer",
+    "Data Analyst",
+    "ML Engineer",
+    "BI Developer",
+    "Platform Engineer",
+    "Data Architect",
 ]
 
 TEAMS = [
-    "Platform", "Growth", "Core Product", "Data Infrastructure", "Analytics",
-    "ML Platform", "Business Intelligence", "Data Governance", "Data Quality"
+    "Platform",
+    "Growth",
+    "Core Product",
+    "Data Infrastructure",
+    "Analytics",
+    "ML Platform",
+    "Business Intelligence",
+    "Data Governance",
+    "Data Quality",
 ]
 
 
@@ -142,7 +214,7 @@ def generate_and_emit_users(
     gms_url: str,
     token: str,
     email_domain: str = "example.com",
-    output_file: str = None,
+    output_file: Optional[str] = None,
 ) -> List[Dict]:
     """Generate users and emit to DataHub."""
     logger.info(f"Generating {num_users} user profiles...")

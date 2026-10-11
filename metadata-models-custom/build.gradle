@@ -2,11 +2,7 @@ import org.yaml.snakeyaml.Yaml
 
 buildscript {
     repositories{
-        if (project.hasProperty('apacheMavenRepositoryUrl')) {
-            maven { url project.getProperty('apacheMavenRepositoryUrl') }
-        } else {
-            mavenCentral()
-        }
+        maven { url gradle.ext['datahub.dependencies.maven.central'] }
     }
     dependencies {
         classpath("org.yaml:snakeyaml:1.33")

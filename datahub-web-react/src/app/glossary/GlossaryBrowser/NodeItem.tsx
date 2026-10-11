@@ -1,11 +1,12 @@
-import { DownOutlined, LoadingOutlined, RightOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { Loader } from '@components';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -26,13 +27,13 @@ const NodeWrapper = styled.div`
     margin-bottom: 4px;
 `;
 
-const StyledRightOutlined = styled(RightOutlined)`
+const StyledRightOutlined = styled(CaretRight)`
     cursor: pointer;
     margin-right: 6px;
     font-size: 10px;
 `;
 
-const StyledDownOutlined = styled(DownOutlined)`
+const StyledDownOutlined = styled(CaretDown)`
     cursor: pointer;
     margin-right: 6px;
     font-size: 10px;
@@ -43,20 +44,9 @@ const StyledGlossaryNodeIcon = styled(BookmarksSimple)`
 `;
 
 const ChildrenWrapper = styled.div`
-    border-left: solid 1px ${ANTD_GRAY[4]};
+    border-left: solid 1px ${(props) => props.theme.colors.border};
     margin-left: 4px;
     padding-left: 12px;
-`;
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-    }
 `;
 
 interface Props {
@@ -148,11 +138,7 @@ function NodeItem(props: Props) {
             </NodeWrapper>
             {areChildrenVisible && (
                 <>
-                    {!children.length && loading && (
-                        <LoadingWrapper>
-                            <LoadingOutlined />
-                        </LoadingWrapper>
-                    )}
+                    {!children.length && loading && <Loader size="xs" padding={8} />}
                     {children.length > 0 && (
                         <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (

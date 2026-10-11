@@ -1,12 +1,21 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { Pill, SUPPORTED_CONFIGURATIONS } from '@components/components/Pills/Pill';
 import { PillProps } from '@components/components/Pills/types';
 import { ColorValues, PillVariantValues, SizeValues, getSizeName } from '@components/theme/config';
+
+const ICON_OPTIONS = {
+    Info,
+    Star,
+    Globe,
+} as const;
 
 const defaults: PillProps = {
     label: 'Label',
@@ -41,16 +50,16 @@ const meta: Meta = {
         },
         leftIcon: {
             description: 'The icon to display in the Pill icon.',
-            type: 'string',
-            options: AVAILABLE_ICONS,
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             control: {
                 type: 'select',
             },
         },
         rightIcon: {
             description: 'The icon to display in the Pill icon.',
-            type: 'string',
-            options: AVAILABLE_ICONS,
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             control: {
                 type: 'select',
             },
@@ -77,7 +86,7 @@ const meta: Meta = {
         },
         color: {
             description: 'The color of the Pill.',
-            options: Object.values(ColorValues),
+            options: Object.values(ColorValues).filter((color) => color !== ColorValues.black),
             table: {
                 defaultValue: { summary: defaults.color },
             },
@@ -99,8 +108,6 @@ const meta: Meta = {
     // Define defaults
     args: {
         label: defaults.label,
-        leftIcon: defaults.leftIcon,
-        rightIcon: defaults.rightIcon,
         size: defaults.size,
         variant: defaults.variant,
         showLabel: true,
@@ -143,6 +150,24 @@ export const outline = () => (
     </GridList>
 );
 
+export const squareFilled = () => (
+    <GridList>
+        <Pill label="Default" variant="squareFilled" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.squareFilled].map((color) => (
+            <Pill key={color} label={color} color={color} variant="squareFilled" clickable />
+        ))}
+    </GridList>
+);
+
+export const squareOutline = () => (
+    <GridList>
+        <Pill label="Default" variant="squareOutline" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.squareOutline].map((color) => (
+            <Pill key={color} label={color} color={color} variant="squareOutline" clickable />
+        ))}
+    </GridList>
+);
+
 export const versionPills = () => (
     <GridList>
         {SUPPORTED_CONFIGURATIONS[PillVariantValues.version].map((color) => (
@@ -153,8 +178,8 @@ export const versionPills = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Pill label="left icon" leftIcon="AutoMode" />
-        <Pill label="right icon" rightIcon="Close" />
-        <Pill label="both icon" leftIcon="AutoMode" rightIcon="Close" />
+        <Pill label="left icon" leftIcon={Star} />
+        <Pill label="right icon" rightIcon={X} />
+        <Pill label="both icon" leftIcon={Star} rightIcon={X} />
     </GridList>
 );

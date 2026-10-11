@@ -1,8 +1,9 @@
-import { Button, Text, notification } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import {
     FileDragDropExtension,
     SUPPORTED_FILE_TYPES,
@@ -10,6 +11,8 @@ import {
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop';
 import { FileUploadFailureType } from '@components/components/Editor/types';
+import { notification } from '@components/components/Notification';
+import { Text } from '@components/components/Text';
 
 const ContentWrapper = styled.div`
     gap: 8px;
@@ -38,6 +41,8 @@ interface Props {
 }
 
 export const FileUploadContent = ({ hideDropdown }: Props) => {
+    const { t } = useTranslation('alchemy');
+    const { t: tf } = useTranslation('common.feedback');
     const { commands } = useRemirrorContext();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +78,7 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
                             validation.failureType || FileUploadFailureType.UNKNOWN,
                         );
                         notification.error({
-                            message: 'Upload Failed',
+                            message: t('editor.upload.failedTitle'),
                             description: validation.displayError || validation.error,
                         });
                         return; // Skip invalid files
@@ -100,8 +105,8 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
                             );
                             fileExtension.removeNode(remirrorContext.view, attrs.id);
                             notification.error({
-                                message: 'Upload Failed',
-                                description: 'Something went wrong',
+                                message: t('editor.upload.failedTitle'),
+                                description: tf('somethingWentWrong'),
                             });
                         }
                     }
@@ -111,8 +116,8 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
             console.error(error);
             onFileUploadFailed?.(files[0].type, files[0].size, 'button', FileUploadFailureType.UNKNOWN, `${error}`);
             notification.error({
-                message: 'Upload Failed',
-                description: 'Something went wrong',
+                message: t('editor.upload.failedTitle'),
+                description: tf('somethingWentWrong'),
             });
         } finally {
             input.value = '';
@@ -123,11 +128,11 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
     return (
         <ContentWrapper>
             <StyledButton size="sm" onClick={handlebuttonClick}>
-                Choose File
+                {t('editor.upload.chooseFile')}
             </StyledButton>
             <FileInput ref={fileInputRef} type="file" onChange={handleFileChange} data-testid="file-upload-input" />
-            <StyledText color="gray" size="sm" lineHeight="normal">
-                Max size: 2GB
+            <StyledText size="sm" lineHeight="normal">
+                {t('fileUpload.maxSize')}
             </StyledText>
         </ContentWrapper>
     );

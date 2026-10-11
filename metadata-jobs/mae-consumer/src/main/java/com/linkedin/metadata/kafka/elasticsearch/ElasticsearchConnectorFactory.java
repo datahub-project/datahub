@@ -1,28 +1,21 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
-import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-// TODO: Move this factory.
-@Slf4j
 @Configuration
+@Slf4j
 public class ElasticsearchConnectorFactory {
-  @Autowired
-  @Qualifier("elasticSearchBulkProcessor")
-  private ESBulkProcessor bulkProcessor;
-
-  @Value("${elasticsearch.bulkProcessor.numRetries}")
-  private Integer numRetries;
 
   @Bean(name = "elasticsearchConnector")
   @Nonnull
-  public ElasticsearchConnector createInstance() {
-    return new ElasticsearchConnector(bulkProcessor, numRetries);
+  public ElasticsearchConnector createInstance(SearchClusterRegistry searchClusterRegistry) {
+    return new ElasticsearchConnector(
+        searchClusterRegistry.bulkProcessorFor(SearchComponent.USAGE),
+        searchClusterRegistry.configFor(SearchComponent.USAGE).getBulkProcessor().getNumRetries());
   }
 }

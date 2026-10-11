@@ -1,8 +1,8 @@
 import { Skeleton } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components';
 import type { LoadedImageProps } from '@src/alchemy-components/components/LoadedImage/types';
 
 const ImageContainer = styled.div<{ width?: string }>`
@@ -34,13 +34,13 @@ const ImageSkeleton = styled(Skeleton.Image)<{ width?: string }>`
 const ErrorPlaceholder = styled.div<{ width?: string }>`
     width: ${(props) => props.width || 'auto'};
     height: auto;
-    background: ${colors.gray[1500]};
+    background: ${({ theme }) => theme.colors.bgSurface};
     border-radius: 8px;
-    color: ${colors.gray[1800]};
+    color: ${({ theme }) => theme.colors.textTertiary};
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px dashed ${colors.gray[1400]};
+    border: 2px dashed ${({ theme }) => theme.colors.border};
     font-size: 14px;
     min-height: 100px;
 `;
@@ -49,14 +49,16 @@ export const LoadedImage = ({
     src,
     alt,
     width,
-    errorMessage = 'Image not found',
+    errorMessage,
     showErrorDetails = true,
     onLoad,
     onError,
     ...props
 }: LoadedImageProps) => {
+    const { t } = useTranslation('alchemy');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const resolvedErrorMessage = errorMessage ?? t('loadedImage.error');
 
     const handleImageLoad = () => {
         setLoading(false);
@@ -85,7 +87,7 @@ export const LoadedImage = ({
             )}
             {error && (
                 <ErrorPlaceholder width={width}>
-                    {errorMessage}
+                    {resolvedErrorMessage}
                     {showErrorDetails && `: ${alt}`}
                 </ErrorPlaceholder>
             )}

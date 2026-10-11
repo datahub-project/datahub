@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 import pydantic
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -53,11 +53,11 @@ class PulsarSourceConfig(
     client_id: Optional[str] = Field(
         default=None, description="The application's client ID"
     )
-    client_secret: Optional[str] = Field(
+    client_secret: Optional[TransparentSecretStr] = Field(
         default=None, description="The application's client secret"
     )
     # Mandatory for token authentication
-    token: Optional[str] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None,
         description="The access token for the application. Mandatory for token based authentication.",
     )

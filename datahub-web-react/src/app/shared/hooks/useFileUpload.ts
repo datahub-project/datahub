@@ -1,15 +1,12 @@
 import { useApolloClient } from '@apollo/client';
 
 import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
-import useCreateFile from '@app/shared/hooks/useCreateFile';
+import useCreateFile, { S3_FILE_ID_NAME_SEPARATOR } from '@app/shared/hooks/useCreateFile';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
-
-// keep this consistent with same const in li-utils/src/main/java/com/linkedin/metadata/Constants.java
-const S3_FILE_ID_NAME_SEPARATOR = '__';
 
 interface Props {
     scenario: UploadDownloadScenario;
@@ -62,7 +59,10 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
             throw new Error(`Failed to upload file: ${error}`);
         }
 
-        return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
+        // Absolute URL so LinkUtils scheme validation accepts the link; encode fileId so
+        // spaces/reserved chars in the original filename do not break URI.create.
+        const path = resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${encodeURIComponent(fileId)}`);
+        return `${window.location.origin}${path}`;
     };
 
     return isDocumentationFileUploadV1Enabled ? { uploadFile } : { uploadFile: undefined };

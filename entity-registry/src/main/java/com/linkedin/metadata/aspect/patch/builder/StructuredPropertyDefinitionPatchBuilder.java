@@ -13,6 +13,7 @@ import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -28,6 +29,7 @@ public class StructuredPropertyDefinitionPatchBuilder
   public static final String ALLOWED_VALUES_FIELD = "allowedValues";
   public static final String CARDINALITY_FIELD = "cardinality";
   public static final String ENTITY_TYPES_FIELD = "entityTypes";
+  public static final String ALLOWED_PLATFORMS_FIELD = "allowedPlatforms";
   public static final String DESCRIPTION_FIELD = "description";
   public static final String IMMUTABLE_FIELD = "immutable";
   private static final String LAST_MODIFIED_KEY = "lastModified";
@@ -96,6 +98,28 @@ public class StructuredPropertyDefinitionPatchBuilder
     }
   }
 
+  /**
+   * Replace the entire allowedValues array. Used to persist a caller-defined order. The property
+   * definition validator still rejects removing previously allowed values.
+   */
+  public StructuredPropertyDefinitionPatchBuilder setAllowedValues(
+      @Nonnull List<PropertyValue> propertyValues) {
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      ArrayNode arrayNode = instance.arrayNode();
+      for (PropertyValue propertyValue : propertyValues) {
+        arrayNode.add(mapper.readTree(RecordUtils.toJsonString(propertyValue)));
+      }
+      this.pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.REPLACE.getValue(), PATH_DELIM + ALLOWED_VALUES_FIELD, arrayNode));
+      return this;
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(
+          "Failed to set allowed values, failed to parse provided aspect json.", e);
+    }
+  }
+
   public StructuredPropertyDefinitionPatchBuilder setCardinality(
       @Nonnull PropertyCardinality cardinality) {
     this.pathValues.add(
@@ -112,6 +136,16 @@ public class StructuredPropertyDefinitionPatchBuilder
             PatchOperationType.ADD.getValue(),
             PATH_DELIM + ENTITY_TYPES_FIELD + PATH_DELIM + entityTypeUrn,
             instance.textNode(entityTypeUrn)));
+    return this;
+  }
+
+  public StructuredPropertyDefinitionPatchBuilder addAllowedPlatform(
+      @Nonnull String dataPlatformUrn) {
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ALLOWED_PLATFORMS_FIELD + PATH_DELIM + dataPlatformUrn,
+            instance.textNode(dataPlatformUrn)));
     return this;
   }
 

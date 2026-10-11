@@ -1,11 +1,13 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Popover } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
@@ -29,6 +31,14 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 40;
 
@@ -89,7 +99,6 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const refetch = useRefetchLineage(urn, type);
 
     const isQuery = type === EntityType.Query;
-    const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode } =
@@ -127,20 +136,23 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             <IconWrapper>
                 {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
-                {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
-                {!icon && isQuery && <Icon icon="Tilde" source="phosphor" color="gray" size="inherit" />}
-                {!icon && !isQuery && !isDataProcessInstance && (
+                {!icon && isQuery && <Icon icon={Tilde} color="gray" size="inherit" />}
+                {/* After hydration, fall back to the type icon when there is no platform logo
+                    (common for DataJobs under a Dataset root). Otherwise the node stays a
+                    permanent Skeleton.Avatar. */}
+                {!icon && !isQuery && entity && entityRegistry.getIcon(type, 18)}
+                {!icon && !isQuery && !entity && (
                     <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
                 )}
             </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<SpinningCircleNotch />} />
                 </LoadingWrapper>
             )}
             <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
@@ -192,6 +204,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     )
                 }
                 properties={entity?.genericEntityProperties}
+                typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                 platformIcons={icon ? [icon] : []}
                 childrenOpen={false}
                 menuActions={menuActions}

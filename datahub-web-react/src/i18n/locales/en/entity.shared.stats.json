@@ -1,0 +1,13 @@
+{
+    "graph.empty": "No stats collected for this asset at the moment.",
+    "graph.rowCount_one": "{{formattedCount}} Row",
+    "graph.rowCount_other": "{{formattedCount}} Rows",
+    "graph.statName": "row count",
+    "graph.title": "Row Count",
+    "percentile.high": "High",
+    "percentile.low": "Low",
+    "percentile.med": "Med",
+    "upstream.directUpstreams": "Direct Upstreams",
+    "upstream.indirectUpstreams": "Indirect Upstreams",
+    "upstream.unhealthy": "Some upstreams are unhealthy"
+}

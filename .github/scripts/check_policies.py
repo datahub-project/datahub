@@ -33,6 +33,7 @@ for policy in all_policies:
         admin_role_all_privileges.update(set(policy["info"]["privileges"]))
     elif urn == "urn:li:dataHubPolicy:editor-platform-policy":
         editor_platform_policy_privileges = policy["info"]["privileges"]
+        editor_role_all_privileges.update(set(editor_platform_policy_privileges))
     elif urn == "urn:li:dataHubPolicy:7":
         all_user_platform_policy_privileges = policy["info"]["privileges"]
     elif urn.startswith("urn:li:dataHubPolicy:reader-"):
@@ -50,7 +51,7 @@ for policy in all_policies:
             platform_privileges.update(privileges)
         else:
             other_policies.append(policy)
-    except:
+    except Exception as _:
         without_info.append(policy)
         pprint.pprint(policy)
 

@@ -1,0 +1,46 @@
+# Pinecone ingestion recipe
+# Extracts metadata from Pinecone vector database
+
+source:
+  type: pinecone
+  config:
+    # Required: Pinecone API key
+    api_key: "${PINECONE_API_KEY}"
+    
+    # Optional: Environment for pod-based indexes
+    # environment: "us-west1-gcp"
+    
+    # Optional: Platform instance for multi-environment setups
+    # platform_instance: "production"
+    
+    # Optional: Filter patterns for indexes
+    # index_pattern:
+    #   allow:
+    #     - "prod-.*"
+    #   deny:
+    #     - ".*-test"
+    
+    # Optional: Filter patterns for namespaces
+    # namespace_pattern:
+    #   allow:
+    #     - ".*"
+    
+    # Optional: Schema inference settings (enabled by default)
+    enable_schema_inference: true
+    schema_sampling_size: 100
+    max_metadata_fields: 100
+    
+    # Optional: Performance tuning
+    # max_workers: 5
+    
+    # Optional: Stateful ingestion for incremental updates
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+# DataHub sink configuration
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    # token: "${DATAHUB_TOKEN}"  # If authentication is required

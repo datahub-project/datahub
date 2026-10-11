@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Fehlgeschlagene Assertions ansehen →",
+    "failChecks": "Fehlgeschlagene Prüfungen ansehen →",
+    "failIncidents": "Aktive Vorfälle ansehen →",
+    "passAssertions": "Alle Assertions sind erfolgreich",
+    "passChecks": "Alle Prüfungen sind erfolgreich",
+    "passIncidents": "Keine aktiven Vorfälle",
+    "summaryHealthy": "Dieses Asset ist gesund",
+    "summaryUnhealthy": "Dieses Asset ist möglicherweise nicht gesund",
+    "typeAssertions": "Assertions",
+    "typeIncidents": "Vorfälle",
+    "typeTests": "Tests",
+    "warnAssertions": "Einige Assertions haben Probleme.",
+    "warnChecks": "Einige Prüfungen haben Probleme."
+}

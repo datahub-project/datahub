@@ -496,4 +496,42 @@ public class LinkUtilsTest {
     // Execute - should not throw exception
     LinkUtils.validateUpdateInput(mockOpContext, TEST_URL, NEW_URL, resourceUrn, mockEntityService);
   }
+
+  @Test
+  public void testValidateUrlRejectsDangerousSchemes() {
+    String[] dangerousUrls = {
+      "javascript:alert(1)",
+      "javascript:void(0)",
+      "JAVASCRIPT:alert(document.cookie)",
+      "data:text/html,<script>alert(1)</script>",
+      "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+      "vbscript:MsgBox(1)",
+    };
+
+    for (String url : dangerousUrls) {
+      final String finalUrl = url;
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              LinkUtils.validateAddRemoveInput(
+                  mockOpContext, finalUrl, resourceUrn, mockEntityService));
+    }
+  }
+
+  @Test
+  public void testValidateUrlAllowsSafeSchemes() throws Exception {
+    String[] safeUrls = {
+      "https://example.com/path?query=value",
+      "http://example.com",
+      "ftp://files.example.com/file.txt",
+      "mailto:user@example.com",
+      // Uploaded product-asset links (absolute + percent-encoded filename)
+      "https://example.com/openapi/v1/files/product_assets/a1b2c3d4-e5f6-7890-abcd-ef1234567890__file%20name.pdf",
+    };
+
+    for (String url : safeUrls) {
+      // Should not throw
+      LinkUtils.validateAddRemoveInput(mockOpContext, url, resourceUrn, mockEntityService);
+    }
+  }
 }

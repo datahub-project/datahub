@@ -6,4 +6,4 @@ datahub_emitter = DatahubEmitter(
     platform_instance="local_prefect",
     token=None,  # generate auth token in the datahub and provide here if gms endpoint is secure
 )
-datahub_emitter.save("datahub-emitter-test")  # type: ignore
+datahub_emitter.save("datahub-emitter-test")

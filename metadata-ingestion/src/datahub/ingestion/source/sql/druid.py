@@ -1,12 +1,12 @@
 # This import verifies that the dependencies are available.
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import pydruid  # noqa: F401
 from pydantic.fields import Field
 from pydruid.db.sqlalchemy import DruidDialect
 from sqlalchemy.exc import ResourceClosedError
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -15,6 +15,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
@@ -35,7 +36,14 @@ DruidDialect.get_table_names = get_table_names
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: HiddenFromDocs[str] = "druid"
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern(deny=["^(lookup|sysgit|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",
     )
@@ -60,16 +68,17 @@ class DruidConfig(BasicSQLAlchemyConfig):
 
 @platform_name("Druid")
 @config_class(DruidConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class DruidSource(SQLAlchemySource):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, and tables
-    - Column types associated with each table
-    - Table, row, and column statistics via optional SQL profiling.
+    Source that extracts metadata from Apache Druid via SQLAlchemy.
 
-    **Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
+    Implementation notes:
+    - Uses pydruid SQLAlchemy dialect for database connectivity
+    - Overrides get_identifier to skip schema name in URNs (Druid table names are already fully qualified)
+    - Patches DruidDialect.get_table_names to handle ResourceClosedError for empty schemas
+    - Default schema pattern denies internal databases (lookup, sysgit, view)
     """
 
     def __init__(self, config, ctx):

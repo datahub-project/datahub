@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.system.lineage;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildConjunctiveCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNotNullCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
@@ -19,10 +21,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -38,7 +37,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /** This bootstrap step is responsible for backfilling dataset lineage index fields in ES */
 @Slf4j
@@ -174,13 +172,27 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
   }
 
   private Filter backfillLineageFieldFilter() {
-    // Condition: Does not have at least 1 of: `hasUpstreams`, `hasFineGrainedUpstreams`,
-    // `fineGrainedUpstreams`
+    // Condition: Has source data (`fineGrainedUpstreams` IS NOT NULL) AND missing at least one
+    // derived field (`hasUpstreams` IS NULL OR `hasFineGrainedUpstreams` IS NULL)
+    //
+    // Using DNF (Disjunctive Normal Form):
+    // (fineGrainedUpstreams IS NOT NULL AND hasUpstreams IS NULL) OR
+    // (fineGrainedUpstreams IS NOT NULL AND hasFineGrainedUpstreams IS NULL)
+    //
+    // This ensures we only process datasets WITH lineage data, avoiding wasteful fetches
+    // of entities that have no lineage to backfill.
     ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
 
-    conjunctiveCriterionArray.add(getCriterionForMissingField("hasUpstreams"));
-    conjunctiveCriterionArray.add(getCriterionForMissingField("hasFineGrainedUpstreams"));
-    conjunctiveCriterionArray.add(getCriterionForMissingField("fineGrainedUpstreams"));
+    // Condition 1: Has source data AND missing hasUpstreams
+    conjunctiveCriterionArray.add(
+        buildConjunctiveCriterion(
+            buildIsNotNullCriterion("fineGrainedUpstreams"), buildIsNullCriterion("hasUpstreams")));
+
+    // Condition 2: Has source data AND missing hasFineGrainedUpstreams
+    conjunctiveCriterionArray.add(
+        buildConjunctiveCriterion(
+            buildIsNotNullCriterion("fineGrainedUpstreams"),
+            buildIsNullCriterion("hasFineGrainedUpstreams")));
 
     Filter filter = new Filter();
     filter.setOr(conjunctiveCriterionArray);
@@ -230,16 +242,5 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
     }
 
     return Optional.empty();
-  }
-
-  @NotNull
-  private static ConjunctiveCriterion getCriterionForMissingField(String field) {
-    final Criterion missingField = buildIsNullCriterion(field);
-
-    final CriterionArray criterionArray = new CriterionArray();
-    criterionArray.add(missingField);
-    final ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    conjunctiveCriterion.setAnd(criterionArray);
-    return conjunctiveCriterion;
   }
 }

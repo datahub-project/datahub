@@ -2,7 +2,6 @@ import dataclasses
 import functools
 import logging
 import os
-import pathlib
 import re
 import time
 from collections import OrderedDict
@@ -29,7 +28,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.abs.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.abs.report import DataLakeSourceReport
@@ -50,9 +48,6 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     add_partition_columns_to_schema,
 )
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -126,8 +121,12 @@ class TableData:
 
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default as UPDATE operations from blob timestamps",
+)
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
 @capability(
     SourceCapability.CONTAINERS,
@@ -162,6 +161,27 @@ class ABSSource(StatefulIngestionSourceBase):
             config_report,
         )
 
+        if config.is_profiling_enabled():
+            try:
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
+
+                self.profiler = FileProfiler(
+                    aws_config=None,
+                    verify_ssl=None,
+                    report=self.report,
+                    profiling_times_taken=self.profiling_times_taken,
+                    profiling_config=config.profiling,
+                    azure_config=config.azure_config,
+                )
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "Profiling dependencies are not installed but are required for "
+                    "ABS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[abs]'"
+                ) from e
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.model_validate(config_dict)
@@ -186,16 +206,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
         fields = []
 
-        extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
-
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+        extension = path_spec.resolve_format_extension(table_data.full_path)
 
         try:
             if extension == ".parquet":
@@ -209,7 +220,9 @@ class ABSSource(StatefulIngestionSourceBase):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
                     max_rows=self.source_config.max_rows, format="jsonl"
@@ -217,15 +230,18 @@ class ABSSource(StatefulIngestionSourceBase):
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"file {table_data.full_path} has unsupported extension",
+                self.report.warning(
+                    message="File has unsupported extension",
+                    context=table_data.full_path,
+                    log=False,
                 )
             file.close()
         except Exception as e:
-            self.report.report_warning(
-                table_data.full_path,
-                f"could not infer schema for file {table_data.full_path}: {e}",
+            self.report.warning(
+                message="Could not infer schema for file",
+                context=table_data.full_path,
+                exc=e,
+                log=False,
             )
             file.close()
         logger.debug(f"Extracted fields in schema: {fields}")
@@ -254,7 +270,15 @@ class ABSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_abs_prefix(table_data.table_path)
             if self.is_abs_platform()
@@ -296,6 +320,7 @@ class ABSSource(StatefulIngestionSourceBase):
             azure_config=self.source_config.azure_config,
             use_abs_container_properties=self.source_config.use_abs_container_properties,
             use_abs_blob_properties=self.source_config.use_abs_blob_properties,
+            set_schema_inferred_from=schema_will_be_inferred,
         )
 
         dataset_properties = DatasetPropertiesClass(
@@ -304,7 +329,12 @@ class ABSSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 fields = self.get_fields(table_data, path_spec)
                 schema_metadata = SchemaMetadata(
@@ -320,6 +350,9 @@ class ABSSource(StatefulIngestionSourceBase):
                 logger.error(
                     f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"
@@ -351,6 +384,9 @@ class ABSSource(StatefulIngestionSourceBase):
         yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
+
+        if self.source_config.is_profiling_enabled():
+            yield from self.profiler.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -402,6 +438,24 @@ class ABSSource(StatefulIngestionSourceBase):
         for folder in folders:
             yield from self.resolve_templated_folders(
                 container_name, f"{folder}{folder_split[1]}"
+            )
+
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders — never blobs."""
+        if self.source_config.azure_config is None:
+            raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        container_name = self.source_config.azure_config.container_name
+        relative_glob = get_container_relative_path(path_spec.glob_include)
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder in self.resolve_templated_folders(container_name, relative_glob):
+            abs_uri = self.create_abs_path(folder.rstrip("/"))
+            if not path_spec.folder_allowed(abs_uri):
+                logger.debug(f"Skipping folder excluded by path_spec: {abs_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                abs_uri.rstrip("/")
             )
 
     def get_dir_to_process(
@@ -507,8 +561,10 @@ class ABSSource(StatefulIngestionSourceBase):
                         logger.debug(
                             f"Got NoSuchBucket exception for {container_name}", e
                         )
-                        self.get_report().report_warning(
-                            "Missing bucket", f"No bucket found {container_name}"
+                        self.get_report().warning(
+                            "Missing bucket",
+                            f"No bucket found {container_name}",
+                            log=False,
                         )
                     else:
                         raise e
@@ -574,6 +630,10 @@ class ABSSource(StatefulIngestionSourceBase):
         with PerfTimer():
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.abs_browser(
                         path_spec, self.source_config.number_of_files_to_sample
@@ -611,14 +671,6 @@ class ABSSource(StatefulIngestionSourceBase):
 
                 for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def is_abs_platform(self):
         return self.source_config.platform == "abs"

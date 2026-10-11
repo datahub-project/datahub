@@ -1,5 +1,8 @@
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
+import i18next from 'i18next';
 import React from 'react';
+import { DefaultTheme } from 'styled-components';
 
 import { TestResultType } from '@types';
 
@@ -9,9 +12,9 @@ import { TestResultType } from '@types';
 export const getResultText = (result: TestResultType) => {
     switch (result) {
         case TestResultType.Success:
-            return 'Passing';
+            return i18next.t('entity.profile.tests:resultText.passing');
         case TestResultType.Failure:
-            return 'Failing';
+            return i18next.t('entity.profile.tests:resultText.failing');
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }
@@ -20,15 +23,12 @@ export const getResultText = (result: TestResultType) => {
 /**
  * Returns the display color assoociated with an TestResultType
  */
-const SUCCESS_COLOR_HEX = '#4db31b';
-const FAILURE_COLOR_HEX = '#F5222D';
-
-export const getResultColor = (result: TestResultType) => {
+export const getResultColor = (result: TestResultType, theme: DefaultTheme) => {
     switch (result) {
         case TestResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return theme.colors.iconSuccess;
         case TestResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return theme.colors.iconError;
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }
@@ -37,13 +37,13 @@ export const getResultColor = (result: TestResultType) => {
 /**
  * Returns the display icon assoociated with an TestResultType
  */
-export const getResultIcon = (result: TestResultType) => {
-    const resultColor = getResultColor(result);
+export const getResultIcon = (result: TestResultType, theme: DefaultTheme) => {
+    const resultColor = getResultColor(result, theme);
     switch (result) {
         case TestResultType.Success:
-            return <CheckCircleOutlined style={{ color: resultColor }} />;
+            return <CheckCircle style={{ color: resultColor }} />;
         case TestResultType.Failure:
-            return <CloseCircleOutlined style={{ color: resultColor }} />;
+            return <XCircle style={{ color: resultColor }} />;
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }

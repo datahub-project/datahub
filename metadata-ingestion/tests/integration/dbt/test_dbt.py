@@ -1,10 +1,11 @@
 import dataclasses
+import json
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, List, Union
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -12,6 +13,7 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -322,11 +324,58 @@ class DbtTestConfig:
                 }
             },
         ),
+        DbtTestConfig(
+            "dbt-test-query-entity-emission",
+            "dbt_test_query_entity_emission.json",
+            "dbt_test_query_entity_emission_golden.json",
+            manifest_file="dbt_manifest_with_queries.json",
+            source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
+        ),
+        # Pins the legacy wire format: semantic models as plain dbt datasets
+        # with subtype "Semantic Model" and no semanticModel/metric entities.
+        # This golden is what "the feature is opt-in" means - it must stay
+        # byte-identical to the pre-feature output.
+        DbtTestConfig(
+            "dbt-test-semantic-models-legacy",
+            "dbt_test_semantic_models_legacy.json",
+            "dbt_test_semantic_models_legacy_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            # Explicitly false rather than merely unset: this golden pins the
+            # legacy format, so it must not depend on how the tri-state
+            # default happens to resolve in the test environment.
+            source_config_modifiers={"emit_semantic_model_entities": False},
+        ),
+        DbtTestConfig(
+            "dbt-test-semantic-model-entities",
+            "dbt_test_semantic_model_entities.json",
+            "dbt_test_semantic_model_entities_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            source_config_modifiers={"emit_semantic_model_entities": True},
+        ),
+        # platform_instance is the easiest thing to get wrong here: it is
+        # folded into the semanticModel/metric path (those keys have no
+        # platform_instance field) but must not change the dataset urn.
+        DbtTestConfig(
+            "dbt-test-semantic-model-entities-platform-instance",
+            "dbt_test_semantic_model_entities_platform_instance.json",
+            "dbt_test_semantic_model_entities_platform_instance_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            source_config_modifiers={
+                "emit_semantic_model_entities": True,
+                "platform_instance": "dbt-instance-1",
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_ingest(
     dbt_test_config,
     test_resources_dir,
@@ -372,6 +421,59 @@ def test_dbt_ingest(
     )
 
 
+def _aspect_key(entry: Dict[str, Any]) -> Any:
+    snapshot = (
+        entry.get("proposedSnapshot", {}).get(
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
+        )
+        or {}
+    )
+    return (
+        entry.get("entityType", "snapshot"),
+        entry.get("entityUrn") or snapshot.get("urn"),
+        entry.get("aspectName", "SNAPSHOT"),
+    )
+
+
+def test_semantic_model_entities_are_purely_additive(test_resources_dir):
+    """Turning the flag on must not change a single aspect the dbt path emits.
+
+    The dataset urn and every aspect written for it - datasetProperties with
+    its dbt provenance, schemaMetadata, subTypes, tags, owners, upstream
+    lineage - belong to the ordinary dbt path, which runs them through
+    write_semantics. This compares the two goldens directly, so any drift is
+    caught even if both are regenerated together.
+    """
+    with open(test_resources_dir / "dbt_test_semantic_models_legacy_golden.json") as f:
+        legacy: List[Dict[str, Any]] = json.load(f)
+    with open(test_resources_dir / "dbt_test_semantic_model_entities_golden.json") as f:
+        with_entities: List[Dict[str, Any]] = json.load(f)
+
+    remaining: Dict[Any, List[Dict[str, Any]]] = {}
+    for entry in with_entities:
+        # runId is the pipeline name, which differs between the two configs by
+        # construction; it is not part of what the connector decided to emit.
+        entry.pop("systemMetadata", None)
+        remaining.setdefault(_aspect_key(entry), []).append(entry)
+
+    for entry in legacy:
+        entry.pop("systemMetadata", None)
+        key = _aspect_key(entry)
+        matches = remaining.get(key)
+        assert matches, f"{key} disappeared when semantic model entities were on"
+        assert entry == matches.pop(0), (
+            f"{key} changed when semantic model entities were on"
+        )
+
+    added = {key for key, entries in remaining.items() if entries}
+    added_types = {key[0] for key in added}
+    assert added_types == {"semanticModel", "metric", "schemaField", "dataset"}
+    # The only dataset-anchored addition is the membership back-reference.
+    assert {key[2] for key in added if key[0] == "dataset"} == {
+        "semanticModelProperties"
+    }
+
+
 @pytest.mark.parametrize(
     "config_dict, is_success",
     [
@@ -394,7 +496,7 @@ def test_dbt_ingest(
     ],
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
     config_dict["manifest_path"] = str(
         (test_resources_dir / config_dict["manifest_path"]).resolve()
@@ -412,7 +514,7 @@ def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "dbt_test_events.json"
@@ -455,7 +557,7 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_tests_only_assertions(
     test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
@@ -535,7 +637,7 @@ def test_dbt_tests_only_assertions(
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_only_test_definitions_and_results(
     test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
@@ -611,3 +713,53 @@ def test_dbt_only_test_definitions_and_results(
         )
         == number_of_assertions - 1
     )
+
+
+@pytest.mark.integration
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dbt_convert_urns_to_lowercase(
+    test_resources_dir, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Verify that convert_urns_to_lowercase flows through the full pipeline
+    and all emitted dbt-platform URNs contain only lowercase dataset names."""
+    output_file = tmp_path / "dbt_lowercase_urns_output.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTCoreConfig(
+                    **_default_dbt_source_args,
+                    manifest_path=str(
+                        (test_resources_dir / "dbt_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "dbt_catalog.json").resolve()
+                    ),
+                    sources_path=str(
+                        (test_resources_dir / "dbt_sources.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    convert_urns_to_lowercase=True,
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_file) as f:
+        output = json.load(f)
+
+    dbt_urns = {
+        item["entityUrn"]
+        for item in output
+        if "entityUrn" in item and "dataPlatform:dbt" in item["entityUrn"]
+    }
+    assert len(dbt_urns) > 0, "Expected at least one dbt platform URN in output"
+    for urn in dbt_urns:
+        dataset_name = DatasetUrn.from_string(urn).name
+        assert dataset_name == dataset_name.lower(), (
+            f"dbt URN dataset name should be lowercase: {urn}"
+        )

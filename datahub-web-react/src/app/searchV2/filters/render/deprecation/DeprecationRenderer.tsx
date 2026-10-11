@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -27,8 +28,8 @@ export class DeprecationRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Is Deprecated</>;
+            return <>{i18next.t('search:filters.deprecation.isDeprecatedOption')}</>;
         }
-        return <>Is Not Deprecated</>;
+        return <>{i18next.t('search:filters.deprecation.isNotDeprecatedLabel')}</>;
     };
 }

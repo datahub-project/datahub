@@ -4,7 +4,7 @@ from typing import Sequence
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
@@ -121,8 +121,9 @@ class MockResponseJson(MockResponse):
 
     def get(self, url, timeout=40):
         response = super().get(url, timeout)
-        if self.url in self.json_empty_list:
-            response.status_code = 204
+        # Reset per request: this mock reuses one object across every call, so
+        # leaving 204 set would make every later response look empty too.
+        response.status_code = 204 if self.url in self.json_empty_list else 200
         return response
 
 
@@ -134,7 +135,7 @@ def mocked_requests_failure(*args, **kwargs):
     return MockResponse([ERROR_URL], 200)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -171,7 +172,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -205,14 +206,13 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             pipeline.raise_from_status()
         assert exec_error.value.args[0] == "Source reported errors"
         assert len(exec_error.value.args[1]) == 1
-        error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1][0]
+        error_dict: StructuredLogEntry = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Simulate error" in error
         assert ERROR_URL in error
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_json_empty(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -244,10 +244,16 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
             }
         )
         pipeline.run()
-        pipeline.raise_from_status(raise_warnings=True)
+        pipeline.raise_from_status()
+
+        # A 204 on one endpoint must not derail the run. The only warning the
+        # fixtures legitimately produce is the dataset query referencing a data
+        # source that no longer exists (data_source_id 44763).
+        warning_titles = {w.title for w in pipeline.source.get_report().warnings}
+        assert warning_titles == {"Unable to construct upstream lineage"}
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_json_failure(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -283,7 +289,6 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status(raise_warnings=True)
         assert len(exec_error.value.args[1]) > 0
-        error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1][0]
+        error_dict: StructuredLogEntry = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Expecting property name enclosed in double quotes" in error

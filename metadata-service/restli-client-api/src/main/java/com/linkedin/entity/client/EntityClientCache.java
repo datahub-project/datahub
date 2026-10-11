@@ -31,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Builder
 public class EntityClientCache {
+  /** Replica misses must not stick for the hit TTL (structuredPropertyKey is cached for a day). */
+  static final int NEGATIVE_CACHE_TTL_SECONDS = 5;
+
   @NonNull private EntityClientCacheConfig config;
   @NonNull private final ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> cache;
   @NonNull private final Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
@@ -40,6 +43,36 @@ public class EntityClientCache {
       @Nonnull final Urn urn,
       @Nonnull final Set<String> aspectNames) {
     return batchGetV2(opContext, Set.of(urn), aspectNames).get(urn);
+  }
+
+  /**
+   * Invalidates cache entries for specific aspect(s) of an entity across all context IDs.
+   *
+   * <p>This is necessary because cache keys include contextId (which varies by session/request),
+   * but when we need to invalidate after a mutation, we want to invalidate for ALL contexts.
+   *
+   * @param urn the entity URN
+   * @param aspectNames the aspect names to invalidate
+   */
+  public void invalidate(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
+    if (!config.isEnabled()) {
+      return;
+    }
+
+    // Get all cache keys and filter for matching URN + aspectNames
+    Set<Key> keysToInvalidate =
+        cache.keySet().stream()
+            .filter(key -> key.getUrn().equals(urn) && aspectNames.contains(key.getAspectName()))
+            .collect(Collectors.toSet());
+
+    if (!keysToInvalidate.isEmpty()) {
+      cache.invalidateAll(keysToInvalidate);
+      log.debug(
+          "Invalidated {} cache entries for urn {} aspects {}",
+          keysToInvalidate.size(),
+          urn,
+          aspectNames);
+    }
   }
 
   public Map<Urn, EntityResponse> batchGetV2(
@@ -178,6 +211,7 @@ public class EntityClientCache {
               .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
+              .ttlAdjustment(EntityClientCache::effectiveTtlSeconds)
               .build(metricUtils, metricClazz);
 
       return new EntityClientCache(this.config, this.cache, fetchFunction);
@@ -273,6 +307,14 @@ public class EntityClientCache {
     private final String contextId;
     private final Set<Urn> urns;
     private final Set<String> aspectNames;
+  }
+
+  static int effectiveTtlSeconds(EnvelopedAspect value, Integer configuredTtlSeconds) {
+    int configured = configuredTtlSeconds == null ? 0 : configuredTtlSeconds;
+    if (value instanceof NullEnvelopedAspect && configured > 0) {
+      return Math.min(configured, NEGATIVE_CACHE_TTL_SECONDS);
+    }
+    return configured;
   }
 
   /** Represents a cached null aspect */

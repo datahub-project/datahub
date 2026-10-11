@@ -6,7 +6,7 @@ const NewRowDropZone = styled.div<{ $isOver?: boolean }>`
     transition: all 0.2s ease;
     margin: 0 42px;
 
-    ${({ $isOver }) => $isOver && `border: 2px solid #CAC3F1;`}
+    ${({ $isOver, theme }) => $isOver && `border: 2px solid ${theme.colors.borderBrand};`}
 `;
 
 interface Props {

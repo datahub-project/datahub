@@ -81,7 +81,7 @@ describe('FilesUploadingDownloadingLatencyTracker', () => {
     it('observes resource timing entries when performance entries are available', () => {
         const mockUploadEntry: Partial<PerformanceResourceTiming> = {
             entryType: 'resource',
-            name: 'https://example.amazonaws.com/upload',
+            name: 'https://example.amazonaws.com/upload?X-Amz-Signature=xyz789',
             initiatorType: 'fetch',
             duration: 100,
         };
@@ -147,7 +147,7 @@ describe('FilesUploadingDownloadingLatencyTracker', () => {
     it('identifies upload entries correctly', () => {
         const mockUploadEntry: Partial<PerformanceResourceTiming> = {
             entryType: 'resource',
-            name: 'https://bucket.s3.amazonaws.com/files',
+            name: 'https://bucket.s3.amazonaws.com/files?X-Amz-Signature=abc123',
             initiatorType: 'fetch',
             duration: 50,
         };
@@ -251,6 +251,87 @@ describe('FilesUploadingDownloadingLatencyTracker', () => {
         );
 
         // No analytics events should be triggered for non-upload/download entries
+        expect(analytics.event).not.toHaveBeenCalled();
+    });
+
+    it('excludes frontend requests even if domain contains amazonaws', () => {
+        // Test case: frontend hosted on domain containing 'amazonaws' but not ending in '.amazonaws.com'
+        const mockFrontendRequest: Partial<PerformanceResourceTiming> = {
+            entryType: 'resource',
+            name: 'https://datahub.amazonaws.company.com/graphql',
+            initiatorType: 'fetch',
+            duration: 50,
+        };
+
+        render(<FilesUploadingDownloadingLatencyTracker />);
+
+        // Get the callback that was passed to PerformanceObserver constructor
+        const callback = (window.PerformanceObserver as any).mock.calls[0][0];
+
+        // Simulate the callback with a frontend request
+        callback(
+            {
+                getEntries: () => [mockFrontendRequest],
+            },
+            new MockPerformanceObserver(() => {}),
+        );
+
+        // Should NOT trigger analytics - not a real S3 upload
+        expect(analytics.event).not.toHaveBeenCalled();
+    });
+
+    it('correctly identifies S3 uploads with region-specific domains', () => {
+        const mockS3RegionalUpload: Partial<PerformanceResourceTiming> = {
+            entryType: 'resource',
+            name: 'https://my-bucket.s3.us-west-2.amazonaws.com/file.pdf?X-Amz-Signature=abc',
+            initiatorType: 'fetch',
+            duration: 1200,
+        };
+
+        render(<FilesUploadingDownloadingLatencyTracker />);
+
+        // Get the callback that was passed to PerformanceObserver constructor
+        const callback = (window.PerformanceObserver as any).mock.calls[0][0];
+
+        // Simulate the callback with a regional S3 upload
+        callback(
+            {
+                getEntries: () => [mockS3RegionalUpload],
+            },
+            new MockPerformanceObserver(() => {}),
+        );
+
+        // Should trigger upload latency event
+        expect(analytics.event).toHaveBeenCalledTimes(1);
+        expect(analytics.event).toHaveBeenCalledWith({
+            type: EventType.FileUploadLatencyEvent,
+            url: mockS3RegionalUpload.name,
+            duration: mockS3RegionalUpload.duration,
+        });
+    });
+
+    it('excludes S3 requests without presigned signature', () => {
+        // S3 request without X-Amz-Signature should not be detected as upload
+        const mockS3RequestWithoutSignature: Partial<PerformanceResourceTiming> = {
+            entryType: 'resource',
+            name: 'https://bucket.s3.amazonaws.com/public-file.pdf',
+            initiatorType: 'fetch',
+            duration: 200,
+        };
+
+        render(<FilesUploadingDownloadingLatencyTracker />);
+
+        // Get the callback that was passed to PerformanceObserver constructor
+        const callback = (window.PerformanceObserver as any).mock.calls[0][0];
+
+        callback(
+            {
+                getEntries: () => [mockS3RequestWithoutSignature],
+            },
+            new MockPerformanceObserver(() => {}),
+        );
+
+        // Should NOT trigger analytics - not a presigned upload URL
         expect(analytics.event).not.toHaveBeenCalled();
     });
 });

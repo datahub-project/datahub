@@ -34,12 +34,12 @@ export interface ColumnAsset extends LineageAssetBase {
     nativeDataType?: string | null;
 }
 
-export interface EntityAsset extends LineageAssetBase {
+interface EntityAsset extends LineageAssetBase {
     type: LineageAssetType.Entity;
     entityType: EntityType;
 }
 
-export interface DataProductAsset extends LineageAssetBase {
+interface DataProductAsset extends LineageAssetBase {
     type: LineageAssetType.DataProduct;
     size?: number;
 }
@@ -65,6 +65,8 @@ export interface FetchedEntityV2 {
     platform?: DataPlatform;
     status?: Status;
     fineGrainedLineages?: FineGrainedLineage[];
+    /** Schema fields this entity reads as a whole, having no columns of its own, e.g. a metric. */
+    upstreamSchemaFieldUrns?: string[];
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;

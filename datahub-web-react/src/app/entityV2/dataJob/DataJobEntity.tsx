@@ -1,41 +1,59 @@
-import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { ArrowsClockwise, FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { Swap } from '@phosphor-icons/react/dist/csr/Swap';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { Preview } from '@app/entityV2/dataJob/preview/Preview';
-import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarDataJobTransformationLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    RunsTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarQueryOperationsSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+} from '@app/entityV2/shared/profileChunks';
 import { SidebarTitleActionType, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
 import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
+
+const SidebarDataJobTransformationLogicSection = lazyProfileComponent('SidebarDataJobTransformationLogicSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection').then((module) => ({
+        default: module.SidebarDataJobTransformationLogicSection,
+    })),
+);
+const DataJobFlowTab = lazyProfileComponent('DataJobFlowTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/DataJobFlowTab').then((module) => ({
+        default: module.DataJobFlowTab,
+    })),
+);
 
 const getPlatformForDataJob = (data?: DataJob | null) => {
     return data?.platform || data?.dataFlow?.platform;
@@ -59,20 +77,12 @@ export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ConsoleSqlOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ConsoleSqlOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
-            );
-        }
-
         return (
-            <ConsoleSqlOutlined
+            <Swap
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -89,9 +99,9 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'tasks';
 
-    getEntityName = () => 'Task';
+    getEntityName = () => i18next.t('entity.types:dataJob.name');
 
-    getCollectionName = () => 'Tasks';
+    getCollectionName = () => i18next.t('entity.types:dataJob.namePlural');
 
     useEntityQuery = useGetDataJobQuery;
 
@@ -105,28 +115,28 @@ export class DataJobEntity implements Entity<DataJob> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Pipeline',
+                    name: i18next.t('entity.types:dataFlow.name'),
                     component: DataJobFlowTab,
                     icon: Share,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Runs',
+                    name: i18next.t('entity.types:tab.runs'),
                     component: RunsTab,
                     icon: ArrowsClockwise,
                     display: {
@@ -135,7 +145,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataJob) => {
@@ -169,18 +179,18 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -319,6 +329,12 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
+    };
+
+    getPlatformProperties = (data: DataJob) => {
+        return data?.dataFlow?.platform;
     };
 }

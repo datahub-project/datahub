@@ -1,3 +1,7 @@
+---
+description: "Use the datahub-protobuf module with the Java Emitter to ingest metadata for Protobuf message schemas into DataHub."
+---
+
 # Protobuf Schemas
 
 The `datahub-protobuf` module is designed to be used with the Java Emitter, the input is a compiled protobuf binary `*.protoc` files and optionally the corresponding `*.proto` source code. You can supply a file with multiple nested messages to be processed. If you have a file with multiple non-nested messages, you will need to separate them out into different files or supply the root message, as otherwise we will only process the first one.

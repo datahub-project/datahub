@@ -13,9 +13,10 @@ interface Props {
     onDeletePredicate: (index) => void;
     properties: Property[];
     depth: number;
+    hideAddGroup?: boolean;
 }
 
-const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, depth }: Props) => {
+const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, depth, hideAddGroup }: Props) => {
     const onUpdatePredicate = (newPredicate, index) => {
         const newOperands = [...operands];
         if (newPredicate === undefined) {
@@ -53,6 +54,7 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
                             properties={properties}
                             depth={depth + 1}
                             index={index}
+                            hideAddGroup={hideAddGroup}
                         />
                     )}
                 </>

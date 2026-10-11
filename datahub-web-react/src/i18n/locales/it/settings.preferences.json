@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Gestisci le impostazioni relative all'aspetto.",
+    "appearance.title": "Aspetto",
+    "language.description": "Scegli la lingua di visualizzazione preferita",
+    "language.title": "Lingua dell'interfaccia utente",
+    "noSettings": "Nessuna impostazione relativa all'aspetto trovata.",
+    "showApplications.description": "Le Applicazioni sono un altro modo per organizzare i dati, simile ai Domini. Sono nascoste per impostazione predefinita.",
+    "showApplications.successMessage": "Impostazione aggiornata!",
+    "showApplications.title": "Mostra Applicazioni"
+}

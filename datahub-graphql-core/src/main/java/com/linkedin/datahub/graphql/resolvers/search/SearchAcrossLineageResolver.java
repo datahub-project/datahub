@@ -35,7 +35,6 @@ import com.linkedin.view.DataHubViewInfo;
 import graphql.VisibleForTesting;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -89,15 +88,14 @@ public class SearchAcrossLineageResolver
   }
 
   @Override
-  public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
-      throws URISyntaxException {
+  public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment) {
     log.debug("Entering search across lineage graphql resolver");
     final QueryContext context = environment.getContext();
 
     final SearchAcrossLineageInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
 
-    final Urn urn = Urn.createFromString(input.getUrn());
+    final Urn urn = UrnUtils.requireUrn(input.getUrn());
 
     final LineageDirection lineageDirection = input.getDirection();
 

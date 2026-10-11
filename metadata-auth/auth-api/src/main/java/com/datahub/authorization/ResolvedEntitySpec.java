@@ -7,6 +7,8 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Wrapper around authorization request with field resolvers for lazily fetching the field values
@@ -15,8 +17,10 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @ToString
 public class ResolvedEntitySpec {
+  private static final Logger log = LoggerFactory.getLogger(ResolvedEntitySpec.class);
+
   @Getter private final EntitySpec spec;
-  private final Map<EntityFieldType, FieldResolver> fieldResolvers;
+  @Getter private final Map<EntityFieldType, FieldResolver> fieldResolvers;
 
   public Set<String> getFieldValues(EntityFieldType entityFieldType) {
     if (!fieldResolvers.containsKey(entityFieldType)) {
@@ -73,5 +77,37 @@ public class ResolvedEntitySpec {
         .getFieldValuesFuture()
         .join()
         .getValues();
+  }
+
+  /**
+   * Fetch the structured property values for an entity as a map.
+   *
+   * @return a map of propertyUrn -> Set of values, or empty map if none exist or if resolution
+   *     fails. Errors are logged but not propagated to allow authorization to continue with other
+   *     policies.
+   */
+  public Map<String, Set<String>> getStructuredPropertyValues() {
+    if (!fieldResolvers.containsKey(EntityFieldType.STRUCTURED_PROPERTY)) {
+      return Collections.emptyMap();
+    }
+    try {
+      Map<String, Set<String>> structuredPropertyValues =
+          fieldResolvers
+              .get(EntityFieldType.STRUCTURED_PROPERTY)
+              .getFieldValuesFuture()
+              .join()
+              .getStructuredPropertyValues();
+      return structuredPropertyValues != null ? structuredPropertyValues : Collections.emptyMap();
+    } catch (Exception e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      log.warn(
+          "Error while resolving structured properties for entity spec {}; skipping structured property evaluation for this criterion",
+          spec,
+          e);
+      // Return empty map on error; this criterion will be skipped
+      return Collections.emptyMap();
+    }
   }
 }

@@ -1,8 +1,9 @@
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity } from '@app/entityV2/Entity';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 
 import { DataPlatformInstance, EntityType } from '@types';
 
@@ -27,9 +28,9 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
 
     getPathName = () => 'dataPlatformInstance';
 
-    getEntityName = () => 'Data Platform Instance';
+    getEntityName = () => i18next.t('entity.types:dataPlatformInstance.name');
 
-    getCollectionName = () => 'Data Platform Instances';
+    getCollectionName = () => i18next.t('entity.types:dataPlatformInstance.namePlural');
 
     renderProfile = () => <></>;
 
@@ -63,5 +64,9 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
 
     getGraphName = () => {
         return 'dataPlatformInstance';
+    };
+
+    getPlatformProperties = (data: DataPlatformInstance) => {
+        return data?.platform;
     };
 }

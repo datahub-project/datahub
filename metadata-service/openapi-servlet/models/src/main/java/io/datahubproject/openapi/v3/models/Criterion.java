@@ -14,10 +14,7 @@ public class Criterion {
   /** The name of the field that the criterion refers to */
   private String field;
 
-  /**
-   * Values. one of which the intended field should match Note, if values is set, the above "value"
-   * field will be ignored
-   */
+  /** Values to match against the field (one match suffices for typical conditions). */
   private List<String> values;
 
   /** The condition for the criterion, e.g. EQUAL, START_WITH */

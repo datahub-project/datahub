@@ -1,13 +1,9 @@
-import Editor, { loader } from '@monaco-editor/react';
+import Editor from '@monaco-editor/react';
 import React from 'react';
 
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
+import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 
-loader.config({
-    paths: {
-        vs: resolveRuntimePath('/node_modules/monaco-editor/min/vs'),
-    },
-});
+const EDITOR_LANGUAGE = 'yaml';
 
 type Props = {
     initialText: string;
@@ -15,8 +11,11 @@ type Props = {
 };
 
 export const YamlEditor = ({ initialText, onChange }: Props) => {
+    const monacoTheme = useMonacoTheme();
+
     return (
         <Editor
+            {...monacoTheme}
             options={{
                 minimap: { enabled: false },
                 scrollbar: {
@@ -25,7 +24,7 @@ export const YamlEditor = ({ initialText, onChange }: Props) => {
                 },
             }}
             height="55vh"
-            defaultLanguage="yaml"
+            defaultLanguage={EDITOR_LANGUAGE}
             value={initialText}
             onChange={onChange}
         />

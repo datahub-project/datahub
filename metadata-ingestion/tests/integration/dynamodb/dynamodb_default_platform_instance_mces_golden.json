@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -169,13 +169,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
+                "table.arn": "arn:aws:dynamodb:us-west-2:000000000000:table/Location",
                 "table.totalItems": "1",
                 "Sort Key": "city",
                 "Partition Key": "partitionKey"
@@ -192,13 +192,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:dynamodb",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,123456789012)"
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,000000000000)"
         }
     },
     "systemMetadata": {
@@ -209,7 +209,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

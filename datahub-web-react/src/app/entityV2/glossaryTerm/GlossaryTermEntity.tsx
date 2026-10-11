@@ -1,39 +1,56 @@
-import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
-import GlossaryRelatedEntity from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity';
-import GlossayRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DocumentationTab,
+    EntityProfile,
+    PropertiesTab,
+    SchemaTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineage/types';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
 
+const GlossaryRelatedEntity = lazyProfileComponent(
+    'GlossaryRelatedEntity',
+    () => import('@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity'),
+);
+const GlossayRelatedTerms = lazyProfileComponent(
+    'GlossayRelatedTerms',
+    () => import('@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms'),
+);
+
 const headerDropdownItems = new Set([
+    EntityMenuItems.EDIT_GLOSSARY,
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
@@ -51,28 +68,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     type: EntityType = EntityType.GlossaryTerm;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookmarkSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <BookmarkSimple
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#B37FEB' }}
-                    weight="fill"
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.ACCENT) {
-            return <BookmarkSimple style={{ fontSize: fontSize ?? 10, color: color || '#6C6B88' }} />;
-        }
-
         return (
             <BookmarkSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -87,9 +88,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getPathName = () => 'glossaryTerm';
 
-    getCollectionName = () => 'Glossary Terms';
+    getCollectionName = () => i18next.t('entity.types:glossaryTerm.namePlural');
 
-    getEntityName = () => 'Glossary Term';
+    getEntityName = () => i18next.t('entity.types:glossaryTerm.name');
 
     useEntityQuery = useGetGlossaryTermQuery;
 
@@ -101,7 +102,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={headerDropdownItems}
-                isNameEditable
                 tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
@@ -133,6 +133,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarApplicationSection,
         },
         {
+            component: SidebarTagsSection,
+        },
+        {
             component: SidebarStructuredProperties,
         },
         {
@@ -147,7 +150,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             ...(showSummaryTab
                 ? [
                       {
-                          name: 'Summary',
+                          name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                           id: 'asset-summary-tab',
                       },
@@ -156,22 +159,22 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: FileText,
                       },
                   ]
                 : []),
             {
-                name: 'Related Assets',
+                name: i18next.t('entity.types:shared.relatedAssets'),
                 getCount: useGlossaryRelatedAssetsTabCount,
                 component: GlossaryRelatedEntity,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             {
-                name: 'Schema',
+                name: i18next.t('entity.types:glossaryTerm.schemaTab'),
                 component: SchemaTab,
-                icon: LayoutOutlined,
+                icon: Columns,
                 properties: {
                     editMode: false,
                 },
@@ -183,7 +186,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 },
             },
             {
-                name: 'Related Terms',
+                name: i18next.t('entity.types:glossaryTerm.relatedTermsTab'),
                 getCount: (entityData, _, loading) => {
                     const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
                         return acc + (entityData?.[curr]?.total || 0);
@@ -194,19 +197,19 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
+            icon: ListBullets,
         },
     ];
 
@@ -218,10 +221,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm, undefined, undefined);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
     };
 
-    renderPreview = (previewType: PreviewType, data: GlossaryTerm, _actions, extraContext?: PreviewContext) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -235,7 +238,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 deprecation={data?.deprecation}
                 domain={data.domain?.domain}
                 headerDropdownItems={headerDropdownItems}
-                propagationDetails={extraContext?.propagationDetails}
             />
         );
     };
@@ -262,6 +264,11 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.TEST,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
+            EntityCapabilityType.TAGS,
         ]);
     };
 

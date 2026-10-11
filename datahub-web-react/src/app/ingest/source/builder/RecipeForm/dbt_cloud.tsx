@@ -1,4 +1,4 @@
-import { get } from 'lodash';
+import get from 'lodash/get';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,8 +7,6 @@ import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingest/sourc
 const TipSection = styled.div`
     margin-bottom: 12px;
 `;
-
-export const DBT_CLOUD = 'dbt-cloud';
 
 export const DBT_CLOUD_TOKEN: RecipeField = {
     name: 'token',
@@ -154,7 +152,7 @@ export const INCLUDE_SEEDS: RecipeField = {
     },
     setValueOnRecipeOverride: (recipe: any, value: boolean) => {
         const includeSeeds = value === true ? 'YES' : 'NO';
-        return setFieldValueOnRecipe(recipe, includeSeeds, includeSourcesPath);
+        return setFieldValueOnRecipe(recipe, includeSeeds, includeSeedsPath);
     },
 };
 
@@ -232,17 +230,6 @@ export const NODE_DENY: RecipeField = {
     fieldPath: nodeDenyFieldPath,
     rules: null,
     section: 'Nodes',
-};
-
-export const METADATA_ENDPOINT: RecipeField = {
-    name: 'metadata_endpoint',
-    label: 'Custom Metadata Endpoint URL',
-    tooltip:
-        'A custom URL used for extracting Metadata. By default, this metadata is extracted from https://metadata.cloud.getdbt.com/graphql. In most cases, users should NOT need to provide this value.',
-    placeholder: 'https://metadata.cloud.getdbt.com/graphql',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.metadata_endpoint',
-    rules: null,
 };
 
 const extractOwnersPath = 'source.config.enable_owner_extraction';

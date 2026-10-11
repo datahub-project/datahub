@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, Type
+from typing import Any, Dict, Iterable, List, Tuple, Type
 
 import pydantic
 from pydantic import model_validator
@@ -9,16 +9,13 @@ from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn import guess_entity_type
 
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1RootValidator
-
 STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
     "dataProcessInstance",
     "query",
 }
 
 
-def pydantic_state_migrator(mapping: Dict[str, str]) -> "V1RootValidator":
+def pydantic_state_migrator(mapping: Dict[str, str]) -> Any:
     # mapping would be something like:
     # {
     #    'encoded_view_urns': 'dataset',

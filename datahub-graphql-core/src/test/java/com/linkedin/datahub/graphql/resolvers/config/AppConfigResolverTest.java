@@ -14,12 +14,19 @@ import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.settings.global.ApplicationsSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -36,7 +43,6 @@ public class AppConfigResolverTest {
   @Mock private TelemetryConfiguration mockTelemetryConfiguration;
   @Mock private TestsConfiguration mockTestsConfiguration;
   @Mock private DataHubConfiguration mockDatahubConfiguration;
-  @Mock private S3Configuration mockS3Configuration;
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
   @Mock private SearchCardConfiguration mockSearchCardConfiguration;
@@ -47,6 +53,7 @@ public class AppConfigResolverTest {
   @Mock private SettingsService mockSettingsService;
   @Mock private DataFetchingEnvironment mockDataFetchingEnvironment;
   @Mock private GlobalSettingsInfo mockGlobalSettingsInfo;
+  @Mock private SemanticSearchConfiguration mockSemanticSearchConfiguration;
 
   private AppConfigResolver resolver;
   private QueryContext mockContext;
@@ -74,10 +81,6 @@ public class AppConfigResolverTest {
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
 
-    // Setup S3 configuration
-    when(mockDatahubConfiguration.getS3()).thenReturn(mockS3Configuration);
-    when(mockS3Configuration.getBucketName()).thenReturn("test-bucket");
-
     // Setup feature flags
     setupFeatureFlags();
 
@@ -101,7 +104,9 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             mockSettingsService,
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration,
+            false);
   }
 
   private void setupFeatureFlags() {
@@ -119,7 +124,6 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isThemeV2Enabled()).thenReturn(false);
     when(mockFeatureFlags.isThemeV2Default()).thenReturn(false);
     when(mockFeatureFlags.isThemeV2Toggleable()).thenReturn(false);
-    when(mockFeatureFlags.isLineageGraphV2()).thenReturn(false);
     when(mockFeatureFlags.isShowSeparateSiblings()).thenReturn(false);
     when(mockFeatureFlags.isShowManageStructuredProperties()).thenReturn(false);
     when(mockFeatureFlags.isSchemaFieldCLLEnabled()).thenReturn(false);
@@ -137,12 +141,12 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowStatsTabRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowHomePageRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
-    when(mockFeatureFlags.isLineageGraphV3()).thenReturn(false);
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDatasetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
+    when(mockFeatureFlags.isShowTestsInHealthIcon()).thenReturn(false);
   }
 
   @Test
@@ -157,6 +161,9 @@ public class AppConfigResolverTest {
     assertTrue(result.getAnalyticsConfig().getEnabled());
     assertNotNull(result.getAuthConfig());
     assertTrue(result.getAuthConfig().getTokenAuthEnabled());
+    assertFalse(result.getAuthConfig().getAllowNoExpiry());
+    assertNotNull(result.getAuthConfig().getAllowedAccessTokenDurations());
+    assertFalse(result.getAuthConfig().getAllowedAccessTokenDurations().isEmpty());
     assertNotNull(result.getPoliciesConfig());
     assertTrue(result.getPoliciesConfig().getEnabled());
     assertNotNull(result.getIdentityManagementConfig());
@@ -204,7 +211,9 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             mockSettingsService,
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -373,6 +382,8 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             null, // null settings service
+            false,
+            mockSemanticSearchConfiguration,
             false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
@@ -404,6 +415,8 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             mockSettingsService,
+            false,
+            mockSemanticSearchConfiguration,
             false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
@@ -428,8 +441,6 @@ public class AppConfigResolverTest {
   @Test
   public void testDocumentationFileUploadV1EnabledWhenFeatureFlagAndS3Enabled() throws Exception {
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
-    when(mockS3Configuration.getBucketName()).thenReturn("my-bucket");
-
     resolver =
         new AppConfigResolver(
             mockGitVersion,
@@ -450,7 +461,9 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             mockSettingsService,
-            true); // isS3Enabled
+            true, // isS3Enabled
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -483,7 +496,9 @@ public class AppConfigResolverTest {
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
             mockSettingsService,
-            true); // isS3Enabled
+            true, // isS3Enabled
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -510,5 +525,638 @@ public class AppConfigResolverTest {
 
     assertNotNull(result.getFeatureFlags());
     assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testSemanticSearchConfigPopulated() throws Exception {
+    // Setup semantic search configuration
+    Set<String> enabledEntities = new HashSet<>();
+    enabledEntities.add("document");
+    enabledEntities.add("chart");
+
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("aws-bedrock");
+    EmbeddingProviderConfiguration.BedrockConfig bedrockConfig =
+        new EmbeddingProviderConfiguration.BedrockConfig();
+    bedrockConfig.setModel("cohere.embed-english-v3");
+    bedrockConfig.setAwsRegion("us-west-2");
+    embeddingProvider.setBedrock(bedrockConfig);
+
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(1024);
+
+    Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+    models.put("cohere_embed_v3", modelConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(enabledEntities);
+    semanticSearchConfig.setModels(models);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertTrue(result.getSemanticSearchConfig().getEnabled());
+    assertNotNull(result.getSemanticSearchConfig().getEnabledEntities());
+    assertEquals(result.getSemanticSearchConfig().getEnabledEntities().size(), 2);
+    assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("document"));
+    assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("chart"));
+
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "aws-bedrock");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelId(),
+        "cohere.embed-english-v3");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+        "cohere_embed_v3");
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig());
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig().getRegion(),
+        "us-west-2");
+  }
+
+  /**
+   * The ingestion side reads provider, model id and model key from this response and must land on
+   * the same index field GMS queries, so the classical values are pinned here.
+   */
+  @Test
+  public void testSemanticSearchConfigPopulatedWithClassical() throws Exception {
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("classical");
+    embeddingProvider.getClassical().setModel("hash-v1-2048");
+
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(2048);
+    Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+    models.put("hash_v1_2048", modelConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(Set.of("document"));
+    semanticSearchConfig.setModels(models);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "classical");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelId(), "hash-v1-2048");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+        "hash_v1_2048");
+  }
+
+  @Test
+  public void testSemanticSearchConfigPopulatedWithVertexAi() throws Exception {
+    // Setup semantic search configuration with vertex_ai provider
+    Set<String> enabledEntities = new HashSet<>();
+    enabledEntities.add("document");
+    enabledEntities.add("chart");
+
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("vertex_ai");
+    EmbeddingProviderConfiguration.VertexAiConfig vertexConfig =
+        new EmbeddingProviderConfiguration.VertexAiConfig();
+    vertexConfig.setProjectId("test-project");
+    vertexConfig.setLocation("us-east1");
+    vertexConfig.setModel("gemini-embedding-001");
+    embeddingProvider.setVertexai(vertexConfig);
+
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(768);
+
+    Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+    models.put("gemini_embedding_001", modelConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(enabledEntities);
+    semanticSearchConfig.setModels(models);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "vertex_ai");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelId(), "gemini-embedding-001");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+        "gemini_embedding_001");
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig().getVertexProviderConfig());
+    assertEquals(
+        result
+            .getSemanticSearchConfig()
+            .getEmbeddingConfig()
+            .getVertexProviderConfig()
+            .getProjectId(),
+        "test-project");
+    assertEquals(
+        result
+            .getSemanticSearchConfig()
+            .getEmbeddingConfig()
+            .getVertexProviderConfig()
+            .getLocation(),
+        "us-east1");
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig());
+  }
+
+  @Test
+  public void testSemanticSearchConfigOmitsVertexProviderConfigWhenLocationBlank()
+      throws Exception {
+    // When the server has vertex_ai configured but VERTEX_AI_LOCATION is blank
+    // (Spring binds an empty default ${VERTEX_AI_LOCATION:} as ""), the resolver
+    // must not emit a half-populated vertexProviderConfig to the client.
+    Set<String> enabledEntities = new HashSet<>();
+    enabledEntities.add("document");
+
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("vertex_ai");
+    EmbeddingProviderConfiguration.VertexAiConfig vertexConfig =
+        new EmbeddingProviderConfiguration.VertexAiConfig();
+    vertexConfig.setProjectId("test-project");
+    vertexConfig.setLocation(""); // blank location — exercises the isBlank() guard
+    vertexConfig.setModel("gemini-embedding-001");
+    embeddingProvider.setVertexai(vertexConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(enabledEntities);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    // The provider type is still echoed back, but no half-populated vertex config is emitted.
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "vertex_ai");
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig().getVertexProviderConfig());
+  }
+
+  @Test
+  public void testSemanticSearchConfigNull() throws Exception {
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            null,
+            false);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result);
+  }
+
+  /**
+   * Builds an {@link AppConfigResolver} with the given semantic-search config and otherwise the
+   * mocks set up in {@link #setupTest()}. Mirrors the inline resolver-rebuild pattern used in the
+   * existing tests but in helper form so {@code deriveModelEmbeddingKey} branches can be exercised
+   * without repeating the 20-arg constructor each time.
+   */
+  private AppConfigResolver resolverWithSemanticSearchConfig(
+      SemanticSearchConfiguration semanticSearchConfig) {
+    return new AppConfigResolver(
+        mockGitVersion,
+        true,
+        mockIngestionConfiguration,
+        mockAuthenticationConfiguration,
+        mockAuthorizationConfiguration,
+        true,
+        mockVisualConfiguration,
+        mockTelemetryConfiguration,
+        mockTestsConfiguration,
+        mockDatahubConfiguration,
+        mockViewsConfiguration,
+        mockSearchBarConfiguration,
+        mockSearchCardConfiguration,
+        mockSearchFlagsConfiguration,
+        mockHomePageConfiguration,
+        mockFeatureFlags,
+        mockChromeExtensionConfiguration,
+        mockSettingsService,
+        false,
+        semanticSearchConfig,
+        false);
+  }
+
+  /**
+   * Builds a semantic-search config wrapping the given embedding-provider config, with a single
+   * "document" enabled entity. Used by the model-embedding-key tests to keep them concise.
+   */
+  private static SemanticSearchConfiguration semanticSearchConfigWith(
+      EmbeddingProviderConfiguration embeddingProvider) {
+    Set<String> enabledEntities = new HashSet<>();
+    enabledEntities.add("document");
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(enabledEntities);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+    return semanticSearchConfig;
+  }
+
+  private static EmbeddingProviderConfiguration bedrockEmbeddingProvider(String model) {
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("aws-bedrock");
+    EmbeddingProviderConfiguration.BedrockConfig bedrockConfig =
+        new EmbeddingProviderConfiguration.BedrockConfig();
+    bedrockConfig.setModel(model);
+    bedrockConfig.setAwsRegion("us-west-2");
+    embeddingProvider.setBedrock(bedrockConfig);
+    return embeddingProvider;
+  }
+
+  private static EmbeddingProviderConfiguration vertexAiEmbeddingProvider(
+      String projectId, String location, String model) {
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("vertex_ai");
+    EmbeddingProviderConfiguration.VertexAiConfig vertexConfig =
+        new EmbeddingProviderConfiguration.VertexAiConfig();
+    vertexConfig.setProjectId(projectId);
+    vertexConfig.setLocation(location);
+    vertexConfig.setModel(model);
+    embeddingProvider.setVertexai(vertexConfig);
+    return embeddingProvider;
+  }
+
+  /**
+   * Helper that drives the resolver with a single-model semantic-search config and asserts the
+   * derived modelEmbeddingKey.
+   */
+  private void assertDerivedModelEmbeddingKey(
+      EmbeddingProviderConfiguration embeddingProvider, String expectedKey) throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig = semanticSearchConfigWith(embeddingProvider);
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(), expectedKey);
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForCohereEmbedEnglishV3() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        bedrockEmbeddingProvider("cohere.embed-english-v3"), "cohere_embed_v3");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForCohereEmbedEnglishV3_0() throws Exception {
+    // Cohere native model IDs (with .0 suffix) must take precedence over the bedrock-style match.
+    EmbeddingProviderConfiguration cohere = new EmbeddingProviderConfiguration();
+    cohere.setType("cohere");
+    EmbeddingProviderConfiguration.CohereConfig cc =
+        new EmbeddingProviderConfiguration.CohereConfig();
+    cc.setModel("embed-english-v3.0");
+    cohere.setCohere(cc);
+    assertDerivedModelEmbeddingKey(cohere, "embed_english_v3_0");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForCohereMultilingualV3_0() throws Exception {
+    EmbeddingProviderConfiguration cohere = new EmbeddingProviderConfiguration();
+    cohere.setType("cohere");
+    EmbeddingProviderConfiguration.CohereConfig cc =
+        new EmbeddingProviderConfiguration.CohereConfig();
+    cc.setModel("embed-multilingual-v3.0");
+    cohere.setCohere(cc);
+    assertDerivedModelEmbeddingKey(cohere, "embed_multilingual_v3_0");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForCohereEnglishLightV3_0() throws Exception {
+    EmbeddingProviderConfiguration cohere = new EmbeddingProviderConfiguration();
+    cohere.setType("cohere");
+    EmbeddingProviderConfiguration.CohereConfig cc =
+        new EmbeddingProviderConfiguration.CohereConfig();
+    cc.setModel("embed-english-light-v3.0");
+    cohere.setCohere(cc);
+    assertDerivedModelEmbeddingKey(cohere, "embed_english_light_v3_0");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForCohereMultilingualV3() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        bedrockEmbeddingProvider("cohere.embed-multilingual-v3"), "cohere_embed_multilingual_v3");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForTitanV1() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        bedrockEmbeddingProvider("amazon.titan-embed-text-v1"), "amazon_titan_v1");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForTitanV2() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        bedrockEmbeddingProvider("amazon.titan-embed-text-v2:0"), "amazon_titan_v2");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForGeminiEmbedding001() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        vertexAiEmbeddingProvider("p", "us-east1", "gemini-embedding-001"), "gemini_embedding_001");
+  }
+
+  @Test
+  public void testDeriveModelEmbeddingKeyForTextEmbedding005() throws Exception {
+    assertDerivedModelEmbeddingKey(
+        vertexAiEmbeddingProvider("p", "us-east1", "text-embedding-005"), "text_embedding_005");
+  }
+
+  /**
+   * Fallback path: model IDs that don't match any of the canonical-key shortcuts get their special
+   * characters replaced with underscores.
+   */
+  @Test
+  public void testDeriveModelEmbeddingKeyFallback() throws Exception {
+    EmbeddingProviderConfiguration openai = new EmbeddingProviderConfiguration();
+    openai.setType("openai");
+    EmbeddingProviderConfiguration.OpenAIConfig oc =
+        new EmbeddingProviderConfiguration.OpenAIConfig();
+    oc.setModel("some-unknown-model.v2:0");
+    openai.setOpenai(oc);
+    assertDerivedModelEmbeddingKey(openai, "some_unknown_model_v2_0");
+  }
+
+  // ------- Vertex AI guard branches in get() -------
+
+  /**
+   * Mirrors {@link #testSemanticSearchConfigOmitsVertexProviderConfigWhenLocationBlank} for null.
+   */
+  @Test
+  public void testSemanticSearchConfigOmitsVertexProviderConfigWhenLocationNull() throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig =
+        semanticSearchConfigWith(
+            vertexAiEmbeddingProvider("test-project", null, "gemini-embedding-001"));
+
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "vertex_ai");
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig().getVertexProviderConfig());
+  }
+
+  @Test
+  public void testSemanticSearchConfigOmitsVertexProviderConfigWhenProjectIdBlank()
+      throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig =
+        semanticSearchConfigWith(vertexAiEmbeddingProvider("", "us-east1", "gemini-embedding-001"));
+
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "vertex_ai");
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig().getVertexProviderConfig());
+  }
+
+  @Test
+  public void testSemanticSearchConfigOmitsVertexProviderConfigWhenProjectIdNull()
+      throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig =
+        semanticSearchConfigWith(
+            vertexAiEmbeddingProvider(null, "us-east1", "gemini-embedding-001"));
+
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "vertex_ai");
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig().getVertexProviderConfig());
+  }
+
+  @Test
+  public void testSemanticSearchConfigModelEmbeddingKeyDerivation() throws Exception {
+    // Test a few key model ID to model embedding key mappings
+    String[][] testCases = {
+      {"cohere.embed-english-v3", "cohere_embed_v3"},
+      {"cohere.embed-multilingual-v3", "cohere_embed_multilingual_v3"}
+    };
+
+    for (String[] testCase : testCases) {
+      String modelId = testCase[0];
+      String expectedModelEmbeddingKey = testCase[1];
+
+      Set<String> enabledEntities = new HashSet<>();
+      enabledEntities.add("document");
+
+      EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+      embeddingProvider.setType("aws-bedrock");
+      EmbeddingProviderConfiguration.BedrockConfig bedrockConfig =
+          new EmbeddingProviderConfiguration.BedrockConfig();
+      bedrockConfig.setModel(modelId);
+      bedrockConfig.setAwsRegion("us-west-2");
+      embeddingProvider.setBedrock(bedrockConfig);
+
+      ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+      modelConfig.setVectorDimension(1024);
+
+      Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+      models.put(expectedModelEmbeddingKey, modelConfig);
+
+      SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+      semanticSearchConfig.setEnabled(true);
+      semanticSearchConfig.setEnabledEntities(enabledEntities);
+      semanticSearchConfig.setModels(models);
+      semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+      resolver =
+          new AppConfigResolver(
+              mockGitVersion,
+              true,
+              mockIngestionConfiguration,
+              mockAuthenticationConfiguration,
+              mockAuthorizationConfiguration,
+              true,
+              mockVisualConfiguration,
+              mockTelemetryConfiguration,
+              mockTestsConfiguration,
+              mockDatahubConfiguration,
+              mockViewsConfiguration,
+              mockSearchBarConfiguration,
+              mockSearchCardConfiguration,
+              mockSearchFlagsConfiguration,
+              mockHomePageConfiguration,
+              mockFeatureFlags,
+              mockChromeExtensionConfiguration,
+              mockSettingsService,
+              false,
+              semanticSearchConfig,
+              false);
+
+      AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+      assertNotNull(result.getSemanticSearchConfig());
+      assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+      assertEquals(
+          result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+          expectedModelEmbeddingKey,
+          "Model embedding key derivation failed for model ID: " + modelId);
+    }
+  }
+
+  @Test
+  public void testEntityIndexV3EnabledExposedOnAppConfig() throws Exception {
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            mockSemanticSearchConfiguration,
+            true);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertTrue(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
+  }
+
+  @Test
+  public void testEntityIndexV3DefaultsDisabled() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertFalse(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
   }
 }

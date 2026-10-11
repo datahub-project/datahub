@@ -3,9 +3,8 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import GlossaryRelatedTermsResult, {
-    RelatedTermTypes,
-} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import GlossaryRelatedTermsResult from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 
 const DetailWrapper = styled.div`
     display: inline-flex;
@@ -14,7 +13,7 @@ const DetailWrapper = styled.div`
 `;
 
 const MenuWrapper = styled.div`
-    border-right: 2px solid #f5f5f5;
+    border-right: 2px solid ${(props) => props.theme.colors.border};
     flex-basis: 30%;
     flex-shrink: 1;
 `;
@@ -55,7 +54,7 @@ export default function GlossayRelatedTerms() {
                 >
                     {menuOptionsArray.map((option) => (
                         <Menu.Item data-testid={option} key={option}>
-                            {RelatedTermTypes[option]}
+                            {getRelatedTermTypeLabel(RelatedTermTypes[option])}
                         </Menu.Item>
                     ))}
                 </Menu>

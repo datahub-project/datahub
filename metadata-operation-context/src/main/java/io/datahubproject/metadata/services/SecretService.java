@@ -1,5 +1,16 @@
 package io.datahubproject.metadata.services;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.aspect.SystemAspect;
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.AgentClass;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,11 +22,14 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class SecretService {
   private static final int LOWERCASE_ASCII_START = 97;
   private static final int LOWERCASE_ASCII_END = 122;
@@ -42,13 +56,28 @@ public class SecretService {
   private final MessageDigest _messageDigest;
   private final SecretKeySpec _derivedKey;
   private final boolean v1AlgorithmEnabled;
+  private final CallerGuardMode callerGuardMode;
+
+  public enum CallerGuardMode {
+    ENFORCE,
+    AUDIT,
+    DISABLED
+  }
 
   public SecretService(final String secret, final boolean v1AlgorithmEnabled) {
+    this(secret, v1AlgorithmEnabled, CallerGuardMode.ENFORCE);
+  }
+
+  public SecretService(
+      final String secret,
+      final boolean v1AlgorithmEnabled,
+      final CallerGuardMode callerGuardMode) {
     _secret = secret;
     _secureRandom = new SecureRandom();
     _encoder = Base64.getEncoder();
     _decoder = Base64.getDecoder();
     this.v1AlgorithmEnabled = v1AlgorithmEnabled;
+    this.callerGuardMode = callerGuardMode;
 
     try {
       _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
@@ -63,8 +92,13 @@ public class SecretService {
   /**
    * Encrypts a value using AES-GCM encryption. The output format is: "v2:base64(iv || ciphertext ||
    * tag)"
+   *
+   * <p>When a human browser/mobile agent originates the request, the guard logs a warning (even in
+   * ENFORCE mode) rather than throwing — browsers legitimately trigger encrypt on write paths such
+   * as password reset and OIDC config updates.
    */
-  public String encrypt(String value) {
+  public String encrypt(@Nullable OperationContext opContext, String value) {
+    enforceCallerPolicy(opContext, "encrypt", false);
     if (value == null) {
       throw new IllegalArgumentException("Value to encrypt cannot be null");
     }
@@ -94,8 +128,14 @@ public class SecretService {
     }
   }
 
-  /** Decrypts a value, supporting both new AES-GCM and legacy AES encryption. */
-  public String decrypt(String encryptedValue) {
+  /**
+   * Decrypts a value, supporting both new AES-GCM and legacy AES encryption.
+   *
+   * <p>Throws {@link SecurityException} (in ENFORCE mode) when the caller is a human browser or
+   * mobile agent — decryption should never happen on a user-facing read path.
+   */
+  public String decrypt(@Nullable OperationContext opContext, String encryptedValue) {
+    enforceCallerPolicy(opContext, "decrypt", true);
     if (encryptedValue == null) {
       throw new IllegalArgumentException("Encrypted value cannot be null");
     }
@@ -195,6 +235,103 @@ public class SecretService {
       return new SecretKeySpec(derivedKey, 0, AES_KEY_SIZE / 8, AES_ALGORITHM);
     } catch (Exception e) {
       throw new RuntimeException("Failed to derive key!", e);
+    }
+  }
+
+  /**
+   * Enforces the caller guard policy using two complementary checks.
+   *
+   * <p>Check 1 (user-agent): denies/warns when the HTTP agent looks like a human browser or mobile
+   * app. Encrypt paths only warn even in ENFORCE mode because browsers legitimately write secrets.
+   *
+   * <p>Check 2 (identity, decrypt only): denies/warns when the session actor is not a trusted
+   * system principal. This is the stronger of the two — it cannot be bypassed by spoofing the
+   * User-Agent header.
+   *
+   * @param opContext the current operation context; null means a background/system path (allowed)
+   * @param op the name of the calling method, used in the log/exception message
+   * @param hardDeny when true, ENFORCE mode throws; when false, ENFORCE mode only logs (encrypt)
+   */
+  private void enforceCallerPolicy(
+      @Nullable OperationContext opContext, String op, boolean hardDeny) {
+    if (callerGuardMode == CallerGuardMode.DISABLED) {
+      return;
+    }
+    if (opContext == null) {
+      return;
+    }
+
+    // Check 1: user-agent based — deny/warn if the request originated from a human browser/mobile
+    RequestContext rc = opContext.getRequestContext();
+    if (rc != null) {
+      AgentClass agentClass = rc.getAgentClass();
+      if (agentClass.isHuman()) {
+        String msg =
+            String.format(
+                "SecretService.%s denied for human agent (api=%s, actor=%s, agent=%s, requestId=%s)",
+                op, rc.getRequestAPI(), rc.getActorUrn(), agentClass, rc.getRequestID());
+        if (callerGuardMode == CallerGuardMode.AUDIT || !hardDeny) {
+          log.warn(msg);
+        } else {
+          throw new SecurityException(msg);
+        }
+      }
+    }
+
+    // Check 2: identity based — for decrypt only, deny/warn if the actor is not a trusted system
+    // principal. This catches spoofed User-Agent headers and programmatic non-system callers.
+    if (hardDeny && !isAllowedDecryptActor(opContext)) {
+      ActorContext sessionActor = opContext.getSessionActorContext();
+      String actorUrn = sessionActor != null ? sessionActor.getActorUrn().toString() : "unknown";
+      String msg =
+          String.format(
+              "SecretService.%s denied for non-system actor (actor=%s). "
+                  + "Decrypt is restricted to system principals only.",
+              op, actorUrn);
+      if (callerGuardMode == CallerGuardMode.AUDIT) {
+        log.warn(msg);
+      } else {
+        throw new SecurityException(msg);
+      }
+    }
+  }
+
+  private boolean isAllowedDecryptActor(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return true;
+    }
+    ActorContext sessionActor = opContext.getSessionActorContext();
+    if (sessionActor == null) {
+      return false;
+    }
+    Urn actorUrn = sessionActor.getActorUrn();
+    if (actorUrn == null) {
+      return false;
+    }
+    String actorUrnStr = actorUrn.toString();
+    if (SYSTEM_ACTOR.equals(actorUrnStr)) {
+      return true;
+    }
+    return isSystemCorpUser(opContext, actorUrn);
+  }
+
+  private boolean isSystemCorpUser(@Nonnull OperationContext opContext, @Nonnull Urn corpUserUrn) {
+    if (!CORP_USER_ENTITY_NAME.equals(corpUserUrn.getEntityType())) {
+      return false;
+    }
+    try {
+      SystemAspect systemAspect =
+          opContext
+              .getAspectRetriever()
+              .getLatestSystemAspect(opContext, corpUserUrn, CORP_USER_INFO_ASPECT_NAME);
+      if (systemAspect == null) {
+        return false;
+      }
+      CorpUserInfo info = systemAspect.getAspect(CorpUserInfo.class);
+      return info != null && info.isSystem();
+    } catch (Exception e) {
+      log.debug("Failed to load CorpUserInfo for {} — deny decrypt", corpUserUrn, e);
+      return false;
     }
   }
 

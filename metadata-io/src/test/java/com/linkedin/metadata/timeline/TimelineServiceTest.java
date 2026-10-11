@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
@@ -105,7 +106,14 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
     elements.add(ChangeCategory.TECHNICAL_SCHEMA);
     List<ChangeTransaction> changes =
         _entityTimelineService.getTimeline(
-            entityUrn, elements, createTestAuditStamp(10).getTime(), 0, null, null, false);
+            opContext,
+            entityUrn,
+            elements,
+            createTestAuditStamp(10).getTime(),
+            0,
+            null,
+            null,
+            false);
     // Assert.assertEquals(changes.size(), 7);
     // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
     // ChangeOperation.ADD);
@@ -116,7 +124,14 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
 
     changes =
         _entityTimelineService.getTimeline(
-            entityUrn, elements, timestamps.get(4).getTime() - 3000L, 0, null, null, false);
+            opContext,
+            entityUrn,
+            elements,
+            timestamps.get(4).getTime() - 3000L,
+            0,
+            null,
+            null,
+            false);
     // Assert.assertEquals(changes.size(), 3);
     // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
     // ChangeOperation.MODIFY);
@@ -124,6 +139,63 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
     // Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(),
     // ChangeOperation.MODIFY);
     // Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
+  }
+
+  @Test
+  public void testGetTimelineCountBased() throws Exception {
+    Urn entityUrn =
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:hive,fooDb.countBasedTable"
+                + System.currentTimeMillis()
+                + ",PROD)");
+    String aspectName = "schemaMetadata";
+
+    // Ingest 5 versions at distinct timestamps
+    for (int i = 5; i > 0; i--) {
+      SchemaMetadata schemaMetadata = getSchemaMetadata("Description for version " + i);
+      AuditStamp stamp = createTestAuditStamp(i);
+      _entityServiceImpl.ingestAspects(
+          opContext,
+          entityUrn,
+          Collections.singletonList(new Pair<>(aspectName, schemaMetadata)),
+          stamp,
+          getSystemMetadata(stamp, "count-run-" + i));
+    }
+
+    Set<ChangeCategory> elements = new HashSet<>();
+    elements.add(ChangeCategory.TECHNICAL_SCHEMA);
+
+    // Fetch all with high limit — should return all change transactions
+    List<ChangeTransaction> allChanges =
+        _entityTimelineService.getTimeline(opContext, entityUrn, elements, 100, false);
+    Assert.assertTrue(
+        allChanges.size() > 0, "Expected at least one change transaction from count-based query");
+
+    // Verify transactions are sorted by timestamp ascending
+    for (int i = 1; i < allChanges.size(); i++) {
+      Assert.assertTrue(
+          allChanges.get(i).getTimestamp() >= allChanges.get(i - 1).getTimestamp(),
+          "Transactions should be sorted by timestamp ascending");
+    }
+
+    // Fetch with limit of 2 — should return only the 2 most recent transactions
+    List<ChangeTransaction> limitedChanges =
+        _entityTimelineService.getTimeline(opContext, entityUrn, elements, 2, false);
+    Assert.assertTrue(limitedChanges.size() <= 2, "Expected at most 2 transactions with limit=2");
+
+    // The limited set should be a suffix of the full set (most recent transactions)
+    if (allChanges.size() > 2) {
+      Assert.assertEquals(
+          limitedChanges.get(limitedChanges.size() - 1).getTimestamp(),
+          allChanges.get(allChanges.size() - 1).getTimestamp(),
+          "Last transaction should match between limited and full results");
+    }
+
+    // Each transaction should have non-empty change events
+    for (ChangeTransaction tx : allChanges) {
+      Assert.assertNotNull(tx.getChangeEvents(), "Change events should not be null");
+      Assert.assertTrue(!tx.getChangeEvents().isEmpty(), "Change events should not be empty");
+    }
   }
 
   private static AuditStamp createTestAuditStamp(int daysAgo) {

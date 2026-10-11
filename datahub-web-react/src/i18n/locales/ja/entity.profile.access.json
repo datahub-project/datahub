@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "すでにアクセス権が付与されています",
+    "accessManagement.accessGrantedTooltip": "このロールへのアクセス権をすでに持っています",
+    "accessManagement.columnAccess": "アクセス",
+    "accessManagement.columnAccessType": "アクセスタイプ",
+    "accessManagement.columnRoleName": "ロール名",
+    "accessManagement.granted": "付与済み",
+    "accessManagement.request": "リクエスト",
+    "accessManagement.requestAccess": "アクセスをリクエスト",
+    "accessManagement.tableAriaLabel": "アクセス管理ロールテーブル"
+}

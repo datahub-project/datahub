@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Por el momento no se han recopilado estadísticas para este activo.",
+    "graph.rowCount_one": "{{formattedCount}} fila",
+    "graph.rowCount_other": "{{formattedCount}} filas",
+    "graph.statName": "número de filas",
+    "graph.title": "Número de filas",
+    "percentile.high": "Alto",
+    "percentile.low": "Bajo",
+    "percentile.med": "Medio",
+    "upstream.directUpstreams": "Upstreams directos",
+    "upstream.indirectUpstreams": "Upstreams indirectos",
+    "upstream.unhealthy": "Algunos upstreams no están en buen estado"
+}

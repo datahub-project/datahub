@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { TextArea, textAreaDefaults } from '@components/components/TextArea/TextArea';
 
 // Auto Docs
@@ -43,7 +42,7 @@ const meta = {
         icon: {
             description: 'The icon to display in the Text Area.',
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             table: {
                 defaultValue: { summary: 'undefined' },
             },

@@ -15,7 +15,8 @@ record ParentDocument {
     }
     @Searchable = {
         "fieldName": "parentDocument",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
     }
     document: Urn
 }

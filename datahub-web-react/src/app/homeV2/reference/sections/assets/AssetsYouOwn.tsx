@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -14,6 +15,7 @@ const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 // TODO: Add group ownership into this.
 export const AssetsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -30,8 +32,8 @@ export const AssetsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSect
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your assets"
-                tip="Things you are an owner of"
+                title={t('yourAssets.title')}
+                tip={t('yourAssets.tip')}
                 showMore={entities.length > entityCount}
                 showMoreCount={
                     entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW > entities.length
@@ -45,13 +47,13 @@ export const AssetsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSect
             />
             {showModal && (
                 <EmbeddedListSearchModal
-                    title="Your assets"
+                    title={t('yourAssets.title')}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [{ field: OWNERS_FILTER_NAME, values: [user?.urn as string, ...groupUrns] }],
                     }}
                     onClose={() => setShowModal(false)}
-                    placeholderText="Filter assets you own..."
+                    placeholderText={t('yourAssets.filterPlaceholder')}
                 />
             )}
         </ReferenceSection>

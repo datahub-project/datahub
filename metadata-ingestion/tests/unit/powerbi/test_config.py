@@ -117,3 +117,231 @@ class TestPowerBiConfig:
         else:
             config = PowerBiDashboardSourceConfig.model_validate(config_dict)
             assert config == expected_config_or_exception
+
+    def test_map_data_platform_postgresql_conversion(self):
+        """Test that PostgreSql is converted to PostgreSQL."""
+        config_dict = {
+            **self.base_config,
+            "dataset_type_mapping": {"PostgreSql": "postgres"},
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert "PostgreSQL" in config.dataset_type_mapping
+        assert "PostgreSql" not in config.dataset_type_mapping
+
+    def test_map_data_platform_no_postgresql(self):
+        """Test map_data_platform when PostgreSql is not in value."""
+        config_dict = {
+            **self.base_config,
+            "dataset_type_mapping": {"Snowflake": "snowflake"},
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.dataset_type_mapping == {"Snowflake": "snowflake"}
+
+    def test_workspace_id_backward_compatibility(self):
+        """Test workspace_id backward compatibility."""
+        config_dict = {
+            **self.base_config,
+            "workspace_id": "test-id",
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.workspace_id_pattern.allow == ["^test-id$"]
+
+    def test_workspace_id_ignored_when_pattern_set(self):
+        """Test workspace_id is ignored when pattern is set."""
+        config_dict = {
+            **self.base_config,
+            "workspace_id": "old-id",
+            "workspace_id_pattern": {"allow": ["^new-id$"]},
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.workspace_id is None
+
+    def test_raise_error_for_dataset_type_mapping(self):
+        """Test error when both dataset_type_mapping and server_to_platform_instance are set."""
+        config_dict = {
+            **self.base_config,
+            "dataset_type_mapping": {"PostgreSQL": "postgres"},
+            "server_to_platform_instance": {"localhost": {"platform_instance": "test"}},
+        }
+        with pytest.raises(ValueError, match="dataset_type_mapping is deprecated"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_validate_extract_dataset_schema_false(self):
+        """Test validate_extract_dataset_schema when extract_dataset_schema is False."""
+        config_dict = {
+            **self.base_config,
+            "extract_dataset_schema": False,
+            "extract_column_level_lineage": False,
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.extract_dataset_schema is False
+
+    def test_validate_extract_column_level_lineage_false(self):
+        """Test validate_extract_column_level_lineage early return when False."""
+        config_dict = {
+            **self.base_config,
+            "extract_column_level_lineage": False,
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.extract_column_level_lineage is False
+
+    def test_validate_extract_column_level_lineage_missing_flags(self):
+        """Test validate_extract_column_level_lineage when required flags are missing."""
+        config_dict = {
+            **self.base_config,
+            "extract_column_level_lineage": True,
+            "native_query_parsing": False,
+        }
+        with pytest.raises(ValueError, match="Enable all these flags"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_validate_athena_table_platform_override_empty(self):
+        """Test validate_athena_table_platform_override early return when empty."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [],
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.athena_table_platform_override == []
+
+    def test_validate_athena_table_platform_override_invalid(self):
+        """Test validate_athena_table_platform_override with invalid platform."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {"database": "db", "table": "tbl", "platform": "invalid"}
+            ],
+        }
+        with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_unknown_platform_invalid(self):
+        """Unknown external platform must be rejected at config validation."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "not_a_platform"}
+            },
+        }
+        with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_blank_default_schema_invalid(self):
+        """Blank default_schema must be rejected (would produce a malformed URN)."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres", "default_schema": "  "}
+            },
+        }
+        with pytest.raises(ValueError, match="must not be empty or whitespace"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_valid_mapping(self):
+        """A known platform with default_database is accepted and stripped."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {
+                    "platform": "postgres",
+                    "default_database": " ext_db ",
+                }
+            },
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        detail = config.bigquery_external_query_connection_to_platform[
+            "proj.us-east1.conn"
+        ]
+        assert detail.platform == "postgres"
+        assert detail.default_database == "ext_db"
+
+    def test_bigquery_external_query_requires_advanced_sql_flags(self):
+        """Mapping must fail-fast when native/advanced SQL lineage flags are off."""
+        config_dict = {
+            **self.base_config,
+            # Disable CLL first so its flag-combo validator does not fire before the
+            # EXTERNAL_QUERY mapping check under test.
+            "extract_column_level_lineage": False,
+            "native_query_parsing": False,
+            "enable_advance_lineage_sql_construct": False,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres"}
+            },
+        }
+        with pytest.raises(
+            ValueError,
+            match="bigquery_external_query_connection_to_platform requires these flags",
+        ):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_requires_extract_lineage(self):
+        """Mapping must fail-fast when extract_lineage is off, since federation
+        resolution only runs while extracting lineage."""
+        config_dict = {
+            **self.base_config,
+            # Keep the native/advanced SQL flags on so only extract_lineage is missing;
+            # disable CLL so its flag-combo validator does not fire first.
+            "extract_column_level_lineage": False,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": False,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres"}
+            },
+        }
+        with pytest.raises(
+            ValueError,
+            match="bigquery_external_query_connection_to_platform requires these flags",
+        ):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_get_from_dataset_type_mapping_exact_match(self):
+        """Test get_from_dataset_type_mapping with exact match."""
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"PostgreSQL": "postgres"},
+        )
+        assert config.get_from_dataset_type_mapping("PostgreSQL") == "postgres"
+
+    def test_get_from_dataset_type_mapping_normalized_match(self):
+        """Test get_from_dataset_type_mapping with normalized match."""
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"AmazonRedshift": "redshift"},
+        )
+        assert config.get_from_dataset_type_mapping("Amazon Redshift") == "redshift"
+
+    def test_get_from_dataset_type_mapping_normalized_not_found(self):
+        """Test get_from_dataset_type_mapping when normalized name not in mapping."""
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"PostgreSQL": "postgres"},
+        )
+        assert config.get_from_dataset_type_mapping("Amazon Redshift") is None
+
+    def test_get_from_dataset_type_mapping_no_spaces(self):
+        """Test get_from_dataset_type_mapping when platform has no spaces."""
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"PostgreSQL": "postgres"},
+        )
+        assert config.get_from_dataset_type_mapping("Unknown") is None
+
+    def test_is_platform_in_dataset_type_mapping(self):
+        """Test is_platform_in_dataset_type_mapping."""
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"PostgreSQL": "postgres"},
+        )
+        assert config.is_platform_in_dataset_type_mapping("PostgreSQL") is True
+        assert config.is_platform_in_dataset_type_mapping("Unknown") is False

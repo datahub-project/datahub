@@ -1,6 +1,7 @@
 package auth.sso.oidc.custom;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import auth.sso.oidc.OidcConfigs;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.extractor.OidcCredentialsExtractor;
+import org.pac4j.oidc.federation.config.OidcFederationProperties;
 import org.pac4j.oidc.logout.OidcLogoutActionBuilder;
 import org.pac4j.oidc.logout.processor.OidcLogoutProcessor;
 import org.pac4j.oidc.metadata.OidcOpMetadataResolver;
@@ -31,6 +33,7 @@ public class CustomOidcClientTest {
     // Mock the configuration to return valid values
     when(configuration.getClientId()).thenReturn("test-client-id");
     when(configuration.getSecret()).thenReturn("test-secret");
+    when(configuration.getFederation()).thenReturn(mock(OidcFederationProperties.class));
 
     // Mock the configuration dependencies
     when(configuration.getOpMetadataResolver()).thenReturn(metadataResolver);
@@ -103,7 +106,6 @@ public class CustomOidcClientTest {
     // Call internalInit
     customOidcClient.internalInit(false);
 
-    // Verify that configuration.init() was called
-    verify(configuration).init(false);
+    verify(configuration).init(eq("CustomOidcClient"), eq(false));
   }
 }

@@ -23,6 +23,7 @@ import {
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
+    Entity,
     EntityLineageResult,
     EntityPrivileges,
     EntityRelationshipsResult,
@@ -54,18 +55,6 @@ import {
     VersionProperties,
 } from '@types';
 
-export type EntityTab = {
-    name: string;
-    component: React.FunctionComponent<{ properties?: any }>;
-    display?: {
-        visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
-        enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
-    };
-    properties?: any;
-    id?: string;
-    getDynamicName?: (GenericEntityProperties, T) => string;
-};
-
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any; readOnly?: boolean }>;
     display?: {
@@ -82,6 +71,9 @@ export type GenericEntityProperties = {
     urn?: string;
     type?: EntityType;
     name?: Maybe<string>;
+    // Deprecated in the schema in favour of `properties.description`, but still the only
+    // description some types (notably Tag) expose and select in their fragments.
+    description?: Maybe<string>;
     properties?: Maybe<{
         name?: Maybe<string>;
         description?: Maybe<string>;
@@ -148,6 +140,10 @@ export type GenericEntityProperties = {
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
+
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {
@@ -178,6 +174,7 @@ interface EntityState {
 
 export enum DrawerType {
     VERSIONS,
+    CHANGE_HISTORY,
 }
 
 export type EntityContextType = {
@@ -185,11 +182,13 @@ export type EntityContextType = {
     entityType: EntityType;
     dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
+    rootEntityData?: GenericEntityProperties | null;
     loading: boolean;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
+    refetchForms?: () => Promise<any>;
     lineage?: FetchedEntity | undefined;
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -199,10 +198,6 @@ export type EntityContextType = {
 
 export type SchemaContextType = {
     refetch?: () => Promise<any>;
-};
-
-export type RequiredAndNotNull<T> = {
-    [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
 
 export type EntityAndType = {

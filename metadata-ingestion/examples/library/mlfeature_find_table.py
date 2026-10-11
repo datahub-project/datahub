@@ -1,4 +1,5 @@
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.metadata.urns import MlFeatureUrn
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
@@ -11,7 +12,7 @@ feature_urn = MlFeatureUrn(
 relationships = graph.get_related_entities(
     entity_urn=str(feature_urn),
     relationship_types=["Contains"],
-    direction=DataHubGraph.RelationshipDirection.INCOMING,
+    direction=RelationshipDirection.INCOMING,
 )
 
 if relationships:

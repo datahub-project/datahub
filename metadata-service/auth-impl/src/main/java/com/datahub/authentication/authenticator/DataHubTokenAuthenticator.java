@@ -32,27 +32,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DataHubTokenAuthenticator implements Authenticator {
 
-  public static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
-  public static final String SALT_CONFIG_NAME = "salt";
-  public static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
-  static final String DEFAULT_SIGNING_ALG = "HS256";
-  static final String DEFAULT_ISSUER = "datahub-metadata-service";
-
   // Package-Visible for testing.
   StatefulTokenService _statefulTokenService;
 
   @Override
   public void init(@Nonnull final Map<String, Object> config, final AuthenticatorContext context) {
-    Objects.requireNonNull(config, "Config parameter cannot be null");
     Objects.requireNonNull(context, "Context parameter cannot be null");
-    final String signingKey =
-        Objects.requireNonNull(
-            (String) config.get(SIGNING_KEY_CONFIG_NAME), "signingKey is a required config");
-    final String salt =
-        Objects.requireNonNull((String) config.get(SALT_CONFIG_NAME), "salt is a required config");
-    final String signingAlgorithm =
-        (String) config.getOrDefault(SIGNING_ALG_CONFIG_NAME, DEFAULT_SIGNING_ALG);
-    log.debug(String.format("Creating TokenService using signing algorithm %s", signingAlgorithm));
+    log.debug("Initializing DataHubTokenAuthenticator");
     if (!context.data().containsKey(AuthenticationConstants.ENTITY_SERVICE)) {
       throw new IllegalArgumentException(
           "Unable to initialize DataHubTokenAuthenticator, entity service reference not"

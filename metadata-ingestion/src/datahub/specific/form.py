@@ -124,3 +124,25 @@ class FormPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
             value=group_urn,
         )
         return self
+
+    def add_assigned_ownership_type(
+        self, ownership_type_urn: Union[str, Urn]
+    ) -> "FormPatchBuilder":
+        self._add_patch(
+            FormInfo.ASPECT_NAME,
+            "add",
+            path=("actors", "ownershipTypes", ownership_type_urn),
+            value=ownership_type_urn,
+        )
+        return self
+
+    def remove_assigned_ownership_type(
+        self, ownership_type_urn: Union[str, Urn]
+    ) -> "FormPatchBuilder":
+        self._add_patch(
+            FormInfo.ASPECT_NAME,
+            "remove",
+            path=("actors", "ownershipTypes", ownership_type_urn),
+            value=ownership_type_urn,
+        )
+        return self

@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -258,6 +259,13 @@ public class EntitySearchServiceTest {
       return null;
     }
 
+    @Nonnull
+    @Override
+    public Map<Urn, IncidentStats> getActiveIncidentStats(
+        @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+      return Map.of();
+    }
+
     @Override
     public BrowseResult browse(
         OperationContext opContext,
@@ -347,6 +355,16 @@ public class EntitySearchServiceTest {
     public @Nonnull Map<Urn, Map<String, Object>> raw(
         @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
       return Map.of();
+    }
+
+    @Override
+    public boolean validateAndSwapAlias(
+        @Nonnull OperationContext opContext,
+        @Nonnull String aliasName,
+        @Nonnull String newBackingIndex,
+        long expectedSourceDocCount)
+        throws Exception {
+      return false;
     }
   }
 }

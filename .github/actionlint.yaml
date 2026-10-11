@@ -6,3 +6,12 @@ self-hosted-runner:
     - "depot-ubuntu-24.04-small"
     - "depot-ubuntu-24.04"
     - "depot-ubuntu-24.04-4"
+
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'constant expression "false" in condition. remove the if: section'
+  .github/workflows/spark-smoke-test.yml:
+    ignore:
+      # Action lint does not handle dynamic outputs
+      - 'property "test_strategy" is not defined in object type {}'

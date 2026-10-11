@@ -10,7 +10,7 @@ const InsightStatusContext = createContext<InsightStatusContextType>({
     registerInsight: () => null,
 });
 
-export const useInsightStatusContext = () => {
+const useInsightStatusContext = () => {
     return useContext(InsightStatusContext);
 };
 

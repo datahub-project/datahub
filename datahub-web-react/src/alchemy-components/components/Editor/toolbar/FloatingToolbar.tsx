@@ -1,13 +1,10 @@
-import {
-    BoldOutlined,
-    DisconnectOutlined,
-    EditOutlined,
-    ItalicOutlined,
-    LinkOutlined,
-    UnderlineOutlined,
-} from '@ant-design/icons';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
-import { Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { createMarkPositioner } from 'remirror/extensions';
 import styled from 'styled-components';
@@ -15,21 +12,15 @@ import styled from 'styled-components';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { CodeIcon } from '@components/components/Editor/toolbar/Icons';
 import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
-
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-
-const { Text } = Typography;
+import { Text } from '@components/components/Text';
 
 export const ToolbarContainer = styled.span`
     display: flex;
     align-items: center;
     padding: 2px;
-    background-color: ${ANTD_GRAY[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 4px;
-    box-shadow:
-        0 3px 6px -4px #0000001f,
-        0 6px 16px #00000014,
-        0 9px 28px 8px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     overflow: hidden;
     z-index: 300;
 `;
@@ -58,11 +49,13 @@ export const FloatingToolbar = () => {
 
     const linkCommmands = (
         <ToolbarContainer>
-            <LinkText type="secondary">{href}</LinkText>
-            <CommandButton size="small" icon={<EditOutlined />} commandName="editLink" onClick={handleEditLink} />
+            <LinkText type="span" color="textSecondary">
+                {href}
+            </LinkText>
+            <CommandButton size="small" icon={<PencilSimple />} commandName="editLink" onClick={handleEditLink} />
             <CommandButton
                 size="small"
-                icon={<DisconnectOutlined />}
+                icon={<LinkBreak />}
                 commandName="toggleLink"
                 onClick={() => commands.removeLink()}
             />
@@ -81,28 +74,28 @@ export const FloatingToolbar = () => {
                     <ToolbarContainer>
                         <CommandButton
                             size="small"
-                            icon={<BoldOutlined />}
+                            icon={<TextB />}
                             commandName="toggleBold"
                             active={active.bold()}
                             onClick={() => commands.toggleBold()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<ItalicOutlined />}
+                            icon={<TextItalic />}
                             commandName="toggleItalic"
                             active={active.italic()}
                             onClick={() => commands.toggleItalic()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<UnderlineOutlined />}
+                            icon={<TextUnderline />}
                             commandName="toggleUnderline"
                             active={active.underline()}
                             onClick={() => commands.toggleUnderline()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<LinkOutlined />}
+                            icon={<LinkIcon />}
                             commandName="updateLink"
                             onClick={handleEditLink}
                         />

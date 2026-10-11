@@ -104,9 +104,11 @@ public class PluginEntityRegistryLoader {
                     .filter(x -> x.getNameCount() - rootDepth == 2)
                     .collect(Collectors.toList());
             log.debug("Size of list {}", paths.size());
-            log.debug(
-                "Paths : {}",
-                paths.stream().map(x -> x.toString() + ";").collect(Collectors.joining()));
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  "Paths : {}",
+                  paths.stream().map(x -> x.toString() + ";").collect(Collectors.joining()));
+            }
             List<Path> versionedPaths =
                 paths.stream()
                     .filter(
@@ -134,9 +136,11 @@ public class PluginEntityRegistryLoader {
                           }
                         })
                     .collect(Collectors.toList());
-            log.debug(
-                "Will be loading paths in this order {}",
-                versionedPaths.stream().map(p -> p.toString()).collect(Collectors.joining(";")));
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  "Will be loading paths in this order {}",
+                  versionedPaths.stream().map(p -> p.toString()).collect(Collectors.joining(";")));
+            }
 
             for (Path x : versionedPaths) {
               try {
@@ -145,6 +149,9 @@ public class PluginEntityRegistryLoader {
                     x.getName(rootDepth).toString(),
                     x.getName(rootDepth + 1).toString(),
                     x.toString());
+              } catch (RelationshipEdgeUniquenessException e) {
+                // Always fail hard: conflicting edge ownership must not be soft-ignored.
+                initFailure.compareAndSet(null, e);
               } catch (Exception | EntityRegistryException e) {
                 if (!ignoreFailureWhenLoadingRegistry) {
                   initFailure.compareAndSet(null, e);
@@ -173,9 +180,12 @@ public class PluginEntityRegistryLoader {
         lock.unlock();
       }
 
-      // propagate failure to the caller
-      if (!ignoreFailureWhenLoadingRegistry && initFailure.get() != null) {
-        throw new RuntimeException("Failed to initialize plugin registry.", initFailure.get());
+      // propagate failure to the caller — uniqueness conflicts always fail hard
+      Throwable failure = initFailure.get();
+      if (failure != null
+          && (failure instanceof RelationshipEdgeUniquenessException
+              || !ignoreFailureWhenLoadingRegistry)) {
+        throw new RuntimeException("Failed to initialize plugin registry.", failure);
       }
     }
     return this;
@@ -221,6 +231,19 @@ public class PluginEntityRegistryLoader {
       loadResultBuilder.plugins(entityRegistry.getPluginFactory().getPluginLoadResult());
 
       log.info("Loaded registry {} successfully", entityRegistry);
+    } catch (RelationshipEdgeUniquenessException e) {
+      log.error(
+          "{}: Failed to load registry {} due to relationship edge uniqueness violation: {}",
+          this,
+          registryName,
+          e.getMessage(),
+          e);
+      StringWriter sw = new StringWriter();
+      PrintWriter pw = new PrintWriter(sw);
+      e.printStackTrace(pw);
+      loadResultBuilder.loadResult(LoadStatus.FAILURE).failureReason(sw.toString()).failureCount(1);
+      // Always rethrow — soft-ignore must not swallow edge ownership conflicts
+      throw e;
     } catch (Exception | EntityRegistryException e) {
       log.error("{}: Failed to load registry {} with {}", this, registryName, e.getMessage(), e);
       StringWriter sw = new StringWriter();

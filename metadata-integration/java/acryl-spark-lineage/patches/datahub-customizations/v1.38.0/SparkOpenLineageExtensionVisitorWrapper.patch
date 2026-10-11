@@ -1,0 +1,192 @@
+# Patch for DataHub customizations in SparkOpenLineageExtensionVisitorWrapper.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/SparkOpenLineageExtensionVisitorWrapper.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java	2025-10-02 14:47:51.149945623 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java	2025-09-12 19:50:04.456499783 +0200
+@@ -4,10 +4,6 @@
+ */
+ package io.openlineage.spark.agent.lifecycle;
+ 
+-import com.fasterxml.jackson.annotation.JsonCreator;
+-import com.fasterxml.jackson.annotation.JsonProperty;
+-import com.fasterxml.jackson.core.type.TypeReference;
+-import com.fasterxml.jackson.databind.ObjectMapper;
+ import io.openlineage.client.OpenLineage;
+ import io.openlineage.client.OpenLineage.InputDataset;
+ import io.openlineage.client.OpenLineageClientUtils;
+@@ -16,9 +12,14 @@
+ import io.openlineage.spark.agent.util.ExtensionClassloader;
+ import io.openlineage.spark.api.SparkOpenLineageConfig;
+ import io.openlineage.spark.extension.OpenLineageExtensionProvider;
++import io.openlineage.spark.shaded.com.fasterxml.jackson.annotation.JsonCreator;
++import io.openlineage.spark.shaded.com.fasterxml.jackson.annotation.JsonProperty;
++import io.openlineage.spark.shaded.com.fasterxml.jackson.core.type.TypeReference;
++import io.openlineage.spark.shaded.com.fasterxml.jackson.databind.ObjectMapper;
++import io.openlineage.spark.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
++import io.openlineage.spark.shaded.org.apache.commons.lang3.tuple.Pair;
+ import java.io.IOException;
+ import java.io.InputStream;
+-import java.lang.reflect.InvocationTargetException;
+ import java.lang.reflect.Method;
+ import java.nio.ByteBuffer;
+ import java.util.ArrayList;
+@@ -31,9 +32,8 @@
+ import java.util.stream.Collectors;
+ import lombok.extern.slf4j.Slf4j;
+ import org.apache.commons.io.IOUtils;
+-import org.apache.commons.lang3.reflect.MethodUtils;
+-import org.apache.commons.lang3.tuple.ImmutablePair;
+-import org.apache.commons.lang3.tuple.Pair;
++
++// We only shadow this jar to silence warnings about illegal reflective access
+ 
+ /**
+  * A helper class that uses reflection to call all methods of SparkOpenLineageExtensionVisitor,
+@@ -91,11 +91,12 @@
+             .anyMatch(
+                 objectAndMethod -> {
+                   try {
+-                    return (boolean) objectAndMethod.right.invoke(objectAndMethod.left, object);
++                    return (boolean)
++                        objectAndMethod.getRight().invoke(objectAndMethod.getLeft(), object);
+                   } catch (Exception e) {
+                     log.error(
+                         "Can't invoke 'isDefinedAt' method on {} class instance",
+-                        objectAndMethod.left.getClass().getCanonicalName());
++                        objectAndMethod.getLeft().getClass().getCanonicalName());
+                   }
+                   return false;
+                 });
+@@ -119,19 +120,21 @@
+         try {
+           Map<String, Object> result =
+               (Map<String, Object>)
+-                  objectAndMethod.right.invoke(
+-                      objectAndMethod.left,
+-                      lineageNode,
+-                      sparkListenerEventName,
+-                      sqlContext,
+-                      parameters);
++                  objectAndMethod
++                      .getRight()
++                      .invoke(
++                          objectAndMethod.getLeft(),
++                          lineageNode,
++                          sparkListenerEventName,
++                          sqlContext,
++                          parameters);
+           if (result != null && !result.isEmpty()) {
+             return objectMapper.convertValue(result, DatasetIdentifier.class);
+           }
+         } catch (Exception e) {
+           log.warn(
+               "Can't invoke apply method on {} class instance",
+-              objectAndMethod.left.getClass().getCanonicalName());
++              objectAndMethod.getLeft().getClass().getCanonicalName());
+         }
+       }
+     }
+@@ -183,15 +186,16 @@
+         try {
+           Map<String, Object> result =
+               (Map<String, Object>)
+-                  objectAndMethod.right.invoke(
+-                      objectAndMethod.left, lineageNode, sparkListenerEventName);
++                  objectAndMethod
++                      .getRight()
++                      .invoke(objectAndMethod.getLeft(), lineageNode, sparkListenerEventName);
+           if (result != null && !result.isEmpty()) {
+             return result;
+           }
+         } catch (Exception e) {
+           log.error(
+               "Can't invoke apply method on {} class instance",
+-              objectAndMethod.left.getClass().getCanonicalName());
++              objectAndMethod.getLeft().getClass().getCanonicalName());
+         }
+       }
+     }
+@@ -251,6 +255,7 @@
+     return objects;
+   }
+ 
++  // FIXED: This method now uses safer classloader handling to avoid illegal reflective access
+   private static void loadProviderToAvailableClassloaders(List<ClassLoader> classloaders)
+       throws IOException {
+     List<ClassLoader> filteredClassloaders =
+@@ -263,46 +268,41 @@
+ 
+     if (!filteredClassloaders.isEmpty()) {
+       log.warn(
+-          "An illegal reflective access operation will occur when using the openlineage-spark integration with a "
+-              + "Spark connector that implements spark-openlineage extension interfaces. \n"
+-              + "This issue arises when the openlineage-spark integration and the Spark connector are loaded using "
+-              + "different classloaders. For example, if one library is loaded using the --jars parameter while the other "
+-              + "is placed in the /usr/lib/spark/jars directory. \n"
+-              + "In this case, the OpenLineageExtensionProvider class will only be accessible to the class loader that "
+-              + "loaded the openlineage-spark integration. If the other class loader attempts to access this class, it "
+-              + "will trigger an illegal reflective access operation.\n"
+-              + "To prevent this, ensure that both the openlineage-spark integration and the Spark connector are loaded "
+-              + "using the same class loader. This can be achieved by: \n"
++          "Different classloaders detected for openlineage-spark integration and Spark connector. "
++              + "This may cause extension loading issues. "
++              + "For optimal compatibility, ensure both libraries are loaded using the same classloader by: \n"
+               + "1. Placing both libraries in the /usr/lib/spark/jars directory, or \n"
+               + "2. Loading both libraries through the --jars parameter.");
+     }
+ 
++    // FIXED: Instead of using dangerous reflective defineClass, try to load extensions
++    // using available classloaders without illegal reflection
+     filteredClassloaders.forEach(
+         cl -> {
+           try {
+-            MethodUtils.invokeMethod(
+-                cl, true, "defineClass", providerCanonicalName, providerClassBytes, null);
+-            log.trace("{} succeeded to load a class", cl);
+-          } catch (InvocationTargetException ex) {
+-            if (!(ex.getCause() instanceof LinkageError)) {
+-              if (!providerFailWarned) {
+-                log.error("Failed to load OpenLineageExtensionProvider class", ex.getCause());
+-              }
+-              providerFailWarned = true;
++            // SAFE APPROACH: Try to load the class normally first
++            try {
++              cl.loadClass(providerCanonicalName);
++              log.debug("Provider class already available in classloader: {}", cl);
++              return;
++            } catch (ClassNotFoundException e) {
++              // Class not found, but we won't force-define it using illegal reflection
++              log.debug("Provider class not found in classloader {}, skipping unsafe loading", cl);
+             }
+-          } catch (RuntimeException ex) {
+-            // On Java 17, if add opens is not used, the defineClass method will throw an
+-            // InaccessibleObjectException
+-            // Any workaround is TODO, but we should not crash here
+-            if (!providerFailWarned) {
+-              log.warn("{}: Failed to load OpenLineageExtensionProvider class ", cl, ex);
++
++            // ALTERNATIVE SAFE APPROACH: Try using parent classloader delegation
++            ClassLoader parent = cl.getParent();
++            if (parent != null && parent != currentThreadClassloader) {
++              try {
++                parent.loadClass(providerCanonicalName);
++                log.debug("Provider class found via parent delegation in classloader: {}", cl);
++              } catch (ClassNotFoundException e) {
++                log.trace("Provider class not found via parent delegation either");
++              }
+             }
+-            providerFailWarned = true;
++
+           } catch (Exception e) {
+-            if (!providerFailWarned) {
+-              log.warn("{}: Failed to load OpenLineageExtensionProvider class ", cl, e);
+-            }
+-            providerFailWarned = true;
++            log.debug("Safe provider loading failed for classloader {}: {}", cl, e.getMessage());
+           }
+         });
+   }

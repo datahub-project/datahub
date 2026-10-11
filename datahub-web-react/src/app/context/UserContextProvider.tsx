@@ -6,7 +6,7 @@ import { useGetGlobalViewsSettingsLazyQuery } from '@graphql/app.generated';
 import { useGetMeLazyQuery } from '@graphql/me.generated';
 import { CorpUser, PlatformPrivileges } from '@types';
 
-// TODO: Migrate all usage of useAuthenticatedUser to using this provider.
+// useGetAuthenticatedUser is a thin wrapper over this provider; prefer useUserContext for new call sites.
 
 /**
  * Key used when writing user state to local browser state.
@@ -41,7 +41,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      * Retrieve the current user details once on component mount.
      */
     const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
-    useEffect(() => getMe(), [getMe]);
+    useEffect(() => {
+        getMe();
+    }, [getMe]);
 
     /**
      * Retrieve the Global View settings once on component mount.
@@ -49,7 +51,9 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     const [getGlobalViewSettings, { data: settingsData }] = useGetGlobalViewsSettingsLazyQuery({
         fetchPolicy: 'cache-first',
     });
-    useEffect(() => getGlobalViewSettings(), [getGlobalViewSettings]);
+    useEffect(() => {
+        getGlobalViewSettings();
+    }, [getGlobalViewSettings]);
 
     const updateLocalState = useCallback((newState: LocalState) => {
         saveLocalState(newState);

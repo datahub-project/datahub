@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Ver assertions com falha →",
+    "failChecks": "Ver verificações com falha →",
+    "failIncidents": "Ver incidents ativos →",
+    "passAssertions": "Todas as assertions estão passando",
+    "passChecks": "Todas as verificações estão passando",
+    "passIncidents": "Nenhum incident ativo",
+    "summaryHealthy": "Este ativo está saudável",
+    "summaryUnhealthy": "Este ativo pode estar com problemas",
+    "typeAssertions": "Assertions",
+    "typeIncidents": "Incidents",
+    "typeTests": "Testes",
+    "warnAssertions": "Algumas assertions têm problemas.",
+    "warnChecks": "Algumas verificações têm problemas."
+}
