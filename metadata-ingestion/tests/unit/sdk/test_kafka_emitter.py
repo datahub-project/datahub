@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -214,11 +215,12 @@ class KafkaEmitterTest(unittest.TestCase):
 def test_auto_register_schemas_enabled_by_default(
     mock_sr_client: MagicMock, mock_serializer: MagicMock, mock_producer: MagicMock
 ) -> None:
-    DatahubKafkaEmitter(
-        KafkaEmitterConfig.model_validate(
-            {"connection": {"bootstrap": "foobar:9092", "auto_register_schemas": True}}
+    with patch.dict(os.environ, clear=True):
+        DatahubKafkaEmitter(
+            KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
         )
-    )
 
     assert mock_serializer.call_count == 2
     for c in mock_serializer.call_args_list:
