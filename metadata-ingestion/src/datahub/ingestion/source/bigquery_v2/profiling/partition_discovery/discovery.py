@@ -1744,19 +1744,22 @@ class PartitionDiscovery:
                     pinned_any = True
 
         # A fallback that pins no real value (every column degraded to IS NOT NULL) prunes
-        # nothing — it is a full scan. On a require-filter or external table the caller
-        # would otherwise skip the table rather than full-scan it (see the skip in
-        # get_required_partition_filters), so returning these filters silently defeats that
-        # decision. Return [] so discovery reports "no usable values" and the skip applies.
-        # A partial prune (some column pinned) is kept: it still narrows the scan.
-        if fallback_filters and not pinned_any and (requires_filter or table.external):
+        # nothing — it is a full scan. On a require-filter table the coordinator would
+        # otherwise skip the table rather than full-scan it (see the skip in
+        # get_required_partition_filters), and an unpruned IS NOT NULL profile would be a
+        # whole-table profile masquerading as a single-partition one. Return [] so
+        # discovery reports "no usable values" and that skip applies. External tables are
+        # intentionally left to the documented full-scan warning below: they do not enforce
+        # a partition filter, so an unfiltered profile is a legitimate last resort. A
+        # partial prune (some column pinned) is always kept: it still narrows the scan.
+        if fallback_filters and not pinned_any and requires_filter:
             warn(
                 self.report,
                 logger,
                 title="Partition discovery skipped a table",
                 message="Partition discovery could not pin any partition value and the "
-                "table requires a partition filter (or is external), so it is skipped "
-                "rather than full-scanned with an unpruned 'IS NOT NULL' filter. Set "
+                "table requires a partition filter, so it is skipped rather than "
+                "full-scanned with an unpruned 'IS NOT NULL' filter. Set "
                 "profiling.fallback_partition_values to pin a partition.",
                 context=f"{table.name}: columns={sorted(required_columns)}",
             )

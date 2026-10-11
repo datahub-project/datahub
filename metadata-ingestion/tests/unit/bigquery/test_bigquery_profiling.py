@@ -395,9 +395,10 @@ def test_require_filter_table_skipped_when_only_is_not_null_fallback():
 
 
 def test_non_require_filter_table_keeps_is_not_null_fallback():
-    """A table that does NOT require a partition filter (and is not external) still gets
-    the IS NOT NULL last-resort fallback so profiling can proceed, rather than being
-    skipped. Only require-filter / external tables are skipped on an all-unpruned fallback.
+    """A table that does NOT require a partition filter still gets the IS NOT NULL
+    last-resort fallback so profiling can proceed, rather than being skipped. Only
+    require-filter tables are skipped on an all-unpruned fallback; external tables keep
+    the documented full-scan warning instead.
     """
     discovery = PartitionDiscovery(make_config())
 
