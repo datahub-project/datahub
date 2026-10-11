@@ -1,9 +1,11 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
+from confluent_kafka.schema_registry.error import SchemaRegistryError
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCE_KAFKA_TOPIC,
     DEFAULT_MCP_KAFKA_TOPIC,
@@ -204,3 +206,70 @@ class KafkaEmitterTest(unittest.TestCase):
 
         # Verify poll() was NOT called during initialization (no OAuth)
         mock_producer_instance.poll.assert_not_called()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+@patch("datahub.emitter.kafka_emitter.AvroSerializer", autospec=True)
+@patch("datahub.emitter.kafka_emitter.SchemaRegistryClient", autospec=True)
+def test_auto_register_schemas_enabled_by_default(
+    mock_sr_client: MagicMock, mock_serializer: MagicMock, mock_producer: MagicMock
+) -> None:
+    DatahubKafkaEmitter(
+        KafkaEmitterConfig.model_validate(
+            {"connection": {"bootstrap": "foobar:9092", "auto_register_schemas": True}}
+        )
+    )
+
+    assert mock_serializer.call_count == 2
+    for c in mock_serializer.call_args_list:
+        assert c.kwargs["conf"] == {}
+    mock_sr_client.return_value.lookup_schema.assert_not_called()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+@patch("datahub.emitter.kafka_emitter.AvroSerializer", autospec=True)
+@patch("datahub.emitter.kafka_emitter.SchemaRegistryClient", autospec=True)
+def test_auto_register_schemas_disabled_verifies_routed_subjects(
+    mock_sr_client: MagicMock, mock_serializer: MagicMock, mock_producer: MagicMock
+) -> None:
+    DatahubKafkaEmitter(
+        KafkaEmitterConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "auto_register_schemas": False,
+                },
+                "topic_routes": {MCP_KEY: "custom-mcp"},
+            }
+        )
+    )
+
+    assert mock_serializer.call_count == 2
+    for c in mock_serializer.call_args_list:
+        assert c.kwargs["conf"] == {"auto.register.schemas": False}
+    # The MCE topic isn't routed, so only the MCP subject must be pre-registered.
+    lookups = mock_sr_client.return_value.lookup_schema.call_args_list
+    assert [c.args[0] for c in lookups] == ["custom-mcp-value"]
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+@patch("datahub.emitter.kafka_emitter.SchemaRegistryClient", autospec=True)
+def test_auto_register_schemas_disabled_missing_subject_fails_fast(
+    mock_sr_client: MagicMock, mock_producer: MagicMock
+) -> None:
+    mock_sr_client.return_value.lookup_schema.side_effect = SchemaRegistryError(
+        http_status_code=404, error_code=40401, error_message="Subject not found"
+    )
+
+    with pytest.raises(ConfigurationError, match=f"{DEFAULT_MCE_KAFKA_TOPIC}-value"):
+        DatahubKafkaEmitter(
+            KafkaEmitterConfig.model_validate(
+                {
+                    "connection": {
+                        "bootstrap": "foobar:9092",
+                        "auto_register_schemas": False,
+                    }
+                }
+            )
+        )
+    mock_producer.assert_not_called()

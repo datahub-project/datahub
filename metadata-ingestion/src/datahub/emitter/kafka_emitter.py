@@ -4,12 +4,13 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import pydantic
 from confluent_kafka import KafkaError, KafkaException, SerializingProducer
-from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.serialization import SerializationContext, StringSerializer
 from pydantic import field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -110,13 +111,14 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-        # Configure AvroSerializer to optionally disable auto-registration
-        avro_serializer_conf = {}
-        if self.config.connection.disable_auto_schema_registration:
+        avro_serializer_conf: Dict[str, Any] = {}
+        if not self.config.connection.auto_register_schemas:
             avro_serializer_conf["auto.register.schemas"] = False
-            logger.info(
-                "Schema auto-registration disabled. Schemas must be pre-registered in the Schema Registry."
+            logger.warning(
+                "Schema auto-registration is disabled; MCE/MCP schemas must already "
+                f"be registered in the Schema Registry at {self.config.connection.schema_registry_url}."
             )
+            self._verify_schemas_registered(schema_registry_client)
 
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
@@ -127,7 +129,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mce_to_dict,
-            conf=avro_serializer_conf,
+            conf=dict(avro_serializer_conf),
         )
 
         def convert_mcp_to_dict(
@@ -140,7 +142,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mcp_to_dict,
-            conf=avro_serializer_conf,
+            conf=dict(avro_serializer_conf),
         )
 
         producers_config = {
@@ -180,6 +182,44 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             for producer in self.producers.values():
                 producer.poll(0)  # Non-blocking - just triggers OAuth callback
             logger.debug("OAuth callbacks triggered for Kafka producers")
+
+    def _verify_schemas_registered(
+        self, schema_registry_client: SchemaRegistryClient
+    ) -> None:
+        """Fail fast if a routed topic's schema is not pre-registered.
+
+        With auto-registration off, AvroSerializer looks up this exact schema
+        under the topic's "<topic>-value" subject (TopicNameStrategy) on the
+        first produce. Doing the same lookup here surfaces a missing or
+        outdated subject at startup instead of as a serialization error on
+        every record.
+        """
+        schemas = {
+            MCE_KEY: getMetadataChangeEventSchema(),
+            MCP_KEY: getMetadataChangeProposalSchema(),
+        }
+        for key, schema_str in schemas.items():
+            topic = self.config.topic_routes.get(key)
+            if topic is None:
+                continue
+            subject = f"{topic}-value"
+            try:
+                schema_registry_client.lookup_schema(
+                    subject, Schema(schema_str, schema_type="AVRO")
+                )
+            except SchemaRegistryError as e:
+                if e.http_status_code == 404:
+                    raise ConfigurationError(
+                        f"auto_register_schemas is disabled, but the {key} schema is "
+                        f"not registered under subject {subject!r} in the Schema "
+                        f"Registry at {self.config.connection.schema_registry_url}. "
+                        "Register the schema bundled with this DataHub version under "
+                        "that subject, or check that topic_routes matches your topics."
+                    ) from e
+                raise ConfigurationError(
+                    f"auto_register_schemas is disabled, but checking subject "
+                    f"{subject!r} in the Schema Registry failed: {e}"
+                ) from e
 
     def emit(  # type: ignore[override]
         self,

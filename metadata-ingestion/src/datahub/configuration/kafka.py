@@ -3,7 +3,7 @@ from pydantic import Field, field_validator
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.env_vars import (
     get_gms_base_path,
-    get_kafka_disable_auto_schema_registration,
+    get_kafka_auto_register_schemas,
     get_kafka_schema_registry_url,
 )
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
@@ -98,17 +98,19 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
         description="Extra producer config serialized as JSON. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
     )
 
+    auto_register_schemas: bool = Field(
+        default_factory=get_kafka_auto_register_schemas,
+        description=(
+            "Whether to automatically register the MetadataChangeEvent and "
+            "MetadataChangeProposal schemas with the Schema Registry. Set to false "
+            "when the Schema Registry is read-only for the ingestion user; the schemas "
+            "must then be pre-registered under the '<topic>-value' subjects, and the "
+            "emitter verifies they exist at startup. Defaults to the "
+            "DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS environment variable, or true."
+        ),
+    )
+
     @field_validator("producer_config", mode="after")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
         return _resolve_kafka_oauth_callback(value)
-
-    disable_auto_schema_registration: bool = Field(
-        default_factory=get_kafka_disable_auto_schema_registration,
-        description=(
-            "Disable automatic schema registration with Kafka Schema Registry. "
-            "When enabled (true), requires schemas to be pre-registered in the Schema Registry. "
-            "This is useful for production environments where the ingestion user has read-only access "
-            "to the Schema Registry. Can be set via DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION environment variable."
-        ),
-    )

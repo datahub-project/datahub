@@ -515,17 +515,13 @@ def get_kafka_schema_registry_url() -> Optional[str]:
     return os.getenv("KAFKA_SCHEMAREGISTRY_URL")
 
 
-def get_kafka_disable_auto_schema_registration() -> bool:
-    """Disable automatic schema registration with Kafka Schema Registry.
+def get_kafka_auto_register_schemas() -> bool:
+    """Auto-register MCE/MCP schemas with the Kafka Schema Registry (default: True).
 
-    When enabled, requires schemas to be pre-registered in the Schema Registry.
-    This is useful for production environments where the ingestion user has
-    read-only access to the Schema Registry.
+    Set to "false" when the ingestion user only has read access to the Schema
+    Registry; the schemas must then be pre-registered.
     """
-    return os.getenv("DATAHUB_KAFKA_DISABLE_AUTO_SCHEMA_REGISTRATION", "").lower() in (
-        "true",
-        "1",
-    )
+    return os.getenv("DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS", "true").lower() == "true"
 
 
 def get_spark_version() -> Optional[str]:
