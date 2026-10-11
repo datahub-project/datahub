@@ -358,9 +358,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # existing edge reaches.
     data_model_element_fgl_join_key_resolved: int = 0
     # Join predicates /spec named whose side could not be matched to an
-    # ingested element and column; and predicates with a side that is a
-    # warehouse table or another Data Model's element, not mapped yet. Counted
-    # once per Data Model.
+    # ingested element and column, in this Data Model or another one; and
+    # predicates with a side that is a warehouse table, not mapped yet.
+    # Counted once per Data Model.
     data_model_join_key_partner_unresolved: int = 0
     data_model_join_key_partner_unmapped: int = 0
     # `[JoinElement/Owner/Column]` refs resolved to the element joined in, not

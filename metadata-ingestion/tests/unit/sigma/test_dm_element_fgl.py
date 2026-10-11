@@ -19,6 +19,7 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source.dm_element_by_model_and_id = {}
     source._upstream_schema_unavailable_warned = set()
     # /spec is off unless a test turns it on.
     source.config = SigmaSourceConfig(
@@ -1468,6 +1469,7 @@ def test_an_absent_output_counts_each_branch_by_kind() -> None:
 
 _SIDE_A = {"kind": "table", "elementId": "a"}
 _SIDE_B = {"kind": "table", "elementId": "b"}
+_FOREIGN_B = {"kind": "data-model", "elementId": "b", "dataModelId": "dm-2"}
 
 
 def _join_spec(
@@ -1590,15 +1592,10 @@ def test_an_element_not_reading_through_the_join_gets_no_key() -> None:
             1,
             0,
         ),
-        (
-            {"kind": "data-model", "elementId": "b", "dataModelId": "dm-2"},
-            "[Key]",
-            1,
-            0,
-        ),
+        (_FOREIGN_B, "[Key]", 0, 1),
         (_SIDE_B, "[Missing]", 0, 1),
     ],
-    ids=["warehouse-table", "another-data-model", "column-absent"],
+    ids=["warehouse-table", "data-model-not-ingested", "column-absent"],
 )
 def test_a_predicate_that_cannot_be_mapped_is_counted(
     right: dict, right_formula: str, unmapped: int, unresolved: int
@@ -1611,6 +1608,23 @@ def test_a_predicate_that_cannot_be_mapped_is_counted(
     assert list(edges) == [builder.make_schema_field_urn(_urn("a"), "Key")]
     assert source.reporter.data_model_join_key_partner_unmapped == unmapped
     assert source.reporter.data_model_join_key_partner_unresolved == unresolved
+
+
+def test_a_key_in_another_data_model_is_the_partner() -> None:
+    """The foreign B shares the local B's element id; only the model tells
+    them apart."""
+    source = _source()
+    foreign_b = _upstream_element("b", "B", ["key"])
+    source.dm_element_by_model_and_id[("dm-2", "b")] = (_urn("dm-2.b"), foreign_b)
+    _with_spec(source, _join_spec(right=_FOREIGN_B))
+
+    edges = _key_edges(_build_join(source))
+
+    assert edges == {
+        builder.make_schema_field_urn(_urn("a"), "Key"): 1.0,
+        builder.make_schema_field_urn(_urn("dm-2.b"), "key"): 0.7,
+    }
+    assert source.reporter.data_model_join_key_partner_unresolved == 0
 
 
 def test_partners_are_built_once_per_data_model() -> None:

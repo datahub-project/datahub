@@ -1,3 +1,4 @@
+import copy
 import json
 import re
 from typing import Any, Dict, List, Optional, cast
@@ -8684,6 +8685,99 @@ def test_sigma_ingest_data_models_join_keys(pytestconfig, tmp_path, requests_moc
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_join_keys.json",
+    )
+
+
+def _get_mock_cross_model_join_dm_api() -> Dict[str, Dict]:
+    """The join DM above, with the join's right side in a second Data Model.
+    That element reuses side B's element id, so only the model id tells them
+    apart; its key column has a different name to show which one matched."""
+    api = copy.deepcopy(_get_mock_join_dm_api())
+    base = "https://aws-api.sigmacomputing.com/v2"
+    dm_id = "aa000000-0000-0000-0000-000000000003"
+    other_dm_id = "aa000000-0000-0000-0000-000000000004"
+    for path, id_key in (
+        ("files?typeFilters=data-model", "id"),
+        ("dataModels", "dataModelId"),
+    ):
+        listing = api[f"{base}/{path}"]["json"]
+        other = {
+            **listing["entries"][0],
+            id_key: other_dm_id,
+            "urlId": "other-dm-urlid",
+            "name": "Other DM",
+        }
+        listing["entries"].append(other)
+        listing["total"] = 2
+
+    def entries(rows: List[dict]) -> Dict[str, Any]:
+        return {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": rows, "total": len(rows), "nextPage": None},
+        }
+
+    api[f"{base}/dataModels/{other_dm_id}/elements"] = entries(
+        [
+            {
+                "elementId": "joinSideB",
+                "name": "Shared Orders",
+                "type": "table",
+                "columns": [],
+            }
+        ]
+    )
+    api[f"{base}/dataModels/{other_dm_id}/columns"] = entries(
+        [
+            {
+                "columnId": "colShared",
+                "elementId": "joinSideB",
+                "name": "Shared Order Id",
+                "label": "Shared Order Id",
+                "formula": None,
+            }
+        ]
+    )
+    api[f"{base}/dataModels/{other_dm_id}/lineage"] = entries([])
+    join = api[f"{base}/dataModels/{dm_id}/spec"]["json"]["pages"][0]["elements"][2][
+        "source"
+    ]["joins"][0]
+    join["right"] = {
+        "kind": "data-model",
+        "dataModelId": other_dm_id,
+        "elementId": "joinSideB",
+    }
+    join["columns"][0]["right"] = "[Shared Order Id]"
+    return api
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_model_join_keys(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A join side in another Data Model is resolved by that model's id, not
+    by the element id alone."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+    register_mock_api(
+        request_mock=requests_mock, override_data=_get_mock_cross_model_join_dm_api()
+    )
+
+    output_path = f"{tmp_path}/sigma_cross_model_join_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_spec_drift_detected == 0
+    assert report.data_model_element_fgl_join_key_resolved == 1
+    assert report.data_model_join_key_partner_unresolved == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_cross_model_join_keys.json",
     )
 
 
