@@ -9,12 +9,16 @@
 # user. The wallet is created here, so it is already owned by oracle, and
 # lsnrctl runs as the current user.
 #
-# TCP stays on 127.0.0.1 only. PMON registers services over TCP, and a
-# TCPS-only listener never learns the PDB service. Loopback is not published,
-# so the test process cannot open a plaintext connection.
+# TCP stays on 0.0.0.0:1521 and is not published. PMON registers the PDB
+# against that endpoint; binding it to 127.0.0.1 makes lsnrctl status never
+# show xepdb1, so this script exits before the ready file. A TCPS-only
+# listener never learns the service either.
 
 (
     set -euo pipefail
+    # The fixture reads this when the ready file never appears. docker logs
+    # are not in the pytest output.
+    exec > /opt/oracle/tls/setup.log 2>&1
 
     WALLET=/opt/oracle/oradata/tls-wallet
     WALLET_PWD=WalletPass1
@@ -60,8 +64,10 @@
     chmod 644 /opt/oracle/tls/wallet/ewallet.pem
 
     if ! grep -q "PROTOCOL = TCPS" "$LISTENER"; then
-        sed -i \
-            's#(ADDRESS = (PROTOCOL = TCP)(HOST = 0.0.0.0)(PORT = 1521))#(ADDRESS = (PROTOCOL = TCP)(HOST = 127.0.0.1)(PORT = 1521))\n      (ADDRESS = (PROTOCOL = TCPS)(HOST = 0.0.0.0)(PORT = 2484))#' \
+        # Same insertion as the image's configTcps.sh. Leave the TCP address
+        # alone so PMON can still reach the listener.
+        sed -i "/PROTOCOL = TCP/a\\
+      (ADDRESS = (PROTOCOL = TCPS)(HOST = 0.0.0.0)(PORT = 2484))" \
             "$LISTENER"
     fi
     if ! grep -q "PROTOCOL = TCPS" "$LISTENER"; then
@@ -98,6 +104,9 @@ EOF
 
     "$ORACLE_HOME/bin/lsnrctl" stop || true
     "$ORACLE_HOME/bin/lsnrctl" start
+    # Registration does not happen on reload. Ask PMON immediately instead of
+    # waiting out the registration interval.
+    echo "alter system register;" | "$ORACLE_HOME/bin/sqlplus" -s / as sysdba
 
     ready=0
     for _ in $(seq 1 60); do

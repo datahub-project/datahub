@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Any, List
@@ -94,8 +95,8 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     return filtered
 
 
-# TCPS. 1521 stays on container loopback for service registration and is
-# not published.
+# TCPS. 1521 is not published. The listener keeps it on 0.0.0.0 so the
+# instance can register.
 ORACLE_PORT = 2484
 
 
@@ -105,9 +106,33 @@ def _wait_for_ready_file(ready_file: Path, timeout: float = 600) -> None:
         if ready_file.is_file():
             return
         time.sleep(0.5)
+    detail = _setup_failure_detail(ready_file)
     raise TimeoutError(
-        f"Oracle TCPS setup did not finish within {timeout:.0f}s; expected {ready_file}"
+        f"Oracle TCPS setup did not finish within {timeout:.0f}s; expected {ready_file}\n{detail}"
     )
+
+
+def _setup_failure_detail(ready_file: Path) -> str:
+    parts: List[str] = []
+    log = ready_file.parent / "setup.log"
+    if log.is_file():
+        parts.append(log.read_text(errors="replace")[-4000:])
+    else:
+        parts.append("startup script wrote no setup.log")
+    try:
+        logs = subprocess.run(
+            ["docker", "logs", "--tail", "80", "testoracle"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        blob = f"{logs.stdout or ''}{logs.stderr or ''}".strip()
+        if blob:
+            parts.append(blob[-4000:])
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        parts.append(f"docker logs failed: {exc}")
+    return "\n".join(parts)
 
 
 def _oracle_tls_connect_args(port: int) -> dict:
