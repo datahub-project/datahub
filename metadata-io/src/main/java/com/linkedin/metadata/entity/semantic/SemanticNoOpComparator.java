@@ -29,6 +29,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Startup-compiled aspect/path comparison. Disabled and unruled aspects never enter {@link
@@ -36,6 +38,8 @@ import javax.annotation.Nullable;
  */
 public final class SemanticNoOpComparator {
   public static final String SUPPRESSED_COUNTER = "semantic_noop_suppressed";
+
+  private static final Logger LOG = LoggerFactory.getLogger(SemanticNoOpComparator.class);
 
   private static final SemanticNoOpComparator DISABLED =
       new SemanticNoOpComparator(Map.of(), new AtomicLong());
@@ -56,7 +60,9 @@ public final class SemanticNoOpComparator {
 
   /**
    * Parse and validate rules against the entity registry. Invalid configuration fails startup even
-   * when comparison is disabled. A disabled or empty rule list does not walk writes.
+   * when comparison is disabled. A rule whose aspect is not in the registry is skipped so a stock
+   * list can name aspects a deployment adds later. A disabled or empty rule list does not walk
+   * writes.
    */
   public static SemanticNoOpComparator compile(
       boolean enabled,
@@ -490,7 +496,9 @@ public final class SemanticNoOpComparator {
       }
       AspectSpec aspectSpec = entityRegistry.getAspectSpecs().get(raw.aspect);
       if (aspectSpec == null) {
-        throw new IllegalArgumentException("Unknown aspect in semantic no-op rule: " + raw.aspect);
+        LOG.warn(
+            "Skipping semantic no-op rule for unknown aspect {} path {}", raw.aspect, raw.path);
+        continue;
       }
       DataSchema terminal = resolve(aspectSpec.getPegasusSchema(), segments, raw.path);
       if (strategy == Strategy.TIMESTAMP_WINDOW && !isIntegral(terminal)) {

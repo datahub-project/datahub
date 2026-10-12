@@ -13,9 +13,9 @@ public class SemanticNoOpConfiguration {
   /**
    * JSON array of rules. Each rule names an aspect, a slash-delimited path ({@code *} is one array
    * element), and a strategy of {@code IGNORE}, {@code TIMESTAMP_WINDOW}, or {@code UNORDERED}.
-   * {@code UNORDERED} applies to an array and pairs elements without regard to position. The stock
-   * list is {@code entityService.semanticNoOp.defaultRulesJson} in application.yaml. {@code []}
-   * compares strictly.
+   * {@code UNORDERED} applies to an array and pairs elements without regard to position. A rule
+   * whose aspect is not in the registry is skipped. The stock list is {@code
+   * entityService.semanticNoOp.defaultRulesJson} in application.yaml. {@code []} compares strictly.
    */
   private String rulesJson = "[]";
 }

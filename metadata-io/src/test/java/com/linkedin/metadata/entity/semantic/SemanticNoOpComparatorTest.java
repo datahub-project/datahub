@@ -14,6 +14,7 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -21,7 +22,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.FineGrainedLineageDownstreamType;
@@ -316,14 +319,6 @@ public class SemanticNoOpComparatorTest {
         () ->
             SemanticNoOpComparator.compile(
                 true,
-                "[{\"aspect\":\"notAnAspect\",\"path\":\"/source\",\"strategy\":\"IGNORE\"}]",
-                registry,
-                null));
-    expectThrows(
-        IllegalArgumentException.class,
-        () ->
-            SemanticNoOpComparator.compile(
-                true,
                 "[{\"aspect\":\"upstreamLineage\",\"path\":\"/missing/*/auditStamp\",\"strategy\":\"IGNORE\"}]",
                 registry,
                 null));
@@ -362,6 +357,22 @@ public class SemanticNoOpComparatorTest {
   }
 
   @Test
+  public void unknownAspectRulesAreSkipped() throws Exception {
+    SemanticNoOpComparator comparator =
+        compile(
+            "[{\"aspect\":\"notAnAspect\",\"path\":\"/source\",\"strategy\":\"IGNORE\"},"
+                + "{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/auditStamp/time\","
+                + "\"strategy\":\"TIMESTAMP_WINDOW\",\"maxDeltaMs\":1000}]");
+    assertFalse(comparator.hasRules("notAnAspect"));
+    assertTrue(comparator.hasRules("upstreamLineage"));
+
+    SemanticNoOpComparator defaults = defaultComparator();
+    assertFalse(defaults.hasRules("assertionsSummary"));
+    assertTrue(defaults.hasRules("datasetProperties"));
+    assertTrue(defaults.hasRules("dataJobInfo"));
+  }
+
+  @Test
   public void defaultRulesKeepADayOfTimestampDrift() throws Exception {
     SemanticNoOpComparator comparator = defaultComparator();
     long day = 86_400_000L;
@@ -378,18 +389,19 @@ public class SemanticNoOpComparatorTest {
             storedLineage.data(),
             lineage(1_000L + day + 1, "unknown", upstreamA).data()));
 
+    long hour = 3_600_000L;
     AssertionInfo storedAssertion = assertion(1_000L, "id");
     assertTrue(
         comparator.equivalent(
-            "assertionInfo", storedAssertion.data(), assertion(1_000L + day, "id").data()));
+            "assertionInfo", storedAssertion.data(), assertion(1_000L + hour, "id").data()));
     assertFalse(
         comparator.equivalent(
-            "assertionInfo", storedAssertion.data(), assertion(1_000L + day + 1, "id").data()));
+            "assertionInfo", storedAssertion.data(), assertion(1_000L + hour + 1, "id").data()));
 
-    AuditStamp sameDay =
-        new AuditStamp().setTime(1_000L + day).setActor(new CorpuserUrn("unknown"));
-    AuditStamp nextDay =
-        new AuditStamp().setTime(1_000L + day + 1).setActor(new CorpuserUrn("unknown"));
+    AuditStamp sameHour =
+        new AuditStamp().setTime(1_000L + hour).setActor(new CorpuserUrn("unknown"));
+    AuditStamp nextHour =
+        new AuditStamp().setTime(1_000L + hour + 1).setActor(new CorpuserUrn("unknown"));
     AssertionInfo updated =
         assertion(1_000L, "id")
             .setLastUpdated(new AuditStamp().setTime(1_000L).setActor(new CorpuserUrn("unknown")));
@@ -397,12 +409,55 @@ public class SemanticNoOpComparatorTest {
         comparator.equivalent(
             "assertionInfo",
             updated.data(),
-            assertion(1_000L, "id").setLastUpdated(sameDay).data()));
+            assertion(1_000L, "id").setLastUpdated(sameHour).data()));
     assertFalse(
         comparator.equivalent(
             "assertionInfo",
             updated.data(),
-            assertion(1_000L, "id").setLastUpdated(nextDay).data()));
+            assertion(1_000L, "id").setLastUpdated(nextHour).data()));
+  }
+
+  @Test
+  public void defaultRulesKeepAnHourOfLastModifiedDrift() throws Exception {
+    SemanticNoOpComparator comparator = defaultComparator();
+    long hour = 3_600_000L;
+
+    DatasetProperties storedDataset =
+        new DatasetProperties().setName("events").setLastModified(new TimeStamp().setTime(1_000L));
+    assertTrue(
+        comparator.equivalent(
+            "datasetProperties",
+            storedDataset.data(),
+            storedDataset.copy().setLastModified(new TimeStamp().setTime(1_000L + hour)).data()));
+    assertFalse(
+        comparator.equivalent(
+            "datasetProperties",
+            storedDataset.data(),
+            storedDataset
+                .copy()
+                .setLastModified(new TimeStamp().setTime(1_000L + hour + 1))
+                .data()));
+    assertFalse(
+        comparator.equivalent(
+            "datasetProperties",
+            storedDataset.data(),
+            storedDataset.copy().setDescription("changed").data()));
+
+    DataJobInfo storedJob =
+        new DataJobInfo().setName("job").setLastModified(new TimeStamp().setTime(1_000L));
+    assertTrue(
+        comparator.equivalent(
+            "dataJobInfo",
+            storedJob.data(),
+            storedJob.copy().setLastModified(new TimeStamp().setTime(1_000L + hour)).data()));
+    assertFalse(
+        comparator.equivalent(
+            "dataJobInfo",
+            storedJob.data(),
+            storedJob.copy().setLastModified(new TimeStamp().setTime(1_000L + hour + 1)).data()));
+    assertFalse(
+        comparator.equivalent(
+            "dataJobInfo", storedJob.data(), storedJob.copy().setName("renamed").data()));
   }
 
   @Test
