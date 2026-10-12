@@ -197,6 +197,16 @@ def test_sparksql_table_names_and_columns(sqlite_conn: Connection) -> None:
     ]
 
 
+def test_sparksql_has_table_true_when_types_are_unreadable() -> None:
+    # Spark found the table but could not decode a column type.
+    with patch.object(
+        SparkSqlDialect,
+        "_get_table_columns",
+        side_effect=exc.UnreflectableTableError("db.t1"),
+    ):
+        assert SparkSqlDialect().has_table(MagicMock(), "t1", schema="db")
+
+
 @pytest.mark.parametrize(
     "params, transport, expected",
     [

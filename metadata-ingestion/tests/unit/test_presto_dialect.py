@@ -1,7 +1,7 @@
 import subprocess
 import sys
 from typing import Iterator, cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import prestodb.auth
 import prestodb.exceptions
@@ -155,6 +155,7 @@ def test_presto_get_columns_maps_parameterized_types(sqlite_conn: Connection) ->
             sqlite_conn,
             "SELECT 'price' AS \"Column\", 'decimal(10,2)' AS \"Type\" "
             "UNION ALL SELECT 'name', 'varchar(255)' "
+            "UNION ALL SELECT 'code', 'char(5)' "
             "UNION ALL SELECT 'tags', 'array(varchar)'",
         ),
     )
@@ -164,8 +165,20 @@ def test_presto_get_columns_maps_parameterized_types(sqlite_conn: Connection) ->
     assert [type(c["type"]) for c in columns] == [
         sqlalchemy_types.DECIMAL,
         sqlalchemy_types.String,
+        sqlalchemy_types.String,
         sqlalchemy_types.NullType,
     ]
+
+
+def test_kerberos_without_requests_kerberos_explains_install() -> None:
+    # A None entry in sys.modules makes the import raise ImportError.
+    with (
+        patch.dict(sys.modules, {"requests_kerberos": None}),
+        pytest.raises(ImportError, match="pip install requests-kerberos"),
+    ):
+        build_presto_connect_args(
+            {"host": "h", "http_scheme": "https", "KerberosRemoteServiceName": "presto"}
+        )
 
 
 @pytest.mark.parametrize(
