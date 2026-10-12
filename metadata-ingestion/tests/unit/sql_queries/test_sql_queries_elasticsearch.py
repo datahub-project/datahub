@@ -88,6 +88,14 @@ class TestElasticsearchQueryLogReaderMapping:
         assert _reader()._to_entry({"username": "svc_user", "object": ""}) is None
         assert _reader()._to_entry({"username": "svc_user"}) is None
 
+    def test_blank_user_with_email_domain_is_dropped(self):
+        # A blank actor must not be turned into a domain-only "@example.com" URN.
+        entry = _reader(email_domain="example.com")._to_entry(
+            {"object": "select 1", "username": "   "}
+        )
+        assert entry is not None
+        assert entry.user is None
+
     def test_unescape_disabled_leaves_sql_untouched(self):
         entry = _reader(unescape_sql=False)._to_entry(
             {"object": "select \\'x\\'", "@timestamp": "2026-04-13T12:52:15Z"}

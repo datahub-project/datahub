@@ -411,10 +411,12 @@ class ElasticsearchQueryLogReader(QueryLogReader):
             sql = sql.replace("\\'", "'").replace('\\"', '"')
 
         user = self._get(source, fm.user)
-        if user is not None:
-            user = str(user)
-            if self.config.email_domain and "@" not in user:
-                user = f"{user}@{self.config.email_domain}"
+        # Treat blank/whitespace users as absent so a system/background row with no
+        # actor doesn't become a domain-only "@<email_domain>" corp user.
+        user = str(user).strip() if user is not None else ""
+        if user and self.config.email_domain and "@" not in user:
+            user = f"{user}@{self.config.email_domain}"
+        user = user or None
 
         session_id = self._get(source, fm.session_id)
         # Validate via the model so QueryEntry's field validators run. No config
