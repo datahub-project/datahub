@@ -181,13 +181,17 @@ def test_sparksql_table_names_and_columns(sqlite_conn: Connection) -> None:
                     "SELECT 'db', 't1', 0 UNION ALL SELECT 'db', 'tmp_view', 1"
                 ),
                 "SET spark.sql.debug.maxToStringFields=1000000": "SELECT 1",
-                "DESCRIBE db.t1": "SELECT 'col_a' AS col_name, 'int', NULL",
+                "DESCRIBE `db`.`t1`": "SELECT 'col_a' AS col_name, 'int', NULL",
+                "SHOW VIEWS IN `db`": (
+                    "SELECT 'db', 'v1', 0 UNION ALL SELECT 'db', 'tmp_v', 1"
+                ),
             },
         ),
     )
     dialect = SparkSqlDialect()
 
     assert dialect.get_table_names(conn, schema="db") == ["t1"]
+    assert dialect.get_view_names(conn, schema="db") == ["v1"]
     assert [c["name"] for c in dialect.get_columns(conn, "t1", schema="db")] == [
         "col_a"
     ]
@@ -271,6 +275,14 @@ def test_build_hive_connect_args_rejects_unsupported(params: Dict[str, Any]) -> 
         build_hive_connect_args(params)
 
 
+def test_build_hive_connect_args_explains_missing_kerberos_package() -> None:
+    with (
+        patch("importlib.util.find_spec", return_value=None),
+        pytest.raises(ValueError, match="pip install kerberos"),
+    ):
+        build_hive_connect_args({"host": "h", "auth": "KERBEROS"})
+
+
 def test_connection_shares_one_session_across_cursors() -> None:
     owner = MagicMock()
     impyla_connection = MagicMock()
@@ -306,17 +318,19 @@ def test_impyla_uses_qop_correct_sasl_client() -> None:
 
 
 def test_sql_generic_registers_hive_dialects() -> None:
-    # Run in a fresh interpreter so the registration comes from sql_generic alone.
+    # Run in a fresh interpreter, and compare names rather than importing
+    # hive_dialect, so the registration can only come from sql_generic.
     script = (
         "import datahub.ingestion.source.sql.sql_generic\n"
         "import sqlalchemy\n"
-        "from datahub.ingestion.source.sql.hive import hive_dialect\n"
-        "for url, cls in [\n"
-        "    ('hive://localhost:10000/default', hive_dialect.HiveDialect),\n"
-        "    ('hive+https://localhost:443/default', hive_dialect.HiveHTTPSDialect),\n"
-        "    ('sparksql://localhost:10000/default', hive_dialect.SparkSqlDialect),\n"
+        "module = 'datahub.ingestion.source.sql.hive.hive_dialect'\n"
+        "for url, name in [\n"
+        "    ('hive://localhost:10000/default', 'HiveDialect'),\n"
+        "    ('hive+https://localhost:443/default', 'HiveHTTPSDialect'),\n"
+        "    ('sparksql://localhost:10000/default', 'SparkSqlDialect'),\n"
         "]:\n"
-        "    assert type(sqlalchemy.create_engine(url).dialect) is cls, url\n"
+        "    cls = type(sqlalchemy.create_engine(url).dialect)\n"
+        "    assert (cls.__module__, cls.__name__) == (module, name), (url, cls)\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True

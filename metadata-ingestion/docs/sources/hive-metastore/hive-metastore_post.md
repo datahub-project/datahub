@@ -31,11 +31,8 @@ klist
 ##### Thrift Mode Dependencies
 
 ```bash
-# Install with Thrift support
+# Install with Thrift support (includes Kerberos/SASL dependencies)
 pip install 'acryl-datahub[hive-metastore]'
-
-# Kerberos authentication additionally needs a GSSAPI library:
-pip install kerberos
 ```
 
 ##### Thrift Configuration Options

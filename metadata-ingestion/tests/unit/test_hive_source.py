@@ -341,11 +341,19 @@ def test_hive_source_get_db_schema():
     assert default_schema == "my_schema"
 
 
-def test_hive_config_rejects_removed_databricks_scheme():
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"host_port": "localhost:443", "scheme": "databricks+pyhive"},
+        {
+            "host_port": "localhost:443",
+            "sqlalchemy_uri": "databricks+pyhive://localhost:443/default",
+        },
+    ],
+)
+def test_hive_config_rejects_removed_databricks_scheme(config):
     with pytest.raises(ValueError, match="unity-catalog"):
-        HiveConfig.model_validate(
-            {"host_port": "localhost:443", "scheme": "databricks+pyhive"}
-        )
+        HiveConfig.model_validate(config)
 
 
 def test_hive_source_combined_lineage_config():

@@ -1,9 +1,10 @@
 import json
 import logging
 import re
+import urllib.parse
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy.engine.reflection import Inspector
 
@@ -81,12 +82,18 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
-    @field_validator("scheme", mode="after")
-    @classmethod
-    def reject_removed_scheme(cls, v: str) -> str:
-        if v in _REMOVED_SCHEMES:
-            raise ValueError(_REMOVED_SCHEMES[v])
-        return v
+    @model_validator(mode="after")
+    def reject_removed_scheme(self) -> "HiveConfig":
+        # sqlalchemy_uri takes precedence over scheme, so check the scheme it names.
+        uri_scheme = (
+            urllib.parse.urlsplit(self.sqlalchemy_uri).scheme
+            if self.sqlalchemy_uri
+            else None
+        )
+        for scheme in (self.scheme, uri_scheme):
+            if scheme in _REMOVED_SCHEMES:
+                raise ValueError(_REMOVED_SCHEMES[scheme])
+        return self
 
 
 @platform_name("Hive")

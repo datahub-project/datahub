@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import importlib.util
 import inspect
 import logging
 import re
@@ -59,6 +60,9 @@ _HTTP_AUTH_MECHANISMS: Dict[str, str] = {
     "KERBEROS": "GSSAPI",
 }
 _VERIFYING_SSL_CERT_MODES = {"required", "optional"}
+# pure-sasl's GSSAPI mechanism needs one of these; without it the mechanism is
+# silently dropped and the SASL handshake fails with a generic error.
+_KERBEROS_MODULES = ("kerberos", "winkerberos")
 
 _IMPYLA_CONNECT_PARAMS: Set[str] = set(
     inspect.signature(impala.dbapi.connect).parameters
@@ -315,6 +319,12 @@ def build_hive_connect_args(
             )
         kwargs["auth_mechanism"] = mechanisms[auth]
     if str(kwargs["auth_mechanism"]).upper() == "GSSAPI":
+        if not any(importlib.util.find_spec(m) for m in _KERBEROS_MODULES):
+            raise ValueError(
+                "Hive Kerberos authentication requires the kerberos package, which "
+                "builds against the system Kerberos libraries (e.g. libkrb5-dev). "
+                "Install it with: pip install kerberos"
+            )
         if not kwargs.get("kerberos_service_name"):
             kwargs["kerberos_service_name"] = HIVE_DEFAULT_KERBEROS_SERVICE_NAME
     else:
@@ -719,8 +729,7 @@ class SparkSqlDialect(HiveDialect):
         schema: Optional[str],
         extended: bool = False,
     ) -> Sequence[Any]:
-        # Unlike Hive, Spark Thrift Server does not accept quoted names here.
-        full_table = f"{schema}.{table_name}" if schema else table_name
+        full_table = _quote_table(self, table_name, schema)
         formatted = " FORMATTED" if extended else ""
         try:
             # Stop Spark SQL truncating long column types such as structs.
@@ -744,6 +753,14 @@ class SparkSqlDialect(HiveDialect):
         # Rows are (database, tableName, isTemporary); temporary views are skipped.
         return [row[1] for row in connection.execute(text(query)) if not row[-1]]
 
+    @reflection.cache
+    def get_view_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Any
+    ) -> List[str]:
+        query = self._show_query("SHOW VIEWS", schema)
+        # Rows are (namespace, viewName, isTemporary), unlike Hive's single column.
+        return [row[1] for row in connection.execute(text(query)) if not row[-1]]
+
     def has_table(
         self,
         connection: Connection,
@@ -754,7 +771,8 @@ class SparkSqlDialect(HiveDialect):
         try:
             return super().has_table(connection, table_name, schema, **kw)
         except exc.UnreflectableTableError:
-            return False
+            # The table exists; Spark only failed to decode one of its column types.
+            return True
 
 
 # Registered programmatically (not through setup.py entry points) so these dialects

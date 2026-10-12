@@ -159,4 +159,4 @@ source:
 **Requirements**:
 
 - Valid Kerberos ticket (use `kinit` before running ingestion)
-- PyKerberos package installed
+- The `requests-kerberos` Python package installed (`pip install requests-kerberos`)

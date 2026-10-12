@@ -7,7 +7,7 @@ import prestodb.auth
 import prestodb.exceptions
 import pytest
 import requests
-from sqlalchemy import create_engine, exc, text
+from sqlalchemy import create_engine, exc, text, types as sqlalchemy_types
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.source.sql.presto_dialect import (
@@ -130,12 +130,55 @@ def test_build_presto_connect_args_passes_prestodb_args_through() -> None:
     assert kwargs["http_scheme"] == "https"
 
 
+def test_native_auth_keeps_requests_kwargs_tls_settings() -> None:
+    native_auth = prestodb.auth.BasicAuthentication("u", "test_password")
+
+    kwargs = build_presto_connect_args(
+        {
+            "host": "h",
+            "http_scheme": "https",
+            "auth": native_auth,
+            "requests_kwargs": {"verify": "/etc/ssl/presto-ca.pem"},
+        }
+    )
+
+    session = requests.Session()
+    kwargs["auth"].set_http_session(session)
+    assert session.verify == "/etc/ssl/presto-ca.pem"
+    assert isinstance(session.auth, requests.auth.HTTPBasicAuth)
+
+
+def test_presto_get_columns_maps_parameterized_types(sqlite_conn: Connection) -> None:
+    conn = cast(
+        Connection,
+        _TextConnection(
+            sqlite_conn,
+            "SELECT 'price' AS \"Column\", 'decimal(10,2)' AS \"Type\" "
+            "UNION ALL SELECT 'name', 'varchar(255)' "
+            "UNION ALL SELECT 'tags', 'array(varchar)'",
+        ),
+    )
+
+    columns = PrestoDialect().get_columns(conn, "events", schema="sch")
+
+    assert [type(c["type"]) for c in columns] == [
+        sqlalchemy_types.DECIMAL,
+        sqlalchemy_types.String,
+        sqlalchemy_types.NullType,
+    ]
+
+
 @pytest.mark.parametrize(
     "params",
     [
         {"host": "h", "requests_session": requests.Session()},
         {"host": "h", "requests_kwargs": {"proxies": {}}},
         {"host": "h", "password": "p", "requests_kwargs": {"auth": object()}},
+        {
+            "host": "h",
+            "KerberosRemoteServiceName": "presto",
+            "requests_kwargs": {"auth": object()},
+        },
         {"host": "h", "not_a_presto_arg": 1},
     ],
 )
@@ -145,13 +188,16 @@ def test_build_presto_connect_args_rejects_unsupported(params: dict) -> None:
 
 
 def test_sql_generic_registers_presto_dialect() -> None:
-    # Run in a fresh interpreter so the registration comes from sql_generic alone.
+    # Run in a fresh interpreter, and compare names rather than importing
+    # presto_dialect, so the registration can only come from sql_generic.
     script = (
         "import datahub.ingestion.source.sql.sql_generic\n"
         "import sqlalchemy\n"
-        "from datahub.ingestion.source.sql.presto_dialect import PrestoDialect\n"
         "engine = sqlalchemy.create_engine('presto://localhost:8080/hive/default')\n"
-        "assert type(engine.dialect) is PrestoDialect\n"
+        "cls = type(engine.dialect)\n"
+        "assert (cls.__module__, cls.__name__) == (\n"
+        "    'datahub.ingestion.source.sql.presto_dialect', 'PrestoDialect'\n"
+        "), cls\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True

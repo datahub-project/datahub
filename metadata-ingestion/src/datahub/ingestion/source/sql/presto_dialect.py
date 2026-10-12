@@ -39,6 +39,7 @@ _PRESTODB_CONNECT_PARAMS: Set[str] = set(
 ) - {"self", "kwargs"}
 
 _TABLE_DOES_NOT_EXIST = "Table '.*{}' does not exist"
+_LEADING_WORD = re.compile(r"^\w+")
 
 
 class PrestoDBAPI:
@@ -108,7 +109,15 @@ class _HttpSessionAuthentication(prestodb.auth.Authentication):
 def _kerberos_authentication(
     params: Dict[str, Any], host: Optional[str]
 ) -> prestodb.auth.KerberosAuthentication:
-    from requests_kerberos import OPTIONAL
+    # Imported here: requests-kerberos is an optional dependency (it needs the
+    # system Kerberos libraries) that only Kerberos connections use.
+    try:
+        from requests_kerberos import OPTIONAL
+    except ImportError as e:
+        raise ImportError(
+            "Presto Kerberos authentication requires requests-kerberos. "
+            "Install it with: pip install requests-kerberos"
+        ) from e
 
     # requests-kerberos reads the keytab and credential cache only from the
     # environment, as PyHive did; these are file locations, not secrets.
@@ -159,16 +168,21 @@ def build_presto_connect_args(params: Dict[str, Any]) -> Dict[str, Any]:
     protocol = params.pop("protocol", None)
     session_props = params.pop("session_props", None)
     requests_kwargs = dict(params.pop("requests_kwargs", None) or {})
+    native_auth = params.pop("auth", None)
 
+    use_kerberos = params.get("KerberosRemoteServiceName") is not None
+    if "auth" in requests_kwargs and (use_kerberos or password is not None):
+        raise ValueError(
+            "requests_kwargs authentication cannot be combined with a password "
+            "or Kerberos authentication"
+        )
     auth: Optional[prestodb.auth.Authentication] = None
-    if params.get("KerberosRemoteServiceName") is not None:
+    if use_kerberos:
         auth = _kerberos_authentication(params, host)
     elif password is not None:
-        if "auth" in requests_kwargs:
-            raise ValueError(
-                "Cannot use both password and requests_kwargs authentication"
-            )
         auth = prestodb.auth.BasicAuthentication(username, password)
+    if native_auth is not None:
+        auth = native_auth
 
     unknown_requests_kwargs = sorted(set(requests_kwargs) - _ALLOWED_REQUESTS_KWARGS)
     if unknown_requests_kwargs:
@@ -201,7 +215,7 @@ def build_presto_connect_args(params: Dict[str, Any]) -> Dict[str, Any]:
             cert=requests_kwargs.get("cert"),
         )
     if auth is not None:
-        kwargs.setdefault("auth", auth)
+        kwargs["auth"] = auth
     return kwargs
 
 
@@ -226,6 +240,8 @@ PRESTO_TYPE_MAP: Dict[str, Type[types.TypeEngine]] = {
     "timestamp": types.TIMESTAMP,
     "date": types.DATE,
     "varbinary": types.VARBINARY,
+    "char": types.String,
+    "decimal": types.DECIMAL,
 }
 
 
@@ -389,7 +405,11 @@ class PrestoDialect(default.DefaultDialect):
         result: List[ReflectedColumn] = []
         for row in self._get_table_columns(connection, table_name, schema):
             mapping = row._mapping
-            coltype = PRESTO_TYPE_MAP.get(mapping["Type"])
+            # Match on the base name: "decimal(10,2)" -> "decimal".
+            base_type = _LEADING_WORD.match(mapping["Type"] or "")
+            coltype = PRESTO_TYPE_MAP.get(
+                base_type.group(0).lower() if base_type else ""
+            )
             if coltype is None:
                 util.warn(
                     f"Did not recognize type '{mapping['Type']}' of column "
