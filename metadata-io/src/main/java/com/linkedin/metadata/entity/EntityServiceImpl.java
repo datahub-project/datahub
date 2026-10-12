@@ -1815,9 +1815,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               }
 
                               // Database Upsert successfully validated results
-                              log.debug(
-                                  "Ingesting aspects batch to database: {}",
-                                  AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              if (log.isDebugEnabled()) {
+                                log.debug(
+                                    "Ingesting aspects batch to database: {}",
+                                    AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              }
 
                               List<UpdateAspectResult> upsertResults =
                                   exceptions
@@ -4677,9 +4679,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // Database Upsert successfully validated results
-    log.debug(
-        "Ingesting aspects batch to database: {}",
-        AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Ingesting aspects batch to database: {}",
+          AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    }
 
     final List<AspectWriteResult> writeResults = new ArrayList<>();
     final List<UpdateAspectResult> upsertResults = new ArrayList<>();
