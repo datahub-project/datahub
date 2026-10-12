@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
@@ -57,6 +58,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
+    SHARDED_TABLE_BASE_STRIP_REGEX,
     BigqueryQuery,
     BigqueryTableType,
 )
@@ -1501,6 +1503,12 @@ def test_build_sharded_stats_clauses_sums_across_shards() -> None:
         partition["active_billable_select"]
         == "COALESCE(sh.active_billable_bytes, p.active_billable_bytes)"
     )
+    # Long-term billable bytes must also roll up over the shards, not stay on the latest
+    # shard; a regression that drops this COALESCE would still pass the active-only checks.
+    assert (
+        partition["long_term_billable_select"]
+        == "IFNULL(COALESCE(sh.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
+    )
     assert "INFORMATION_SCHEMA.PARTITIONS" in partition["shard_stats_join"]
     assert "sum(total_rows) as total_rows" in partition["shard_stats_join"]
     assert "sum(total_logical_bytes) as total_bytes" in partition["shard_stats_join"]
@@ -1523,10 +1531,59 @@ def test_build_sharded_stats_clauses_sums_across_shards() -> None:
         legacy["active_billable_select"]
         == "COALESCE(shb.active_billable_bytes, p.active_billable_bytes)"
     )
+    # Long-term bytes come from the second PARTITIONS rollup `shb` in the legacy path.
+    assert (
+        legacy["long_term_billable_select"]
+        == "IFNULL(COALESCE(shb.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
+    )
     assert "__TABLES__" in legacy["shard_stats_join"]
     assert "sum(size_bytes) as total_bytes" in legacy["shard_stats_join"]
     assert "as shb on" in legacy["shard_stats_join"]
     assert "then total_billable_bytes" in legacy["shard_stats_join"]
+
+
+def _sql_shard_base(table_name: str) -> str:
+    # Mirrors the BigQuery REGEXP_REPLACE(name, SHARDED_TABLE_BASE_STRIP_REGEX, r"\1")
+    # that the rollup emits, so the grouping key can be exercised in pure Python.
+    return re.sub(
+        SHARDED_TABLE_BASE_STRIP_REGEX, r"\1", table_name, flags=re.IGNORECASE
+    )
+
+
+def test_shard_base_regex_matches_python_shard_matcher() -> None:
+    # The SQL rollup must group exactly the shards the Python collapse logic groups:
+    # over-grouping would sum unrelated tables' rows/bytes onto a family, under-grouping
+    # would miss siblings. A trailing YYYYMMDD is a shard suffix only when preceded by a
+    # non-digit, so `events_20250101` / `events20250101` collapse but `orders120250101`
+    # (digit before the date) stays distinct.
+    matcher = BigQueryShardPatternMatcher()
+
+    def is_sharded(name: str) -> bool:
+        _, shard = BigqueryTableIdentifier.get_table_and_shard(name, matcher)
+        return shard is not None
+
+    # Shards collapse to a single base; the SQL key is stable across the family and the
+    # self-exclusion (`name != base`) holds because the shard name keeps its date.
+    for family, shards in {
+        "events": ["events_20250101", "events_20250102"],
+        "orders1": ["orders1_20250101", "orders1_20250615"],
+    }.items():
+        bases = {_sql_shard_base(s) for s in shards}
+        assert len(bases) == 1, f"{family} shards must share one rollup key: {bases}"
+        for s in shards:
+            assert is_sharded(s)
+            assert _sql_shard_base(s) != s
+
+    # A digit immediately before the date is NOT a shard: it must not share a key with the
+    # real `orders1` family, and it must be left untouched (no rollup, own stats kept).
+    assert not is_sharded("orders120250101")
+    assert _sql_shard_base("orders120250101") == "orders120250101"
+    assert _sql_shard_base("orders120250101") != _sql_shard_base("orders1_20250101")
+
+    # An un-sharded name is left unchanged, so its `name == base` self-exclusion keeps it
+    # on its own per-table stats.
+    assert not is_sharded("customers")
+    assert _sql_shard_base("customers") == "customers"
 
 
 def test_make_bigquery_table_null_partition_stats() -> None:

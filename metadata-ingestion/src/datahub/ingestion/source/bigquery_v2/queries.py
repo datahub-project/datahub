@@ -7,13 +7,33 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_UNPARTITIONED_PARTITION_ID,
 )
 
-# Strips a trailing date shard suffix (`_20251121`, `$20251121`, `20251121`) from a
-# BigQuery table name to recover the logical wildcard table's base name. Kept in sync with
-# the `table_base` expressions embedded in the stats query templates below and used to sum
-# per-shard stats back onto the single collapsed entity (see build_sharded_stats_clauses).
+# Collapses a date-sharded BigQuery table name (`events_20251121`, `events$20251121`,
+# `events20251121`) to its logical wildcard base so per-shard stats can be summed back onto
+# the single collapsed entity (see build_sharded_stats_clauses). A trailing YYYYMMDD counts
+# as a shard suffix ONLY when preceded by a non-digit, mirroring the Python shard matcher
+# (_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX / extract_base_table_name in bigquery_audit.py):
+# `orders1_20250101` collapses to `orders1`, but `orders120250101` (digit before the date)
+# is a distinct table and must not be merged into another family's totals.
+# ponytail: when the character before the separator is a digit (e.g. `orders1_20250101`),
+# the captured base keeps the trailing `_`/`$` (-> `orders1_`) rather than Python's
+# rstrip("_") form (`orders1`). This base is only ever used internally as the GROUP BY /
+# join key and is applied identically to every shard of the family, so the rollup still
+# groups and sums the exact same shards - it just differs cosmetically from the Python
+# base string, which is never compared against it. Upgrade path: wrap in a second
+# REGEXP_REPLACE(..., r"[_$]+$", "") if exact base-string parity is ever required.
 SHARDED_TABLE_BASE_STRIP_REGEX = (
-    r"(?:[_$]?)(\d\d\d\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$"
+    r"^(.*?\D)[_$]?(\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+def sharded_table_base_expr(column: str) -> str:
+    """SQL expression that reduces a shard name to its wildcard base.
+
+    Single source of truth for both the entity-grouping key and the rollup subqueries in
+    build_sharded_stats_clauses, so they can never drift apart and aggregate a different
+    set of shards than the collapse logic groups together.
+    """
+    return f'REGEXP_REPLACE({column}, r"{SHARDED_TABLE_BASE_STRIP_REGEX}", r"\\1")'
 
 
 class BigqueryTableType:
@@ -437,8 +457,7 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
                 "shard_stats_join": "",
             }
 
-        regex = SHARDED_TABLE_BASE_STRIP_REGEX
-        table_base = f'REGEXP_REPLACE(t.table_name, r"{regex}", "")'
+        table_base = sharded_table_base_expr("t.table_name")
         billable_rollup = (
             "\n        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes"
             " else 0 end) as long_term_billable_bytes,"
@@ -453,7 +472,7 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
             shard_stats_join = f"""
   left join (
     select
-        REGEXP_REPLACE({name_col}, r"{regex}", "") as table_base,
+        {sharded_table_base_expr(name_col)} as table_base,
         sum({src_rows}) as total_rows,
         sum({src_bytes}) as total_bytes
     from
@@ -464,7 +483,7 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     and t.table_name != {table_base}
   left join (
     select
-        REGEXP_REPLACE(table_name, r"{regex}", "") as table_base,{billable_rollup}
+        {sharded_table_base_expr("table_name")} as table_base,{billable_rollup}
     from
         `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
     group by
@@ -477,7 +496,7 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
             shard_stats_join = f"""
   left join (
     select
-        REGEXP_REPLACE({name_col}, r"{regex}", "") as table_base,
+        {sharded_table_base_expr(name_col)} as table_base,
         sum({src_rows}) as total_rows,
         sum({src_bytes}) as total_bytes,{billable_rollup}
     from
