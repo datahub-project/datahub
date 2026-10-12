@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -59,8 +60,8 @@ public class RollbackServiceFactoryTest {
     row.setRunId(RUN_ID);
     row.setKeyAspect(false);
     final List<AspectRowSummary> rows = new ArrayList<>(List.of(row));
-    when(systemMetadataService.findByRunId(
-            any(OperationContext.class), eq(RUN_ID), eq(false), anyInt(), anyInt()))
+    when(systemMetadataService.findByRunIdAfter(
+            any(OperationContext.class), eq(RUN_ID), eq(false), isNull(), anyInt()))
         .thenReturn(rows);
     when(entityService.rollbackRun(any(), anyList(), eq(RUN_ID), eq(false)))
         .thenReturn(new RollbackRunResult(rows, 0, Collections.emptyList()));

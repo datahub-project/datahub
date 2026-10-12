@@ -67,11 +67,11 @@ public class RollbackService {
 
   public List<AspectRowSummary> rollbackTargetAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
-    return systemMetadataService.findByRunId(
+    return systemMetadataService.findByRunIdAfter(
         opContext,
         runId,
         hardDelete,
-        0,
+        null,
         systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
   }
 
@@ -210,17 +210,18 @@ public class RollbackService {
       final List<AspectRowSummary> allKeyAspects = new ArrayList<>();
       aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).forEach(allKeyAspects::add);
 
-      // since elastic limits how many rows we can access at once, we need to iteratively
-      // delete
+      // Page through the run's rows once, in (urn, aspect) order, each page starting after the
+      // last row of the one before. Rows left in place (an entity kept because others wrote to it)
+      // keep this run's id in the index; re-reading from the start would return them forever.
       while (aspectRowsToDelete.size()
           >= systemMetadataServiceConfig.getLimit().getResults().getApiDefault()) {
-        sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
+        pauseBetweenPages();
         aspectRowsToDelete =
-            systemMetadataService.findByRunId(
+            systemMetadataService.findByRunIdAfter(
                 opContext,
                 runId,
                 hardDelete,
-                0,
+                aspectRowsToDelete.get(aspectRowsToDelete.size() - 1),
                 systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
@@ -250,7 +251,12 @@ public class RollbackService {
       // subtracting again would double-count to 0. Dry-run keeps the subtract below.
       int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
 
-      final long entitiesDeleted = allKeyAspects.size();
+      // A hard rollback can keep an entity others wrote to, so count the keys it removed. A soft
+      // rollback marks every key row's entity removed without rolling the key row back.
+      final long entitiesDeleted =
+          hardDelete
+              ? deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count()
+              : allKeyAspects.size();
       final long affectedEntities =
           deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
@@ -411,11 +417,13 @@ public class RollbackService {
         .setUnsafeEntities(new UnsafeEntityInfoArray());
   }
 
-  private static void sleep(int seconds) {
+  /** Spaces out the pages; an interrupt (the job was cancelled) stops the rollback. */
+  void pauseBetweenPages() {
     try {
-      TimeUnit.SECONDS.sleep(seconds);
+      TimeUnit.SECONDS.sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
     } catch (InterruptedException e) {
-      log.error("Rollback sleep exception", e);
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Rollback was interrupted between pages", e);
     }
   }
 }

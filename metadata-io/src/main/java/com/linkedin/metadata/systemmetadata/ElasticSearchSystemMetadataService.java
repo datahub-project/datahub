@@ -15,6 +15,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -190,6 +191,25 @@ public class ElasticSearchSystemMetadataService
       @Nullable Integer size) {
     return findByParams(
         opContext, Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
+  }
+
+  @Override
+  public List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      @Nullable Integer size) {
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(FIELD_RUNID, runId));
+    // scroll sorts by (urn, aspect), one document per pair, so the last row is the cursor.
+    final String scrollId =
+        after == null
+            ? null
+            : new SearchAfterWrapper(new Object[] {after.getUrn(), after.getAspectName()}, null, 0L)
+                .toScrollId();
+    return toAspectRowSummary(
+        _esDAO.scroll(opContext, query, includeSoftDeleted, scrollId, null, null, size));
   }
 
   @Override

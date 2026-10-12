@@ -1351,6 +1351,38 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
     assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, infoName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, statusName));
+  }
+
+  @Test
+  public void testHardRollbackOfAKeptEntityStillRemovesTheRunsOwnAspects() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeptEntityLosesOwnAspects");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-kept-own");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-kept-own");
+    CorpUserInfo overwrite = AspectGenerationUtils.createCorpUserInfo("overwrite@test.com");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, new CorpUserEditableInfo().setAboutMe("about"), runA);
+    ingestForRollback(urn, infoName, overwrite, runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-kept-own"),
+            rollbackRow(urn, infoName, "run-a-kept-own"),
+            rollbackRow(urn, editableName, "run-a-kept-own")),
+        "run-a-kept-own",
+        true);
+
+    // Run B's write keeps the entity and its own value, but run A's other aspect still goes.
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            overwrite, _entityServiceImpl.getLatestAspect(opContext, urn, infoName)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, editableName));
   }
 
   @Test
