@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.HttpProxySettings;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
@@ -129,6 +130,38 @@ public class SearchClusterConnectionIdentityTest {
   }
 
   @Test
+  public void testDifferentExplicitProxyIsADistinctConnection() {
+    SearchClusterSettings a =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .proxy(HttpProxySettings.builder().host("proxy-a").port(8080).build())
+            .build();
+    SearchClusterSettings b =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .proxy(HttpProxySettings.builder().host("proxy-b").port(8080).build())
+            .build();
+
+    assertNotEquals(
+        SearchClientShimFactory.connectionIdentity("primary", a),
+        SearchClientShimFactory.connectionIdentity("secondary", b));
+  }
+
+  @Test
+  public void testDisablingSystemProxyIsADistinctConnection() {
+    SearchClusterSettings a = SearchClusterSettings.builder().uri("http://search:9200").build();
+    SearchClusterSettings b =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .proxy(HttpProxySettings.builder().useSystemProxyProperties(false).build())
+            .build();
+
+    assertNotEquals(
+        SearchClientShimFactory.connectionIdentity("primary", a),
+        SearchClientShimFactory.connectionIdentity("secondary", b));
+  }
+
+  @Test
   public void testPasswordIsHashedNotEmbeddedInIdentity() {
     SearchClusterSettings cluster =
         SearchClusterSettings.builder()
@@ -139,6 +172,18 @@ public class SearchClusterConnectionIdentityTest {
 
     String identity = SearchClientShimFactory.connectionIdentity("primary", cluster);
     assertFalse(identity.contains("super-secret"));
+  }
+
+  @Test
+  public void testProxyPasswordIsHashedNotEmbeddedInIdentity() {
+    SearchClusterSettings cluster =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .proxy(HttpProxySettings.builder().host("corp-proxy").password("proxy-secret").build())
+            .build();
+
+    String identity = SearchClientShimFactory.connectionIdentity("primary", cluster);
+    assertFalse(identity.contains("proxy-secret"));
   }
 
   @Test

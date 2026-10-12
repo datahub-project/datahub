@@ -7,6 +7,7 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
 
 MODULE_PATH = Path(__file__).resolve().parent.parent / "utils" / "linear_sync_utils.py"
 spec = importlib.util.spec_from_file_location("linear_sync_utils", MODULE_PATH)
@@ -65,12 +66,50 @@ def test_resolve_issue_create_state_id_uses_explicit_id_without_graphql():
     )
 
 
-def test_issue_graphql_label_ids_from_mocked_graphql(monkeypatch):
+def test_issue_labels_with_parents_from_mocked_graphql(monkeypatch):
     def fake_graphql(_api_key, _query, _variables):
-        return {"issue": {"labels": {"nodes": [{"id": "L1"}, {"id": "L2"}]}}}
+        return {
+            "issue": {
+                "labels": {
+                    "nodes": [
+                        {"id": "L1", "parent": {"id": "G1"}},
+                        {"id": "L2", "parent": None},
+                    ]
+                }
+            }
+        }
 
     monkeypatch.setattr(utils, "graphql", fake_graphql)
-    assert utils.issue_graphql_label_ids("k", "I1") == ["L1", "L2"]
+    assert utils.issue_labels_with_parents("k", "I1") == [
+        utils.IssueLabelRef("L1", "G1"),
+        utils.IssueLabelRef("L2", None),
+    ]
+
+
+def test_label_ids_replacing_group_sibling_drops_only_same_group_child():
+    current = [
+        utils.IssueLabelRef("static", None),
+        utils.IssueLabelRef("old-ref", "scan-group"),
+        utils.IssueLabelRef("release", "release-group"),
+    ]
+    assert utils.label_ids_replacing_group_sibling(current, "new-ref", "scan-group") == [
+        "static",
+        "release",
+        "new-ref",
+    ]
+    # Re-applying the same child is a no-op in content.
+    assert utils.label_ids_replacing_group_sibling(current, "old-ref", "scan-group") == [
+        "static",
+        "old-ref",
+        "release",
+    ]
+    # An ungrouped reused label is added without dropping either group's child.
+    assert utils.label_ids_replacing_group_sibling(current, "legacy", None) == [
+        "static",
+        "old-ref",
+        "release",
+        "legacy",
+    ]
 
 
 def test_random_label_color_hex_format():
@@ -78,95 +117,116 @@ def test_random_label_color_hex_format():
     assert re.fullmatch(r"#[0-9a-f]{6}", color)
 
 
-def test_find_team_label_by_name_from_mocked_graphql(monkeypatch):
-    def fake_graphql(_api_key, _query, variables):
-        assert variables["teamId"] == "team-1"
-        assert variables["name"] == "main"
-        return {"issueLabels": {"nodes": [{"id": "LBL-1", "name": "main"}]}}
+def test_find_label_group_id_scopes_to_workspace_or_team(monkeypatch):
+    seen: list[tuple[str, dict]] = []
+
+    def fake_graphql(_api_key, query, variables):
+        seen.append((query, variables))
+        return {"issueLabels": {"nodes": [{"id": "GRP"}]}}
 
     monkeypatch.setattr(utils, "graphql", fake_graphql)
-    assert utils.find_team_label_by_name("k", "team-1", "main") == "LBL-1"
+    assert utils.find_label_group_id("k", "OSS Release") == "GRP"
+    assert utils.find_label_group_id("k", "Security Scan", "team-1") == "GRP"
+    ws_query, ws_vars = seen[0]
+    team_query, team_vars = seen[1]
+    assert "team: { null: true }" in ws_query and ws_vars == {"name": "OSS Release"}
+    assert "team: { id: { eq: $teamId } }" in team_query
+    assert team_vars == {"name": "Security Scan", "teamId": "team-1"}
 
 
-def test_find_workspace_label_by_name_from_mocked_graphql(monkeypatch):
-    def fake_graphql(_api_key, _query, variables):
-        assert variables == {"name": "v1.0.1-cloud"}
-        return {"issueLabels": {"nodes": [{"id": "LBL-W", "name": "v1.0.1-cloud"}]}}
-
-    monkeypatch.setattr(utils, "graphql", fake_graphql)
-    assert utils.find_workspace_label_by_name("k", "v1.0.1-cloud") == "LBL-W"
-
-
-def test_create_team_label_includes_team_id_and_color(monkeypatch):
-    seen: dict[str, object] = {}
+def test_create_group_child_label_sets_parent_and_optional_team(monkeypatch):
+    seen: list[dict] = []
 
     def fake_graphql(_api_key, _query, variables):
-        seen["vars"] = variables
-        return {"issueLabelCreate": {"success": True, "issueLabel": {"id": "LBL-NEW"}}}
+        seen.append(variables)
+        return {"issueLabelCreate": {"success": True, "issueLabel": {"id": "LBL"}}}
 
     monkeypatch.setattr(utils, "graphql", fake_graphql)
-    label_id = utils.create_team_label("k", "team-7", "release-1", "#12abef")
-    assert label_id == "LBL-NEW"
-    assert seen["vars"] == {
-        "input": {"teamId": "team-7", "name": "release-1", "color": "#12abef"}
-    }
+    utils.create_group_child_label("k", "GRP", "v1.0.0", "#abcdef")
+    utils.create_group_child_label("k", "GRP", "sha-abc", "#abcdef", "team-1")
+    assert seen[0] == {"input": {"name": "v1.0.0", "parentId": "GRP", "color": "#abcdef"}}
+    assert seen[1]["input"]["teamId"] == "team-1"
+    assert seen[1]["input"]["parentId"] == "GRP"
 
 
-def test_create_workspace_label_omits_team_id(monkeypatch):
-    seen: dict[str, object] = {}
-
-    def fake_graphql(_api_key, _query, variables):
-        seen["vars"] = variables
-        return {"issueLabelCreate": {"success": True, "issueLabel": {"id": "LBL-G"}}}
-
-    monkeypatch.setattr(utils, "graphql", fake_graphql)
-    label_id = utils.create_workspace_label("k", "v1.0.0", "#abcdef")
-    assert label_id == "LBL-G"
-    assert seen["vars"] == {"input": {"name": "v1.0.0", "color": "#abcdef"}}
-
-
-def test_get_or_create_workspace_label_id_reuses_existing(monkeypatch):
-    monkeypatch.setattr(
-        utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: "LBL-EXIST"
+def test_get_or_create_label_group_id_respects_create_if_missing(monkeypatch):
+    monkeypatch.setattr(utils, "find_label_group_id", lambda *_a, **_k: None)
+    monkeypatch.setattr(utils, "create_label_group", lambda *_a, **_k: "NEW-GRP")
+    assert (
+        utils.get_or_create_label_group_id("k", "Security Scan", "team-1", create_if_missing=True)
+        == "NEW-GRP"
     )
-    called = {"create": False}
-
-    def fake_create(*_args, **_kwargs):
-        called["create"] = True
-        return "LBL-NEW"
-
-    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
-    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-EXIST"
-    assert called["create"] is False
+    with pytest.raises(RuntimeError, match="OSS Release"):
+        utils.get_or_create_label_group_id("k", "OSS Release", create_if_missing=False)
 
 
-def test_get_or_create_workspace_label_id_creates_when_missing(monkeypatch):
-    monkeypatch.setattr(utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(utils, "random_label_color_hex", lambda: "#00ff00")
-
-    def fake_create(_api_key, _label_name, color_hex):
-        assert color_hex == "#00ff00"
-        return "LBL-NEW"
-
-    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
-    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-NEW"
-
-
-def test_get_or_create_workspace_label_id_recovers_after_duplicate(monkeypatch):
+def test_get_or_create_label_group_id_recovers_after_duplicate(monkeypatch):
     calls = {"n": 0}
 
-    def find_twice(_api_key, _name):
+    def find_twice(*_args, **_kwargs):
         calls["n"] += 1
-        return "LBL-RACE" if calls["n"] >= 2 else None
+        return "GRP-RACE" if calls["n"] >= 2 else None
 
-    monkeypatch.setattr(utils, "find_workspace_label_by_name", find_twice)
+    monkeypatch.setattr(utils, "find_label_group_id", find_twice)
 
     def fake_create(*_args, **_kwargs):
         raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
 
-    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
-    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-RACE"
+    monkeypatch.setattr(utils, "create_label_group", fake_create)
+    assert (
+        utils.get_or_create_label_group_id("k", "Security Scan", "team-1", create_if_missing=True)
+        == "GRP-RACE"
+    )
     assert calls["n"] == 2
+
+
+def test_get_or_create_group_child_label_id_recovers_after_duplicate(monkeypatch):
+    calls = {"n": 0}
+
+    def find_twice(_api_key, _group_id, _name):
+        calls["n"] += 1
+        return "LBL-RACE" if calls["n"] >= 2 else None
+
+    monkeypatch.setattr(utils, "find_group_child_label_id", find_twice)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: None)
+
+    def fake_create(*_args, **_kwargs):
+        raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
+
+    monkeypatch.setattr(utils, "create_group_child_label", fake_create)
+    assert utils.get_or_create_group_child_label_id("k", "GRP", "main") == utils.ResolvedLabel(
+        "LBL-RACE", "GRP"
+    )
+    assert calls["n"] == 2
+
+
+def test_get_or_create_group_child_label_id_reuses_name_taken_elsewhere(monkeypatch):
+    monkeypatch.setattr(utils, "find_group_child_label_id", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        utils,
+        "find_label_id_by_name",
+        lambda *_a, **_k: utils.ResolvedLabel("LBL-EXISTING", "OTHER"),
+    )
+
+    def fake_create(*_args, **_kwargs):
+        raise AssertionError("create should not run when the label name already exists")
+
+    monkeypatch.setattr(utils, "create_group_child_label", fake_create)
+    assert utils.get_or_create_group_child_label_id("k", "GRP", "v1.6.0.3") == utils.ResolvedLabel(
+        "LBL-EXISTING", "OTHER"
+    )
+
+
+def test_get_or_create_group_child_label_id_reraises_when_name_still_missing(monkeypatch):
+    monkeypatch.setattr(utils, "find_group_child_label_id", lambda *_a, **_k: None)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: None)
+
+    def fake_create(*_args, **_kwargs):
+        raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
+
+    monkeypatch.setattr(utils, "create_group_child_label", fake_create)
+    with pytest.raises(RuntimeError, match="duplicate label name"):
+        utils.get_or_create_group_child_label_id("k", "GRP", "v2.3.0-cloud")
 
 
 def test_attach_file_to_issue_uploads_then_attaches(monkeypatch, tmp_path: Path):

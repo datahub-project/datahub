@@ -84,6 +84,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.SystemMetadata;
@@ -185,6 +186,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private DeleteEntityService deleteEntityService;
 
   @Inject
+  @Named("reliableHardDelete")
+  private ReliableHardDelete reliableHardDelete;
+
+  @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
 
@@ -216,6 +221,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @VisibleForTesting
   void setAuthorizer(Authorizer authorizer) {
     this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setReliableHardDelete(ReliableHardDelete reliableHardDelete) {
+    this.reliableHardDelete = reliableHardDelete;
   }
 
   @VisibleForTesting
@@ -1135,9 +1145,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
           DeleteEntityResponse response = new DeleteEntityResponse();
           if (aspectName == null) {
-            RollbackRunResult result = entityService.deleteUrn(opContext, urn);
-            Integer rows = result.getRowsDeletedFromEntityDeletion();
-            response.setRows(rows != null ? rows.longValue() : 0L);
+            if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
+              response.setRows(reliableHardDelete.delete(opContext, urn).rowsDeleted());
+            } else {
+              RollbackRunResult result = entityService.deleteUrn(opContext, urn);
+              Integer rows = result.getRowsDeletedFromEntityDeletion();
+              response.setRows(rows != null ? rows.longValue() : 0L);
+            }
           }
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(

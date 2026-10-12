@@ -2,6 +2,15 @@
 
 We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
+## Setting Up Your Development Environment
+
+To build DataHub from source and run your local changes:
+
+1. Follow the [Developer's Guide](developers.md) to install the required tools and build the project.
+2. Use [Using Docker Images During Development](docker/development.md) to run your local build (for example, `./gradlew quickstartDebug`) and reload changes as you work.
+
+Just want to try DataHub without building it? Use the [Quickstart Guide](quickstart.md) instead.
+
 ## Provide Feedback
 
 Have ideas about how to make DataHub better? Head over to [DataHub Feature Requests](https://feature-requests.datahubproject.io/) and tell us all about it!

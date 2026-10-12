@@ -51,7 +51,7 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
             log.debug(
                 "User {} is not authorized to view usage information for dataset {}",
                 context.getActorUrn(),
-                resourceUrn.toString());
+                resourceUrn);
             return null;
           }
           final boolean sqlQueriesRestricted = isTopSqlQueriesRestricted(context, resourceUrn);

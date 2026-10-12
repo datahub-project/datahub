@@ -24,13 +24,30 @@ class _FakeResult:
     def __iter__(self):
         return iter(self._rows)
 
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeConnection:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def execute(self, *args, **kwargs):
+        return _FakeResult(self._rows)
+
 
 class _FakeEngine:
     def __init__(self, rows):
         self._rows = rows
 
-    def execute(self, *args, **kwargs):
-        return _FakeResult(self._rows)
+    def connect(self):
+        return _FakeConnection(self._rows)
 
 
 def _make_config():

@@ -16,35 +16,25 @@ const Card = styled.div<{ isCompact?: boolean }>`
 `;
 
 type Props = {
-    urn?: string;
     query: string;
     title?: string;
     description?: string;
     createdAtMs?: number;
-    showDelete?: boolean;
-    showEdit?: boolean;
     showDetails?: boolean;
     showHeader?: boolean;
-    onDeleted?: () => void;
     onClickExpand?: () => void;
-    onClickEdit?: () => void;
     index?: number;
     isCompact?: boolean;
 };
 
 export default function QueryCard({
-    urn,
     query,
     title,
     description,
     createdAtMs,
-    showDelete,
-    showEdit,
     showDetails = true,
     showHeader = true,
-    onDeleted,
     onClickExpand,
-    onClickEdit,
     index,
     isCompact,
 }: Props) {
@@ -62,16 +52,10 @@ export default function QueryCard({
             />
             {showDetails && (
                 <QueryCardDetails
-                    urn={urn}
                     title={title}
                     description={description}
                     createdAtMs={createdAtMs}
-                    showEdit={showEdit}
-                    showDelete={showDelete}
-                    onDeleted={onDeleted}
-                    onClickEdit={onClickEdit}
                     onClickExpand={onClickExpand}
-                    index={index}
                 />
             )}
         </Card>

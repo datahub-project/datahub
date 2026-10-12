@@ -20,6 +20,14 @@ The figures below describe the high-level architecture of DataHub.
 
 For a more detailed look at the components that make up the Architecture, check out [Components](../components.md).
 
+## At a Glance
+
+- ✅ **Streaming-First:** Real-time metadata updates via Kafka
+- ✅ **API-First:** All features accessible via APIs
+- ✅ **Extensible:** Plugin architecture for custom entity types
+- ✅ **Scalable:** Proven to 10M+ assets and O(1B) relationships at LinkedIn and other companies in production
+- ✅ **Cloud-Native:** Designed for Kubernetes deployment
+
 ## Architecture Highlights
 
 There are three main highlights of DataHub's architecture.

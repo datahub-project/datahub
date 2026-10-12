@@ -27,6 +27,7 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
@@ -156,6 +157,7 @@ public class SearchTestUtils {
                   .numReplicas(1)
                   .numRetries(3)
                   .refreshIntervalSeconds(3)
+                  .refreshIntervals(RefreshIntervals.allServices(3))
                   .maxArrayLength(1000)
                   .maxObjectKeys(1000)
                   .maxValueLength(4096)

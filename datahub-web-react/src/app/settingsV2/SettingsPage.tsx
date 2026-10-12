@@ -12,7 +12,7 @@ import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import React, { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
+import { Redirect, Route, Switch, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
 
 import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
@@ -116,7 +116,6 @@ const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
-    const history = useHistory();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const subscriptionsEnabled = false;
     const me = useUserContext();
@@ -321,13 +320,7 @@ const SettingsPageContent = () => {
                 </NavBarHeader>
                 <NavBarDivider />
                 <NavBarMenuContainer $isCollapsed={isCollapsed}>
-                    <NavBarMenu
-                        isCollapsed={isCollapsed}
-                        selectedKey={activePath}
-                        menu={menuItems}
-                        iconSize={16}
-                        onSelect={(key) => history.push(`${url}/${key}`)}
-                    />
+                    <NavBarMenu isCollapsed={isCollapsed} selectedKey={activePath} menu={menuItems} iconSize={16} />
                 </NavBarMenuContainer>
             </NavBarContainer>
             {/* Main Content */}

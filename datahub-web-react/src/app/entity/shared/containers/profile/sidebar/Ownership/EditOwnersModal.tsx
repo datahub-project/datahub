@@ -206,6 +206,8 @@ export const EditOwnersModal = ({
                     : t('sidebar.ownership.removeOwnersTitle'))
             }
             open
+            // Matching the z-index with the dropdown
+            zIndex={1050}
             onCancel={onModalClose}
             keyboard
             footer={

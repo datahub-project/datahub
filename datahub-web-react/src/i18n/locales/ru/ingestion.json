@@ -46,6 +46,7 @@
     "executions.someHidden": "Некоторые запуски могут быть скрыты",
     "executions.summaryAborted": "Задача загрузки была прервана из-за перезапуска воркера.",
     "executions.summaryCancelled": "Загрузка была отменена.",
+    "executions.summaryDuplicate": "Задача загрузки была отменена, так как уже существует другой экземпляр этой задачи.",
     "executions.summaryFailure": "Загрузка не завершилась или завершилась с ошибками.",
     "executions.summaryRollbackFailed": "Откат загрузки не удался.",
     "executions.summaryRolledBack": "Загрузка была откачена.",

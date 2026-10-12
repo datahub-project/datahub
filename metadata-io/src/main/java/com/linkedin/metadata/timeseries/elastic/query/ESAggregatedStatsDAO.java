@@ -443,7 +443,7 @@ public class ESAggregatedStatsDAO {
             .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
 
     try {
       final SearchResponse searchResponse =

@@ -133,6 +133,7 @@ export const Table = <T,>({
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
                                                     <SortIconsContainer
+                                                        data-testid={`sort-${column.key}`}
                                                         onClick={() =>
                                                             handleActiveSort(
                                                                 column.key,
@@ -170,6 +171,7 @@ export const Table = <T,>({
                                             {column.title}
                                             {column.sorter && ( // Render sort icons if the column is sortable
                                                 <SortIconsContainer
+                                                    data-testid={`sort-${column.key}`}
                                                     onClick={() =>
                                                         handleActiveSort(
                                                             column.key,

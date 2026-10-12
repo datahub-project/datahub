@@ -11,7 +11,6 @@ import com.linkedin.metadata.queue.QueueMessageHeader;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
 import com.linkedin.metadata.queue.QueueTopicMetadata;
 import com.linkedin.metadata.registry.SchemaRegistryService;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -96,35 +95,6 @@ public class PgQueueEventProducer extends EventProducer {
   @Override
   public void flush() {
     // pgQueue writes are synchronous; nothing to flush.
-  }
-
-  @Override
-  public void produceDataHubUpgradeHistoryEvent(
-      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {
-    final String topicName = topicConvention.getDataHubUpgradeHistoryTopicName();
-    final Optional<Integer> schemaIdOpt = schemaRegistryService.getSchemaIdForTopic(topicName);
-    if (schemaIdOpt.isEmpty()) {
-      log.warn(
-          "Skipping DUHE event production: schema-registry has no id for topic {}. "
-              + "Verify SchemaRegistryService is available.",
-          topicName);
-      return;
-    }
-    try {
-      final GenericRecord record = EventUtils.pegasusToAvroDUHE(event);
-      final byte[] inner = encodeConfluentAvro(record, schemaIdOpt.get());
-      final String routingKey = event.getVersion() != null ? event.getVersion() : "";
-      enqueueConfluentPayload(opContext, topicName, routingKey, inner);
-      log.info(
-          "Enqueued DataHubUpgradeHistory event to pgQueue topic {} (version={})",
-          topicName,
-          event.getVersion());
-    } catch (IOException e) {
-      log.error("Failed to serialize DataHubUpgradeHistoryEvent: {}", event, e);
-    } catch (Exception e) {
-      // Don't let a queue write failure mask the success of the upgrade itself.
-      log.error("Failed to enqueue DataHubUpgradeHistoryEvent to pgQueue topic {}", topicName, e);
-    }
   }
 
   @Override

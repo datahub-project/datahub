@@ -184,9 +184,21 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
         pipeline_manager.start_pipeline(p.name, p)
         logger.info(f"Action Pipeline with name '{p.name}' is now running.")
 
-    # Now, run forever only if we have valid pipelines
+    # Run until a shutdown signal, or until every pipeline has stopped on its own. A
+    # pipeline stops on its own when it fails, or when its source finishes (e.g. the
+    # DataHub Cloud source's kill_after_idle_timeout). Exit non-zero only for a failure,
+    # so the container runtime restarts a broken process instead of leaving it up with
+    # nothing consuming.
     while True:
         time.sleep(5)
+        if not pipeline_manager.has_running_pipelines():
+            if pipeline_manager.has_failed_pipelines():
+                logger.error(
+                    "No Action Pipeline is running any more; exiting. See the errors above for the cause."
+                )
+                sys.exit(1)
+            logger.info("All Action Pipelines have finished; exiting.")
+            sys.exit(0)
 
 
 @actions.command()

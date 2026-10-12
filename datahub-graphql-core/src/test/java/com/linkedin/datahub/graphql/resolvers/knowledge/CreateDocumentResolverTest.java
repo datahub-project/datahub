@@ -10,6 +10,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.DocumentContentInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -282,5 +284,40 @@ public class CreateDocumentResolverTest {
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     assertTrue(exception.getCause() instanceof AuthorizationException);
+  }
+
+  @Test
+  public void testCreateDocumentInvalidParentIsBadRequest() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN.toString());
+    when(mockService.createDocument(
+            any(OperationContext.class),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(SearchIndexMode.SYNC)))
+        .thenThrow(
+            new IllegalArgumentException(
+                "Parent Document with URN urn:li:document:missing does not exist"));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof DataHubGraphQLException);
+    final DataHubGraphQLException graphQLException = (DataHubGraphQLException) exception.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("does not exist"));
+    assertTrue(graphQLException.getCause() instanceof IllegalArgumentException);
   }
 }

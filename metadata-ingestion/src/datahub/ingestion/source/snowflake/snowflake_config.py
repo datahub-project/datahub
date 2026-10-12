@@ -4,12 +4,18 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -26,11 +32,15 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -186,14 +196,18 @@ class SemanticViewsConfig(ConfigModel):
 
 
 class SnowflakeFilterConfig(SQLFilterConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         AllowDenyPattern(
             deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"],
         ),
         description="Regex patterns for databases to filter in ingestion.",
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name if `match_fully_qualified_names` is enabled.",
     )
@@ -972,3 +986,22 @@ class SnowflakeV2Config(
                         f"Skipping Share {share_name}, as it does not include current platform instance {self.platform_instance}",
                     )
         return inbounds
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # SnowflakeV2Source is not a SQLAlchemySource, so the probe has no
+        # get_identifier to ask; ingestion matches table_pattern and
+        # view_pattern against `database.schema.table`. The database is the
+        # caller's --parent: a recipe spans several, so no config field
+        # names one.
+        # lazy: keeps the probe framework out of ingestion's import
+        from datahub.ingestion.source.sql.sql_probe_verdicts import (
+            qualified_table_target,
+        )
+
+        return qualified_table_target(database, schema, entity, warn)

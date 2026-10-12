@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Kopier spørringen",
-    "emptyQueries.noHighlightedQueries": "Ingen fremhevede spørringer ennå",
     "queriesTab.addHighlightedQueryButton": "Legg til spørring",
     "queriesTab.addHighlightedQueryTooltip": "Legg til en fremhevet spørring",
     "queriesTab.addUnauthorizedMessage": "Du har ikke tillatelse til å legge til spørringer for denne entiteten.",

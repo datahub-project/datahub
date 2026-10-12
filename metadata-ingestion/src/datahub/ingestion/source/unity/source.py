@@ -414,10 +414,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # table (UC and hive-metastore) can register its schema for SQL parsing.
         # The usage extractor receives this instance so unqualified table refs
         # in queries are resolved correctly.
+        # When a graph is available, the resolver lazily fetches schemas for
+        # tables not discovered by this recipe, so queries that reference
+        # tables from other catalogs can still be resolved and emitted.
         self.sql_parser_schema_resolver = SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            graph=self.ctx.graph,
         )
 
         self.init_hive_metastore_proxy()

@@ -46,6 +46,7 @@
     "executions.someHidden": "部分执行记录可能已被隐藏",
     "executions.summaryAborted": "由于工作节点重启，数据引入作业已中止。",
     "executions.summaryCancelled": "数据引入已取消。",
+    "executions.summaryDuplicate": "数据引入作业已取消，因为该作业的另一个实例已存在。",
     "executions.summaryFailure": "数据引入未能完成，或完成时存在错误。",
     "executions.summaryRollbackFailed": "数据引入回滚失败。",
     "executions.summaryRolledBack": "数据引入已回滚。",
