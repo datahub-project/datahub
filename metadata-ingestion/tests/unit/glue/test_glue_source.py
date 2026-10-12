@@ -1608,7 +1608,9 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
-                "arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                }
             },
         ),
     )
