@@ -37,6 +37,14 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     Map<String, List<Integer>> entityIndexMap = new HashMap<>();
     int index = 0;
     for (Entity entity : entities) {
+      if (entity == null) {
+        // UrnToEntityMapper returns null for urns whose entity type has no GraphQL mapping yet
+        // (e.g. an experimental entity type like aiAgent). Leave this position unresolved in
+        // finalEntityList below rather than NPEing the whole batch - the `entities` field is
+        // typed as a list of nullable Entity, so a null element here is schema-legal.
+        index++;
+        continue;
+      }
       List<Integer> indexList = new ArrayList<>();
       if (entityIndexMap.containsKey(entity.getUrn())) {
         indexList = entityIndexMap.get(entity.getUrn());
