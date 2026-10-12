@@ -6,7 +6,9 @@ import { useTrackPageView } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { lazyDefault } from '@app/shared/lazyPage';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -37,18 +39,21 @@ const ProtectedRoute = ({
  * Container for all top-level routes.
  */
 export const Routes = (): JSX.Element => {
+    const location = useLocation();
     useTrackPageView();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
 
     return (
-        <Suspense fallback={<SuspenseGlobal />}>
-            <Switch>
-                <Route path={PageRoutes.LOG_IN} component={LoginV2} exact />
-                <Route path={PageRoutes.SIGN_UP} component={SignUpV2} />
-                <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentialsV2} />
-                <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <AuthenticatedApp />} />
-                <Route path="/*" component={NoPageFound} />
-            </Switch>
-        </Suspense>
+        <ErrorBoundary fallback={() => <ErrorSection />} resetKeys={[location.pathname]}>
+            <Suspense fallback={<SuspenseGlobal />}>
+                <Switch>
+                    <Route path={PageRoutes.LOG_IN} component={LoginV2} exact />
+                    <Route path={PageRoutes.SIGN_UP} component={SignUpV2} />
+                    <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentialsV2} />
+                    <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <AuthenticatedApp />} />
+                    <Route path="/*" component={NoPageFound} />
+                </Switch>
+            </Suspense>
+        </ErrorBoundary>
     );
 };

@@ -1,11 +1,12 @@
 import React, { Suspense } from 'react';
-import { Redirect, Route, Switch } from 'react-router-dom';
+import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { SuspenseBlock } from '@app/shared/SuspenseBlock';
 import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
@@ -44,6 +45,7 @@ const ManageTags = lazyNamed(() => import('@app/tags/ManageTags'), 'ManageTags')
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -88,91 +90,96 @@ export const SearchRoutes = (): JSX.Element => {
 
     return (
         <SearchablePageV2>
-            <Suspense fallback={<SuspenseBlock />}>
-                <Switch>
-                    {/* Context Documents routes - must be before entity routes */}
-                    {isContextDocumentsEnabled && (
-                        <Route path={`${PageRoutes.DOCUMENT}/:urn`} render={() => <ContextRoutes />} />
-                    )}
-                    {isContextDocumentsEnabled && (
-                        <Route path={`${PageRoutes.CONTEXT}*`} render={() => <ContextRoutes />} />
-                    )}
-                    {entities.map((entity) => (
+            <ErrorBoundary resetKeys={[location.pathname]}>
+                <Suspense fallback={<SuspenseBlock />}>
+                    <Switch>
+                        {/* Context Documents routes - must be before entity routes */}
+                        {isContextDocumentsEnabled && (
+                            <Route path={`${PageRoutes.DOCUMENT}/:urn`} render={() => <ContextRoutes />} />
+                        )}
+                        {isContextDocumentsEnabled && (
+                            <Route path={`${PageRoutes.CONTEXT}*`} render={() => <ContextRoutes />} />
+                        )}
+                        {entities.map((entity) => (
+                            <Route
+                                key={entity.getPathName()}
+                                path={`/${entity.getPathName()}/:urn`}
+                                render={() => <EntityPageV2 entityType={entity.type} />}
+                            />
+                        ))}
+                        {metricsEnabled && (
+                            <Route
+                                path={[
+                                    `${PageRoutes.METRIC_ENTITY}/:urn`,
+                                    `${PageRoutes.SEMANTIC_MODEL_ENTITY}/:urn`,
+                                    PageRoutes.METRICS,
+                                ]}
+                                render={() => <MetricsRoutes />}
+                            />
+                        )}
                         <Route
-                            key={entity.getPathName()}
-                            path={`/${entity.getPathName()}/:urn`}
-                            render={() => <EntityPageV2 entityType={entity.type} />}
+                            path={[`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`, PageRoutes.MARKETPLACE]}
+                            render={() => <MarketplaceRoutes />}
                         />
-                    ))}
-                    {metricsEnabled && (
+                        <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
+                        <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
+                        {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
+                        <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
+                        <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                         <Route
-                            path={[
-                                `${PageRoutes.METRIC_ENTITY}/:urn`,
-                                `${PageRoutes.SEMANTIC_MODEL_ENTITY}/:urn`,
-                                PageRoutes.METRICS,
-                            ]}
-                            render={() => <MetricsRoutes />}
+                            path={PageRoutes.POLICIES}
+                            render={() => <Redirect to="/settings/permissions/policies" />}
                         />
-                    )}
-                    <Route
-                        path={[`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`, PageRoutes.MARKETPLACE]}
-                        render={() => <MarketplaceRoutes />}
-                    />
-                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
-                    <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
-                    {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
-                    <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                    <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
-                    <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
-                    <Route
-                        path={PageRoutes.SETTINGS_POLICIES}
-                        render={() => <Redirect to="/settings/permissions/policies" />}
-                    />
-                    <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
-                    <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                    {isNestedDomainsEnabled && (
-                        <Route path={`${PageRoutes.DOMAIN}*`} render={() => <DomainRoutesV2 />} />
-                    )}
-                    {!isNestedDomainsEnabled && (
-                        <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
-                    )}
+                        <Route
+                            path={PageRoutes.SETTINGS_POLICIES}
+                            render={() => <Redirect to="/settings/permissions/policies" />}
+                        />
+                        <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
+                        <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
+                        {isNestedDomainsEnabled && (
+                            <Route path={`${PageRoutes.DOMAIN}*`} render={() => <DomainRoutesV2 />} />
+                        )}
+                        {!isNestedDomainsEnabled && (
+                            <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
+                        )}
 
-                    {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
-                    {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
+                        {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
+                        {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
 
-                    <Route path={PageRoutes.SETTINGS} render={() => <SettingsPageV2 />} />
-                    <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutesV2 />} />
-                    {showStructuredProperties && (
+                        <Route path={PageRoutes.SETTINGS} render={() => <SettingsPageV2 />} />
+                        <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutesV2 />} />
+                        {showStructuredProperties && (
+                            <Route
+                                path={PageRoutes.STRUCTURED_PROPERTIES_CREATE}
+                                render={() => <StructuredPropertyFormPage />}
+                            />
+                        )}
+                        {showStructuredProperties && (
+                            <Route
+                                path={PageRoutes.STRUCTURED_PROPERTIES_EDIT}
+                                render={() => <StructuredPropertyFormPage />}
+                            />
+                        )}
+                        {showStructuredProperties && (
+                            <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
+                        )}
                         <Route
-                            path={PageRoutes.STRUCTURED_PROPERTIES_CREATE}
-                            render={() => <StructuredPropertyFormPage />}
+                            path={PageRoutes.BUSINESS_ATTRIBUTE}
+                            render={() => {
+                                if (!appConfigContextLoaded) {
+                                    return null;
+                                }
+                                if (businessAttributesFlag) {
+                                    return <BusinessAttributes />;
+                                }
+                                return <NoPageFound />;
+                            }}
                         />
-                    )}
-                    {showStructuredProperties && (
-                        <Route
-                            path={PageRoutes.STRUCTURED_PROPERTIES_EDIT}
-                            render={() => <StructuredPropertyFormPage />}
-                        />
-                    )}
-                    {showStructuredProperties && (
-                        <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
-                    )}
-                    <Route
-                        path={PageRoutes.BUSINESS_ATTRIBUTE}
-                        render={() => {
-                            if (!appConfigContextLoaded) {
-                                return null;
-                            }
-                            if (businessAttributesFlag) {
-                                return <BusinessAttributes />;
-                            }
-                            return <NoPageFound />;
-                        }}
-                    />
-                    <Route path="/mfe*" component={MFERoutes} />
-                    {me.loaded && loaded && <Route component={NoPageFound} />}
-                </Switch>
-            </Suspense>
+                        <Route path="/mfe*" component={MFERoutes} />
+                        {me.loaded && loaded && <Route component={NoPageFound} />}
+                    </Switch>
+                </Suspense>
+            </ErrorBoundary>
         </SearchablePageV2>
     );
 };
