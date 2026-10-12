@@ -2,6 +2,7 @@ import isEqual from 'lodash/isEqual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
@@ -48,6 +49,30 @@ type SearchBarFetchInputs = {
 
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
 const DEBOUNCE_MS = 300;
+
+type ViewUrn = string | null | undefined;
+
+type DefaultViewState = {
+    hasSetDefaultView: boolean;
+    personalDefaultViewUrn?: string | null;
+    globalDefaultViewUrn?: string | null;
+};
+
+/**
+ * The page-open view is the baseline. A selection already stored on mount stays the baseline.
+ * When nothing was stored, the personal (else global) default applied after load is hydration,
+ * not an edit. Any other URN is a user choice and should still fetch.
+ */
+export function resolvePageOpenViewBaseline(
+    pageOpenView: ViewUrn,
+    selectedView: ViewUrn,
+    views: DefaultViewState,
+): ViewUrn {
+    if (pageOpenView !== undefined || !views.hasSetDefaultView) return pageOpenView;
+    const appliedDefault = views.personalDefaultViewUrn || views.globalDefaultViewUrn || undefined;
+    if (selectedView === appliedDefault) return selectedView;
+    return pageOpenView;
+}
 
 const useAutocompleteAPI = (): APIResponse => {
     const [entitiesWithMatchedFields, setEntitiesWithMatchedFields] = useState<EntityWithMatchedFields[] | undefined>();
@@ -144,6 +169,7 @@ export const useSearchBarData = (
     { isActive, initialQuery, hasUserTyped }: SearchBarDataOptions,
 ): SearchResponse => {
     const { selectedView } = useSelectedView();
+    const { state } = useUserContext();
     const appConfig = useAppConfig();
     const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -176,12 +202,23 @@ export const useSearchBarData = (
         pageOpenFiltersRef.current = orFilters;
     }
     const pageOpenQueryRef = useRef(initialQuery);
-    // Same baseline as filters: the view present when the bar mounted. A later change,
-    // including one made while the input is blurred, fetches on the next focus.
+    // View present when the bar mounted. Not reset on blur: a view-button click blurs the
+    // input, and the next focus must still see that change. Default-view hydration is folded
+    // into this baseline once it matches the applied default.
     const pageOpenViewRef = useRef(selectedView);
     const lastFetchedRef = useRef<SearchBarFetchInputs | null>(null);
+    const { hasSetDefaultView, personalDefaultViewUrn, globalDefaultViewUrn } = state.views;
 
     useEffect(() => {
+        const baseline = resolvePageOpenViewBaseline(pageOpenViewRef.current, selectedView, {
+            hasSetDefaultView,
+            personalDefaultViewUrn,
+            globalDefaultViewUrn,
+        });
+        if (baseline !== pageOpenViewRef.current) {
+            pageOpenViewRef.current = baseline;
+        }
+
         if (!isActive) return;
 
         // Hold the request until the debounced query matches the current input.
@@ -199,7 +236,18 @@ export const useSearchBarData = (
 
         lastFetchedRef.current = inputs;
         updateData(debouncedQuery, orFilters, selectedView);
-    }, [debouncedQuery, hasUserTyped, isActive, orFilters, query, selectedView, updateData]);
+    }, [
+        debouncedQuery,
+        globalDefaultViewUrn,
+        hasSetDefaultView,
+        hasUserTyped,
+        isActive,
+        orFilters,
+        personalDefaultViewUrn,
+        query,
+        selectedView,
+        updateData,
+    ]);
 
     return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };

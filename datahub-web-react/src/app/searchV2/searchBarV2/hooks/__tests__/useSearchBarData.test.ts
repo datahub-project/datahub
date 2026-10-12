@@ -8,7 +8,12 @@ import { SearchBarApi } from '@src/types.generated';
 const { search, autocomplete, selectedViewState } = vi.hoisted(() => ({
     search: vi.fn(),
     autocomplete: vi.fn(),
-    selectedViewState: { urn: undefined as string | null | undefined },
+    selectedViewState: {
+        urn: undefined as string | null | undefined,
+        hasSetDefaultView: false,
+        personalDefaultViewUrn: undefined as string | null | undefined,
+        globalDefaultViewUrn: undefined as string | null | undefined,
+    },
 }));
 
 vi.mock('@src/graphql/search.generated', () => ({
@@ -22,6 +27,18 @@ vi.mock('@app/useAppConfig', () => ({
 
 vi.mock('@app/searchV2/searchBarV2/hooks/useSelectedView', () => ({
     default: () => ({ selectedView: selectedViewState.urn }),
+}));
+
+vi.mock('@app/context/useUserContext', () => ({
+    useUserContext: () => ({
+        state: {
+            views: {
+                hasSetDefaultView: selectedViewState.hasSetDefaultView,
+                personalDefaultViewUrn: selectedViewState.personalDefaultViewUrn,
+                globalDefaultViewUrn: selectedViewState.globalDefaultViewUrn,
+            },
+        },
+    }),
 }));
 
 const useAppConfigMock = vi.mocked(useAppConfig);
@@ -51,6 +68,9 @@ describe('useSearchBarData', () => {
         search.mockClear();
         autocomplete.mockClear();
         selectedViewState.urn = undefined;
+        selectedViewState.hasSetDefaultView = false;
+        selectedViewState.personalDefaultViewUrn = undefined;
+        selectedViewState.globalDefaultViewUrn = undefined;
         useAppConfigMock.mockReturnValue({
             config: {
                 searchBarConfig: { apiVariant: SearchBarApi.SearchAcrossEntities },
@@ -175,10 +195,63 @@ describe('useSearchBarData', () => {
         );
     });
 
-    it('fetches on the next focus after the view changes while the bar is inactive', () => {
+    it('does not fetch when the default view hydrates while the bar is inactive', () => {
         const { rerender } = renderSearchBarData({
             query: PAGE_QUERY,
             options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        selectedViewState.personalDefaultViewUrn = 'urn:li:dataHubView:personal';
+        selectedViewState.urn = 'urn:li:dataHubView:personal';
+        selectedViewState.hasSetDefaultView = true;
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).not.toHaveBeenCalled();
+    });
+
+    it('does not fetch when only the global default hydrates', () => {
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        selectedViewState.globalDefaultViewUrn = 'urn:li:dataHubView:global';
+        selectedViewState.urn = 'urn:li:dataHubView:global';
+        selectedViewState.hasSetDefaultView = true;
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).not.toHaveBeenCalled();
+    });
+
+    it('fetches on the next focus after a view change that is not the hydrated default', () => {
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        selectedViewState.personalDefaultViewUrn = 'urn:li:dataHubView:personal';
+        selectedViewState.urn = 'urn:li:dataHubView:personal';
+        selectedViewState.hasSetDefaultView = true;
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
         });
         settleDebounce();
         expect(search).not.toHaveBeenCalled();
@@ -205,6 +278,130 @@ describe('useSearchBarData', () => {
                         query: PAGE_QUERY,
                         viewUrn: 'urn:li:dataHubView:team',
                     }),
+                }),
+            }),
+        );
+    });
+
+    it('fetches when a view is chosen before the default finishes hydrating', () => {
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        selectedViewState.personalDefaultViewUrn = 'urn:li:dataHubView:personal';
+        selectedViewState.urn = 'urn:li:dataHubView:picked';
+        selectedViewState.hasSetDefaultView = true;
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(search).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ viewUrn: 'urn:li:dataHubView:picked' }),
+                }),
+            }),
+        );
+    });
+
+    it('does not fetch again when the same inputs are focused again', () => {
+        const { rerender } = renderSearchBarData({
+            query: 'events_v2',
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: true },
+        });
+        settleDebounce();
+        expect(search).toHaveBeenCalledTimes(1);
+
+        rerender({
+            query: 'events_v2',
+            options: { isActive: false, initialQuery: PAGE_QUERY, hasUserTyped: true },
+        });
+        settleDebounce();
+        rerender({
+            query: 'events_v2',
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: true },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetches immediately when the view changes while the bar stays active', () => {
+        selectedViewState.urn = 'urn:li:dataHubView:stored';
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+        expect(search).not.toHaveBeenCalled();
+
+        selectedViewState.urn = 'urn:li:dataHubView:other';
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(search).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ viewUrn: 'urn:li:dataHubView:other' }),
+                }),
+            }),
+        );
+    });
+
+    it('fetches again when filters return to the page-open set while the bar is active', () => {
+        const platformFilters = new Map([['platform', { filters: [{ field: 'platform', values: ['hive'] }] }]]);
+        const { rerender } = renderSearchBarData({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+        expect(search).not.toHaveBeenCalled();
+
+        rerender({
+            query: PAGE_QUERY,
+            filters: platformFilters,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+        expect(search).toHaveBeenCalledTimes(1);
+
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: false },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it('fetches when the query returns to the page-open value after the user has typed', () => {
+        const { rerender } = renderSearchBarData({
+            query: 'events_v2',
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: true },
+        });
+        settleDebounce();
+        expect(search).toHaveBeenCalledTimes(1);
+
+        rerender({
+            query: PAGE_QUERY,
+            options: { isActive: true, initialQuery: PAGE_QUERY, hasUserTyped: true },
+        });
+        settleDebounce();
+
+        expect(search).toHaveBeenCalledTimes(2);
+        expect(search).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ query: PAGE_QUERY }),
                 }),
             }),
         );
