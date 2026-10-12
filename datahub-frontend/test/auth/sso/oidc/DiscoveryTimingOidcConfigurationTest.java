@@ -40,7 +40,10 @@ public class DiscoveryTimingOidcConfigurationTest {
   void logsDurationWhenDiscoveryDocumentIsReturned() throws Exception {
     try (MockWebServer server = new MockWebServer()) {
       server.start();
-      server.enqueue(new MockResponse().setBody(discoveryDocument(server)));
+      final String document = discoveryDocument(server);
+      server.enqueue(new MockResponse().setBody(document));
+      // init() reads the document, then asks the same URL for Last-Modified.
+      server.enqueue(new MockResponse().setBody(document));
 
       assertNotNull(configuration(server).createNewOpMetadataResolver());
 
@@ -79,6 +82,8 @@ public class DiscoveryTimingOidcConfigurationTest {
   private static DiscoveryTimingOidcConfiguration configuration(final MockWebServer server) {
     final DiscoveryTimingOidcConfiguration configuration = new DiscoveryTimingOidcConfiguration();
     configuration.setClientId("test-client");
+    configuration.setConnectTimeout(500);
+    configuration.setReadTimeout(500);
     configuration.setDiscoveryURI(server.url("/.well-known/openid-configuration").toString());
     return configuration;
   }
