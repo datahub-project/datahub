@@ -8,9 +8,11 @@ import pytest
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
+    FileQueryLogReader,
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
+    SqlQueriesSourceReport,
 )
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
@@ -441,6 +443,59 @@ class TestQueryEntry:
         assert query_entry.downstream_tables == expected_query_entry.downstream_tables
         assert query_entry.upstream_tables == expected_query_entry.upstream_tables
         assert query_entry.session_id == expected_query_entry.session_id
+
+
+class TestFileQueryLogReader:
+    """The file reader is the default QueryLogReader backend."""
+
+    def test_yields_parsed_entries_from_local_file(self):
+        queries = [
+            {"query": "SELECT * FROM a", "upstream_tables": ["a"]},
+            {"query": "SELECT * FROM b", "upstream_tables": ["b"]},
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            for q in queries:
+                f.write(json.dumps(q) + "\n")
+            path = f.name
+
+        try:
+            config = SqlQueriesSourceConfig(query_file=path, platform="snowflake")
+            report = SqlQueriesSourceReport()
+            reader = FileQueryLogReader(config, report)
+
+            entries = list(reader.get_query_entries())
+
+            assert [e.query for e in entries] == [
+                "SELECT * FROM a",
+                "SELECT * FROM b",
+            ]
+            assert report.num_entries_processed == 2
+            assert report.num_entries_failed == 0
+        finally:
+            import os
+
+            os.unlink(path)
+
+    def test_malformed_line_is_counted_and_skipped(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps({"query": "SELECT 1"}) + "\n")
+            f.write("not json\n")
+            path = f.name
+
+        try:
+            config = SqlQueriesSourceConfig(query_file=path, platform="snowflake")
+            report = SqlQueriesSourceReport()
+            reader = FileQueryLogReader(config, report)
+
+            entries = list(reader.get_query_entries())
+
+            assert len(entries) == 1
+            assert report.num_entries_processed == 1
+            assert report.num_entries_failed == 1
+        finally:
+            import os
+
+            os.unlink(path)
 
 
 class TestSqlQueriesSourceConfig:

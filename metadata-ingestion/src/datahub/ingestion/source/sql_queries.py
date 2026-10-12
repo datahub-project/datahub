@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
@@ -122,6 +123,105 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
+class QueryLogReader(ABC):
+    """A source of query records for the SQL Queries connector.
+
+    Decouples *where* query records come from (a file today; a database table or
+    search index in the future) from *how* they are parsed into lineage/usage.
+    Implementations yield ``QueryEntry`` objects; everything downstream (the
+    aggregator, lineage, usage, reporting) is reader-agnostic.
+    """
+
+    @abstractmethod
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        raise NotImplementedError
+
+
+class FileQueryLogReader(QueryLogReader):
+    """Reads query records from a newline-delimited JSON file (local or S3)."""
+
+    def __init__(
+        self, config: SqlQueriesSourceConfig, report: SqlQueriesSourceReport
+    ) -> None:
+        self.config = config
+        self.report = report
+
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
+        if self._is_s3_uri(self.config.query_file):
+            yield from self._parse_s3_query_file()
+        else:
+            yield from self._parse_local_query_file()
+
+    def _is_s3_uri(self, path: str) -> bool:
+        """Check if the path is an S3 URI."""
+        return path.startswith("s3://")
+
+    def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
+        """Parse query file from S3 using smart_open."""
+        if not self.config.aws_config:
+            raise ValueError("AWS configuration required for S3 file access")
+
+        logger.info(f"Reading query file from S3: {self.config.query_file}")
+
+        try:
+            # Use smart_open for efficient S3 streaming, similar to S3FileSystem
+            s3_client = self.config.aws_config.get_s3_client()
+
+            with smart_open.open(
+                self.config.query_file, mode="r", transport_params={"client": s3_client}
+            ) as file_stream:
+                for line in file_stream:
+                    if line.strip():
+                        try:
+                            query_dict = json.loads(line, strict=False)
+                            entry = QueryEntry.create(query_dict, config=self.config)
+                            self.report.num_entries_processed += 1
+                            if self.report.num_entries_processed % 1000 == 0:
+                                logger.info(
+                                    f"Processed {self.report.num_entries_processed} query entries from S3"
+                                )
+                            yield entry
+                        except Exception as e:
+                            self.report.num_entries_failed += 1
+                            self.report.warning(
+                                title="Error processing query from S3",
+                                message="Query skipped due to parsing error",
+                                context=line.strip(),
+                                exc=e,
+                            )
+        except Exception as e:
+            self.report.warning(
+                title="Error reading S3 file",
+                message="Failed to read S3 file",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+    def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
+        """Parse local query file (existing logic)."""
+        with open(self.config.query_file) as f:
+            for line in f:
+                try:
+                    query_dict = json.loads(line, strict=False)
+                    entry = QueryEntry.create(query_dict, config=self.config)
+                    self.report.num_entries_processed += 1
+                    if self.report.num_entries_processed % 1000 == 0:
+                        logger.info(
+                            f"Processed {self.report.num_entries_processed} query entries"
+                        )
+                    yield entry
+                except Exception as e:
+                    self.report.num_entries_failed += 1
+                    self.report.warning(
+                        title="Error processing query",
+                        message="Query skipped due to parsing error",
+                        context=line.strip(),
+                        exc=e,
+                    )
+
+
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -194,6 +294,8 @@ class SqlQueriesSource(Source):
         )
         self.report.sql_aggregator = self.aggregator.report
 
+        self.reader: QueryLogReader = FileQueryLogReader(self.config, self.report)
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
         config = SqlQueriesSourceConfig.model_validate(config_dict)
@@ -211,8 +313,6 @@ class SqlQueriesSource(Source):
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
-
         logger.info("Processing all queries in batch mode")
         yield from self._process_queries_batch()
 
@@ -220,8 +320,8 @@ class SqlQueriesSource(Source):
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         """Process all queries in memory (original behavior)."""
-        with self.report.new_stage("Collecting queries from file"):
-            queries = list(self._parse_query_file())
+        with self.report.new_stage("Collecting queries"):
+            queries = list(self.reader.get_query_entries())
             logger.info(f"Collected {len(queries)} queries for processing")
 
         with self.report.new_stage("Processing queries through SQL parsing aggregator"):
@@ -231,81 +331,6 @@ class SqlQueriesSource(Source):
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
-
-    def _is_s3_uri(self, path: str) -> bool:
-        """Check if the path is an S3 URI."""
-        return path.startswith("s3://")
-
-    def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse query file from S3 using smart_open."""
-        if not self.config.aws_config:
-            raise ValueError("AWS configuration required for S3 file access")
-
-        logger.info(f"Reading query file from S3: {self.config.query_file}")
-
-        try:
-            # Use smart_open for efficient S3 streaming, similar to S3FileSystem
-            s3_client = self.config.aws_config.get_s3_client()
-
-            with smart_open.open(
-                self.config.query_file, mode="r", transport_params={"client": s3_client}
-            ) as file_stream:
-                for line in file_stream:
-                    if line.strip():
-                        try:
-                            query_dict = json.loads(line, strict=False)
-                            entry = QueryEntry.create(query_dict, config=self.config)
-                            self.report.num_entries_processed += 1
-                            if self.report.num_entries_processed % 1000 == 0:
-                                logger.info(
-                                    f"Processed {self.report.num_entries_processed} query entries from S3"
-                                )
-                            yield entry
-                        except Exception as e:
-                            self.report.num_entries_failed += 1
-                            self.report.warning(
-                                title="Error processing query from S3",
-                                message="Query skipped due to parsing error",
-                                context=line.strip(),
-                                exc=e,
-                            )
-        except Exception as e:
-            self.report.warning(
-                title="Error reading S3 file",
-                message="Failed to read S3 file",
-                context=self.config.query_file,
-                exc=e,
-            )
-            raise
-
-    def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse local query file (existing logic)."""
-        with open(self.config.query_file) as f:
-            for line in f:
-                try:
-                    query_dict = json.loads(line, strict=False)
-                    entry = QueryEntry.create(query_dict, config=self.config)
-                    self.report.num_entries_processed += 1
-                    if self.report.num_entries_processed % 1000 == 0:
-                        logger.info(
-                            f"Processed {self.report.num_entries_processed} query entries"
-                        )
-                    yield entry
-                except Exception as e:
-                    self.report.num_entries_failed += 1
-                    self.report.warning(
-                        title="Error processing query",
-                        message="Query skipped due to parsing error",
-                        context=line.strip(),
-                        exc=e,
-                    )
-
-    def _parse_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse the query file and yield QueryEntry objects."""
-        if self._is_s3_uri(self.config.query_file):
-            yield from self._parse_s3_query_file()
-        else:
-            yield from self._parse_local_query_file()
 
     def _process_queries_sequential(self, queries: List["QueryEntry"]) -> None:
         """Process queries sequentially."""
