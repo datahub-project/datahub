@@ -16,7 +16,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.workunit_processors.auto_status_aspect import (
     AutoStatusAspectProcessor,
 )
-from datahub.metadata.schema_classes import StatusClass
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    StatusClass,
+    SubTypesClass,
+)
 from datahub.metadata.urns import (
     ContainerUrn,
     CorpUserUrn,
@@ -164,6 +168,23 @@ def test_container_emits_data_platform_instance_first() -> None:
     )
 
     assert c.as_mcps()[0].aspectName == "dataPlatformInstance"
+
+
+def test_container_emits_data_platform_instance_before_extra_aspects() -> None:
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+        extra_aspects=[
+            SubTypesClass(typeNames=["Database"]),
+            DataPlatformInstanceClass(platform="urn:li:dataPlatform:snowflake"),
+        ],
+    )
+
+    mcps = c.as_mcps()
+    assert mcps[0].aspectName == "dataPlatformInstance"
+    # The key's instance still wins over an extra dataPlatformInstance.
+    assert c.platform_instance is not None
+    assert [m.aspectName for m in mcps].count("dataPlatformInstance") == 1
 
 
 def _aspect_names(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
