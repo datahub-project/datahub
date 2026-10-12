@@ -380,6 +380,10 @@ The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
 Parsed references (`lakehouse.schema.table`) are resolved against the tables ingested in the same run (which carry GUID-based URNs) and become the DataJob's input/output datasets. A reference that does not match exactly one ingested table is counted in the report (`notebook_lineage_unresolved_refs`) and dropped rather than emitted as a ghost dataset. This is a static-parse baseline: table names built dynamically at runtime are not reconstructed.
 
+#### Notebook Spark-Plan Lineage
+
+`include_notebook_spark_lineage` (off by default, requires `include_notebooks: true`) recovers the lineage that static parsing cannot see — notably notebooks whose read/write paths are supplied as **run-time parameters** (e.g. `spark.read.format("delta").load(f"{source}{table}")` or `DeltaTable.forPath(spark, target)`). For each run within `notebook_execution_history_days`, the connector reads the run's Spark physical plans from the Spark monitoring API (`livySessions` + the Spark History Server SQL API) and extracts the resolved `abfss://` OneLake table paths that were actually read and written. Those paths map directly to the GUID-based dataset URNs the connector emits, and are unioned with any static lineage. Only edges to tables ingested in the same run are kept; internal Spark scratch paths (shuffle, lakehouse-warmup) are ignored. This makes extra API calls per notebook run, so it is slower than static parsing.
+
 #### Notebook Run History
 
 `include_notebook_runs` (off by default, requires `include_notebooks: true`) emits a `DataProcessInstance` for each recent notebook run, read from the Job Scheduler `GET /workspaces/{id}/items/{itemId}/jobs/instances` API. `notebook_execution_history_days` (default 7) bounds how far back runs are fetched. Each instance records start/end time and the run result (success / failure / skipped). The run API reports only status and timing — it carries no table I/O — so run history and lineage are independent features.
@@ -390,6 +394,7 @@ source:
   config:
     include_notebooks: true
     include_notebook_lineage: true
+    include_notebook_spark_lineage: true
     include_notebook_runs: true
     notebook_execution_history_days: 7
 ```

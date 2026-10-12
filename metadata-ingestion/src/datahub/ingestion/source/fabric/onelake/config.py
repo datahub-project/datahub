@@ -313,6 +313,20 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    include_notebook_spark_lineage: bool = Field(
+        default=False,
+        description=(
+            "Derive notebook table lineage from the Spark physical plans of each "
+            "run via the Spark monitoring API (`livySessions` + the Spark History "
+            "Server SQL API). This resolves lineage that static source parsing "
+            "cannot - notably reads/writes whose OneLake paths are supplied as "
+            "run-time parameters - and is unioned with `include_notebook_lineage`. "
+            "Only edges to tables ingested in the same run are emitted. Adds API "
+            "calls per notebook run within `notebook_execution_history_days`, so "
+            "it is slower. Requires `include_notebooks=True`."
+        ),
+    )
+
     notebook_execution_history_days: int = Field(
         default=7,
         description=(
@@ -392,6 +406,10 @@ class FabricOneLakeSourceConfig(
         if self.include_notebook_runs and not self.include_notebooks:
             raise ValueError(
                 "include_notebook_runs=True requires include_notebooks=True."
+            )
+        if self.include_notebook_spark_lineage and not self.include_notebooks:
+            raise ValueError(
+                "include_notebook_spark_lineage=True requires include_notebooks=True."
             )
         return self
 

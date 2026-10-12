@@ -56,6 +56,8 @@ class FabricOneLakeSourceReport(
     notebook_lineage_extracted: int = 0
     notebook_lineage_unresolved_refs: int = 0
     notebook_runs_scanned: int = 0
+    notebook_spark_sessions_scanned: int = 0
+    notebook_spark_lineage_extracted: int = 0
     entities_profiled: int = 0
 
     # Filtered entities
@@ -169,6 +171,14 @@ class FabricOneLakeSourceReport(
     def report_notebook_run_scanned(self) -> None:
         """Increment notebook runs scanned counter."""
         self.notebook_runs_scanned += 1
+
+    def report_notebook_spark_session_scanned(self) -> None:
+        """Increment Spark sessions inspected for plan-based lineage."""
+        self.notebook_spark_sessions_scanned += 1
+
+    def report_notebook_spark_lineage_extracted(self) -> None:
+        """Record a notebook that produced lineage from its Spark plans."""
+        self.notebook_spark_lineage_extracted += 1
 
     def report_view_missing_definition(self, view_name: str) -> None:
         """Record a view whose SQL definition was unavailable for lineage parsing."""

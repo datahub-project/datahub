@@ -14,7 +14,7 @@ the human-facing document; this adds the process view alongside it.
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -41,6 +41,9 @@ from datahub.ingestion.source.fabric.onelake.notebook_lineage import (
     NotebookTableRegistry,
     extract_table_references,
     resolve_lineage,
+)
+from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
+    extract_spark_io,
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.metadata.schema_classes import (
@@ -98,6 +101,7 @@ class NotebookProcessEmitter:
         platform_instance: Optional[str],
         env: str,
         include_lineage: bool,
+        include_spark_lineage: bool,
         include_runs: bool,
         execution_history_days: int,
         report: FabricOneLakeSourceReport,
@@ -108,6 +112,7 @@ class NotebookProcessEmitter:
         self._platform_instance = platform_instance
         self._env = env
         self._include_lineage = include_lineage
+        self._include_spark_lineage = include_spark_lineage
         self._include_runs = include_runs
         self._execution_history_days = execution_history_days
         self._report = report
@@ -146,7 +151,11 @@ class NotebookProcessEmitter:
         dataflow: DataFlow,
         workspace_key: WorkspaceKey,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        io_aspect = self._build_io(nb) if self._include_lineage else None
+        io_aspect = (
+            self._build_io(nb)
+            if (self._include_lineage or self._include_spark_lineage)
+            else None
+        )
 
         external_url = (
             f"{FABRIC_APP_BASE_URL}/groups/{nb.workspace_id}"
@@ -176,17 +185,90 @@ class NotebookProcessEmitter:
             yield from self._emit_runs(nb, datajob)
 
     def _build_io(self, nb: PendingNotebook) -> Optional[DataJobInputOutputClass]:
-        refs: NotebookReferences = extract_table_references(nb.content, nb.language)
-        resolved = resolve_lineage(refs, self._registry)
-        if resolved.unresolved:
-            self._report.report_notebook_lineage_unresolved(resolved.unresolved)
-        if not resolved.input_urns and not resolved.output_urns:
+        inputs: Set[str] = set()
+        outputs: Set[str] = set()
+
+        if self._include_lineage:
+            refs: NotebookReferences = extract_table_references(nb.content, nb.language)
+            resolved = resolve_lineage(refs, self._registry)
+            if resolved.unresolved:
+                self._report.report_notebook_lineage_unresolved(resolved.unresolved)
+            if resolved.input_urns or resolved.output_urns:
+                self._report.report_notebook_lineage_extracted()
+            inputs.update(resolved.input_urns)
+            outputs.update(resolved.output_urns)
+
+        if self._include_spark_lineage:
+            spark_inputs, spark_outputs = self._spark_io(nb)
+            if spark_inputs or spark_outputs:
+                self._report.report_notebook_spark_lineage_extracted()
+            inputs.update(spark_inputs)
+            outputs.update(spark_outputs)
+
+        if not inputs and not outputs:
             return None
-        self._report.report_notebook_lineage_extracted()
         return DataJobInputOutputClass(
-            inputDatasets=resolved.input_urns,
-            outputDatasets=resolved.output_urns,
+            inputDatasets=sorted(inputs),
+            outputDatasets=sorted(outputs),
         )
+
+    def _spark_io(self, nb: PendingNotebook) -> Tuple[Set[str], Set[str]]:
+        """Resolve lineage from the notebook's executed Spark physical plans.
+
+        Only edges to tables ingested in this run are kept (matching the static
+        resolver's no-ghost-datasets philosophy); a GUID-built URL that does not
+        match an ingested table is dropped.
+        """
+        lookback_start = datetime.now(timezone.utc) - timedelta(
+            days=self._execution_history_days
+        )
+        try:
+            sessions = self._client.list_notebook_spark_sessions(
+                nb.workspace_id, nb.notebook_id, lookback_start
+            )
+        except Exception as e:
+            self._report.warning(
+                title="Failed to Fetch Notebook Spark Sessions",
+                message="Could not retrieve Spark run history for lineage. Skipping.",
+                context=f"workspace={nb.workspace_name}, notebook={nb.display_name}",
+                exc=e,
+                log=False,
+            )
+            return set(), set()
+
+        known = self._registry.known_urns()
+        inputs: Set[str] = set()
+        outputs: Set[str] = set()
+        for session in sessions:
+            self._report.report_notebook_spark_session_scanned()
+            try:
+                plans = self._client.get_spark_sql_plans(
+                    nb.workspace_id,
+                    nb.notebook_id,
+                    session.livy_id,
+                    session.application_id,
+                )
+            except Exception as e:
+                self._report.warning(
+                    title="Failed to Fetch Spark SQL Plans",
+                    message="Could not retrieve a Spark run's SQL plans. Skipping.",
+                    context=f"notebook={nb.display_name}, app={session.application_id}",
+                    exc=e,
+                    log=False,
+                )
+                continue
+            io = extract_spark_io(plans)
+            for ref in io.inputs:
+                urn = ref.to_urn(self._env, self._platform_instance)
+                if urn in known:
+                    inputs.add(urn)
+            for ref in io.outputs:
+                urn = ref.to_urn(self._env, self._platform_instance)
+                if urn in known:
+                    outputs.add(urn)
+        # A table both read and written in a run is an output only.
+        inputs -= outputs
+        return inputs, outputs
 
     def _emit_runs(
         self, nb: PendingNotebook, datajob: DataJob

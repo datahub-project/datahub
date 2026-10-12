@@ -14,6 +14,7 @@ from datahub.ingestion.source.fabric.common.auth import (
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
     FabricJobInstance,
+    FabricSparkSession,
     FabricWorkspace,
     item_owner_user_principal_name,
     sensitivity_label_id,
@@ -337,6 +338,69 @@ class OneLakeClient(BaseFabricClient):
                     break
             runs.append(job_instance)
         return runs
+
+    def list_notebook_spark_sessions(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricSparkSession]:
+        """List Spark (Livy) sessions for a notebook within the lookback window.
+
+        Unlike the Job Scheduler ``jobs/instances`` endpoint, this reports every
+        Spark application that ran the notebook - including pipeline-triggered
+        runs - and exposes each run's Spark History Server application id.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/spark/livy-sessions
+        """
+        endpoint = f"workspaces/{workspace_id}/notebooks/{notebook_id}/livySessions"
+        sessions: List[FabricSparkSession] = []
+        for data in self._paginate(endpoint):
+            application_id = data.get("sparkApplicationId")
+            livy_id = data.get("livyId")
+            if not application_id or not livy_id:
+                continue
+            start = data.get("startDateTime")
+            if start and parse_iso_datetime(start) < lookback_window_start:
+                continue
+            item = data.get("item") or {}
+            sessions.append(
+                FabricSparkSession(
+                    livy_id=livy_id,
+                    application_id=application_id,
+                    item_id=item.get("itemId", notebook_id),
+                    state=data.get("state"),
+                    start_time_utc=start,
+                    end_time_utc=data.get("endDateTime"),
+                )
+            )
+        return sessions
+
+    def get_spark_sql_plans(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        livy_id: str,
+        application_id: str,
+    ) -> List[str]:
+        """Return the physical plan text of each SQL execution in a Spark run.
+
+        Proxies the Spark History Server SQL API, whose executions carry a
+        ``planDescription`` listing the resolved ``abfss://`` paths read and
+        written. The endpoint returns a bare JSON array, not a paged envelope.
+        """
+        endpoint = (
+            f"workspaces/{workspace_id}/notebooks/{notebook_id}"
+            f"/livySessions/{livy_id}/applications/{application_id}/sql"
+        )
+        data = self.get(endpoint).json()
+        if not isinstance(data, list):
+            return []
+        return [
+            execution["planDescription"]
+            for execution in data
+            if isinstance(execution, dict) and execution.get("planDescription")
+        ]
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str

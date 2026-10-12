@@ -215,6 +215,10 @@ class NotebookTableRegistry:
         self._by_schema_table.setdefault((schema_l, table_l), set()).add(urn)
         self._by_table.setdefault(table_l, set()).add(urn)
 
+    def known_urns(self) -> Set[str]:
+        """All ingested table URNs, used to validate GUID-built lineage edges."""
+        return set(self._by_full.values())
+
     def resolve(self, ref: TableRef) -> Optional[str]:
         if len(ref.parts) == 3:
             return self._by_full.get(ref.parts)  # type: ignore[arg-type]

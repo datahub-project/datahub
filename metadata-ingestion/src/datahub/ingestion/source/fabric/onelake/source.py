@@ -208,7 +208,9 @@ class WarehouseSchemaKey(WarehouseKey):
     "target is emitted as an upstream of the shortcut table. When "
     "`include_notebook_lineage` is enabled, each notebook is modelled as a "
     "DataJob whose input/output tables are parsed from the notebook source and "
-    "resolved against ingested tables.",
+    "resolved against ingested tables; `include_notebook_spark_lineage` adds "
+    "lineage recovered from each run's Spark physical plans for paths resolved "
+    "at run time.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -346,9 +348,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_name: str,
         table_name: str,
     ) -> None:
-        # Index ingested tables by their human name so notebook source
-        # references (lakehouse.schema.table) can resolve to the GUID URN.
-        if not self.config.include_notebook_lineage:
+        # Index ingested tables so notebook lineage can resolve to the GUID URN:
+        # static lineage looks up by human name, Spark-plan lineage validates its
+        # GUID-built URNs against the registered set.
+        if not (
+            self.config.include_notebook_lineage
+            or self.config.include_notebook_spark_lineage
+        ):
             return
         urn = make_onelake_urn(
             workspace_id=workspace_id,
@@ -627,6 +633,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # registry (mirrors the deferred shortcut-dataset pass).
             if (
                 self.config.include_notebook_lineage
+                or self.config.include_notebook_spark_lineage
                 or self.config.include_notebook_runs
             ):
                 self._pending_notebooks.append(
@@ -1274,6 +1281,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             include_lineage=self.config.include_notebook_lineage,
+            include_spark_lineage=self.config.include_notebook_spark_lineage,
             include_runs=self.config.include_notebook_runs,
             execution_history_days=self.config.notebook_execution_history_days,
             report=self.report,
