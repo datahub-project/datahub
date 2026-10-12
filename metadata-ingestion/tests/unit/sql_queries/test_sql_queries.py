@@ -503,9 +503,6 @@ class TestQueryEntry:
         assert query_entry.session_id == expected_query_entry.session_id
 
 
-# ── File reader tests ────────────────────────────────────────────────────
-
-
 class TestFileQueryLogReader:
     """The file reader is the default QueryLogReader backend."""
 
