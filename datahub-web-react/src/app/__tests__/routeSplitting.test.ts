@@ -16,6 +16,8 @@ describe('route-level lazy loading', () => {
         const viteConfig = read('vite.config.ts');
         expect(viteConfig).not.toMatch(/return\s+['"]source['"]/);
         expect(viteConfig).not.toMatch(/return\s+['"]phosphor-vendor['"]/);
+        expect(viteConfig).not.toMatch(/manualChunks\s*\(/);
+        expect(viteConfig).toMatch(/No manualChunks/);
     });
 
     it('lazy-loads the authenticated shell from Routes', () => {
