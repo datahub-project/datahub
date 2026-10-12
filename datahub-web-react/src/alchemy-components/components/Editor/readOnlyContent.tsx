@@ -10,7 +10,7 @@ import {
     getFileTypeFromFilename,
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
-import { isSafeHref } from '@components/components/Editor/readOnlyHtml';
+import { URL_ATTRIBUTES, isSafeHref, scrubSrcset } from '@components/components/Editor/readOnlyHtml';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
 import { safeUrl } from '@app/shared/urlUtils';
@@ -190,26 +190,35 @@ function fontSizeFromStyle(style: string): string | undefined {
     return fontSize;
 }
 
-const URL_ATTRIBUTE_NAMES = new Set(['href', 'src', 'srcset', 'poster', 'action', 'formaction']);
+const URL_ATTRIBUTE_NAMES = new Set<string>(URL_ATTRIBUTES);
+
+const REACT_URL_ATTRIBUTE_NAMES: Record<string, string> = {
+    formaction: 'formAction',
+    'xlink:href': 'xlinkHref',
+};
+
+function urlAttributeName(attr: Attr): string {
+    const name = attr.name.toLowerCase();
+    if (name === 'xlink:href' || (attr.prefix === 'xlink' && attr.localName.toLowerCase() === 'href')) {
+        return 'xlink:href';
+    }
+    return name;
+}
 
 function elementAttributes(element: HTMLElement): Record<string, unknown> {
     const props: Record<string, unknown> = {};
     Array.from(element.attributes).forEach((attr) => {
-        const name = attr.name.toLowerCase();
+        const name = urlAttributeName(attr);
         if (name.startsWith('on') || name === 'style') return;
         if (name === 'srcset') {
-            const srcset = attr.value
-                .split(',')
-                .map((candidate) => candidate.trim())
-                .filter(Boolean);
-            const safe = srcset.filter((candidate) => isSafeHref(candidate.split(/\s+/)[0] ?? ''));
-            if (safe.length === 0) return;
-            props.srcSet = safe.length === srcset.length ? attr.value : safe.join(', ');
+            const srcset = scrubSrcset(attr.value);
+            if (srcset === null) return;
+            props.srcSet = srcset;
             return;
         }
         if (URL_ATTRIBUTE_NAMES.has(name)) {
             if (!isSafeHref(attr.value)) return;
-            props[name === 'formaction' ? 'formAction' : name] = attr.value;
+            props[REACT_URL_ATTRIBUTE_NAMES[name] ?? name] = attr.value;
             return;
         }
         props[REACT_ATTR_NAMES[name] ?? attr.name] = attr.value;
@@ -237,6 +246,52 @@ function isFileNode(node: ChildNode): node is HTMLElement {
 
 const BLOCK_TAGS_WITH_PHRASING = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
+// Inline wrappers. A div card cannot sit inside these, or inside a paragraph that contains them.
+const PHRASING_TAGS = new Set([
+    'a',
+    'abbr',
+    'b',
+    'bdi',
+    'bdo',
+    'cite',
+    'code',
+    'data',
+    'dfn',
+    'del',
+    'em',
+    'i',
+    'ins',
+    'kbd',
+    'mark',
+    'q',
+    's',
+    'samp',
+    'small',
+    'span',
+    'strong',
+    'sub',
+    'sup',
+    'time',
+    'u',
+    'var',
+]);
+
+function meaningfulChildren(element: HTMLElement): ChildNode[] {
+    return Array.from(element.childNodes).filter(
+        (child) => !(child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()),
+    );
+}
+
+// The file span may be wrapped in emphasis (`**[file](url)**`) and still be the only content.
+function soleFileNode(element: HTMLElement): HTMLElement | null {
+    const children = meaningfulChildren(element);
+    if (children.length !== 1 || !(children[0] instanceof HTMLElement)) return null;
+    const only = children[0];
+    if (isFileNode(only)) return only;
+    if (PHRASING_TAGS.has(only.tagName.toLowerCase())) return soleFileNode(only);
+    return null;
+}
+
 function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.ReactNode {
     if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent ?? '';
@@ -246,7 +301,7 @@ function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.Re
     if (!(node instanceof HTMLElement)) return null;
 
     if (node.classList.contains('file-node')) {
-        if (parentTag && BLOCK_TAGS_WITH_PHRASING.has(parentTag)) {
+        if (parentTag && (BLOCK_TAGS_WITH_PHRASING.has(parentTag) || PHRASING_TAGS.has(parentTag))) {
             return (
                 <ReadOnlyFileChip
                     key={key}
@@ -259,13 +314,11 @@ function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.Re
     }
 
     const tag = node.tagName.toLowerCase();
-    const meaningfulChildren = Array.from(node.childNodes).filter(
-        (child) => !(child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()),
-    );
-    // A file card is a div. It can replace a paragraph or heading that contains nothing else.
-    // A file mentioned in a sentence stays an inline chip so it is not a div inside that paragraph.
-    if (BLOCK_TAGS_WITH_PHRASING.has(tag) && meaningfulChildren.length === 1 && isFileNode(meaningfulChildren[0])) {
-        return <ReadOnlyFileCard key={key} {...fileCardProps(meaningfulChildren[0])} />;
+    // A file card is a div. It can replace a paragraph or heading whose only content is the file,
+    // including when emphasis wraps that file. A file mentioned in a sentence stays an inline chip.
+    if (BLOCK_TAGS_WITH_PHRASING.has(tag)) {
+        const file = soleFileNode(node);
+        if (file) return <ReadOnlyFileCard key={key} {...fileCardProps(file)} />;
     }
 
     const props = { ...elementAttributes(node), key };

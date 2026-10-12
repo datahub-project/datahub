@@ -6,8 +6,11 @@ import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/
 
 const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto']);
 
-// Attributes the browser fetches or navigates while the page is rendering.
-const URL_ATTRIBUTES = ['href', 'src', 'poster', 'action', 'formaction'] as const;
+// Attributes the browser fetches or navigates. `srcset` is parsed separately.
+// `background` still loads an image on table cells. `xlink:href` loads on SVG images.
+export const URL_ATTRIBUTES = ['href', 'src', 'poster', 'action', 'formaction', 'background', 'xlink:href'] as const;
+
+const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
 
 /**
  * Browsers treat `\` as `/`, and strip tab, newline, and carriage return before
@@ -36,7 +39,7 @@ export function isSafeHref(href: string): boolean {
     return ALLOWED_SCHEMES.has(scheme[1].toLowerCase());
 }
 
-function scrubSrcset(value: string): string | null {
+export function scrubSrcset(value: string): string | null {
     const candidates = value
         .split(',')
         .map((candidate) => candidate.trim())
@@ -47,12 +50,20 @@ function scrubSrcset(value: string): string | null {
     return safe.join(', ');
 }
 
+function scrubXlinkHref(element: Element): void {
+    const value = element.getAttributeNS(XLINK_NAMESPACE, 'href') ?? element.getAttribute('xlink:href');
+    if (value === null || isSafeHref(value)) return;
+    element.removeAttributeNS(XLINK_NAMESPACE, 'href');
+    element.removeAttribute('xlink:href');
+}
+
 function scrubUrlAttributes(element: Element): void {
     URL_ATTRIBUTES.forEach((name) => {
         if (!element.hasAttribute(name)) return;
         const value = element.getAttribute(name) ?? '';
         if (!isSafeHref(value)) element.removeAttribute(name);
     });
+    scrubXlinkHref(element);
 
     if (!element.hasAttribute('srcset')) return;
     const srcset = scrubSrcset(element.getAttribute('srcset') ?? '');

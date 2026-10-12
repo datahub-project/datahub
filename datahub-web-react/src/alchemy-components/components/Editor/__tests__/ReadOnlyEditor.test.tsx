@@ -4,6 +4,7 @@ import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Editor } from '@components/components/Editor/Editor';
+import { readOnlyHtmlToReact } from '@components/components/Editor/readOnlyContent';
 import { toReadOnlyHtml } from '@components/components/Editor/readOnlyHtml';
 
 import themeV2 from '@conf/theme/themeV2';
@@ -115,6 +116,33 @@ describe('read-only editor', () => {
         expect(srcset).toContain('/ok.png');
     });
 
+    it('does not fetch a backslash url from a table background or an svg image', () => {
+        const markup = [
+            '<table background="/\\evil.example/x.png"><tr><td>x</td></tr></table>',
+            '<svg><image xlink:href="/\\evil.example/x.png"></image></svg>',
+        ].join('');
+        const doc = documentFor(markup);
+        expect(doc.querySelector('table')?.hasAttribute('background')).toBe(false);
+        expect(doc.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
+
+        const rendered = render(<div>{readOnlyHtmlToReact(markup)}</div>);
+        expect(rendered.container.querySelector('table')?.hasAttribute('background')).toBe(false);
+        expect(rendered.container.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
+    });
+
+    it('keeps a same-origin table background and svg image href', () => {
+        const doc = documentFor(
+            [
+                '<table background="/images/bg.png"><tr><td>x</td></tr></table>',
+                '<svg><image xlink:href="/images/a.png"></image></svg>',
+            ].join(''),
+        );
+        expect(doc.querySelector('table')?.getAttribute('background')).toBe('/images/bg.png');
+        const image = doc.querySelector('image');
+        const href = image?.getAttribute('xlink:href') ?? image?.getAttribute('href');
+        expect(href).toBe('/images/a.png');
+    });
+
     it('keeps a font size and drops the rest of the style', () => {
         render(
             <ThemeProvider theme={themeV2}>
@@ -136,6 +164,30 @@ describe('read-only editor', () => {
         expect(chip.tagName).toBe('BUTTON');
         expect(chip.closest('p')?.querySelector('div')).toBeNull();
         expect(screen.queryByTitle('report.pdf')).not.toBeInTheDocument();
+    });
+
+    it('lifts a bold file that is the whole paragraph out of the paragraph', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="**[report.pdf](/openapi/v1/files/report.pdf)**" readOnly />
+            </ThemeProvider>,
+        );
+        const card = screen.getByTestId('file-node-report.pdf');
+        expect(card.tagName).toBe('DIV');
+        expect(card.closest('p')).toBeNull();
+        expect(card.closest('strong')).toBeNull();
+    });
+
+    it('keeps a bold file mentioned in a sentence inline', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="See **[report.pdf](/openapi/v1/files/report.pdf)** for details." readOnly />
+            </ThemeProvider>,
+        );
+        const chip = screen.getByTestId('file-node-report.pdf');
+        expect(chip.tagName).toBe('BUTTON');
+        expect(chip.closest('strong')).not.toBeNull();
+        expect(chip.closest('p')?.querySelector('div')).toBeNull();
     });
 
     it('previews a text file only after the card is expanded', async () => {
