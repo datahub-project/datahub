@@ -786,6 +786,7 @@
                 "drive_ingest_fingerprint": "bb7a0115696a717a",
                 "content_hash": "ecb79fb9010bdba52fb56d2b82e91d16fd562874edbdd561f5561bc51a458cab",
                 "extraction_algo_version": "2",
+                "drive_size_bytes": "8290",
                 "last_modifying_user": "editor@example.com"
             },
             "title": "Doc Runbook",

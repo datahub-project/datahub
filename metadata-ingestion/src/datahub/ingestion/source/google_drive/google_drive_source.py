@@ -53,6 +53,7 @@ from datahub.ingestion.source.google_drive.constants import (
     PROP_LAST_MODIFYING_USER,
     PROP_MIME_TYPE,
     PROP_PARENT_ID,
+    PROP_SIZE_BYTES,
     PROP_VERSION,
     REFERENCE_DATA_IMAGE_RE,
     REFERENCE_IMAGE_USE_RE,
@@ -526,6 +527,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         }
         if file.drive_id:
             properties[PROP_DRIVE_ID] = file.drive_id
+        if file.size:
+            properties[PROP_SIZE_BYTES] = file.size
         if file.last_modifying_user and file.last_modifying_user.email_address:
             properties[PROP_LAST_MODIFYING_USER] = (
                 file.last_modifying_user.email_address

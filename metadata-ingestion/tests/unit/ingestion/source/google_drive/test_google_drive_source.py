@@ -155,6 +155,12 @@ def test_owners_are_mapped_and_deduplicated() -> None:
     assert "ownership" not in aspects[make_document_urn(DOC_B1)]
 
 
+def test_drive_size_is_recorded_when_reported() -> None:
+    aspects = run(make_source(build_fixture_service()))
+    assert doc_info(aspects, DOC_RUNBOOK).customProperties["drive_size_bytes"] == "8290"
+    assert "drive_size_bytes" not in doc_info(aspects, DOC_A1).customProperties
+
+
 def test_extract_owners_disabled() -> None:
     aspects = run(make_source(build_fixture_service(), extract_owners=False))
     assert "ownership" not in aspects[make_document_urn(DOC_RUNBOOK)]

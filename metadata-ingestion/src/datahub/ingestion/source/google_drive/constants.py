@@ -21,7 +21,7 @@ API_MAX_RETRIES = 5
 LIST_PAGE_SIZE = 1000
 
 FILE_FIELDS = (
-    "id,name,mimeType,parents,driveId,version,createdTime,modifiedTime,"
+    "id,name,mimeType,parents,driveId,version,size,createdTime,modifiedTime,"
     "webViewLink,owners(displayName,emailAddress),"
     "lastModifyingUser(displayName,emailAddress)"
 )
@@ -48,6 +48,7 @@ PROP_FOLDER_PATH = "drive_folder_path"
 PROP_PARENT_ID = "drive_parent_id"
 PROP_DRIVE_ID = "drive_id"
 PROP_VERSION = "drive_version"
+PROP_SIZE_BYTES = "drive_size_bytes"
 PROP_INGEST_FINGERPRINT = "drive_ingest_fingerprint"
 PROP_LAST_MODIFYING_USER = "last_modifying_user"
 PROP_CONTENT_HASH = "content_hash"

@@ -28,6 +28,9 @@ class DriveFile(BaseModel):
     drive_id: Optional[str] = Field(default=None, alias="driveId")
     # Drive returns the version as a decimal string (int64 in JSON).
     version: Optional[str] = None
+    # Storage size in bytes as a decimal string. For native Docs it does not track
+    # the exported text length, so it is reported but never used for filtering.
+    size: Optional[str] = None
     created_time: Optional[datetime] = Field(default=None, alias="createdTime")
     modified_time: Optional[datetime] = Field(default=None, alias="modifiedTime")
     web_view_link: Optional[str] = Field(default=None, alias="webViewLink")

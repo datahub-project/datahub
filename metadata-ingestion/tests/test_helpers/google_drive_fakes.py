@@ -39,6 +39,7 @@ def drive_file(
     version: str = "1",
     owners: Optional[List[str]] = None,
     drive_id: Optional[str] = None,
+    size: Optional[str] = None,
 ) -> Dict[str, Any]:
     raw: Dict[str, Any] = {
         "id": file_id,
@@ -54,6 +55,8 @@ def drive_file(
     }
     if drive_id:
         raw["driveId"] = drive_id
+    if size:
+        raw["size"] = size
     return raw
 
 
@@ -232,6 +235,7 @@ def build_fixture_service() -> FakeDriveService:
             MIME_DOC,
             ENG,
             version="7",
+            size="8290",
             owners=["alice@example.com", "bob@example.com", "alice@example.com"],
         )
     )
