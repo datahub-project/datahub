@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, List, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -8,6 +8,7 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorReport,
 )
+from datahub.metadata.schema_classes import GlossaryTermKeyClass, TagKeyClass
 from datahub.metadata.urns import GlossaryTermUrn, TagUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
@@ -21,6 +22,10 @@ class AutoMaterializeReferencedTagsTermsProcessorReport(WorkunitProcessorReport)
     """Report for AutoMaterializeReferencedTagsTermsProcessor metrics."""
 
     num_exceptions: int = 0  # Invalid URNs that couldn't be materialized
+    # Referenced tags/terms not re-emitted because they already exist in DataHub.
+    num_skipped_existing: int = 0
+    # Existence lookups that failed, so every referenced tag/term was emitted.
+    num_existence_check_failures: int = 0
 
 
 class AutoMaterializeReferencedTagsTermsProcessor(
@@ -49,7 +54,11 @@ class AutoMaterializeReferencedTagsTermsProcessor(
 
             yield wu
 
-        for urn in sorted(referenced_tags - tags_with_aspects):
+        missing = referenced_tags - tags_with_aspects
+        existing = self._find_existing(missing)
+        self.report.num_skipped_existing += len(existing)
+
+        for urn in sorted(missing - existing):
             try:
                 urn_tp = Urn.from_string(urn)
                 assert isinstance(urn_tp, (TagUrn, GlossaryTermUrn))
@@ -63,3 +72,38 @@ class AutoMaterializeReferencedTagsTermsProcessor(
                 logger.warning(
                     f"Source produced an invalid urn, so no key aspect will be generated: {urn}"
                 )
+
+    def _find_existing(self, urns: Set[str]) -> Set[str]:
+        """Return the subset of urns that already exist in DataHub.
+
+        Re-emitting a key aspect for an existing tag/term is an UPSERT on that entity,
+        which needs edit rights on it. Skipping existing ones lets a token scoped to its
+        own assets attach existing tags/terms. Without a graph, or if the lookup fails,
+        nothing is treated as existing, so every reference is materialized as before.
+        """
+        graph = self.ctx.pipeline_context.graph
+        if graph is None or not urns:
+            return set()
+        existing: Set[str] = set()
+        try:
+            for entity_type, key_aspect in (
+                (TagUrn.ENTITY_TYPE, TagKeyClass.ASPECT_NAME),
+                (GlossaryTermUrn.ENTITY_TYPE, GlossaryTermKeyClass.ASPECT_NAME),
+            ):
+                batch: List[str] = sorted(
+                    u for u in urns if guess_entity_type(u) == entity_type
+                )
+                if batch:
+                    # One unchunked request per entity type; a failure (e.g. a
+                    # request-size limit) falls back to materializing everything.
+                    existing.update(
+                        graph.get_entities(entity_type, batch, aspects=[key_aspect])
+                    )
+        except Exception as e:
+            self.report.num_existence_check_failures += 1
+            logger.warning(
+                f"Failed to check which referenced tags/terms already exist; "
+                f"materializing all of them: {e}"
+            )
+            return set()
+        return existing & urns
