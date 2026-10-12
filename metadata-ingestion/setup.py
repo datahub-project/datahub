@@ -849,6 +849,10 @@ plugins: Dict[str, Set[str]] = {
     "sql-queries": usage_common
     | sqlglot_lib
     | aws_common
+    | sqlalchemy_lib  # powers the optional sql_table query_source backend
+    # cachetools is imported at module load via SQLAlchemyConnectionConfig ->
+    # profiling config -> operation_config.
+    | cachetools_lib
     | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
