@@ -32,6 +32,12 @@ RESULTS_TABLE = "system.data_quality_monitoring.table_results"
 # upper bound (which would drop that scan).
 _TS_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
+# The window bounds carry an explicit +00:00 offset. Without it Databricks parses a
+# TIMESTAMP literal in the warehouse's session timezone, shifting the lookback window
+# by the workspace offset (and dropping/including the wrong scans when the window is
+# small).
+_TS_LITERAL_FORMAT = _TS_FORMAT + "+00:00"
+
 _QUERY_TEMPLATE = """\
 SELECT {columns}
 FROM {table}
@@ -39,6 +45,14 @@ WHERE event_time >= TIMESTAMP '{start}' AND event_time <= TIMESTAMP '{end}'
   AND table_id IN ({table_ids})
 ORDER BY event_time
 """
+
+
+def _as_utc(dt: datetime) -> datetime:
+    # The SQL connector may hand back naive datetimes that denote UTC; attach the zone
+    # so .timestamp() does not reinterpret them in the local timezone.
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _to_iso(value: object) -> str:
@@ -204,16 +218,31 @@ class UnityCatalogDataQualityExtractor:
             columns.extend(check.select_columns())
         # table_ids are Databricks-issued UUIDs; quote defensively regardless.
         id_list = ", ".join("'" + tid.replace("'", "''") + "'" for tid in table_ids)
-        start = self.end_time - timedelta(days=self.config.max_window_days)
+        end = _as_utc(self.end_time)
+        start = end - timedelta(days=self.config.max_window_days)
         return _QUERY_TEMPLATE.format(
             columns=",\n       ".join(columns),
             table=RESULTS_TABLE,
-            start=start.strftime(_TS_FORMAT),
-            end=self.end_time.strftime(_TS_FORMAT),
+            start=start.strftime(_TS_LITERAL_FORMAT),
+            end=end.strftime(_TS_LITERAL_FORMAT),
             table_ids=id_list,
         )
 
     def _to_millis(self, event_time: object) -> int:
-        if isinstance(event_time, datetime):
-            return make_ts_millis(event_time)
-        return make_ts_millis(self.end_time.astimezone(timezone.utc))
+        dt = _as_utc(event_time) if isinstance(event_time, datetime) else None
+        if dt is None and isinstance(event_time, str):
+            for fmt in (_TS_FORMAT, "%Y-%m-%d %H:%M:%S"):
+                try:
+                    dt = datetime.strptime(event_time, fmt).replace(tzinfo=timezone.utc)
+                    break
+                except ValueError:
+                    continue
+        if dt is None:
+            # event_time is a non-null TIMESTAMP in the system table, so this is
+            # unexpected; stamp the ingestion end_time rather than dropping the run.
+            logger.warning(
+                "Unparseable data quality event_time %r; using ingestion end_time",
+                event_time,
+            )
+            dt = _as_utc(self.end_time)
+        return make_ts_millis(dt)

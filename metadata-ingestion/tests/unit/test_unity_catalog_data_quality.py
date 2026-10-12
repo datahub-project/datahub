@@ -299,6 +299,22 @@ def test_extractor_skips_rows_for_unknown_table() -> None:
     assert extractor.report.num_quality_scan_rows_read == 0
 
 
+def test_extractor_naive_event_time_is_interpreted_as_utc() -> None:
+    # The SQL connector can return a naive datetime denoting UTC; the extractor must
+    # anchor it to UTC rather than letting .timestamp() read it in the local zone.
+    naive = datetime(2026, 9, 11, 6, 0, 0)
+    extractor = _extractor(_FakeProxy(rows=[_scan_row(event_time=naive)]))
+    run_events = [
+        wu.metadata.aspect
+        for wu in extractor.get_workunits([_table()])
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, AssertionRunEventClass)
+    ]
+    expected_millis = int(naive.replace(tzinfo=timezone.utc).timestamp() * 1000)
+    assert run_events
+    assert all(e.timestampMillis == expected_millis for e in run_events)
+
+
 def test_extractor_no_tables_skips_query() -> None:
     proxy = _FakeProxy(rows=[_scan_row()])
     extractor = _extractor(proxy)
@@ -320,8 +336,8 @@ def test_query_targets_system_table_and_window() -> None:
     query = proxy.queries[0]
     assert RESULTS_TABLE in query
     assert "'table-uuid'" in query
-    assert "event_time >= TIMESTAMP '2026-09-05 00:00:00.000000'" in query
-    assert "event_time <= TIMESTAMP '2026-09-12 00:00:00.000000'" in query
+    assert "event_time >= TIMESTAMP '2026-09-05 00:00:00.000000+00:00'" in query
+    assert "event_time <= TIMESTAMP '2026-09-12 00:00:00.000000+00:00'" in query
     assert "commit_freshness_status" in query
     assert "daily_row_count_status" in query
     assert "total_row_count_status" in query
