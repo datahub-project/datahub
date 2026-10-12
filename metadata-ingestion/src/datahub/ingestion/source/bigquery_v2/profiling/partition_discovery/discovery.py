@@ -354,16 +354,9 @@ class PartitionDiscovery:
         if partition_filters:
             return partition_filters
 
-        sample_filters = self._get_partitions_with_sampling(
-            table,
-            project,
-            schema,
-            execute_query_func,
-            known_columns=list(required_partition_columns),
-            known_column_types=column_types,
-        )
-        if sample_filters:
-            return sample_filters
+        # _find_real_partition_values already runs the sampling pass internally (for both
+        # date and non-date columns), so a falsy return here means sampling also failed —
+        # don't sample a second time.
 
         # No usable partition values. An unfiltered query would be rejected on a
         # require-filter table and is unbounded on an external table, so skip those;
@@ -1623,7 +1616,7 @@ class PartitionDiscovery:
                     f"No date-like columns in {table.name}, but configured "
                     f"fallback_partition_values apply; using fallback filters"
                 )
-                return self._get_fallback_partition_filters(
+                fallback_filters = self._get_fallback_partition_filters(
                     table,
                     project,
                     schema,
@@ -1631,10 +1624,27 @@ class PartitionDiscovery:
                     column_types,
                     requires_filter=requires_filter,
                 )
+                if fallback_filters:
+                    return fallback_filters
             logger.debug(
                 f"No date-type columns in {table.name} and direct query returned nothing; "
-                f"skipping strategic date candidates"
+                f"trying a sampling pass before giving up"
             )
+            # Strategic date candidates are useless for non-date columns, but TABLESAMPLE
+            # can still surface a real partition value. Sampling happens here (rather than
+            # in the orchestrator) so every _find_real_partition_values path samples at
+            # most once — the orchestrator used to sample again on a falsy return, which
+            # double-scanned the table.
+            sample_filters = self._get_partitions_with_sampling(
+                table,
+                project,
+                schema,
+                execute_query_func,
+                known_columns=required_columns,
+                known_column_types=column_types,
+            )
+            if sample_filters:
+                return sample_filters
             return None
 
         logger.debug(
@@ -1994,6 +2004,19 @@ class PartitionDiscovery:
                 ) or declared_types.get(col)
                 if inferred:
                     enriched_types[col] = inferred
+
+        # Without partition_info the partition type is unknown, so max_partition_id is
+        # ambiguous unless the resolved column type disambiguates it. A temporal column
+        # (DATE/DATETIME/TIMESTAMP) cannot be a RANGE partition, so its id is a real
+        # time-partition value and the fast path is safe. A non-temporal or unresolved
+        # column could be an INT64 RANGE bucket floor (e.g. "9000"), which this path would
+        # misread as an equality value and profile only that bucket — skip it and let
+        # query-based discovery read the real value instead.
+        if table.partition_info is None and not all(
+            self._is_date_type_column(enriched_types.get(col, ""))
+            for col in required_columns
+        ):
+            return None
 
         try:
             filters = FilterBuilder.convert_partition_id_to_filters(

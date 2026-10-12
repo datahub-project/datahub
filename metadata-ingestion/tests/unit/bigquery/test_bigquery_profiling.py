@@ -140,6 +140,27 @@ def test_max_partition_id_skipped_for_range_partition():
     )
 
 
+def test_max_partition_id_skipped_when_partition_info_absent():
+    """Without partition_info the partition type is unknown, so a bare-integer
+    max_partition_id could be an INT64 RANGE bucket floor rather than a partition value.
+    Interpreting it would build an equality on the floor and profile only that bucket, so
+    the zero-scan fast path must be skipped and the value resolved by query discovery.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    table = make_table(max_partition_id="9000")
+    table.partition_info = None  # type: ignore[assignment]
+
+    assert (
+        discovery._get_partition_filters_from_max_partition_id(
+            table,
+            required_columns=["bucket_id"],
+            column_types={"bucket_id": "INT64"},
+        )
+        is None
+    )
+
+
 def test_max_partition_id_fills_type_from_partition_info_columns():
     """When INFORMATION_SCHEMA.COLUMNS could not supply a partition column's type, fall
     back to the type the schema extractor recorded on partition_info.columns so a
@@ -413,6 +434,43 @@ def test_non_require_filter_table_keeps_is_not_null_fallback():
     assert filters is not None and len(filters) == 1
     assert "event_date" in filters[0]
     assert "IS NOT NULL" in filters[0]
+
+
+def test_non_date_table_samples_once_in_find_real_values():
+    """_find_real_partition_values owns the sampling pass for non-date columns too. It
+    used to return None for them and rely on the orchestrator to sample, which then
+    double-sampled on any falsy return. Now sampling happens once inside
+    _find_real_partition_values: a non-date table whose only partition value comes from
+    sampling still resolves, and _get_partitions_with_sampling is invoked exactly once.
+    """
+    sample_calls = 0
+
+    class CountingSamplingDiscovery(PartitionDiscovery):
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            nonlocal sample_calls
+            sample_calls += 1
+            return ["`region` = 'us'"]
+
+    discovery = CountingSamplingDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        # Authoritative COLUMNS lookup names a non-date partition column; direct value
+        # queries return nothing, so discovery falls through to the sampling pass.
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="region", data_type="STRING")]
+        return []
+
+    table = make_table(name="t")
+    table.partition_info = make_partition_info("DAY", "region", ["region"])  # type: ignore[assignment]
+
+    filters = discovery.get_required_partition_filters(
+        table, "my-project", "ds", execute
+    )
+
+    assert filters == ["`region` = 'us'"]
+    assert sample_calls == 1
 
 
 def test_non_date_partition_columns_find_most_frequent_value():
