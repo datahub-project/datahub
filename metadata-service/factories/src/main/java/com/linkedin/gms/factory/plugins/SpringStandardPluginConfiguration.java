@@ -557,6 +557,10 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(DASHBOARD_ENTITY_NAME)
                             .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName("*")
+                            .aspectName(INSTITUTIONAL_MEMORY_ASPECT_NAME)
                             .build()))
                 .build());
   }
