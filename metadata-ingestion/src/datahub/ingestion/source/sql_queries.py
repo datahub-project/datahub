@@ -129,6 +129,12 @@ class ElasticsearchQuerySourceConfig(ConfigModel):
         "'<user>@<email_domain>'.",
     )
     batch_size: int = Field(1000, description="Scroll batch size.")
+    scroll_keepalive: str = Field(
+        "5m",
+        description="How long each scroll batch is kept alive server-side. Raise it "
+        "if parsing a batch of batch_size records downstream can take longer than "
+        "this, otherwise the scroll can expire mid-run.",
+    )
 
 
 class SqlQueriesSourceConfig(
@@ -450,24 +456,28 @@ class ElasticsearchQueryLogReader(QueryLogReader):
         query: Dict[str, Any] = {"query": {"bool": {"filter": filters}}}
 
         # The aggregator resolves session temp tables from earlier statements, so
-        # it needs records in ascending timestamp order. When a timestamp field is
-        # mapped, sort server-side and keep the scroll ordered. preserve_order
-        # disables the parallel-scroll optimisation and is slower on huge indices
-        # (scope with query_filter if that bites); without a timestamp we can't
-        # order, so fall back to the faster unordered scroll.
+        # records must arrive in ascending timestamp order. When a timestamp is
+        # mapped, sort on it server-side (preserve_order keeps the scroll in that
+        # order, at the cost of the parallel-scroll optimisation); _doc is a stable
+        # tiebreaker so records sharing a timestamp keep a deterministic order.
+        # Without a timestamp we can't order, so use the faster unordered scroll.
         preserve_order = fm.timestamp is not None
         if preserve_order:
-            query["sort"] = [{fm.timestamp: {"order": "asc"}}]
+            query["sort"] = [{fm.timestamp: {"order": "asc"}}, {"_doc": "asc"}]
 
         logger.info(
             f"Reading query records from Elasticsearch index '{self.config.index}'"
         )
+        # ponytail: the scroll keepalive must outlast downstream processing of one
+        # batch; a batch slower than scroll_keepalive still fails. Upgrade path for
+        # very large/slow runs is PIT + search_after, which is stateless per page.
         for hit in scan(
             client,
             index=self.config.index,
             query=query,
             size=self.config.batch_size,
             preserve_order=preserve_order,
+            scroll=self.config.scroll_keepalive,
         ):
             source = hit.get("_source", {})
             try:

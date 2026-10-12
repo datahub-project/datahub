@@ -122,11 +122,21 @@ class TestElasticsearchQueryLogReaderScan:
             {"_id": "3", "_source": {"object": "select 2"}},
         ]
         # scan is patched, so the client built by get_client is never used for I/O.
-        with patch("opensearchpy.helpers.scan", return_value=iter(hits)):
+        with patch("opensearchpy.helpers.scan", return_value=iter(hits)) as mock_scan:
             entries = list(reader.get_query_entries())
 
         assert [e.query for e in entries] == ["select 1", "select 2"]
         assert reader.report.num_entries_processed == 2
+
+        # Mapped timestamp => ascending sort with a stable _doc tiebreaker, ordered
+        # scroll, and the configured keepalive.
+        kwargs = mock_scan.call_args.kwargs
+        assert kwargs["query"]["sort"] == [
+            {"@timestamp": {"order": "asc"}},
+            {"_doc": "asc"},
+        ]
+        assert kwargs["preserve_order"] is True
+        assert kwargs["scroll"] == "5m"
 
     def test_get_query_entries_tolerates_malformed_document(self):
         reader = _reader()
