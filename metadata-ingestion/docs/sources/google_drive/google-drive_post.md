@@ -41,6 +41,7 @@ On each run the connector lists every configured folder, then compares each Doc'
 
 - Only Google Docs are ingested. Sheets, Slides, PDFs, uploaded files, and shortcuts are skipped.
 - Images are not ingested. Each embedded image is replaced with a text placeholder such as `[Image: <alt text>]`.
+- Docs with multiple tabs are ingested as a single Document. Each tab begins with its title as a heading.
 - Comments, suggestions, and some smart chips are not part of Google's Markdown export.
 - Google Drive refuses to export Docs larger than 10 MB. Those Docs are skipped with a warning.
 - Permissions are not mirrored. Anyone who can read the Document in DataHub can read its text, so choose roots whose audience matches your DataHub audience.
