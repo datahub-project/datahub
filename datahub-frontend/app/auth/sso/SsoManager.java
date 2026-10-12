@@ -92,7 +92,7 @@ public class SsoManager {
       ssoConfigs = new SsoConfigs.Builder().from(configs).build();
     } catch (Exception e) {
       // Debug-level logging since this is expected to fail if SSO has not been configured.
-      log.debug(String.format("Missing SSO settings in static configs %s", configs), e);
+      log.debug("Missing SSO settings in static configs {}", configs, e);
     }
 
     if (ssoConfigs != null && ssoConfigs.isOidcEnabled()) {

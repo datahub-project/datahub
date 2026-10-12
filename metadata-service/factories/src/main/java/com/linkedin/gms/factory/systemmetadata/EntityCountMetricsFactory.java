@@ -53,6 +53,8 @@ public class EntityCountMetricsFactory {
   public EntityCountMetricsPublisher entityCountMetricsPublisher(
       @Qualifier("keyAspectEntityCountService")
           KeyAspectEntityCountService keyAspectEntityCountService,
+      @Autowired(required = false) @Qualifier("platformEntityCounts")
+          com.linkedin.metadata.systemmetadata.PlatformEntityCounts platformEntityCounts,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       EntityCountMetricsSinkComposer entityCountMetricsSinkComposer,
       @Autowired(required = false)
@@ -62,6 +64,7 @@ public class EntityCountMetricsFactory {
     entityCountMetricsPublisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            platformEntityCounts,
             systemOperationContext,
             entityCountMetricsSinkComposer,
             micrometerEntityCountMetricsSink,

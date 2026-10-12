@@ -283,7 +283,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNER</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNERSHIP</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -298,7 +298,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "ADD",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {
@@ -318,7 +318,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNER</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNERSHIP</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -333,7 +333,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "REMOVE",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {

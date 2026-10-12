@@ -40,6 +40,8 @@ export const Card = ({
     width,
     maxWidth,
     height,
+    padding,
+    gap,
     isEmpty,
     style,
     isCardClickable = cardDefaults.isCardClickable,
@@ -127,7 +129,15 @@ export const Card = ({
     return (
         <>
             {isEmpty ? (
-                <CardContainer maxWidth={maxWidth} height={height} width={width} $size={size} data-testid={dataTestId}>
+                <CardContainer
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    $size={size}
+                    data-testid={dataTestId}
+                    padding={padding}
+                    gap={gap}
+                >
                     <TitleContainer data-testid="no-data">
                         <Title $isEmpty={isEmpty} $size={size}>
                             {t('noData')}
@@ -143,6 +153,8 @@ export const Card = ({
                     height={height}
                     width={width}
                     $size={size}
+                    padding={padding}
+                    gap={gap}
                     style={style}
                     data-testid={dataTestId}
                 >
@@ -153,7 +165,7 @@ export const Card = ({
                             $collapsible={collapsible}
                             onClick={handleHeaderClick}
                         >
-                            {icon && <div style={iconStyles}>{icon}</div>}
+                            {icon ? <div style={iconStyles}>{icon}</div> : null}
 
                             <TitleContainer>
                                 {titleRow}

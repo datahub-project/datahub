@@ -74,6 +74,7 @@
     "levelFilter.indirectTooltip": "Visa indirekt relaterade datatillgångar",
     "manageLineage.changeToHome": "Byt till hem",
     "manageLineage.dashboardNoDownstream": "Dashboard-entiteter har ingen downstream-lineage",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "Gör den här entiteten till ditt hem för att göra downstream-ändringar.",
     "manageLineage.editDownstream": "Redigera downstream",
     "manageLineage.editUpstream": "Redigera upstream",

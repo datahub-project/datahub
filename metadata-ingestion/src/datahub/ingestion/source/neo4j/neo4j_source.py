@@ -63,7 +63,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
 @capability(
     SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
 )
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class Neo4jSource(StatefulIngestionSourceBase):
     config: Neo4jConfig
     report: Neo4jSourceReport

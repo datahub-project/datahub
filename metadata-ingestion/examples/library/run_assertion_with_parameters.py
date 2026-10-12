@@ -1,8 +1,4 @@
-import logging
-
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-log = logging.getLogger(__name__)
 
 graph = DataHubGraph(
     config=DatahubClientConfig(
@@ -26,6 +22,4 @@ assertion_result = graph.run_assertion(
     parameters=parameters,
 )
 
-log.info(
-    f"Assertion result (SUCCESS / FAILURE / ERROR): {assertion_result.get('type')}"
-)
+print(f"Assertion result (SUCCESS / FAILURE / ERROR): {assertion_result.get('type')}")

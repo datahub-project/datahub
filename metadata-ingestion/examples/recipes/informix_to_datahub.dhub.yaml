@@ -1,0 +1,27 @@
+---
+# see https://docs.datahub.com/docs/generated/ingestion/sources/informix for complete documentation
+source:
+  type: "informix"
+  config:
+    host_port: localhost:9088
+    server: informix
+    database: mydb
+    username: informix
+    password: "${INFORMIX_PASSWORD}"
+    # Required to auto-download the proprietary IBM JDBC driver from Maven Central.
+    # For air-gapped environments, set driver_jar_paths instead.
+    accept_ibm_jdbc_license: true
+    include_tables: true
+    include_views: true
+    include_view_lineage: true
+    include_foreign_keys: true
+    include_row_counts: true
+    include_ownership: true
+    stateful_ingestion:
+      enabled: true
+
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

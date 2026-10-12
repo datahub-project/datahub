@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "替代文字",
+    "addImage.imageUrl": "圖片網址",
+    "addImage.title": "新增圖片",
+    "heading.heading1": "標題 1",
+    "heading.heading2": "標題 2",
+    "heading.heading3": "標題 3",
+    "heading.heading4": "標題 4",
+    "heading.heading5": "標題 5",
+    "heading.normal": "一般",
+    "link.linkUrl": "連結網址",
+    "link.text": "文字",
+    "link.title": "新增連結",
+    "mentions.failedToFindEntity": "找不到實體",
+    "table.deleteColumn": "刪除欄",
+    "table.deleteRow": "刪除列",
+    "table.deleteTable": "刪除表格",
+    "table.insertColumnLeft": "在左側插入欄",
+    "table.insertColumnRight": "在右側插入欄",
+    "table.insertRowAbove": "在上方插入列",
+    "table.insertRowBelow": "在下方插入列"
+}

@@ -3,7 +3,7 @@ run_id: starrocks-test
 source:
   type: starrocks
   config:
-    host_port: localhost:59030
+    host_port: "localhost:${STARROCKS_MYSQL_PORT}"
     username: root
     password: ""
     include_external_catalogs: false

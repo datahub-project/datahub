@@ -5,8 +5,6 @@ import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
-import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -57,12 +55,10 @@ export const Preview = ({
     urn,
     name,
     title,
-    propagationDetails,
 }: {
     urn: string;
     name: string;
     title?: string | undefined;
-    propagationDetails?: AttributionDetails;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpUser, urn);
@@ -70,25 +66,22 @@ export const Preview = ({
     return (
         <PreviewContainer>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
-                        <PlatformInfo>
-                            <PreviewImage>
-                                {entityRegistry.getIcon(EntityType.CorpUser, 20, IconStyleType.HIGHLIGHT)}
-                            </PreviewImage>
-                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpUser)}</PlatformText>
-                        </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
-                        </Link>
-                    </TitleContainer>
-                </Link>
+                <TitleContainer>
+                    <PlatformInfo>
+                        <PreviewImage>
+                            {entityRegistry.getIcon(EntityType.CorpUser, 20, IconStyleType.HIGHLIGHT)}
+                        </PreviewImage>
+                        <PlatformText>{entityRegistry.getEntityName(EntityType.CorpUser)}</PlatformText>
+                    </PlatformInfo>
+                    <Link to={url}>
+                        <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
+                    </Link>
+                </TitleContainer>
                 {title && (
                     <TitleContainer>
                         <SearchTextHighlighter field="title" text={title} />
                     </TitleContainer>
                 )}
-                <HoverCardAttributionDetails propagationDetails={propagationDetails} />
             </div>
         </PreviewContainer>
     );

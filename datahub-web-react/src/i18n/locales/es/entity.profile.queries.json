@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Copiar la consulta",
-    "emptyQueries.noHighlightedQueries": "Aún no hay consultas destacadas",
     "queriesTab.addHighlightedQueryButton": "Añadir consulta destacada",
     "queriesTab.addHighlightedQueryTooltip": "Añadir una consulta destacada",
     "queriesTab.addUnauthorizedMessage": "No está autorizado para añadir consultas a esta entidad.",

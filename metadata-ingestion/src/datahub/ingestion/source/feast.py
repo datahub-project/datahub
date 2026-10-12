@@ -126,7 +126,7 @@ class FeastRepositorySourceConfig(
 
 @platform_name("Feast")
 @config_class(FeastRepositorySourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")

@@ -21,7 +21,7 @@
     "groups.createModal.name.validationError.empty": "Ange ett gruppnamn.",
     "groups.createModal.name.validationError.tooLong": "Namnet får vara högst 250 tecken.",
     "groups.createModal.title": "Skapa ny grupp",
-    "groups.createOwnerError": "Det gick inte att automatiskt lägga till dig som owner för gruppen. Lägg till dig själv som owner manuellt.",
+    "groups.createOwnerError": "Det gick inte att automatiskt lägga till dig som ägare till gruppen. Lägg till dig själv som ägare manuellt.",
     "groups.createSuccess": "Grupp skapad!",
     "groups.deleteConfirm": "Är du säker på att du vill ta bort gruppen ”{{name}}”? Den här åtgärden kan inte ångras.",
     "groups.deleteError": "Det gick inte att ta bort: {{error}}",
@@ -118,6 +118,7 @@
     "users.columns.name": "Namn",
     "users.columns.role": "Roll",
     "users.columns.status": "Status",
+    "users.copyUrn": "Kopiera URN",
     "users.deleteUser": "Ta bort användare",
     "users.emptyTitle": "Inga användare!",
     "users.groups.overflowTitle": "Grupper",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Avstängd",
     "users.statusInactive": "Inaktiv",
-    "users.statusNoUrn": "Ingen URN"
+    "users.statusNoUrn": "Ingen URN",
+    "users.urnCopied": "URN kopierad till urklipp"
 }

@@ -26,10 +26,18 @@ def is_starrocks_up(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def starrocks_runner(docker_compose_runner, test_resources_dir):
+def starrocks_runner(docker_compose_runner, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "starrocks"
     ) as docker_services:
+        # The compose file exposes the MySQL protocol port ephemerally, so a
+        # leaked container from a prior run can never hold onto the port a
+        # fresh run needs. starrocks_to_file.yml picks it up via ${STARROCKS_MYSQL_PORT}.
+        mysql_port = docker_services.port_for("teststarrocks", STARROCKS_FE_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("STARROCKS_MYSQL_PORT", str(mysql_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             "teststarrocks",

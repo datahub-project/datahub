@@ -1,11 +1,13 @@
 """Unit tests for DataHubGraph: offset pagination and entity aspect specs fetch."""
 
 import pathlib
-from typing import List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
+from requests.exceptions import HTTPError
 
+from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 
 
@@ -160,3 +162,66 @@ class TestGetEntityAspectSpecs:
         specs2 = _graph(session2).get_entity_aspect_specs()
         assert specs2 is not None and specs2.supports("dataset", "status")
         assert session2.request.call_count == 0
+
+
+def _json_response(payload: dict) -> MagicMock:
+    resp = MagicMock()
+    resp.json.return_value = payload
+    resp.raise_for_status.return_value = None
+    return resp
+
+
+def _http_error_response(status_code: int) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = {"error": "not found"}
+    error = HTTPError(response=resp)
+    resp.raise_for_status.side_effect = error
+    return resp
+
+
+def _offsets_graph(session: MagicMock) -> DataHubGraph:
+    graph = _graph(session)
+    graph.config = MagicMock()
+    graph.config.server = "http://localhost:8080"
+    return graph
+
+
+class TestGetKafkaConsumerOffsets:
+    def test_uses_messaging_endpoints(self) -> None:
+        session = MagicMock()
+        session.request.return_value = _json_response(
+            {"transport": "kafka", "consumerGroups": {}, "errors": ["partial data"]}
+        )
+        result = _offsets_graph(session).get_kafka_consumer_offsets()
+
+        assert set(result.keys()) == {"mcp", "mcl", "mcl-timeseries"}
+        urls = [call.args[1] for call in session.request.call_args_list]
+        assert all("/openapi/operations/messaging/" in url for url in urls)
+        assert all(url.endswith("/consumer/lag") for url in urls)
+
+    def test_falls_back_to_kafka_endpoints_on_404(self) -> None:
+        session = MagicMock()
+        legacy_payload: Dict[str, Any] = {
+            "my-group": {"my-topic": {"partitions": {}, "metrics": {}}}
+        }
+        session.request.side_effect = [
+            _http_error_response(404),
+            _json_response(legacy_payload),
+        ] * 3
+        result = _offsets_graph(session).get_kafka_consumer_offsets()
+
+        assert result == {
+            "mcp": legacy_payload,
+            "mcl": legacy_payload,
+            "mcl-timeseries": legacy_payload,
+        }
+        urls = [call.args[1] for call in session.request.call_args_list]
+        assert sum("/openapi/operations/messaging/" in url for url in urls) == 3
+        assert sum("/openapi/operations/kafka/" in url for url in urls) == 3
+
+    def test_non_404_error_is_raised(self) -> None:
+        session = MagicMock()
+        session.request.return_value = _http_error_response(500)
+        with pytest.raises(OperationalError):
+            _offsets_graph(session).get_kafka_consumer_offsets()

@@ -122,7 +122,7 @@ class _TileCollectionResult:
 
 
 @platform_name("Omni")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @config_class(OmniSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(

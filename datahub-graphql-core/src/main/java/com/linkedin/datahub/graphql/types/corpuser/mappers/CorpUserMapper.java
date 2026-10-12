@@ -82,9 +82,12 @@ public class CorpUserMapper {
                 CorpUserEditableInfoMapper.map(context, new CorpUserEditableInfo(dataMap))));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
-        (corpUser, dataMap) ->
-            corpUser.setGlobalTags(
-                GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
+        (corpUser, dataMap) -> {
+          com.linkedin.datahub.graphql.generated.GlobalTags tags =
+              GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
+          corpUser.setGlobalTags(tags);
+          corpUser.setTags(tags);
+        });
     mappingHelper.mapToResult(
         CORP_USER_STATUS_ASPECT_NAME,
         (corpUser, dataMap) ->

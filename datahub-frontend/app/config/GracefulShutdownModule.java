@@ -2,6 +2,7 @@ package config;
 
 import com.google.inject.AbstractModule;
 import com.typesafe.config.Config;
+import controllers.ProxyAdmission;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,6 +59,8 @@ public class GracefulShutdownModule extends AbstractModule {
     bind(FrontendShutdownHook.class)
         .toProvider(FrontendShutdownHookProvider.class)
         .asEagerSingleton();
+    // Eager so management-port readiness is bound before the first proxied request.
+    bind(ProxyAdmission.class).asEagerSingleton();
   }
 
   /**

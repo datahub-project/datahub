@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Thin wrapper around datahub_dev.py so agents and humans can run:
-#   scripts/datahub-dev.sh status
-#   scripts/datahub-dev.sh rebuild --wait
+#   scripts/dev/datahub-dev.sh status
+#   scripts/dev/datahub-dev.sh rebuild --wait
 # etc.
 
 # Read per-user config from ~/.datahub/dev/config.json.

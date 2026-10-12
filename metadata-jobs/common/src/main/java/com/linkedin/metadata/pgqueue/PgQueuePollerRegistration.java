@@ -19,6 +19,7 @@ public record PgQueuePollerRegistration(
     @Nonnull List<String> topicNames,
     int maxBatch,
     @Nonnull String threadName,
+    long emptyPollSleepMinMillis,
     long emptyPollSleepMillis,
     long missingTopicSleepMillis,
     long errorRecoverySleepMillis,
@@ -32,6 +33,7 @@ public record PgQueuePollerRegistration(
       @Nonnull List<String> topicNames,
       int maxBatch,
       @Nonnull String threadName,
+      long emptyPollSleepMinMillis,
       long emptyPollSleepMillis,
       long missingTopicSleepMillis,
       long errorRecoverySleepMillis,
@@ -41,6 +43,7 @@ public record PgQueuePollerRegistration(
         topicNames,
         maxBatch,
         threadName,
+        emptyPollSleepMinMillis,
         emptyPollSleepMillis,
         missingTopicSleepMillis,
         errorRecoverySleepMillis,
@@ -53,8 +56,18 @@ public record PgQueuePollerRegistration(
     if (maxBatch < 1) {
       throw new IllegalArgumentException("maxBatch must be >= 1");
     }
+    if (emptyPollSleepMinMillis < 1) {
+      throw new IllegalArgumentException("emptyPollSleepMinMillis must be >= 1");
+    }
+    if (emptyPollSleepMillis < 1) {
+      throw new IllegalArgumentException("emptyPollSleepMillis must be >= 1");
+    }
     if (batchPolicy != null && flushHandler == null) {
       throw new IllegalArgumentException("flushHandler is required when batchPolicy is set");
     }
+  }
+
+  public PgQueueEmptyPollBackoff emptyPollBackoff() {
+    return new PgQueueEmptyPollBackoff(emptyPollSleepMinMillis, emptyPollSleepMillis);
   }
 }

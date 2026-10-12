@@ -47,7 +47,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self, database: SnowflakeDatabase, db_tables: Dict[str, List[SnowflakeTable]]
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.is_profiling_enabled():
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
@@ -96,10 +96,6 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> dict:
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
-            # Lowercase/Mixedcase table names in Snowflake do not work by default.
-            # We need to pass `use_quoted_name=True` for such tables as mentioned here -
-            # https://github.com/great-expectations/great_expectations/pull/2023
-            "use_quoted_name": (table.name != table.name.upper()),
             "custom_sql": None,
             "row_count": table.rows_count,
         }
@@ -136,9 +132,10 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             env=self.config.env,
             # Snowflake's schema comes from INFORMATION_SCHEMA, not from
             # reflection, so its field paths follow source config rather than the
-            # dialect's normalize_name. Handing the rule in lets the profiler make
-            # the translation itself instead of deferring it back to us.
-            field_path_transform=self.identifiers.snowflake_identifier,
+            # dialect's normalize_name. Columns fold separately from datasets --
+            # preserve_column_case keeps a quoted "col"/"COL" pair distinct -- so
+            # this is the column rule, not snowflake_identifier.
+            field_path_transform=self.identifiers.snowflake_column_identifier,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:

@@ -205,7 +205,8 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets + total only — result body is unused.
+                count: 0,
                 filters: [
                     {
                         field: 'runId',

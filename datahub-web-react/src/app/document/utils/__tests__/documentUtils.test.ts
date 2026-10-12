@@ -140,6 +140,19 @@ describe('documentUtils', () => {
             expect(resultWithoutChildren.hasChildren).toBe(false);
         });
 
+        it('should always use the persisted documentInfo title for semantic anchors', () => {
+            const doc = createTestDocument({
+                urn: 'urn:li:document:semantic-anchor-1',
+                info: {
+                    title: 'Auto-generated Title',
+                } as any,
+            } as any);
+
+            const result = documentToTreeNode(doc, false);
+
+            expect(result.title).toBe('Auto-generated Title');
+        });
+
         it('should always set children to undefined', () => {
             const doc = createTestDocument({
                 urn: 'urn:li:document:123',

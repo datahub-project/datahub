@@ -1,4 +1,3 @@
-# Inlined from metadata-ingestion/examples/library/search_documents.py
 """Example: Searching documents using the DataHub SDK.
 
 This example demonstrates how to search for documents using the DataHub SDK.

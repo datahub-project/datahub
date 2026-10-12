@@ -1,29 +1,23 @@
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Form, FormInstance } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AllowedValuesField from '@app/govern/structuredProperties/AllowedValuesField';
-import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
-import {
-    FieldLabel,
-    FlexContainer,
-    RowContainer,
-    SubTextContainer,
-} from '@app/govern/structuredProperties/styledComponents';
+import { FieldError } from '@app/govern/structuredProperties/styledComponents';
 import useAvailablePlatforms, { PlatformOption } from '@app/govern/structuredProperties/useAvailablePlatforms';
-import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
+import type { StructuredPropActions } from '@app/govern/structuredProperties/useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
+    AllowedValueRow,
     PropValueField,
     SEARCHABLE_ENTITY_TYPES,
     StructuredProp,
+    StructuredPropertyFormErrors,
     isEntityTypeSelected,
 } from '@app/govern/structuredProperties/utils';
-import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
+import { SimpleSelect, Tooltip } from '@src/alchemy-components';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import { StructuredPropertyEntity } from '@src/types.generated';
 
 const PlatformOptionLabel = styled.div`
     display: flex;
@@ -35,32 +29,50 @@ const ALLOWED_TYPES_FIELD_PATH = ['typeQualifier', 'allowedTypes'];
 const ENTITY_TYPES_FIELD = 'entityTypes';
 const ALLOWED_PLATFORMS_FIELD = 'allowedPlatforms';
 
-interface Props {
+type SelectionActions = Pick<
+    StructuredPropActions,
+    | 'handleSelectChange'
+    | 'handleSelectUpdateChange'
+    | 'getEntitiesListOptions'
+    | 'disabledEntityTypeValues'
+    | 'disabledAllowedPlatformValues'
+    | 'disabledTypeQualifierValues'
+>;
+
+type Props = {
     selectedProperty: StructuredPropertyEntity | undefined;
-    form: FormInstance;
+    isReadOnly: boolean;
     formValues: StructuredProp | undefined;
-    setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
-    setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
+    errors: StructuredPropertyFormErrors;
     isEditMode: boolean;
     selectedValueType: string;
-    setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
-    allowedValues: AllowedValue[] | undefined;
+    selectionActions: SelectionActions;
+    savedAllowedValues: AllowedValueRow[] | undefined;
+    allowedValueRows: AllowedValueRow[];
+    addAllowedValueRow: () => void;
+    updateAllowedValueRow: (rowId: string, patch: Partial<AllowedValueRow>) => void;
+    removeAllowedValueRow: (rowId: string) => void;
+    moveAllowedValueRow: (from: number, to: number) => void;
     valueField: PropValueField;
-    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
-}
+    onValuesChange?: () => void;
+};
 
 const StructuredPropsFormSection = ({
     selectedProperty,
-    form,
+    isReadOnly,
     formValues,
-    setFormValues,
+    errors,
     isEditMode,
-    setCardinality,
     selectedValueType,
-    setSelectedValueType,
-    allowedValues,
+    selectionActions,
+    savedAllowedValues,
+    allowedValueRows,
+    addAllowedValueRow,
+    updateAllowedValueRow,
+    removeAllowedValueRow,
+    moveAllowedValueRow,
     valueField,
-    setShowAllowedValuesDrawer,
+    onValuesChange,
 }: Props) => {
     const { t } = useTranslation('governance.structured-properties');
     const platformOptions = useAvailablePlatforms();
@@ -72,161 +84,96 @@ const StructuredPropsFormSection = ({
         disabledEntityTypeValues,
         disabledAllowedPlatformValues,
         disabledTypeQualifierValues,
-    } = useStructuredProp({
-        selectedProperty,
-        form,
-        setFormValues,
-        setCardinality,
-        setSelectedValueType,
-    });
+    } = selectionActions;
+
+    const handleUpdate = (field: string | string[], values: string[]) => {
+        if (isEditMode) handleSelectUpdateChange(field, values);
+        else handleSelectChange(field, values);
+        onValuesChange?.();
+    };
 
     return (
         <>
-            {!(isEditMode && !allowedValues) && (
+            {!(isEditMode && !savedAllowedValues) && (
                 <AllowedValuesField
                     selectedValueType={selectedValueType}
-                    allowedValues={allowedValues}
                     valueField={valueField}
-                    setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
+                    isReadOnly={isReadOnly}
+                    rows={allowedValueRows}
+                    errors={errors.allowedValues}
+                    addRow={addAllowedValueRow}
+                    updateRow={updateAllowedValueRow}
+                    removeRow={removeAllowedValueRow}
+                    moveRow={moveAllowedValueRow}
                 />
             )}
             {isEntityTypeSelected(selectedValueType) && (
-                <RowContainer>
-                    <FieldLabel>
-                        <FlexContainer>
-                            {t('allowedEntityTypes.title')}
-                            <Tooltip title={t('allowedEntityTypes.tooltip')} showArrow={false}>
-                                <Icon icon={Info} color="iconBrand" size="lg" />
-                            </Tooltip>
-                        </FlexContainer>
-                        {isEditMode && (
-                            <SubTextContainer>
-                                <Text size="sm" weight="medium">
-                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
-                                        {t('addOnly')}
-                                    </Tooltip>
-                                </Text>
-                            </SubTextContainer>
-                        )}
-                    </FieldLabel>
-                    <Tooltip
-                        title={!formValues?.typeQualifier?.allowedTypes?.length && t('allowedEntityTypes.anyTooltip')}
-                        showArrow={false}
-                    >
-                        <Form.Item name={['typeQualifier', 'allowedTypes']}>
-                            <SimpleSelect
-                                options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
-                                onUpdate={(values) =>
-                                    isEditMode
-                                        ? handleSelectUpdateChange(ALLOWED_TYPES_FIELD_PATH, values)
-                                        : handleSelectChange(ALLOWED_TYPES_FIELD_PATH, values)
-                                }
-                                placeholder={t('allowedEntityTypes.anyPlaceholder')}
-                                isMultiSelect
-                                values={formValues?.typeQualifier?.allowedTypes}
-                                disabledValues={disabledTypeQualifierValues}
-                                width="full"
-                                isDisabled={isEditMode ? !formValues?.typeQualifier?.allowedTypes?.length : false}
-                            />
-                        </Form.Item>
-                    </Tooltip>
-                </RowContainer>
-            )}
-            <RowContainer>
-                <FieldLabel>
-                    <FlexContainer>
-                        {t('appliesTo.title')}
-                        <RequiredAsterisk />
-                        <Tooltip title={t('appliesTo.tooltip')} showArrow={false}>
-                            <Icon icon={Info} color="iconBrand" size="lg" />
-                        </Tooltip>
-                    </FlexContainer>
-                    {isEditMode && (
-                        <SubTextContainer>
-                            <Text size="sm" weight="medium">
-                                <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
-                                    {t('addOnly')}
-                                </Tooltip>
-                            </Text>
-                        </SubTextContainer>
-                    )}
-                </FieldLabel>
-
-                <Form.Item
-                    name="entityTypes"
-                    rules={[
-                        {
-                            required: true,
-                            message: t('appliesTo.error'),
-                        },
-                    ]}
+                <Tooltip
+                    title={!formValues?.typeQualifier?.allowedTypes?.length && t('allowedEntityTypes.anyTooltip')}
+                    showArrow={false}
                 >
-                    <SimpleSelect
-                        options={getEntitiesListOptions(APPLIES_TO_ENTITIES)}
-                        onUpdate={(values) =>
-                            isEditMode
-                                ? handleSelectUpdateChange(ENTITY_TYPES_FIELD, values)
-                                : handleSelectChange(ENTITY_TYPES_FIELD, values)
-                        }
-                        placeholder={t('appliesTo.placeholder')}
-                        isMultiSelect
-                        values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
-                        disabledValues={disabledEntityTypeValues}
-                        width="full"
-                        showSelectAll
-                        selectAllLabel={t('appliesTo.allAssetTypes')}
-                        data-testid="structured-props-select-input-applies-to"
-                        optionListTestId="applies-to-options-list"
-                    />
-                </Form.Item>
-            </RowContainer>
+                    <div>
+                        <SimpleSelect
+                            label={t('allowedEntityTypes.title')}
+                            options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
+                            onUpdate={(values) => handleUpdate(ALLOWED_TYPES_FIELD_PATH, values)}
+                            placeholder={t('allowedEntityTypes.anyPlaceholder')}
+                            isMultiSelect
+                            values={formValues?.typeQualifier?.allowedTypes}
+                            disabledValues={disabledTypeQualifierValues}
+                            width="full"
+                            isDisabled={
+                                isReadOnly || (isEditMode ? !formValues?.typeQualifier?.allowedTypes?.length : false)
+                            }
+                        />
+                    </div>
+                </Tooltip>
+            )}
+            <div>
+                <SimpleSelect
+                    label={t('appliesTo.title')}
+                    isRequired
+                    options={getEntitiesListOptions(APPLIES_TO_ENTITIES)}
+                    onUpdate={(values) => handleUpdate(ENTITY_TYPES_FIELD, values)}
+                    placeholder={t('appliesTo.placeholder')}
+                    isMultiSelect
+                    values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
+                    disabledValues={disabledEntityTypeValues}
+                    width="full"
+                    showSelectAll
+                    isDisabled={isReadOnly}
+                    selectAllLabel={t('appliesTo.allAssetTypes')}
+                    data-testid="structured-props-select-input-applies-to"
+                    optionListTestId="applies-to-options-list"
+                />
+                {errors.entityTypes && <FieldError>{errors.entityTypes}</FieldError>}
+            </div>
             {!(isEditMode && !selectedProperty?.definition?.allowedPlatforms?.length) && (
-                <RowContainer>
-                    <FieldLabel>
-                        <FlexContainer>
-                            {t('allowedPlatforms.title')}
-                            <Tooltip title={t('allowedPlatforms.tooltip')} showArrow={false}>
-                                <Icon icon={Info} color="iconBrand" size="lg" />
-                            </Tooltip>
-                        </FlexContainer>
-                        {isEditMode && (
-                            <SubTextContainer>
-                                <Text size="sm" weight="medium">
-                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
-                                        {t('addOnly')}
-                                    </Tooltip>
-                                </Text>
-                            </SubTextContainer>
-                        )}
-                    </FieldLabel>
-                    <Tooltip
-                        title={!formValues?.allowedPlatforms?.length && t('allowedPlatforms.anyTooltip')}
-                        showArrow={false}
-                    >
-                        <Form.Item name={ALLOWED_PLATFORMS_FIELD}>
-                            <SimpleSelect<PlatformOption>
-                                options={platformOptions}
-                                onUpdate={(values) =>
-                                    isEditMode
-                                        ? handleSelectUpdateChange(ALLOWED_PLATFORMS_FIELD, values)
-                                        : handleSelectChange(ALLOWED_PLATFORMS_FIELD, values)
-                                }
-                                placeholder={t('allowedPlatforms.anyPlaceholder')}
-                                isMultiSelect
-                                showSearch
-                                values={formValues?.allowedPlatforms}
-                                disabledValues={disabledAllowedPlatformValues}
-                                width="full"
-                                renderCustomOptionText={(option) => (
-                                    <PlatformOptionLabel>
-                                        <PlatformIcon platform={option.platform} size={16} styles={{ padding: 0 }} />
-                                        <span>{option.label}</span>
-                                    </PlatformOptionLabel>
-                                )}
-                            />
-                        </Form.Item>
-                    </Tooltip>
-                </RowContainer>
+                <Tooltip
+                    title={!formValues?.allowedPlatforms?.length && t('allowedPlatforms.anyTooltip')}
+                    showArrow={false}
+                >
+                    <div>
+                        <SimpleSelect<PlatformOption>
+                            label={t('allowedPlatforms.title')}
+                            options={platformOptions}
+                            onUpdate={(values) => handleUpdate(ALLOWED_PLATFORMS_FIELD, values)}
+                            placeholder={t('allowedPlatforms.anyPlaceholder')}
+                            isMultiSelect
+                            showSearch
+                            values={formValues?.allowedPlatforms}
+                            disabledValues={disabledAllowedPlatformValues}
+                            isDisabled={isReadOnly}
+                            width="full"
+                            renderCustomOptionText={(option) => (
+                                <PlatformOptionLabel>
+                                    <PlatformIcon platform={option.platform} size={16} styles={{ padding: 0 }} />
+                                    <span>{option.label}</span>
+                                </PlatformOptionLabel>
+                            )}
+                        />
+                    </div>
+                </Tooltip>
             )}
         </>
     );

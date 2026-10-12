@@ -87,6 +87,15 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
       return mock;
     }
 
+    @Bean(name = "searchClusterRegistry")
+    @Primary
+    public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
+      SearchClusterRegistry registry =
+          Mockito.mock(SearchClusterRegistry.class, Mockito.RETURNS_MOCKS);
+      Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
+      return registry;
+    }
+
     @Bean(name = IndexConventionFactory.INDEX_CONVENTION_BEAN)
     @Primary
     public IndexConvention indexConvention() {

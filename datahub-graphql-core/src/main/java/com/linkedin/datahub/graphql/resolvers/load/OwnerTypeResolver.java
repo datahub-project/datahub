@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.Iterables;
+import com.linkedin.datahub.graphql.AspectLoadContext;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.LoadableType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -44,6 +47,18 @@ public class OwnerTypeResolver<T> implements DataFetcher<CompletableFuture<T>> {
                 .collect(Collectors.toList()));
     final DataLoader<String, T> loader =
         environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
+
+    // Contribute this field's selection to the request-scoped union and pass it as the DataLoader
+    // key context, exactly like LoadableTypeResolver. Without it, owner hydration silently reuses
+    // whatever (possibly narrower) union other selections accumulated for CorpUser / CorpGroup.
+    QueryContext context = environment.getContext();
+    if (context != null) {
+      AspectLoadContext loadContext =
+          AspectUtils.computeLoadContext(
+              context.getAspectMappingRegistry(), filteredEntity.name(), environment);
+      context.mergeAspectLoadContext(filteredEntity.name(), loadContext);
+      return loader.load(((Entity) ownerType).getUrn(), loadContext);
+    }
     return loader.load(((Entity) ownerType).getUrn());
   }
 }

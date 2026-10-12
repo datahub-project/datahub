@@ -1,7 +1,9 @@
 package com.linkedin.metadata.utils;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
@@ -42,6 +44,25 @@ public class SystemMetadataUtils {
       result.setLastObserved(System.currentTimeMillis());
     }
     return result;
+  }
+
+  /**
+   * Removes the reserved {@code appSource=systemUpdate} trust token from client-supplied system
+   * metadata. System principals may keep the stamp for provenance/indexing; non-system writers must
+   * not be able to attach it.
+   *
+   * @return {@code true} if a reserved value was stripped
+   */
+  public static boolean stripReservedAppSource(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata == null || !systemMetadata.hasProperties()) {
+      return false;
+    }
+    StringMap properties = systemMetadata.getProperties();
+    if (SYSTEM_UPDATE_SOURCE.equals(properties.get(APP_SOURCE))) {
+      properties.remove(APP_SOURCE);
+      return true;
+    }
+    return false;
   }
 
   /**

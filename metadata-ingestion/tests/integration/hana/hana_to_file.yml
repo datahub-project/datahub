@@ -6,7 +6,7 @@ source:
     username: HOTEL
     password: Localdev1
     database: HXE
-    host_port: localhost:39041
+    host_port: "localhost:${HANA_PORT}"
     schema_pattern:
       allow:
         - "HOTEL"

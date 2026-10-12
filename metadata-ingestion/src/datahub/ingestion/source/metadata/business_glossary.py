@@ -551,7 +551,7 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
 
 @platform_name("Business Glossary")
 @config_class(BusinessGlossarySourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @dataclass
 class BusinessGlossaryFileSource(Source):
     """

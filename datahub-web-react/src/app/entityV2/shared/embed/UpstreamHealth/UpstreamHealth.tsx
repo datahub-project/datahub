@@ -68,7 +68,7 @@ export default function UpstreamHealth() {
 
     const generateQueryVariables = ({ degree, start }) => {
         return {
-            skip: !lineageEnabled,
+            skip: !lineageEnabled || !urn,
             variables: {
                 input: {
                     searchFlags: {
@@ -213,15 +213,15 @@ export default function UpstreamHealth() {
         <Container>
             <CTAWrapper
                 backgroundColor={themeConfig.colors.bgSurfaceError}
-                borderColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.borderError}
                 padding="10px 0 0 0"
             >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <WarningCircle color={themeConfig.colors.textError} size={18} />
+                        <WarningCircle color={themeConfig.colors.iconError} size={18} />
                         <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
-                    <StyledArrow isOpen={isOpen} />
+                    <StyledArrow $isOpen={isOpen} />
                 </TitleWrapper>
                 {isOpen && (
                     <UpstreamEntitiesList

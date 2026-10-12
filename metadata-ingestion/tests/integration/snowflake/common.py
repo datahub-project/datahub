@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
+from datahub.ingestion.source.snowflake.constants import SnowflakeShowKind
 from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SHOW_STREAM_MAX_PAGE_SIZE,
+    SnowflakeQuery,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
@@ -411,7 +415,9 @@ def default_query_results(  # noqa: C901
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
-    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.VIEWS, "TEST_DB"
+    ):
         # TODO: Add tests for view pagination.
         return [
             {
@@ -591,7 +597,9 @@ def default_query_results(  # noqa: C901
                 "NUMERIC_SCALE": 0,
             },
         ]
-    elif query == SnowflakeQuery.streams_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.STREAMS, "TEST_DB", limit=SHOW_STREAM_MAX_PAGE_SIZE
+    ):
         # TODO: Add tests for stream pagination.
         return [
             {
@@ -614,8 +622,14 @@ def default_query_results(  # noqa: C901
             for stream_idx in range(1, num_streams + 1)
         ]
     elif (
-        query == SnowflakeQuery.streams_for_database("DEMO_DATABASE")
-        or query == SnowflakeQuery.streams_for_database("CUSTOMER_360")
+        query
+        == SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.STREAMS, "DEMO_DATABASE", limit=SHOW_STREAM_MAX_PAGE_SIZE
+        )
+        or query
+        == SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.STREAMS, "CUSTOMER_360", limit=SHOW_STREAM_MAX_PAGE_SIZE
+        )
         or query
         in (
             SnowflakeQuery.use_database("TEST_DB"),
@@ -1164,7 +1178,9 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.show_pipes_for_schema("TEST2_SCHEMA", "TEST_DB"):
         return []
-    elif query == SnowflakeQuery.show_dynamic_tables_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
+    ):
         # Return dynamic table definitions for TABLE_2 which should be a dynamic table
         return [
             {
@@ -1184,9 +1200,11 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
         ]
-    elif query == SnowflakeQuery.show_dynamic_tables_for_database(
-        "DEMO_DATABASE"
-    ) or query == SnowflakeQuery.show_dynamic_tables_for_database("CUSTOMER_360"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "DEMO_DATABASE"
+    ) or query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "CUSTOMER_360"
+    ):
         return []
     elif query == "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE":
         # SHOW AVAILABLE LISTINGS returns lowercase column names
@@ -1383,4 +1401,139 @@ def default_query_results(  # noqa: C901
                 "IS_HYBRID": "NO",
             },
         ]
+
+    # --- Semantic views -------------------------------------------------------
+    # Deliberately awkward, because the plain shapes never caught anything: a
+    # mixed-case logical table ("Orders"), a case-only column pair on it, a PK on
+    # a quoted column, a join key whose dimension is spelled differently, and a
+    # derived metric referencing another by its quoted name.
+    if query == SnowflakeQuery.get_semantic_views_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "COMMENT": "Sales semantic view",
+                "CREATED": datetime(2022, 6, 6, 0, 0, 0, 0, tzinfo=timezone.utc),
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_tables_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "SEMANTIC_TABLE_NAME": "Orders",
+                "BASE_TABLE_CATALOG": "TEST_DB",
+                "BASE_TABLE_SCHEMA": "TEST_SCHEMA",
+                "BASE_TABLE_NAME": "TABLE_1",
+                "PRIMARY_KEYS": '["Order_Id"]',
+                "UNIQUE_KEYS": None,
+                "COMMENT": "Order facts",
+                "SYNONYMS": None,
+            },
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "SEMANTIC_TABLE_NAME": "CUSTOMERS",
+                "BASE_TABLE_CATALOG": "TEST_DB",
+                "BASE_TABLE_SCHEMA": "TEST_SCHEMA",
+                "BASE_TABLE_NAME": "TABLE_2",
+                "PRIMARY_KEYS": '["CUSTOMER_ID"]',
+                "UNIQUE_KEYS": None,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            },
+        ]
+    if query == SnowflakeQuery.get_semantic_dimensions_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": name,
+                "DATA_TYPE": "TEXT",
+                "EXPRESSION": expression,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+            for name, expression in (
+                # A case-only pair: one column each, indistinguishable once folded.
+                ("Order_Id", '"Order_Id"'),
+                ("ORDER_ID", '"ORDER_ID"'),
+                # The dimension is spelled differently from the base column the
+                # relationship's join key names.
+                ("cust_ref", '"Cust_Ref"'),
+            )
+        ] + [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "CUSTOMERS",
+                "NAME": "CUSTOMER_ID",
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": "CUSTOMER_ID",
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_facts_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": "AMOUNT",
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": "AMOUNT",
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_metrics_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": name,
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": expression,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+            for name, expression in (
+                ("Total_Amount", 'SUM("Orders"."AMOUNT")'),
+                # Quoted reference: the only spelling Snowflake resolves to a
+                # metric stored mixed-case.
+                ("Double_Amount", '"Orders"."Total_Amount" * 2'),
+            )
+        ]
+    if query == SnowflakeQuery.get_semantic_relationships_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "Orders",
+                "REF_TABLE_NAME": "CUSTOMERS",
+                "FOREIGN_KEYS": '["Cust_Ref"]',
+                "REF_KEYS": '["CUSTOMER_ID"]',
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_view_ddl(
+        "TEST_DB", "TEST_SCHEMA", "SALES_MODEL"
+    ):
+        return [
+            {
+                "DDL": 'CREATE SEMANTIC VIEW SALES_MODEL\n  TABLES ("Orders" AS TEST_DB.TEST_SCHEMA.TABLE_1)'
+            }
+        ]
+
     raise ValueError(f"Unexpected query: {query}")

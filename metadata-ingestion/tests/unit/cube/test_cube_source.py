@@ -1,10 +1,12 @@
 from typing import Dict, Iterator, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube import CubeSource
+from datahub.ingestion.source.cube.cube_semantic_model import CubeSemanticModelMapper
 from datahub.ingestion.source.cube.models import (
     CloudDataSource,
     CubeEntity,
@@ -156,6 +158,247 @@ def test_column_meta_mapping_tags_and_terms_field() -> None:
     assert any("CustomerData" in t.urn for t in field.glossaryTerms.terms)
 
 
+def test_view_uses_semantic_model_subtype() -> None:
+    source = _source()
+    container = Container(source._container_key, display_name="demo")
+    lineage_builder = MagicMock()
+    lineage_builder.build.return_value = None
+
+    view_aspects = _aspects(
+        list(
+            source._emit_entity(
+                CubeEntity(name="orders_view", is_view=True),
+                container,
+                lineage_builder,
+            )
+        )
+    )
+    cube_aspects = _aspects(
+        list(
+            source._emit_entity(
+                CubeEntity(name="orders"),
+                container,
+                lineage_builder,
+            )
+        )
+    )
+    assert view_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
+        DatasetSubTypes.SEMANTIC_MODEL
+    ]
+    assert cube_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
+        DatasetSubTypes.CUBE
+    ]
+
+
+def test_chart_inputs_use_logical_datasets_when_sm_enabled() -> None:
+    source = _source(emit_semantic_model_entities=True, platform_instance="cube_demo")
+    source._sm_mapper = MagicMock()
+    source._sm_mapper.view_chart_inputs = {
+        "orders_view": [
+            "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view.orders,PROD)"
+        ]
+    }
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            referenced_entities=["orders_view", "orders"],
+        )
+    )
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    }
+
+
+def test_emit_semantic_model_entities_skips_view_dataset() -> None:
+    source = _source(emit_semantic_model_entities=True)
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+    )
+    cube = CubeEntity(name="orders")
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[cube, view]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+    ):
+        urns = {wu.get_urn() for wu in source.get_workunits_internal()}
+
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,orders_view,PROD)" not in urns
+    assert any("semanticModel" in urn and "orders_view" in urn for urn in urns)
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)" in urns
+    assert source.report.semantic_models_emitted == 1
+
+
+def test_empty_view_does_not_emit_orphan_semantic_model_meta() -> None:
+    source = _source(
+        emit_semantic_model_entities=True,
+        meta_mapping={
+            "owner": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {"owner_type": "user"},
+            }
+        },
+    )
+    view = CubeEntity(
+        name="empty_view",
+        is_view=True,
+        meta={"owner": "jdoe@example.com"},
+    )
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[view]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+    ):
+        urns = {wu.get_urn() for wu in source.get_workunits_internal()}
+
+    assert not any("semanticModel" in urn for urn in urns)
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,empty_view,PROD)" not in urns
+    assert source.report.semantic_models_emitted == 0
+
+
+def test_chart_inputs_omit_skipped_semantic_model_view() -> None:
+    source = _source(emit_semantic_model_entities=True, platform_instance="cube_demo")
+    source._sm_mapper = MagicMock()
+    source._sm_mapper.view_chart_inputs = {"empty_view": []}
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            referenced_entities=["empty_view", "orders"],
+        )
+    )
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    }
+
+
+def test_chart_input_omits_dangling_urn_when_semantic_model_emission_crashes() -> None:
+    # Regression: if CubeSemanticModelMapper.emit() raises partway through for
+    # a view, the per-view except handler used to leave
+    # view_chart_inputs[view.name] unset entirely, so _chart_input_urns fell
+    # back to a plain dataset-mode URN -- one that semantic-model mode never
+    # emits for any view, successful or not. A chart referencing that view
+    # would silently point at a dataset URN guaranteed to 404 forever.
+    source = _source(emit_semantic_model_entities=True)
+    view = CubeEntity(name="broken_view", is_view=True)
+    good_cube = CubeEntity(name="orders")
+
+    def crashing_emit(
+        self: CubeSemanticModelMapper, entity: CubeEntity, cubes_by_name: dict
+    ) -> Iterator[MetadataWorkUnit]:
+        raise ValueError("boom")
+        yield  # pragma: no cover - unreachable; keeps this a generator function
+
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[good_cube, view]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+        patch.object(CubeSemanticModelMapper, "emit", crashing_emit),
+    ):
+        list(source.get_workunits_internal())
+
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            referenced_entities=["broken_view", "orders"],
+        )
+    )
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)",
+    }
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,broken_view,PROD)" not in (
+        info.inputs or []  # type: ignore[attr-defined]
+    )
+
+
+def test_chart_input_omits_dangling_urn_for_view_filtered_by_pattern() -> None:
+    # Regression: _sm_view_names was built from `to_emit` (post-filter), so a
+    # view excluded by view_pattern/include_views/include_hidden never
+    # appeared in it, and _chart_input_urns fell through to a plain dataset
+    # URN -- dangling in semantic-model mode, same as the crash case above,
+    # but reachable on the very first pass with no exception required.
+    source = _source(
+        emit_semantic_model_entities=True,
+        view_pattern={"deny": ["filtered_view"]},
+    )
+    view = CubeEntity(
+        name="filtered_view",
+        is_view=True,
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+    )
+    good_cube = CubeEntity(name="orders")
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[good_cube, view]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+    ):
+        list(source.get_workunits_internal())
+
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            referenced_entities=["filtered_view", "orders"],
+        )
+    )
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)",
+    }
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,filtered_view,PROD)" not in (
+        info.inputs or []  # type: ignore[attr-defined]
+    )
+
+
+def test_emit_semantic_model_entities_warns_about_ignored_config_options() -> None:
+    source = _source(emit_semantic_model_entities=True)
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+    ):
+        list(source.get_workunits_internal())
+    assert any(
+        "Some config options do not apply in semantic-model mode" in (w.title or "")
+        for w in source.report.warnings
+    )
+
+
 def test_view_definition_uses_sql_for_cube() -> None:
     source = _source()
     entity = CubeEntity(name="orders", sql="SELECT * FROM public.orders")
@@ -279,6 +522,21 @@ def test_build_chart_sets_inputs_and_owner() -> None:
     ]
 
 
+def test_build_chart_warns_on_malformed_timestamp() -> None:
+    # Regression: a malformed updated_at used to be swallowed by
+    # _parse_timestamp with no trace anywhere -- last_modified would just be
+    # silently absent.
+    source = _source(platform_instance="cube_demo")
+    chart = source._build_chart(
+        CubeReport(id=1, public_id="rpt1", name="r1", updated_at="not-a-timestamp")
+    )
+    assert chart.last_modified is None
+    assert len(source.report.warnings) == 1
+    warning = list(source.report.warnings)[0]
+    assert warning.title == "Could not parse Cube timestamp"
+    assert any("r1" in c for c in warning.context)
+
+
 def test_warehouse_defaults_autodetected_from_data_sources() -> None:
     # The 'default' data source's type maps to a DataHub platform and its
     # database back-fills warehouse_database.
@@ -351,13 +609,16 @@ def test_build_dashboard_links_known_charts() -> None:
             name="wb",
             title="Workbook",
             owner_email="a@example.com",
-            # report 3 is unknown (e.g. filtered) and must be skipped.
+            # report 3 was filtered (seen but not built) and must be skipped
+            # without a warning.
             report_ids=[1, 2, 3],
         ),
         chart_by_report_id,
+        {1, 2, 3},
         container,
     )
     assert str(dashboard.urn) == "urn:li:dashboard:(cube,cube_demo.9)"
+    assert len(source.report.warnings) == 0
 
     info = _aspects(list(dashboard.as_workunits()))["DashboardInfoClass"]
     linked = [edge.destinationUrn for edge in info.chartEdges or []]  # type: ignore[attr-defined]
@@ -365,3 +626,46 @@ def test_build_dashboard_links_known_charts() -> None:
         "urn:li:chart:(cube,cube_demo.rpt1)",
         "urn:li:chart:(cube,cube_demo.rpt2)",
     ]
+
+
+def test_build_dashboard_warns_on_unknown_report_id() -> None:
+    # Regression: a report_id present on the workbook but never returned by
+    # get_reports() at all (not filtered, not a build failure) previously
+    # vanished from the dashboard with no trace anywhere in the report.
+    source = _source(platform_instance="cube_demo")
+    container = Container(source._container_key, display_name="demo")
+    chart_by_report_id = {
+        1: source._build_chart(CubeReport(id=1, public_id="rpt1", name="r1")),
+    }
+    dashboard = source._build_dashboard(
+        CubeWorkbook(
+            id=9,
+            name="wb",
+            title="Workbook",
+            report_ids=[1, 99],
+        ),
+        chart_by_report_id,
+        {1},
+        container,
+    )
+    assert len(dashboard.charts or []) == 1
+    assert len(source.report.warnings) == 1
+    warning = list(source.report.warnings)[0]
+    assert warning.title == "Cube workbook references an unknown report"
+    assert any("report_id=99" in c for c in warning.context)
+
+
+def test_build_dashboard_no_warning_when_reports_disabled() -> None:
+    # Regression: with include_reports=False, no report ids are ever fetched
+    # on purpose, so seen_report_ids stays empty; every workbook report_id
+    # used to be (wrongly) treated as "unknown" and warned about.
+    source = _source(platform_instance="cube_demo", include_reports=False)
+    container = Container(source._container_key, display_name="demo")
+    dashboard = source._build_dashboard(
+        CubeWorkbook(id=9, name="wb", title="Workbook", report_ids=[1, 2]),
+        {},
+        set(),
+        container,
+    )
+    assert dashboard.charts == []
+    assert len(source.report.warnings) == 0

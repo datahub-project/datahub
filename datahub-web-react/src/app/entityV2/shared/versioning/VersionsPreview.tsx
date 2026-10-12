@@ -8,6 +8,7 @@ import styled, { useTheme } from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { DrawerType } from '@app/entity/shared/types';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -150,7 +151,9 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
 
-    const versionProperties = entityRegistry.getGenericEntityProperties(entity.type, entity)?.versionProperties;
+    const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const versionProperties = genericProps?.versionProperties;
+    const status = genericProps?.status;
 
     const isViewing = entity.urn === entityProfileUrn;
     return (
@@ -167,6 +170,7 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
                         {t('latest')}
                     </Text>
                 )}
+                <LifecycleStageBadge lifecycleStage={status?.lifecycleStage} />
             </VersionPreviewHeader>
             {isViewing && (
                 <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>

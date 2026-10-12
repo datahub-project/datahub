@@ -8,6 +8,7 @@ This plugin extracts the following:
 
 - Topics from the Kafka broker
 - Schemas associated with each topic from the schema registry (Avro, Protobuf and JSON schemas are supported)
+- On Confluent Cloud, optionally the tags and business metadata curated for each topic in the Stream Catalog
 
 ### Prerequisites
 

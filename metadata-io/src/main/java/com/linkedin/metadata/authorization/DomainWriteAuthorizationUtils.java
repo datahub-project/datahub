@@ -10,12 +10,13 @@ import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -32,21 +33,22 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
- * resolution (including PATCH apply), and authorizing writes against domain-scoped Create/Edit
- * policies (including before/after Edit reconciliation for {@code domains} PATCH).
+ * resolution (including PATCH apply), and authorizing {@code domains} writes against domain-scoped
+ * Create/Edit Entity policies or the aspect-specific Edit Domain privilege (including before/after
+ * reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -203,8 +205,8 @@ public final class DomainWriteAuthorizationUtils {
       case CREATE:
         return UPDATE;
       case PATCH:
-        // PATCH never uses CREATE_ENTITY — always Edit Entity.
-        return UPDATE;
+        // PATCH on a missing entity is a create; Edit Domain must not suffice.
+        return entityExists ? UPDATE : CREATE;
       case UPSERT:
       case UPDATE:
       case RESTATE:
@@ -222,7 +224,75 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize domain-scoped {@code EDIT_ENTITY} for a domains write given before/after membership.
+   * Drops Domain URNs that no longer resolve to an existing Domain. Authorization must not depend
+   * on a Domain that does not exist — otherwise the before-set check freezes {@code domains} writes
+   * (including detach patches) after the Domain is deleted.
+   *
+   * <p>Applies to the <em>before</em> set only. Do not prune proposed/after domains.
+   */
+  @Nullable
+  public static Domains existingDomainsOnly(
+      @Nonnull OperationFingerprint ctx,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nullable Domains domains) {
+    if (domains == null) {
+      return null;
+    }
+    Set<Urn> unique = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains);
+    if (unique.isEmpty()) {
+      return domains;
+    }
+    Map<Urn, Boolean> exists = aspectRetriever.entityExists(ctx, unique);
+    if (unique.stream().allMatch(urn -> Boolean.TRUE.equals(exists.get(urn)))) {
+      return domains;
+    }
+    Domains pruned = new Domains();
+    if (domains.getDomains() != null) {
+      pruned.setDomains(
+          new UrnArray(
+              domains.getDomains().stream()
+                  .filter(urn -> urn != null && Boolean.TRUE.equals(exists.get(urn)))
+                  .collect(Collectors.toList())));
+    }
+    if (domains.getDomainAssociations() != null) {
+      pruned.setDomainAssociations(
+          new DomainAssociationArray(
+              domains.getDomainAssociations().stream()
+                  .filter(
+                      association ->
+                          association.hasDomain()
+                              && Boolean.TRUE.equals(exists.get(association.getDomain())))
+                  .collect(Collectors.toList())));
+    }
+    return pruned;
+  }
+
+  /**
+   * Privileges that can authorize a {@code domains} aspect write.
+   *
+   * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
+   * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
+   * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
+   * Domain cannot create entities.
+   */
+  @Nonnull
+  public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
+      @Nonnull ApiOperation apiOperation, @Nonnull String entityType) {
+    Disjunctive<Conjunctive<PoliciesConfig.Privilege>> entityPrivileges =
+        AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, entityType);
+    if (apiOperation != UPDATE) {
+      return entityPrivileges;
+    }
+    return new Disjunctive<>(
+        Stream.concat(
+                entityPrivileges.stream(),
+                Stream.of(Conjunctive.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE)))
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Authorize a domains write given before/after membership. Update-path checks accept Edit Domain
+   * or Edit Entity; domain-scoped policies must still match the seeded domain field.
    *
    * <ul>
    *   <li>No before domains: match against after only (first-domains pattern).
@@ -328,8 +398,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Seed proposed domains from an MCP batch into the session resource-spec cache so domain-scoped
-   * CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
+   * Seed proposed domains from an MCP batch by recording them as a request-scoped DOMAIN override
+   * so domain-scoped CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
    *
    * <p>Accumulates in-batch proposed domains chronologically so a later PATCH for the same URN is
    * applied against an earlier UPSERT in the same request (matching ingest order). {@code
@@ -444,8 +514,12 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize a write against the entity resource, optionally seeding the session resource-spec
-   * cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   * Authorize a {@code domains} write against the entity resource, optionally recording proposed
+   * domains (plus ancestors) as a request-scoped DOMAIN override so domain-scoped policies can
+   * match.
+   *
+   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
+   * requires Create/Edit Entity.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -463,13 +537,13 @@ public final class DomainWriteAuthorizationUtils {
     return AuthUtil.isAuthorized(
         session,
         AuthUtil.buildDisjunctivePrivilegeGroup(
-            AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, urn.getEntityType())),
+            lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
         resourceSpec);
   }
 
   /**
-   * Expand proposed domain URNs (including ancestors) and seed the request-scoped resource-spec
-   * cache so DOMAIN field matching uses those values.
+   * Expand proposed domain URNs (including ancestors) and record them as a request-scoped DOMAIN
+   * override so DOMAIN field matching uses those values.
    */
   public static void seedProposedDomainsForResourceSpec(
       @Nonnull OperationContext opContext,
@@ -493,41 +567,21 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Pre-populate the request-scoped resolved-spec cache so DOMAIN field matching uses proposed
-   * values instead of a persisted (empty) domains aspect. Merges into any existing
-   * ResolvedEntitySpec so OWNER/TAG/CONTAINER resolvers are preserved, while DOMAIN is always
-   * overwritten with the latest proposed values (later items in the same request win).
+   * Record the proposed domains as a request-scoped {@code DOMAIN} override so DOMAIN field
+   * matching uses them instead of the persisted (possibly empty) domains aspect. The authorizer
+   * lays the override over the normally resolved spec, so the entity's other stored fields
+   * (platform instance, container, tags, ...) still apply. Later calls for the same resource in the
+   * same request replace earlier ones.
    */
   public static void seedProposedDomainResourceSpec(
       @Nonnull OperationContext opContext,
       @Nonnull EntitySpec resourceSpec,
       @Nonnull Set<String> domainFieldValues) {
-    Map<EntityFieldType, FieldResolver> baseResolvers = new EnumMap<>(EntityFieldType.class);
-    baseResolvers.put(
-        EntityFieldType.TYPE, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_TYPE,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.URN, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_URN,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    FieldResolver domainResolver = FieldResolver.getResolverFromValues(domainFieldValues);
-
     opContext
         .getAuthorizationContext()
-        .getSessionResourceSpecCache()
-        .compute(
+        .getSessionResourceFieldOverrides()
+        .put(
             resourceSpec,
-            (key, existing) -> {
-              Map<EntityFieldType, FieldResolver> merged = new EnumMap<>(EntityFieldType.class);
-              if (existing != null) {
-                merged.putAll(existing.getFieldResolvers());
-              }
-              baseResolvers.forEach(merged::putIfAbsent);
-              merged.put(EntityFieldType.DOMAIN, domainResolver);
-              return new ResolvedEntitySpec(resourceSpec, merged);
-            });
+            Map.of(EntityFieldType.DOMAIN, FieldResolver.getResolverFromValues(domainFieldValues)));
   }
 }

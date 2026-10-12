@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -239,5 +240,35 @@ public class DashboardUsageStatsUtilsTest {
 
     List<CorpUser> users = DashboardUsageStatsUtils.buildTopUsersFromBatchAggResult(table);
     Assert.assertTrue(users.isEmpty());
+  }
+
+  // --- mapUsageAggregations ---
+
+  @Test
+  public void testMapUsageAggregationsSetsExecutionsWhenViewsAbsent() {
+    // Regression guard: a daily bucket with executions but NO views. Column layout is
+    // [ts, sumUniqueUser, sumViews, sumExec, cardUniqueUser, cardViews, cardExec]; views columns
+    // are the ES NULL sentinel, executions columns are present. The executionsCount guard must key
+    // off the executions-cardinality column (index 6), not the views-cardinality column (index 5) —
+    // otherwise executionsCount is silently dropped for this shape.
+    GenericTable table =
+        new GenericTable()
+            .setRows(
+                new StringArrayArray(
+                    new StringArray(ImmutableList.of("1000", "3", "NULL", "7", "1", "NULL", "1"))))
+            .setColumnNames(new StringArray())
+            .setColumnTypes(new StringArray());
+
+    List<DashboardUsageAggregation> buckets =
+        DashboardUsageStatsUtils.mapUsageAggregations(table, TEST_URN);
+
+    Assert.assertEquals(buckets.size(), 1);
+    DashboardUsageAggregation bucket = buckets.get(0);
+    Assert.assertEquals((long) bucket.getBucket(), 1000L);
+    Assert.assertEquals((int) bucket.getMetrics().getUniqueUserCount(), 3);
+    // Executions present and must be set despite views being absent.
+    Assert.assertEquals((int) bucket.getMetrics().getExecutionsCount(), 7);
+    // Views absent → left unset.
+    Assert.assertNull(bucket.getMetrics().getViewsCount());
   }
 }

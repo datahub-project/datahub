@@ -240,10 +240,16 @@ def _connection_with_one_stream(**overrides: object) -> AirbyteConnectionPartial
 
 
 def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
-    """A 404 from /streams costs namespaces and column-level lineage, so it has
-    to reach the report — but only once per source, not once per connection."""
+    """An unavailable /streams response costs namespaces and column-level
+    lineage, so it has to reach the report — but only once per source, not
+    once per connection. Must not raise a report.failure: that would disable
+    stale-entity removal for the whole run."""
     pipeline_info = _pipeline_with_connection(
-        _connection_with_one_stream(streams_api_unavailable=True)
+        _connection_with_one_stream(
+            streams_api_unavailable=True,
+            streams_api_unavailable_status_code=500,
+            streams_api_unavailable_message="500 Internal Server Error",
+        )
     )
 
     source._fetch_streams_for_source(pipeline_info)
@@ -255,6 +261,31 @@ def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
         if "Stream Metadata Unavailable" in str(warning)
     ]
     assert len(matching) == 1
+    assert "HTTP 500" in matching[0].context[0]
+    assert "detail=500 Internal Server Error" in matching[0].context[0]
+    assert "default_schema" in matching[0].message
+    assert not source.report.failures
+
+
+def test_fetch_streams_warns_with_no_status_for_connection_error(source):
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(
+            streams_api_unavailable=True,
+            streams_api_unavailable_message="Error connecting to Airbyte API",
+        )
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+
+    matching = [
+        warning
+        for warning in source.report.warnings
+        if "Stream Metadata Unavailable" in str(warning)
+    ]
+    assert len(matching) == 1
+    assert "no HTTP status (network or connection error)" in matching[0].context[0]
+    assert "detail=Error connecting to Airbyte API" in matching[0].context[0]
+    assert not source.report.failures
 
 
 def test_fetch_streams_reports_skipped_stream_payloads(source):

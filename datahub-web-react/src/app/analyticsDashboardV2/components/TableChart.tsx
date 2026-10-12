@@ -1,5 +1,6 @@
 import { Button, Table } from 'antd';
-import React from 'react';
+import type { ColumnsType } from 'antd/lib/table';
+import React, { useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -74,15 +75,56 @@ const TableCell = ({ cell }: TableCellProps) => {
     return <span>{cell.value}</span>;
 };
 
+const NUMERIC_VALUE_RE = /^-?\d+(\.\d+)?$/;
+
+function parseSortValue(cell: Cell): number {
+    // Strip a trailing % so percentages sort numerically. Safe to assume the
+    // result is finite because isNumericColumn gates sortability.
+    return parseFloat((cell.value ?? '').replace(/%$/, ''));
+}
+
+// A column is numeric if every non-empty cell in it parses as a number
+// (optionally followed by %). Detecting via content rather than column name
+// avoids coupling sort behavior to specific header strings.
+function isNumericColumn(rows: TableChartType['rows'], colIndex: number): boolean {
+    const nonEmptyValues = rows
+        .map((row) => row.cells?.[colIndex]?.value)
+        .filter((v): v is string => v != null && v !== '');
+    if (nonEmptyValues.length === 0) return false;
+    return nonEmptyValues.every((v) => NUMERIC_VALUE_RE.test(v.replace(/%$/, '').trim()));
+}
+
+type TableRow = Record<string, Cell>;
+
 export const TableChart = ({ chartData }: Props) => {
-    const columns = chartData.columns.map((column) => ({
-        title: column,
-        key: column,
-        dataIndex: column,
-        render: (cell) => <TableCell cell={cell} />,
-    }));
-    const tableData = chartData.rows.map(
-        (row) => row.cells?.reduce((acc, cell, i) => ({ ...acc, [chartData.columns[i]]: cell }), {}) || {},
+    const tableData: TableRow[] = chartData.rows.map(
+        (row) =>
+            row.cells?.reduce<TableRow>((acc, cell, i) => ({ ...acc, [chartData.columns[i]]: cell }), {}) ||
+            ({} as TableRow),
     );
-    return <StyledTable columns={columns} dataSource={tableData} pagination={false} size="small" />;
+
+    const { numericByIndex, defaultSortColumn } = useMemo(() => {
+        const numeric = chartData.columns.map((_, i) => isNumericColumn(chartData.rows, i));
+        // Default-sort by the first numeric column whose header is "Count" (case-insensitive).
+        const defaultSort = chartData.columns.find((c, i) => numeric[i] && /^count$/i.test(c));
+        return { numericByIndex: numeric, defaultSortColumn: defaultSort };
+    }, [chartData.rows, chartData.columns]);
+
+    const columns: ColumnsType<TableRow> = chartData.columns.map((column, i) => {
+        const isSortable = numericByIndex[i];
+        return {
+            title: column,
+            key: column,
+            dataIndex: column,
+            render: (cell: Cell) => <TableCell cell={cell} />,
+            ...(isSortable && {
+                sorter: (a: TableRow, b: TableRow) => parseSortValue(a[column]) - parseSortValue(b[column]),
+                defaultSortOrder: column === defaultSortColumn ? ('descend' as const) : undefined,
+            }),
+        };
+    });
+
+    return (
+        <StyledTable columns={columns as ColumnsType<object>} dataSource={tableData} pagination={false} size="small" />
+    );
 };

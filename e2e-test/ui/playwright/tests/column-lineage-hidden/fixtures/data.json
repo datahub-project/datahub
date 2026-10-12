@@ -1,0 +1,560 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pets",
+        "description": "Playwright: explore whose columns feed 6 charts; 4 are shown, 2 hidden by pagination",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": ["Explore"]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "pw_column_hidden.explore.pets",
+        "platform": "urn:li:dataPlatform:looker",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.pegasus2avro.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "customer_id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_01",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_02",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_03",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_04",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_05",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "field_06",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 01",
+        "description": "Reads customer_id and field_01",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_01)",
+            "schemaField": {
+              "fieldPath": "field_01",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_02)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 02",
+        "description": "Reads customer_id and field_02",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_02)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_02)",
+            "schemaField": {
+              "fieldPath": "field_02",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_03)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 03",
+        "description": "Reads customer_id and field_03",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_03)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_03)",
+            "schemaField": {
+              "fieldPath": "field_03",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_04)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 04",
+        "description": "Reads customer_id and field_04",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_04)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_04)",
+            "schemaField": {
+              "fieldPath": "field_04",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_05)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 05",
+        "description": "Reads customer_id and field_05",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_05)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_05)",
+            "schemaField": {
+              "fieldPath": "field_05",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_06)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW hidden lineage chart 06",
+        "description": "Reads customer_id and field_06",
+        "lastModified": {
+          "created": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          },
+          "lastModified": {
+            "time": 0,
+            "actor": "urn:li:corpuser:unknown"
+          }
+        },
+        "inputs": [
+          {
+            "string": "urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_column_hidden_chart_06)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+      "json": {
+        "fields": [
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),customer_id)",
+            "schemaField": {
+              "fieldPath": "customer_id",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          },
+          {
+            "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,pw_column_hidden.explore.pets,PROD),field_06)",
+            "schemaField": {
+              "fieldPath": "field_06",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.pegasus2avro.schema.StringType": {}
+                }
+              },
+              "nativeDataType": "string",
+              "recursive": false,
+              "isPartOfKey": false
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "id": 128,
+  "name": "film_id",
+  "display_name": "Film ID",
+  "table_id": 21,
+  "base_type": "type/Integer",
+  "semantic_type": "type/PK",
+  "description": null
+}

@@ -13,4 +13,6 @@ export interface RadioProps extends InputHTMLAttributes<HTMLInputElement> {
 export interface RadioGroupProps {
     isVertical?: boolean;
     radios: RadioProps[];
+    name?: string;
+    ariaLabel?: string;
 }

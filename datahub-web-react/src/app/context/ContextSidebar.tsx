@@ -18,6 +18,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useDocumentFilters } from '@app/document/DocumentFiltersContext';
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
+import ViewAppliedHint from '@app/document/ViewAppliedHint';
 import useDocumentSidebarFacetOptions, {
     isDataPlatformEntity,
 } from '@app/document/hooks/useDocumentSidebarFacetOptions';
@@ -39,6 +40,7 @@ import {
 import { DEFAULT_STATUS_FILTER, DocumentStatusFilter } from '@app/document/utils/documentTreeFilters';
 import { decodeUrn } from '@app/entityV2/shared/utils';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
 import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import SidebarAddFilter from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarAddFilter';
@@ -55,6 +57,11 @@ const SourceOptionRow = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
+`;
+
+// Sits at the top of the tree scroll area — align with the 8px row padding.
+const SidebarViewHint = styled(ViewAppliedHint)`
+    padding: 8px 8px 6px 8px;
 `;
 
 type Props = {
@@ -100,6 +107,7 @@ export default function ContextSidebar({
     } = useDocumentFilters();
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const { hasSelectedView, clearSelectedView } = useSelectedView();
     const { createDocument } = useCreateDocumentTreeMutation();
     const { expandNode, getNode, setExpandedUrns } = useDocumentTree();
     const { loadChildren } = useLoadDocumentTree(sortSelection, { paginateRoots: false });
@@ -135,7 +143,7 @@ export default function ContextSidebar({
         return decodeUrn(match.params.urn);
     }, [entityRegistry, isEntityProfile, location.pathname]);
 
-    const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
+    const { canCreate: canCreateDocuments, canManage: canManageDocuments } = useContextDocumentsPermissions();
 
     useDebounce(() => setDebouncedQuery(searchInput), 300, [searchInput]);
 
@@ -402,7 +410,8 @@ export default function ContextSidebar({
 
     const headerActions = (
         <>
-            {canCreateDocuments && (
+            {/* Import is authorized by Manage Documents, not the create privilege. */}
+            {canManageDocuments && (
                 <ImportDocumentsButton onSuccess={handleImportSuccess} parentDocumentUrn={importParentDocumentUrn} />
             )}
             <Tooltip
@@ -561,6 +570,7 @@ export default function ContextSidebar({
                 </>
             }
         >
+            {hasSelectedView && <SidebarViewHint dataTestId="context-sidebar-view-applied-hint" />}
             {isSearchActive ? (
                 <DocumentSidebarSearchResults
                     documents={searchResults}
@@ -571,6 +581,8 @@ export default function ContextSidebar({
                     onSelect={handleDocumentClick}
                     onClear={handleClearSearch}
                     onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
+                    hasSelectedView={hasSelectedView}
+                    onClearView={clearSelectedView}
                 />
             ) : (
                 <DocumentTree

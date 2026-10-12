@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -80,6 +81,20 @@ public class UpdateIndicesHookBatchTest {
     // Verify that handleChangeEvents was called only with the non-UI event
     verify(mockUpdateIndicesService, times(1))
         .handleChangeEvents(eq(mockOperationContext), eq(Arrays.asList(normalEvent)));
+  }
+
+  @Test
+  public void testConstructorRejectsBothIndexPathsOffWhenConsumingMcl() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new UpdateIndicesHook(
+                mockUpdateIndicesService, true, false, false, "test-suffix", true));
+  }
+
+  @Test
+  public void testConstructorAllowsBothIndexPathsOffWhenNotConsumingMcl() {
+    new UpdateIndicesHook(mockUpdateIndicesService, true, false, false, "test-suffix", false);
   }
 
   private MetadataChangeLog createTestEvent(String urnString) {

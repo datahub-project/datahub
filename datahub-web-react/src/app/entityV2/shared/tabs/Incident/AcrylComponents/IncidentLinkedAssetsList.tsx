@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
@@ -14,7 +13,7 @@ import {
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
-import { Button, Pill } from '@src/alchemy-components';
+import { Button, Loader, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -112,13 +111,13 @@ export const IncidentLinkedAssetsList = ({
             <AssetWrapper>
                 {entitiesLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
                 {form.getFieldValue(RESOURCE_URN_FIELD_NAME)?.length > 0 &&
                     (entitiesLoading ? (
                         <LoadingWrapper>
-                            <LoadingOutlined />
+                            <Loader size="xs" />
                         </LoadingWrapper>
                     ) : (
                         <LinkedAssetsContainer>

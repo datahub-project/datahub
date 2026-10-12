@@ -152,6 +152,8 @@ the public.
 
 The DataHub Helm chart runs a **system-update** Job on upgrades to apply schema changes, reindex search indices when needed, and run other blocking or non-blocking upgrade steps. When scale-down is enabled (see [Environment variables](environment-vars.md#kubernetes-scale-down-system-update)), the job can temporarily scale down deployments by label selector (e.g. MAE/MCE) and set environment variables on other deployments by label selector (e.g. GMS) before blocking upgrades (e.g. reindex), then restore them afterward. Rollout and scale-down operations run in parallel. Scale-down is conditional: it only runs when a blocking upgrade (such as BuildIndices when reindex is required) requests it. For upgrade behavior and potential downtime, see [Updating DataHub](../how/updating-datahub.md).
 
+`helm upgrade` runs the blocking system-update Job as a pre-upgrade hook, rolls out components, then runs the non-blocking system-update Job as a post-upgrade hook. Pipelines that render the chart with `helm template` and apply the YAML with Spinnaker, Kustomize, or `kubectl` do not run those hooks. Render from the chart on every deploy and apply the three phases in order. See [Upgrading with rendered manifests](rendered-manifest-upgrade.md).
+
 ## Other useful commands
 
 | Command                | Description             |

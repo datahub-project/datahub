@@ -120,7 +120,6 @@ public class EventUtilsTests {
     assertNotNull(EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
     assertNotNull(EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
     assertNotNull(EventUtils.PLATFORM_EVENT_SCHEMA_NAME);
-    assertNotNull(EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
 
     // Test specific values
     assertEquals(EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME, "MetadataChangeProposal");
@@ -131,8 +130,6 @@ public class EventUtilsTests {
         EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME, "FailedMetadataChangeProposal");
     assertEquals(EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME, "MetadataAuditEvent");
     assertEquals(EventUtils.PLATFORM_EVENT_SCHEMA_NAME, "PlatformEvent");
-    assertEquals(
-        EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME, "DataHubUpgradeHistoryEvent");
   }
 
   @Test
@@ -140,12 +137,10 @@ public class EventUtilsTests {
     // Test that renamed schema constants are accessible
     assertNotNull(EventUtils.RENAMED_MCP_AVRO_SCHEMA);
     assertNotNull(EventUtils.RENAMED_MCL_AVRO_SCHEMA);
-    assertNotNull(EventUtils.RENAMED_DUHE_AVRO_SCHEMA);
 
     // Test that they have the expected namespaces
     assertTrue(EventUtils.RENAMED_MCP_AVRO_SCHEMA.getNamespace().contains("pegasus2avro"));
     assertTrue(EventUtils.RENAMED_MCL_AVRO_SCHEMA.getNamespace().contains("pegasus2avro"));
-    assertTrue(EventUtils.RENAMED_DUHE_AVRO_SCHEMA.getNamespace().contains("pegasus2avro"));
   }
 
   @Test

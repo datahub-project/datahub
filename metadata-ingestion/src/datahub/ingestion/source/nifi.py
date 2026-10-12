@@ -468,7 +468,7 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 # allowRemoteAccess
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
 class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig

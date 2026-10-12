@@ -1,5 +1,4 @@
-import { Pagination, SearchBar, SimpleSelect } from '@components';
-import { InputRef, message } from 'antd';
+import { Pagination, SearchBar, SimpleSelect, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -17,6 +16,7 @@ import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import SourceTypeFilter from '@app/ingestV2/shared/components/filters/SourceTypeFilter';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
@@ -86,6 +86,7 @@ const SearchContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 8px;
 `;
 
 const FilterButtonsContainer = styled.div`
@@ -95,11 +96,6 @@ const FilterButtonsContainer = styled.div`
 
 const StyledSearchBar = styled(SearchBar)`
     width: 400px;
-`;
-
-const StyledSimpleSelect = styled(SimpleSelect)`
-    display: flex;
-    align-self: start;
 `;
 
 const TableContainer = styled.div`
@@ -131,6 +127,8 @@ interface Props {
     setSourceFilter: (sourceFilter: number | undefined) => void;
     searchQuery?: string;
     setSearchQuery: (query: string) => void;
+    sourceTypes?: string[];
+    setSourceTypes: (sourceTypes: string[]) => void;
 }
 
 export const IngestionSourceList = ({
@@ -145,6 +143,8 @@ export const IngestionSourceList = ({
     setSourceFilter: setSourceFilterFromUrl,
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
+    sourceTypes: sourceTypesFromUrl,
+    setSourceTypes: setSourceTypesFromUrl,
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const { t: tc } = useTranslation('common.actions');
@@ -164,7 +164,7 @@ export const IngestionSourceList = ({
     const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
     const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
     const previousSearchInput = usePrevious(searchInput);
-    const searchInputRef = useRef<InputRef>(null);
+    const searchInputRef = useRef<React.ElementRef<typeof SearchBar>>(null);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
@@ -211,6 +211,9 @@ export const IngestionSourceList = ({
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
 
+    const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
+    const prevSourceTypes = usePrevious(sourceTypes);
+
     // Debounce the search query
     useDebounce(
         () => {
@@ -231,6 +234,13 @@ export const IngestionSourceList = ({
         }
     }, [sourceFilter, setPage, prevSourceFilter]);
 
+    // When source type filter changes, reset page to 1
+    useEffect(() => {
+        if (prevSourceTypes !== undefined && prevSourceTypes !== sourceTypes) {
+            setPage(1);
+        }
+    }, [sourceTypes, setPage, prevSourceTypes]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -246,8 +256,11 @@ export const IngestionSourceList = ({
                 negated: sourceFilter !== IngestionSourceType.CLI,
             });
         }
+        if (sourceTypes.length) {
+            draftFilters.push({ field: 'type', values: sourceTypes });
+        }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources]);
+    }, [sourceFilter, hideSystemSources, sourceTypes]);
 
     const queryInputs = useMemo(
         () => ({
@@ -334,18 +347,12 @@ export const IngestionSourceList = ({
             })
                 .then(() => {
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
-                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
-                    message.success({
-                        content: t('source.executeSuccess'),
-                        duration: 3,
-                    });
+                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent, sourceUrn: urn });
+                    toast.success(t('source.executeSuccess'), { duration: 3 });
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: t('source.executeError', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.destroy();
+                    toast.error(t('source.executeError', { error: e.message || '' }), { duration: 3 });
                     setExecutedUrns((prev) => {
                         const newSet = new Set(prev);
                         newSet.delete(urn);
@@ -399,10 +406,7 @@ export const IngestionSourceList = ({
                         numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
-                    message.success({
-                        content: t('source.updateSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('source.updateSuccess'), { duration: 3 });
                     if (shouldRun) executeIngestionSource(focusSourceUrn);
                     else setSourcesToRefetch((prev) => new Set(prev).add(focusSourceUrn));
 
@@ -410,11 +414,8 @@ export const IngestionSourceList = ({
                     resetState();
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: t('source.updateError', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.destroy();
+                    toast.error(t('source.updateError', { error: e.message || '' }), { duration: 3 });
                 })
                 .finally(() => {
                     setIsModalWaiting(false);
@@ -423,7 +424,7 @@ export const IngestionSourceList = ({
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: tf('loading'), duration: 2 });
+                    toast.loading(tf('loading'), { duration: 2 });
                     const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
                     const newSource: IngestionSource = {
@@ -460,10 +461,7 @@ export const IngestionSourceList = ({
                         numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
-                    message.success({
-                        content: t('source.createSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('source.createSuccess'), { duration: 3 });
                     if (result.data?.createIngestionSource) {
                         if (shouldRun) {
                             executeIngestionSource(result.data.createIngestionSource);
@@ -474,11 +472,8 @@ export const IngestionSourceList = ({
                 })
                 .catch((e) => {
                     console.error(e);
-                    message.destroy();
-                    message.error({
-                        content: t('source.createErrorInterpolated', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.destroy();
+                    toast.error(t('source.createErrorInterpolated', { error: e.message || '' }), { duration: 3 });
                 })
                 .finally(() => {
                     setIsModalWaiting(false);
@@ -529,7 +524,7 @@ export const IngestionSourceList = ({
                 analytics.event({
                     type: EventType.DeleteIngestionSourceEvent,
                 });
-                message.success({ content: t('source.removeSuccess'), duration: 2 });
+                toast.success(t('source.removeSuccess'), { duration: 2 });
                 const newRemovedUrns = [...removedUrns, sourceUrnToDelete];
                 setRemovedUrns(newRemovedUrns);
                 setTimeout(() => {
@@ -537,12 +532,9 @@ export const IngestionSourceList = ({
                 }, 3000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: t('source.removeError', { error: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.error(t('source.removeError', { error: e.message || '' }), { duration: 3 });
                 }
             })
             .finally(() => {
@@ -657,7 +649,7 @@ export const IngestionSourceList = ({
                                 ref={searchInputRef}
                                 data-testid="ingestion-sources-search"
                             />
-                            <StyledSimpleSelect
+                            <SimpleSelect
                                 options={[
                                     { label: tc('all'), value: '0' },
                                     { label: t('filters.ui'), value: '1' },
@@ -667,8 +659,13 @@ export const IngestionSourceList = ({
                                 onUpdate={(values) => setSourceFilterFromUrl(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
-                                size="lg"
+                                size="sm"
                                 data-testid="ingestions-type-filter"
+                            />
+                            <SourceTypeFilter
+                                values={sourceTypes}
+                                onUpdate={setSourceTypesFromUrl}
+                                hideSystemSources={hideSystemSources}
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>

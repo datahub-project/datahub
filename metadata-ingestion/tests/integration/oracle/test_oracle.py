@@ -94,8 +94,11 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     return filtered
 
 
+ORACLE_PORT = 1521  # Oracle listener port
+
+
 @pytest.fixture(scope="module")
-def oracle_runner(docker_compose_runner, pytestconfig):
+def oracle_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "oracle"
@@ -103,13 +106,21 @@ def oracle_runner(docker_compose_runner, pytestconfig):
         wait_for_port(
             docker_services,
             "testoracle",
-            1521,
+            ORACLE_PORT,
             timeout=300,
         )
 
+        # The compose file exposes the listener port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh run
+        # needs. Recipe ymls in this directory pick it up via ${ORACLE_PORT}.
+        oracle_port = docker_services.port_for("testoracle", ORACLE_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("ORACLE_PORT", str(oracle_port))
+        request.addfinalizer(mp.undo)
+
         time.sleep(30)  # Extra time for setup scripts to complete
 
-        yield docker_services
+        yield oracle_port
 
 
 SOURCE_FILES_PATH = "./tests/integration/oracle/source_files"
@@ -176,7 +187,7 @@ def test_oracle_test_connection(oracle_runner):
     config_dict = {
         "username": "system",
         "password": "example",
-        "host_port": "localhost:51521",
+        "host_port": f"localhost:{oracle_runner}",
         "service_name": "XEPDB1",
     }
 
@@ -189,7 +200,7 @@ def test_oracle_test_connection(oracle_runner):
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):
     def get_data(self, *args: Any, **kwargs: Any) -> Any:
         if isinstance(args[0], str) and "sys_context" in args[0]:
-            raise exc.DatabaseError("statement", [], "Mock DB Error")
+            raise exc.DatabaseError("statement", [], Exception("Mock DB Error"))
         return super().get_data(*args, **kwargs)
 
 
@@ -209,6 +220,8 @@ class OracleIntegrationTestCase(OracleTestCaseBase):
             self.get_server_version_info()
         )
         inspector_magic_mock.dialect.type_compiler.process = lambda x: "NUMBER"
+        # SQLAlchemy 2.0 renders column types via dialect.type_compiler_instance.
+        inspector_magic_mock.dialect.type_compiler_instance.process = lambda x: "NUMBER"
 
         mock_inspect.return_value = inspector_magic_mock
         mock_create_engine.connect.return_value = connection_magic_mock
@@ -235,7 +248,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
     def test_get_db_name_error_handling(self):
         inspector = MagicMock()
         inspector.bind.execute.side_effect = exc.DatabaseError(
-            "statement", [], "Mock DB Error"
+            "statement", [], Exception("Mock DB Error")
         )
         inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 

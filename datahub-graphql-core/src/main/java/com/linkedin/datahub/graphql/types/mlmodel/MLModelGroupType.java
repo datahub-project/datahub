@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -43,6 +45,23 @@ import javax.annotation.Nullable;
 public class MLModelGroupType
     implements SearchableEntityType<MLModelGroup, String>,
         BrowsableEntityType<MLModelGroup, String> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          ML_MODEL_GROUP_KEY_ASPECT_NAME,
+          ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+          ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME,
+          DOMAINS_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private final EntityClient _entityClient;
@@ -73,12 +92,15 @@ public class MLModelGroupType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, ML_MODEL_GROUP_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               ML_MODEL_GROUP_ENTITY_NAME,
               new HashSet<>(mlModelGroupUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults =
           mlModelGroupUrns.stream()

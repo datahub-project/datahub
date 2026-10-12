@@ -2,7 +2,8 @@ import isEqual from 'lodash/isEqual';
 import { useEffect } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { MetricsEntityData, useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
+import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
+import { mapProfileToMetricsEntityData } from '@app/metrics/utils/metricsEntityData';
 import usePrevious from '@app/shared/usePrevious';
 
 import { EntityType } from '@types';
@@ -23,7 +24,11 @@ export function useUpdateMetricsEntityDataOnChange(
     const previousEntityData = usePrevious(entityData);
 
     useEffect(() => {
-        if (!METRICS_ENTITY_TYPES.has(entityType) || isEqual(entityData, previousEntityData)) {
+        if (!METRICS_ENTITY_TYPES.has(entityType)) {
+            setEntityData(null);
+            return;
+        }
+        if (isEqual(entityData, previousEntityData)) {
             return;
         }
 
@@ -32,16 +37,6 @@ export function useUpdateMetricsEntityDataOnChange(
             return;
         }
 
-        const raw = entityData as any;
-        const next: MetricsEntityData = {
-            urn: raw.urn ?? '',
-            entityType,
-            semanticModel: raw.semanticModel ? { urn: raw.semanticModel.urn } : null,
-            parentMetrics: Array.isArray(raw.parentMetrics)
-                ? raw.parentMetrics.map((m: any) => ({ urn: m.urn }))
-                : null,
-        };
-
-        setEntityData(next);
-    });
+        setEntityData(mapProfileToMetricsEntityData(entityData, entityType));
+    }, [entityData, entityType, previousEntityData, setEntityData]);
 }

@@ -54,42 +54,9 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     }, [prevShownUrns, shownUrns]);
 
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
-    useEffect(() => {
-        setUrnsToFetch((oldUrnsToFetch) => {
-            let newUrnsToFetch = memoizedShownUrns
-                .filter((urn) => {
-                    const node = nodes.get(urn);
-                    return !node?.entity;
-                })
-                .slice(0, BATCH_SIZE);
-            if (
-                !newUrnsToFetch.length &&
-                rootType === EntityType.SchemaField &&
-                ignoreSchemaFieldStatus &&
-                hideTransformations
-            ) {
-                newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node, rootType) && !node.entity)
-                    .map((node) => node.urn);
-            }
-            if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
-                return newUrnsToFetch;
-            }
-            return oldUrnsToFetch;
-        });
-    }, [
-        nodes,
-        dataVersion,
-        memoizedShownUrns,
-        showGhostEntities,
-        rootType,
-        ignoreSchemaFieldStatus,
-        hideTransformations,
-    ]);
-
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
-    const { refetch } = useGetBulkEntityLineageV2Query({
+    const { refetch, loading } = useGetBulkEntityLineageV2Query({
         skip: !urnsToFetch?.length,
         fetchPolicy: 'cache-first',
         variables: {
@@ -138,6 +105,42 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             }
         },
     });
+
+    useEffect(() => {
+        // Changing the variables aborts the in-flight request, losing that batch's results
+        if (loading) return;
+        setUrnsToFetch((oldUrnsToFetch) => {
+            let newUrnsToFetch = memoizedShownUrns
+                .filter((urn) => {
+                    const node = nodes.get(urn);
+                    return !node?.entity;
+                })
+                .slice(0, BATCH_SIZE);
+            if (
+                !newUrnsToFetch.length &&
+                rootType === EntityType.SchemaField &&
+                ignoreSchemaFieldStatus &&
+                hideTransformations
+            ) {
+                newUrnsToFetch = Array.from(nodes.values())
+                    .filter((node) => isTransformational(node, rootType) && !node.entity)
+                    .map((node) => node.urn);
+            }
+            if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
+                return newUrnsToFetch;
+            }
+            return oldUrnsToFetch;
+        });
+    }, [
+        nodes,
+        dataVersion,
+        memoizedShownUrns,
+        showGhostEntities,
+        rootType,
+        ignoreSchemaFieldStatus,
+        hideTransformations,
+        loading,
+    ]);
 
     return useCallback(
         (urn: string) =>

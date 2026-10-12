@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.filter;
 
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
@@ -32,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -186,11 +188,18 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     return termsQueryBuilder;
   }
 
+  /**
+   * Matches with or without the {@code .keyword} subfield: Search V3 entity indices filter on the
+   * root field, which has no such subfield.
+   */
   private static boolean matchTermsQueryFieldName(
       QueryBuilder queryBuilder, Set<String> fieldNames) {
     if (queryBuilder instanceof TermsQueryBuilder) {
+      String queryField =
+          StringUtils.removeEnd(((TermsQueryBuilder) queryBuilder).fieldName(), KEYWORD_SUFFIX);
       return fieldNames.stream()
-          .anyMatch(fieldName -> fieldName.equals(((TermsQueryBuilder) queryBuilder).fieldName()));
+          .anyMatch(
+              fieldName -> StringUtils.removeEnd(fieldName, KEYWORD_SUFFIX).equals(queryField));
     }
     return false;
   }
@@ -273,8 +282,12 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     Set<Urn> nextUrns = new HashSet<>();
 
-    Supplier<Boolean> earlyExitCriteria =
-        () -> (queryUrns.size() + visitedUrns.size() + nextUrns.size()) >= limit;
+    // Mark visited before scrolling: the budget below has to count each urn once, and the current
+    // frontier is already part of the expanded set. Counting queryUrns separately charged them
+    // twice, which cost a multi-urn filter its whole expansion budget.
+    visitedUrns.addAll(queryUrns);
+
+    Supplier<Boolean> earlyExitCriteria = () -> (visitedUrns.size() + nextUrns.size()) >= limit;
 
     Function<RelatedEntitiesScrollResult, Boolean> consumer =
         result -> {
@@ -304,14 +317,17 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
         null,
         null);
 
-    // mark visited
-    visitedUrns.addAll(queryUrns);
-
     if (cascade != null && !nextUrns.isEmpty()) {
       cascade.recordEntitiesProcessed(nextUrns.size());
     }
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
+      log.warn(
+          "{} truncated filter expansion for {} at limit {}; the filter is incomplete and results "
+              + "may be missing. Raise the expansion limit for this rewriter if this is expected.",
+          getClass().getSimpleName(),
+          getRewriterFieldNames(),
+          limit);
     } else if (!nextUrns.isEmpty()) {
       // next hop
       scrollGraph(

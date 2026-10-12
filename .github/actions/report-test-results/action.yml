@@ -22,7 +22,7 @@ runs:
   steps:
     - name: Upload test results
       if: (!cancelled())
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.test-results-paths }}
@@ -31,7 +31,7 @@ runs:
 
     - name: Publish test results
       if: (!cancelled())
-      uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+      uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2.6
       with:
         paths: ${{ inputs.junit-file-globs }}
         show: fail

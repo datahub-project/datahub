@@ -65,6 +65,7 @@ from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
 from datahub_airflow_plugin.airflow3 import _airflow_compat  # noqa: F401
+from datahub_airflow_plugin.airflow3._extraction_scope import datahub_extraction_scope
 from datahub_airflow_plugin.airflow3._shims import (
     OpenLineagePlugin,
     Operator,
@@ -712,10 +713,14 @@ class DataHubListener:
             facet_method = getattr(task, facet_method_name)
 
             try:
-                # Call the appropriate facet method
-                operator_lineage = (
-                    facet_method(task_instance) if complete else facet_method()
-                )
+                # These methods are not side-effect free: the OpenLineage provider
+                # only re-runs them because it forks. Mark the call so the DataHub
+                # patches skip the warehouse lookups and provider-side event
+                # emission that DataHub never reads. See _extraction_scope.
+                with datahub_extraction_scope():
+                    operator_lineage = (
+                        facet_method(task_instance) if complete else facet_method()
+                    )
 
                 if not operator_lineage:
                     logger.debug(
@@ -857,8 +862,19 @@ class DataHubListener:
                     f"Created {len(fine_grained_lineages)} FGLs from {len(sql_parsing_result.column_lineage)} column_lineage items for task {datajob.urn}"
                 )
         else:
+            table_error = sql_parsing_result.debug_info.table_error
+            dropped = (
+                f"dropped {len(sql_parsing_result.in_tables)} input(s) / "
+                f"{len(sql_parsing_result.out_tables)} output(s)"
+            )
             logger.warning(
-                f"SQL parsing table error for task {datajob.urn}: {sql_parsing_result.debug_info.table_error}"
+                f"SQL parsing table error for task {datajob.urn} ({dropped}): {table_error}"
+            )
+            # Surface this on the DataJob like datahub_sql_parser_error above. With the
+            # OpenLineage provider enabled, DataHub's parser is the only table source
+            # during DataHub extraction, so a table error here means lost lineage.
+            datajob.properties["datahub_sql_parser_table_error"] = (
+                f"{type(table_error).__name__}: {table_error} ({dropped})"
             )
 
         return input_urns, output_urns, fine_grained_lineages

@@ -21,6 +21,7 @@ READ_ONLY_TOOLS = {
     "get_lineage_paths_between",
     "get_dataset_queries",
     "get_dataset_assertions",
+    "list_incidents",
     "search",
 }
 
@@ -37,6 +38,8 @@ MUTATION_TOOLS = {
     "add_glossary_terms",
     "remove_glossary_terms",
     "save_document",
+    "raise_incident",
+    "resolve_incident",
 }
 
 CLOUD_TOOLS = {

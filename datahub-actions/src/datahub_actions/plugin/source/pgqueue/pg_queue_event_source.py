@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
@@ -77,7 +76,26 @@ class PgQueueEventSourceConfig(ConfigModel):
         default=None,
         description="Override queue visibility timeout when set.",
     )
-    poll_interval_seconds: float = Field(default=2.0, ge=0.1, le=120.0)
+    empty_poll_sleep_min_millis: int = Field(
+        default=1000,
+        ge=1,
+        description="Minimum empty-poll sleep; consecutive empty polls double until max.",
+    )
+    empty_poll_sleep_max_millis: int = Field(
+        default=5000,
+        ge=1,
+        description="Maximum empty-poll sleep (backoff ceiling).",
+    )
+    missing_topic_sleep_millis: int = Field(
+        default=500,
+        ge=1,
+        description="Sleep when no routed topic exists yet; does not grow empty-poll backoff.",
+    )
+    error_recovery_sleep_millis: int = Field(
+        default=1000,
+        ge=1,
+        description="Sleep after a poll-loop exception; does not grow empty-poll backoff.",
+    )
     batch_size: int = Field(default=100, ge=1, le=5000)
 
     def build_consumer_config(self, pipeline_name: str) -> PgQueueConsumerConfig:
@@ -89,6 +107,10 @@ class PgQueueEventSourceConfig(ConfigModel):
             consumer_group=pipeline_name,
             visibility_timeout_seconds=self.visibility_timeout_seconds,
             payload_kind_by_route_key=dict(self.payload_kind_by_route_key),
+            empty_poll_sleep_min_millis=self.empty_poll_sleep_min_millis,
+            empty_poll_sleep_max_millis=self.empty_poll_sleep_max_millis,
+            missing_topic_sleep_millis=self.missing_topic_sleep_millis,
+            error_recovery_sleep_millis=self.error_recovery_sleep_millis,
         )
 
 
@@ -132,14 +154,24 @@ class PgQueueEventSource(EventSource):
             route_order,
         )
         while self.running:
-            batch = self._consumer.poll_route_keys(
-                route_order, max_messages=self.source_config.batch_size
-            )
-            if batch:
-                for rec in batch:
-                    yield from self._records_to_envelopes(rec)
-            else:
-                time.sleep(self.source_config.poll_interval_seconds)
+            try:
+                batch = self._consumer.poll_route_keys(
+                    route_order, max_messages=self.source_config.batch_size
+                )
+                if batch:
+                    for rec in batch:
+                        yield from self._records_to_envelopes(rec)
+                    self._consumer.wait_after_poll(True)
+                else:
+                    self._consumer.wait_after_poll(False)
+            except Exception:
+                consumer = self._consumer
+                if not self.running or consumer is None:
+                    break
+                logger.exception(
+                    "pgQueue actions source poll error; sleeping then retrying"
+                )
+                consumer.wait_after_error()
 
         logger.info("pgQueue consumer exiting main loop")
 

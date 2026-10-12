@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Назад",
+    "confirmationModal.areYouSure": "Вы уверены?",
+    "copyUrn.tooltip": "Скопировать URN. URN однозначно идентифицирует сущность в DataHub.",
+    "customIcon.alt": "Иконка",
+    "entityCountCard.viewCountTooltip": "Просмотреть {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Пожалуйста, заполните все обязательные поля перед переходом к следующему шагу",
+    "noEntityFound.subtitle": "К сожалению, не удалось найти этот объект в DataHub",
+    "noEntityFound.title": "Не найдено",
+    "noPageFound.backToHome": "На главную",
+    "noPageFound.subtitle": "Запрошенная страница не найдена.",
+    "platformIcon.alt": "Логотип платформы"
+}

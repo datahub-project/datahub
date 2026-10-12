@@ -3,8 +3,9 @@
 These tests assert the producer contract for the ``metric`` entity: URN
 pattern, ``metricInfo`` shape (with optional expression and semantic-model
 back-ref), the always-emitted ``metricRelationships`` (so ``hasParentMetric``
-indexes as false), aiContext-only-when-non-empty, and the no-``metricUpstreams``
-rule for semantic-model-backed metrics.
+indexes as false), the always-emitted ``metricUpstreams`` (empty clears stale
+upstreams), aiContext-only-when-non-empty, and
+``metricUpstreams.datasetUpstreams`` for Metric → SMD lineage.
 """
 
 from datetime import datetime, timezone
@@ -16,9 +17,11 @@ from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
     DialectClass,
+    EdgeClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
+    MetricUpstreamsClass,
     StatusClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, MetricUrn
@@ -69,10 +72,38 @@ def test_metric_urn_and_core_aspects() -> None:
     assert isinstance(rels, MetricRelationshipsClass)
     assert rels.derivedFrom == []
     assert rels.parentMetric is None
-    # No metricUpstreams for semantic-model-backed metrics.
-    assert "metricUpstreams" not in aspects
+    # metricUpstreams always emitted (empty clears stale upstreams on re-emit).
+    assert "metricUpstreams" in aspects
+    upstreams = aspects["metricUpstreams"]
+    assert isinstance(upstreams, MetricUpstreamsClass)
+    assert upstreams.datasetUpstreams == []
     # No aiContext when none provided.
     assert "aiContext" not in aspects
+
+
+def test_metric_upstream_datasets() -> None:
+    smd_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+    customers_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)"
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        upstream_datasets=[smd_urn],
+    )
+    assert metric.upstream_datasets == [smd_urn]
+    aspects = _aspects_by_name(metric)
+    upstreams = aspects["metricUpstreams"]
+    assert isinstance(upstreams, MetricUpstreamsClass)
+    assert upstreams.datasetUpstreams == [EdgeClass(destinationUrn=smd_urn)]
+
+    metric.set_upstream_datasets([smd_urn, customers_urn])
+    assert metric.upstream_datasets == [smd_urn, customers_urn]
+    aspects = _aspects_by_name(metric)
+    assert aspects["metricUpstreams"].datasetUpstreams == [
+        EdgeClass(destinationUrn=smd_urn),
+        EdgeClass(destinationUrn=customers_urn),
+    ]
 
 
 def test_metric_name_defaults_to_id() -> None:

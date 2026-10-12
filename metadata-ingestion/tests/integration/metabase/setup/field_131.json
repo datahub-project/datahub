@@ -1,0 +1,9 @@
+{
+  "id": 131,
+  "name": "rating",
+  "display_name": "Rating",
+  "table_id": 21,
+  "base_type": "type/PostgresEnum",
+  "semantic_type": "type/Category",
+  "description": null
+}

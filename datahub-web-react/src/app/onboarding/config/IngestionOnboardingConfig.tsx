@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const INGESTION_CREATE_SOURCE_ID = 'ingestion-create-source';
 export const INGESTION_REFRESH_SOURCES_ID = 'ingestion-refresh-sources';

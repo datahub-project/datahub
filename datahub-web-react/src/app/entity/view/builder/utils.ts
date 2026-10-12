@@ -108,17 +108,34 @@ export const fromUnionType = (unionType: UnionType) => {
 
 /**
  * Returns a map of entity urn to entity from a list of entities.
+ * Skips null slots from `entities(urns:)` when a requested entity is missing.
+ *
+ * @param entities - Batch `getEntities` payload, which may include nulls.
+ * @returns Map of URN to resolved entity.
  */
-export const buildEntityCache = (entities: Entity[]) => {
-    const cache = new Map();
-    entities.forEach((entity) => cache.set(entity.urn, entity));
+export function buildEntityCache(entities: Array<Entity | null | undefined> | null | undefined): Map<string, Entity> {
+    const cache = new Map<string, Entity>();
+    (entities ?? []).forEach((entity) => {
+        if (entity?.urn) {
+            cache.set(entity.urn, entity);
+        }
+    });
     return cache;
-};
+}
 
 /**
- * Returns 'true' if any urns are not present in an entity cache, 'false' otherwise.
+ * Returns true if any urns are not present in an entity cache.
+ * `attemptedUrns` are URNs already requested so a null response does not refetch forever.
+ *
+ * @param urns - URNs to hydrate.
+ * @param cache - Resolved entities keyed by URN.
+ * @param attemptedUrns - URNs already sent to `getEntities`.
+ * @returns True when at least one URN still needs a fetch.
  */
-export const isResolutionRequired = (urns: string[], cache: Map<string, Entity>) => {
-    const uncachedUrns = urns.filter((urn) => !cache.has(urn));
-    return uncachedUrns.length > 0;
-};
+export function isResolutionRequired(
+    urns: string[],
+    cache: Map<string, Entity>,
+    attemptedUrns: ReadonlySet<string> = new Set(),
+): boolean {
+    return urns.some((urn) => !cache.has(urn) && !attemptedUrns.has(urn));
+}

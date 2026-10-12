@@ -204,19 +204,19 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     assert semantic_view.columns[1].name == "product_category"
 
     # Verify column subtypes
-    assert semantic_view.column_subtypes["CUSTOMER_NAME"] == "DIMENSION"
-    assert semantic_view.column_subtypes["PRODUCT_CATEGORY"] == "DIMENSION"
+    assert semantic_view.column_subtypes["customer_name"] == "DIMENSION"
+    assert semantic_view.column_subtypes["product_category"] == "DIMENSION"
 
     # Verify synonyms were parsed
-    assert "CUSTOMER_NAME" in semantic_view.column_synonyms
-    assert len(semantic_view.column_synonyms["CUSTOMER_NAME"]) == 2
+    assert "customer_name" in semantic_view.column_synonyms
+    assert len(semantic_view.column_synonyms["customer_name"]) == 2
 
     # column_occurrences preserves the raw per-logical-table occurrence, which the
     # semanticModel mapper relies on to group fields by their logical dataset.
-    assert semantic_view.column_occurrences["CUSTOMER_NAME"][0].table_name == (
+    assert semantic_view.column_occurrences["customer_name"][0].table_name == (
         "customers"
     )
-    assert semantic_view.column_occurrences["PRODUCT_CATEGORY"][0].table_name == (
+    assert semantic_view.column_occurrences["product_category"][0].table_name == (
         "products"
     )
 
@@ -309,16 +309,16 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
     assert semantic_view.columns[0].name == "amount"
 
     # Should have merged subtype
-    assert semantic_view.column_subtypes["AMOUNT"] == "DIMENSION,FACT"
+    assert semantic_view.column_subtypes["amount"] == "DIMENSION,FACT"
 
     # column_occurrences keeps both raw occurrences (unlike the merged columns list
     # above), since the semanticModel mapper needs each one's own table/expression.
-    assert len(semantic_view.column_occurrences["AMOUNT"]) == 2
+    assert len(semantic_view.column_occurrences["amount"]) == 2
 
     # Should have both table mappings
-    assert len(semantic_view.column_table_mappings["AMOUNT"]) == 2
-    assert "sales" in semantic_view.column_table_mappings["AMOUNT"]
-    assert "orders" in semantic_view.column_table_mappings["AMOUNT"]
+    assert len(semantic_view.column_table_mappings["amount"]) == 2
+    assert "sales" in semantic_view.column_table_mappings["amount"]
+    assert "orders" in semantic_view.column_table_mappings["amount"]
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -390,10 +390,10 @@ def test_semantic_view_with_metrics(mock_connection):
     assert semantic_view.columns[0].expression == "SUM(amount)"
 
     # Verify subtype
-    assert semantic_view.column_subtypes["TOTAL_REVENUE"] == "METRIC"
+    assert semantic_view.column_subtypes["total_revenue"] == "METRIC"
 
     # Verify synonyms
-    assert len(semantic_view.column_synonyms["TOTAL_REVENUE"]) == 2
+    assert len(semantic_view.column_synonyms["total_revenue"]) == 2
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -568,7 +568,7 @@ def test_synonym_case_insensitive_deduplication(mock_connection):
     semantic_view = semantic_views["PUBLIC"][0]
 
     # Verify synonyms were deduplicated case-insensitively
-    synonyms = semantic_view.column_synonyms["CUSTOMER_ID"]
+    synonyms = semantic_view.column_synonyms["customer_id"]
     # Should have: client_id, BUYER_ID, Customer_Number, cust_id (4 unique case-insensitive)
     # Not 6 (which would be without deduplication)
     assert len(synonyms) == 4, (
@@ -1023,7 +1023,12 @@ def test_parse_base_tables_from_ddl_with_alias():
 
 
 def test_parse_base_tables_from_ddl_quoted_identifiers():
-    """Quoted identifiers with mixed case should be stripped of quotes."""
+    """Quoted identifiers keep their casing as the logical table name.
+
+    With no alias the logical name is the base table's own name. Verified against
+    Snowflake: `TABLES ("Db"."Sch"."MyTable")` reports SEMANTIC_TABLES.NAME as
+    'MyTable', so stripping the quotes must not also uppercase it.
+    """
     ddl = """
     CREATE SEMANTIC VIEW my_view AS
     TABLES (
@@ -1032,7 +1037,7 @@ def test_parse_base_tables_from_ddl_quoted_identifiers():
     """
     result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
     assert result == {
-        "MYTABLE": ("MyDB", "MySchema", "MyTable"),
+        "MyTable": ("MyDB", "MySchema", "MyTable"),
     }
 
 

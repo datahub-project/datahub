@@ -118,6 +118,7 @@
     "users.columns.name": "Name",
     "users.columns.role": "Rolle",
     "users.columns.status": "Status",
+    "users.copyUrn": "URN kopieren",
     "users.deleteUser": "Benutzer löschen",
     "users.emptyTitle": "Keine Benutzer!",
     "users.groups.overflowTitle": "Gruppen",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Gesperrt",
     "users.statusInactive": "Inaktiv",
-    "users.statusNoUrn": "Kein URN"
+    "users.statusNoUrn": "Kein URN",
+    "users.urnCopied": "URN in die Zwischenablage kopiert"
 }

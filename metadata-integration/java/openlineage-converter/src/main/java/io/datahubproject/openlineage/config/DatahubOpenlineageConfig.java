@@ -21,6 +21,9 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final String pipelineName = null;
   private final String orchestrator;
   @Builder.Default private final FabricType fabricType = FabricType.PROD;
+  // Domain URNs (urn:li:domain:<id>) attached to the emitted DataFlow and DataJob. OpenLineage has
+  // no domain facet, so this is the only way to convey domain ownership for a pipeline.
+  @Builder.Default private final List<String> domains = Collections.emptyList();
 
   // Platform configuration
   private final String platformInstance;

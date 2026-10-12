@@ -8,7 +8,10 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: examplepass
       MONGO_INITDB_DATABASE: mngdb
     ports:
-      - 57017:27017
+      # Ephemeral: only the mongo protocol port needs host access (for ingestion),
+      # and letting Docker pick a free port avoids colliding with a leaked container
+      # from a prior run.
+      - "27017"
     volumes:
       - ./setup/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js:ro
       - ./setup:/setup

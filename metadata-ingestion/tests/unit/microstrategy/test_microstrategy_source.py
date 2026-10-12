@@ -850,6 +850,32 @@ def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     assert fake_client.model_table_calls == 1
 
 
+def test_fetch_project_model_tables_requests_logical_table_information() -> None:
+    # Regression: the semantic-model mapper reads each table's top-level
+    # "information" block for the logical table id/name (needed to resolve
+    # attribute-hierarchy relationships and to keep role-played tables
+    # distinct), but MicroStrategy's `fields` parameter is a root-level
+    # whitelist -- omitting "information" there means the API never returns
+    # it at all, regardless of what the mapper does with the response.
+    source = _source({"extract_model_lineage": True})
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.fields_requested: List[str] = []
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+            self.fields_requested.append(kwargs.get("fields", ""))
+            return ModelTablesResponse(tables=[], total=0)
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    source._fetch_project_model_tables("project-1")
+
+    assert fake_client.fields_requested
+    assert all("information" in fields for fields in fake_client.fields_requested)
+
+
 def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     source = _source(
         {
@@ -901,3 +927,71 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     assert not lineage_context._context_resolved
     assert fake_client.model_table_calls == 0
     assert fake_client.connection_calls == 0
+
+
+def test_model_tables_shared_between_lineage_and_semantic_model() -> None:
+    source = _source(
+        {"extract_model_lineage": True, "emit_semantic_model_entities": True}
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.model_table_calls = 0
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+            self.model_table_calls += 1
+            return ModelTablesResponse(
+                tables=[
+                    {
+                        "physicalTable": {"tableName": "T1"},
+                        "attributes": [],
+                        "facts": [],
+                    }
+                ],
+                total=1,
+            )
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    datasource = Datasource.model_validate(
+        {"id": "source-1", "name": "Warehouse", "database": {"type": "snowflake"}}
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
+
+    # Classic model-lineage path and the semantic-model path both read the
+    # same underlying data.
+    _ = lineage_context.model_lineage_index
+    _ = lineage_context.model_tables
+
+    assert fake_client.model_table_calls == 1
+
+
+def _assert_semantic_model_called_only_when_enabled(enabled: bool) -> None:
+    project = Project.model_validate({"id": "project-1", "name": "Project 1"})
+    source = _source(
+        {
+            "emit_semantic_model_entities": enabled,
+            "extract_dashboards": False,
+            "extract_reports": False,
+            "extract_source_warehouses": False,
+        }
+    )
+    calls: List[bool] = []
+
+    def fake_process_project_semantic_model(
+        project: Project, lineage_context: _LazyProjectLineage
+    ) -> Iterator[Any]:
+        calls.append(True)
+        return iter([])
+
+    source._process_project_semantic_model = (  # type: ignore[method-assign]
+        fake_process_project_semantic_model
+    )
+    list(source._process_project(project))
+    assert bool(calls) is enabled
+
+
+def test_process_project_calls_semantic_model_only_when_enabled() -> None:
+    _assert_semantic_model_called_only_when_enabled(True)
+    _assert_semantic_model_called_only_when_enabled(False)

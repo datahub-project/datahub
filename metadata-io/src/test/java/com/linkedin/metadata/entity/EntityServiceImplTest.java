@@ -28,6 +28,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import com.codahale.metrics.Counter;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -59,7 +60,9 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -71,6 +74,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.common.AttributeKey;
@@ -1600,6 +1604,24 @@ public class EntityServiceImplTest {
             eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
             eq(false)))
         .thenReturn(latestDefinition);
+    // Hard deletion of a structured property requires a prior soft delete (status.removed=true);
+    // see the structured property delete guard tests below.
+    EbeanAspectV2 statusRow =
+        new EbeanAspectV2(
+            propertyUrn.toString(),
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(true)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STATUS_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(EbeanSystemAspect.builder().forUpdate(statusRow, testEntityRegistry));
     when(mockAspectDao.getVersionRange(
             any(OperationContext.class),
             eq(propertyUrn.toString()),
@@ -1653,6 +1675,428 @@ public class EntityServiceImplTest {
     inOrder
         .verify(mockAspectDao)
         .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
+  }
+
+  // ── Structured property delete guard (soft-delete-first precondition) ─────────────────────────
+
+  private static final Urn GUARDED_PROPERTY_URN =
+      UrnUtils.getUrn("urn:li:structuredProperty:io.acryl.guarded.prop");
+
+  private EntityServiceImpl newSpyServiceForDeleteGuard(AspectDao dao) {
+    EventProducer producer = mock(EventProducer.class);
+    when(producer.produceMetadataChangeLog(any(OperationContext.class), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                dao, producer, mock(PreProcessHooks.class), testConfig(), metricUtils));
+    doReturn(Stream.empty())
+        .when(service)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    return service;
+  }
+
+  private SystemAspect guardTestAspectRow(
+      Urn urn, String aspectName, String metadataJson, SystemMetadata systemMetadata) {
+    EbeanAspectV2 row =
+        new EbeanAspectV2(
+            urn.toString(),
+            aspectName,
+            0L,
+            metadataJson,
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    return EbeanSystemAspect.builder().forUpdate(row, testEntityRegistry);
+  }
+
+  /**
+   * Stubs {@code dao} with a structured property whose key and propertyDefinition aspects exist at
+   * version 0 (empty version range, so the delete transaction takes the simple path). {@code
+   * statusRemoved} null means no status aspect exists (active property).
+   */
+  private void stubStructuredPropertyRows(
+      AspectDao dao, Urn propertyUrn, Boolean statusRemoved, String runId) {
+    StructuredPropertyKey key = new StructuredPropertyKey().setId(propertyUrn.getId());
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(propertyUrn.getId())
+            .setValueType(UrnUtils.getUrn("urn:li:type:datahub.string"))
+            .setEntityTypes(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setRunId(runId);
+
+    when(dao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(
+            guardTestAspectRow(
+                propertyUrn,
+                STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                RecordUtils.toJsonString(key),
+                systemMetadata));
+    when(dao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(
+            guardTestAspectRow(
+                propertyUrn,
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                RecordUtils.toJsonString(definition),
+                systemMetadata));
+    if (statusRemoved != null) {
+      when(dao.getLatestAspect(
+              any(OperationContext.class),
+              eq(propertyUrn.toString()),
+              eq(STATUS_ASPECT_NAME),
+              eq(false)))
+          .thenReturn(
+              guardTestAspectRow(
+                  propertyUrn,
+                  STATUS_ASPECT_NAME,
+                  RecordUtils.toJsonString(new Status().setRemoved(statusRemoved)),
+                  systemMetadata));
+    }
+    when(dao.getVersionRange(
+            any(OperationContext.class), eq(propertyUrn.toString()), any(String.class)))
+        .thenReturn(Pair.of(0L, 0L));
+    when(dao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
+        .thenReturn(2);
+    stubGuardTestTransaction(dao);
+  }
+
+  private void stubGuardTestTransaction(AspectDao dao) {
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(dao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+  }
+
+  private OperationContext newUserContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(testEntityRegistry);
+  }
+
+  @Test
+  public void testHardDeleteActiveStructuredPropertyRejected() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    try {
+      service.deleteAspectWithoutMCL(
+          newUserContext(),
+          GUARDED_PROPERTY_URN.toString(),
+          STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+          Collections.emptyMap(),
+          true);
+      fail("Expected hard delete of an active structured property to be rejected");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("Soft-delete"));
+      assertTrue(e.getMessage().contains("reindexed"));
+    }
+
+    // Rejected before any DAO mutation
+    verify(dao, never()).runInTransactionWithRetry(any(), any(), anyInt());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testHardDeleteStructuredPropertyWithRemovedFalseRejected() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, false, "no-run-id-provided");
+
+    try {
+      service.deleteAspectWithoutMCL(
+          newUserContext(),
+          GUARDED_PROPERTY_URN.toString(),
+          STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+          Collections.emptyMap(),
+          true);
+      fail("Expected hard delete of a structured property with removed=false to be rejected");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("Soft-delete"));
+    }
+
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testHardDeleteSoftDeletedStructuredPropertySucceeds() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, true, "no-run-id-provided");
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            newUserContext(),
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    // The companion propertyDefinition delete side effect still fires: the definition is captured
+    // before the entity rows are wiped.
+    var inOrder = inOrder(dao);
+    inOrder
+        .verify(dao)
+        .getLatestAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false));
+    inOrder
+        .verify(dao)
+        .deleteUrn(any(OperationContext.class), any(), eq(GUARDED_PROPERTY_URN.toString()));
+  }
+
+  @Test
+  public void testDirectDeleteActivePropertyDefinitionRejected() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    try {
+      service.deleteAspectWithoutMCL(
+          newUserContext(),
+          GUARDED_PROPERTY_URN.toString(),
+          STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+          Collections.emptyMap(),
+          false);
+      fail("Expected direct deletion of an active property definition to be rejected");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("Soft-delete"));
+    }
+
+    verify(dao, never())
+        .deleteAspect(any(OperationContext.class), any(Urn.class), any(String.class), anyLong());
+  }
+
+  @Test
+  public void testDirectDeleteSoftDeletedPropertyDefinitionPermitted() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, true, "no-run-id-provided");
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            newUserContext(),
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+            Collections.emptyMap(),
+            false);
+
+    assertNotNull(result);
+    verify(dao)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            anyLong());
+  }
+
+  @Test
+  public void testHardDeleteStructuredPropertyWithoutDefinitionSucceeds() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, true, "no-run-id-provided");
+    // Degenerate but reachable state: a status-only structured property (e.g. created by
+    // POSTing status via the aspect API) has no propertyDefinition aspect, and
+    // getLatestAspect returns null for it rather than throwing. The pre-hard-delete
+    // definition capture must tolerate that instead of NPE-ing inside the transaction.
+    when(dao.getLatestAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            newUserContext(),
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(GUARDED_PROPERTY_URN.toString()));
+  }
+
+  @Test
+  public void testRemediationDeletionBypassesStructuredPropertyGuard() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    // Same construction as processPendingDeletions: oversized-aspect remediation must be able
+    // to delete a poisoned propertyDefinition even while the property is active.
+    OperationContext userContext = newUserContext();
+    OperationContext remediationContext =
+        userContext.toBuilder()
+            .validationContext(
+                userContext.getValidationContext().toBuilder().isRemediationDeletion(true).build())
+            .build(userContext.getSessionActorContext(), false);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            remediationContext,
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+            Collections.emptyMap(),
+            false);
+
+    assertNotNull(result);
+    verify(dao)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            anyLong());
+  }
+
+  @Test
+  public void testHardDeleteNonexistentStructuredPropertyRemainsNoOp() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    // No rows stubbed: the property does not exist, so cleanup-style deletes stay no-ops
+    stubGuardTestTransaction(dao);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            newUserContext(),
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNull(result);
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testNonStructuredPropertyHardDeleteUnaffectedByGuard() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:guardBystander");
+    OperationContext userContext = newUserContext();
+    String keyAspectName = userContext.getKeyAspectName(userUrn);
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(userUrn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(
+            guardTestAspectRow(
+                userUrn,
+                keyAspectName,
+                RecordUtils.toJsonString(new CorpUserKey().setUsername("guardBystander")),
+                systemMetadata));
+    when(dao.getVersionRange(
+            any(OperationContext.class), eq(userUrn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    when(dao.deleteUrn(any(OperationContext.class), any(), eq(userUrn.toString()))).thenReturn(1);
+    stubGuardTestTransaction(dao);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            userContext, userUrn.toString(), keyAspectName, Collections.emptyMap(), true);
+
+    assertNotNull(result);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(userUrn.toString()));
+    // The guard never consults status for non-structured-property entities
+    verify(dao, never())
+        .getLatestAspect(
+            any(OperationContext.class), eq(userUrn.toString()), eq(STATUS_ASPECT_NAME), eq(false));
+  }
+
+  @Test
+  public void testHardDeleteActiveStructuredPropertySystemAuthBypasses() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    // True system session: system authentication allowed AND the session actor is the system
+    OperationContext systemAuthContext =
+        TestOperationContexts.Builder.builder()
+            .configSupplier(
+                () ->
+                    OperationContextConfig.builder()
+                        .allowSystemAuthentication(true)
+                        .viewAuthorizationConfiguration(
+                            ViewAuthorizationConfiguration.builder().enabled(false).build())
+                        .build())
+            .buildSystemContext();
+    assertTrue(systemAuthContext.isSystemAuth());
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            systemAuthContext,
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(GUARDED_PROPERTY_URN.toString()));
+  }
+
+  @Test
+  public void testNukeRollbackBypassesStructuredPropertyGuard() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-1");
+
+    AspectRowSummary row =
+        new AspectRowSummary()
+            .setUrn(GUARDED_PROPERTY_URN.toString())
+            .setAspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+            .setKeyAspect(true)
+            .setVersion(0)
+            .setTimestamp(0L);
+
+    RollbackRunResult result =
+        service.rollbackRun(newUserContext(), List.of(row), "rollback-run-1", true);
+
+    assertEquals(result.getRowsRolledBack().size(), 1);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(GUARDED_PROPERTY_URN.toString()));
+  }
+
+  @Test
+  public void testSafeRollbackOfActivePropertyDefinitionUnchanged() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-2");
+
+    AspectRowSummary row =
+        new AspectRowSummary()
+            .setUrn(GUARDED_PROPERTY_URN.toString())
+            .setAspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .setKeyAspect(false)
+            .setVersion(0)
+            .setTimestamp(0L);
+
+    RollbackRunResult result =
+        service.rollbackRun(newUserContext(), List.of(row), "rollback-run-2", false);
+
+    assertEquals(result.getRowsRolledBack().size(), 1);
+    verify(dao)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            anyLong());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
   }
 
   // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the

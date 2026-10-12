@@ -27,6 +27,7 @@ class DatasetSubTypes(StrEnum):
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
+    METABASE_MODEL = "Metabase Model"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
     MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
@@ -81,6 +82,8 @@ class DatasetContainerSubTypes(StrEnum):
     CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
+    # A BigQuery Sharing linked dataset: a read-only pointer into another project.
+    BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
     DATABRICKS_VOLUME = "Volume"
     FOLDER = "Folder"
@@ -126,6 +129,7 @@ class BIContainerSubTypes(StrEnum):
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
+    METABASE_COLLECTION = "Metabase Collection"
     SIGMA_DATA_MODEL = "Sigma Data Model"
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"

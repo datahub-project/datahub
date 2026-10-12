@@ -30,7 +30,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -427,7 +426,7 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(scrollDirection),
+                QueryUtils.newRelationshipFilter(QueryUtils.EMPTY_FILTER, scrollDirection),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -442,13 +441,7 @@ public class EntityGraphSnapshotBuilder {
           if (accumulator.isBypassed()) {
             break;
           }
-          accumulator.addEdge(
-              related.getSourceUrn(),
-              related.getDestinationUrn(),
-              relType,
-              definition.getBounds().getMaxVertices(),
-              definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
-          neighbors.add(related.asRelatedEntity().getUrn());
+          addRelatedEdge(accumulator, related, relType, definition, neighbors);
         }
 
         if (result.getScrollId() != null && accumulator.isBypassed()) {
@@ -706,7 +699,8 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(resolved.getGraphDirection()),
+                QueryUtils.newRelationshipFilter(
+                    QueryUtils.EMPTY_FILTER, resolved.getGraphDirection()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -727,12 +721,7 @@ public class EntityGraphSnapshotBuilder {
                   if (accumulator.isBypassed()) {
                     return;
                   }
-                  accumulator.addEdge(
-                      related.getSourceUrn(),
-                      related.getDestinationUrn(),
-                      relType,
-                      definition.getBounds().getMaxVertices(),
-                      definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
+                  addRelatedEdge(accumulator, related, relType, definition, null);
                 });
       } while (result != null && result.getScrollId() != null && !accumulator.isBypassed());
 
@@ -799,19 +788,19 @@ public class EntityGraphSnapshotBuilder {
       return null;
     }
     StringMap extra = entity.getExtraFields();
-    String direct = extra.get(searchField);
-    if (direct != null && !direct.isBlank()) {
-      return stripQuotes(direct);
+    String parsed = EntityGraphEndpoints.parse(extra.get(searchField));
+    if (parsed != null) {
+      return parsed;
     }
     String leaf = leafFieldName(searchField);
     if (leaf != null) {
-      String leafVal = extra.get(leaf);
-      if (leafVal != null && !leafVal.isBlank()) {
-        return stripQuotes(leafVal);
+      parsed = EntityGraphEndpoints.parse(extra.get(leaf));
+      if (parsed != null) {
+        return parsed;
       }
-      String keyword = extra.get(leaf + ".keyword");
-      if (keyword != null && !keyword.isBlank()) {
-        return stripQuotes(keyword);
+      parsed = EntityGraphEndpoints.parse(extra.get(leaf + ".keyword"));
+      if (parsed != null) {
+        return parsed;
       }
     }
     return null;
@@ -820,14 +809,6 @@ public class EntityGraphSnapshotBuilder {
   private static String leafFieldName(@Nonnull String searchField) {
     int idx = searchField.lastIndexOf('.');
     return idx >= 0 ? searchField.substring(idx + 1) : searchField;
-  }
-
-  private static String stripQuotes(@Nonnull String value) {
-    String trimmed = value.trim();
-    if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
-      return trimmed.substring(1, trimmed.length() - 1);
-    }
-    return trimmed;
   }
 
   @Nonnull
@@ -852,11 +833,37 @@ public class EntityGraphSnapshotBuilder {
     if (value instanceof Urn urn) {
       return urn.toString();
     }
-    return value.toString();
+    return EntityGraphEndpoints.parse(value.toString());
+  }
+
+  private static boolean addRelatedEdge(
+      @Nonnull EdgeAccumulator accumulator,
+      @Nonnull RelatedEntities related,
+      @Nonnull String relType,
+      @Nonnull EntityGraphDefinition definition,
+      @Nullable Set<String> neighbors) {
+    String source = EntityGraphEndpoints.parse(related.getSourceUrn());
+    String dest = EntityGraphEndpoints.parse(related.getDestinationUrn());
+    if (source == null || dest == null) {
+      return false;
+    }
+    accumulator.addCanonicalEdge(
+        source,
+        dest,
+        relType,
+        definition.getBounds().getMaxVertices(),
+        definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
+    if (neighbors != null) {
+      String neighbor = EntityGraphEndpoints.parse(related.asRelatedEntity().getUrn());
+      if (neighbor != null) {
+        neighbors.add(neighbor);
+      }
+    }
+    return true;
   }
 
   @Nonnull
-  static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
+  public static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
     List<String> canonical =
         edges.stream()
             .map(DirectedEdge::canonicalLine)
@@ -905,19 +912,29 @@ public class EntityGraphSnapshotBuilder {
     }
 
     void addEdge(String sourceUrn, String destUrn, String relType, int maxVertices, int maxEdges) {
-      if (bypassed) {
+      addCanonicalEdge(
+          EntityGraphEndpoints.parse(sourceUrn),
+          EntityGraphEndpoints.parse(destUrn),
+          relType,
+          maxVertices,
+          maxEdges);
+    }
+
+    void addCanonicalEdge(
+        String source, String dest, String relType, int maxVertices, int maxEdges) {
+      if (bypassed || source == null || dest == null) {
         return;
       }
-      vertices.add(sourceUrn);
-      vertices.add(destUrn);
+      vertices.add(source);
+      vertices.add(dest);
       if (vertices.size() > maxVertices) {
         bypass("vertex_limit");
         return;
       }
       DirectedEdge edge =
           DirectedEdge.builder()
-              .sourceUrn(sourceUrn)
-              .destinationUrn(destUrn)
+              .sourceUrn(source)
+              .destinationUrn(dest)
               .relationshipType(relType)
               .build();
       edgesByLine.putIfAbsent(edge.canonicalLine(), edge);
@@ -929,12 +946,17 @@ public class EntityGraphSnapshotBuilder {
     private void bypass(String reason) {
       bypassed = true;
       bypassReason = reason;
+      int maxVertices = definition.getBounds().getMaxVertices();
+      int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
       log.warn(
-          "Graph {} exceeded bounds: reason={} vertices={} edges={}",
+          "Entity graph cache exceeded bounds: graphId={} buildSource={} reason={} vertices={} maxVertices={} edges={} maxEdges={}",
           definition.getGraphId(),
+          definition.getBuildSource(),
           reason,
           vertices.size(),
-          edgesByLine.size());
+          maxVertices,
+          edgesByLine.size(),
+          maxEdges);
     }
 
     boolean isBypassed() {

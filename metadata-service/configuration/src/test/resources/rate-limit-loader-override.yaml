@@ -1,0 +1,19 @@
+# Fixture used as a mounted RATE_LIMITS_CONFIG_FILE replacement in RateLimitConfigLoaderTest.
+datahub:
+  gms:
+    rateLimits:
+      minRetryAfterSeconds: 120
+      endpoint:
+        rules:
+          - id: aspects-ingest
+            pathPattern: /aspects**
+            methods: [POST]
+            capacity: 100
+            refillTokens: 100
+            refillPeriodSeconds: 60
+      scoped:
+        heavyResolvers:
+          searchAcrossEntities:
+            capacity: 50
+            refillTokens: 50
+            refillPeriodSeconds: 60

@@ -6,6 +6,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
 import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,
@@ -46,7 +47,11 @@ const StyledFileNode = styled(FileNode)`
     max-width: 350px;
 `;
 
-const StyledSyntaxHighlighter = styled(SyntaxHighlighter)`
+// Without an explicit `style`, react-syntax-highlighter uses a hardcoded light
+// Prism theme, so token text stays near-black on the dark surface below.
+const StyledSyntaxHighlighter = styled(SyntaxHighlighter).attrs(({ theme }) => ({
+    style: getCodeBlockPrismStyle(theme.colors),
+}))`
     background-color: ${({ theme }) => theme.colors.bgSurface} !important;
     border: none !important;
 `;

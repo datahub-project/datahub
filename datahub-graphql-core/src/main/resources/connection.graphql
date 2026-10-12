@@ -24,27 +24,29 @@ type DataHubConnection implements Entity {
   """
   The urn of the connection
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type field
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The connection details
   """
   details: DataHubConnectionDetails!
+    @aspectMapping(aspects: ["dataHubConnectionDetails"])
 
   """
   The external Data Platform associated with the connection
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Not implemented!
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """

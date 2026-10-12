@@ -56,7 +56,9 @@ export default function useSearchAcrossLineage(
     const input: SearchAcrossLineageInput = {
         urn,
         direction,
-        types: type === EntityType.SchemaField ? [EntityType.SchemaField] : undefined,
+        // Column lineage is other columns plus the metrics reading the column, matching the backend's
+        // schema field walk; charts and dashboards it also returns are left out for now
+        types: type === EntityType.SchemaField ? [EntityType.SchemaField, EntityType.Metric] : undefined,
         start: 0,
         count: 10000,
         orFilters: [

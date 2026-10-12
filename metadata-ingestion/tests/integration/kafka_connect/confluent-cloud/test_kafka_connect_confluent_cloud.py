@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from datetime import datetime, timezone
 from unittest import mock
 
@@ -62,15 +63,13 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/kafka_connect/confluent-cloud"
 
 
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
-def test_kafka_connect_confluent_cloud_ingest(
-    confluent_cloud_mock_runner,
-    pytestconfig,
-    tmp_path,
-    test_resources_dir,
-    mock_datahub_graph,
-):
-    """Test ingestion from Confluent Cloud mock API with DataHub graph connection"""
+def run_ingest_with_mocked_graph(
+    mock_datahub_graph: mock.MagicMock,
+    test_resources_dir: pathlib.Path,
+    tmp_path: pathlib.Path,
+    recipe_name: str,
+) -> None:
+    """Run an ingestion recipe with the DataHub graph stubbed out."""
 
     # Configure the mock graph to return schema metadata for dataset URNs
     # This simulates having dataset entities in DataHub that connectors can reference
@@ -97,16 +96,96 @@ def test_kafka_connect_confluent_cloud_ingest(
             "datahub.ingestion.run.pipeline.DataHubGraph",
             return_value=mock_datahub_graph,
         ),
+        mock.patch(
+            "datahub.ingestion.source.confluent.config.ConfluentStreamCatalogConfig."
+            "get_graphql_endpoint",
+            return_value=f"{CONFLUENT_CLOUD_MOCK_SERVER}/catalog/graphql",
+        ),
     ):
-        config_file = (
-            test_resources_dir / "kafka_connect_confluent_cloud_to_file.yml"
-        ).resolve()
+        config_file = (test_resources_dir / recipe_name).resolve()
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_kafka_connect_confluent_cloud_ingest(
+    confluent_cloud_mock_runner,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    mock_datahub_graph,
+):
+    """Test ingestion from Confluent Cloud mock API with DataHub graph connection"""
+    run_ingest_with_mocked_graph(
+        mock_datahub_graph,
+        test_resources_dir,
+        tmp_path,
+        "kafka_connect_confluent_cloud_to_file.yml",
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "kafka_connect_confluent_cloud_mces.json",
         golden_path=test_resources_dir
         / "kafka_connect_confluent_cloud_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_kafka_connect_confluent_cloud_stream_catalog_tags_only_ingest(
+    confluent_cloud_mock_runner,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    mock_datahub_graph,
+):
+    """
+    Ingestion with the Stream Catalog at its defaults, i.e. `include_lineage` off.
+
+    Catalog tags and business metadata are applied, while lineage keeps coming from the
+    connector config so source connectors retain their `table -> topic` edges.
+    """
+    run_ingest_with_mocked_graph(
+        mock_datahub_graph,
+        test_resources_dir,
+        tmp_path,
+        "kafka_connect_confluent_cloud_catalog_tags_to_file.yml",
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_confluent_cloud_catalog_tags_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_confluent_cloud_catalog_tags_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_kafka_connect_confluent_cloud_stream_catalog_ingest(
+    confluent_cloud_mock_runner,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    mock_datahub_graph,
+):
+    """
+    Ingestion with the Confluent Stream Catalog enabled.
+
+    Exercises connector -> topic lineage taken straight from the catalog, plus catalog
+    tags and business metadata on the Kafka Connect data flows.
+    """
+    run_ingest_with_mocked_graph(
+        mock_datahub_graph,
+        test_resources_dir,
+        tmp_path,
+        "kafka_connect_confluent_cloud_catalog_to_file.yml",
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_confluent_cloud_catalog_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_confluent_cloud_catalog_mces_golden.json",
         ignore_paths=[],
     )

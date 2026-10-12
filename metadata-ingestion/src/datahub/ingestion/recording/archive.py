@@ -7,14 +7,14 @@ Archive format:
     recording.zip (AES-256 encrypted, LZMA compressed)
     ├── manifest.json       # Metadata, versions, checksums
     ├── recipe.yaml         # Recipe with secrets replaced by __REPLAY_DUMMY__
-    ├── http/cassette.yaml  # VCR HTTP recordings (YAML for binary data support)
+    ├── http/cassette.yaml  # VCR HTTP recordings (YAML for binary data support),
+    │                       # with secret-bearing headers/bodies/params scrubbed
     └── db/queries.jsonl    # Database query recordings
 """
 
 import hashlib
 import json
 import logging
-import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +27,7 @@ from datahub.ingestion.recording.config import (
     REPLAY_DUMMY_VALUE,
     check_recording_dependencies,
 )
+from datahub.ingestion.recording.redaction import redact_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -44,78 +45,6 @@ HTTP_DIR = "http"
 
 # Database recordings directory
 DB_DIR = "db"
-
-# Patterns for secret field names (case-insensitive)
-SECRET_PATTERNS = [
-    r".*password.*",
-    r".*secret.*",
-    r".*token.*",
-    r".*api[_-]?key.*",
-    r".*private[_-]?key.*",
-    r".*access[_-]?key.*",
-    r".*credential.*",
-]
-
-# Fields that contain auth-related words but are NOT secrets
-# These are typically enum values, config options, or metadata
-NON_SECRET_FIELDS = [
-    "authentication_type",
-    "authenticator",
-    "auth_type",
-    "auth_method",
-    "authorization_type",
-]
-
-
-def redact_secrets(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Replace secret values with replay-safe dummy markers.
-
-    This function recursively traverses the config and replaces any values
-    that appear to be secrets (based on key names) with REPLAY_DUMMY_MARKER.
-    This allows the recipe to be safely stored while still being loadable
-    during replay.
-
-    Args:
-        config: Configuration dictionary (e.g., recipe)
-
-    Returns:
-        New dictionary with secrets replaced by REPLAY_DUMMY_MARKER
-    """
-    return _redact_recursive(config)
-
-
-def _redact_recursive(obj: Any, parent_key: str = "") -> Any:
-    """Recursively redact secrets in a nested structure."""
-    if isinstance(obj, dict):
-        result = {}
-        for key, value in obj.items():
-            if _is_secret_key(key) and isinstance(value, str):
-                result[key] = REPLAY_DUMMY_MARKER
-                logger.debug(f"Redacted secret field: {key}")
-            else:
-                result[key] = _redact_recursive(value, key)
-        return result
-
-    if isinstance(obj, list):
-        return [_redact_recursive(item, parent_key) for item in obj]
-
-    return obj
-
-
-def _is_secret_key(key: str) -> bool:
-    """Check if a key name indicates a secret value.
-
-    Checks against known secret patterns while excluding fields that
-    contain auth-related words but are not secrets (e.g., authentication_type).
-    """
-    key_lower = key.lower()
-
-    # First check if this is a known non-secret field
-    if key_lower in NON_SECRET_FIELDS:
-        return False
-
-    # Then check against secret patterns
-    return any(re.match(pattern, key_lower) for pattern in SECRET_PATTERNS)
 
 
 def prepare_recipe_for_replay(recipe: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,16 +1,17 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Dict, Optional
+from typing import Annotated, Dict, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration._config_enum import ConfigEnum
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Enables
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.cube.constants import (
     DEFAULT_REQUEST_TIMEOUT_SEC,
     MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD,
@@ -111,14 +112,26 @@ class CubeSourceConfig(
         description="Per-request timeout, in seconds.",
     )
 
-    include_cubes: bool = Field(
+    include_cubes: Annotated[bool, Enables(DatasetSubTypes.CUBE)] = Field(
         default=True,
         description="Whether to ingest base cubes as datasets.",
     )
-    include_views: bool = Field(
+    # A view is emitted with subtype Semantic Model, and view_pattern
+    # resolves to kind View, so include_views switches off both kinds.
+    include_views: Annotated[
+        bool,
+        Enables(DatasetSubTypes.VIEW),
+        Enables(DatasetSubTypes.SEMANTIC_MODEL),
+    ] = Field(
         default=True,
-        description="Whether to ingest views as datasets.",
+        description=(
+            "Whether to ingest views. By default each view is a dataset with "
+            "subtype `Semantic Model`. When `emit_semantic_model_entities` is "
+            "true, views are emitted as `semanticModel` / `metric` entities "
+            "instead of a view dataset."
+        ),
     )
+
     include_reports: bool = Field(
         default=True,
         description=(
@@ -226,6 +239,21 @@ class CubeSourceConfig(
             "Whether to tag schema fields with `Measure`/`Dimension` (and `Temporal` "
             "for time dimensions) so the kinds of Cube members can be distinguished "
             "and filtered in DataHub."
+        ),
+    )
+
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description=(
+            "If true, emit Cube views as first-class `semanticModel` entities "
+            "(logical datasets with subtype `Semantic Model Dataset`, plus a "
+            "`metric` entity per view measure) instead of a view dataset. Cubes "
+            "stay datasets with subtype `Cube` and remain the physical upstream "
+            "of each logical dataset. Default is false so existing view dataset "
+            "URNs stay stable. Requires a DataHub server that registers "
+            "semanticModel/metric (Cloud >= 2.1.0, or OSS with "
+            "`METRICS_ENABLED=true`). File sinks honor this flag. Re-ingest "
+            "with stateful ingestion so the previous view datasets are removed."
         ),
     )
 
@@ -378,6 +406,9 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     sql_parsing_failures: int = 0
     filtered_cubes: LossyList[str] = dataclass_field(default_factory=LossyList)
     filtered_views: LossyList[str] = dataclass_field(default_factory=LossyList)
+    semantic_models_emitted: int = 0
+    semantic_model_datasets_emitted: int = 0
+    metrics_emitted: int = 0
 
     def report_entity_scanned(self, name: str, is_view: bool) -> None:
         if is_view:

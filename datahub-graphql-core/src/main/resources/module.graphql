@@ -5,27 +5,29 @@ type DataHubPageModule implements Entity {
   """
   A primary key associated with the Page Module
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Whether or not this module exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   The main properties of a DataHub page module
   """
   properties: DataHubPageModuleProperties!
+    @aspectMapping(aspects: ["dataHubPageModuleProperties"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 extend type Mutation {
@@ -247,6 +249,10 @@ enum DataHubPageModuleType {
   Module displaying child data products of a given domain
   """
   DATA_PRODUCTS
+  """
+  Module displaying the child data products of a data product
+  """
+  SUB_DATA_PRODUCTS
   """
   Module displaying the related terms of a given glossary term
   """

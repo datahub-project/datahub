@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
@@ -50,6 +50,16 @@ const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edg
     .react-flow__node-lineage-entity:hover {
         z-index: 1000 !important;
     }
+
+    /* reactflow/dist/style.css is a compile-time light stylesheet. Most of it never
+       reaches this graph — nodes and edges are custom, no handles are rendered, and
+       attribution is off via proOptions — but the shift-drag selection box is stock,
+       and it ships in Google blue rather than our brand. */
+    .react-flow__nodesselection-rect,
+    .react-flow__selection {
+        background: ${({ theme }) => theme.colors.bgSelected};
+        border: 1px dotted ${({ theme }) => theme.colors.borderSelected};
+    }
 `;
 
 // TODO: Bring back after figuring out how to no overlap expand / contract actions
@@ -90,6 +100,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const theme = useTheme();
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
     const { isModuleView } = useContext(LineageGraphContext);
@@ -134,14 +145,24 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
             >
-                <Background variant={BackgroundVariant.Dots} />
+                {/* Background and MiniMap take their colors as props rather than CSS, and
+                    both default to fixed light values. */}
+                <Background variant={BackgroundVariant.Dots} color={theme.colors.lineageBackgroundDot} />
                 {!isModuleView && (
                     <>
                         <ZoomControls />
                         <SearchControl />
                         <LineageControls />
                         <LineageEmptyGraphNudgePanel />
-                        <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                        <MiniMap
+                            position="bottom-right"
+                            ariaLabel={null}
+                            pannable
+                            zoomable
+                            style={{ backgroundColor: theme.colors.bgSurface }}
+                            nodeColor={theme.colors.border}
+                            maskColor={theme.colors.overlayMedium}
+                        />
                     </>
                 )}
             </StyledReactFlow>

@@ -214,6 +214,10 @@ Feature tables are associated with a specific data platform (e.g., Feast, Tecton
 - Enables filtering and organization by platform
 - Supports multi-platform feature store environments
 
+### Incidents
+
+ML Feature Tables participate in the shared incidents subsystem. Incidents can be raised on a feature table via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLFeatureTable` GraphQL type, and the feature table carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved.
+
 ## Notable Exceptions
 
 ### Feature Store Platform Variations

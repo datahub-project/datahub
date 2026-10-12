@@ -11,6 +11,7 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
   ["1.3.0", "1.3.0/features"],
   ["1.1.0", "1.1.0/features"],
@@ -305,7 +306,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.6.0",
+              label: "1.7.0",
               banner: 'none',
             },
           },
@@ -395,6 +396,38 @@ module.exports = {
           {
             from: '/docs/managed-datahub/observe/smart-assertions',
             to: '/docs/managed-datahub/observe/anomaly-detection',
+          },
+          {
+            from: '/docs/features/feature-guides/observe',
+            to: '/docs/managed-datahub/observe/overview',
+          },
+          {
+            from: '/docs/managed-datahub/context/overview',
+            to: '/docs/managed-datahub/build-a-data-agent/overview',
+          },
+          {
+            from: '/docs/managed-datahub/context/configure-context-generation',
+            to: '/docs/features/feature-guides/context/context-generation',
+          },
+          {
+            from: '/docs/managed-datahub/context/review-context-proposals',
+            to: '/docs/managed-datahub/build-a-data-agent/generate-context',
+          },
+          {
+            from: '/docs/managed-datahub/context/activate-context',
+            to: '/docs/managed-datahub/build-a-data-agent/activate-context',
+          },
+          {
+            // The root README is no longer built into the docs site.
+            from: [
+              '/docs/introduction',
+              '/docs/next/introduction',
+              '/docs/0.13.0/introduction',
+              '/docs/0.12.1/introduction',
+              '/docs/0.11.0/introduction',
+              '/docs/0.10.5/introduction',
+            ],
+            to: '/docs/features',
           },
         ],
       },

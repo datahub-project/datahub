@@ -137,6 +137,7 @@
     "document.linkRelatedTooltip": "Vincular activos relacionados o documentos de contexto",
     "document.name": "Documento",
     "document.namePlural": "Documentos",
+    "document.newDocumentPlaceholder": "Nuevo documento",
     "document.noChangeHistoryEmpty": "¡Aún no hay historial de cambios!",
     "document.noContentPlaceholder": "Sin contenido",
     "document.previousVersionTitle": "Versión anterior",

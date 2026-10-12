@@ -135,15 +135,19 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
   }
 
   @Test
-  public void testAlignmentOffPreservesExistingScheduledBehavior() throws Exception {
+  public void testAlignmentOffPreservesExistingScheduledBehavior() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:50:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 300);
-    try (AdaptiveFlushCoordinator coordinator =
+    AdaptiveFlushCoordinator coordinator =
         new AdaptiveFlushCoordinator(
-            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1)) {
-      Thread.sleep(1500);
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1, clock, false);
+    try {
+      coordinator.tick();
       Assert.assertTrue(
           sink.batches().stream().anyMatch(batch -> batch.trigger() == FlushTrigger.SCHEDULED));
+    } finally {
+      coordinator.shutdown();
     }
   }
 

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -21,9 +22,11 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   /**
    * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
    * ValidationException} → {@link IllegalArgumentException} → {@link
-   * DatabaseTransactionConflictException} → {@link IllegalStateException} → {@link
-   * RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because {@code
-   * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
+   * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
+   * IllegalStateException} → {@link RuntimeException} → fallback. Conflict must stay above {@code
+   * RuntimeException} because {@code DatabaseTransactionConflictException} extends {@code
+   * RetryLimitReached} (a RuntimeException). {@code LineageTimeoutException} stays above {@code
+   * RuntimeException} so a graph-query deadline maps to DEADLINE_EXCEEDED, not SERVER_ERROR.
    */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
@@ -73,6 +76,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       String message = (top != null && !top.isEmpty()) ? top : DEFAULT_ERROR_MESSAGE;
       return completedResult(
           message, DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE, path, sourceLocation);
+    }
+
+    LineageTimeoutException lineageTimeoutException =
+        findFirstThrowableCauseOfClass(exception, LineageTimeoutException.class);
+    if (lineageTimeoutException != null) {
+      log.warn("Lineage query timed out", lineageTimeoutException);
+      return completedResult(
+          extractErrorMessage(lineageTimeoutException),
+          DataHubGraphQLErrorCode.DEADLINE_EXCEEDED,
+          path,
+          sourceLocation);
     }
 
     IllegalStateException illegalStateException =

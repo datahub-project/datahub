@@ -7,9 +7,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.ParentNodesResult;
+import com.linkedin.datahub.graphql.loaders.ParentNodesBatchLoader;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryNodeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -22,19 +24,37 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
+import org.dataloader.DataLoader;
 
 public class ParentNodesResolver implements DataFetcher<CompletableFuture<ParentNodesResult>> {
 
   private final EntityClient _entityClient;
 
-  public ParentNodesResolver(final EntityClient entityClient) {
+  // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
+  @Nullable private final FeatureFlags _featureFlags;
+
+  /** Test-only: no feature flags means the batch path stays off. */
+  ParentNodesResolver(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ParentNodesResolver(
+      final EntityClient entityClient, @Nullable final FeatureFlags featureFlags) {
     _entityClient = entityClient;
+    _featureFlags = featureFlags;
   }
 
   @Override
   public CompletableFuture<ParentNodesResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = getQueryContext(environment);
     final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (_featureFlags != null && _featureFlags.isParentNodesBatchLoadEnabled()) {
+      final DataLoader<Urn, ParentNodesResult> loader =
+          environment.getDataLoaderRegistry().getDataLoader(ParentNodesBatchLoader.LOADER_NAME);
+      return loader.load(sourceUrn);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

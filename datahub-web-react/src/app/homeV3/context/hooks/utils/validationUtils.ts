@@ -5,6 +5,7 @@ import { SummaryElementType } from '@types';
  */
 export const validatePosition = (position: number, operationName: string): string | null => {
     if (position < 0) {
+        // untranslated-text -- internal developer error, not surfaced in UI
         return `Position must be non-negative for ${operationName}`;
     }
     return null;
@@ -15,6 +16,7 @@ export const validatePosition = (position: number, operationName: string): strin
  */
 export const validateArrayBounds = (position: number, arrayLength: number, operationName: string): string | null => {
     if (position >= arrayLength || position < 0) {
+        // untranslated-text -- internal developer error, not surfaced in UI
         return `Position is out of bounds for ${operationName}`;
     }
     return null;
@@ -25,6 +27,7 @@ export const validateArrayBounds = (position: number, arrayLength: number, opera
  */
 export const validateElementType = (elementType: SummaryElementType): string | null => {
     if (!elementType) {
+        // untranslated-text -- internal developer error, not surfaced in UI
         return 'Element type is required';
     }
     return null;
@@ -38,6 +41,7 @@ export const validateStructuredProperty = (
     structuredPropertyUrn?: string,
 ): string | null => {
     if (elementType === SummaryElementType.StructuredProperty && !structuredPropertyUrn) {
+        // untranslated-text -- internal developer error, not surfaced in UI
         return 'Structured property URN is required for STRUCTURED_PROPERTY element type';
     }
     return null;

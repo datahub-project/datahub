@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -217,8 +217,7 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                     SQLAlchemyDataFetcher,
                 )
 
-                fetcher = SQLAlchemyDataFetcher(config)
-                try:
+                with SQLAlchemyDataFetcher(config) as fetcher:
                     schemas = list(fetcher.fetch_schema_rows())
                     test_report.basic_connectivity = CapabilityReport(
                         capable=True,
@@ -230,8 +229,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                             mitigation_message=f"Found {len(schemas)} schemas",
                         )
                     }
-                finally:
-                    fetcher.close()
 
         except Exception as e:
             error_msg = str(e)
