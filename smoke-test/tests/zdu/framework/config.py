@@ -240,7 +240,7 @@ class ZDUTestConfig:
     # ── Output ───────────────────────────────────────────────────────────────
     # Resolved against REPO_ROOT so the same defaults work regardless of which
     # directory the test runner is invoked from (smoke-test/ vs. repo root).
-    # Without this, running `cd smoke-test && python -m tests.zdu` produces a
+    # Without this, running `cd smoke-test && python -m tests.zdu.framework` produces a
     # nested smoke-test/smoke-test/build/... path while the docs and prior
     # report state live at smoke-test/build/...
     report_path: str = field(

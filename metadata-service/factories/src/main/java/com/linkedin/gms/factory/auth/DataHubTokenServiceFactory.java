@@ -1,11 +1,13 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.StatefulTokenService;
+import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.PostConstruct;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -26,14 +28,16 @@ public class DataHubTokenServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected StatefulTokenService getInstance(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      @Qualifier("hazelcastInstance") ObjectProvider<HazelcastInstance> hazelcastInstance) {
     return new StatefulTokenService(
         systemOpContext,
         configurationProvider.getAuthentication().getTokenService().getSigningKey(),
         configurationProvider.getAuthentication().getTokenService().getSigningAlgorithm(),
         configurationProvider.getAuthentication().getTokenService().getIssuer(),
         _entityService,
-        configurationProvider.getAuthentication().getTokenService().getSalt());
+        configurationProvider.getAuthentication().getTokenService().getSalt(),
+        hazelcastInstance.getIfAvailable());
   }
 
   @PostConstruct

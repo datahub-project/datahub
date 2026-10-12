@@ -470,6 +470,40 @@ public class MicrometerMetricsRegistryTest {
   }
 
   @Test
+  public void testMonitorExecutorRecordsTaskTimers() throws Exception {
+    ExecutorService monitored =
+        MicrometerMetricsRegistry.monitorExecutor(
+            "monitoredExecutor", realExecutorService, meterRegistry);
+
+    assertNotSame(monitored, realExecutorService);
+    monitored.submit(() -> {}).get(5, TimeUnit.SECONDS);
+
+    assertEquals(
+        meterRegistry.get("executor").tag("name", "monitoredExecutor").timer().count(), 1L);
+    assertEquals(
+        meterRegistry.get("executor.idle").tag("name", "monitoredExecutor").timer().count(), 1L);
+    assertNotNull(meterRegistry.find("executor.queued").tag("name", "monitoredExecutor").gauge());
+  }
+
+  @Test
+  public void testMonitorExecutorReturnsOriginalWhenAlreadyRegistered() {
+    MicrometerMetricsRegistry.monitorExecutor(
+        "monitoredExecutor", realExecutorService, meterRegistry);
+
+    assertSame(
+        MicrometerMetricsRegistry.monitorExecutor(
+            "monitoredExecutor", realExecutorService, meterRegistry),
+        realExecutorService);
+  }
+
+  @Test
+  public void testMonitorExecutorReturnsOriginalWithNullMeterRegistry() {
+    assertSame(
+        MicrometerMetricsRegistry.monitorExecutor("monitoredExecutor", realExecutorService, null),
+        realExecutorService);
+  }
+
+  @Test
   public void testRegisterExecutorWithNullMeterRegistry() {
     // Given
     String executorName = "testExecutor";

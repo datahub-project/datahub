@@ -1,0 +1,28 @@
+management:
+  health:
+    elasticsearch:
+      enabled: false
+    neo4j:
+      enabled: false
+spring:
+  main:
+    allow-bean-definition-overriding: true
+ingestion:
+  enabled: false
+entityClient:
+  impl: restli
+metadataChangeProposal:
+  throttle:
+    updateIntervalMs: 0
+# Non-GMS cache defaults. ENTITY_GRAPH_CACHE_ENABLED and the other env vars still override.
+datahub:
+  gms:
+    entityGraphCache:
+      enabled: ${ENTITY_GRAPH_CACHE_ENABLED:false}
+    rateLimits:
+      endpoint:
+        enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+searchService:
+  cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}

@@ -37,9 +37,6 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
             ? `border-radius: 12px; border: 1px solid ${props.theme.colors.border};`
             : 'border-top-left-radius: 12px; border-top-right-radius: 12px;'}
     padding: 8px !important;
-    & button {
-        line-height: 0;
-    }
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -60,6 +57,9 @@ const InnerContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    & button {
+        line-height: 0;
+    }
 `;
 
 const CustomDivider = styled(Divider)`

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
+import OptionalTooltip from '@app/sharedV2/OptionalTooltip';
 import { Button, Editor } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;

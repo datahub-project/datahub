@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "Ссылка скопирована",
     "copyLink.tooltip": "Скопировать ссылку на этот объект.",
     "copyName.label": "Скопировать имя",
+    "copyName.success": "Имя скопировано",
     "copyName.tooltip": "Скопировать полное имя {{type}}",
     "copyUrn.label": "Скопировать URN",
+    "copyUrn.success": "URN скопирован",
     "copyUrn.tooltip": "Скопировать URN этого объекта ({{type}}). URN однозначно идентифицирует сущность в DataHub.",
+    "email.body": "Посмотрите {{displayType}} в DataHub: {{linkText}}. Urn: {{urn}}",
     "email.label": "Эл. почта",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "Поделиться этим объектом ({{type}}) по эл. почте"
 }

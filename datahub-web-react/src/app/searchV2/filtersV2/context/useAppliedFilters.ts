@@ -24,7 +24,7 @@ export default function useAppliedFilters(defaultAppliedFilters?: FieldToApplied
                 analytics.event({
                     type: EventType.SearchBarFilter,
                     field: newFilter.field,
-                    values: newFilter.values || [],
+                    filterValues: newFilter.values || [],
                 });
             }
 

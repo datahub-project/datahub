@@ -1,13 +1,13 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Annotated, Any, Dict, Iterable, List, Optional, Tuple
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.emitter.mcp_builder import CatalogKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -19,7 +19,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -73,7 +76,14 @@ class StarRocksConfig(StarRocksConnectionConfig, BasicSQLAlchemyConfig):
     )
 
     # Override inherited schema_pattern to clarify it filters StarRocks databases
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion. "
         "Note: In StarRocks three-tier hierarchy (Catalog -> Database -> Table), this filters databases within catalogs. "
@@ -121,10 +131,14 @@ class StarRocksSource(SQLAlchemySource):
     """
 
     config: StarRocksConfig
+    # Declared on the class as well as set in __init__, so get_identifier
+    # also works on an instance built without __init__ (the probe's
+    # identifier shim): None names the built-in default_catalog there.
+    _current_catalog: Optional[StarRocksCatalog] = None
 
     def __init__(self, config: StarRocksConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "starrocks")
-        self._current_catalog: Optional[StarRocksCatalog] = None
+        self._current_catalog = None
         self._catalog_containers_emitted: set[str] = set()
 
     @classmethod

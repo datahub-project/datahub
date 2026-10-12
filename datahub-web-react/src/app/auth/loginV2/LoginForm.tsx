@@ -1,10 +1,10 @@
 import { Input } from '@components';
-import { Form, FormInstance } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LoginFormValues } from '@app/auth/shared/types';
+import { AuthForm } from '@app/auth/shared/useAuthForm';
 import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FormContainer = styled.div`
@@ -21,38 +21,42 @@ const ItemContainer = styled.div`
 `;
 
 interface Props {
-    form: FormInstance;
-    handleSubmit: (values: LoginFormValues) => void;
-    onFormChange: () => void;
-    isSubmitDisabled: boolean;
+    form: AuthForm<LoginFormValues>;
 }
 
-export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
+export default function LoginForm({ form }: Props) {
     const { t } = useTranslation('auth');
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !isSubmitDisabled) {
+        if (e.key === 'Enter') {
             form.submit();
         }
     };
 
     return (
-        <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
-                <ItemContainer>
-                    <FieldLabel label={t('usernameLabel')} required />
-                    <Form.Item rules={[{ required: true, message: t('usernameRequired') }]} name="username">
-                        <Input placeholder={t('usernamePlaceholder')} inputTestId="username" />
-                    </Form.Item>
-                </ItemContainer>
+        <FormContainer onKeyDown={handleKeyDown}>
+            <ItemContainer>
+                <FieldLabel label={t('usernameLabel')} required />
+                <Input
+                    value={form.values.username}
+                    setValue={(value) => form.setFieldValue('username', value)}
+                    error={form.errors.username}
+                    placeholder={t('usernamePlaceholder')}
+                    inputTestId="username"
+                />
+            </ItemContainer>
 
-                <ItemContainer>
-                    <FieldLabel label={t('passwordLabel')} required />
-                    <Form.Item rules={[{ required: true, message: t('passwordRequired') }]} name="password">
-                        <Input placeholder="********" type="password" inputTestId="password" />
-                    </Form.Item>
-                </ItemContainer>
-            </Form>
+            <ItemContainer>
+                <FieldLabel label={t('passwordLabel')} required />
+                <Input
+                    value={form.values.password}
+                    setValue={(value) => form.setFieldValue('password', value)}
+                    error={form.errors.password}
+                    placeholder="********"
+                    type="password"
+                    inputTestId="password"
+                />
+            </ItemContainer>
         </FormContainer>
     );
 }

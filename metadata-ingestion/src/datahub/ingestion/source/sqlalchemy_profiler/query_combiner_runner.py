@@ -235,18 +235,15 @@ class QueryCombinerRunner:
     def get_row_count(
         self,
         table: "sa.Table",
-        sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> FutureResult[int]:
         """
-        Get row count with optional sampling or estimation.
+        Get row count, optionally via fast estimation.
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
         return self._schedule(
-            lambda: self.adapter.get_row_count(
-                table, self.conn, sample_clause, use_estimation
-            )
+            lambda: self.adapter.get_row_count(table, self.conn, use_estimation)
         )
 
     def get_column_non_null_count(

@@ -1,5 +1,5 @@
 import { Popover } from '@components';
-import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,6 @@ const LastUpdatedContainer = styled.div<{ color: string }>`
     flex-direction: row;
     gap: 5px;
     svg {
-        font-size: 16px;
         color: ${(props) => props.color};
     }
 `;
@@ -87,7 +86,7 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
             showArrow={false}
         >
             <LastUpdatedContainer color={getLastIngestedColor(time)}>
-                <UpdateOutlinedIcon /> {showDate && toLocalDateString(time)}
+                <ClockCounterClockwise size={16} /> {showDate && toLocalDateString(time)}
             </LastUpdatedContainer>
         </Popover>
     );

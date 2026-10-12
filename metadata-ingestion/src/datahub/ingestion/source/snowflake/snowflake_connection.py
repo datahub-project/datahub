@@ -102,7 +102,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
 
     scheme: HiddenFromDocs[str] = "snowflake"
@@ -365,6 +365,17 @@ class SnowflakeConnectionConfig(ConfigModel):
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
+
+    # Overrides the SQLAlchemy answer inherited from SQLCommonConfig: this
+    # connector probes through its own client, not a second engine. Inheriting it
+    # would advertise six typed getters that provider does not have.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.snowflake.snowflake_probe import (
+            SnowflakeMetadataProbe,
+        )
+
+        return SnowflakeMetadataProbe
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
         assert self.oauth_config, (

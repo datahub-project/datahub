@@ -200,6 +200,21 @@ input SearchFlags {
   filterNonLatestVersions: Boolean
 
   """
+  Include Elasticsearch scoring explanation in search results.
+  Explanations appear in SearchResult.extraProperties with key '_explain'.
+  Note: Adds computational overhead - use for debugging only.
+  """
+  includeExplain: Boolean
+
+  """
+  Elasticsearch search type for controlling IDF calculation across shards.
+  - QUERY_THEN_FETCH: Shard-local IDF (default, faster, production behavior)
+  - DFS_QUERY_THEN_FETCH: Global IDF across all shards (slower, more accurate for debugging)
+  Note: DFS mode adds 20-50% latency overhead - use for debugging only.
+  """
+  searchType: String
+
+  """
   Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
   floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
   only by the semantic search path.

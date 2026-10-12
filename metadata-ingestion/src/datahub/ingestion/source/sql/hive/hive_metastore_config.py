@@ -9,11 +9,16 @@ connector, including:
 - Row type definitions (TypedDicts) for data fetcher interfaces
 """
 
-from typing import Any, Dict, Optional, TypedDict
+from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
 
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
+from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineageConfigMixin,
 )
@@ -205,9 +210,20 @@ class HiveMetastore(
     # Shared settings
     # -------------------------------------------------------------------------
 
-    database_pattern: AllowDenyPattern = Field(
+    # A Hive database is what the probe (and DataHub) calls a schema, and
+    # HiveMetadataProcessor filters it with database_pattern -- so that is the
+    # field the Schema level resolves to. schema_pattern is redeclared only to
+    # drop the Filters(SCHEMA) SQLFilterConfig attaches: ingestion never reads
+    # it here, and resolving to it reported every Hive database included.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter.",
+    )
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
 
     mode: HiveMetastoreConfigMode = Field(
@@ -275,6 +291,16 @@ class HiveMetastore(
                 f"Use 'database_pattern' instead."
             )
         return self
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Tables sit directly in a Hive database; the HMS 3.x catalog above it
+        # has no pattern, so the SQL default's Database level would judge the
+        # outer --parent against database_pattern, which filters the schema.
+        return ancestors_in(
+            (DatasetContainerSubTypes.SCHEMA,),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+        )
 
     @model_validator(mode="after")
     def validate_thrift_settings(self) -> "HiveMetastore":
