@@ -9,6 +9,7 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -22,9 +23,12 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -54,30 +58,56 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
       @Nonnull RetrieverContext retrieverContext,
       @Nonnull AuthorizationSession session) {
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-    List<AspectValidationException> failures = new ArrayList<>();
+    // Reads are batched per phase (stored aspect -> version set -> previous latest) so a batch of
+    // N items costs at most three primary-store lookups per entity type, not 3N.
+    Map<Urn, VersionProperties> stored =
+        read(
+            operationContext,
+            aspectRetriever,
+            items.stream().map(BatchItem::getUrn).collect(Collectors.toSet()),
+            VERSION_PROPERTIES_ASPECT_NAME,
+            VersionProperties.class);
+    List<Map.Entry<BatchItem, VersionProperties>> proposals = new ArrayList<>();
     for (BatchItem item : items) {
-      VersionProperties current =
-          toVersionProperties(
-              aspectRetriever.getLatestAspectObject(
-                  operationContext, item.getUrn(), VERSION_PROPERTIES_ASPECT_NAME));
-      VersionProperties proposed = resolveProposed(item, current, aspectRetriever);
-      if (proposed == null || !proposed.hasVersionSet()) {
-        continue;
+      VersionProperties proposed =
+          resolveProposed(item, stored.get(item.getUrn()), aspectRetriever);
+      if (proposed != null && proposed.hasVersionSet()) {
+        proposals.add(Map.entry(item, proposed));
       }
+    }
+    if (proposals.isEmpty()) {
+      return List.of();
+    }
+    Map<Urn, VersionSetProperties> versionSets =
+        read(
+            operationContext,
+            aspectRetriever,
+            proposals.stream().map(e -> e.getValue().getVersionSet()).collect(Collectors.toSet()),
+            VERSION_SET_PROPERTIES_ASPECT_NAME,
+            VersionSetProperties.class);
+    Map<Urn, VersionProperties> latestVersions =
+        read(
+            operationContext,
+            aspectRetriever,
+            versionSets.values().stream()
+                .map(VersionSetProperties::getLatest)
+                .collect(Collectors.toSet()),
+            VERSION_PROPERTIES_ASPECT_NAME,
+            VersionProperties.class);
+
+    List<AspectValidationException> failures = new ArrayList<>();
+    for (Map.Entry<BatchItem, VersionProperties> entry : proposals) {
+      BatchItem item = entry.getKey();
+      VersionProperties proposed = entry.getValue();
+      VersionProperties current = stored.get(item.getUrn());
       Urn versionSetUrn = proposed.getVersionSet();
-      VersionSetProperties versionSet =
-          toVersionSetProperties(
-              aspectRetriever.getLatestAspectObject(
-                  operationContext, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME));
+      VersionSetProperties versionSet = versionSets.get(versionSetUrn);
 
       Urn demotedLatest = null;
       boolean writesVersionSet = versionSet == null;
       if (versionSet != null && !item.getUrn().equals(versionSet.getLatest())) {
         // Mirrors VersionPropertiesSideEffect: a higher sortId becomes the new latest.
-        VersionProperties previousLatest =
-            toVersionProperties(
-                aspectRetriever.getLatestAspectObject(
-                    operationContext, versionSet.getLatest(), VERSION_PROPERTIES_ASPECT_NAME));
+        VersionProperties previousLatest = latestVersions.get(versionSet.getLatest());
         if (previousLatest == null) {
           writesVersionSet = true;
         } else if (proposed.getSortId().compareTo(previousLatest.getSortId()) > 0) {
@@ -131,17 +161,23 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
     return item.getAspect(VersionProperties.class);
   }
 
-  @Nullable
-  private static VersionProperties toVersionProperties(@Nullable Aspect aspect) {
-    return aspect == null
-        ? null
-        : RecordUtils.toRecordTemplate(VersionProperties.class, aspect.data());
-  }
-
-  @Nullable
-  private static VersionSetProperties toVersionSetProperties(@Nullable Aspect aspect) {
-    return aspect == null
-        ? null
-        : RecordUtils.toRecordTemplate(VersionSetProperties.class, aspect.data());
+  @Nonnull
+  private static <T extends RecordTemplate> Map<Urn, T> read(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String aspectName,
+      @Nonnull Class<T> clazz) {
+    Map<Urn, T> result = new HashMap<>();
+    AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+            aspectRetriever, operationContext, urns, Set.of(aspectName))
+        .forEach(
+            (urn, aspects) -> {
+              Aspect aspect = aspects.get(aspectName);
+              if (aspect != null) {
+                result.put(urn, RecordUtils.toRecordTemplate(clazz, aspect.data()));
+              }
+            });
+    return result;
   }
 }

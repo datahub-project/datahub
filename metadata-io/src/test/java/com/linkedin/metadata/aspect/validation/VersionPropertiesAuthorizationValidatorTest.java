@@ -49,6 +49,8 @@ public class VersionPropertiesAuthorizationValidatorTest {
   // Entity the caller may edit.
   private static final Urn ENTITY_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,entity,PROD)");
+  private static final Urn SECOND_ENTITY_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,second-entity,PROD)");
   // Version set and its current latest version, neither editable by the caller.
   private static final Urn OTHER_VERSION_SET_URN =
       UrnUtils.getUrn("urn:li:versionSet:(other-set,dataset)");
@@ -64,6 +66,7 @@ public class VersionPropertiesAuthorizationValidatorTest {
   private AuthorizationSession session;
   private MockedStatic<AuthUtil> authUtil;
   private RetrieverContext retrieverContext;
+  private MockAspectRetriever aspectRetriever;
 
   @BeforeMethod
   public void setup() {
@@ -84,7 +87,7 @@ public class VersionPropertiesAuthorizationValidatorTest {
                                 .build()))
                     .build());
 
-    MockAspectRetriever aspectRetriever =
+    aspectRetriever =
         new MockAspectRetriever(
             Map.<Urn, List<RecordTemplate>>of(
                 OTHER_VERSION_SET_URN,
@@ -96,6 +99,7 @@ public class VersionPropertiesAuthorizationValidatorTest {
                 ENTITY_URN,
                 List.of(versionProperties(OWN_VERSION_SET_URN, "v1", "aaa"))));
     aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    aspectRetriever = Mockito.spy(aspectRetriever);
     retrieverContext =
         RetrieverContext.builder()
             .aspectRetriever(aspectRetriever)
@@ -175,6 +179,24 @@ public class VersionPropertiesAuthorizationValidatorTest {
     Assert.assertFalse(validate(patch).isEmpty());
   }
 
+  @Test
+  public void testBatchReadsDoNotScaleWithItemCount() {
+    allowEdit(ENTITY_URN, SECOND_ENTITY_URN, OTHER_VERSION_SET_URN);
+    List<BatchItem> items =
+        List.of(
+            upsert(OTHER_VERSION_SET_URN, "v2", "ccc"),
+            upsertFor(SECOND_ENTITY_URN, OTHER_VERSION_SET_URN, "v3", "ddd"));
+    List<AspectValidationException> failures =
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY, items, retrieverContext, session)
+            .toList();
+    // Both would demote the non-editable previous latest.
+    Assert.assertEquals(failures.size(), 2);
+    // Stored aspect, version set, previous latest: one lookup each for the whole batch.
+    Mockito.verify(aspectRetriever, Mockito.times(3)).getLatestAspectObjects(any(), any(), any());
+  }
+
   private void allowEdit(Urn... allowed) {
     Set<Urn> allowedUrns = Set.of(allowed);
     authUtil
@@ -194,8 +216,12 @@ public class VersionPropertiesAuthorizationValidatorTest {
   }
 
   private static BatchItem upsert(Urn versionSet, String label, String sortId) {
+    return upsertFor(ENTITY_URN, versionSet, label, sortId);
+  }
+
+  private static BatchItem upsertFor(Urn entity, Urn versionSet, String label, String sortId) {
     return TestMCP.ofOneUpsertItem(
-            ENTITY_URN, versionProperties(versionSet, label, sortId), TEST_REGISTRY)
+            entity, versionProperties(versionSet, label, sortId), TEST_REGISTRY)
         .iterator()
         .next();
   }
