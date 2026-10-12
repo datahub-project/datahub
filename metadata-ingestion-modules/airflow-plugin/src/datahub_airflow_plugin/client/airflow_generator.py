@@ -201,8 +201,8 @@ class AirflowGenerator:
                 flow_property_bag[key] = _serialize_dag_property(value)
 
         data_flow.properties = flow_property_bag
-        base_url = _get_base_url()
-        data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
+        base_url = _get_base_url().rstrip("/")
+        data_flow.url = f"{base_url}/dags/{dag.dag_id}"
 
         if config.capture_ownership_info and dag.owner:
             owners = AirflowGenerator._extract_owners(dag)

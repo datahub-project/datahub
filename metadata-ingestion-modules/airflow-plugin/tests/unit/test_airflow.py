@@ -272,6 +272,33 @@ def test_get_base_url_prefers_api_over_webserver():
             assert _get_base_url() == expected
 
 
+@pytest.mark.parametrize(
+    "base_url, expected_url",
+    [
+        ("http://localhost:8080", "http://localhost:8080/dags/example_dag"),
+        (
+            "https://airflow.example.com/airflow/",
+            "https://airflow.example.com/airflow/dags/example_dag",
+        ),
+    ],
+)
+def test_dataflow_url_uses_airflow_dag_route(base_url: str, expected_url: str) -> None:
+    from airflow.sdk import DAG
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    config = get_lineage_config()
+    dag = DAG(dag_id="example_dag")
+    with mock.patch(
+        "datahub_airflow_plugin.client.airflow_generator._get_base_url",
+        return_value=base_url,
+    ):
+        dataflow = AirflowGenerator.generate_dataflow(config, dag)
+
+    assert dataflow.url == expected_url
+
+
 def test_entities():
     assert (
         Dataset("snowflake", "mydb.schema.tableConsumed").urn
