@@ -15,6 +15,7 @@ from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilde
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
+# Explicit UTC offset: time_machine.travel treats naive strings as local time.
 FROZEN_TIME = "2021-07-20 00:00:00+00:00"
 
 

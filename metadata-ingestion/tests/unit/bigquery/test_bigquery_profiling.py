@@ -1252,6 +1252,130 @@ def test_external_table_deferred_in_get_workunits():
     assert deferred.schema_name == "ds"
 
 
+def test_ddl_confirms_no_partition_by_distinguishes_undetermined():
+    """A positive 'unpartitioned' answer requires the DDL to parse AND declare no
+    PARTITION BY. A parse failure or a present PARTITION BY clause is undetermined
+    (False), so the external-table path skips rather than full-scans.
+    """
+    confirms = PartitionDiscovery._ddl_confirms_no_partition_by
+    assert confirms("CREATE TABLE t (a INT64, b STRING)") is True
+    assert confirms("CREATE TABLE t (a INT64) PARTITION BY DATE(a)") is False
+    assert confirms("this is not valid sql (((") is False
+
+
+def test_external_table_undetermined_ddl_skips_not_full_scans():
+    """An external table whose partition columns can't be resolved and whose DDL fails to
+    parse (no hive-partitioning syntax) is undetermined, so discovery returns None (skip)
+    rather than [] (which the profiler treats as confirmed-unpartitioned and full-scans).
+    A cleanly-parsed DDL with no partitioning still returns [] (genuinely unpartitioned).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []  # no INFORMATION_SCHEMA / sample rows
+
+    undetermined = make_table(
+        name="ext_bad_ddl", external=True, ddl="NOT PARSEABLE DDL ((("
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            undetermined, "test-project-123456", "ds", execute
+        )
+        is None
+    )
+
+    unpartitioned = make_table(
+        name="ext_plain",
+        external=True,
+        ddl="CREATE EXTERNAL TABLE ext_plain (a INT64, b STRING)",
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            unpartitioned, "test-project-123456", "ds", execute
+        )
+        == []
+    )
+
+
+def test_discover_preserves_info_schema_columns_when_type_lookup_and_ddl_empty():
+    """INFORMATION_SCHEMA names the partition columns but the type lookup and the DDL
+    fallback both come back empty. The columns must be kept with an unknown ("") type so
+    the caller still treats the table as partitioned, rather than returning {} and
+    full-scanning a known-partitioned table.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="typeless")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    with (
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=(["event_date"], True),
+        ),
+        patch.object(
+            discovery.info_schema, "get_partition_column_types", return_value={}
+        ),
+    ):
+        result = discovery._discover_partition_columns_with_types(
+            table, "my-project", "ds", execute
+        )
+
+    assert result == {"event_date": ""}
+
+
+def test_ddl_declares_hive_partitioning_ignores_uri_literals():
+    """The hive-partitioning marker must only be read as a real OPTIONS entry, not when
+    the same text appears inside a quoted value such as a GCS URI. Literals are masked
+    before matching, so a URI containing the marker is not a match while an actual
+    OPTIONS entry (and the legacy WITH PARTITION COLUMNS clause) is.
+    """
+    declares = PartitionDiscovery._ddl_declares_hive_partitioning
+    assert (
+        declares(
+            "CREATE EXTERNAL TABLE t OPTIONS ("
+            "uris = ['gs://bucket/hive_partitioning_mode=auto/*'])"
+        )
+        is False
+    )
+    assert (
+        declares("CREATE EXTERNAL TABLE t OPTIONS (hive_partitioning_mode = 'AUTO')")
+        is True
+    )
+    assert declares("CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS") is True
+
+
+def test_external_path_discovers_partition_columns_once():
+    """The external-table path must resolve partition columns a single time and thread
+    them into both the sampling pass and the fallback, rather than discovering once for
+    sampling and again for the fallback (two INFORMATION_SCHEMA/DDL round-trips per table).
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="ext_counted", external=True, ddl="")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []  # sampling finds nothing -> falls through to the fallback
+
+    calls = {"discover": 0}
+
+    def counting_discover(*args: Any, **kwargs: Any) -> Dict[str, str]:
+        calls["discover"] += 1
+        return {"event_date": "DATE"}
+
+    with patch.object(
+        discovery,
+        "_discover_partition_columns_with_types",
+        side_effect=counting_discover,
+    ):
+        discovery._get_external_table_partition_filters(
+            table, "my-project", "ds", execute
+        )
+
+    assert calls["discover"] == 1
+
+
 def test_partition_discovery_cache_avoids_repeat_info_schema_queries():
     """The dataset-level partition metadata cache should be populated with a single
     INFORMATION_SCHEMA.COLUMNS query for the whole dataset, so per-table calls hit
