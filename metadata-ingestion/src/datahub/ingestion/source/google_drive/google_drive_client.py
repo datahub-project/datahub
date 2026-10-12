@@ -183,6 +183,9 @@ class GoogleDriveClient:
             drive_id=drive_id,
             web_view_link=SHARED_DRIVE_URL_TEMPLATE.format(drive_id=drive_id),
             created_time=drive.created_time,
+            # The drives resource has no modified time; reuse the creation time so
+            # the folder document's timestamp stays stable across runs.
+            modified_time=drive.created_time,
         )
 
     def list_children(self, folder_id: str) -> Iterator[DriveFile]:

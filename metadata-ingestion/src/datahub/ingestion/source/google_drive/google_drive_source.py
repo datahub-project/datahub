@@ -242,10 +242,14 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 "create_root_documents": self.config.create_root_documents,
                 "extract_owners": self.config.extract_owners,
                 "platform_instance": self.config.platform_instance,
-                # Text-length limits decide whether a document is kept at all, so a
-                # tightened limit must re-evaluate documents that look unchanged.
+                # These decide whether a document is kept at all, so a tightened
+                # setting must re-evaluate documents that look unchanged.
+                "skip_empty_documents": self.config.skip_empty_documents,
                 "min_text_length": self.config.min_text_length,
                 "max_text_length": self.config.max_text_length,
+                # A run without an embedding provider still records the Drive
+                # version, so enabling or switching the model must re-embed.
+                "embedding_model": self.chunking_source.embedding_model,
             },
             sort_keys=True,
         )

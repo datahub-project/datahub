@@ -243,12 +243,24 @@ def test_documents_over_max_text_length_are_skipped() -> None:
     )
 
 
-def test_tightening_max_text_length_reevaluates_unchanged_documents() -> None:
+@pytest.mark.parametrize(
+    "changed_setting",
+    [
+        {"max_text_length": 10},
+        {"min_text_length": 10},
+        {"skip_empty_documents": False},
+        # Docs ingested before an embedding provider was available get embedded.
+        {"embedding": {"provider": "classical", "model": "hash-v1-256"}},
+    ],
+)
+def test_settings_that_change_output_reevaluate_unchanged_documents(
+    changed_setting: Dict[str, Any],
+) -> None:
     first = run(make_source(build_fixture_service()))
     infos = {make_document_urn(DOC_RUNBOOK): doc_info(first, DOC_RUNBOOK)}
 
     svc = build_fixture_service()
-    run(make_source(svc, graph=graph_returning(infos), max_text_length=10))
+    run(make_source(svc, graph=graph_returning(infos), **changed_setting))
     assert DOC_RUNBOOK in exported_ids(svc)
 
 
