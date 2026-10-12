@@ -130,7 +130,10 @@ public class BatchIngestionRunResource
         // 409 so clients do not resend as they do on a 500.
         throw new RestLiServiceException(HttpStatus.S_409_CONFLICT, e.getMessage(), e);
       }
-      rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      if (!Boolean.TRUE.equals(dryRun)) {
+        // A dry run rolls nothing back, so a failure there must not mark the run failed.
+        rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      }
       throw new RuntimeException(
           String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }

@@ -89,6 +89,18 @@ public class BatchIngestionRunResourceRollbackTest {
             any(OperationContext.class), eq(RUN_ID), eq(RollbackService.ROLLBACK_FAILED_STATUS));
   }
 
+  @Test
+  public void dryRunFailureLeavesTheRunsStatusAlone() throws Exception {
+    when(rollbackService.rollbackIngestion(
+            any(OperationContext.class), eq(RUN_ID), anyBoolean(), anyBoolean(), any()))
+        .thenThrow(new IllegalStateException("boom"));
+
+    assertThrows(Exception.class, () -> resource.rollback(RUN_ID, true, null, null));
+
+    verify(rollbackService, never())
+        .updateExecutionRequestStatus(any(OperationContext.class), any(), any());
+  }
+
   private void inject(final String fieldName, final Object value) throws Exception {
     final Field field = BatchIngestionRunResource.class.getDeclaredField(fieldName);
     field.setAccessible(true);
