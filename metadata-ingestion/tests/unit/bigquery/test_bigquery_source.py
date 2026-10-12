@@ -1464,8 +1464,8 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     # silently feed wrong timestamps rather than raise.
     assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
 
-    # Without shard aggregation the row_count / bytes aliases map straight onto the
-    # PARTITIONS rollup `p`, preserving the pre-existing behaviour.
+    # Without shard aggregation the row_count / bytes / billable-bytes aliases map straight
+    # onto the PARTITIONS rollup `p`, preserving the pre-existing behaviour.
     clauses = BigqueryQuery.build_sharded_stats_clauses(
         project_id="p",
         dataset_name="d",
@@ -1474,6 +1474,10 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     )
     assert clauses["row_count_select"] == "p.total_rows"
     assert clauses["bytes_select"] == "p.total_logical_bytes"
+    assert clauses["active_billable_select"] == "p.active_billable_bytes"
+    assert (
+        clauses["long_term_billable_select"] == "IFNULL(p.long_term_billable_bytes, 0)"
+    )
     assert clauses["shard_stats_join"] == ""
 
 
@@ -1491,12 +1495,22 @@ def test_build_sharded_stats_clauses_sums_across_shards() -> None:
     assert (
         partition["bytes_select"] == "COALESCE(sh.total_bytes, p.total_logical_bytes)"
     )
+    # Billable bytes always come from PARTITIONS, so the single PARTITIONS rollup `sh`
+    # covers them too in the default path.
+    assert (
+        partition["active_billable_select"]
+        == "COALESCE(sh.active_billable_bytes, p.active_billable_bytes)"
+    )
     assert "INFORMATION_SCHEMA.PARTITIONS" in partition["shard_stats_join"]
     assert "sum(total_rows) as total_rows" in partition["shard_stats_join"]
     assert "sum(total_logical_bytes) as total_bytes" in partition["shard_stats_join"]
+    assert "then total_billable_bytes" in partition["shard_stats_join"]
     assert "and t.table_name != " in partition["shard_stats_join"]
+    # One rollup only: no separate billable subquery is needed in the default path.
+    assert "as shb on" not in partition["shard_stats_join"]
 
-    # Legacy opt-in sums the undocumented __TABLES__ columns instead.
+    # Legacy opt-in sums the undocumented __TABLES__ columns for row count / size, and a
+    # second PARTITIONS rollup `shb` for billable bytes (absent from __TABLES__).
     legacy = BigqueryQuery.build_sharded_stats_clauses(
         project_id="p",
         dataset_name="d",
@@ -1505,8 +1519,14 @@ def test_build_sharded_stats_clauses_sums_across_shards() -> None:
     )
     assert legacy["row_count_select"] == "COALESCE(sh.total_rows, ts.row_count)"
     assert legacy["bytes_select"] == "COALESCE(sh.total_bytes, ts.size_bytes)"
+    assert (
+        legacy["active_billable_select"]
+        == "COALESCE(shb.active_billable_bytes, p.active_billable_bytes)"
+    )
     assert "__TABLES__" in legacy["shard_stats_join"]
     assert "sum(size_bytes) as total_bytes" in legacy["shard_stats_join"]
+    assert "as shb on" in legacy["shard_stats_join"]
+    assert "then total_billable_bytes" in legacy["shard_stats_join"]
 
 
 def test_make_bigquery_table_null_partition_stats() -> None:

@@ -63,8 +63,8 @@ SELECT
   {{bytes_select}} as bytes,
   p.num_partitions,
   p.max_partition_id,
-  p.active_billable_bytes as active_billable_bytes,
-  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
+  {{active_billable_select}} as active_billable_bytes,
+  {{long_term_billable_select}} as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -116,8 +116,8 @@ SELECT
   {{bytes_select}} as bytes,
   p.num_partitions,
   p.max_partition_id,
-  p.active_billable_bytes as active_billable_bytes,
-  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
+  {{active_billable_select}} as active_billable_bytes,
+  {{long_term_billable_select}} as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -401,15 +401,20 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
         use_legacy_table_stats: bool,
         aggregate_sharded_stats: bool,
     ) -> Dict[str, str]:
-        """Build the row_count / bytes selects and the optional shard-rollup join for the
-        stats query templates.
+        """Build the row_count / bytes / billable-bytes selects and the optional
+        shard-rollup join(s) for the stats query templates.
 
         A collapsed date-sharded table (the default, legacy support on) is represented by
-        its latest shard alone, so its row_count / size would otherwise reflect only that
-        one shard. When aggregate_sharded_stats is set we LEFT JOIN a per-base rollup
-        (`sh`) that sums every shard's stats and COALESCE it over the latest shard's own
-        values. The `t.table_name != <base>` join condition leaves un-sharded tables on
-        their own per-table stats.
+        its latest shard alone, so its row_count / size / billable bytes would otherwise
+        reflect only that one shard. When aggregate_sharded_stats is set we LEFT JOIN a
+        per-base rollup that sums every shard's stats and COALESCE it over the latest
+        shard's own values. The `t.table_name != <base>` join condition leaves un-sharded
+        tables on their own per-table stats.
+
+        Row count and size come from __TABLES__ under use_legacy_table_stats and from
+        PARTITIONS otherwise, so the rollup `sh` mirrors that source. Billable bytes are
+        always sourced from PARTITIONS in both templates, so under legacy stats they are
+        summed by a second PARTITIONS rollup `shb`.
         """
         if use_legacy_table_stats:
             own_rows, own_bytes = "ts.row_count", "ts.size_bytes"
@@ -420,16 +425,32 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
             source, name_col = "INFORMATION_SCHEMA.PARTITIONS", "table_name"
             src_rows, src_bytes = "total_rows", "total_logical_bytes"
 
+        own_active = "p.active_billable_bytes"
+        own_long_term = "IFNULL(p.long_term_billable_bytes, 0)"
+
         if not aggregate_sharded_stats:
             return {
                 "row_count_select": own_rows,
                 "bytes_select": own_bytes,
+                "active_billable_select": own_active,
+                "long_term_billable_select": own_long_term,
                 "shard_stats_join": "",
             }
 
         regex = SHARDED_TABLE_BASE_STRIP_REGEX
         table_base = f'REGEXP_REPLACE(t.table_name, r"{regex}", "")'
-        shard_stats_join = f"""
+        billable_rollup = (
+            "\n        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes"
+            " else 0 end) as long_term_billable_bytes,"
+            "\n        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes"
+            " else 0 end) as active_billable_bytes"
+        )
+
+        if use_legacy_table_stats:
+            # Row count / size are summed from __TABLES__; billable bytes come from a
+            # separate PARTITIONS rollup since __TABLES__ does not expose them.
+            billable_alias = "shb"
+            shard_stats_join = f"""
   left join (
     select
         REGEXP_REPLACE({name_col}, r"{regex}", "") as table_base,
@@ -440,10 +461,42 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     group by
         table_base) as sh on
     {table_base} = sh.table_base
+    and t.table_name != {table_base}
+  left join (
+    select
+        REGEXP_REPLACE(table_name, r"{regex}", "") as table_base,{billable_rollup}
+    from
+        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+    group by
+        table_base) as shb on
+    {table_base} = shb.table_base
     and t.table_name != {table_base}"""
+        else:
+            # A single PARTITIONS rollup covers row count, size and billable bytes.
+            billable_alias = "sh"
+            shard_stats_join = f"""
+  left join (
+    select
+        REGEXP_REPLACE({name_col}, r"{regex}", "") as table_base,
+        sum({src_rows}) as total_rows,
+        sum({src_bytes}) as total_bytes,{billable_rollup}
+    from
+        `{project_id}`.`{dataset_name}`.{source}
+    group by
+        table_base) as sh on
+    {table_base} = sh.table_base
+    and t.table_name != {table_base}"""
+
         return {
             "row_count_select": f"COALESCE(sh.total_rows, {own_rows})",
             "bytes_select": f"COALESCE(sh.total_bytes, {own_bytes})",
+            "active_billable_select": (
+                f"COALESCE({billable_alias}.active_billable_bytes, {own_active})"
+            ),
+            "long_term_billable_select": (
+                f"IFNULL(COALESCE({billable_alias}.long_term_billable_bytes,"
+                " p.long_term_billable_bytes), 0)"
+            ),
             "shard_stats_join": shard_stats_join,
         }
 
