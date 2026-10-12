@@ -29,6 +29,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
     ASPECT_DOCUMENT_INFO,
@@ -41,7 +42,6 @@ from datahub.ingestion.source.google_drive.constants import (
     EXTRACTION_ALGO_VERSION,
     FAILURE_NOT_FOUND,
     FAILURE_TOO_LARGE,
-    FOLDER_SUBTYPE,
     IMAGE_PLACEHOLDER,
     IMAGE_PLACEHOLDER_WITH_ALT,
     INLINE_DATA_IMAGE_RE,
@@ -368,7 +368,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             external_url=folder.web_view_link or "",
             parent_urn=parent_urn,
             custom_properties=custom_properties,
-            subtype=FOLDER_SUBTYPE,
+            subtype=DocumentSubTypes.FOLDER,
         )
         self._attach_common_aspects(doc, parent_folder, tree)
         self.report.folders_emitted += 1

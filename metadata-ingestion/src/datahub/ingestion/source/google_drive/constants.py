@@ -22,8 +22,6 @@ STAGE_DOCUMENTS = "Ingest Google Docs"
 PROGRESS_LOG_INTERVAL = 100
 CAPABILITY_SEMANTIC_SEARCH = "Semantic Search"
 
-FOLDER_SUBTYPE = "Folder"
-
 # Bump when export cleaning or text normalisation changes, to force a re-export of
 # every document on the next run even if its Drive version is unchanged.
 EXTRACTION_ALGO_VERSION = "2"
