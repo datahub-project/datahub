@@ -647,7 +647,7 @@ public class SiblingAssociationHookTest {
   }
 
   @Test
-  public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNodeButAlreadyHasARealSibling()
+  public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNodeButDbtAlreadyHasARealSibling()
       throws Exception {
     when(_mockEntityClient.exists(any(OperationContext.class), Mockito.any())).thenReturn(true);
 
