@@ -1,13 +1,15 @@
 import base64
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
-from opensearchpy import OpenSearch
 from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.configuration.validate_host_port import validate_host_port
 from datahub.utilities.config_clean import remove_protocol
+
+if TYPE_CHECKING:
+    from opensearchpy import OpenSearch
 
 
 def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
@@ -99,7 +101,11 @@ class ElasticsearchConnectionConfig(ConfigModel):
             )
         )
 
-    def get_client(self) -> OpenSearch:
+    def get_client(self) -> "OpenSearch":
+        # Imported lazily so that consumers which only need the config (not a live
+        # client) don't pull in the optional opensearch-py dependency.
+        from opensearchpy import OpenSearch
+
         # opensearch-py has no api_key param and silently drops unknown kwargs, so it must
         # be sent as an Authorization header instead.
         extra_client_args: Dict[str, Any] = {}

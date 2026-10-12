@@ -2576,7 +2576,7 @@ def test_api_key_authorization_passes_through_encoded_string() -> None:
     assert _api_key_authorization("already-encoded") == "ApiKey already-encoded"
 
 
-@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
+@patch("opensearchpy.OpenSearch")
 def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
     ElasticsearchSource.create(
         {"host": "localhost:9200", "api_key": ["id", "key"]},
@@ -2586,7 +2586,7 @@ def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
     assert kwargs["headers"] == {"Authorization": "ApiKey aWQ6a2V5"}
 
 
-@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
+@patch("opensearchpy.OpenSearch")
 def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
     ElasticsearchSource.create(
         {"host": "localhost:9200"},
@@ -2596,7 +2596,7 @@ def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
     assert "headers" not in kwargs
 
 
-@patch("datahub.ingestion.source.elastic_search_common.OpenSearch")
+@patch("opensearchpy.OpenSearch")
 def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> None:
     client = mock_opensearch.return_value
     client.indices = create_autospec(IndicesClient, instance=True)
