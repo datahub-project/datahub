@@ -45,6 +45,7 @@ On each run the connector lists every configured folder, then compares each Doc'
 - Comments, suggestions, and some smart chips are not part of Google's Markdown export.
 - Google Drive refuses to export Docs larger than 10 MB. Those Docs are skipped with a warning.
 - Docs whose text is longer than `max_text_length` characters (default 1,000,000) are skipped with a warning. If such a Doc was ingested earlier, it is soft-deleted. Set `max_text_length: 0` to remove the limit.
+- A run stops with a failure once `max_documents` Docs (default 10,000) have been embedded. Raise the limit, or set it to `0` to remove it, for larger folders.
 - Permissions are not mirrored. Anyone who can read the Document in DataHub can read its text, so choose roots whose audience matches your DataHub audience.
 - Files in shared drives have no owners, so they are ingested without ownership.
 - Each run lists every folder in scope. Unchanged Docs are not exported again.
@@ -60,10 +61,14 @@ When any root or folder fails, the run reports a failure and stale-entity remova
 
 #### Docs are missing
 
-- Check `documents_filtered`, `folders_filtered`, `documents_skipped_empty`, and `shortcuts_skipped` in the ingestion report.
+- Check `documents_filtered`, `folders_filtered`, `documents_skipped_empty`, `documents_skipped_too_long`, `documents_export_failed`, `documents_failed`, and `shortcuts_skipped` in the ingestion report. `failed_documents` lists the Docs that could not be ingested; their existing copies in DataHub are kept.
 - Without `delegated_user`, the service account only sees files shared with it. Files that a folder's owner can see are not automatically visible to it.
 - Docs in the trash are never ingested.
 
 #### Embeddings are missing for some Docs
 
-If embedding generation fails, the Doc is still ingested and the failure is reported as a warning. The Doc is retried on the next run.
+If embedding generation fails, the Doc is still ingested and the failure is reported as a warning. The Doc is retried on the next run. `documents_embedding_deferred` counts these Docs, and `num_documents_truncated_oversized` and `num_documents_dropped_oversized` count Docs whose embeddings were truncated or dropped for size.
+
+#### Every run exports every Doc again
+
+Unchanged Docs are skipped by comparing them with what DataHub already stores. If `change_detection_lookup_failures` is non-zero, the ingestion token could not read Documents back from DataHub; grant it read access to Document entities.

@@ -2,7 +2,7 @@
 
 The `google-drive` module walks the folders and shared drives listed in `root_folder_ids`, exports every Google Doc it finds as Markdown, and ingests each one as a DataHub Document. Folders become Documents with the `Folder` subtype, so the Drive hierarchy is preserved for navigation.
 
-Version 1 ingests Google Docs only. Sheets, Slides, PDFs, and other file types in the same folders are ignored, as are shortcuts and files in the trash.
+This source ingests Google Docs only. Sheets, Slides, PDFs, and other file types in the same folders are ignored, as are shortcuts and files in the trash.
 
 ### Prerequisites
 
@@ -12,7 +12,7 @@ In the Google Cloud project that owns your service account, enable the **Google 
 
 #### 2. Create a service account
 
-Create a service account and a JSON key for it. The connector takes the key's fields under `credential`, the same shape the BigQuery source uses. If you omit `credential`, the connector uses Application Default Credentials.
+Create a service account and a JSON key for it. The connector takes the key's fields under `credential`, the same shape the BigQuery source uses. If you omit `credential`, the connector uses Application Default Credentials. Those credentials must carry the `https://www.googleapis.com/auth/drive.readonly` scope; the `cloud-platform` scope alone does not grant Drive access. For local testing, run `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/cloud-platform`.
 
 #### 3. Grant access to the folders
 
@@ -23,10 +23,18 @@ Choose one of the following:
 
 The connector only requests the read-only Drive scope.
 
+:::caution
+DataHub does not mirror Google Drive permissions. Anyone who can read a Document in DataHub can read its text, so choose root folders whose audience matches your DataHub audience.
+:::
+
 #### 4. Find the folder IDs
 
 Open the folder in Drive and copy the ID from the URL (`https://drive.google.com/drive/folders/<folder-id>`). You can also paste the full folder URL into `root_folder_ids`. For a shared drive, use the ID from the shared drive's URL.
 
 #### 5. Embedding provider (optional)
 
-By default the connector loads the embedding configuration from your DataHub server and generates semantic-search embeddings for every Doc. See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for details.
+By default the connector loads the embedding configuration from your DataHub server and generates semantic-search embeddings for every Doc. The machine that runs ingestion needs credentials for that embedding provider (for example, AWS credentials for Amazon Bedrock). Without them, Docs are ingested without embeddings and are exported again on every run until embedding succeeds. See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for details.
+
+#### 6. DataHub permissions
+
+The DataHub access token used by the ingestion recipe must be allowed to create and edit Document entities.
