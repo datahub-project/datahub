@@ -208,8 +208,15 @@ public class ElasticSearchSystemMetadataService
             ? null
             : new SearchAfterWrapper(new Object[] {after.getUrn(), after.getAspectName()}, null, 0L)
                 .toScrollId();
-    return toAspectRowSummary(
-        _esDAO.scroll(opContext, query, includeSoftDeleted, scrollId, null, null, size));
+    final SearchResponse response =
+        _esDAO.scroll(opContext, query, includeSoftDeleted, scrollId, null, null, size);
+    if (response == null) {
+      // scroll logs the failure and returns null. Read as an empty page, it would end a rollback
+      // early and report the run as rolled back with rows still left.
+      throw new IllegalStateException(
+          String.format("Could not read the rows of run %s from the system metadata index", runId));
+    }
+    return toAspectRowSummary(response);
   }
 
   @Override

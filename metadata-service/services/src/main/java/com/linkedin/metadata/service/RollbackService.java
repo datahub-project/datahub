@@ -36,6 +36,7 @@ import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -269,9 +270,17 @@ public class RollbackService {
 
       log.info("computing aspects affected by this rollback...");
       // Compute the aspects that exist referencing the key aspects we are deleting, across all
-      // pages visited.
+      // pages visited. A hard rollback deletes an entity only when no other run wrote to it, so
+      // only the entities it kept can have other runs' aspects; one lookup per deleted key would
+      // only slow down a large run. A soft rollback hides every key row's entity, so all count.
+      final Set<String> rolledBackKeys =
+          deletedRows.stream()
+              .filter(AspectRowSummary::isKeyAspect)
+              .map(AspectRowSummary::getUrn)
+              .collect(Collectors.toSet());
       final List<AspectRowSummary> affectedAspectsList =
           allKeyAspects.stream()
+              .filter(key -> !hardDelete || !rolledBackKeys.contains(key.getUrn()))
               .map(
                   (AspectRowSummary urn) ->
                       systemMetadataService.findByUrn(

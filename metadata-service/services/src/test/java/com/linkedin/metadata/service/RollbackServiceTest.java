@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
@@ -46,6 +47,7 @@ import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.RollbackResponse;
+import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -372,11 +374,13 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_MultiPageUnsafeEntitiesCoverAllPages()
       throws AuthenticationException {
     // Prove affected/unsafe entity math spans every page, not just the last. First page carries
-    // a key aspect for urn1; second page carries a key aspect for urn3. The while-loop exits when
-    // the second page (3 rows) drops below apiDefault (5), so the last aspectRowsToDelete is
-    // secondPageAspects — a last-page-only keyAspects derivation would find urn3's key only and
-    // undercount to unsafeEntitiesCount=1, missing urn1/urn2. allKeyAspects must accumulate
-    // across pages to cover all three.
+    // key aspects for urn1 and urn2; second page carries a key aspect for urn3. The while-loop
+    // exits when the second page (3 rows) drops below apiDefault (5), so the last
+    // aspectRowsToDelete is secondPageAspects — a last-page-only keyAspects derivation would find
+    // urn3's key only and undercount to unsafeEntitiesCount=1, missing urn1/urn2. allKeyAspects
+    // must accumulate across pages to cover all three.
+    // A hard rollback only looks at entities it kept, so every key row is left out of
+    // rowsRolledBack below: that is what makes each entity a candidate for the unsafe report.
     List<AspectRowSummary> firstPageAspects = createTestAspectRows(true); // keys for urn1, urn2
     AspectRowSummary extra = new AspectRowSummary();
     extra.setUrn(TEST_URN_2);
@@ -392,9 +396,9 @@ public class RollbackServiceTest {
         .thenReturn(secondPageAspects);
 
     RollbackRunResult firstRunResult =
-        new RollbackRunResult(firstPageAspects, 0, Collections.emptyList());
+        new RollbackRunResult(withoutKeyRows(firstPageAspects), 0, Collections.emptyList());
     RollbackRunResult secondRunResult =
-        new RollbackRunResult(secondPageAspects, 0, Collections.emptyList());
+        new RollbackRunResult(withoutKeyRows(secondPageAspects), 0, Collections.emptyList());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
         .thenReturn(firstRunResult)
         .thenReturn(secondRunResult)
@@ -433,6 +437,11 @@ public class RollbackServiceTest {
     assertEquals(response.getUnsafeEntitiesCount(), 3);
     assertTrue(response.getUnsafeEntities().stream().anyMatch(u -> u.getUrn().equals(TEST_URN_1)));
     assertTrue(response.getUnsafeEntities().stream().anyMatch(u -> u.getUrn().equals(testUrn3)));
+  }
+
+  /** The rows a hard rollback reverts when it keeps every entity: all but the key rows. */
+  private static List<AspectRowSummary> withoutKeyRows(List<AspectRowSummary> rows) {
+    return rows.stream().filter(row -> !row.isKeyAspect()).collect(Collectors.toList());
   }
 
   private static List<AspectRowSummary> unsafeRow(String urn, String runId) {
@@ -561,6 +570,105 @@ public class RollbackServiceTest {
   }
 
   @Test
+  public void testRollbackIngestion_HardRollbackChecksOnlyEntitiesItKept()
+      throws AuthenticationException {
+    String rolledBackUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    AspectRowSummary keyRolledBack = summaryRow(rolledBackUrn, "datasetKey", true);
+    AspectRowSummary keyKept = summaryRow(keptUrn, "datasetKey", true);
+    whenFirstPage(true).thenReturn(new ArrayList<>(Arrays.asList(keyRolledBack, keyKept)));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(
+            new RollbackRunResult(
+                new ArrayList<>(Collections.singletonList(keyRolledBack)),
+                0,
+                Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    // Both entities have another run's aspect, so only the lookup decides which one is reported.
+    stubOtherRunOnEntity(rolledBackUrn);
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    verify(mockSystemMetadataService)
+        .findByUrn(
+            any(OperationContext.class), eq(keptUrn), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService, never())
+        .findByUrn(any(OperationContext.class), eq(rolledBackUrn), anyBoolean(), anyInt(), any());
+    assertEquals(unsafeEntityUrns(response), Collections.singletonList(keptUrn));
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+    assertEquals(response.getEntitiesDeleted(), 1);
+  }
+
+  @Test
+  public void testRollbackIngestion_SoftRollbackChecksEveryKeyRowEntity()
+      throws AuthenticationException {
+    // A soft rollback never returns key rows in rowsRolledBack, yet it hides every entity it
+    // touched, so each one has to be checked for other runs' aspects.
+    String urnA = datasetUrn(1);
+    String urnB = datasetUrn(2);
+    whenFirstPage(false)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(urnA, "datasetKey", true), summaryRow(urnB, "datasetKey", true))));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(false)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    stubOtherRunOnEntity(urnA);
+    stubOtherRunOnEntity(urnB);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            false, // hardDelete — soft delete
+            null);
+
+    verify(mockSystemMetadataService)
+        .findByUrn(any(OperationContext.class), eq(urnA), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService)
+        .findByUrn(any(OperationContext.class), eq(urnB), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    assertEquals(response.getUnsafeEntitiesCount(), 2);
+  }
+
+  @Test
+  public void testRollbackIngestion_FailedPageReadStopsBeforeTimeseriesAndRolledBackStatus()
+      throws Exception {
+    stubExecutionRequestResult();
+    List<AspectRowSummary> fullPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      fullPage.add(summaryRow(datasetUrn(i), "datasetProperties", false));
+    }
+    whenFirstPage(true).thenReturn(fullPage);
+    // The index read for the second page fails, as findByRunIdAfter does when the search errors.
+    whenPageAfter(true, fullPage.get(fullPage.size() - 1))
+        .thenThrow(new IllegalStateException("page read failed"));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(fullPage), 0, Collections.emptyList()));
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            rollbackService.rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                false, // dryRun
+                true, // hardDelete
+                null));
+
+    verify(mockTimeseriesAspectService, never()).rollbackTimeseriesAspects(any(), anyString());
+    assertFalse(writtenExecutionStatuses().contains(RollbackService.ROLLED_BACK_STATUS));
+  }
+
+  @Test
   public void testRollbackIngestion_InterruptBetweenPagesStopsRollback()
       throws AuthenticationException {
     List<AspectRowSummary> fullPage = new ArrayList<>();
@@ -617,6 +725,18 @@ public class RollbackServiceTest {
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
+  }
+
+  private void stubOtherRunOnEntity(String urn) {
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), eq(urn), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unsafeRow(urn, "other-run"));
+  }
+
+  private static List<String> unsafeEntityUrns(RollbackResponse response) {
+    return response.getUnsafeEntities().stream()
+        .map(UnsafeEntityInfo::getUrn)
+        .collect(Collectors.toList());
   }
 
   private static String datasetUrn(int index) {
