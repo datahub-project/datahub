@@ -4813,3 +4813,91 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def test_dbt_source_patching_dedupes_existing_owners():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    duplicated_owner = OwnerClass(
+        owner="urn:li:corpGroup:data-engineering",
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=None,
+    )
+    graph.get_ownership.return_value = OwnershipClass(owners=[duplicated_owner] * 88)
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1
+    assert transformed[0].owner == "urn:li:corpGroup:data-engineering"
+
+
+def test_dbt_source_patching_keeps_distinct_owner_identities():
+    """Only identical identities collapse. The same urn under a different
+    ownership type, or from a different source, is a separate owner."""
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    group = "urn:li:corpGroup:data-engineering"
+    steward = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+    )
+    # Same owner and type=CUSTOM, different custom type urn - every custom
+    # ownership type shares type=CUSTOM, so typeUrn is what tells them apart.
+    producer = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__producer",
+    )
+    # Same owner, same type, different provenance.
+    from_service = OwnerClass(
+        owner=group,
+        type=OwnershipTypeClass.CUSTOM,
+        typeUrn="urn:li:ownershipType:__system__data_steward",
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SERVICE),
+    )
+    graph.get_ownership.return_value = OwnershipClass(
+        owners=[steward] * 88 + [producer, from_service]
+    )
+    source.ctx.graph = graph
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 3
+    assert {o.typeUrn for o in transformed} == {
+        "urn:li:ownershipType:__system__data_steward",
+        "urn:li:ownershipType:__system__producer",
+    }
+
+
+def test_dbt_source_patching_dedupes_when_server_aspect_is_empty():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+    graph.get_ownership.return_value = None
+    source.ctx.graph = graph
+
+    incoming = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    transformed = source.get_transformed_owners_by_source_type(
+        [incoming, incoming],
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    assert len(transformed) == 1

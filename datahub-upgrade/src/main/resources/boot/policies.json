@@ -389,7 +389,6 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_DOCUMENTS",
         "VIEW_ALL_QUERIES"
       ],
       "displayName": "Editors - Platform Policy",
@@ -612,6 +611,36 @@
       "state": "ACTIVE",
       "type": "METADATA",
       "editable": true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:document-owners-delete-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": true,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [],
+        "groups": []
+      },
+      "resources": {
+        "allResources": false,
+        "filter": {
+          "criteria": [
+            {
+              "field": "TYPE",
+              "values": ["document"],
+              "condition": "EQUALS"
+            }
+          ]
+        }
+      },
+      "privileges": ["DELETE_ENTITY"],
+      "displayName": "Document Owners - Delete Documents",
+      "description": "Document owners can delete Documents they own.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
     }
   }
 ]

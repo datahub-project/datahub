@@ -2219,6 +2219,10 @@ enum IconLibrary {
   Icons from the Material UI icon library
   """
   MATERIAL
+  """
+  Icons from the Phosphor icon library
+  """
+  PHOSPHOR
 }
 
 type FineGrainedLineage {

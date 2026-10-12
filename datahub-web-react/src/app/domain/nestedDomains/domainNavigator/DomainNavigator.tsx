@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,18 +14,6 @@ const NavigatorWrapper = styled.div`
     max-height: calc(100% - 65px);
     padding: 8px 8px 16px 16px;
     overflow: auto;
-`;
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${(props) => props.theme.colors.textSecondary};
-    }
 `;
 
 interface Props {
@@ -63,13 +51,7 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride,
     return (
         <NavigatorWrapper>
             {error && <Alert message={t('navigator.loadError')} showIcon type="error" />}
-            {loading ? (
-                <LoadingWrapper>
-                    <LoadingOutlined />
-                </LoadingWrapper>
-            ) : (
-                domainNavigatorNodes
-            )}
+            {loading ? <Loader size="xs" padding={8} /> : domainNavigatorNodes}
         </NavigatorWrapper>
     );
 }

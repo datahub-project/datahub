@@ -222,6 +222,7 @@ export const DefaultEntityHeader = ({
                                         onClose={() => setShowIconPicker(false)}
                                         color={resolvedCurrentColor}
                                         icon={displayProperties?.icon?.name}
+                                        iconLibrary={displayProperties?.icon?.iconLibrary}
                                         showIcon={!!isIconEditable}
                                     />
                                 )}

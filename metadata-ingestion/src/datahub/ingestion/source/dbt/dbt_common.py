@@ -4768,20 +4768,33 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             transformed_owners += owners
         if self.ctx.graph:
             existing_ownership = self.ctx.graph.get_ownership(entity_urn)
-            if not existing_ownership or not existing_ownership.owners:
-                return transformed_owners
+            # Nothing to merge against on the first write, but the incoming
+            # owners still go through the dedup below.
+            if existing_ownership and existing_ownership.owners:
+                new_owner_urns = {o.owner for o in owners} if owners else set()
 
-            new_owner_urns = {o.owner for o in owners} if owners else set()
+                for existing_owner in existing_ownership.owners:
+                    if existing_owner.owner in new_owner_urns:
+                        continue
+                    if (
+                        not existing_owner.source
+                        or existing_owner.source.type != source_type_filter
+                    ):
+                        transformed_owners.append(existing_owner)
 
-            for existing_owner in existing_ownership.owners:
-                if existing_owner.owner in new_owner_urns:
-                    continue
-                if (
-                    not existing_owner.source
-                    or existing_owner.source.type != source_type_filter
-                ):
-                    transformed_owners.append(existing_owner)
-        return sorted(transformed_owners, key=self.owner_sort_key)
+        # typeUrn is part of the identity because every custom ownership type
+        # shares type=CUSTOM. The source is too, since this method preserves
+        # owners by source, so entries that differ only in provenance stay
+        # distinct.
+        deduped: Dict[Tuple[str, str, str, str], OwnerClass] = {}
+        for owner in transformed_owners:
+            source_type = (
+                str(owner.source.type) if owner.source and owner.source.type else ""
+            )
+            deduped.setdefault(
+                (owner.owner, str(owner.type), str(owner.typeUrn), source_type), owner
+            )
+        return sorted(deduped.values(), key=self.owner_sort_key)
 
     def owner_sort_key(self, owner_class: OwnerClass) -> str:
         return str(owner_class)

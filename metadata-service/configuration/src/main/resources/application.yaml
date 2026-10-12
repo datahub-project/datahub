@@ -423,6 +423,7 @@ datahub:
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
+  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Writes of one reference removal during a hard delete, the first included, before a failure caused by concurrent edits is reported (reliableHardDelete only); at least 1
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
@@ -1646,6 +1647,13 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  deleteOrphanedDocumentChildren:
+    # One-time soft-delete of live documents whose parent is soft-deleted or missing.
+    # Calls DocumentService.deleteDocument, so nested documents under each orphan go too.
+    enabled: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_ENABLED:true}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_REPROCESS:false}
+    batchSize: ${SYSTEM_UPDATE_DELETE_ORPHANED_DOCUMENT_CHILDREN_BATCH_SIZE:1000}
   viewEntityQueriesPrivilege:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
@@ -1960,6 +1968,7 @@ featureFlags:
   parentNodesBatchLoadEnabled: ${PARENT_NODES_BATCH_LOAD_ENABLED:true} # If enabled, `parentNodes` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   parentContainersBatchLoadEnabled: ${PARENT_CONTAINERS_BATCH_LOAD_ENABLED:true} # If enabled, `parentContainers` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   graphQLAspectOptimizationEnabled: ${GRAPHQL_ASPECT_OPTIMIZATION_ENABLED:true} # If enabled, GraphQL entity hydration fetches only the aspects required by the selected fields (schema-driven aspect mapping); disable to fetch the full default aspect set per entity (legacy behavior)
+  reliableHardDelete: ${RELIABLE_HARD_DELETE_ENABLED:false} # If enabled, a whole-entity hard delete (Rest.li delete, OpenAPI entity delete, GraphQL type-specific deletes) deletes only what existed when the request arrived; disable for the previous delete behavior
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
   browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
