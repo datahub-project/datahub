@@ -309,8 +309,7 @@ public class EntityAspectTest {
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             null,
             Collections.emptyList(),
-            null,
-            false);
+            null);
 
     // Should create default system metadata
     SystemMetadata nullEntityDefaultMetadata = nullEntityAspect.getSystemMetadata();
@@ -341,8 +340,7 @@ public class EntityAspectTest {
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
             Collections.emptyList(),
-            null,
-            false); // No operationContext
+            null);
 
     // This should trigger the condition we're testing:
     // "if (entityAspect != null && entityAspect.getSystemMetadata() != null)"
@@ -375,8 +373,7 @@ public class EntityAspectTest {
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
             java.util.Collections.singletonList(mockValidator),
-            null,
-            false);
+            null);
 
     // Call withVersion - this should invoke the validator
     EntityAspect result = systemAspect.withVersion(0);
