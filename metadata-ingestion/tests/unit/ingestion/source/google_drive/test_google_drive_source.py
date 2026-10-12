@@ -49,6 +49,7 @@ from tests.test_helpers.google_drive_fakes import (
     DOC_HUGE,
     DOC_IMAGES,
     DOC_RUNBOOK,
+    DOC_TRASHED,
     ENG,
     EXPORT_HTML,
     EXPORT_MD,
@@ -222,6 +223,7 @@ def test_full_run_emits_folders_and_documents() -> None:
     assert len(emitted_docs) == 6
     assert make_document_urn(DOC_EMPTY) not in aspects
     assert make_document_urn(DOC_HUGE) not in aspects
+    assert make_document_urn(DOC_TRASHED) not in aspects
 
     report = source.report
     assert report.documents_emitted == 6

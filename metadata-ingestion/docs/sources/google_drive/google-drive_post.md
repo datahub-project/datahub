@@ -44,7 +44,7 @@ On each run the connector lists every configured folder, then compares each Doc'
 - Docs with multiple tabs are ingested as a single Document. Each tab begins with its title as a heading.
 - Comments, suggestions, and some smart chips are not part of Google's Markdown export.
 - Google Drive refuses to export Docs larger than 10 MB. Those Docs are skipped with a warning.
-- Docs whose text is longer than `max_text_length` characters (default 1,000,000) are skipped with a warning. If such a Doc was ingested earlier, it is soft-deleted. Set `max_text_length: 0` to remove the limit.
+- Docs whose text is longer than `max_text_length` characters (default 1,000,000) are skipped with a warning. If such a Doc was ingested earlier and stateful ingestion is enabled, it is soft-deleted. Set `max_text_length: 0` to remove the limit.
 - A run stops with a failure once `max_documents` Docs (default 10,000) have been embedded. Raise the limit, or set it to `0` to remove it, for larger folders.
 - Permissions are not mirrored. Anyone who can read the Document in DataHub can read its text, so choose roots whose audience matches your DataHub audience.
 - Files in shared drives have no owners, so they are ingested without ownership.
@@ -57,7 +57,12 @@ On each run the connector lists every configured folder, then compares each Doc'
 
 #### A root folder is reported as not accessible
 
-The service account cannot see the folder. Share the folder with the service account's `client_email`, or set `delegated_user` to a user who can open it. Run `datahub check source-connection` to see which roots fail.
+Either the ID is wrong or the source cannot see the folder.
+
+- Check that the ID or URL in `root_folder_ids` points to a folder or shared drive, not a file.
+- Share the folder with the account the source authenticates as: the service account's `client_email` when you set `credential`, or the Application Default Credentials account otherwise. Alternatively, set `delegated_user` to a user who can open it.
+
+Run `datahub check source-connection` to see which roots fail.
 
 When any root or folder fails, the run reports a failure and stale-entity removal is skipped for that run, so nothing is soft-deleted because of a partial listing.
 

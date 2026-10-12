@@ -21,6 +21,8 @@ EXPORT_HTML = "text/html"
 
 _PARENT_RE = re.compile(r"'([A-Za-z0-9_-]+)' in parents")
 _FILES_MASK_RE = re.compile(r"files\((.*)\)")
+_MIME_CLAUSE_RE = re.compile(r"mimeType='([^']+)'")
+_NOT_TRASHED = "trashed=false"
 
 
 def mask_fields(raw: Dict[str, Any], fields: str) -> Dict[str, Any]:
@@ -148,12 +150,23 @@ class _FakeFiles:
         folder_id = match.group(1)
         files_mask = _FILES_MASK_RE.search(fields)
         assert files_mask, fields
+        # Apply the query's filters as Drive does, so a filter dropped from the
+        # connector's query lets the fixture's trashed and non-Doc items through.
+        mime_types = set(_MIME_CLAUSE_RE.findall(q))
+        hide_trashed = _NOT_TRASHED in q
 
         def run() -> Dict[str, Any]:
             self._svc.calls.append(("files.list", folder_id))
             if folder_id in self._svc.list_errors:
                 raise self._svc.list_errors[folder_id]
-            child_ids = self._svc.children.get(folder_id, [])
+            child_ids = [
+                c
+                for c in self._svc.children.get(folder_id, [])
+                if not (hide_trashed and self._svc.files_by_id[c].get("trashed"))
+                and (
+                    not mime_types or self._svc.files_by_id[c]["mimeType"] in mime_types
+                )
+            ]
             start = int(pageToken or 0)
             end = start + self._svc.page_size
             page = [
@@ -221,7 +234,8 @@ class _FakeAbout:
 # ├── Doc A1                         owners: alice
 # ├── Copy of Doc A1                 (document_pattern deny)
 # ├── Shortcut to A1                 (shortcut)
-# ├── Budget                         (sheet; never listed by the query in reality)
+# ├── Budget                         (sheet; filtered out by the query)
+# ├── Doc Trashed                    (in the trash; filtered out by the query)
 # ├── Doc Empty                      (empty markdown export)
 # ├── Eng/
 # │   ├── Doc Runbook                owners: alice, bob, alice (dedup)
@@ -252,6 +266,7 @@ DOC_HTML = "docHtmlxxxxxx"
 DOC_B1 = "docB1xxxxxxxx"
 DOC_HUGE = "docHugexxxxxx"
 DOC_B2 = "docB2xxxxxxxx"
+DOC_TRASHED = "docTrashedxxx"
 
 IMAGES_MARKDOWN = (
     "# Spec with images\n\nIntro.\n\n![Blue diagram](data:image/png;base64,AAAA)\n\n"
@@ -270,6 +285,9 @@ def build_fixture_service() -> FakeDriveService:
     svc.add(drive_file(SHORTCUT, "Shortcut to A1", MIME_SHORTCUT, ROOT_A))
     svc.add(drive_file(SHEET, "Budget", MIME_SHEET, ROOT_A))
     svc.add(drive_file(DOC_EMPTY, "Doc Empty", MIME_DOC, ROOT_A))
+    trashed = drive_file(DOC_TRASHED, "Doc Trashed", MIME_DOC, ROOT_A)
+    trashed["trashed"] = True
+    svc.add(trashed)
     svc.add(drive_file(ENG, "Eng", MIME_FOLDER, ROOT_A))
     svc.add(
         drive_file(
@@ -301,6 +319,7 @@ def build_fixture_service() -> FakeDriveService:
         DOC_EMPTY: "\n",
         DOC_RUNBOOK: "# Runbook\n\n1. Check the dashboard.\n2. Page the secondary.\n",
         DOC_OLD: "# Old\n",
+        DOC_TRASHED: "# Trashed\n",
         DOC_IMAGES: IMAGES_MARKDOWN,
         DOC_B1: "# B1\n\nShared drive document.\n",
         DOC_B2: "# B2\n\nNested shared drive document.\n",

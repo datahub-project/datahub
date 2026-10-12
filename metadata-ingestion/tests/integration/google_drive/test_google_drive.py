@@ -165,18 +165,18 @@ def runbook_unparseable(svc: FakeDriveService) -> None:
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "change, expected_soft_deleted",
+    "change, expected_soft_deleted, run_fails",
     [
-        (remove_doc_b1, {DOC_B1}),
+        (remove_doc_b1, {DOC_B1}, False),
         # A partial listing is a failure, which must suppress stale removal.
-        (fail_eng_listing, set()),
+        (fail_eng_listing, set(), True),
         # Possibly transient errors keep the existing document.
-        (runbook_connection_reset, set()),
-        (runbook_export_unavailable, set()),
-        (runbook_unparseable, set()),
+        (runbook_connection_reset, set(), False),
+        (runbook_export_unavailable, set(), False),
+        (runbook_unparseable, set(), False),
         # Documents that can never be exported, or no longer exist, are removed.
-        (runbook_too_large, {DOC_RUNBOOK}),
-        (runbook_deleted_after_listing, {DOC_RUNBOOK}),
+        (runbook_too_large, {DOC_RUNBOOK}, False),
+        (runbook_deleted_after_listing, {DOC_RUNBOOK}, False),
     ],
 )
 def test_stateful_ingestion_soft_deletes_only_documents_that_are_gone(
@@ -184,6 +184,7 @@ def test_stateful_ingestion_soft_deletes_only_documents_that_are_gone(
     mock_datahub_graph: Any,
     change: Callable[[FakeDriveService], None],
     expected_soft_deleted: Set[str],
+    run_fails: bool,
 ) -> None:
     with mock.patch(CHECKPOINT_GRAPH, mock_datahub_graph) as graph:
         graph.return_value = mock_datahub_graph
@@ -197,6 +198,11 @@ def test_stateful_ingestion_soft_deletes_only_documents_that_are_gone(
             second = Pipeline.create(stateful_pipeline_config(tmp_path / "2.json"))
             second.run()
 
+    if run_fails:
+        assert second.source.get_report().failures
+    else:
+        second.raise_from_status()
+        validate_all_providers_have_committed_successfully(second, 1)
     assert soft_deleted_urns(tmp_path / "1.json") == set()
     assert soft_deleted_urns(tmp_path / "2.json") == {
         make_document_urn(file_id) for file_id in expected_soft_deleted

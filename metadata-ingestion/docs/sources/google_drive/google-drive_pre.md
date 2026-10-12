@@ -53,4 +53,8 @@ By default the connector loads the embedding configuration from your DataHub ser
 
 #### 6. DataHub permissions
 
-The DataHub access token used by the ingestion recipe must be allowed to create and edit Document entities.
+The DataHub access token used by the ingestion recipe must be allowed to read, create, and edit Document entities. The source reads Documents it ingested earlier to skip Docs that have not changed; without read access, every Doc is exported again on every run.
+
+#### 7. Python version
+
+The `google-drive` plugin requires Python 3.11 or later.

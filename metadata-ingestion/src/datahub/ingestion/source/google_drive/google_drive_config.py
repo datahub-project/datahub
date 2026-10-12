@@ -30,7 +30,8 @@ def parse_drive_id(value: str) -> str:
     for pattern in (DRIVE_URL_FOLDER_ID_RE, DRIVE_URL_QUERY_ID_RE):
         match = pattern.search(candidate)
         if match:
-            return match.group(1)
+            candidate = match.group(1)
+            break
     if DRIVE_ID_RE.match(candidate):
         return candidate
     raise ValueError(

@@ -38,7 +38,16 @@ def test_root_folder_ids_are_deduplicated_in_order() -> None:
     assert config.root_folder_ids == [other, FOLDER_ID]
 
 
-@pytest.mark.parametrize("roots", [[], ["not a drive id!"], ["short"]])
+@pytest.mark.parametrize(
+    "roots",
+    [
+        [],
+        ["not a drive id!"],
+        ["short"],
+        ["https://drive.google.com/drive/folders/short"],
+        ["https://drive.google.com/open?id=short"],
+    ],
+)
 def test_invalid_root_folder_ids_rejected(roots: list) -> None:
     with pytest.raises(ValidationError):
         GoogleDriveSourceConfig.model_validate({"root_folder_ids": roots})
