@@ -29,8 +29,9 @@ LAKEHOUSE_MONITOR_ASSERTION_TYPE = "Databricks Lakehouse Monitor"
 # Lakeflow Declarative Pipelines (formerly Delta Live Tables) expectations.
 EXPECTATION_ASSERTION_TYPE = "Databricks Pipeline Expectation"
 
-# Assertion name shown in the list (same rationale as COMPLETENESS_ASSERTION_DESCRIPTION):
-# carries the expectation name so each pipeline expectation is distinguishable.
+# Assertion name shown in the list. The list renders a custom assertion's name from
+# `description`, not the structured native fields, so the expectation name must live
+# here for each pipeline expectation to be distinguishable.
 EXPECTATION_ASSERTION_DESCRIPTION = "Rows meet expectation {expectation}"
 
 # A DLT expectation's action determines how bad a violation is: `expect_or_fail`

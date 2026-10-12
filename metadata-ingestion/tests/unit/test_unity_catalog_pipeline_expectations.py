@@ -105,6 +105,8 @@ def _extractor(
     resolve_ingested_ref: Optional[
         Callable[[TableReference], Optional[TableReference]]
     ] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
 ) -> UnityCatalogPipelineExpectationsExtractor:
     return UnityCatalogPipelineExpectationsExtractor(
         config=config or UnityCatalogPipelineExpectationsConfig(enabled=True),
@@ -113,6 +115,8 @@ def _extractor(
         dataset_urn_builder=_dataset_urn,
         metastore=metastore,
         resolve_ingested_ref=resolve_ingested_ref,
+        start_time=start_time,
+        end_time=end_time,
     )
 
 
@@ -376,16 +380,63 @@ def test_malformed_events_do_not_crash_and_only_valid_emitted() -> None:
     assert _result_types(wus) == {AssertionResultTypeClass.SUCCESS}
 
 
-def test_only_latest_update_is_aggregated() -> None:
-    # Events come back newest-first; expectations from an older update are ignored.
+def test_each_windowed_update_emits_its_own_run_event() -> None:
+    # Updates within the window are no longer collapsed to the newest one: each emits a
+    # run keyed on its update id, so an update between two ingestions is not dropped.
+    # The same expectation across both updates stays a single assertion with two runs.
     events = [
         _event("u2", [_expectation("valid_id", "orders", 200, 0)]),
-        _event("u1", [_expectation("stale_check", "orders", 1, 1)]),
+        _event("u1", [_expectation("valid_id", "orders", 100, 5)]),
     ]
     wus = list(_extractor(_FakeProxy(events=events)).get_workunits())
     run_events = _run_events(wus)
-    assert len(run_events) == 1
-    assert run_events[0].runId == "u2"
+    assert {e.runId for e in run_events} == {"u1", "u2"}
+    assert len(run_events) == 2
+    assert _aspect_names(wus).count("assertionInfo") == 1
+
+
+def test_updates_outside_the_time_window_are_excluded() -> None:
+    # Only updates whose events fall in [start_time, end_time] are considered: a newer
+    # event is skipped and the first event older than start_time stops paging.
+    events = [
+        _event(
+            "u3",
+            [_expectation("chk", "orders", 1, 0)],
+            timestamp="2026-09-20T00:00:00.000Z",
+        ),
+        _event(
+            "u2",
+            [_expectation("chk", "orders", 2, 0)],
+            timestamp="2026-09-11T00:00:00.000Z",
+        ),
+        _event(
+            "u1",
+            [_expectation("chk", "orders", 3, 0)],
+            timestamp="2026-09-01T00:00:00.000Z",
+        ),
+    ]
+    extractor = _extractor(
+        _FakeProxy(events=events),
+        start_time=datetime(2026, 9, 10, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 15, tzinfo=timezone.utc),
+    )
+    run_events = _run_events(list(extractor.get_workunits()))
+    assert {e.runId for e in run_events} == {"u2"}
+
+
+def test_update_without_counts_emits_no_false_pass() -> None:
+    # Databricks can abort an update (e.g. an expect_or_fail violation) and report the
+    # expectation with no failed_records. That is not a zero-failure pass, so it must
+    # produce neither an assertion nor a run event.
+    events = [
+        _event("u1", [{"name": "chk", "dataset": "orders", "passed_records": 5}]),
+    ]
+    extractor = _extractor(_FakeProxy(events=events))
+    wus = list(extractor.get_workunits())
+    assert _run_events(wus) == []
+    assert _aspect_names(wus).count("assertionInfo") == 0
+    assert extractor.report.num_pipeline_expectations_without_counts == 1
+    assert extractor.report.num_expectation_assertions_emitted == 0
 
 
 def test_sums_records_across_flow_progress_events_in_update() -> None:

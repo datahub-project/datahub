@@ -710,6 +710,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 dataset_urn_builder=self.gen_dataset_urn,
                 metastore=metastore_id,
                 resolve_ingested_ref=resolve_ingested_ref,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
             )
             yield from extractor.get_workunits()
 

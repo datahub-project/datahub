@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -32,17 +32,26 @@ class _ExpectationTotals:
     # query sums passed/failed across a single update, so we do the same.
     passed: int = 0
     failed: int = 0
+    # Whether any micro-batch in this update actually reported a failed_records count.
+    # Databricks can abort an update (e.g. an `expect_or_fail` violation) without
+    # writing counts, and a missing count must not be read as zero failures (a false
+    # pass) — so an update with no count produces no run event instead.
+    has_count: bool = False
     latest_ts_millis: int = 0
     # The expectation's action (ALLOW / DROP / FAIL) is constant across an update's
-    # micro-batches; keep the first one we see.
+    # micro-batches; keep the first one we see. Often absent from the event payload.
     action: Optional[str] = None
 
 
 @dataclass
-class _PipelineExpectations:
-    update_id: Optional[str] = None
-    # Keyed by (expectation dataset name, expectation name).
-    totals: Dict[Tuple[str, str], _ExpectationTotals] = field(default_factory=dict)
+class _WindowedExpectations:
+    # update_id -> {(dataset name, expectation name): totals}. Updates are kept in the
+    # order encountered (newest-first, as the event log returns them); dict preserves
+    # insertion order. One run event is emitted per update so faster-than-ingestion
+    # updates are not silently dropped.
+    updates: Dict[str, Dict[Tuple[str, str], _ExpectationTotals]] = field(
+        default_factory=dict
+    )
 
 
 class UnityCatalogPipelineExpectationsExtractor:
@@ -56,11 +65,20 @@ class UnityCatalogPipelineExpectationsExtractor:
         resolve_ingested_ref: Optional[
             Callable[[TableReference], Optional[TableReference]]
         ] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.proxy = proxy
         self.dataset_urn_builder = dataset_urn_builder
+        # Bound extraction to the same [start_time, end_time] window as usage and
+        # lineage. Events are newest-first, so once one older than start_time is seen
+        # paging stops — this also caps REST calls on continuous pipelines whose single
+        # long-running update would otherwise be paged to exhaustion. When unset (unit
+        # tests), the window is open and every returned event is considered.
+        self.start_time_millis = make_ts_millis(start_time) if start_time else None
+        self.end_time_millis = make_ts_millis(end_time) if end_time else None
         # Metastore id embedded in dataset URNs when `include_metastore` is on; the
         # assertion URN must resolve to the same dataset the connector published.
         self.metastore = metastore
@@ -115,9 +133,9 @@ class UnityCatalogPipelineExpectationsExtractor:
         catalog, schema = target
 
         try:
-            # get_pipeline_events pages lazily; aggregation consumes only up to the
-            # newest update, so the try must wrap the iteration, not just the call.
-            aggregated = self._aggregate_latest_update(
+            # get_pipeline_events pages lazily; aggregation consumes only back to the
+            # window start, so the try must wrap the iteration, not just the call.
+            aggregated = self._aggregate_window(
                 self.proxy.get_pipeline_events(pipeline_id)
             )
         except Exception as e:
@@ -134,106 +152,129 @@ class UnityCatalogPipelineExpectationsExtractor:
             )
             return
 
-        if aggregated.update_id is None:
-            return
+        yield from self._emit_expectations(pipeline_id, catalog, schema, aggregated)
 
-        for (dataset_name, expectation), totals in aggregated.totals.items():
-            self.report.num_pipeline_expectations_found += 1
-            yield from self._emit_expectation(
-                pipeline_id,
-                aggregated.update_id,
-                catalog,
-                schema,
-                dataset_name,
-                expectation,
-                totals,
-            )
-
-    def _aggregate_latest_update(
+    def _aggregate_window(
         self, events: Iterable[Dict[str, object]]
-    ) -> _PipelineExpectations:
-        # Events come back newest-first; the first expectation-bearing event fixes the
-        # update we report, and expectations from earlier updates are ignored. Because
-        # a single update's events are contiguous, the first event from an older update
-        # means we're done — stop, which also halts event-log pagination.
-        result = _PipelineExpectations()
+    ) -> _WindowedExpectations:
+        # Events come back newest-first. Aggregate every update whose events fall in the
+        # [start_time, end_time] window, summing an update's per-micro-batch snapshots.
+        # The first event older than start_time ends iteration (and, because the proxy
+        # pages lazily, stops further REST calls); events newer than end_time are
+        # skipped but paging continues back toward the window.
+        result = _WindowedExpectations()
         for event in events:
+            ts_millis = _parse_ts_millis(event.get("timestamp"))
+            if (
+                ts_millis is not None
+                and self.start_time_millis is not None
+                and ts_millis < self.start_time_millis
+            ):
+                break
             if event.get("event_type") != _FLOW_PROGRESS:
+                continue
+            if (
+                ts_millis is not None
+                and self.end_time_millis is not None
+                and ts_millis > self.end_time_millis
+            ):
                 continue
             expectations = _extract_expectations(event)
             if not expectations:
                 continue
             update_id = _extract_update_id(event)
-            if result.update_id is None:
-                result.update_id = update_id
-            if update_id != result.update_id:
-                break
+            if update_id is None:
+                continue
+            per_update = result.updates.setdefault(update_id, {})
 
-            ts_millis = _parse_ts_millis(event.get("timestamp"))
             for item in expectations:
                 dataset_name = str(item.get("dataset") or "")
                 expectation = str(item.get("name") or "")
                 if not dataset_name or not expectation:
                     continue
-                totals = result.totals.setdefault(
+                totals = per_update.setdefault(
                     (dataset_name, expectation), _ExpectationTotals()
                 )
                 totals.passed += _as_int(item.get("passed_records"))
-                totals.failed += _as_int(item.get("failed_records"))
-                totals.latest_ts_millis = max(totals.latest_ts_millis, ts_millis)
+                failed = item.get("failed_records")
+                if failed is not None:
+                    totals.failed += _as_int(failed)
+                    totals.has_count = True
+                totals.latest_ts_millis = max(totals.latest_ts_millis, ts_millis or 0)
                 action = item.get("action")
                 if action is not None and totals.action is None:
                     totals.action = str(action)
         return result
 
-    def _emit_expectation(
+    def _emit_expectations(
         self,
         pipeline_id: str,
-        update_id: str,
         catalog: str,
         schema: str,
-        dataset_name: str,
-        expectation: str,
-        totals: _ExpectationTotals,
+        aggregated: _WindowedExpectations,
     ) -> Iterable[MetadataWorkUnit]:
-        ref = _resolve_table_ref(dataset_name, catalog, schema, self.metastore)
-        if self.resolve_ingested_ref is not None:
-            # Build the URN from the ingested ref, not the event-log ref, so a casing
-            # difference between Lakeflow and the Unity Catalog API can't attach the
-            # assertion to a dataset that was never published.
-            ingested_ref = self.resolve_ingested_ref(ref)
-            if ingested_ref is None:
-                self.report.num_pipeline_expectation_datasets_filtered += 1
-                return
-            ref = ingested_ref
-        dataset_urn = self.dataset_urn_builder(ref)
-        assertion_urn = make_expectation_assertion_urn(
-            dataset_urn, pipeline_id, expectation
-        )
+        # Regroup by expectation: one assertion carries the run of every windowed
+        # update, keyed on the update id, so re-ingesting an overlapping window updates
+        # the same runs instead of duplicating assertions.
+        by_expectation: Dict[Tuple[str, str], List[Tuple[str, _ExpectationTotals]]] = {}
+        for update_id, per_update in aggregated.updates.items():
+            for key, totals in per_update.items():
+                by_expectation.setdefault(key, []).append((update_id, totals))
 
-        result = PipelineExpectationAssertion(
-            name=expectation,
-            pipeline_id=pipeline_id,
-            failed_records=totals.failed,
-            passed_records=totals.passed,
-            action=totals.action,
-            timestamp_millis=totals.latest_ts_millis,
-            run_id=update_id,
-            native_results={
-                "passed_records": str(totals.passed),
-                "failed_records": str(totals.failed),
-            },
-        )
+        emitted_assertions: Set[str] = set()
+        for (dataset_name, expectation), runs in by_expectation.items():
+            self.report.num_pipeline_expectations_found += 1
 
-        self.report.num_expectation_assertions_emitted += 1
-        yield build_expectation_info_mcp(
-            result, assertion_urn, dataset_urn
-        ).as_workunit()
+            ref = _resolve_table_ref(dataset_name, catalog, schema, self.metastore)
+            if self.resolve_ingested_ref is not None:
+                # Build the URN from the ingested ref, not the event-log ref, so a
+                # casing difference between Lakeflow and the Unity Catalog API can't
+                # attach the assertion to a dataset that was never published.
+                ingested_ref = self.resolve_ingested_ref(ref)
+                if ingested_ref is None:
+                    self.report.num_pipeline_expectation_datasets_filtered += 1
+                    continue
+                ref = ingested_ref
 
-        self.report.num_expectation_run_events_emitted += 1
-        yield build_expectation_run_event_mcp(
-            result, assertion_urn, dataset_urn
-        ).as_workunit()
+            # Drop updates that aborted without writing counts: a missing failed_records
+            # is not a zero-failure pass, so recording one would be a false green.
+            scored_runs = [(uid, t) for uid, t in runs if t.has_count]
+            if not scored_runs:
+                self.report.num_pipeline_expectations_without_counts += 1
+                continue
+
+            dataset_urn = self.dataset_urn_builder(ref)
+            assertion_urn = make_expectation_assertion_urn(
+                dataset_urn, pipeline_id, expectation
+            )
+
+            for update_id, totals in scored_runs:
+                result = PipelineExpectationAssertion(
+                    name=expectation,
+                    pipeline_id=pipeline_id,
+                    failed_records=totals.failed,
+                    passed_records=totals.passed,
+                    action=totals.action,
+                    timestamp_millis=totals.latest_ts_millis
+                    or make_ts_millis(datetime.now(timezone.utc)),
+                    run_id=update_id,
+                    native_results={
+                        "passed_records": str(totals.passed),
+                        "failed_records": str(totals.failed),
+                    },
+                )
+
+                if assertion_urn not in emitted_assertions:
+                    emitted_assertions.add(assertion_urn)
+                    self.report.num_expectation_assertions_emitted += 1
+                    yield build_expectation_info_mcp(
+                        result, assertion_urn, dataset_urn
+                    ).as_workunit()
+
+                self.report.num_expectation_run_events_emitted += 1
+                yield build_expectation_run_event_mcp(
+                    result, assertion_urn, dataset_urn
+                ).as_workunit()
 
 
 def _resolve_table_ref(
@@ -283,14 +324,17 @@ def _extract_update_id(event: Dict[str, object]) -> Optional[str]:
     return None
 
 
-def _parse_ts_millis(value: object) -> int:
+def _parse_ts_millis(value: object) -> Optional[int]:
+    # Returns None for a missing or unparseable timestamp so the caller can decide
+    # (the run event falls back to "now", while window filtering simply keeps the
+    # event rather than excluding it on an unknown time).
     if isinstance(value, str) and value:
         try:
             normalized = value.replace("Z", "+00:00")
             return make_ts_millis(datetime.fromisoformat(normalized))
         except ValueError:
             pass
-    return make_ts_millis(datetime.now(timezone.utc))
+    return None
 
 
 def _as_int(value: object) -> int:

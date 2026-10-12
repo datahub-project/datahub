@@ -1766,9 +1766,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         # Uses the raw REST endpoint rather than pipelines.list_pipeline_events()
         # because the typed SDK model drops the `details` payload that carries the
         # data-quality expectation metrics. Events come back newest-first and are
-        # yielded lazily so the caller can stop once it has consumed the newest
-        # update (which holds the current expectations) instead of draining the
-        # whole log — while never silently truncating it with a fixed page cap.
+        # yielded lazily so the caller can stop paging once events fall before its
+        # start_time window instead of draining the whole log — this bounds REST
+        # calls on continuous pipelines while never truncating with a fixed page cap.
         page_token: Optional[str] = None
         while True:
             query: Dict[str, Any] = {"max_results": 250}
