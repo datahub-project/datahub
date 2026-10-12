@@ -1493,16 +1493,12 @@ def test_database_resource_link_emits_owner_lineage_with_catalog_mapping():
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
         "consumer_inst.resource-link-test-database.transactions,PROD)"
     )
-    owner_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:glue,"
-        "owner_inst.test-database.transactions,PROD)"
-    )
     # The link keeps the ingesting catalog's instance rather than the owner's mapped instance,
     # so it can never collide with the owner's own dataset.
     assert {
         wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
     } == {link_urn}
-    assert _upstream_urns(wus, link_urn) == [owner_urn]
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
 
     properties = [
         aspect
@@ -1579,14 +1575,10 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
         "consumer_inst.test-database.transactions,PROD)"
     )
-    owner_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:glue,"
-        "owner_inst.test-database.transactions,PROD)"
-    )
     assert {
         wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
     } == {link_urn}
-    assert _upstream_urns(wus, link_urn) == [owner_urn]
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
     assert source.report.num_resource_link_self_referential == 0
 
 
