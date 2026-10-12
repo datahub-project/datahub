@@ -181,6 +181,34 @@ def test_clean_markdown_inline_and_reference_forms() -> None:
     )
 
 
+def test_documents_over_max_text_length_are_skipped_and_left_to_stale_removal() -> None:
+    runbook_length = len(
+        doc_info(run(make_source(build_fixture_service())), DOC_RUNBOOK).contents.text
+    )
+    source = make_source(build_fixture_service(), max_text_length=runbook_length - 1)
+    with mock.patch.object(
+        source.stale_entity_removal_handler, "add_entity_to_state"
+    ) as add_to_state:
+        aspects = run(source)
+
+    urn = make_document_urn(DOC_RUNBOOK)
+    assert "documentInfo" not in aspects.get(urn, {})
+    assert mock.call("document", urn) not in add_to_state.call_args_list
+    assert source.report.documents_skipped_too_long >= 1
+    assert any(
+        w.title == "Google Doc exceeds max_text_length" for w in source.report.warnings
+    )
+
+
+def test_tightening_max_text_length_reevaluates_unchanged_documents() -> None:
+    first = run(make_source(build_fixture_service()))
+    infos = {make_document_urn(DOC_RUNBOOK): doc_info(first, DOC_RUNBOOK)}
+
+    svc = build_fixture_service()
+    run(make_source(svc, graph=graph_returning(infos), max_text_length=10))
+    assert DOC_RUNBOOK in exported_ids(svc)
+
+
 def test_unchanged_document_is_skipped_but_kept_in_state() -> None:
     first = run(make_source(build_fixture_service()))
     infos = {

@@ -19,6 +19,7 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     documents_emitted: int = 0
     documents_skipped_unchanged: int = 0
     documents_skipped_empty: int = 0
+    documents_skipped_too_long: int = 0
     documents_export_failed: int = 0
     documents_html_fallback: int = 0
     documents_resurrected: int = 0

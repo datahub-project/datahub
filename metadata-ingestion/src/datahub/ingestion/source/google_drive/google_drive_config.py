@@ -109,6 +109,14 @@ class GoogleDriveSourceConfig(
         description="Skip Google Docs whose exported text is shorter than this many "
         "characters. 0 keeps every non-empty document.",
     )
+    max_text_length: int = Field(
+        default=1_000_000,
+        ge=0,
+        description="Skip Google Docs whose exported text (after images are replaced "
+        "with placeholders) is longer than this many characters. A skipped document "
+        "that was ingested earlier is soft-deleted by stale metadata removal. "
+        "0 disables the limit.",
+    )
     chunking: ChunkingConfig = Field(
         default_factory=ChunkingConfig,
         description="Configuration for document chunking (required for embeddings).",

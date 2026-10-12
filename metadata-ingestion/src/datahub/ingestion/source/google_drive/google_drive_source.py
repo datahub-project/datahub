@@ -220,6 +220,10 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 "create_root_documents": self.config.create_root_documents,
                 "extract_owners": self.config.extract_owners,
                 "platform_instance": self.config.platform_instance,
+                # Text-length limits decide whether a document is kept at all, so a
+                # tightened limit must re-evaluate documents that look unchanged.
+                "min_text_length": self.config.min_text_length,
+                "max_text_length": self.config.max_text_length,
             },
             sort_keys=True,
         )
@@ -376,6 +380,16 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             text
         ) < self.config.min_text_length:
             self.report.documents_skipped_empty += 1
+            return
+        if self.config.max_text_length and len(text) > self.config.max_text_length:
+            self.report.documents_skipped_too_long += 1
+            # Not registered in state, so a previously ingested copy is soft-deleted.
+            self.report.warning(
+                title="Google Doc exceeds max_text_length",
+                message="The document's exported text is longer than max_text_length "
+                "and was skipped.",
+                context=f"file_id={file.id}, title={file.name}, length={len(text)}",
+            )
             return
 
         embedding_workunits, embedding_ok, limit_error = self._embed(urn, file, text)

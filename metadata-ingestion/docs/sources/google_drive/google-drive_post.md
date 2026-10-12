@@ -44,6 +44,7 @@ On each run the connector lists every configured folder, then compares each Doc'
 - Docs with multiple tabs are ingested as a single Document. Each tab begins with its title as a heading.
 - Comments, suggestions, and some smart chips are not part of Google's Markdown export.
 - Google Drive refuses to export Docs larger than 10 MB. Those Docs are skipped with a warning.
+- Docs whose text is longer than `max_text_length` characters (default 1,000,000) are skipped with a warning. If such a Doc was ingested earlier, it is soft-deleted. Set `max_text_length: 0` to remove the limit.
 - Permissions are not mirrored. Anyone who can read the Document in DataHub can read its text, so choose roots whose audience matches your DataHub audience.
 - Files in shared drives have no owners, so they are ingested without ownership.
 - Each run lists every folder in scope. Unchanged Docs are not exported again.
