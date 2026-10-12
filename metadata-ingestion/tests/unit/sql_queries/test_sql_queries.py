@@ -26,8 +26,6 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-# ── Shared fixtures ──────────────────────────────────────────────────────
-
 
 @pytest.fixture
 def mock_graph():
@@ -96,9 +94,6 @@ def _lineage_line(idx=0):
             "downstream_tables": [f"db.schema.out_{idx}"],
         }
     )
-
-
-# ── QueryEntry tests ─────────────────────────────────────────────────────
 
 
 class TestQueryEntry:
@@ -536,9 +531,6 @@ class TestFileQueryLogReader:
         assert report.num_entries_failed == 1
 
 
-# ── Config tests ─────────────────────────────────────────────────────────
-
-
 class TestSqlQueriesSourceConfig:
     def test_incremental_lineage_default(self):
         config = SqlQueriesSourceConfig.model_validate(
@@ -590,9 +582,6 @@ class TestSqlQueriesSourceConfig:
             temp_table_patterns=["^temp_.*", "^tmp_\\d+$", ".*_staging$"],
         )
         assert len(config.temp_table_patterns) == 3
-
-
-# ── Source tests ──────────────────────────────────────────────────────────
 
 
 class TestSqlQueriesSource:
@@ -679,9 +668,6 @@ class TestSqlQueriesSource:
         source = SqlQueriesSource(pipeline_context, config)
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
-
-
-# ── Error handling tests ─────────────────────────────────────────────────
 
 
 class TestErrorHandling:
