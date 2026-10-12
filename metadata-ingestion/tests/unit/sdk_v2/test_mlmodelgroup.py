@@ -109,3 +109,12 @@ def test_client_get_mlmodelgroup_():
     assert result.created == now
     assert result.last_modified == now
     mock_entities.get.assert_called_once_with(group_urn)
+
+
+def test_mlmodelgroup_status_follows_platform_instance() -> None:
+    with_instance = MLModelGroup(id="g", platform="mlflow", platform_instance="inst")
+    names = [mcp.aspectName for mcp in with_instance.as_mcps()]
+    assert names[names.index("dataPlatformInstance") + 1] == "status"
+
+    without_instance = MLModelGroup(id="g", platform="mlflow")
+    assert "status" not in [mcp.aspectName for mcp in without_instance.as_mcps()]

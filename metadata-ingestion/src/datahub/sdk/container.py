@@ -98,6 +98,7 @@ class Container(
         # by platform instance apply to its later writes.
         if isinstance(container_key, ContainerKey):
             self._set_platform_instance(container_key.platform, container_key.instance)
+            self._set_status_after_platform_instance()
 
         # This needs to come before the other containerProperties setters to ensure
         # that the display name is registered.

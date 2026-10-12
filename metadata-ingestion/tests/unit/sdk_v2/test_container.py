@@ -1,12 +1,22 @@
 import pathlib
 from datetime import datetime, timezone
+from typing import List
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    auto_stale_entity_removal,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
+from datahub.metadata.schema_classes import StatusClass
 from datahub.metadata.urns import (
     ContainerUrn,
     CorpUserUrn,
@@ -154,3 +164,76 @@ def test_container_emits_data_platform_instance_first() -> None:
     )
 
     assert c.as_mcps()[0].aspectName == "dataPlatformInstance"
+
+
+def _aspect_names(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
+    return [mcp.aspectName or "" for mcp in mcps]
+
+
+def test_container_with_instance_emits_status_after_data_platform_instance() -> None:
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+    )
+
+    mcps = c.as_mcps()
+    assert _aspect_names(mcps)[:2] == ["dataPlatformInstance", "status"]
+    assert mcps[1].aspect == StatusClass(removed=False)
+
+
+def test_container_without_instance_emits_no_status() -> None:
+    c = Container(DatabaseKey(platform="snowflake", database="db"), display_name="db")
+
+    assert "status" not in _aspect_names(c.as_mcps())
+
+
+def test_container_keeps_its_own_status() -> None:
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+        extra_aspects=[StatusClass(removed=True)],
+    )
+
+    statuses = [mcp.aspect for mcp in c.as_mcps() if mcp.aspectName == "status"]
+    assert statuses == [StatusClass(removed=True)]
+
+
+def test_container_status_suppresses_auto_status_patch() -> None:
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+    )
+    wus = c.as_workunits()
+
+    with patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=True,
+    ):
+        out = list(AutoStatusAspectProcessor.create(MagicMock()).process(wus))
+
+    assert len(out) == len(wus)
+
+
+def test_container_status_cannot_undo_a_later_soft_delete() -> None:
+    # A soft delete from stale-entity removal is generated only after the
+    # source stream ends, so it always lands after the entity's own
+    # status(removed=False).
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+    )
+    soft_delete = MetadataChangeProposalWrapper(
+        entityUrn=str(c.urn), aspect=StatusClass(removed=True)
+    ).as_workunit()
+    handler = MagicMock()
+    handler.gen_removed_entity_workunits.return_value = [soft_delete]
+
+    out = list(auto_stale_entity_removal(handler, c.as_workunits()))
+
+    statuses = [
+        wu.metadata.aspect
+        for wu in out
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "status"
+    ]
+    assert statuses == [StatusClass(removed=False), StatusClass(removed=True)]

@@ -77,6 +77,7 @@ class MLModelGroup(
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.platform, platform_instance)
+        self._set_status_after_platform_instance()
 
         # Set MLModelGroupProperties aspect
         self._ensure_model_group_props(name=display_name or name)
