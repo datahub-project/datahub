@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.util.Optional;
 import org.testng.annotations.BeforeMethod;
@@ -16,11 +17,13 @@ import org.testng.annotations.Test;
 public class DataHubUsageEventTransformerTest {
   private DataHubUsageEventTransformer _transformer;
   private EntityHydrator _mockEntityHydrator;
+  private OperationContext mockOpContext;
   private final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @BeforeMethod
   public void setup() {
     _mockEntityHydrator = mock(EntityHydrator.class);
+    mockOpContext = mock(OperationContext.class);
     _transformer = new DataHubUsageEventTransformer(_mockEntityHydrator);
   }
 
@@ -28,7 +31,7 @@ public class DataHubUsageEventTransformerTest {
   public void testTransformDataHubUsageEventWithInvalidJson() {
     // Test with invalid JSON
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent("invalid json");
+        _transformer.transformDataHubUsageEvent(mockOpContext, "invalid json");
 
     // Should return empty optional when JSON is invalid
     assertFalse(result.isPresent());
@@ -42,7 +45,7 @@ public class DataHubUsageEventTransformerTest {
     usageEvent.put("actorUrn", "urn:li:corpuser:testUser");
 
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Should return empty optional when type is missing
     assertFalse(result.isPresent());
@@ -57,7 +60,7 @@ public class DataHubUsageEventTransformerTest {
     usageEvent.put("actorUrn", "urn:li:corpuser:testUser");
 
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Should return empty optional when type is invalid
     assertFalse(result.isPresent());
@@ -79,11 +82,12 @@ public class DataHubUsageEventTransformerTest {
     hydratedEntity.put("username", "testUser");
     hydratedEntity.put("fullName", "Test User");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedEntity));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedEntity));
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result
     assertTrue(result.isPresent());
@@ -106,7 +110,7 @@ public class DataHubUsageEventTransformerTest {
     assertEquals(transformedDoc.get("corp_user_fullName").asText(), "Test User");
 
     // Verify the entity hydrator was called correctly
-    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(actorUrn));
   }
 
   @Test
@@ -125,11 +129,12 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedEntity = OBJECT_MAPPER.createObjectNode();
     hydratedEntity.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedEntity));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedEntity));
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result
     assertTrue(result.isPresent());
@@ -154,14 +159,15 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedEntity = OBJECT_MAPPER.createObjectNode();
     hydratedEntity.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedEntity));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedEntity));
 
     // Capture current time for comparison
     long beforeTransform = Instant.now().toEpochMilli();
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     long afterTransform = Instant.now().toEpochMilli();
 
@@ -203,12 +209,14 @@ public class DataHubUsageEventTransformerTest {
     hydratedEntity.put("name", "testTable");
     hydratedEntity.put("platform", "hive");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
-    when(_mockEntityHydrator.getHydratedEntity(entityUrn)).thenReturn(Optional.of(hydratedEntity));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(entityUrn)))
+        .thenReturn(Optional.of(hydratedEntity));
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result
     assertTrue(result.isPresent());
@@ -221,8 +229,8 @@ public class DataHubUsageEventTransformerTest {
     assertEquals(transformedDoc.get("dataset_platform").asText(), "hive");
 
     // Verify the entity hydrator was called for both actor and entity
-    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
-    verify(_mockEntityHydrator).getHydratedEntity(entityUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(actorUrn));
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(entityUrn));
   }
 
   @Test
@@ -243,12 +251,14 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedActor = OBJECT_MAPPER.createObjectNode();
     hydratedActor.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
-    when(_mockEntityHydrator.getHydratedEntity(entityUrn)).thenReturn(Optional.empty());
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(entityUrn)))
+        .thenReturn(Optional.empty());
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result
     assertTrue(result.isPresent());
@@ -261,8 +271,8 @@ public class DataHubUsageEventTransformerTest {
     assertFalse(transformedDoc.has("dataset_platform"));
 
     // Verify the entity hydrator was called for both actor and entity
-    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
-    verify(_mockEntityHydrator).getHydratedEntity(entityUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(actorUrn));
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(entityUrn));
   }
 
   @Test
@@ -283,12 +293,14 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedActor = OBJECT_MAPPER.createObjectNode();
     hydratedActor.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
-    when(_mockEntityHydrator.getHydratedEntity(entityUrn)).thenReturn(Optional.empty());
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(entityUrn)))
+        .thenReturn(Optional.empty());
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result - should still produce a document even if entity doesn't exist
     assertTrue(result.isPresent());
@@ -300,8 +312,8 @@ public class DataHubUsageEventTransformerTest {
     assertFalse(transformedDoc.has("dataset_name"));
 
     // Verify the entity hydrator was called for both
-    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
-    verify(_mockEntityHydrator).getHydratedEntity(entityUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(actorUrn));
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(entityUrn));
   }
 
   @Test
@@ -321,17 +333,19 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedActor = OBJECT_MAPPER.createObjectNode();
     hydratedActor.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedActor));
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result - should still produce a document
     assertTrue(result.isPresent());
 
     // No call to hydrate the entity with unsupported type
-    verify(_mockEntityHydrator, never()).getHydratedEntity(entityUrn);
+    verify(_mockEntityHydrator, never())
+        .getHydratedEntity(any(OperationContext.class), eq(entityUrn));
   }
 
   @Test
@@ -349,11 +363,12 @@ public class DataHubUsageEventTransformerTest {
     ObjectNode hydratedActor = OBJECT_MAPPER.createObjectNode();
     hydratedActor.put("username", "testUser");
 
-    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(any(OperationContext.class), eq(actorUrn)))
+        .thenReturn(Optional.of(hydratedActor));
 
     // Transform the event
     Optional<DataHubUsageEventTransformer.TransformedDocument> result =
-        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+        _transformer.transformDataHubUsageEvent(mockOpContext, usageEvent.toString());
 
     // Verify result - should still produce a document
     assertTrue(result.isPresent());
@@ -363,7 +378,7 @@ public class DataHubUsageEventTransformerTest {
     assertTrue(transformedDoc.has("corp_user_username"));
 
     // Verify only the actor hydrator was called
-    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(any(OperationContext.class), eq(actorUrn));
     // No other hydrator calls
     verifyNoMoreInteractions(_mockEntityHydrator);
   }

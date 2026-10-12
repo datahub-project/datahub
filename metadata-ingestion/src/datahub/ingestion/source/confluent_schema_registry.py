@@ -39,7 +39,7 @@ class JsonSchemaWrapper:
     name: str
     subject: str
     content: str
-    references: List[Schema]
+    references: List[SchemaReference]
 
 
 class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
@@ -47,6 +47,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     Confluent Schema Registry implementation for DataHub.
     Handles schema retrieval and parsing from Confluent Schema Registry.
     """
+
+    @staticmethod
+    def _require_schema_str(schema: Schema, context: str) -> str:
+        if schema.schema_str is None:
+            raise ValueError(f"Schema string cannot be None for {context}")
+        return schema.schema_str
 
     def __init__(
         self, source_config: KafkaSourceConfig, report: KafkaSourceReport
@@ -133,14 +139,18 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     def get_schema_str_replace_confluent_ref_avro(
         self, schema: Schema, schema_seen: Optional[Set[str]] = None
     ) -> str:
+        schema_str_validated = self._require_schema_str(schema, "AVRO schema")
         if not schema.references:
-            return self._compact_schema(schema.schema_str)
+            return self._compact_schema(schema_str_validated)
 
         if schema_seen is None:
             schema_seen = set()
-        schema_str = self._compact_schema(schema.schema_str)
+        schema_str = self._compact_schema(schema_str_validated)
         for schema_ref in schema.references:
             ref_subject = schema_ref.subject
+            if not ref_subject:
+                logger.debug("Skipping AVRO schema reference with no subject")
+                continue
             if ref_subject in schema_seen:
                 continue
 
@@ -190,19 +200,25 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_seen = set()
 
         schema_ref: SchemaReference
-        for schema_ref in schema.references:
-            ref_subject: str = schema_ref.subject
+        for schema_ref in schema.references or []:
+            ref_subject = schema_ref.subject
+            if not ref_subject:
+                logger.debug("Skipping protobuf schema reference with no subject")
+                continue
             if ref_subject in schema_seen:
                 continue
             reference_schema: RegisteredSchema = (
                 self.schema_registry_client.get_latest_version(ref_subject)
             )
             schema_seen.add(ref_subject)
-            all_schemas.append(
-                ProtobufSchema(
-                    name=schema_ref.name, content=reference_schema.schema.schema_str
+            ref_name = schema_ref.name
+            ref_content = reference_schema.schema.schema_str
+            if not ref_name or ref_content is None:
+                logger.debug(
+                    "Skipping protobuf schema reference with missing name or schema string"
                 )
-            )
+                continue
+            all_schemas.append(ProtobufSchema(name=ref_name, content=ref_content))
         return all_schemas
 
     def get_schemas_from_confluent_ref_json(
@@ -218,20 +234,35 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_seen = set()
 
         schema_ref: SchemaReference
-        for schema_ref in schema.references:
-            ref_subject: str = schema_ref.subject
+        for schema_ref in schema.references or []:
+            ref_subject = schema_ref.subject
+            if not ref_subject:
+                logger.debug("Skipping JSON schema reference with no subject")
+                continue
             if ref_subject in schema_seen:
+                continue
+            ref_version = schema_ref.version
+            if ref_version is None:
+                logger.debug(
+                    "Skipping JSON schema reference with no version: %s", ref_subject
+                )
                 continue
             reference_schema: RegisteredSchema = (
                 self.schema_registry_client.get_version(
-                    subject_name=ref_subject, version=schema_ref.version
+                    subject_name=ref_subject, version=ref_version
                 )
             )
             schema_seen.add(ref_subject)
+            ref_name = schema_ref.name
+            if not ref_name:
+                logger.debug(
+                    "Skipping JSON schema reference with no name: %s", ref_subject
+                )
+                continue
             all_schemas.extend(
                 self.get_schemas_from_confluent_ref_json(
                     reference_schema.schema,
-                    name=schema_ref.name,
+                    name=ref_name,
                     subject=ref_subject,
                     schema_seen=schema_seen,
                 )
@@ -240,8 +271,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             JsonSchemaWrapper(
                 name=name,
                 subject=subject,
-                content=schema.schema_str,
-                references=schema.references,
+                content=self._require_schema_str(schema, f"JSON schema {name}"),
+                references=list(schema.references or []),
             )
         )
         return all_schemas
@@ -341,7 +372,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         imported_json_schemas: List[JsonSchemaWrapper] = (
             self.get_schemas_from_confluent_ref_json(schema, name=name, subject=subject)
         )
-        schema_dict = json.loads(schema.schema_str)
+        schema_dict = json.loads(
+            self._require_schema_str(schema, f"JSON schema {name}")
+        )
         reference_map = {}
         for imported_schema in imported_json_schemas:
             reference_schema = json.loads(imported_schema.content)
@@ -392,7 +425,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                             if is_key_schema
                             else f"{base_name}-value.proto"
                         ),
-                        schema.schema_str,
+                        schema.schema_str if schema.schema_str is not None else "",
                     ),
                     imported_schemas,
                     is_key_schema=is_key_schema,
@@ -460,9 +493,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         # Create the schemaMetadata aspect.
         if schema is not None or key_schema is not None:
             # create a merged string for the combined schemas and compute an md5 hash across
-            schema_as_string = (schema.schema_str if schema is not None else "") + (
-                key_schema.schema_str if key_schema is not None else ""
-            )
+            schema_as_string = (
+                schema.schema_str or "" if schema is not None else ""
+            ) + (key_schema.schema_str or "" if key_schema is not None else "")
             md5_hash = md5(schema_as_string.encode()).hexdigest()
 
             return SchemaMetadata(
@@ -471,7 +504,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema else "",
+                    documentSchema=(schema.schema_str or "") if schema else "",
                     documentSchemaType=schema.schema_type if schema else None,
                     keySchema=key_schema.schema_str if key_schema else None,
                     keySchemaType=key_schema.schema_type if key_schema else None,
@@ -498,9 +531,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         ):
             # Create a hash from both schemas
             value_schema_str = (
-                value_schema.schema_str if value_schema is not None else ""
+                value_schema.schema_str or "" if value_schema is not None else ""
             )
-            key_schema_str = key_schema.schema_str if key_schema is not None else ""
+            key_schema_str = (
+                key_schema.schema_str or "" if key_schema is not None else ""
+            )
             schema_as_string = value_schema_str + key_schema_str
             md5_hash = md5(schema_as_string.encode()).hexdigest()
 
@@ -510,7 +545,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=value_schema.schema_str if value_schema else "",
+                    documentSchema=value_schema.schema_str or ""
+                    if value_schema
+                    else "",
                     documentSchemaType=value_schema.schema_type
                     if value_schema
                     else None,
