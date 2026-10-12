@@ -184,7 +184,7 @@ class TestPostgresLineageExtractor:
         mock_connection.execute.side_effect = [
             mock_result_version,
             mock_result_extension,
-            DatabaseError("connection failed", None, None),
+            DatabaseError("connection failed", None, Exception("connection failed")),
         ]
 
         is_ready, message = lineage_extractor.check_prerequisites()
@@ -198,26 +198,24 @@ class TestPostgresLineageExtractor:
         )
 
         mock_result = MagicMock()
-        mock_result.__iter__.return_value = iter(
-            [
-                {
-                    "query_id": "12345",
-                    "query_text": "INSERT INTO target SELECT * FROM source",
-                    "execution_count": 100,
-                    "total_exec_time_ms": 5000.0,
-                    "user_name": "testuser",
-                    "database_name": "testdb",
-                },
-                {
-                    "query_id": "67890",
-                    "query_text": "CREATE TABLE new_table AS SELECT * FROM old_table",
-                    "execution_count": 5,
-                    "total_exec_time_ms": 1000.0,
-                    "user_name": "admin",
-                    "database_name": "testdb",
-                },
-            ]
-        )
+        mock_result.mappings.return_value = [
+            {
+                "query_id": "12345",
+                "query_text": "INSERT INTO target SELECT * FROM source",
+                "execution_count": 100,
+                "total_exec_time_ms": 5000.0,
+                "user_name": "testuser",
+                "database_name": "testdb",
+            },
+            {
+                "query_id": "67890",
+                "query_text": "CREATE TABLE new_table AS SELECT * FROM old_table",
+                "execution_count": 5,
+                "total_exec_time_ms": 1000.0,
+                "user_name": "admin",
+                "database_name": "testdb",
+            },
+        ]
         mock_connection.execute.return_value = mock_result
 
         queries = lineage_extractor.extract_query_history()

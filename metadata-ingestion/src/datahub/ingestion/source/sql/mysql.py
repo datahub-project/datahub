@@ -30,6 +30,8 @@ from sqlalchemy.pool import NullPool
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection, Engine
 
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
+
 from datahub.configuration.common import (
     AllowDenyPattern,
     HiddenFromDocs,
@@ -54,6 +56,7 @@ from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import ProbeEngineSettings
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -301,11 +304,8 @@ class MySQLProfilingConfig(ProfilingConfig):
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
-    def probe_prepare_engine(self, engine: Any) -> None:
-        # Without this, an AWS_IAM recipe cannot be probed at all: the password
-        # is a token injected per connection, so a bare create_engine() has no
-        # credential to connect with.
-        self.install_rds_iam_auth(engine)
+    def probe_engine_settings(self, budget: "QueryBudget") -> ProbeEngineSettings:
+        return self.with_rds_iam(super().probe_engine_settings(budget))
 
     profiling: MySQLProfilingConfig = Field(
         default_factory=MySQLProfilingConfig,
@@ -755,15 +755,17 @@ class MySQLSource(TwoTierSQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                """
-                SELECT ROUTINE_NAME AS name, 
-                    ROUTINE_DEFINITION AS definition, 
-                    EXTERNAL_LANGUAGE AS language
-                FROM information_schema.ROUTINES
-                WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = %s
-                """,
-                (schema,),
+                text(
+                    """
+                    SELECT ROUTINE_NAME AS name,
+                        ROUTINE_DEFINITION AS definition,
+                        EXTERNAL_LANGUAGE AS language
+                    FROM information_schema.ROUTINES
+                    WHERE ROUTINE_TYPE = 'PROCEDURE'
+                    AND ROUTINE_SCHEMA = :schema
+                    """
+                ),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)

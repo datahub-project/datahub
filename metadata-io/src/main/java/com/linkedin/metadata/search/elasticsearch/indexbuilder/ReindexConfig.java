@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -83,6 +84,7 @@ public class ReindexConfig {
   private final boolean enableIndexSettingsReindex;
   private final boolean enableStructuredPropertiesReindex;
   private final boolean enableStructuredPropertyTypeMismatchReindex;
+  private final boolean enableStructuredPropertyCopyToMismatchReindex;
   private final String version;
 
   /* Calculated */
@@ -121,6 +123,13 @@ public class ReindexConfig {
    * an existing field type.
    */
   private final boolean hasStructuredPropertyTypeMismatch;
+
+  /**
+   * True when a structured property field exists in both current and target mappings but the {@code
+   * copy_to} targets differ. Absent {@code copy_to} is an empty set. A put-mapping does not
+   * backfill already-copied values, so the difference requires a full reindex.
+   */
+  private final boolean hasStructuredPropertyCopyToMismatch;
 
   /**
    * True when the mapping diff contains new or modified fields that are NOT structured properties.
@@ -255,6 +264,10 @@ public class ReindexConfig {
     if (currentValue == null) {
       return false;
     }
+    if (ESIndexBuilder.REFRESH_INTERVAL.equals(settingKey)
+        && RefreshIntervalResolver.sameDuration(targetValue.toString(), currentValue)) {
+      return true;
+    }
     return Objects.equals(targetValue.toString(), currentValue);
   }
 
@@ -306,6 +319,10 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder hasStructuredPropertyTypeMismatch(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder hasStructuredPropertyCopyToMismatch(boolean ignored) {
       return this;
     }
 
@@ -455,6 +472,15 @@ public class ReindexConfig {
               super.name,
               mismatchedStructuredPropertyFields);
         }
+        Set<String> mismatchedStructuredPropertyCopyTo =
+            structuredPropertyCopyToMismatches(super.currentMappings, super.targetMappings);
+        super.hasStructuredPropertyCopyToMismatch = !mismatchedStructuredPropertyCopyTo.isEmpty();
+        if (super.hasStructuredPropertyCopyToMismatch) {
+          log.info(
+              "Index: {} - Structured property copy_to mismatch(es): {}",
+              super.name,
+              mismatchedStructuredPropertyCopyTo);
+        }
         // True when the only mapping change is adding structured properties.
         // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
         // SP stripped from mappingsDiff (dynamic=true, the common production case).
@@ -477,7 +503,8 @@ public class ReindexConfig {
             (onlySPInDiff || !super.requiresApplyMappings)
                 && super.hasNewStructuredProperty
                 && !super.hasRemovedStructuredProperty
-                && !super.hasStructuredPropertyTypeMismatch;
+                && !super.hasStructuredPropertyTypeMismatch
+                && !super.hasStructuredPropertyCopyToMismatch;
 
         // Detect new or modified non-structured-property fields that require DB backfill.
         // New fields: _reindex won't populate them (they didn't exist in the source index).
@@ -533,13 +560,19 @@ public class ReindexConfig {
                 "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                 super.name);
           }
-        } else if (super.hasRemovedStructuredProperty || super.hasStructuredPropertyTypeMismatch) {
+        } else if (super.hasRemovedStructuredProperty
+            || super.hasStructuredPropertyTypeMismatch
+            || super.hasStructuredPropertyCopyToMismatch) {
           boolean reindexForRemoval =
               super.hasRemovedStructuredProperty && super.enableStructuredPropertiesReindex;
           boolean reindexForTypeMismatch =
               super.hasStructuredPropertyTypeMismatch
                   && super.enableStructuredPropertyTypeMismatchReindex;
-          if (super.enableIndexMappingsReindex && (reindexForRemoval || reindexForTypeMismatch)) {
+          boolean reindexForCopyToMismatch =
+              super.hasStructuredPropertyCopyToMismatch
+                  && super.enableStructuredPropertyCopyToMismatchReindex;
+          if (super.enableIndexMappingsReindex
+              && (reindexForRemoval || reindexForTypeMismatch || reindexForCopyToMismatch)) {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
@@ -561,6 +594,14 @@ public class ReindexConfig {
                       + " Structured Property type-mismatch reindexing is DISABLED.",
                   super.name,
                   mismatchedStructuredPropertyFields);
+            }
+            if (super.hasStructuredPropertyCopyToMismatch
+                && !super.enableStructuredPropertyCopyToMismatchReindex) {
+              log.warn(
+                  "Index: {} - Structured Property copy_to mismatch(es) detected ({}), however"
+                      + " Structured Property copy_to reindexing is DISABLED.",
+                  super.name,
+                  mismatchedStructuredPropertyCopyTo);
             }
           }
         }
@@ -739,11 +780,56 @@ public class ReindexConfig {
     }
 
     /**
+     * Fields present in both current and target structured-property mappings whose {@code copy_to}
+     * targets differ. Absent {@code copy_to} is an empty set. A string and a one-element list of
+     * the same field name match.
+     */
+    private static Set<String> structuredPropertyCopyToMismatches(
+        Map<String, Object> current, Map<String, Object> target) {
+      Map<String, Object> currentFields = structuredPropertyFieldMappings(current);
+      Map<String, Object> targetFields = structuredPropertyFieldMappings(target);
+
+      Set<String> mismatches = new TreeSet<>();
+      for (Map.Entry<String, Object> currentEntry : currentFields.entrySet()) {
+        String field = currentEntry.getKey();
+        if (!targetFields.containsKey(field)) {
+          continue;
+        }
+        Set<String> currentCopyTo = extractCopyTo(currentEntry.getValue());
+        Set<String> targetCopyTo = extractCopyTo(targetFields.get(field));
+        if (!currentCopyTo.equals(targetCopyTo)) {
+          mismatches.add(
+              String.format("%s (current=%s, target=%s)", field, currentCopyTo, targetCopyTo));
+        }
+      }
+      return mismatches;
+    }
+
+    /**
      * Map of structured-property field ids (unversioned qualified-name keys and flattened versioned
      * paths) to their Elasticsearch {@code type}.
      */
     private static Map<String, String> structuredPropertyFieldTypes(Map<String, Object> mappings) {
       Map<String, String> fieldTypes = new HashMap<>();
+      structuredPropertyFieldMappings(mappings)
+          .forEach(
+              (field, mapping) -> {
+                String type = extractMappingType(mapping);
+                if (type != null) {
+                  fieldTypes.put(field, type);
+                }
+              });
+      return fieldTypes;
+    }
+
+    /**
+     * Structured-property field ids to their mapping objects. Unversioned keys are the qualified
+     * name. Versioned fields are flattened the same way {@link #structuredPropertyFieldTypes}
+     * historically walked them.
+     */
+    private static Map<String, Object> structuredPropertyFieldMappings(
+        Map<String, Object> mappings) {
+      Map<String, Object> fields = new LinkedHashMap<>();
 
       Map<String, Object> structuredPropertyFields =
           getOrDefault(
@@ -753,10 +839,7 @@ public class ReindexConfig {
         if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(entry.getKey())) {
           continue;
         }
-        String type = extractMappingType(entry.getValue());
-        if (type != null) {
-          fieldTypes.put(entry.getKey(), type);
-        }
+        fields.put(entry.getKey(), entry.getValue());
       }
 
       Map<String, Object> versionedMappings =
@@ -771,15 +854,32 @@ public class ReindexConfig {
 
       flattenStructuredPropertyMappings(
               Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .forEach(
-              entry -> {
-                String type = extractMappingType(entry.getValue());
-                if (type != null) {
-                  fieldTypes.put(entry.getKey(), type);
-                }
-              });
+          .forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
 
-      return fieldTypes;
+      return fields;
+    }
+
+    private static Set<String> extractCopyTo(@Nullable Object mapping) {
+      if (!(mapping instanceof Map)) {
+        return Set.of();
+      }
+      Object copyTo = ((Map<?, ?>) mapping).get(COPY_TO);
+      if (copyTo == null) {
+        return Set.of();
+      }
+      if (copyTo instanceof String stringCopyTo) {
+        return stringCopyTo.isBlank() ? Set.of() : Set.of(stringCopyTo);
+      }
+      if (copyTo instanceof Collection<?> copyToValues) {
+        Set<String> values = new TreeSet<>();
+        for (Object value : copyToValues) {
+          if (value != null && !value.toString().isBlank()) {
+            values.add(value.toString());
+          }
+        }
+        return values;
+      }
+      return Set.of();
     }
 
     /**

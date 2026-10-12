@@ -1,5 +1,5 @@
-import { CloseCircleFilled } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,6 @@ import { useUserContext } from '@app/context/useUserContext';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
-import { CommandK } from '@app/searchV2/CommandK';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
 import AutoCompleteItem from '@app/searchV2/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/searchV2/autoComplete/RecommendedOption';
@@ -26,6 +25,7 @@ import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
 import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { getCommandKShortcutLabel } from '@app/utils/checkIfMac';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { Button } from '@src/alchemy-components';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -98,12 +98,7 @@ const StyledSearchBar = styled(Input)<{
     }
 `;
 
-const ClearIcon = styled(CloseCircleFilled)`
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
+const ClearIcon = styled(XCircle).attrs({ weight: 'fill', size: 15 })``;
 
 const ViewSelectContainer = styled.div`
     color: ${(props) => props.theme.colors.textOnFillDefault};
@@ -204,6 +199,12 @@ export const SearchBar = ({
     const searchViewAll = useSearchViewAll();
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
+    const resolvedPlaceholder = showCommandK
+        ? t('searchBar.placeholderWithShortcut', {
+              message: placeholderText,
+              shortcut: getCommandKShortcutLabel(),
+          })
+        : placeholderText;
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -455,7 +456,7 @@ export const SearchBar = ({
                     >
                         <StyledSearchBar
                             bordered={false}
-                            placeholder={placeholderText}
+                            placeholder={resolvedPlaceholder}
                             onPressEnter={() => {
                                 handleSearch(
                                     filterSearchQuery(searchQuery || ''),
@@ -485,7 +486,7 @@ export const SearchBar = ({
                                 </>
                             }
                             ref={searchInputRef}
-                            suffix={<>{(showCommandK && !isFocused && <CommandK />) || null}</>}
+                            suffix={null}
                             $textColor={textColor}
                             $placeholderColor={placeholderColor}
                         />

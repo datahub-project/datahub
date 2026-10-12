@@ -23,6 +23,7 @@ dependencies {
     // stamped on ExecutionRequestInput. The `dataTemplate` configuration exposes the generated
     // Java classes; metadata-models has no dependency on this module, so no cycle.
     implementation project(path: ':metadata-models', configuration: 'dataTemplate')
+    api project(':li-utils')
 
     implementation externalDependency.slf4jApi
 

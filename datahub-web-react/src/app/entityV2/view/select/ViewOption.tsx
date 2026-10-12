@@ -1,4 +1,4 @@
-import CloseIcon from '@mui/icons-material/Close';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -57,8 +57,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     }
 `;
 
-const CloseIconStyle = styled(CloseIcon)`
-    font-size: 14px !important;
+const CloseIconStyle = styled(X).attrs({ size: 14 })`
     color: ${(props) => props.theme.colors.iconBrand};
 `;
 

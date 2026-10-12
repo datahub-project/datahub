@@ -10,6 +10,9 @@ github-actions:
   - added|modified: ".github/**/*.yaml"
 workflow-files:
   - added|modified: ".github/workflows/**"
+runner-labels:
+  - added|modified: ".github/workflows/**"
+  - added|modified: ".github/actions/**"
 workflow-validation:
   - ".github/workflows/**"
   - ".github/scripts/validate_post_workflow_list.py"

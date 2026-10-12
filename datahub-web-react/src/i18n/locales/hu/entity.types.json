@@ -137,6 +137,7 @@
     "document.linkRelatedTooltip": "Kapcsolódó eszközök vagy kontextusdokumentumok összekapcsolása",
     "document.name": "Dokumentum",
     "document.namePlural": "Dokumentumok",
+    "document.newDocumentPlaceholder": "Új dokumentum",
     "document.noChangeHistoryEmpty": "Még nincs módosítási előzmény!",
     "document.noContentPlaceholder": "Nincs tartalom",
     "document.previousVersionTitle": "Előző verzió",

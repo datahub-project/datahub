@@ -74,6 +74,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         hideBorder,
         uploadFileProps,
         fixedBottomToolbar,
+        belowToolbar,
         hideToolbar,
         compact,
     } = props;
@@ -162,7 +163,11 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                             <>
                                 {!hideToolbar && (
                                     <>
-                                        <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                        <Toolbar
+                                            styles={toolbarStyles}
+                                            fixedBottom={fixedBottomToolbar}
+                                            belowToolbar={belowToolbar}
+                                        />
                                         <CodeBlockToolbar />
                                         {!hideHighlightToolbar && <FloatingToolbar />}
                                         <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

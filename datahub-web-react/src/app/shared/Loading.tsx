@@ -1,6 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 const LoadingWrapper = styled.div<{
     $marginTop?: number;
@@ -15,9 +15,15 @@ const LoadingWrapper = styled.div<{
     width: ${({ $width }) => ($width !== undefined ? `${$width}px` : '100%')};
 `;
 
-const StyledLoading = styled(LoadingOutlined)<{ $height: number }>`
-    font-size: ${(props) => props.$height}px;
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const StyledLoading = styled(CircleNotch)<{ $height: number }>`
+    width: ${(props) => props.$height}px;
     height: ${(props) => props.$height}px;
+    animation: ${spin} 1s linear infinite;
 `;
 
 interface Props {

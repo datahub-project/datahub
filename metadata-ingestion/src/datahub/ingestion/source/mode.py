@@ -287,8 +287,7 @@ class ModeConfig(
             str(BIAssetSubTypes.MODE_QUERY),
         }
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first: reports and datasets are
         fetched only for spaces space_pattern keeps, and queries only for the
         reports report_pattern keeps."""

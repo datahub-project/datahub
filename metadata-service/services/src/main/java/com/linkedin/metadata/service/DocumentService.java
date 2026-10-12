@@ -2,16 +2,19 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.SemanticText;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.knowledge.DocumentContents;
@@ -32,13 +35,19 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -60,6 +69,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class DocumentService {
+
+  private static final String WILDCARD_QUERY = "*";
+  private static final String PARENT_DOCUMENT_FIELD = "parentDocument";
 
   private final SystemEntityClient entityClient;
 
@@ -183,6 +195,13 @@ public class DocumentService {
     if (entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
           String.format("Document with ID %s already exists", documentId));
+    }
+
+    if (parentDocumentUrn != null) {
+      if (documentUrn.equals(parentDocumentUrn)) {
+        throw new IllegalArgumentException("Cannot create a Document with itself as parent");
+      }
+      assertParentIsLive(opContext, parentDocumentUrn);
     }
 
     // Draft feature is not yet implemented in the UI
@@ -532,6 +551,18 @@ public class DocumentService {
   }
 
   /**
+   * Rejects a parent that was never stored or is soft-deleted. {@code includeSoftDelete=false}
+   * treats both as absent.
+   */
+  private void assertParentIsLive(@Nonnull OperationContext opContext, @Nonnull Urn parentUrn)
+      throws RemoteInvocationException {
+    if (!entityClient.exists(opContext, parentUrn, false)) {
+      throw new IllegalArgumentException(
+          String.format("Parent Document with URN %s does not exist", parentUrn));
+    }
+  }
+
+  /**
    * Moves a document to a different parent.
    *
    * @param opContext the operation context
@@ -555,12 +586,9 @@ public class DocumentService {
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Verify new parent exists if provided
+    // A missing or soft-deleted parent would make this document an orphan.
     if (newParentUrn != null) {
-      if (!entityClient.exists(opContext, newParentUrn)) {
-        throw new IllegalArgumentException(
-            String.format("Parent Document with URN %s does not exist", newParentUrn));
-      }
+      assertParentIsLive(opContext, newParentUrn);
 
       // Prevent moving document to itself
       if (documentUrn.equals(newParentUrn)) {
@@ -777,13 +805,26 @@ public class DocumentService {
   }
 
   /**
-   * Soft deletes a document by setting the Status aspect removed field to true.
+   * Soft deletes a document and every live document under it by setting {@code status.removed} to
+   * true. Deleting a document deletes its live subtree.
+   *
+   * <p>Authorization is checked on the root only. Descendant lookup uses system search privileges
+   * so drafts, unpublished documents, and documents hidden from global context are included. Status
+   * writes still use {@code opContext}, so the audit stamp stays the acting user.
+   *
+   * <p>{@code exists} includes soft-deleted rows. A retry of an already-removed root is not "does
+   * not exist"; the walk only sees documents that are still {@code removed=false}.
    *
    * @param opContext the operation context
    * @param documentUrn the document URN to soft delete
+   * @return the deleted URNs, root included, deepest first
+   * @throws DocumentDeleteLimitException when the live subtree exceeds {@link
+   *     DocumentDeleteResult#MAX_DESCENDANTS} or {@link DocumentDeleteResult#MAX_DEPTH}; nothing is
+   *     written
    * @throws Exception if deletion fails
    */
-  public void deleteDocument(
+  @Nonnull
+  public DocumentDeleteResult deleteDocument(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull SearchIndexMode indexMode)
@@ -791,21 +832,274 @@ public class DocumentService {
 
     DocumentAuthorizationUtils.assertCanDelete(opContext, documentUrn);
 
-    // Verify document exists
+    // Include soft-deleted rows. A missing key still throws; an already-removed root does not.
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Soft delete by setting Status aspect removed = true
-    final com.linkedin.common.Status status = new com.linkedin.common.Status();
-    status.setRemoved(true);
+    final OperationContext scrollContext = descendantScrollContext(opContext);
+    final List<Urn> deleteOrder = collectDeleteOrder(scrollContext, documentUrn);
 
-    final MetadataChangeProposal statusProposal =
-        buildProposal(documentUrn, Constants.STATUS_ASPECT_NAME, status, indexMode);
+    final Map<Urn, Status> storedStatus = loadStoredStatus(scrollContext, deleteOrder);
+    final List<MetadataChangeProposal> proposals = new ArrayList<>(deleteOrder.size());
+    for (Urn urn : deleteOrder) {
+      final Urn documentUrnToRemove = Objects.requireNonNull(urn);
+      final Status existing = storedStatus.get(documentUrnToRemove);
+      // Copy the stored aspect so lifecycleStage and lifecycleLastUpdated stay.
+      final Status status = existing == null ? new Status() : new Status(existing.data().copy());
+      status.setRemoved(true);
+      proposals.add(
+          buildProposal(documentUrnToRemove, Constants.STATUS_ASPECT_NAME, status, indexMode));
+    }
 
-    entityClient.ingestProposal(opContext, statusProposal, false);
-    log.debug("Soft deleted document {}", documentUrn);
+    // One call. JavaEntityClient partitions at the ingest batch size, deepest first so a failed
+    // later batch leaves the root live and a retry still finds the remaining removed=false nodes.
+    entityClient.batchIngestProposals(opContext, proposals, false);
+    final int descendantCount = deleteOrder.size() - 1;
+    log.debug("Soft deleted document {} and {} nested documents", documentUrn, descendantCount);
+    return new DocumentDeleteResult(deleteOrder, descendantCount);
+  }
+
+  /**
+   * Search flags for a live document subtree. Removed documents stay excluded. Hidden lifecycle
+   * stages stay included, and query rewrite stays off so {@code DocumentExpansionRewriter} cannot
+   * truncate the walk. Drafts and documents that opt out of global context are already returned:
+   * those filters are applied by GraphQL, not by this service-level scroll.
+   */
+  @Nonnull
+  public static OperationContext withLiveSubtreeSearchFlags(@Nonnull OperationContext opContext) {
+    return Objects.requireNonNull(
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setIncludeSoftDeleted(false)
+                    .setIncludeHiddenLifecycleStages(true)
+                    .setRewriteQuery(false)
+                    .setSkipCache(true)
+                    .setSkipHighlighting(true)
+                    .setSkipAggregates(true)));
+  }
+
+  /**
+   * Scroll context for descendant lookup. {@code isSystemAuth} is true only when the session actor
+   * is the system actor, so a user session has to be rebuilt on the context's system
+   * authentication. Search access control would otherwise drop documents the caller cannot read.
+   */
+  @Nonnull
+  private OperationContext descendantScrollContext(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return withLiveSubtreeSearchFlags(opContext);
+    }
+    final Authentication systemAuthentication =
+        Objects.requireNonNull(
+            opContext
+                .getSystemAuthentication()
+                .orElseThrow(
+                    () ->
+                        new IllegalStateException(
+                            "System authentication is required to collect documents for deletion")));
+    final OperationContext systemContext =
+        opContext.toBuilder()
+            .operationContextConfig(
+                Objects.requireNonNull(
+                    opContext.getOperationContextConfig().toBuilder()
+                        .allowSystemAuthentication(true)
+                        .build()))
+            .build(
+                systemAuthentication,
+                opContext.getSessionActorContext().isEnforceExistenceEnabled());
+    return withLiveSubtreeSearchFlags(systemContext);
+  }
+
+  /**
+   * Live descendants, deepest first, root last. A tree past either cap throws before any proposal
+   * is built. Visited URNs are deleted once, so a cycle or a diamond does not write twice.
+   */
+  @Nonnull
+  private List<Urn> collectDeleteOrder(@Nonnull OperationContext scrollContext, @Nonnull Urn root)
+      throws Exception {
+    final List<List<Urn>> levels = new ArrayList<>();
+    levels.add(new ArrayList<>(List.of(root)));
+    final Set<Urn> visited = new HashSet<>();
+    visited.add(root);
+
+    for (int depth = 0; ; depth++) {
+      // A non-empty level only exists when the previous pass found a new child.
+      if (depth > DocumentDeleteResult.MAX_DEPTH) {
+        throw deleteLimit(
+            root,
+            Objects.requireNonNull(
+                String.format("live subtree exceeds depth %s", DocumentDeleteResult.MAX_DEPTH)));
+      }
+
+      final List<Urn> nextLevel = new ArrayList<>();
+      final List<Urn> level = levels.get(depth);
+      for (int start = 0; start < level.size(); start += DocumentDeleteResult.SCROLL_PAGE_SIZE) {
+        final int end = Math.min(start + DocumentDeleteResult.SCROLL_PAGE_SIZE, level.size());
+        final List<Urn> parents = new ArrayList<>(level.subList(start, end));
+        nextLevel.addAll(scrollChildDocuments(scrollContext, parents, root, visited));
+      }
+      if (nextLevel.isEmpty()) {
+        break;
+      }
+      levels.add(nextLevel);
+    }
+
+    final List<Urn> deleteOrder = new ArrayList<>(visited.size());
+    for (int depth = levels.size() - 1; depth >= 0; depth--) {
+      deleteOrder.addAll(levels.get(depth));
+    }
+    return deleteOrder;
+  }
+
+  /**
+   * Direct children of {@code parents}. One scroll covers the whole chunk. A hit is kept when its
+   * stored {@code parentDocument} is one of {@code parents}: a stale index entry whose stored
+   * parent left this wave is skipped, and a child stored under another parent in the same wave is
+   * kept. Accepted children are added to {@code visited}. Another page is not requested once {@link
+   * DocumentDeleteResult#MAX_DESCENDANTS} new documents are already accepted.
+   */
+  @Nonnull
+  private List<Urn> scrollChildDocuments(
+      @Nonnull OperationContext scrollContext,
+      @Nonnull List<Urn> parents,
+      @Nonnull Urn root,
+      @Nonnull Set<Urn> visited)
+      throws Exception {
+    final Set<Urn> parentSet = new HashSet<>(parents);
+    final List<Urn> children = new ArrayList<>();
+    String scrollId = null;
+    do {
+      final ScrollResult page =
+          entityClient.scrollAcrossEntities(
+              scrollContext,
+              Objects.requireNonNull(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+              WILDCARD_QUERY,
+              buildParentDocumentsFilter(parents),
+              scrollId,
+              DocumentDeleteResult.SCROLL_KEEP_ALIVE,
+              null,
+              DocumentDeleteResult.SCROLL_PAGE_SIZE,
+              List.of());
+      if (page == null) {
+        throw new IllegalStateException(
+            String.format("Scroll for children of %s returned no result", parents));
+      }
+      final String nextScrollId = page.getScrollId();
+      final List<SearchEntity> entities = page.getEntities();
+      // An empty page that still carries a scroll id is a broken scroll, not the end of the tree.
+      if (entities == null || entities.isEmpty()) {
+        if (nextScrollId != null) {
+          throw new IllegalStateException(
+              String.format(
+                  "Scroll for children of %s returned an empty page with scroll id %s",
+                  parents, nextScrollId));
+        }
+        break;
+      }
+      final List<Urn> candidates = new ArrayList<>();
+      for (SearchEntity entity : entities) {
+        if (entity == null || entity.getEntity() == null) {
+          continue;
+        }
+        candidates.add(Objects.requireNonNull(entity.getEntity()));
+      }
+      if (!candidates.isEmpty()) {
+        final Map<Urn, EntityResponse> stored =
+            Objects.requireNonNull(
+                entityClient.batchGetV2(
+                    scrollContext,
+                    Constants.DOCUMENT_ENTITY_NAME,
+                    Objects.requireNonNull(new HashSet<>(candidates)),
+                    Set.of(Constants.DOCUMENT_INFO_ASPECT_NAME),
+                    false));
+        for (Urn candidate : candidates) {
+          final Urn child = Objects.requireNonNull(candidate);
+          final Urn storedParent = storedParent(stored.get(child));
+          // Storage decides membership. A child stored under another parent in this wave stays;
+          // one stored outside the wave was indexed here after it moved.
+          if (storedParent == null || !parentSet.contains(storedParent)) {
+            continue;
+          }
+          if (visited.contains(child)) {
+            continue;
+          }
+          if (visited.size() - 1 >= DocumentDeleteResult.MAX_DESCENDANTS) {
+            throw deleteLimit(
+                root,
+                Objects.requireNonNull(
+                    String.format(
+                        "live subtree exceeds %s descendants",
+                        DocumentDeleteResult.MAX_DESCENDANTS)));
+          }
+          visited.add(child);
+          children.add(child);
+        }
+      }
+      scrollId = nextScrollId;
+    } while (scrollId != null);
+    return children;
+  }
+
+  @Nullable
+  private static Urn storedParent(@Nullable EntityResponse response) {
+    if (response == null || response.getAspects() == null) {
+      return null;
+    }
+    final EnvelopedAspect aspect = response.getAspects().get(Constants.DOCUMENT_INFO_ASPECT_NAME);
+    if (aspect == null || aspect.getValue() == null) {
+      return null;
+    }
+    final DocumentInfo info = new DocumentInfo(aspect.getValue().data());
+    final ParentDocument parent = info.getParentDocument();
+    if (parent == null || !parent.hasDocument()) {
+      return null;
+    }
+    return parent.getDocument();
+  }
+
+  @Nonnull
+  private Map<Urn, Status> loadStoredStatus(
+      @Nonnull OperationContext scrollContext, @Nonnull List<Urn> urns) throws Exception {
+    final Map<Urn, Status> stored = new HashMap<>();
+    for (int start = 0; start < urns.size(); start += DocumentDeleteResult.SCROLL_PAGE_SIZE) {
+      final int end = Math.min(start + DocumentDeleteResult.SCROLL_PAGE_SIZE, urns.size());
+      final Map<Urn, EntityResponse> page =
+          Objects.requireNonNull(
+              entityClient.batchGetV2(
+                  scrollContext,
+                  Constants.DOCUMENT_ENTITY_NAME,
+                  Objects.requireNonNull(new HashSet<>(urns.subList(start, end))),
+                  Set.of(Constants.STATUS_ASPECT_NAME),
+                  false));
+      for (Map.Entry<Urn, EntityResponse> entry : page.entrySet()) {
+        final Urn urn = entry.getKey();
+        final Status status = statusFrom(entry.getValue());
+        if (urn != null && status != null) {
+          stored.put(urn, status);
+        }
+      }
+    }
+    return stored;
+  }
+
+  @Nullable
+  private static Status statusFrom(@Nullable EntityResponse response) {
+    if (response == null || response.getAspects() == null) {
+      return null;
+    }
+    final EnvelopedAspect aspect = response.getAspects().get(Constants.STATUS_ASPECT_NAME);
+    if (aspect == null || aspect.getValue() == null) {
+      return null;
+    }
+    return new Status(aspect.getValue().data());
+  }
+
+  @Nonnull
+  private DocumentDeleteLimitException deleteLimit(@Nonnull Urn rootUrn, @Nonnull String reason) {
+    log.warn("Refusing to delete document {}: {}", rootUrn, reason);
+    return new DocumentDeleteLimitException(rootUrn, reason);
   }
 
   /**
@@ -903,6 +1197,25 @@ public class DocumentService {
     return result;
   }
 
+  @Nonnull
+  private static Filter buildParentDocumentsFilter(@Nonnull List<Urn> parents) {
+    final StringArray values = new StringArray();
+    for (Urn parent : parents) {
+      values.add(Objects.requireNonNull(parent).toString());
+    }
+    final Criterion parentCriterion =
+        new Criterion()
+            .setField(PARENT_DOCUMENT_FIELD)
+            .setValues(values)
+            .setCondition(Condition.EQUAL);
+    return Objects.requireNonNull(
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(Collections.singletonList(parentCriterion))))));
+  }
+
   /**
    * Builds a filter for parent document.
    *
@@ -917,7 +1230,7 @@ public class DocumentService {
 
     final Criterion parentCriterion =
         new Criterion()
-            .setField("parentDocument")
+            .setField(PARENT_DOCUMENT_FIELD)
             .setValues(new StringArray(Collections.singletonList(parentDocumentUrn.toString())))
             .setCondition(Condition.EQUAL);
 

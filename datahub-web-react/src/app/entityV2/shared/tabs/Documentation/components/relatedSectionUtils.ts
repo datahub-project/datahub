@@ -81,7 +81,7 @@ export function combineAndSortRelatedItems(
  * @param options.onAddContext - Callback when Add Context is clicked
  * @param options.isContextDocumentsEnabled - Whether context documents feature is enabled
  * @param options.hasLinkPermissions - Whether user has permission to edit links
- * @param options.canCreateDocuments - Whether user has permission to create documents (manageDocuments platform privilege)
+ * @param options.canCreateDocuments - Whether the user can create Documents
  * @returns Array of menu items
  */
 export function createRelatedSectionMenuItems(options: {

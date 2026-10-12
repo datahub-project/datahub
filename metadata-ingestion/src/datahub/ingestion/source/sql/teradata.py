@@ -886,8 +886,9 @@ def optimized_get_columns(
         _report_table_missing_from_cache(self, schema, table_name)
         return []
 
+    is_view = td_table.object_type == "View"
     res: List[Any] = []
-    if td_table.object_type == "View" and not use_qvci:
+    if is_view and not use_qvci:
         if use_dbc_columns_for_views:
             # Attempt bulk dbc.ColumnsV fetch first. dbc.ColumnsV has ColumnType for views,
             # but columns defined as derived expressions (e.g., col1 + col2) will have
@@ -912,7 +913,9 @@ def optimized_get_columns(
                 )
                 col_info_list = []
                 for r in res:
-                    updated_column_info_dict = self._update_column_help_info(r._mapping)
+                    updated_column_info_dict = self._update_column_help_info(
+                        r._mapping, connection
+                    )
                     col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
                 res = col_info_list
         else:
@@ -923,7 +926,9 @@ def optimized_get_columns(
             )
             col_info_list = []
             for r in res:
-                updated_column_info_dict = self._update_column_help_info(r._mapping)
+                updated_column_info_dict = self._update_column_help_info(
+                    r._mapping, connection
+                )
                 col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
             res = col_info_list
     else:
@@ -941,7 +946,16 @@ def optimized_get_columns(
     # Ignore the non-functional column in a PTI table
     for row in res:
         try:
-            col_info = self._get_column_info(row)
+            # Volatile tables are session-scoped and never appear in the dbc
+            # views this reads from, and ART tables are not supported, so both
+            # flags are always False here.
+            col_info = self._get_column_info(
+                row,
+                is_volatile=False,
+                is_view=is_view,
+                is_art_table=False,
+                connection=connection,
+            )
             _strip_padded_nullable(row, col_info)
             _strip_padded_autoincrement(row, col_info)
 

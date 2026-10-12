@@ -1,12 +1,13 @@
 """Provide a minimal ``pkg_resources`` when setuptools>=82 has removed it.
 
-setuptools 82 dropped ``pkg_resources``, but the ``sqlalchemy-redshift`` and
-``sqlalchemy-cockroachdb`` dialects still ``import pkg_resources`` at load. This
-installs a ``sys.meta_path`` finder that resolves ``import pkg_resources`` to
+setuptools 82 dropped ``pkg_resources``. It was added for the
+``sqlalchemy-redshift`` and ``sqlalchemy-cockroachdb`` dialects, whose SQLAlchemy
+1.4-era releases ``import pkg_resources`` at load. Their SQLAlchemy 2.0 releases no
+longer do, but this finder is installed process-wide by ``import datahub``, so other
+packages in the same environment may rely on it too. Removing it therefore needs
+its own change and an ``updating-datahub.md`` entry. This installs a
+``sys.meta_path`` finder that resolves ``import pkg_resources`` to
 ``datahub.utilities.pkg_resources_shim``.
-
-Temporary: removable once ``sqlalchemy>=2`` unblocks pkg_resources-free dialect
-releases (see ``test_sqlalchemy_stays_below_2_until_shim_removed``).
 
 The finder is *appended* to ``sys.meta_path`` so the standard finders get first
 crack: a real ``pkg_resources`` always wins structurally, and the shim is a pure

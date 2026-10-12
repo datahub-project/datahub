@@ -38,7 +38,11 @@ public class OtelProxyControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     MetricUtils metricUtils = mock(MetricUtils.class);
     when(metricUtils.getRegistry()).thenReturn(meterRegistry);
-    return new OtelProxyController(httpClient, config, metricUtils);
+    return new OtelProxyController(
+        httpClient,
+        config,
+        metricUtils,
+        new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
   }
 
   private Http.Request mockOtlpRequest(byte[] body) {
@@ -158,20 +162,49 @@ public class OtelProxyControllerTest {
   }
 
   @Test
-  public void testReturnsServiceUnavailableWhenOverloaded() throws Exception {
+  public void testReturnsServiceUnavailableWhenOtelCapIsFull() throws Exception {
     HttpClient httpClient = mock(HttpClient.class);
-    // Never-completing forwards hold their permits, draining the bulkhead. Fired without get() (the
-    // returned future never completes for the ones that acquire a permit).
     doReturn(new CompletableFuture<HttpResponse<Void>>()).when(httpClient).sendAsync(any(), any());
 
     OtelProxyController controller = controller(httpClient, COLLECTOR);
-    // Well above the default in-flight limit so the bulkhead is saturated regardless of its value.
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < OtelProxyController.MAX_IN_FLIGHT; i++) {
       controller.exportTraces(mockOtlpRequest(new byte[] {1}));
     }
 
     assertEquals(503, statusOf(controller.exportTraces(mockOtlpRequest(new byte[] {1}))));
-    assertTrue(counter("otel_proxy_rejected_total", "reason", "overloaded") >= 1.0);
+    verify(httpClient, times(OtelProxyController.MAX_IN_FLIGHT)).sendAsync(any(), any());
+    assertEquals(1.0, counter("otel_proxy_rejected_total", "reason", "overloaded"));
+  }
+
+  @Test
+  public void testSharedBudgetRejectsWithoutConsumingTheOtelCap() throws Exception {
+    HttpClient httpClient = mock(HttpClient.class);
+    CompletableFuture<HttpResponse<Void>> pending = new CompletableFuture<>();
+    doReturn(pending).when(httpClient).sendAsync(any(), any());
+
+    ProxyAdmission admission = new ProxyAdmission(1, null);
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("otel.exporterOtlpEndpoint", COLLECTOR);
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
+    OtelProxyController controller =
+        new OtelProxyController(
+            httpClient, ConfigFactory.parseMap(configMap), metricUtils, admission);
+
+    CompletableFuture<Result> first = controller.exportTraces(mockOtlpRequest(new byte[] {1}));
+    assertEquals(503, statusOf(controller.exportTraces(mockOtlpRequest(new byte[] {1}))));
+    verify(httpClient, times(1)).sendAsync(any(), any());
+
+    pending.complete(responseWithStatus(200));
+    assertEquals(202, statusOf(first));
+
+    doReturn(CompletableFuture.completedFuture(responseWithStatus(200)))
+        .when(httpClient)
+        .sendAsync(any(), any());
+    for (int i = 0; i < OtelProxyController.MAX_IN_FLIGHT; i++) {
+      assertEquals(202, statusOf(controller.exportTraces(mockOtlpRequest(new byte[] {1}))));
+    }
+    verify(httpClient, times(1 + OtelProxyController.MAX_IN_FLIGHT)).sendAsync(any(), any());
   }
 
   @Test

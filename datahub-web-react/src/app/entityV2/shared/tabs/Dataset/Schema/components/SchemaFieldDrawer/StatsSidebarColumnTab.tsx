@@ -1,4 +1,3 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -52,8 +51,9 @@ const Section = styled.div`
     line-height: 24px;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
@@ -112,7 +112,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
     if (!fieldProfile) {
         return (
             <NoDataContainer>
-                <StyledIcon component={NoStatsAvailble} />
+                <NoStatsIcon />
                 <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );

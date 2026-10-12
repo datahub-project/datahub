@@ -16,7 +16,14 @@
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.builder.*"/>
             <!-- Container-free in-memory queue store tests. -->
             <package name="com.linkedin.metadata.queue.inmemory"/>
+            <!-- Container-free hybrid search unit tests: the other suite, which would run them,
+                 is unwired. -->
+            <package name="com.linkedin.metadata.search.hybrid"/>
         </packages>
+        <classes>
+            <!-- Container-free; its package otherwise runs only in the unwired es8 suite. -->
+            <class name="com.linkedin.metadata.search.elasticsearch.query.ESSearchDAOHybridTest"/>
+        </classes>
     </test>
 </suite>
 

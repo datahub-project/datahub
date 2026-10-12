@@ -9,6 +9,7 @@
 # serveAsset action requires a path string
 GET           /                                                               controllers.Application.index(path="index.html")
 
+# Deprecated for health probes. Use the management listener: /health/live and /health/ready.
 GET           /admin                                                          controllers.Application.healthcheck()
 GET           /health                                                         controllers.Application.healthcheck()
 GET           /config                                                         controllers.Application.appConfig()
