@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel
 
@@ -166,7 +166,3 @@ def build_assertion_run_event_mcp(
         ),
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)
-
-
-def all_check_specs() -> List[CheckSpec]:
-    return [COMMIT_FRESHNESS_CHECK, DAILY_ROW_COUNT_CHECK, TOTAL_ROW_COUNT_CHECK]

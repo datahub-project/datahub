@@ -85,6 +85,7 @@ def _extractor(proxy: _FakeProxy) -> UnityCatalogDataQualityExtractor:
 def _scan_row(
     *,
     table_id: str = "table-uuid",
+    event_time: datetime = SCAN_TIME,
     commit_freshness_status: Optional[str] = "Healthy",
     daily_row_count_status: Optional[str] = "Unhealthy",
     total_row_count_status: Optional[str] = "Healthy",
@@ -92,7 +93,7 @@ def _scan_row(
 ) -> Dict[str, object]:
     return {
         "table_id": table_id,
-        "event_time": SCAN_TIME,
+        "event_time": event_time,
         "commit_freshness_status": commit_freshness_status,
         "commit_freshness_error_code": commit_freshness_error_code,
         "commit_freshness_last_value": datetime(2026, 9, 11, 5, tzinfo=timezone.utc),
@@ -159,10 +160,6 @@ def test_build_info_mcp_is_native_and_fixed_title() -> None:
     assert ca.scope == DatasetAssertionScopeClass.DATASET_ROWS
     # Predicted bounds change per scan, so they must not be on the definition.
     assert ca.parameters is None
-
-
-def _run_event(result: AssertionRunEventClass) -> AssertionRunEventClass:
-    return result
 
 
 def test_build_run_event_row_count_vs_freshness_shape() -> None:
@@ -272,19 +269,27 @@ def test_extractor_skips_training_and_unknown() -> None:
 def test_extractor_definition_emitted_once_across_scans() -> None:
     rows = [
         _scan_row(),
-        _scan_row(),  # a later scan of the same table
+        _scan_row(event_time=datetime(2026, 9, 11, 18, tzinfo=timezone.utc)),
     ]
     extractor = _extractor(_FakeProxy(rows=rows))
     wus = list(extractor.get_workunits([_table()]))
-    info_count = sum(
-        1
-        for wu in wus
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, AssertionInfoClass)
-    )
+
+    info_count = 0
+    run_ids = []
+    for wu in wus:
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        if isinstance(aspect, AssertionInfoClass):
+            info_count += 1
+        elif isinstance(aspect, AssertionRunEventClass):
+            run_ids.append(aspect.runId)
+
     # 3 definitions total (not 6), 6 run events (3 checks x 2 scans).
     assert info_count == 3
     assert extractor.report.num_quality_run_events_emitted == 6
+    # Each scan has its own run id (derived from event_time), so the two scans
+    # append distinct runs rather than overwriting.
+    assert len(set(run_ids)) == 2
 
 
 def test_extractor_skips_rows_for_unknown_table() -> None:
