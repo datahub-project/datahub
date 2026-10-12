@@ -125,8 +125,9 @@ class ElasticsearchQuerySourceConfig(ConfigModel):
     )
     email_domain: Optional[str] = Field(
         None,
-        description="If set, bare user values are turned into CorpUser URNs as "
-        "'<user>@<email_domain>'.",
+        description="If set, bare user values are turned into CorpUser URNs by "
+        "appending '@' and this domain (e.g. a user value of 'alice' with "
+        "email_domain 'example.com' becomes alice@example.com).",
     )
     batch_size: int = Field(1000, description="Scroll batch size.")
     scroll_keepalive: str = Field(
@@ -444,8 +445,9 @@ class ElasticsearchQueryLogReader(QueryLogReader):
             from opensearchpy.helpers import scan
         except ImportError as e:
             raise ImportError(
-                "The Elasticsearch query source requires opensearch-py: "
-                "pip install 'acryl-datahub[sql-queries]'"
+                "The Elasticsearch query_source backend requires opensearch-py, "
+                "which is not installed by default. Install it with: "
+                "pip install 'acryl-datahub[elasticsearch]'"
             ) from e
 
         fm = self.config.field_mappings
