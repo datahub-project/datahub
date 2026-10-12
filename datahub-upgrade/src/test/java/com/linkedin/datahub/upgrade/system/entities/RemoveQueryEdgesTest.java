@@ -17,6 +17,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -58,7 +59,7 @@ public class RemoveQueryEdgesTest {
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
     when(mockIndexConvention.getIndexName(
-            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
+            eq(mockOpContext), eq(SearchComponent.GRAPH), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("test_graph_index");
 
     when(mockUpgradeContext.opContext()).thenReturn(mockOpContext);
@@ -165,6 +166,7 @@ public class RemoveQueryEdgesTest {
 
     when(mockEsWriteDAO.deleteByQuerySync(
             any(OperationContext.class),
+            eq(SearchComponent.GRAPH),
             any(String.class),
             any(QueryBuilder.class),
             eq(deleteConfig)))
@@ -184,6 +186,7 @@ public class RemoveQueryEdgesTest {
     verify(mockEsWriteDAO)
         .deleteByQuerySync(
             any(OperationContext.class),
+            eq(SearchComponent.GRAPH),
             indexCaptor.capture(),
             queryCaptor.capture(),
             eq(deleteConfig));
@@ -241,6 +244,7 @@ public class RemoveQueryEdgesTest {
 
     when(mockEsWriteDAO.deleteByQuerySync(
             any(OperationContext.class),
+            eq(SearchComponent.GRAPH),
             any(String.class),
             any(QueryBuilder.class),
             eq(deleteConfig)))
@@ -266,6 +270,7 @@ public class RemoveQueryEdgesTest {
     // Mock exception during delete
     when(mockEsWriteDAO.deleteByQuerySync(
             any(OperationContext.class),
+            eq(SearchComponent.GRAPH),
             any(String.class),
             any(QueryBuilder.class),
             eq(deleteConfig)))

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.requireIndexBuilder;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -140,11 +141,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             continue;
           }
 
-          ESIndexBuilder indexBuilder = findIndexBuilder(config.name());
-          if (indexBuilder == null) {
-            log.error("No index builder found for index: {}", config.name());
-            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-          }
+          ESIndexBuilder indexBuilder = requireIndexBuilder(config.name());
 
           // Fresh-install case: index doesn't exist yet. Delegate to buildIndex, which
           // short-circuits to
@@ -360,12 +357,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                 .collect(Collectors.toList());
 
         for (ReindexConfig config : configsNoReindex) {
-          ESIndexBuilder indexBuilder = findIndexBuilder(config.name());
-          if (indexBuilder != null) {
-            // Since these do not require reindexing this will just do the non-disruptive
-            // settings/mappings apply
-            indexBuilder.buildIndex(opContext, config);
-          }
+          ESIndexBuilder indexBuilder = requireIndexBuilder(config.name());
+          // Since these do not require reindexing this will just do the non-disruptive
+          // settings/mappings apply.
+          indexBuilder.buildIndex(opContext, config);
         }
 
         checkpoint(context, upgradeState, DataHubUpgradeState.SUCCEEDED);
@@ -540,24 +535,5 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       return new HashMap<>(prevResult.get().getResult());
     }
     return new HashMap<>();
-  }
-
-  private ESIndexBuilder findIndexBuilder(String indexName) {
-    for (ElasticSearchIndexed service : indexedServices) {
-      try {
-        List<ReindexConfig> configs = service.buildReindexConfigs(opContext, structuredProperties);
-        for (ReindexConfig config : configs) {
-          if (config.name().equals(indexName)) {
-            return service.getIndexBuilder();
-          }
-        }
-      } catch (Exception e) {
-        // Log the full exception: message-only logging turned a message-less
-        // UnsupportedOperationException into an undiagnosable "No index builder found"
-        // failure downstream.
-        log.warn("Error checking service for index {}", indexName, e);
-      }
-    }
-    return null;
   }
 }

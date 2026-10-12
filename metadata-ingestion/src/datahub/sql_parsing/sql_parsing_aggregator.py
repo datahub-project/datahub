@@ -120,6 +120,8 @@ class ObservedQuery:
 
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
+    # Emitted as queryProperties.customProperties on the Query entity.
+    custom_properties: Optional[Dict[str, str]] = None
 
 
 @dataclasses.dataclass
@@ -176,6 +178,7 @@ class QueryMetadata:
 
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+    custom_properties: Optional[Dict[str, str]] = None
 
     # When true, this query's lineage/operations are still recorded (so downstream
     # tables get UpstreamLineage aspects and Operation aspects), but the Query
@@ -255,6 +258,7 @@ class QueryMetadata:
             created=self.make_created_audit_stamp(),
             lastModified=self.make_last_modified_audit_stamp(),
             origin=self.origin.urn() if self.origin else None,
+            customProperties=self.custom_properties,
         )
 
 
@@ -333,6 +337,7 @@ class PreparsedQuery:
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+    custom_properties: Optional[Dict[str, str]] = None
 
     # When true, feed the usage aggregator so table-level stats (totalSqlQueries,
     # userCounts, etc.) still land, but skip emitting a Query entity and any
@@ -1015,6 +1020,7 @@ class SqlParsingAggregator(Closeable):
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
                 extra_info=observed.extra_info,
+                custom_properties=observed.custom_properties,
             ),
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
@@ -1112,8 +1118,10 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
+                custom_properties=parsed.custom_properties,
                 redacted_query_text=parsed.redacted_query_text,
-            )
+            ),
+            replace_custom_properties=True,
         )
 
         if not parsed.downstream:
@@ -1448,7 +1456,10 @@ class SqlParsingAggregator(Closeable):
         return parsed
 
     def _add_to_query_map(
-        self, new: QueryMetadata, merge_lineage: bool = False
+        self,
+        new: QueryMetadata,
+        merge_lineage: bool = False,
+        replace_custom_properties: bool = False,
     ) -> None:
         query_fingerprint = new.query_id
 
@@ -1460,6 +1471,12 @@ class SqlParsingAggregator(Closeable):
             current.formatted_query_string = new.formatted_query_string
             current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
             current.actor = new.actor or current.actor
+            # Unlike actor, the latest observation wins even when empty, so the result
+            # doesn't depend on whether earlier runs fell in the same ingestion window.
+            # Only callers that carry custom properties opt in; known lineage and view
+            # definitions never set them and must not wipe an observed query's.
+            if replace_custom_properties:
+                current.custom_properties = new.custom_properties
 
             if current.used_temp_tables and not new.used_temp_tables:
                 # If we see the same query again, but in a different session,

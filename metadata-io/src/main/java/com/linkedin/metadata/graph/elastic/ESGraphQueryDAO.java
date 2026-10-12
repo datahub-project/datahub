@@ -37,12 +37,9 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
     this.config = config;
 
     switch (client.getEngineType()) {
-      case ELASTICSEARCH_7:
-        this.delegate =
-            new GraphQueryElasticsearch7DAO(client, graphServiceConfig, config, metricUtils);
-        break;
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
+      case OPENSEARCH_3:
       case ELASTICSEARCH_9:
         this.delegate = new GraphQueryPITDAO(client, graphServiceConfig, config, metricUtils);
         break;

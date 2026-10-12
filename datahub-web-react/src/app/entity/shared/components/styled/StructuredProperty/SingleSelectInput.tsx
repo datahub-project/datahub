@@ -1,61 +1,83 @@
-import { Radio, Select } from 'antd';
-import React from 'react';
+import { SimpleSelect } from '@components';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+import { v4 as uuidv4 } from 'uuid';
 
-import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
+import { Radio } from '@components/components/Radio/Radio';
+
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { AllowedValue } from '@types';
 
-const StyledRadio = styled(Radio)`
-    display: block;
-    .ant-radio-inner {
-        border-color: ${(props) => props.theme.colors.border};
-    }
+const Options = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 `;
 
-const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left', fontSize: '14px' };
-// antd Select API value (which option prop to render as the label); not user-visible text.
-const OPTION_LABEL_PROP_VALUE = 'value';
+const Option = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+`;
 
-interface Props {
-    selectedValues: any[];
+type Props = {
+    selectedValues: (string | number | null)[];
     allowedValues: AllowedValue[];
     selectSingleValue: (value: string | number) => void;
-}
+};
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
     const { t } = useTranslation('entityV1.shared.components');
+    const [groupName] = useState(() => `structured-property-${uuidv4()}`);
+    const options = allowedValues.flatMap((allowedValue) => {
+        const value = getStructuredPropertyValue(allowedValue.value);
+        return value === null
+            ? []
+            : [
+                  {
+                      value: String(value),
+                      label: String(value),
+                      description: allowedValue.description ?? undefined,
+                      originalValue: value,
+                  },
+              ];
+    });
+
     return allowedValues.length > 5 ? (
-        <Select
-            style={DROPDOWN_STYLE as any}
+        <SimpleSelect
+            width="full"
             placeholder={t('structuredProperty.selectPlaceholder')}
-            value={selectedValues}
-            onSelect={(value) => selectSingleValue(value)}
-            optionLabelProp={OPTION_LABEL_PROP_VALUE}
-        >
-            {allowedValues.map((allowedValue) => (
-                <Select.Option value={getStructuredPropertyValue(allowedValue.value)}>
-                    <DropdownLabel
-                        value={getStructuredPropertyValue(allowedValue.value)}
-                        description={allowedValue.description}
-                    />
-                </Select.Option>
-            ))}
-        </Select>
+            showSearch
+            values={selectedValues.map(String)}
+            options={options}
+            showDescriptions
+            sortSelectedFirst={false}
+            showClear={false}
+            dataTestId="structured-property-single-select"
+            onUpdate={(values) => {
+                const selected = options.find((option) => option.value === values?.[0]);
+                if (selected) selectSingleValue(selected.originalValue);
+            }}
+        />
     ) : (
-        <Radio.Group value={selectedValues[0]} onChange={(e) => selectSingleValue(e.target.value)}>
-            {allowedValues.map((allowedValue) => (
-                <StyledRadio
-                    key={getStructuredPropertyValue(allowedValue.value)}
-                    value={getStructuredPropertyValue(allowedValue.value)}
-                >
-                    {getStructuredPropertyValue(allowedValue.value)}
-                    {allowedValue.description && <ValueDescription description={allowedValue.description} />}
-                </StyledRadio>
+        <Options role="radiogroup" aria-label={t('structuredProperty.selectPlaceholder')}>
+            {options.map((option) => (
+                <Option key={option.value}>
+                    <Radio
+                        label={option.label}
+                        value={option.value}
+                        name={groupName}
+                        isChecked={selectedValues.map(String).includes(option.value)}
+                        setIsChecked={(isChecked) => {
+                            if (isChecked) selectSingleValue(option.originalValue);
+                        }}
+                    />
+                    {option.description && <ValueDescription description={option.description} />}
+                </Option>
             ))}
-        </Radio.Group>
+        </Options>
     );
 }

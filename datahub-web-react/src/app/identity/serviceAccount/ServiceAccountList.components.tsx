@@ -108,7 +108,7 @@ const EllipsisText = styled(Text)`
     display: block;
 `;
 
-export const EmptyStateContainer = styled.div`
+const EmptyStateContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -143,7 +143,7 @@ type ServiceAccountDescriptionCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
     const { t } = useTranslation('entity.identity');
 
     if (!serviceAccount.description) {
@@ -209,7 +209,7 @@ type ServiceAccountDefaultViewCellProps = {
     onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
 };
 
-export const ServiceAccountDefaultViewCell = ({
+const ServiceAccountDefaultViewCell = ({
     serviceAccount,
     viewOptions,
     onDefaultViewChange,

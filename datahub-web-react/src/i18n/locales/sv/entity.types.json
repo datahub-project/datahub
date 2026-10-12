@@ -137,6 +137,7 @@
     "document.linkRelatedTooltip": "Länka relaterade tillgångar eller kontextdokument",
     "document.name": "Dokument",
     "document.namePlural": "Dokument",
+    "document.newDocumentPlaceholder": "Nytt dokument",
     "document.noChangeHistoryEmpty": "Ingen ändringshistorik än!",
     "document.noContentPlaceholder": "Inget innehåll",
     "document.previousVersionTitle": "Föregående version",

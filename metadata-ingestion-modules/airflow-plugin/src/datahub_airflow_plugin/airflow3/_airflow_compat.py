@@ -39,6 +39,23 @@ except Exception:
     extract_bigquery_insert_job_operator = True
     extract_teradata_operator = True
 
+# The common-sql completion guard is not gated on enable_extractors: the duplicate
+# provider-side event emission it prevents happens whenever the DataHub listener runs
+# alongside Airflow's OpenLineage provider, patches or no patches. It must be
+# installed before the operator-specific patches below, which capture their original
+# method by MRO lookup -- a guard added afterwards would be shadowed by the subclass
+# entry they install and would never run.
+try:
+    from datahub_airflow_plugin.airflow3._sql_operator_complete_patch import (
+        patch_sql_execute_query_operator,
+    )
+
+    patch_sql_execute_query_operator()
+except ImportError as e:
+    logger.debug(f"common-sql completion guard not applied: {e}")
+except Exception as e:
+    logger.warning(f"Failed to apply common-sql completion guard: {e}", exc_info=True)
+
 # Only apply patches if extractors are enabled
 if enable_extractors:
     # Airflow 3.0+ SQLParser patch

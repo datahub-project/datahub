@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   spark-smoke-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Fail fast instead of hanging toward the 6h default: the docker-based smoke test (quickstart +
     # Spark image build + spark-submit) has stalled for >1h on flaky network fetches during image
     # builds. A bounded timeout turns such stalls into a quick, actionable red.
@@ -99,7 +99,7 @@ jobs:
           docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
           docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
           docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
-          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs search >& search-${{ matrix.test_strategy }}.log || true
           docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

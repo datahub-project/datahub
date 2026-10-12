@@ -68,6 +68,10 @@ public class GroupService implements ActorGroupMembershipService {
           ROLE_MEMBERSHIP_ASPECT_NAME);
   private static final int GROUP_MEMBER_PAGE_SIZE = 1000;
   private static final String GROUP_MEMBER_SCROLL_KEEP_ALIVE = "5m";
+  // Legacy IsMemberOfGroup edges come from GraphClient, which offers offset paging only.
+  private static final int LEGACY_GROUP_MEMBER_PAGE_SIZE = 500;
+  // Elasticsearch caps both max_result_window and exact hit counts at 10k by default.
+  private static final int MAX_GROUP_MEMBERS_TO_MIGRATE = 10_000;
   // Members are looked up in chunks so the edge query stays a bounded terms lookup regardless of
   // how many users a single request names.
   private static final int MEMBER_EDGE_LOOKUP_CHUNK_SIZE = 500;
@@ -383,21 +387,20 @@ public class GroupService implements ActorGroupMembershipService {
   }
 
   /**
-   * Strips {@code groupUrn} from each listed user's {@code nativeGroupMembership}.
+   * Revokes membership held through <em>either</em> aspect. Members of an unmigrated group hold
+   * only {@code groupMembership}, so stripping just {@code nativeGroupMembership} would report
+   * success and leave them in the group.
    *
-   * <p>Best-effort by contract: one aspect read plus one synchronously indexed write per user,
-   * sequentially, with no batching, retry, or durable record of what remains. A caller that runs
-   * this outside the request thread — {@code RemoveGroupResolver} does, after a group delete — can
-   * lose the remainder of the list to a GMS restart mid-loop. The backstop is the repair in {@link
-   * #addUsersToNativeGroup}: a member left with a stale reference has it cleaned up the next time
-   * they are added to a group with that urn. Making the sweep resumable is worthwhile but out of
-   * scope here.
+   * <p>Best-effort: one batched read and one batched synchronously indexed write, with no retry.
+   * The entity client partitions a large batch, so a failure part-way through leaves earlier
+   * members removed. The backstop is the repair in {@link #addUsersToNativeGroup}.
    *
    * <p>This is the explicit "remove these members" path, which applies the list unconditionally.
    * Cleanup after a group delete goes through {@link #removeStaleNativeGroupMembership} instead,
    * because there the list predates the delete and may since have been legitimately restored.
+   * {@link #removeExistingGroupMembers} is migration-internal and revokes only the legacy aspect.
    */
-  public void removeExistingNativeGroupMembers(
+  public void removeGroupMembers(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> userUrnList)
@@ -405,16 +408,37 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(
+            opContext,
+            userUrns,
+            Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final NativeGroupMembership nativeGroupMembership =
-          loadNativeGroupMembershipForUpdate(opContext, userUrn);
+      final EntityResponse entityResponse = entityResponses.get(userUrn);
+
+      final NativeGroupMembership nativeGroupMembership = toNativeGroupMembership(entityResponse);
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
       }
+
+      final GroupMembership groupMembership = toGroupMembership(entityResponse);
+      if (groupMembership.getGroups().remove(groupUrn)) {
+        proposals.add(
+            buildSynchronousMetadataChangeProposal(
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
+      }
+    }
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
     }
   }
 
@@ -434,10 +458,10 @@ public class GroupService implements ActorGroupMembershipService {
    * nobody re-added, and because authorization reads this aspect rather than the graph, each of
    * them keeps the recreated group's privileges while appearing in no member list at all.
    *
-   * <p>Best-effort by contract, like {@link #removeExistingNativeGroupMembers}: the caller has
-   * already reported the delete itself as successful, so no failure here is surfaced. Unlike that
-   * method, aspect reads and writes are batched, and one failing batch does not abandon the rest of
-   * the captured list.
+   * <p>Best-effort by contract, like {@link #removeGroupMembers}: the caller has already reported
+   * the delete itself as successful, so no failure here is surfaced. Unlike that method, the
+   * captured list is partitioned into fixed-size batches and one failing batch does not abandon the
+   * rest.
    */
   public void removeStaleNativeGroupMembership(
       @Nonnull OperationContext opContext,
@@ -534,11 +558,13 @@ public class GroupService implements ActorGroupMembershipService {
       throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    // Get the existing set of users. This list is graph-derived, so it may still name users who
-    // no longer exist in SQL (e.g. a deleted corpuser whose IsMemberOfGroup edge is stale).
-    // addUsersToNativeGroup rejects the whole batch if any URN is absent, so those stale URNs
-    // must be filtered out before removeExistingGroupMembers commits anything - otherwise one
-    // stale edge would empty the group's membership entirely.
+    // Runs inline in the resolvers, so a timeout or disconnect can interrupt it. Step order keeps
+    // that recoverable: the member list comes from graph edges derived from GroupMembership, so
+    // grant native membership before revoking it, and write Origin last - a set Origin disables
+    // the resolvers' retry guard for good.
+    //
+    // Graph edges outlive a hard-deleted user, and addUsersToNativeGroup rejects the whole batch
+    // if any URN is absent, so filter stale URNs out before committing anything.
     final List<Urn> graphDerivedUserUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
     final Set<Urn> existingUserUrns =
         _entityService.exists(opContext, new LinkedHashSet<>(graphDerivedUserUrnList), true);
@@ -561,12 +587,9 @@ public class GroupService implements ActorGroupMembershipService {
           staleUserUrns);
     }
 
-    // Remove the existing group membership for each (still-existing) user in the group
-    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
-    // Mark the group as a native group
-    createNativeGroupOrigin(opContext, groupUrn);
-    // Add each user as a native group member to the group
     addUsersToNativeGroup(opContext, userUrnList, groupUrn);
+    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
+    createNativeGroupOrigin(opContext, groupUrn);
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(
@@ -645,17 +668,48 @@ public class GroupService implements ActorGroupMembershipService {
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    final EntityRelationships relationships =
-        _graphClient.getRelatedEntities(
-            groupUrn.toString(),
-            ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
-            RelationshipDirection.INCOMING,
-            0,
-            500,
-            actorUrnStr);
-    return relationships.getRelationships().stream()
-        .map(EntityRelationship::getEntity)
-        .collect(Collectors.toList());
+    final List<Urn> memberUrns = new ArrayList<>();
+    int start = 0;
+    // Guard on the end of the window, not its start: Elasticsearch rejects a request whose
+    // from + size exceeds max_result_window outright, so a page size that does not divide the
+    // ceiling would fail the migration instead of truncating it.
+    while (start + LEGACY_GROUP_MEMBER_PAGE_SIZE <= MAX_GROUP_MEMBERS_TO_MIGRATE) {
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              groupUrn.toString(),
+              ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              start,
+              LEGACY_GROUP_MEMBER_PAGE_SIZE,
+              actorUrnStr);
+
+      final List<Urn> page =
+          relationships.getRelationships().stream()
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toList());
+      memberUrns.addAll(page);
+
+      // A short page means the graph is genuinely exhausted.
+      if (page.size() < LEGACY_GROUP_MEMBER_PAGE_SIZE) {
+        return memberUrns;
+      }
+      // getTotal() saturates at the same 10k cap, so it only proves completeness below that cap.
+      final int total = relationships.getTotal();
+      if (total < MAX_GROUP_MEMBERS_TO_MIGRATE && memberUrns.size() >= total) {
+        return memberUrns;
+      }
+      start += page.size();
+    }
+
+    // Members past the ceiling keep a legacy aspect that still grants and can still be revoked,
+    // so warn rather than fail the migration.
+    log.warn(
+        "Group {} has at least {} members; migrating only the first {}. Remaining members keep the"
+            + " legacy groupMembership aspect.",
+        groupUrn,
+        MAX_GROUP_MEMBERS_TO_MIGRATE,
+        memberUrns.size());
+    return memberUrns;
   }
 
   /**
@@ -771,37 +825,26 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(opContext, userUrns, Set.of(GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final GroupMembership groupMembership = loadGroupMembershipForUpdate(opContext, userUrn);
+      final GroupMembership groupMembership = toGroupMembership(entityResponses.get(userUrn));
       if (groupMembership.getGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
       }
     }
-  }
-
-  private NativeGroupMembership loadNativeGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) throws Exception {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext,
-                Collections.singleton(userUrn),
-                Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toNativeGroupMembership(entityResponse);
-  }
-
-  private GroupMembership loadGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn)
-      throws RemoteInvocationException, URISyntaxException {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext, Collections.singleton(userUrn), Set.of(GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toGroupMembership(entityResponse);
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
+    }
   }
 
   private NativeGroupMembership toNativeGroupMembership(@Nullable EntityResponse entityResponse) {

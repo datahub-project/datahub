@@ -67,8 +67,8 @@ export class PoliciesPage extends BaseSettingsPage {
     this.tagConditionSelect = page.getByTestId('condition-TAG-base');
     this.domainConditionSelect = page.getByTestId('condition-DOMAIN-base');
     this.containerConditionSelect = page.getByTestId('condition-CONTAINER-base');
-    // Policy deletion uses Ant Design's Modal.confirm, which renders a plain "Yes" button
-    this.confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
+    // Policy deletion uses ConfirmationModal component with testid-based button selector
+    this.confirmButton = page.getByTestId('modal-confirm-button');
   }
 
   async navigate(): Promise<void> {

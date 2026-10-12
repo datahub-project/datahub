@@ -1,5 +1,5 @@
 import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

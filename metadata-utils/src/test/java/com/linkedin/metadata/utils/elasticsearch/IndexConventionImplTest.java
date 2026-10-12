@@ -1,16 +1,24 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 import static org.apache.commons.codec.digest.DigestUtils.sha256Hex;
 import static org.testng.Assert.*;
 
 import com.datahub.context.Enrichment;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.testng.annotations.Test;
@@ -499,6 +507,116 @@ public class IndexConventionImplTest {
     assertEquals(
         indexConvention.getEntityIndexName(operationWithPrefix("t0"), "dataset"),
         "t0_datasetindex_v2");
+  }
+
+  @Test
+  public void testComponentOverlayPrefixDoesNotOverrideResolverWhenBlank() {
+    EntityIndexConfiguration entityIndexConfiguration =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .build();
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder()
+            .clusters(
+                Map.of(
+                    "primary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search:9200")
+                        .index(SearchClusterIndexSettings.builder().prefix("").build())
+                        .build()))
+            .index(IndexConfiguration.builder().prefix("prod").build())
+            .build();
+    assertTrue(IndexConventionImpl.explicitComponentPrefixOverlays(esConfig).isEmpty());
+
+    IndexConvention convention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("prod"),
+            entityIndexConfiguration,
+            IndexConventionImpl.explicitComponentPrefixOverlays(esConfig));
+    assertEquals(convention.getEntityIndexName(OP, "dataset"), "prod_datasetindex_v2");
+    assertEquals(convention.getEntityIndexNameV3(OP, "dataset"), "prod_datasetindex_v3");
+  }
+
+  @Test
+  public void testComponentOverlayPrefixAppliesPerFamily() {
+    EntityIndexConfiguration entityIndexConfiguration =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .build();
+    IndexConvention convention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("prod"),
+            entityIndexConfiguration,
+            Map.of(
+                SearchComponent.SEARCH_V2,
+                "a",
+                SearchComponent.USAGE,
+                "usage",
+                SearchComponent.GRAPH,
+                "graph",
+                SearchComponent.TIMESERIES,
+                "ts",
+                SearchComponent.SEMANTIC,
+                "sem"));
+
+    assertEquals(convention.getEntityIndexName(OP, "dataset"), "a_datasetindex_v2");
+    assertEquals(convention.getEntityIndexNameV3(OP, "dataset"), "prod_datasetindex_v3");
+    assertEquals(convention.getPrefix(OP), Optional.of("prod"));
+    assertEquals(convention.getPrefix(OP, SearchComponent.SEARCH_V2), Optional.of("a"));
+    assertEquals(convention.getPrefix(OP, SearchComponent.SEARCH_V3), Optional.of("prod"));
+    assertEquals(convention.getEntityName(OP, "a_datasetindex_v2"), Optional.of("dataset"));
+    assertEquals(convention.getEntityName(OP, "prod_datasetindex_v2"), Optional.empty());
+    assertEquals(
+        convention.getAllEntityIndicesPatterns(OP), List.of("a_*index_v2", "prod_*index_v3"));
+    assertEquals(
+        convention.getIndexName(OP, DATAHUB_USAGE_EVENT_INDEX), "usage_datahub_usage_event");
+    assertEquals(
+        convention.getIndexName(OP, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX),
+        "usage_datahub_usage_event");
+    assertEquals(convention.getIndexName(OP, "graph_service_v1"), "graph_graph_service_v1");
+    assertEquals(
+        convention.getTimeseriesAspectIndexName(OP, "dataset", "datasetusagestatistics"),
+        "ts_dataset_datasetusagestatisticsaspect_v1");
+    assertEquals(convention.getAllTimeseriesAspectIndicesPattern(OP), "ts_*aspect_v1");
+    assertEquals(convention.getAllSemanticEntityIndicesPattern(OP), "sem_*index_v2_semantic");
+    assertEquals(
+        convention.getIndexName(OP, "legacy_datahub_usage_event"),
+        "prod_legacy_datahub_usage_event");
+    assertEquals(
+        convention.getEntityAndAspectName(OP, "ts_dataset_datasetusagestatisticsaspect_v1"),
+        Optional.of(Pair.of("dataset", "datasetusagestatistics")));
+  }
+
+  @Test
+  public void testExplicitOverlaysFollowComponentClusterRouting() {
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder()
+            .componentCluster(
+                ComponentClusterConfiguration.builder()
+                    .searchV2("secondary")
+                    .searchV3("primary")
+                    .build())
+            .clusters(
+                Map.of(
+                    "primary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search:9200")
+                        .index(SearchClusterIndexSettings.builder().prefix("").build())
+                        .build(),
+                    "secondary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search2:9200")
+                        .index(SearchClusterIndexSettings.builder().prefix("v2only").build())
+                        .build()))
+            .build();
+    Map<SearchComponent, String> overlays =
+        IndexConventionImpl.explicitComponentPrefixOverlays(esConfig);
+    assertEquals(overlays.get(SearchComponent.SEARCH_V2), "v2only");
+    assertEquals(overlays.get(SearchComponent.SEARCH_V3), null);
   }
 
   // --- Test fixtures for per-operation prefix resolution -------------------------------------

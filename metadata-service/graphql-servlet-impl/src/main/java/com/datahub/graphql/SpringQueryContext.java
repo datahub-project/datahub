@@ -2,6 +2,7 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -37,6 +38,7 @@ public class SpringQueryContext implements QueryContext {
   @Nullable private AspectMappingRegistry aspectMappingRegistry;
   private final ConcurrentHashMap<String, AspectLoadContext> aspectLoadContexts =
       new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Urn, Boolean> domainExistenceCache = new ConcurrentHashMap<>();
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -114,5 +116,10 @@ public class SpringQueryContext implements QueryContext {
   @Nullable
   public AspectLoadContext getAspectLoadContext(@Nonnull String entityTypeName) {
     return aspectLoadContexts.get(entityTypeName);
+  }
+
+  @Override
+  public Map<Urn, Boolean> getDomainExistenceCache() {
+    return domainExistenceCache;
   }
 }

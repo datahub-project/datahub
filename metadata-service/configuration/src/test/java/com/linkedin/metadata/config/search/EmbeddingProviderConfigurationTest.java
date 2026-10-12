@@ -33,6 +33,15 @@ public class EmbeddingProviderConfigurationTest {
   }
 
   @Test
+  public void testGetModelId_ClassicalReturnsClassicalModel() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.getClassical().setModel("hash-v1-1024");
+
+    Assert.assertEquals(config.getModelId(), "hash-v1-1024");
+  }
+
+  @Test
   public void testGetModelId_TypeCaseInsensitive() {
     EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
     config.setType("AWS-BEDROCK");

@@ -3,6 +3,7 @@ package com.linkedin.common.urn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+import java.net.URISyntaxException;
 import org.testng.annotations.Test;
 
 public class UrnUtilsTest {
@@ -33,5 +34,21 @@ public class UrnUtilsTest {
   @Test
   public void testRequireUrn_invalid() {
     assertThrows(IllegalArgumentException.class, () -> UrnUtils.requireUrn("not-a-valid-urn"));
+  }
+
+  @Test
+  public void testEntityTypeAllowsWordClassChars() throws Exception {
+    Urn urn = new Urn("urn:li:my_Entity123:someKey");
+    assertEquals(urn.getEntityType(), "my_Entity123");
+  }
+
+  @Test
+  public void testEntityTypeRejectsNonWordClassChars() {
+    assertThrows(URISyntaxException.class, () -> new Urn("urn:li:my-entity:someKey"));
+  }
+
+  @Test
+  public void testEntityTypeRejectsNonAsciiChars() {
+    assertThrows(URISyntaxException.class, () -> new Urn("urn:li:myEntityé:someKey"));
   }
 }

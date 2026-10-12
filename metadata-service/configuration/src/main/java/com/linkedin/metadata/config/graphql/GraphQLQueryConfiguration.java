@@ -23,4 +23,11 @@ public class GraphQLQueryConfiguration {
 
   /** Requests taking longer than this threshold (in ms) are logged at INFO. Default 1000ms. */
   private long slowQueryThresholdMs;
+
+  /**
+   * Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
+   * on large responses). Kill switch; default {@code false} (buffered). Default in
+   * application.yaml.
+   */
+  private boolean streamResponse;
 }

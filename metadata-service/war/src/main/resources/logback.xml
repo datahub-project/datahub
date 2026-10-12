@@ -3,7 +3,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
@@ -49,7 +49,10 @@
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>${logging.appender.debug_file.level:-DEBUG}</level>
+            <!-- Disabled by default (OFF never matches a real log event's level). Set the JVM
+                 system property -Dlogging.appender.debug_file.level=DEBUG (or TRACE/INFO/etc.)
+                 to re-enable writing to gms.debug.log. -->
+            <level>${logging.appender.debug_file.level:-OFF}</level>
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
@@ -83,7 +86,7 @@
         <appender-ref ref="GRAPHQL_DEBUG_FILE" />
     </appender>
 
-    <!-- Remove this to disable logging debug -->
+    <!-- DEBUG_FILE writes are disabled by default via the DEBUG_FILE appender's LevelFilter above. -->
     <logger name="com.linkedin" level="DEBUG">
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
@@ -132,7 +135,7 @@
                         <pattern>service=datahub-gms,pod=${HOSTNAME:-unknown},level=%level</pattern>
                     </label>
                     <message>
-                        <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+                        <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
                     </message>
                 </format>
                 <batchMaxItems>1000</batchMaxItems>

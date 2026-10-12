@@ -57,6 +57,7 @@ elasticsearch:
 | OpenAI text-embedding-3-small | `text_embedding_3_small` | 1536       |
 | OpenAI text-embedding-3-large | `text_embedding_3_large` | 3072       |
 | Cohere embed-english-v3.0     | `embed_english_v3_0`     | 1024       |
+| Classical hash-v1-2048        | `hash_v1_2048`           | 2048       |
 
 > **Important:** The model key is derived from the configured model ID using explicit mappings for known models, with a fallback that replaces dots, hyphens, and colons with underscores. For example:
 >
@@ -182,6 +183,7 @@ public interface EmbeddingProvider {
 
 - `OpenAiEmbeddingProvider` - Uses OpenAI API (default)
 - `AwsBedrockEmbeddingProvider` - Uses AWS Bedrock
+- `ClassicalEmbeddingProvider` - Deterministic in-process lexical hashing (no external service); CI and smoke tests only, gated by `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`
 - `NoOpEmbeddingProvider` - Throws exception if called (used when semantic search disabled)
 
 The following providers can be configured:
@@ -254,6 +256,26 @@ COHERE_EMBEDDING_MODEL=embed-english-v3.0
 | ------------------------- | ---------- | ----------------- |
 | `embed-english-v3.0`      | 1024       | English optimized |
 | `embed-multilingual-v3.0` | 1024       | 100+ languages    |
+
+#### Classical (Deterministic Hashing, CI and smoke tests only)
+
+Compute deterministic lexical vectors in-process with no external service. This is a testing provider, not semantic search:
+
+```bash
+# Required
+EMBEDDING_PROVIDER_TYPE=classical
+# Required opt-in on every process that builds the provider (GMS, system-update, the MAE
+# consumer): each refuses to start without it and logs a warning while it is active.
+CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true
+
+# Optional - default shown. Format hash-v1-<dims>; the width must match the
+# semanticSearch.models entry (hash_v1_2048) and changing it requires a re-index.
+CLASSICAL_EMBEDDING_MODEL=hash-v1-2048
+```
+
+The classical provider hashes word and character n-gram features with SHA-256 into a fixed-width vector (2048 dimensions by default). It needs no API key, endpoint, or model download, and the Python ingestion provider implements the identical algorithm, so document and query vectors are bit-identical. Ranking is lexical (shared words and character n-grams), not semantic: it does not match synonyms or paraphrases. It exists so CI, smoke tests and quickstarts can exercise the full embedding and kNN pipeline with zero external dependencies; a deployment that needs semantic quality without a cloud dependency should use the in-process `onnx` provider.
+
+`EMBEDDING_PROVIDER_MAX_CHAR_LENGTH` does not apply to this provider: instead of truncating, it rejects any input over 16,384 code points, on both the query and the ingestion side. Keep the ingestion recipe's `chunking.max_characters` (default 500) below that limit, or those chunks fail to embed on every run.
 
 #### Switching Between Providers
 

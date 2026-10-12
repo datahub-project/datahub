@@ -1,10 +1,9 @@
 import { Icon, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import React, { useMemo } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import { MenuItemRendererProps } from '@components/components/Menu/types';
-import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
 import spacing from '@components/theme/foundations/spacing';
 
 const Wrapper = styled.div`
@@ -14,99 +13,70 @@ const Wrapper = styled.div`
     align-items: center;
 `;
 
-const Container = styled.div`
+const Container = styled.div<{ $disabled?: boolean; $danger?: boolean }>`
     display: flex;
     flex-direction: column;
     text-overflow: ellipsis;
     word-wrap: nowrap;
+    color: ${(props) => {
+        if (props.$disabled) return props.theme.colors.textDisabled;
+        if (props.$danger) return props.theme.colors.textError;
+        return props.theme.colors.text;
+    }};
 `;
 
-const IconWrapper = styled.div`
+const IconWrapper = styled.div<{ $disabled?: boolean; $danger?: boolean }>`
     display: flex;
     flex-shrink: 0;
+    color: ${(props) => {
+        if (props.$disabled) return props.theme.colors.iconDisabled;
+        if (props.$danger) return props.theme.colors.iconError;
+        return props.theme.colors.icon;
+    }};
 `;
 
 const SpaceFiller = styled.div`
     flex-grow: 1;
 `;
 
-interface Colors {
-    titleColor: FontColorOptions;
-    titleColorLevel: FontColorLevelOptions;
-    descriptionColor: FontColorOptions;
-    descriptionColorLevel: FontColorLevelOptions;
-    iconColor: FontColorOptions;
-    iconColorLevel: FontColorLevelOptions;
-}
+const Description = styled.div<{ $disabled?: boolean; $danger?: boolean }>`
+    color: ${(props) => {
+        if (props.$disabled) return props.theme.colors.textDisabled;
+        if (props.$danger) return props.theme.colors.textError;
+        return props.theme.colors.textSecondary;
+    }};
+`;
 
-const DEFAULT_COLORS: Colors = {
-    titleColor: 'gray',
-    titleColorLevel: 600,
-    descriptionColor: 'gray',
-    descriptionColorLevel: 1700,
-    iconColor: 'gray',
-    iconColorLevel: 1800,
-};
-
-const DISABLED_COLORS: Colors = {
-    ...DEFAULT_COLORS,
-    titleColorLevel: 300,
-    descriptionColorLevel: 300,
-    iconColorLevel: 300,
-};
-
-const DANGER_COLORS: Colors = {
-    titleColor: 'red',
-    titleColorLevel: 1000,
-    descriptionColor: 'red',
-    descriptionColorLevel: 600,
-    iconColor: 'red',
-    iconColorLevel: 600,
-};
-
-const DANGER_DISABLED_COLORS: Colors = {
-    ...DANGER_COLORS,
-    titleColorLevel: 300,
-    descriptionColorLevel: 300,
-    iconColorLevel: 300,
-};
+const Caret = styled.div`
+    display: flex;
+    color: ${(props) => props.theme.colors.icon};
+`;
 
 export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
-    const itemColors = useMemo(() => {
-        if (item.disabled && !item.danger) return DISABLED_COLORS;
-        if (!item.disabled && item.danger) return DANGER_COLORS;
-        if (item.disabled && item.danger) return DANGER_DISABLED_COLORS;
-
-        return DEFAULT_COLORS;
-    }, [item.danger, item.disabled]);
-
     const content = (
         <Wrapper data-testid={item.dataTestId || `menu-item-${item.key}`}>
             {item.icon && (
-                <IconWrapper>
-                    <Icon
-                        icon={item.icon}
-                        color={itemColors.iconColor}
-                        colorLevel={itemColors.iconColorLevel}
-                        size="2xl"
-                    />
+                <IconWrapper $disabled={item.disabled} $danger={item.danger}>
+                    <Icon icon={item.icon} size="2xl" />
                 </IconWrapper>
             )}
 
-            <Container>
-                <Text weight="semiBold" color={itemColors.titleColor} colorLevel={itemColors.titleColorLevel}>
-                    {item.title}
-                </Text>
+            <Container $disabled={item.disabled} $danger={item.danger}>
+                <Text weight="semiBold">{item.title}</Text>
                 {item.description && (
-                    <Text color={itemColors.descriptionColor} colorLevel={itemColors.descriptionColorLevel} size="sm">
-                        {item.description}
-                    </Text>
+                    <Description $disabled={item.disabled} $danger={item.danger}>
+                        <Text size="sm">{item.description}</Text>
+                    </Description>
                 )}
             </Container>
 
             <SpaceFiller />
 
-            {item.children && <Icon icon={CaretRight} color="gray" colorLevel={1800} size="lg" />}
+            {item.children && (
+                <Caret>
+                    <Icon icon={CaretRight} size="lg" />
+                </Caret>
+            )}
         </Wrapper>
     );
 

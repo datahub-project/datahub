@@ -19,28 +19,29 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
     SearchFlavor,
 )
+from datahub.lite.lite_registry import lite_registry
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
+from datahub.lite.sqlite_lite_config import SqliteLiteConfig
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LITE_IMPL = "duckdb"
+DEFAULT_LITE_IMPL = "sqlite"
 
 
-class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
-    file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.duckdb")
+class SqliteLiteConfigWrapper(SqliteLiteConfig):
+    file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.db")
 
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().model_dump()
+        type=DEFAULT_LITE_IMPL, config=SqliteLiteConfigWrapper().model_dump()
     )
 
 
@@ -52,13 +53,12 @@ def get_lite_config() -> LiteLocalConfig:
 
 def _get_datahub_lite(read_only: bool = False) -> DataHubLiteLocal:
     lite_config = get_lite_config()
-    if lite_config.type == "duckdb":
+    lite_class = lite_registry.get_optional(lite_config.type)
+    if lite_class and "read_only" in lite_class.get_config_class().model_fields:
         lite_config.config["read_only"] = read_only
 
-    duckdb_lite = get_datahub_lite(
-        config_dict=lite_config.model_dump(), read_only=read_only
-    )
-    return duckdb_lite
+    # An unknown or uninstallable type is reported by get_datahub_lite.
+    return get_datahub_lite(config_dict=lite_config.model_dump(), read_only=read_only)
 
 
 @click.group(cls=DefaultGroup, default="ls")
@@ -328,11 +328,21 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 
 
 @lite.command(context_settings=dict(allow_extra_args=True))
-@click.option("--type", required=False, default=DEFAULT_LITE_IMPL)
+@click.option(
+    "--type",
+    required=False,
+    default=DEFAULT_LITE_IMPL,
+    help="Storage engine to use. Built-in values are 'sqlite' (no extra dependencies) and 'duckdb'.",
+)
 @click.option("--file", required=False)
 @click.pass_context
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
+    if type not in lite_registry.mapping:
+        raise click.UsageError(
+            f"Failed to find a registered lite implementation for {type}. "
+            f"Valid values are {sorted(lite_registry.mapping)}"
+        )
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
@@ -362,9 +372,19 @@ def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
             )
         file = ctx.args[0]
 
+    # Import into the instance this CLI is pointed at. Left to its own defaults
+    # the sink would write to the default engine and path instead, which after
+    # the sqlite default landed means `lite import` and `lite ls` can disagree
+    # about both the file and the engine. Only the engine and its config carry
+    # over -- `forward_to` is deliberately dropped, since an import is a local
+    # restore and forwarding would replay the whole file to the remote sink.
+    lite_config = get_lite_config()
     config_dict = {
         "source": {"type": "file", "config": {"path": file}},
-        "sink": {"type": "datahub-lite", "config": {}},
+        "sink": {
+            "type": "datahub-lite",
+            "config": {"type": lite_config.type, "config": lite_config.config},
+        },
     }
     Pipeline.create(config_dict).run()
 

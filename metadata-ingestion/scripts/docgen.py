@@ -233,6 +233,38 @@ def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
     )
 
 
+# The H3 sections a connector's docs/sources/<platform>/<plugin>_<pre|post>.md
+# must have, each exactly once and in this order. H1/H2 are reserved for the
+# generated page around them; H4+ are free.
+SOURCE_DOC_H3_SECTIONS: Dict[str, List[str]] = {
+    "pre": ["Overview", "Prerequisites"],
+    "post": ["Capabilities", "Limitations", "Troubleshooting"],
+}
+
+
+def validate_source_doc_headings(file_path: str, markdown: str) -> None:
+    """Raise ValueError if a docs/sources file breaks its heading contract.
+
+    The single definition docGen and tests/unit/test_source_doc_headings.py
+    both call. A name that is neither README nor <plugin>_<pre|post> is not
+    judged here; the docGen loop rejects those names itself.
+    """
+    stem = pathlib.Path(file_path).stem
+    if stem == "README":
+        _validate_platform_readme_contract(file_path, markdown)
+        return
+    parts = stem.split("_")
+    if len(parts) != 2 or parts[1] not in SOURCE_DOC_H3_SECTIONS:
+        return
+    _validate_heading_contract(
+        file_path=file_path,
+        markdown=markdown,
+        required_level=3,
+        required_headings=SOURCE_DOC_H3_SECTIONS[parts[1]],
+        disallowed_levels=[1, 2],
+    )
+
+
 def load_connector_registry(connector_registry_dir: str) -> Dict:
     """Load connector registry data from all package JSON files in directory."""
     registry_dir = pathlib.Path(connector_registry_dir) / "connector_registry"
@@ -748,9 +780,9 @@ def generate(  # noqa: C901
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
+                validate_source_doc_headings(path, final_markdown)
 
                 if file_name == "README":
-                    _validate_platform_readme_contract(path, final_markdown)
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
                     platforms[platform_name].custom_docs_pre = final_markdown
@@ -763,28 +795,10 @@ def generate(  # noqa: C901
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
-                        _validate_heading_contract(
-                            file_path=path,
-                            markdown=final_markdown,
-                            required_level=3,
-                            required_headings=["Overview", "Prerequisites"],
-                            disallowed_levels=[1, 2],
-                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
-                        _validate_heading_contract(
-                            file_path=path,
-                            markdown=final_markdown,
-                            required_level=3,
-                            required_headings=[
-                                "Capabilities",
-                                "Limitations",
-                                "Troubleshooting",
-                            ],
-                            disallowed_levels=[1, 2],
-                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_post = final_markdown

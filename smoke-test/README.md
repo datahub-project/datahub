@@ -48,24 +48,28 @@ source venv/bin/activate
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
 export TEST_STRATEGY=pytests
 
-# Run all tests (WARNING: Takes a long time, requires full setup)
+# Run all live-stack tests (WARNING: Takes a long time, requires full setup)
 pytest -vv
 
 # Run specific test file (RECOMMENDED for development)
-pytest test_system_info.py -vv
+pytest tests/e2e/test_system_info.py -vv
 
 # Run specific test method
-pytest test_system_info.py::test_system_info_main_endpoint -vv
+pytest tests/e2e/test_system_info.py::test_system_info_main_endpoint -vv
 
 # Run multiple specific tests
-pytest test_e2e.py::test_healthchecks test_e2e.py::test_gms_usage_fetch -v
+pytest tests/e2e/test_e2e.py::test_healthchecks tests/e2e/test_e2e.py::test_gms_usage_fetch -v
+
+# CPU tests (no DataHub stack)
+./gradlew :smoke-test:stackFreePytest
+# or: pytest tests/unit -vv
 ```
 
 #### Selecting tests by domain
 
 Tests can declare the product domain that owns them with
 `@pytest.mark.domain(...)`, using the `Domain` enum in
-`tests/utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
+`utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
 `catalog`). The `--domain` option then runs only the tests those domains own:
 
 ```bash
@@ -236,6 +240,33 @@ echo "TEST_STRATEGY: $TEST_STRATEGY"
 - **CI**: Uses `./gradlew :smoke-test:pytest` - full pipeline with Docker containers
 - **Local**: Uses direct pytest - faster, uses locally running DataHub instance
 - **Recommendation**: Use local for development, CI for final validation
+
+### Simulate batch packing without running tests
+
+CI splits pytests with `BATCH_COUNT` (3 on forks, 4 for the `p0` tier, 7 for the full suite) and `PYTEST_XDIST_WORKERS=3`. To dump the predicted pack plan for one of those counts without executing tests, load the opt-in plugin with `-p` (it is not registered in `conftest.py`):
+
+```bash
+cd smoke-test
+source venv/bin/activate
+export PYTHONPATH=.
+PLUGIN="-p batch_plan_dump"
+
+# Full suite, 7 batches
+BATCH_COUNT=7 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only --dump-batch-plan /tmp/plan-7.json
+
+# p0 gate, 4 batches
+BATCH_COUNT=4 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only -m p0 --dump-batch-plan /tmp/plan-p0-4.json
+
+# CI: artifact path from env (overrides --dump-batch-plan)
+SMOKE_DUMP_BATCH_PLAN=/tmp/plan-catalog-3.json BATCH_COUNT=3 PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only --domain catalog
+```
+
+`PYTHONPATH=.` is required: pytest loads `-p` plugins before the smoke-test directory is on `sys.path`. Use `-p batch_plan_dump` from `smoke-test/` (loader next to `shard_pack.py`). The dump logic lives in `utilities/batch_plan_dump.py`.
+
+`--collect-only` is required if you do not want tests to run; collection still imports the suite and needs this venv, but it does not start DataHub. The plugin also clears collected items as a backstop. Compare shard counts by invoking the same command again with a different `BATCH_COUNT`. If the plugin is loaded and neither `SMOKE_DUMP_BATCH_PLAN` nor `--dump-batch-plan` is set, JSON is written to stdout.
 
 ## Test Organization
 
