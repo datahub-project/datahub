@@ -23,7 +23,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "\"MY_TABLE_A\".\"COL_A\" AS \"COL_A\""
+                "column_logic": "MY_TABLE_A.\"COL_A\" AS \"COL_A\""
             }
         },
         {

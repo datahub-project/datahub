@@ -45,7 +45,9 @@ FROM mytable
 
 
 def test_select_max_with_schema() -> None:
-    # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
+    # `this_will_not_resolve` is not in the schema. Up to sqlglot 30.21 it was dropped from
+    # the result; since 30.22, lineage() attributes an unqualified column to the sole
+    # source in scope, so it shows up as an upstream of mytable.
 
     # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
     # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)

@@ -42,15 +42,11 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
                     "column": "category_id"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
-                    "column": "default.my_dict"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "DICTGET(\"raw_events\".\"default\".\"my_dict\", 'name', \"raw_events\".\"category_id\") AS \"category_name\""
+                "column_logic": "DICTGET(\"default\".\"my_dict\", 'name', \"raw_events\".\"category_id\") AS \"category_name\""
             }
         }
     ],

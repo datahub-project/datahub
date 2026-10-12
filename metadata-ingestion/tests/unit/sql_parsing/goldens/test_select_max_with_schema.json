@@ -22,11 +22,15 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
                     "column": "col2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
+                    "column": "this_will_not_resolve"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "GREATEST(`mytable`.`col1`, `mytable`.`col2`, `this_will_not_resolve`) AS `max_col`"
+                "column_logic": "GREATEST(`mytable`.`col1`, `mytable`.`col2`, mytable.`this_will_not_resolve`) AS `max_col`"
             }
         }
     ],

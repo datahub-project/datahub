@@ -35,7 +35,7 @@ import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
 from sqlglot.dialects.dialect import DialectType
 from sqlglot.optimizer.scope import find_all_in_scope
-from sqlglot.schema import Schema
+from sqlglot.schema import MappingSchema, Schema
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
@@ -57,6 +57,9 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing._infer_single_source_columns import (
+    infer_single_source_columns,
+)
 from datahub.sql_parsing._legacy_pushdown_projections import (
     pushdown_projections as legacy_pushdown_projections,
 )
@@ -276,6 +279,44 @@ SQL_LINEAGE_TIMEOUT_SECONDS = get_sql_lineage_timeout_seconds()
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
+def _qualify(
+    expression: sqlglot.exp.Expr,
+    schema: Schema,
+    dialect: DialectType = None,
+    db: Optional[str] = None,
+    catalog: Optional[str] = None,
+    isolate_tables: bool = False,
+    qualify_columns: bool = True,
+    allow_partial_qualification: bool = False,
+    validate_qualify_columns: bool = True,
+    quote_identifiers: bool = True,
+    identify: bool = True,
+    sql: Optional[str] = None,
+) -> sqlglot.exp.Expr:
+    # Like _pushdown_projections, every kwarg optimize() hands to qualify must be
+    # named here or it gets dropped.
+    qualified = sqlglot.optimizer.qualify.qualify(
+        expression,
+        dialect=dialect,
+        db=db,
+        catalog=catalog,
+        schema=schema,
+        isolate_tables=isolate_tables,
+        qualify_columns=qualify_columns,
+        allow_partial_qualification=allow_partial_qualification,
+        # Validated below, once the inferred columns are qualified too.
+        validate_qualify_columns=False,
+        quote_identifiers=quote_identifiers,
+        identify=identify,
+        sql=sql,
+    )
+    if qualify_columns:
+        qualified = infer_single_source_columns(qualified, schema)
+    if validate_qualify_columns:
+        sqlglot.optimizer.qualify_columns.validate_qualify_columns(qualified, sql=sql)
+    return qualified
+
+
 def _pushdown_projections(
     expression: sqlglot.exp.Expr,
     schema: Optional[Schema] = None,
@@ -301,7 +342,7 @@ def _pushdown_projections(
 assert len(sqlglot.optimizer.optimizer.RULES) == 14
 
 _OPTIMIZE_RULES = (
-    sqlglot.optimizer.optimizer.qualify,
+    _qualify,
     # We need to enable this in order for annotate types to work.
     _pushdown_projections,
     # sqlglot.optimizer.optimizer.normalize,  # causes perf issues
@@ -1261,11 +1302,13 @@ def _select_statement_cll(
                 lineage_node = sqlglot.lineage.lineage(
                     output_col_expr,
                     statement,
+                    # The columns are already qualified, so no schema is needed. sqlglot
+                    # 30.22 made the argument required; an empty one matches the old default.
+                    schema={},
                     dialect=dialect,
                     scope=root_scope,
                     trim_selects=False,
                     copy=False,
-                    # We don't need to pass the schema in here, since we've already qualified the columns.
                 )
             except Exception as e:
                 logger.warning(
@@ -1739,6 +1782,8 @@ def _get_raw_col_upstreams_for_expression(
             column=0,
             scope=scope,
             dialect=dialect,
+            # Already qualified; required since sqlglot 30.22, as for lineage() above.
+            schema=MappingSchema(dialect=dialect),
             trim_selects=False,
         )
 
