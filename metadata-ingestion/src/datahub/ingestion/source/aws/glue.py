@@ -883,7 +883,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 "the ingesting catalog, so the shared table resolves to the link's own URN and no "
                 "upstream lineage or owner schema is emitted for it. Map the owning account "
                 "(arn:<partition>:glue:<region>:<account_id>) in catalog_to_platform_instance to "
-                "the platform_instance/env its own Glue ingestion uses.",
+                "the platform_instance/env its own Glue ingestion uses. If both ingestions use "
+                "the same instance and env, give one of them a distinct platform_instance or "
+                "rename the link.",
                 context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
             return []
