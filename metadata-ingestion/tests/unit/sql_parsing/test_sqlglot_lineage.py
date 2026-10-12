@@ -42,7 +42,9 @@ FROM mytable
 
 
 def test_select_max_with_schema() -> None:
-    # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
+    # `this_will_not_resolve` is not in the schema. Up to sqlglot 30.21 it was dropped from
+    # the result; since 30.22, lineage() attributes an unqualified column to the sole
+    # source in scope, so it shows up as an upstream of mytable.
 
     # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
     # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
@@ -1733,6 +1735,16 @@ DROP VIEW my_schema.my_view
     )
 
 
+def test_postgres_drop_multiple_tables() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table_a, my_schema.my_table_b
+""",
+        dialect="postgres",
+        expected_file=RESOURCE_DIR / "test_postgres_drop_multiple_tables.json",
+    )
+
+
 def test_snowflake_drop_schema() -> None:
     assert_sql_result(
         """\
@@ -1755,6 +1767,42 @@ WHERE rank_ = 1
 """,
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
+    )
+
+
+def test_star_cte_over_table_without_schema() -> None:
+    # Only my_table_b has schema info, so the CTE's star can't be expanded. sqlglot
+    # 30.21's pushdown_projections raises on that; the legacy fallback narrows the star
+    # to the columns the outer query reads, which keeps column lineage for col_a.
+    assert_sql_result(
+        """\
+WITH c AS (SELECT * FROM my_db.my_schema.my_table_a)
+SELECT c.col_a, b.col_b
+FROM c
+JOIN my_db.my_schema.my_table_b b ON c.id = b.id
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)": {
+                "id": "NUMBER",
+                "col_b": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_star_cte_over_table_without_schema.json",
+    )
+
+
+def test_snowflake_unaliased_expression_column_name() -> None:
+    # sqlglot names the unaliased CURRENT_TIMESTAMP projection `_COL_1` under the
+    # Snowflake dialect; we should still name the column after the expression.
+    assert_sql_result(
+        """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, CURRENT_TIMESTAMP FROM my_db.my_schema.my_source
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_unaliased_expression_column_name.json",
     )
 
 

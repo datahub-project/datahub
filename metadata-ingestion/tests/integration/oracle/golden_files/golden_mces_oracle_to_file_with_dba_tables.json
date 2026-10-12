@@ -19177,7 +19177,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD),sum%28\"order_items\".\"unit_price\" * \"order_items\".\"quantity\"%29)"
                     ],
-                    "transformOperation": "SQL: SUM(\"ORDER_ITEMS\".\"UNIT_PRICE\" * \"ORDER_ITEMS\".\"QUANTITY\") AS \"_col_0\"",
+                    "transformOperation": "SQL: SUM(\"ORDER_ITEMS\".\"UNIT_PRICE\" * \"ORDER_ITEMS\".\"QUANTITY\") AS \"_COL_0\"",
                     "confidenceScore": 0.35
                 }
             ]
@@ -19326,7 +19326,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD),\"employees\".\"first_name\" || ' ' || \"employees\".\"last_name\")"
                     ],
-                    "transformOperation": "SQL: \"EMPLOYEES\".\"FIRST_NAME\" || ' ' || \"EMPLOYEES\".\"LAST_NAME\" AS \"_col_0\"",
+                    "transformOperation": "SQL: \"EMPLOYEES\".\"FIRST_NAME\" || ' ' || \"EMPLOYEES\".\"LAST_NAME\" AS \"_COL_0\"",
                     "confidenceScore": 0.35
                 },
                 {
@@ -19937,7 +19937,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_total_sales,PROD),nvl%28\"employee_sales_summary\".\"total_sales\"%2C 0%29)"
                     ],
-                    "transformOperation": "SQL: NVL(\"EMPLOYEE_SALES_SUMMARY\".\"TOTAL_SALES\", 0) AS \"_col_0\"",
+                    "transformOperation": "SQL: NVL(\"EMPLOYEE_SALES_SUMMARY\".\"TOTAL_SALES\", 0) AS \"_COL_0\"",
                     "confidenceScore": 0.2
                 }
             ]

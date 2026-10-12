@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 import uuid
 from collections import defaultdict
@@ -32,7 +33,9 @@ import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
+from sqlglot.dialects.dialect import DialectType
 from sqlglot.optimizer.scope import find_all_in_scope
+from sqlglot.schema import MappingSchema, Schema
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
@@ -52,6 +55,12 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     StringTypeClass,
     TimeTypeClass,
+)
+from datahub.sql_parsing._infer_single_source_columns import (
+    infer_single_source_columns,
+)
+from datahub.sql_parsing._legacy_pushdown_projections import (
+    pushdown_projections as legacy_pushdown_projections,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
@@ -268,14 +277,73 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 SQL_LINEAGE_TIMEOUT_SECONDS = get_sql_lineage_timeout_seconds()
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
+
+def _qualify(
+    expression: sqlglot.exp.Expr,
+    schema: Schema,
+    dialect: DialectType = None,
+    db: Optional[str] = None,
+    catalog: Optional[str] = None,
+    isolate_tables: bool = False,
+    qualify_columns: bool = True,
+    allow_partial_qualification: bool = False,
+    validate_qualify_columns: bool = True,
+    quote_identifiers: bool = True,
+    identify: bool = True,
+    sql: Optional[str] = None,
+) -> sqlglot.exp.Expr:
+    # Like _pushdown_projections, every kwarg optimize() hands to qualify must be
+    # named here or it gets dropped.
+    qualified = sqlglot.optimizer.qualify.qualify(
+        expression,
+        dialect=dialect,
+        db=db,
+        catalog=catalog,
+        schema=schema,
+        isolate_tables=isolate_tables,
+        qualify_columns=qualify_columns,
+        allow_partial_qualification=allow_partial_qualification,
+        # Validated below, once the inferred columns are qualified too.
+        validate_qualify_columns=False,
+        quote_identifiers=quote_identifiers,
+        identify=identify,
+        sql=sql,
+    )
+    if qualify_columns:
+        qualified = infer_single_source_columns(qualified, schema)
+    if validate_qualify_columns:
+        sqlglot.optimizer.qualify_columns.validate_qualify_columns(qualified, sql=sql)
+    return qualified
+
+
+def _pushdown_projections(
+    expression: sqlglot.exp.Expr,
+    schema: Optional[Schema] = None,
+    dialect: DialectType = None,
+) -> sqlglot.exp.Expr:
+    # sqlglot's optimize() passes a rule only the kwargs its signature names, so
+    # schema and dialect must stay explicit parameters for the fallback to get them.
+    try:
+        return sqlglot.optimizer.optimizer.pushdown_projections(expression)
+    except sqlglot.errors.OptimizeError:
+        # Upstream raises on stars it can't expand, which is the normal case for
+        # tables we have no schema for. See _legacy_pushdown_projections. Any other
+        # optimizer error is not ours to paper over, so let it propagate.
+        if not any(
+            select.is_star for select in expression.find_all(sqlglot.exp.Select)
+        ):
+            raise
+        return legacy_pushdown_projections(expression, schema=schema, dialect=dialect)
+
+
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
 # If there's a change in their rules, we probably need to re-evaluate our list as well.
 assert len(sqlglot.optimizer.optimizer.RULES) == 14
 
 _OPTIMIZE_RULES = (
-    sqlglot.optimizer.optimizer.qualify,
+    _qualify,
     # We need to enable this in order for annotate types to work.
-    sqlglot.optimizer.optimizer.pushdown_projections,
+    _pushdown_projections,
     # sqlglot.optimizer.optimizer.normalize,  # causes perf issues
     sqlglot.optimizer.optimizer.unnest_subqueries,
     # sqlglot.optimizer.optimizer.pushdown_predicates,  # causes perf issues
@@ -292,6 +360,10 @@ _OPTIMIZE_RULES = (
 )
 
 _DEBUG_TYPE_ANNOTATIONS = False
+
+# sqlglot names unaliased projections `_col_<N>`. Since 30.13 the name follows the
+# dialect's identifier case, so Snowflake produces `_COL_<N>`.
+_SQLGLOT_SYNTHETIC_COLUMN_RE = re.compile(r"_col_\d+", re.IGNORECASE)
 
 
 class _ColumnRef(_FrozenModel):
@@ -832,13 +904,13 @@ def _table_level_lineage(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
             (
-                expr.this
-                for expr in (
-                    [statement] if isinstance(statement, sqlglot.exp.Drop) else []
+                table
+                for table in (
+                    statement.args.get("tables") or []
+                    if isinstance(statement, sqlglot.exp.Drop)
+                    else []
                 )
-                if isinstance(expr.this, sqlglot.exp.Table)
-                and expr.this.this
-                and expr.this.name
+                if isinstance(table, sqlglot.exp.Table) and table.this and table.name
             ),
             dialect,
         )
@@ -1145,11 +1217,13 @@ def _select_statement_cll(
                 lineage_node = sqlglot.lineage.lineage(
                     output_col_expr,
                     statement,
+                    # The columns are already qualified, so no schema is needed. sqlglot
+                    # 30.22 made the argument required; an empty one matches the old default.
+                    schema={},
                     dialect=dialect,
                     scope=root_scope,
                     trim_selects=False,
                     copy=False,
-                    # We don't need to pass the schema in here, since we've already qualified the columns.
                 )
             except Exception as e:
                 logger.warning(
@@ -1173,7 +1247,7 @@ def _select_statement_cll(
 
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
-            if output_col.startswith("_col_"):
+            if _SQLGLOT_SYNTHETIC_COLUMN_RE.fullmatch(output_col):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
                 # This is a bit jank since we're relying on sqlglot internals, but it seems to be
                 # the best way to do it.
@@ -1598,6 +1672,8 @@ def _get_raw_col_upstreams_for_expression(
             column=0,
             scope=scope,
             dialect=dialect,
+            # Already qualified; required since sqlglot 30.22, as for lineage() above.
+            schema=MappingSchema(dialect=dialect),
             trim_selects=False,
         )
 
