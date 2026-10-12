@@ -152,8 +152,7 @@ public class RollbackServiceTest {
   public void testRollbackTargetAspects() {
     // Arrange
     List<AspectRowSummary> expectedAspects = createTestAspectRows(false);
-    whenFirstPage(true)
-        .thenReturn(expectedAspects);
+    whenFirstPage(true).thenReturn(expectedAspects);
 
     // Act
     List<AspectRowSummary> result =
@@ -168,8 +167,7 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_DryRun() throws AuthenticationException {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
-    whenFirstPage(false)
-        .thenReturn(testAspects);
+    whenFirstPage(false).thenReturn(testAspects);
 
     // For each urn in test aspects
     when(mockSystemMetadataService.findByUrn(
@@ -263,9 +261,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> nonKeyRows =
         testAspects.stream().filter(row -> !row.isKeyAspect()).collect(Collectors.toList());
 
-    whenFirstPage(false)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(false).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     RollbackRunResult mockRollbackResult =
         new RollbackRunResult(nonKeyRows, 0, Collections.emptyList());
@@ -706,9 +702,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
-    whenFirstPage(true)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create result with rows deleted from entity deletion
     RollbackRunResult mockRollbackResult =
@@ -753,9 +747,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
-    whenFirstPage(true)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create realistic RollbackResult objects
     List<RollbackResult> rollbackResults = new ArrayList<>();
@@ -817,8 +809,7 @@ public class RollbackServiceTest {
   public void testRollbackTargetAspects_EmptyResults() {
     // Test handling empty results
     // Arrange
-    whenFirstPage(true)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(new ArrayList<>());
 
     // Act
     List<AspectRowSummary> result =
@@ -835,9 +826,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
-    whenFirstPage(true)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     RollbackRunResult mockRollbackResult = new RollbackRunResult(testAspects, 0, new ArrayList<>());
 
@@ -867,8 +856,7 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_DispatcherTakesRollback_NothingRunsInProcess()
       throws Exception {
     stubExecutionRequestResult();
-    whenFirstPage(true)
-        .thenReturn(createTestAspectRows(true));
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
     IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
     when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenReturn(true);
 
@@ -899,9 +887,7 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_DispatcherDeclines_RunsInProcess() throws Exception {
     stubExecutionRequestResult();
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
-    whenFirstPage(true)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
         .thenReturn(new RollbackRunResult(testAspects, 0, Collections.emptyList()));
     DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
@@ -934,8 +920,7 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_DispatcherRefuses_PropagatesAndWritesNoStatus()
       throws Exception {
     stubExecutionRequestResult();
-    whenFirstPage(true)
-        .thenReturn(createTestAspectRows(true));
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
     RollbackNotHandedOffException refusal = new RollbackNotHandedOffException("not taken");
     IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
     when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenThrow(refusal);
@@ -964,8 +949,7 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_NoDispatcher_MarksRollingBackBeforeReadingRows()
       throws Exception {
     stubExecutionRequestResult();
-    whenFirstPage(true)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(new ArrayList<>());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
         .thenReturn(new RollbackRunResult(Collections.emptyList(), 0, Collections.emptyList()));
     DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
@@ -995,8 +979,7 @@ public class RollbackServiceTest {
   @Test
   public void testRollbackIngestion_DryRunIsNeverOfferedToDispatcher() throws Exception {
     stubExecutionRequestResult();
-    whenFirstPage(false)
-        .thenReturn(createTestAspectRows(true));
+    whenFirstPage(false).thenReturn(createTestAspectRows(true));
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
@@ -1024,8 +1007,7 @@ public class RollbackServiceTest {
     OperationContext deniedContext =
         TestOperationContexts.userContextNoSearchAuthorization(
             Authorizer.EMPTY, UrnUtils.getUrn("urn:li:corpuser:denied-user"));
-    whenFirstPage(true)
-        .thenReturn(createTestAspectRows(true));
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
     IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
     // Would hand the rollback to a process that runs as system if the offer preceded authorization.
     when(dispatcher.dispatch(any(), anyString(), anyBoolean())).thenReturn(true);
@@ -1160,9 +1142,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
-    whenFirstPage(true)
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create rollback results where isNoOp() would return true
     Urn testUrn = UrnUtils.getUrn(TEST_URN_1);

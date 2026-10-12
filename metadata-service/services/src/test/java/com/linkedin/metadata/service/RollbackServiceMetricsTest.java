@@ -191,8 +191,7 @@ public class RollbackServiceMetricsTest {
   @Test
   public void testDryRunTaggedSeparately() throws Exception {
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(
-        mockSystemMetadataService.findByRunIdAfter(
+    when(mockSystemMetadataService.findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(false),
@@ -236,8 +235,7 @@ public class RollbackServiceMetricsTest {
                     .build());
 
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(
-        mockSystemMetadataService.findByRunIdAfter(
+    when(mockSystemMetadataService.findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(true),
@@ -264,8 +262,7 @@ public class RollbackServiceMetricsTest {
   @Test
   public void testUnexpectedFailureRecordsFailedDuration() throws Exception {
     List<AspectRowSummary> aspects = createAspectRows(TEST_URN_1, TEST_URN_2, true);
-    when(
-        mockSystemMetadataService.findByRunIdAfter(
+    when(mockSystemMetadataService.findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
             eq(true),
