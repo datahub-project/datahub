@@ -261,6 +261,15 @@ def test_get_base_url_prefers_api_over_webserver():
         ),
         # only webserver set -> webserver fallback
         ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # trailing slashes are stripped so path-prefixed deployments get clean links
+        (
+            {("api", "base_url"): "https://airflow.example.com/airflow/"},
+            "https://airflow.example.com/airflow",
+        ),
+        (
+            {("webserver", "base_url"): "http://web:8080/"},
+            "http://web:8080",
+        ),
         # neither set -> localhost default
         ({}, "http://localhost:8080"),
     ]
@@ -291,8 +300,10 @@ def test_dataflow_url_uses_airflow_dag_route(base_url: str, expected_url: str) -
     config = get_lineage_config()
     dag = DAG(dag_id="example_dag")
     with mock.patch(
-        "datahub_airflow_plugin.client.airflow_generator._get_base_url",
-        return_value=base_url,
+        "datahub_airflow_plugin.client.airflow_generator.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            base_url if (section, key) == ("api", "base_url") else fallback
+        ),
     ):
         dataflow = AirflowGenerator.generate_dataflow(config, dag)
 
