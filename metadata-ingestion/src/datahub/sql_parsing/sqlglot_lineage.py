@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
 from datahub.sql_parsing.schema_resolver import (
@@ -632,15 +633,20 @@ def _clickhouse_bare_dictionary_tables(
 def _resolve_clickhouse_bare_dictionary_table(
     schema_resolver: SchemaResolverInterface,
     table: _TableName,
+    qualified_table: _TableName,
     qualified_urn: str,
     qualified_schema_info: Optional[SchemaInfo],
     bare_dictionary_tables: Set[_TableName],
 ) -> Tuple[str, Optional[SchemaInfo]]:
-    # ClickHouse looks up a bare dictionary name as a global (XML) dictionary
-    # before trying the current database.
-    if table in bare_dictionary_tables:
+    # ClickHouse checks global (XML) dictionaries before the current database.
+    # resolve_table also matches case-folded names, so require an exact-case
+    # global match before overriding a current-database hit.
+    if table in bare_dictionary_tables and table != qualified_table:
         global_urn, global_schema_info = schema_resolver.resolve_table(table)
-        if global_schema_info is not None:
+        if global_schema_info is not None and (
+            qualified_schema_info is None
+            or DatasetUrn.from_string(global_urn).name.split(".")[-1] == table.table
+        ):
             return global_urn, global_schema_info
     return qualified_urn, qualified_schema_info
 
@@ -2277,7 +2283,7 @@ def _sqlglot_lineage_inner(
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
     bare_dictionary_tables = _clickhouse_bare_dictionary_tables(statement, dialect)
-    resolved_tables_count = 0
+    total_schemas_resolved = 0
 
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
@@ -2292,6 +2298,7 @@ def _sqlglot_lineage_inner(
         lineage_urn, lineage_schema_info = _resolve_clickhouse_bare_dictionary_table(
             schema_resolver,
             table=table,
+            qualified_table=qualified_table,
             qualified_urn=qualified_urn,
             qualified_schema_info=qualified_schema_info,
             bare_dictionary_tables=bare_dictionary_tables,
@@ -2300,17 +2307,16 @@ def _sqlglot_lineage_inner(
         # A bare dictionary and a qualified table can share the same qualified
         # name, so the qualified mapping must always retain the table resolution.
         table_name_urn_mapping[qualified_table] = qualified_urn
-        if qualified_schema_info is not None:
+        if qualified_schema_info:
             table_name_schema_mapping[qualified_table] = qualified_schema_info
 
         # Differs from the qualified URN when a bare name is a global dictionary.
         table_name_urn_mapping[table] = lineage_urn
         # Not added to table_name_schema_mapping: an unqualified key breaks CLL.
-        if lineage_schema_info is not None:
-            resolved_tables_count += 1
+        if lineage_schema_info:
+            total_schemas_resolved += 1
 
     total_tables_discovered = len(tables | modified)
-    total_schemas_resolved = resolved_tables_count
     debug_info = SqlParsingDebugInfo(
         confidence=(
             0.9

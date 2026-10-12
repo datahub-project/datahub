@@ -2336,6 +2336,7 @@ FROM src
 
 
 def test_clickhouse_bare_dictget_does_not_replace_same_named_table() -> None:
+    """Pins precedence: a global dictionary beats the same name in the current database."""
     assert_sql_result(
         """\
 INSERT INTO target (v, w)
@@ -2386,6 +2387,90 @@ FROM src
         },
         expected_file=RESOURCE_DIR
         / "test_clickhouse_bare_dictget_falls_back_to_current_database.json",
+    )
+
+
+def test_clickhouse_bare_dictget_ignores_case_folded_global() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_ignores_case_folded_global.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO My_Dict
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn.json",
     )
 
 
