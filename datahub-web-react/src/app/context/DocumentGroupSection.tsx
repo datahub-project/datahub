@@ -30,6 +30,8 @@ type Props = {
     isExpanded: boolean;
     selectedUrn: string | null;
     selectedDocument?: Document | null;
+    /** After sort/grouping changes, keep the list pinned at the top. */
+    suppressSelectionScroll?: boolean;
     onToggle: () => void;
     onCreateChild?: (parentUrn: string) => void;
     onSelect: (urn: string) => void;
@@ -41,6 +43,7 @@ export default function DocumentGroupSection({
     isExpanded,
     selectedUrn,
     selectedDocument,
+    suppressSelectionScroll = false,
     onToggle,
     onCreateChild,
     onSelect,
@@ -88,6 +91,7 @@ export default function DocumentGroupSection({
                             isExternal={isExternalDocument(doc)}
                             platform={doc.platform}
                             belowLabel={breadcrumb}
+                            suppressSelectionScroll={suppressSelectionScroll}
                             onToggleExpand={() => {}}
                             onClick={() => onSelect(doc.urn)}
                             onCreateChild={onCreateChild ?? (() => {})}

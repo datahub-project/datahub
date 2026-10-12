@@ -4,19 +4,15 @@ import {
     DocumentDomainGroup,
     buildDocumentDomainGroups,
     getDocumentDomainGroupField,
-    sumFacetAggregationCounts,
 } from '@app/document/utils/documentSidebarGrouping';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType, FilterOperator } from '@types';
-
-const GROUP_FACET_MAX = 100;
-const ENTITY_TYPE_FACET = '_entityType';
+import { useSearchDocumentsQuery } from '@graphql/document.generated';
 
 /**
- * Domain group headers for the documents sidebar — facet aggregations over Document,
- * plus an Unassigned bucket when any document has no domain.
+ * Domain group headers for the documents sidebar — facet aggregations via
+ * searchDocuments (same visibility as the expanded group lists), plus an
+ * Unassigned bucket when any visible document has no domain.
  */
 export default function useDocumentGroupRoots(
     unassignedLabel: string,
@@ -27,16 +23,16 @@ export default function useDocumentGroupRoots(
     const entityRegistry = useEntityRegistry();
     const field = getDocumentDomainGroupField();
 
-    const { data, previousData, loading } = useAggregateAcrossEntitiesQuery({
+    const { data, previousData, loading } = useSearchDocumentsQuery({
         skip,
         fetchPolicy: 'network-only',
         variables: {
             input: {
-                types: [EntityType.Document],
                 query: '*',
-                facets: [field],
+                start: 0,
+                // Facets only — documents list is unused for group headers.
+                count: 0,
                 viewUrn: viewUrn ?? undefined,
-                searchFlags: { maxAggValues: GROUP_FACET_MAX },
             },
         },
     });
@@ -45,41 +41,29 @@ export default function useDocumentGroupRoots(
         data: unassignedData,
         previousData: previousUnassignedData,
         loading: unassignedLoading,
-    } = useAggregateAcrossEntitiesQuery({
+    } = useSearchDocumentsQuery({
         skip,
         fetchPolicy: 'network-only',
         variables: {
             input: {
-                types: [EntityType.Document],
                 query: '*',
-                facets: [ENTITY_TYPE_FACET],
+                start: 0,
+                count: 0,
+                hasDomain: false,
                 viewUrn: viewUrn ?? undefined,
-                orFilters: [
-                    {
-                        and: [
-                            {
-                                field,
-                                condition: FilterOperator.Exists,
-                                negated: true,
-                            },
-                        ],
-                    },
-                ],
             },
         },
     });
 
     const groups = useMemo(() => {
         const resolvedData = data ?? previousData;
-        const facet = (resolvedData?.aggregateAcrossEntities?.facets ?? []).find((item) => item.field === field);
+        const facet = (resolvedData?.searchDocuments?.facets ?? []).find((item) => item?.field === field);
         const resolvedUnassignedData = unassignedData ?? previousUnassignedData;
-        const unassignedFacet = (resolvedUnassignedData?.aggregateAcrossEntities?.facets ?? []).find(
-            (item) => item.field === ENTITY_TYPE_FACET,
-        );
+        const unassignedCount = resolvedUnassignedData?.searchDocuments?.total ?? 0;
 
         return buildDocumentDomainGroups({
             aggregations: facet?.aggregations ?? [],
-            unassignedCount: sumFacetAggregationCounts(unassignedFacet),
+            unassignedCount,
             unassignedLabel,
             activeGroup,
             getDisplayName: (entity) => entityRegistry.getDisplayName(entity.type, entity),

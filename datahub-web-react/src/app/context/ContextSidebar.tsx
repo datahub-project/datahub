@@ -104,6 +104,8 @@ export default function ContextSidebar({
     const [sortSelection, setSortSelection] = useState<DocumentSidebarSortValue>(DEFAULT_DOCUMENT_SIDEBAR_SORT);
     // After sort, keep list at top — selected-row scrollIntoView would jump to the open doc.
     const [suppressSelectionScroll, setSuppressSelectionScroll] = useState(false);
+    // Bumped after import so domain-group searchDocuments pages remount with fresh data.
+    const [domainGroupsRefreshKey, setDomainGroupsRefreshKey] = useState(0);
     const isFirstDisplayEffectRef = useRef(true);
     const previousDisplayRef = useRef({ groupBy, sortSelection });
     // Notion-style: Tag / Status / Author / Source start behind "+ Filter" until promoted.
@@ -452,7 +454,14 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
-    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
+    const handleRefreshGroupedDocuments = useCallback(() => {
+        setDomainGroupsRefreshKey((current) => current + 1);
+    }, []);
+
+    const handleImportSuccess = useDocumentImportSuccess({
+        loadChildren,
+        onRefreshGroupedDocuments: handleRefreshGroupedDocuments,
+    });
 
     let sidebarContent: React.ReactNode;
     if (isSearchActive) {
@@ -473,9 +482,10 @@ export default function ContextSidebar({
     } else if (groupBy === DOCUMENT_GROUP_BY.DOMAIN) {
         sidebarContent = (
             <GroupedDocumentsTree
-                key={`${groupBy}:${sortSelection}`}
+                key={`${groupBy}:${sortSelection}:${domainGroupsRefreshKey}`}
                 sort={sortSelection}
                 viewUrn={viewUrn}
+                suppressSelectionScroll={suppressSelectionScroll}
                 onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
                 onSelect={handleDocumentClick}
             />

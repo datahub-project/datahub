@@ -28,11 +28,19 @@ const EmptyStateWrapper = styled.div`
 type Props = {
     sort: DocumentSidebarSortValue;
     viewUrn?: string | null;
+    /** After sort/grouping changes, keep the list pinned at the top. */
+    suppressSelectionScroll?: boolean;
     onCreateChild?: (parentUrn: string) => void;
     onSelect: (urn: string) => void;
 };
 
-export default function GroupedDocumentsTree({ sort, viewUrn, onCreateChild, onSelect }: Props) {
+export default function GroupedDocumentsTree({
+    sort,
+    viewUrn,
+    suppressSelectionScroll = false,
+    onCreateChild,
+    onSelect,
+}: Props) {
     const { t } = useTranslation('misc');
     const entityRegistry = useEntityRegistry();
     const { getCurrentDocumentUrn } = useDocumentNavigation();
@@ -41,7 +49,8 @@ export default function GroupedDocumentsTree({ sort, viewUrn, onCreateChild, onS
 
     const { data: selectedData } = useGetDocumentQuery({
         skip: !selectedUrn,
-        variables: { urn: selectedUrn ?? '', includeParentDocuments: false },
+        // Parent chain needed when the open doc is prepended outside the loaded page.
+        variables: { urn: selectedUrn ?? '', includeParentDocuments: true },
         fetchPolicy: 'cache-first',
     });
     const selectedDocument = (selectedData?.document ?? null) as Document | null;
@@ -95,6 +104,7 @@ export default function GroupedDocumentsTree({ sort, viewUrn, onCreateChild, onS
                     isExpanded={expandedGroupKeys.has(group.key)}
                     selectedUrn={activeGroup?.key === group.key ? selectedUrn : null}
                     selectedDocument={selectedDocument}
+                    suppressSelectionScroll={suppressSelectionScroll}
                     onToggle={() =>
                         setExpandedGroupKeys((current) => {
                             const next = new Set(current);
