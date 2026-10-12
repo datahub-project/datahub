@@ -143,6 +143,7 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
                     variant: 'filled',
                     disabled: !applicationUrn,
                     onClick: onOk,
+                    buttonDataTestId: 'set-application-modal-add-button',
                 },
             ]}
         >

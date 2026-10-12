@@ -4,12 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
+import { SchemaFieldDataType as BusinessAttributeDataType } from '@app/businessAttribute/businessAttributeUtils';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { useEntityData, useRefetch } from '@src/app/entity/shared/EntityContext';
 
 import { useUpdateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { SchemaFieldDataType } from '@types';
 
 interface Props {
     readOnly?: boolean;
@@ -22,7 +23,10 @@ const SelectWrapper = styled.div`
 `;
 
 // Ensures that any newly added datatype is automatically included in the user dropdown.
-const DATA_TYPES = Object.values(SchemaFieldDataType);
+const DATA_TYPES = Object.values(BusinessAttributeDataType);
+
+const isSchemaFieldDataType = (value: string): value is SchemaFieldDataType =>
+    (Object.values(SchemaFieldDataType) as string[]).includes(value);
 export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
     const { t } = useTranslation('entity.types');
     const { urn, entityData } = useEntityData();
@@ -40,7 +44,7 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
 
     const handleChange = (values: string[]) => {
         const value = values[0];
-        if (!value || value === originalDescription) {
+        if (!value || !isSchemaFieldDataType(value) || value === originalDescription) {
             setEditing(false);
             return;
         }
@@ -82,7 +86,7 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
                                 showClear={false}
                                 values={originalDescription ? [originalDescription] : []}
                                 onUpdate={handleChange}
-                                options={DATA_TYPES.map((dataType: SchemaFieldDataType) => ({
+                                options={DATA_TYPES.map((dataType: BusinessAttributeDataType) => ({
                                     value: dataType,
                                     label: dataType,
                                 }))}
