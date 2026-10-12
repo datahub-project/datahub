@@ -1580,6 +1580,14 @@ def test_shard_base_regex_matches_python_shard_matcher() -> None:
     assert _sql_shard_base("orders120250101") == "orders120250101"
     assert _sql_shard_base("orders120250101") != _sql_shard_base("orders1_20250101")
 
+    # Date-only names are the "dataset as a sharded table" case: Python collapses them into
+    # a single dataset-level entity, so the SQL key must group them together (here the empty
+    # base) rather than leaving each date as its own un-rolled-up table.
+    assert is_sharded("20250101")
+    assert is_sharded("20250102")
+    assert _sql_shard_base("20250101") == _sql_shard_base("20250102")
+    assert _sql_shard_base("20250101") != "20250101"
+
     # An un-sharded name is left unchanged, so its `name == base` self-exclusion keeps it
     # on its own per-table stats.
     assert not is_sharded("customers")

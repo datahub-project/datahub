@@ -9,11 +9,15 @@ from datahub.ingestion.source.bigquery_v2.common import (
 
 # Collapses a date-sharded BigQuery table name (`events_20251121`, `events$20251121`,
 # `events20251121`) to its logical wildcard base so per-shard stats can be summed back onto
-# the single collapsed entity (see build_sharded_stats_clauses). A trailing YYYYMMDD counts
-# as a shard suffix ONLY when preceded by a non-digit, mirroring the Python shard matcher
-# (_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX / extract_base_table_name in bigquery_audit.py):
-# `orders1_20250101` collapses to `orders1`, but `orders120250101` (digit before the date)
-# is a distinct table and must not be merged into another family's totals.
+# the single collapsed entity (see build_sharded_stats_clauses). The prefix group is
+# optional, mirroring the Python shard matcher (_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX /
+# extract_base_table_name in bigquery_audit.py):
+#   - `events_20250101` / `events20250101` -> `events`
+#   - date-only names (`20250101`, `20250102`) -> "" so they group together, matching the
+#     Python "dataset as a sharded table" collapse (extract_base_table_name falls back to
+#     the dataset name for these).
+#   - `orders120250101` (a digit, not a separator, before the date) does NOT match, so it
+#     stays a distinct table and is not merged into the `orders1` family's totals.
 # ponytail: when the character before the separator is a digit (e.g. `orders1_20250101`),
 # the captured base keeps the trailing `_`/`$` (-> `orders1_`) rather than Python's
 # rstrip("_") form (`orders1`). This base is only ever used internally as the GROUP BY /
@@ -22,7 +26,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 # base string, which is never compared against it. Upgrade path: wrap in a second
 # REGEXP_REPLACE(..., r"[_$]+$", "") if exact base-string parity is ever required.
 SHARDED_TABLE_BASE_STRIP_REGEX = (
-    r"^(.*?\D)[_$]?(\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+    r"^((?:.*?\D)?)[_$]?(\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
 
 
