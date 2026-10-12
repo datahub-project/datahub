@@ -129,12 +129,20 @@ class ElasticsearchQuerySourceConfig(ConfigModel):
         "appending '@' and this domain (e.g. a user value of 'alice' with "
         "email_domain 'example.com' becomes alice@example.com).",
     )
-    batch_size: int = Field(1000, description="Scroll batch size.")
+    batch_size: int = Field(
+        1000,
+        description="Scroll size, i.e. the number of hits fetched per shard per "
+        "scroll request (standard Elasticsearch scroll semantics). Against a "
+        "multi-shard index or an index pattern, a scroll page holds up to "
+        "batch_size times the number of matching shards, so size scroll_keepalive "
+        "for that effective page rather than for batch_size alone.",
+    )
     scroll_keepalive: str = Field(
         "5m",
-        description="How long each scroll batch is kept alive server-side. Raise it "
-        "if parsing a batch of batch_size records downstream can take longer than "
-        "this, otherwise the scroll can expire mid-run.",
+        description="How long each scroll page is kept alive server-side. Raise it "
+        "if parsing a scroll page downstream can take longer than this, otherwise "
+        "the scroll can expire mid-run. See batch_size for how shard count affects "
+        "the page size this must cover.",
     )
 
 
@@ -470,9 +478,10 @@ class ElasticsearchQueryLogReader(QueryLogReader):
         logger.info(
             f"Reading query records from Elasticsearch index '{self.config.index}'"
         )
-        # ponytail: the scroll keepalive must outlast downstream processing of one
-        # batch; a batch slower than scroll_keepalive still fails. Upgrade path for
-        # very large/slow runs is PIT + search_after, which is stateless per page.
+        # The scroll keepalive must outlast downstream processing of one scroll page
+        # (batch_size * matching shards, not batch_size); a page slower than
+        # scroll_keepalive still fails. The upgrade path for very large/slow runs is
+        # PIT + search_after, which is stateless per page.
         for hit in scan(
             client,
             index=self.config.index,
