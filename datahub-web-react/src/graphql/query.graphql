@@ -22,6 +22,9 @@ fragment ActorWithDisplayName on CorpUser {
 
 fragment query on QueryEntity {
     urn
+    privileges {
+        canViewQueries
+    }
     properties {
         name
         description
