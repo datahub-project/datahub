@@ -667,24 +667,7 @@ class BigQuerySchemaGenerator:
                 max_calls=self.config.requests_per_min, period=60
             )
 
-        if self.config.include_schema_metadata:
-            columns = self.schema_api.get_columns_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                column_limit=self.config.column_limit,
-                run_optimized_column_query=self.config.run_optimized_column_query,
-                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
-                report=self.report,
-                rate_limiter=rate_limiter,
-            )
-            if (
-                self.config.include_table_constraints
-                and bigquery_dataset.supports_table_constraints()
-            ):
-                constraints = self.schema_api.get_table_constraints_for_dataset(
-                    project_id=project_id, dataset_name=dataset_name, report=self.report
-                )
-        elif self.store_table_refs:
+        if not self.config.include_schema_metadata and self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             logger.debug(
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
@@ -736,79 +719,106 @@ class BigQuerySchemaGenerator:
                 self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
-        if self.config.include_tables:
-            db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, bigquery_dataset)
-            )
-
-            for table in db_tables[dataset_name]:
-                table_columns = columns.get(table.name, []) if columns else []
-                table_constraints = (
-                    constraints.get(table.name, []) if constraints else []
-                )
-
-                table.constraints = table_constraints
-                table_wu_generator = self._process_table(
-                    table=table,
-                    columns=table_columns,
+        # `columns` is a file-backed dict holding a temp sqlite file; acquire and
+        # consume it inside the try so any failure - fetching columns/constraints
+        # or downstream processing - still closes the temp file deterministically.
+        try:
+            if self.config.include_schema_metadata:
+                columns = self.schema_api.get_columns_for_dataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
+                    column_limit=self.config.column_limit,
+                    run_optimized_column_query=self.config.run_optimized_column_query,
+                    extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                    report=self.report,
+                    rate_limiter=rate_limiter,
                 )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    self.data_reader,
-                    [project_id, dataset_name, table.name],
-                    data_reader_kwargs=dict(
-                        sample_size_percent=(
-                            self.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER
-                            / table.rows_count
-                            if table.rows_count
-                            else None
-                        )
-                    ),
+                if (
+                    self.config.include_table_constraints
+                    and bigquery_dataset.supports_table_constraints()
+                ):
+                    constraints = self.schema_api.get_table_constraints_for_dataset(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        report=self.report,
+                    )
+
+            if self.config.include_tables:
+                db_tables[dataset_name] = list(
+                    self.get_tables_for_dataset(project_id, bigquery_dataset)
                 )
 
-        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
-        # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
-        fetch_legacy_table_stats = self.config.use_legacy_table_stats
+                for table in db_tables[dataset_name]:
+                    table_columns = columns.get(table.name, []) if columns else []
+                    table_constraints = (
+                        constraints.get(table.name, []) if constraints else []
+                    )
 
-        if self.config.include_views:
-            db_views[dataset_name] = list(
-                self.schema_api.get_views_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
+                    table.constraints = table_constraints
+                    table_wu_generator = self._process_table(
+                        table=table,
+                        columns=table_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        self.data_reader,
+                        [project_id, dataset_name, table.name],
+                        data_reader_kwargs=dict(
+                            sample_size_percent=(
+                                self.config.classification.sample_size
+                                * SAMPLE_SIZE_MULTIPLIER
+                                / table.rows_count
+                                if table.rows_count
+                                else None
+                            )
+                        ),
+                    )
+
+            # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
+            # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
+            fetch_legacy_table_stats = self.config.use_legacy_table_stats
+
+            if self.config.include_views:
+                db_views[dataset_name] = list(
+                    self.schema_api.get_views_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
                 )
-            )
-            yield from self._process_views_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                views=db_views[dataset_name],
-                columns=columns,
-                rate_limiter=rate_limiter,
-            )
-
-        if self.config.include_table_snapshots:
-            db_snapshots[dataset_name] = list(
-                self.schema_api.get_snapshots_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
-                )
-            )
-
-            for snapshot in db_snapshots[dataset_name]:
-                snapshot_columns = columns.get(snapshot.name, []) if columns else []
-                yield from self._process_snapshot(
-                    snapshot=snapshot,
-                    columns=snapshot_columns,
+                yield from self._process_views_for_dataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
+                    views=db_views[dataset_name],
+                    columns=columns,
+                    rate_limiter=rate_limiter,
                 )
+
+            if self.config.include_table_snapshots:
+                db_snapshots[dataset_name] = list(
+                    self.schema_api.get_snapshots_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
+                )
+
+                for snapshot in db_snapshots[dataset_name]:
+                    snapshot_columns = columns.get(snapshot.name, []) if columns else []
+                    yield from self._process_snapshot(
+                        snapshot=snapshot,
+                        columns=snapshot_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+        finally:
+            if columns is not None:
+                columns.close()
 
     def _dataset_container_properties(
         self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
@@ -1018,7 +1028,7 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
         views: List[BigqueryView],
-        columns: Optional[Dict[str, List[BigqueryColumn]]],
+        columns: Optional[FileBackedDict[List[BigqueryColumn]]],
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for view in views:
