@@ -424,6 +424,36 @@ def test_updates_outside_the_time_window_are_excluded() -> None:
     assert {e.runId for e in run_events} == {"u2"}
 
 
+def test_continuous_update_straddling_window_start_is_skipped() -> None:
+    # A continuous pipeline keeps one update_id for its whole lifetime, so its events
+    # straddle the window start. The in-window slice is only a partial sum of that
+    # long-running update; publishing it keyed on the stable update_id could overwrite
+    # an earlier failure with a false pass (the in-window slice here has 0 failures
+    # while the earlier, pre-window slice failed). The update must be dropped, not
+    # scored.
+    events = [
+        _event(
+            "u1",
+            [_expectation("chk", "orders", 5, 0)],
+            timestamp="2026-09-12T00:00:00.000Z",
+        ),
+        _event(
+            "u1",
+            [_expectation("chk", "orders", 100, 10)],
+            timestamp="2026-09-08T00:00:00.000Z",
+        ),
+    ]
+    extractor = _extractor(
+        _FakeProxy(events=events),
+        start_time=datetime(2026, 9, 10, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 15, tzinfo=timezone.utc),
+    )
+    wus = list(extractor.get_workunits())
+    assert _run_events(wus) == []
+    assert _aspect_names(wus).count("assertionInfo") == 0
+    assert extractor.report.num_pipeline_partial_updates_skipped == 1
+
+
 def test_update_without_counts_emits_no_false_pass() -> None:
     # Databricks can abort an update (e.g. an expect_or_fail violation) and report the
     # expectation with no failed_records. That is not a zero-failure pass, so it must

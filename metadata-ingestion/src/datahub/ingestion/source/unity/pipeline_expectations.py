@@ -170,6 +170,18 @@ class UnityCatalogPipelineExpectationsExtractor:
                 and self.start_time_millis is not None
                 and ts_millis < self.start_time_millis
             ):
+                # This event predates the window, so the update it belongs to extends
+                # before start_time. Whatever we accumulated for that update is only a
+                # partial slice of a longer-running (e.g. continuous) update whose single
+                # update_id lives for its whole lifetime. Publishing that partial sum as
+                # the update's verdict would misreport counts and, because the run is
+                # keyed on update_id, let a later window overwrite an earlier failure with
+                # a false pass. Drop it — an update's events are contiguous in time, so
+                # only the one update active at the window boundary can straddle it.
+                straddling = _extract_update_id(event)
+                if straddling is not None and straddling in result.updates:
+                    del result.updates[straddling]
+                    self.report.num_pipeline_partial_updates_skipped += 1
                 break
             if event.get("event_type") != _FLOW_PROGRESS:
                 continue
