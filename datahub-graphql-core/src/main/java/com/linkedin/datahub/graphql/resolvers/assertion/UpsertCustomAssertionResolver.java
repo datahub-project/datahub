@@ -67,8 +67,18 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          // Check whether the current user is allowed to update the assertion.
-          if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn)) {
+          // Check whether the current user is allowed to update the assertion. An existing
+          // assertion is also checked against the entity it is currently attached to, so the
+          // caller cannot overwrite or re-target an assertion they could not otherwise edit.
+          final Urn existingAsserteeUrn =
+              maybeAssertionUrn == null
+                  ? null
+                  : _assertionService.getEntityUrnForAssertion(
+                      context.getOperationContext(), assertionUrn);
+          if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn)
+              && (existingAsserteeUrn == null
+                  || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(
+                      context, existingAsserteeUrn))) {
             _assertionService.upsertCustomAssertion(
                 context.getOperationContext(),
                 assertionUrn,

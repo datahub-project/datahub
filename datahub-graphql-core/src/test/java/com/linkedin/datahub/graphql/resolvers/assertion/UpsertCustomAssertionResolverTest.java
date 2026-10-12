@@ -35,6 +35,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -525,5 +526,39 @@ public class UpsertCustomAssertionResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testUpdateExistingAssertionOnUnauthorizedAsserteeIsDenied() throws Exception {
+    // The caller may edit assertions on the input dataset, but the assertion already exists and
+    // belongs to a different dataset the caller has no rights on.
+    Urn otherDatasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other,PROD)");
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    Mockito.when(
+            mockedService.getEntityUrnForAssertion(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(otherDatasetUrn);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            TEST_ACTOR_URN.toString(),
+            PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType(),
+            TEST_DATASET_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockedService, Mockito.never())
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
   }
 }
