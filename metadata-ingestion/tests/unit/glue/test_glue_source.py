@@ -1565,8 +1565,8 @@ def test_database_resource_link_same_name_unmapped_owner_warns_once():
 
 
 def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner():
-    # The link database has the owner's name and the owner is mapped. Previously the link tables were
-    # named with the owner's mapped instance, i.e. exactly the owner's own URN, overwriting it.
+    # The link database has the owner's name and the owner is mapped. The link must keep the
+    # ingesting catalog's instance so its URN cannot collide with the owner's dataset.
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
     databases_response["DatabaseList"][0]["Name"] = "test-database"
 

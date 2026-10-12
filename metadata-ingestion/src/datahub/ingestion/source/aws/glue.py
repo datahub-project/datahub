@@ -871,10 +871,9 @@ class GlueSource(StatefulIngestionSourceBase):
             return []
 
         if owner_urn == dataset_urn:
-            # No catalog mapping resolved the owner to a distinct instance and the link/target names
-            # coincide, so the owner URN is the dataset's own URN — a self-upstream edge is
-            # meaningless. A database-level link hits this for every table it exposes, so surface
-            # it as a warning (grouped by title/message) rather than only a debug log.
+            # The owner resolves to the link's own URN, so a self-upstream edge would be
+            # meaningless. A database-level link hits this for every table it exposes; the
+            # warning is grouped by title/message.
             self.report.num_resource_link_self_referential += 1
             self.report.warning(
                 title="Resource link owner catalog not mapped",
