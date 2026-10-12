@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
+    StatusClass,
     SubTypesClass,
 )
 from datahub.metadata.urns import DataPlatformInstanceUrn, DataPlatformUrn
@@ -272,6 +273,22 @@ class DataProcessInstance:
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Generates mcps from the object"""
 
+        # Instance first: instance-scoped write policies read the stored
+        # instance, and these aspects may be sent as separate requests. The
+        # UPSERT status keeps auto-status from sending a PATCH, which needs
+        # EDIT and can be authorized before the instance is stored.
+        assert self._platform
+        if self.data_platform_instance:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=self._platform, instance=self.data_platform_instance
+                ),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn), aspect=StatusClass(removed=False)
+            )
+
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataProcessInstanceProperties(
@@ -300,16 +317,6 @@ class DataProcessInstance:
             ),
         )
         yield mcp
-
-        assert self._platform
-        if self.data_platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(self.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=self._platform, instance=self.data_platform_instance
-                ),
-            )
-            yield mcp
 
         if self.subtype:
             mcp = MetadataChangeProposalWrapper(

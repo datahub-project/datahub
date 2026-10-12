@@ -53,6 +53,24 @@ def test_platform_resource_dict():
     assert platform_resource_info_mcp.aspect.value.schemaType is None
 
 
+def test_platform_resource_emits_platform_instance_first():
+    # Instance-scoped write policies read the stored instance, so it must land
+    # before any other aspect of a new entity.
+    platform_resource = PlatformResource.create(
+        key=PlatformResourceKey(
+            platform="test_platform",
+            platform_instance="my_instance",
+            resource_type="test_resource_type",
+            primary_key="test_primary_key",
+        ),
+        value={"test_key": "test_value"},
+    )
+
+    mcps = list(platform_resource.to_mcps())
+
+    assert mcps[0].aspectName == "dataPlatformInstance"
+
+
 def test_platform_resource_dict_removed():
     """
     Test that dictionaries are correctly converted to removed PlatformResource objects
