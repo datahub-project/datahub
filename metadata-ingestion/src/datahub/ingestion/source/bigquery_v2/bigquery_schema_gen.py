@@ -736,79 +736,85 @@ class BigQuerySchemaGenerator:
                 self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
-        if self.config.include_tables:
-            db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, bigquery_dataset)
-            )
-
-            for table in db_tables[dataset_name]:
-                table_columns = columns.get(table.name, []) if columns else []
-                table_constraints = (
-                    constraints.get(table.name, []) if constraints else []
+        # `columns` is a file-backed dict holding a temp sqlite file; close it
+        # deterministically once all consumers (tables/views/snapshots) are done.
+        try:
+            if self.config.include_tables:
+                db_tables[dataset_name] = list(
+                    self.get_tables_for_dataset(project_id, bigquery_dataset)
                 )
 
-                table.constraints = table_constraints
-                table_wu_generator = self._process_table(
-                    table=table,
-                    columns=table_columns,
+                for table in db_tables[dataset_name]:
+                    table_columns = columns.get(table.name, []) if columns else []
+                    table_constraints = (
+                        constraints.get(table.name, []) if constraints else []
+                    )
+
+                    table.constraints = table_constraints
+                    table_wu_generator = self._process_table(
+                        table=table,
+                        columns=table_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        self.data_reader,
+                        [project_id, dataset_name, table.name],
+                        data_reader_kwargs=dict(
+                            sample_size_percent=(
+                                self.config.classification.sample_size
+                                * SAMPLE_SIZE_MULTIPLIER
+                                / table.rows_count
+                                if table.rows_count
+                                else None
+                            )
+                        ),
+                    )
+
+            # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
+            # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
+            fetch_legacy_table_stats = self.config.use_legacy_table_stats
+
+            if self.config.include_views:
+                db_views[dataset_name] = list(
+                    self.schema_api.get_views_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
+                )
+                yield from self._process_views_for_dataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
-                )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    self.data_reader,
-                    [project_id, dataset_name, table.name],
-                    data_reader_kwargs=dict(
-                        sample_size_percent=(
-                            self.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER
-                            / table.rows_count
-                            if table.rows_count
-                            else None
-                        )
-                    ),
+                    views=db_views[dataset_name],
+                    columns=columns,
+                    rate_limiter=rate_limiter,
                 )
 
-        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
-        # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
-        fetch_legacy_table_stats = self.config.use_legacy_table_stats
-
-        if self.config.include_views:
-            db_views[dataset_name] = list(
-                self.schema_api.get_views_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
+            if self.config.include_table_snapshots:
+                db_snapshots[dataset_name] = list(
+                    self.schema_api.get_snapshots_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
                 )
-            )
-            yield from self._process_views_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                views=db_views[dataset_name],
-                columns=columns,
-                rate_limiter=rate_limiter,
-            )
 
-        if self.config.include_table_snapshots:
-            db_snapshots[dataset_name] = list(
-                self.schema_api.get_snapshots_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
-                )
-            )
-
-            for snapshot in db_snapshots[dataset_name]:
-                snapshot_columns = columns.get(snapshot.name, []) if columns else []
-                yield from self._process_snapshot(
-                    snapshot=snapshot,
-                    columns=snapshot_columns,
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                )
+                for snapshot in db_snapshots[dataset_name]:
+                    snapshot_columns = columns.get(snapshot.name, []) if columns else []
+                    yield from self._process_snapshot(
+                        snapshot=snapshot,
+                        columns=snapshot_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+        finally:
+            if columns is not None:
+                columns.close()
 
     def _dataset_container_properties(
         self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
@@ -1018,7 +1024,7 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
         views: List[BigqueryView],
-        columns: Optional[Dict[str, List[BigqueryColumn]]],
+        columns: Optional[FileBackedDict[List[BigqueryColumn]]],
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for view in views:

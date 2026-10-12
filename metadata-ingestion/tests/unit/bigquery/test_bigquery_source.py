@@ -1471,6 +1471,57 @@ def test_list_tables_uses_large_page_size() -> None:
     assert client.list_tables.call_args.kwargs["page_size"] == 1000
 
 
+def _column_row(table_name: str, column_name: str, ordinal_position: int) -> Row:
+    values = {
+        "table_catalog": "p",
+        "table_schema": "ds",
+        "table_name": table_name,
+        "column_name": column_name,
+        "ordinal_position": ordinal_position,
+        "field_path": column_name,
+        "policy_tags": None,
+        "is_nullable": "YES",
+        "data_type": "STRING",
+        "comment": None,
+        "is_hidden": "NO",
+        "is_partitioning_column": "NO",
+        "clustering_ordinal_position": None,
+    }
+    return Row(tuple(values.values()), {k: i for i, k in enumerate(values)})
+
+
+def test_get_columns_for_dataset_streams_grouped_with_limit() -> None:
+    # Rows arrive grouped by table (the query orders by table_name). Verify we
+    # group per table, enforce column_limit per table, and return a closeable
+    # file-backed dict instead of holding every column in memory.
+    rows = [
+        _column_row("t1", "a", 1),
+        _column_row("t1", "b", 2),
+        _column_row("t1", "c", 3),  # beyond the per-table limit of 2
+        _column_row("t2", "x", 1),
+    ]
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    schema_api.get_query_result = MagicMock(return_value=rows)  # type: ignore[method-assign]
+
+    result = schema_api.get_columns_for_dataset(
+        project_id="p",
+        dataset_name="ds",
+        column_limit=2,
+        report=BigQueryV2Report(),
+    )
+
+    assert result is not None
+    try:
+        assert [c.name for c in result["t1"]] == ["a", "b"]
+        assert [c.name for c in result["t2"]] == ["x"]
+    finally:
+        result.close()
+
+
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
