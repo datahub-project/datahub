@@ -294,7 +294,7 @@ Each match is loaded and ingested as an independent dbt project:
 - **A `source()` in one project that points at another project's model** connects through the shared warehouse dataset, exactly as it does with separate recipes.
 - **Semantic models and metrics** are emitted per project under that project's name. `semantic_model_project_name` must not be set with a glob.
 - **`git_info` must not be set with a glob**, because each project's file paths are relative to its own project root and one repository location would link them to the wrong files.
-- **A glob character that is part of a real path** is escaped with brackets: `[[]`, `[*]` or `[?]`. For example, a directory literally named `dbt[prod]` is written `dbt[[]prod]`.
+- **A glob character that is part of a real path** is escaped with brackets: `[[]`, `[*]` or `[?]`. For example, a directory literally named `dbt[prod]` is written `dbt[[]prod]`. An escaped path is still a glob, so it runs in multi-project mode; a single-project recipe needs a `manifest_path` without these characters.
 
 A project that fails to load is reported as a failure for that project only and listed under `manifest_paths_failed` in the run report, so every other matched project still ingests fully.
 

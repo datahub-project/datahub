@@ -107,7 +107,8 @@ def test_prefetch_close_waits_for_in_flight_reads_and_starts_no_more() -> None:
         closer.join(timeout=5)
 
     assert not closer.is_alive()
-    assert started == ["uri-0", "uri-1"]
+    # The two workers may start in either order.
+    assert sorted(started) == ["uri-0", "uri-1"]
 
 
 @pytest.mark.parametrize(

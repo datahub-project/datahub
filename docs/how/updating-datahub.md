@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- [#19473](https://github.com/datahub-project/datahub/pull/19473) **(Ingestion / dbt, custom subclasses only)** Recipes are unaffected. Code that subclasses `DBTSourceBase` or calls dbt source internals must change:
+- [#19473](https://github.com/datahub-project/datahub/pull/19473) **(Ingestion / dbt)** `manifest_path` now treats `*`, `?` and `[` as glob characters, which switch the recipe to multi-project ingestion. A single-project recipe whose path literally contains one of them would therefore run in multi-project mode after upgrading: its dbt platform instance becomes the manifest's project name, so its dbt URNs change. Rename such a path before upgrading; bracket escaping does not help, since an escaped path is still a glob. Other recipes are unaffected. Code that subclasses `DBTSourceBase` or calls dbt source internals must change:
 
   - The abstract `load_nodes()` is replaced by `load_projects()`, which yields one `DBTProject` (nodes, exposures, metrics and that project's platform instance) per dbt project. `load_exposures()` and `load_metrics()` are removed; return those on the `DBTProject` instead.
   - `DBTCoreSource.loadManifestAndCatalog()` and `DBTCoreSource.load_file_as_json()` are removed. Use `datahub.ingestion.source.dbt.dbt_artifacts.load_file_as_json`.
