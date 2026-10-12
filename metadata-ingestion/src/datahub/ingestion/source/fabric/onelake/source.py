@@ -50,6 +50,7 @@ from datahub.ingestion.source.fabric.common.sensitivity import (
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_notebook_name,
+    make_onelake_urn,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
@@ -69,6 +70,13 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
+)
+from datahub.ingestion.source.fabric.onelake.notebook_jobs import (
+    NotebookProcessEmitter,
+    PendingNotebook,
+)
+from datahub.ingestion.source.fabric.onelake.notebook_lineage import (
+    NotebookTableRegistry,
 )
 from datahub.ingestion.source.fabric.onelake.notebooks import (
     FabricNotebook,
@@ -197,7 +205,10 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut "
-    "target is emitted as an upstream of the shortcut table.",
+    "target is emitted as an upstream of the shortcut table. When "
+    "`include_notebook_lineage` is enabled, each notebook is modelled as a "
+    "DataJob whose input/output tables are parsed from the notebook source and "
+    "resolved against ingested tables.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -284,6 +295,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # per workspace/item and reused across all shortcuts in the run.
         self._workspace_display_names: dict[str, Optional[str]] = {}
         self._item_display_names: dict[tuple[str, str], Optional[str]] = {}
+        # Notebook execution lineage: a registry of ingested tables (human
+        # name -> GUID-based URN) and notebooks deferred until every workspace
+        # is scanned so cross-workspace table references resolve.
+        self._notebook_registry = NotebookTableRegistry()
+        self._pending_notebooks: list[PendingNotebook] = []
         self.report.sql_aggregator = self.aggregator.report
 
         # Stateful skip-handler for the usage time window. None when stateful
@@ -321,6 +337,30 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _is_usage_table_allowed(self, name: str) -> bool:
         return name.lower() in self._ingested_dataset_names
+
+    def _register_notebook_table(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_display_name: str,
+        schema_name: str,
+        table_name: str,
+    ) -> None:
+        # Index ingested tables by their human name so notebook source
+        # references (lakehouse.schema.table) can resolve to the GUID URN.
+        if not self.config.include_notebook_lineage:
+            return
+        urn = make_onelake_urn(
+            workspace_id=workspace_id,
+            item_id=item_id,
+            table_name=self._norm(table_name),
+            schema_name=self._norm(schema_name),
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        self._notebook_registry.register(
+            item_display_name, schema_name, table_name, urn
+        )
 
     def _owners(
         self,
@@ -421,6 +461,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Shortcut datasets wait until every table has been seen, so an origin
         # ingested later in the run can contribute column lineage.
         yield from self._emit_deferred_shortcut_datasets()
+
+        # Notebooks wait until every table is registered so their source-parsed
+        # table references resolve to ingested dataset URNs.
+        yield from self._emit_notebook_processes()
 
         # Drain the aggregator. Emits view lineage and (when usage is enabled)
         # datasetUsageStatistics / operation aspects. Deferred to the end so
@@ -578,6 +622,26 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             yield from self._attach_sensitivity(dataset, notebook.sensitivity_label_id)
             yield dataset
 
+            # Defer the process view (DataFlow/DataJob/lineage/runs) until every
+            # workspace is scanned so table references resolve against the full
+            # registry (mirrors the deferred shortcut-dataset pass).
+            if (
+                self.config.include_notebook_lineage
+                or self.config.include_notebook_runs
+            ):
+                self._pending_notebooks.append(
+                    PendingNotebook(
+                        workspace_id=workspace.id,
+                        workspace_name=workspace.name,
+                        notebook_id=notebook.id,
+                        display_name=notebook.display_name,
+                        description=notebook.description,
+                        owner_user_principal_name=notebook.owner_user_principal_name,
+                        content=content,
+                        language=language,
+                    )
+                )
+
     def _create_notebook_dataset(
         self,
         workspace: FabricWorkspace,
@@ -674,6 +738,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 lakehouse.id,
                 "Lakehouse",
                 lakehouse_key,
+                item_display_name=lakehouse.name,
                 schema_client=schema_client,
                 schema_map=schema_map,
                 emitted_schemas=emitted_schemas,
@@ -745,6 +810,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 warehouse.id,
                 "Warehouse",
                 warehouse_key,
+                item_display_name=warehouse.name,
                 schema_client=schema_client,
                 schema_map=schema_map,
                 emitted_schemas=emitted_schemas,
@@ -938,6 +1004,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         columns,
                         shortcut=shortcut,
                         owner_user_principal_name=owner_user_principal_name,
+                    )
+                    self._register_notebook_table(
+                        workspace.id,
+                        item_id,
+                        item_display_name,
+                        schema_name,
+                        table.name,
                     )
 
         except Exception as e:
@@ -1191,6 +1264,25 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             fineGrainedLineages=fine_grained,
         )
 
+    def _emit_notebook_processes(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        """Emit the per-notebook process view (DataFlow/DataJob + lineage/runs)."""
+        if not self._pending_notebooks:
+            return
+        emitter = NotebookProcessEmitter(
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            include_lineage=self.config.include_notebook_lineage,
+            include_runs=self.config.include_notebook_runs,
+            execution_history_days=self.config.notebook_execution_history_days,
+            report=self.report,
+            client=self.client,
+            registry=self._notebook_registry,
+            owners_fn=self._owners,
+        )
+        yield from emitter.emit(self._pending_notebooks)
+
     def _emit_deferred_shortcut_datasets(self) -> Iterable[Dataset]:
         """Yield shortcut datasets once their origin table may have been ingested.
 
@@ -1353,6 +1445,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_id: str,
         item_type: Literal["Lakehouse", "Warehouse"],
         item_container_key: ContainerKey,
+        item_display_name: str,
         schema_client: "SchemaExtractionClient",
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
@@ -1446,6 +1539,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     parent_container_key,
                     columns,
                     owner_user_principal_name=owner_user_principal_name,
+                )
+                self._register_notebook_table(
+                    workspace.id,
+                    item_id,
+                    item_display_name,
+                    schema_name,
+                    view.name,
                 )
 
     def _create_view_dataset(

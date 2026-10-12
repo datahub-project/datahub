@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Callable, Dict, Iterator, Optional, Tuple, TypeVar
+from datetime import datetime
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypeVar
 
 import requests
 
@@ -12,10 +13,12 @@ from datahub.ingestion.source.fabric.common.auth import (
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
+    FabricJobInstance,
     FabricWorkspace,
     item_owner_user_principal_name,
     sensitivity_label_id,
 )
+from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
@@ -305,6 +308,35 @@ class OneLakeClient(BaseFabricClient):
             except ValueError:
                 delay = 2
             time.sleep(min(delay, _LRO_POLL_SLEEP_CAP_SEC))
+
+    def get_notebook_runs(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricJobInstance]:
+        """Fetch notebook job instances within the lookback window.
+
+        Uses the generic Job Scheduler list_item_job_instances(), which returns
+        runs newest-first. Stops as soon as a run's startTimeUtc falls before
+        the window, avoiding unnecessary pages.
+
+        Args:
+            workspace_id: Workspace GUID
+            notebook_id: Notebook item GUID
+            lookback_window_start: Cutoff datetime (UTC); older runs are excluded.
+
+        Returns:
+            List of FabricJobInstance within the lookback window.
+        """
+        runs: List[FabricJobInstance] = []
+        for job_instance in self.list_item_job_instances(workspace_id, notebook_id):
+            if job_instance.start_time_utc:
+                run_start = parse_iso_datetime(job_instance.start_time_utc)
+                if run_start < lookback_window_start:
+                    break
+            runs.append(job_instance)
+        return runs
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str

@@ -371,6 +371,29 @@ For each notebook that passes the pattern, the connector calls `POST /workspaces
 
 The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
+#### Notebook Execution Lineage
+
+`include_notebook_lineage` (off by default, requires `include_notebooks: true`) also models each notebook as a **process**: one DataFlow per workspace with one DataJob per notebook. Fabric exposes no API that lists the tables a notebook reads or writes, so the connector parses the notebook source (the same `fabricGitSource` content above) for table reads and writes:
+
+- SQL notebooks, `%%sql` magic cells, and `spark.sql("...")` string literals are parsed with sqlglot.
+- The common DataFrame accessors are matched: `spark.read.table(...)` / `spark.table(...)` as reads, and `.saveAsTable(...)` / `.insertInto(...)` as writes.
+
+Parsed references (`lakehouse.schema.table`) are resolved against the tables ingested in the same run (which carry GUID-based URNs) and become the DataJob's input/output datasets. A reference that does not match exactly one ingested table is counted in the report (`notebook_lineage_unresolved_refs`) and dropped rather than emitted as a ghost dataset. This is a static-parse baseline: table names built dynamically at runtime are not reconstructed.
+
+#### Notebook Run History
+
+`include_notebook_runs` (off by default, requires `include_notebooks: true`) emits a `DataProcessInstance` for each recent notebook run, read from the Job Scheduler `GET /workspaces/{id}/items/{itemId}/jobs/instances` API. `notebook_execution_history_days` (default 7) bounds how far back runs are fetched. Each instance records start/end time and the run result (success / failure / skipped). The run API reports only status and timing — it carries no table I/O — so run history and lineage are independent features.
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    include_notebooks: true
+    include_notebook_lineage: true
+    include_notebook_runs: true
+    notebook_execution_history_days: 7
+```
+
 ### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.

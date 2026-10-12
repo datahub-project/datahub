@@ -70,6 +70,32 @@ class TestFabricOneLakeSourceConfig:
         )
         assert config.api_timeout == 30
 
+    def test_notebook_lineage_requires_include_notebooks(self) -> None:
+        """Notebook lineage/runs flags require include_notebooks=True."""
+        with pytest.raises(ValidationError):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                include_notebooks=False,
+                include_notebook_lineage=True,
+            )
+        with pytest.raises(ValidationError):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                include_notebooks=False,
+                include_notebook_runs=True,
+            )
+
+    def test_notebook_lineage_enabled_with_notebooks(self) -> None:
+        """Notebook lineage/runs are accepted when include_notebooks is on."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            include_notebooks=True,
+            include_notebook_lineage=True,
+            include_notebook_runs=True,
+        )
+        assert config.include_notebook_lineage
+        assert config.include_notebook_runs
+
     def test_workspace_pattern_filtering(self) -> None:
         """Workspace pattern should filter correctly."""
         config = FabricOneLakeSourceConfig(

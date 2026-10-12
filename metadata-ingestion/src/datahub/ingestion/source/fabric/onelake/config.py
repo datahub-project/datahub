@@ -290,6 +290,39 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    include_notebook_lineage: bool = Field(
+        default=False,
+        description=(
+            "Emit each notebook as a DataJob and derive its table-level lineage "
+            "by parsing the notebook source (Spark SQL, `spark.sql(...)`, `%%sql` "
+            "cells, and `.table()`/`.saveAsTable()` DataFrame calls). Table "
+            "references are resolved against the lakehouse/warehouse tables "
+            "ingested in the same run; references that do not resolve to an "
+            "ingested table are reported and dropped. Requires `include_notebooks=True`. "
+            "Fabric exposes no notebook lineage API, so this is derived statically "
+            "from the source."
+        ),
+    )
+
+    include_notebook_runs: bool = Field(
+        default=False,
+        description=(
+            "Emit notebook run history as DataProcessInstances from the Job "
+            "Scheduler API (`GET /workspaces/{id}/items/{id}/jobs/instances`). "
+            "Requires `include_notebooks=True`."
+        ),
+    )
+
+    notebook_execution_history_days: int = Field(
+        default=7,
+        description=(
+            "How many days of notebook run history to ingest when "
+            "`include_notebook_runs=True`."
+        ),
+        ge=1,
+        le=90,
+    )
+
     extract_schemas: bool = Field(
         default=True,
         description="Whether to extract schema containers. "
@@ -348,6 +381,19 @@ class FabricOneLakeSourceConfig(
             "configured and enabled `sql_endpoint`."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_notebook_feature_dependencies(self):
+        """Notebook lineage and run history require notebook ingestion."""
+        if self.include_notebook_lineage and not self.include_notebooks:
+            raise ValueError(
+                "include_notebook_lineage=True requires include_notebooks=True."
+            )
+        if self.include_notebook_runs and not self.include_notebooks:
+            raise ValueError(
+                "include_notebook_runs=True requires include_notebooks=True."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):
