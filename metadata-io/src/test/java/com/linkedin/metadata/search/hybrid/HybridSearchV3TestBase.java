@@ -297,16 +297,14 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
               crowd, "Monthly forecast outlook " + i, "Mentions the forecast once", crowdChunks));
     }
     // With the semantic configuration the writer lifts document vectors to the root embeddings
-    new UpdateIndicesV3Strategy(
-            entityIndex.getV3(),
-            searchService,
-            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-            mock(TimeseriesAspectService.class),
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(),
-            false,
-            semanticSearch)
+    UpdateIndicesV3Strategy.builder()
+        .v3Config(entityIndex.getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(mock(TimeseriesAspectService.class))
+        .semanticSearchConfiguration(semanticSearch)
+        .build()
         .processBatch(opContext, batch, false);
     syncAfterWrite(getBulkProcessor());
   }

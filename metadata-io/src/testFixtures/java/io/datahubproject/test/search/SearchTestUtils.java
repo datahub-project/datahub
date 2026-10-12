@@ -43,6 +43,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
@@ -50,6 +51,8 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -583,7 +586,11 @@ public class SearchTestUtils {
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
-        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+        // As the factory wires it: every V3 index is created with the document-id scheme stamp.
+        builders.add(
+            new DocumentIdSchemeStampingMappingsBuilder(
+                new MultiEntityMappingsBuilder(entityIndexConfiguration),
+                new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher())));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
       }

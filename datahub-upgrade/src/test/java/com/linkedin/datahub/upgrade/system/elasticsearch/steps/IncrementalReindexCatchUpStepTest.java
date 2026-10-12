@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -22,6 +23,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
@@ -34,11 +36,18 @@ import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -55,6 +64,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -257,8 +267,7 @@ public class IncrementalReindexCatchUpStepTest {
                         inv.getArgument(2))
                     .apply(streamWithPagedAspects(600, 50)));
 
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
     try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
@@ -274,6 +283,58 @@ public class IncrementalReindexCatchUpStepTest {
     }
 
     verify(entityService, times(2)).flushEventProducer();
+  }
+
+  @Test
+  public void testReplayedChangeLogsAreMarkedAsCatchUp() throws Exception {
+    // A replayed row can describe an entity that was hard-deleted and recreated after the row was
+    // read; only the catch-up mark makes the V3 writer rebuild from primary storage instead of
+    // overlaying the pre-delete value, so every replayed change log must carry it.
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    setupPhase1Result(phase1State);
+    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(streamWithPagedAspects(3, 50)));
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
+        .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
+
+    try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
+      entityUtilsMock
+          .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
+          .thenAnswer(
+              invocation -> {
+                List<EbeanAspectV2> aspects = invocation.getArgument(2);
+                return aspects.stream().map(a -> mockAspect).toList();
+              });
+      step.executable().apply(upgradeContext);
+    }
+
+    ArgumentCaptor<MetadataChangeLog> changeLogs = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(entityService, atLeastOnce())
+        .alwaysProduceMCLAsync(any(), any(), any(), changeLogs.capture());
+    assertEquals(changeLogs.getAllValues().size(), 3);
+    for (MetadataChangeLog changeLog : changeLogs.getAllValues()) {
+      assertEquals(changeLog.getChangeType(), ChangeType.RESTATE);
+      assertEquals(changeLog.getEntityUrn(), mockAspect.getUrn());
+      assertEquals(
+          changeLog.getHeaders().get(BackfillHeaders.MODE_HEADER_NAME),
+          BackfillHeaders.MODE_CATCH_UP);
+    }
   }
 
   @Test
@@ -317,8 +378,7 @@ public class IncrementalReindexCatchUpStepTest {
                         inv.getArgument(2))
                     .apply(streamWithPagedAspects(600, 50)));
 
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenAnswer(
             invocation -> {
               pending.incrementAndGet();
@@ -388,8 +448,7 @@ public class IncrementalReindexCatchUpStepTest {
                         inv.getArgument(2))
                     .apply(streamWithLargePagedAspects(4, 2, 600)));
 
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
     try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
@@ -441,6 +500,66 @@ public class IncrementalReindexCatchUpStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
+  }
+
+  @Test
+  public void testFillInFlightGetsNoCatchUpStatusHere() {
+    // The fill replays its own window once it completes; recording SKIPPED here would make that
+    // later pass find the row already terminal.
+    String v3Index = "primaryindex_v3";
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            v3Index,
+            v3Index + "_0_14_0-0_1679000000000",
+            null,
+            1000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.BACKFILL_PENDING);
+    phase1State = IncrementalReindexState.setBackfillPending(phase1State, v3Index, v3Index, 1000L);
+
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
+    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object urnArg = invocation.getArgument(1);
+              if (urnArg.toString().contains("BuildIndicesIncremental")) {
+                return Optional.of(phase1Result);
+              }
+              return Optional.empty();
+            });
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    // Whatever this run persisted, none of it may carry a catch-up status for the fill row.
+    verify(entityService, atLeast(0))
+        .ingestProposal(any(), proposals.capture(), any(), anyBoolean());
+    for (MetadataChangeProposal proposal : proposals.getAllValues()) {
+      DataHubUpgradeResult persisted =
+          GenericRecordUtils.deserializeAspect(
+              proposal.getAspect().getValue(),
+              proposal.getAspect().getContentType(),
+              DataHubUpgradeResult.class);
+      assertFalse(
+          persisted.getResult() != null
+              && persisted
+                  .getResult()
+                  .containsKey(
+                      IncrementalReindexState.key(
+                          v3Index, IncrementalReindexState.CATCH_UP_STATUS)),
+          "fill rows must not receive a catch-up status from this step");
+    }
+    // And nothing this run persisted may let a later run treat catch-up as finished: the fill
+    // row has a window and no terminal status, so the next run still has work to do here.
+    assertFalse(IncrementalReindexState.isCatchUpCompleteForAllIndices(phase1State, Map.of()));
   }
 
   @Test
@@ -574,6 +693,94 @@ public class IncrementalReindexCatchUpStepTest {
         allArgs.stream().map(args -> args.urnLike).collect(java.util.stream.Collectors.toSet());
     assertTrue(urnLikes.contains("urn:li:dataset:%"));
     assertTrue(urnLikes.contains("urn:li:chart:%"));
+  }
+
+  @Test
+  public void testV3IndexReplaysEveryEntityTypeFromTheFillStart() {
+    String alias = v3Alias();
+    List<String> entityNames = v3EntityNames();
+    // reindexStartTime differs from backfillStartTime here only to show which one opens the window.
+    setupPhase1Result(completedV3Row(alias, 1000L, 5000L));
+    mockEmptyAspectStream();
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao, times(entityNames.size()))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    List<RestoreIndicesArgs> allArgs = argsCaptor.getAllValues();
+    assertEquals(
+        allArgs.stream().map(args -> args.urnLike).collect(Collectors.toList()),
+        entityNames.stream().map(name -> "urn:li:" + name + ":%").collect(Collectors.toList()));
+    for (RestoreIndicesArgs args : allArgs) {
+      assertEquals(args.gePitEpochMs, 1000L);
+      // No old backing index means no dual-write start; "now" closes the window.
+      assertTrue(args.lePitEpochMs > 5000L);
+    }
+  }
+
+  @Test
+  public void testV3ReindexRowUsesTheReindexWindow() {
+    String alias = v3Alias();
+    Map<String, String> phase1State = completedV3Row(alias, null, 1000L);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, alias, 2000L);
+    setupPhase1Result(phase1State);
+    mockEmptyAspectStream();
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao, times(v3EntityNames().size()))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    for (RestoreIndicesArgs args : argsCaptor.getAllValues()) {
+      assertEquals(args.gePitEpochMs, 1000L);
+      assertEquals(args.lePitEpochMs, 2000L);
+    }
+  }
+
+  @Test
+  public void testV3ResumeCursorIsKeyedByEntityType() {
+    String alias = v3Alias();
+    List<String> entityNames = v3EntityNames();
+    String entityType = entityNames.get(0);
+    String resumeUrn = "urn:li:" + entityType + ":resume";
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(completedV3Row(alias, 1000L, 1000L)));
+    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+    DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
+    when(catchUpResult.getResult())
+        .thenReturn(
+            new StringMap(
+                Map.of(
+                    alias + "." + entityType + "." + IncrementalReindexCatchUpStep.LAST_URN_KEY,
+                    resumeUrn)));
+    when(catchUpResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                invocation.getArgument(1).toString().contains("BuildIndicesIncremental")
+                    ? Optional.of(phase1Result)
+                    : Optional.of(catchUpResult));
+    mockEmptyAspectStream();
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao, times(entityNames.size()))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    Map<String, String> lastUrnByType =
+        argsCaptor.getAllValues().stream()
+            .collect(
+                java.util.HashMap::new,
+                (map, args) -> map.put(args.urnLike, args.lastUrn),
+                Map::putAll);
+    assertEquals(lastUrnByType.get("urn:li:" + entityType + ":%"), resumeUrn);
   }
 
   @Test
@@ -950,6 +1157,52 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  private String v3Alias() {
+    String key = V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec("dataset"));
+    return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, key);
+  }
+
+  private List<String> v3EntityNames() {
+    String key = V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec("dataset"));
+    return V3IndexKeys.entitySpecsForKey(opContext.getEntityRegistry(), key).stream()
+        .map(EntitySpec::getName)
+        .sorted()
+        .collect(Collectors.toList());
+  }
+
+  /** A V3 row after Phase 1 and, when {@code backfillStartTime} is given, after its fill. */
+  private static Map<String, String> completedV3Row(
+      String alias, Long backfillStartTime, long reindexStartTime) {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            alias,
+            alias + "_0_14_0-0_1679000000000",
+            null,
+            reindexStartTime,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    if (backfillStartTime != null) {
+      state = IncrementalReindexState.setBackfillPending(state, alias, alias, backfillStartTime);
+      state = IncrementalReindexState.setPhase1Completed(state, alias);
+    }
+    return IncrementalReindexState.setIndexVersion(state, alias, EntityIndexVersion.V3);
+  }
+
+  private void mockEmptyAspectStream() {
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            invocation ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        invocation.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
   }
 
   private void setupPhase1Result(Map<String, String> phase1State) {

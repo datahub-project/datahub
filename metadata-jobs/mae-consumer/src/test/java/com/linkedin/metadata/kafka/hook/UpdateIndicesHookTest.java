@@ -136,7 +136,7 @@ public class UpdateIndicesHookTest {
     ESWriteDAO mockWriteDAO = mock(ESWriteDAO.class);
     ESBulkProcessor mockBulkProcessor = mock(ESBulkProcessor.class);
     when(mockEntitySearchService.getEsWriteDAO()).thenReturn(mockWriteDAO);
-    when(mockWriteDAO.getBulkProcessor()).thenReturn(mockBulkProcessor);
+    when(mockWriteDAO.bulkProcessors()).thenReturn(List.of(mockBulkProcessor));
     when(mockBulkProcessor.isAckAfterTransfer()).thenReturn(false);
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
@@ -981,12 +981,13 @@ public class UpdateIndicesHookTest {
 
     if (v3Enabled) {
       UpdateIndicesV3Strategy v3Strategy =
-          new UpdateIndicesV3Strategy(
-              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
-              mockEntitySearchService,
-              searchDocumentTransformer,
-              mockTimeseriesAspectService,
-              null);
+          UpdateIndicesV3Strategy.builder()
+              .v3Config(
+                  EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+              .elasticSearchService(mockEntitySearchService)
+              .searchDocumentTransformer(searchDocumentTransformer)
+              .timeseriesAspectService(mockTimeseriesAspectService)
+              .build();
       strategies.add(v3Strategy);
     }
 

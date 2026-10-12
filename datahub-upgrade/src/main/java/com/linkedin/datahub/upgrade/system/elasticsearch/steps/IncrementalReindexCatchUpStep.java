@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -17,6 +20,8 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState.CatchUpStatus;
@@ -24,7 +29,10 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -40,6 +48,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.QueryBuilders;
@@ -47,16 +56,21 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.tasks.TaskInfo;
 
 /**
- * Phase 2 non-blocking upgrade step that closes the T0 gap created during Phase 1. Queries aspects
- * modified between {@code reindexStartTime} and {@code dualWriteStartTime} and emits MCLs via
- * Kafka. The dual-write strategy (already active in the MAE consumer) handles writing these MCLs to
- * both current and next indices.
+ * Phase 2 non-blocking upgrade step that closes the write gap left by Phase 1 and by an entity
+ * index fill. Queries aspects modified between the window start ({@code backfillStartTime} for a
+ * filled index, else {@code reindexStartTime}) and {@code dualWriteStartTime}, falling back to now,
+ * and emits MCLs via Kafka. The MAE consumer's update strategies (with rollback dual-write already
+ * active) write those MCLs to the live index and any old backing index kept for rollback.
  *
  * <p>Only processes indices where {@code requiresDataBackfill=true} — settings-only changes don't
  * need this since the ES _reindex already copied all docs correctly.
  *
  * <p>Uses {@link ChangeType#RESTATE} so the consumer re-processes the full aspect state regardless
- * of diff mode optimizations.
+ * of diff mode optimizations. Every replayed change log is also marked as a catch-up in its headers
+ * ({@link BackfillHeaders#MODE_HEADER_NAME}), which tells the V3 writer to rebuild the document
+ * from primary storage as it stands when the event is processed, ignoring the row value carried by
+ * the event, and to tombstone the entity when it no longer exists there; see {@link
+ * #catchUpChangeLog}.
  */
 @Slf4j
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
@@ -152,6 +166,13 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           if (existingCatchUpStatus.isPresent() && existingCatchUpStatus.get().isTerminal()) {
             continue;
           }
+          // A fill in flight is caught up once it completes and the row is COMPLETED; leave it
+          // without a catch-up status until then so that pass does not find it already terminal.
+          if (IncrementalReindexState.isBackfillStatus(
+              IncrementalReindexState.getStatus(phase1State, indexName).orElse(null))) {
+            log.info("Index {} is being filled; its catch-up runs with the fill", indexName);
+            continue;
+          }
 
           try {
             CatchUpStatus outcome = catchUpIndex(context, indexName, indexState);
@@ -211,21 +232,22 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   private CatchUpStatus catchUpIndex(
       UpgradeContext context, String indexName, Map<String, String> indexState) throws Throwable {
-    String reindexStartTimeStr = indexState.get(IncrementalReindexState.REINDEX_START_TIME);
-    String dualWriteStartTimeStr = indexState.get(IncrementalReindexState.DUAL_WRITE_START_TIME);
-
-    if (reindexStartTimeStr == null) {
-      log.warn("Index {} missing reindexStartTime, skipping catch-up", indexName);
+    Optional<Long> windowStart = IncrementalReindexState.catchUpWindowStart(indexState);
+    if (windowStart.isEmpty()) {
+      log.warn(
+          "Index {} records neither backfillStartTime nor reindexStartTime, skipping catch-up",
+          indexName);
       return CatchUpStatus.SKIPPED;
     }
+    String dualWriteStartTimeStr = indexState.get(IncrementalReindexState.DUAL_WRITE_START_TIME);
 
-    long reindexStartTime = Long.parseLong(reindexStartTimeStr);
-    long dualWriteStartTime =
+    long fromEpochMs = windowStart.get();
+    long toEpochMs =
         dualWriteStartTimeStr != null
             ? Long.parseLong(dualWriteStartTimeStr)
             : System.currentTimeMillis();
 
-    if (reindexStartTime >= dualWriteStartTime) {
+    if (fromEpochMs >= toEpochMs) {
       return CatchUpStatus.SKIPPED;
     }
 
@@ -239,11 +261,23 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           "Catch-up for entity index {} (entity {}): window [{}, {}]",
           indexName,
           entityName,
-          reindexStartTime,
-          dualWriteStartTime);
+          fromEpochMs,
+          toEpochMs);
       emitMCLsForTimeRange(
-          context, indexName, "urn:li:" + entityName + ":%", reindexStartTime, dualWriteStartTime);
+          context,
+          indexName,
+          indexName + "." + LAST_URN_KEY,
+          "urn:li:" + entityName + ":%",
+          fromEpochMs,
+          toEpochMs);
       return CatchUpStatus.COMPLETED;
+    }
+
+    if (indexConvention
+        .entityIndexVersionOf(indexName)
+        .filter(EntityIndexVersion.V3::equals)
+        .isPresent()) {
+      return catchUpV3Index(context, indexName, indexConvention, fromEpochMs, toEpochMs);
     }
 
     if (indexConvention.getEntityAndAspectName(opContext, indexName).isPresent()
@@ -257,24 +291,70 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           "Catch-up for timeseries index {} (old: {}): _reindex window [{}, {}]",
           indexName,
           oldBackingIndexName,
-          reindexStartTime,
-          dualWriteStartTime);
+          fromEpochMs,
+          toEpochMs);
       return reindexTimeseriesGap(
-          indexName, oldBackingIndexName, nextIndexName, reindexStartTime, dualWriteStartTime);
+          indexName, oldBackingIndexName, nextIndexName, fromEpochMs, toEpochMs);
     }
 
     if (isGlobalIndex(indexName)) {
-      log.info(
-          "Catch-up for global index {}: window [{}, {}]",
-          indexName,
-          reindexStartTime,
-          dualWriteStartTime);
-      emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, dualWriteStartTime);
+      log.info("Catch-up for global index {}: window [{}, {}]", indexName, fromEpochMs, toEpochMs);
+      emitMCLsForTimeRange(
+          context, indexName, indexName + "." + LAST_URN_KEY, "%", fromEpochMs, toEpochMs);
       return CatchUpStatus.COMPLETED;
     }
 
     log.warn("Could not resolve index '{}' as entity, timeseries, or global, skipping", indexName);
     return CatchUpStatus.SKIPPED;
+  }
+
+  /**
+   * A V3 index holds every entity type of its index key, so its window is replayed once per type in
+   * name order, each type with its own resume cursor. Whether the window opened at a fill start or
+   * a reindex start makes no difference here: the RESTATE reaches the alias either way.
+   */
+  private CatchUpStatus catchUpV3Index(
+      UpgradeContext context,
+      String indexName,
+      IndexConvention indexConvention,
+      long fromEpochMs,
+      long toEpochMs) {
+    Optional<String> indexKey = indexConvention.getEntityIndexKeyV3(opContext, indexName);
+    if (indexKey.isEmpty()) {
+      log.error(
+          "Index {} is a V3 entity index whose key cannot be resolved; catch-up cannot scope it",
+          indexName);
+      return CatchUpStatus.FAILED;
+    }
+    List<String> entityNames =
+        V3IndexKeys.entitySpecsForKey(opContext.getEntityRegistry(), indexKey.get()).stream()
+            .map(EntitySpec::getName)
+            .sorted()
+            .collect(Collectors.toList());
+    if (entityNames.isEmpty()) {
+      log.error(
+          "No entity types resolve to index key '{}' for {}; catch-up cannot scope it",
+          indexKey.get(),
+          indexName);
+      return CatchUpStatus.FAILED;
+    }
+    log.info(
+        "Catch-up for V3 index {} (key {}, {} entity type(s)): window [{}, {}]",
+        indexName,
+        indexKey.get(),
+        entityNames.size(),
+        fromEpochMs,
+        toEpochMs);
+    for (String entityName : entityNames) {
+      emitMCLsForTimeRange(
+          context,
+          indexName,
+          indexName + "." + entityName + "." + LAST_URN_KEY,
+          "urn:li:" + entityName + ":%",
+          fromEpochMs,
+          toEpochMs);
+    }
+    return CatchUpStatus.COMPLETED;
   }
 
   private void persistCatchUpCheckpoint(
@@ -285,6 +365,36 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   }
 
   /**
+   * The replayed change log for one stored aspect row, marked as a catch-up.
+   *
+   * <p>A replay is the only pass over its window: a writer that drops one of its events leaves a
+   * hole nothing comes back to repair. The header tells the V3 writer so, and it lets a replayed
+   * event's failure propagate instead of skipping the document the way it does for a live write
+   * while V2 is dual-written. The V2 writer and the system-metadata and graph consumers do not read
+   * the header and process the RESTATE as before.
+   */
+  private MetadataChangeLog catchUpChangeLog(@Nonnull final SystemAspect systemAspect) {
+    final MetadataChangeLog changeLog =
+        constructMCL(
+            null,
+            systemAspect.getUrn().getEntityType(),
+            systemAspect.getUrn(),
+            ChangeType.RESTATE,
+            systemAspect.getAspectSpec().getName(),
+            AuditStampUtils.createDefaultAuditStamp(),
+            systemAspect.getRecordTemplate(),
+            systemAspect
+                .getSystemMetadata()
+                .setRunId(id())
+                .setLastObserved(System.currentTimeMillis()),
+            null,
+            null);
+    changeLog.setHeaders(
+        new StringMap(Map.of(BackfillHeaders.MODE_HEADER_NAME, BackfillHeaders.MODE_CATCH_UP)));
+    return changeLog;
+  }
+
+  /**
    * Streams aspects (version 0) modified in the given time range and emits RESTATE MCLs for each.
    * Uses URN-based cursor pagination with per-index checkpointing for resumption.
    *
@@ -292,18 +402,19 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * flush boundary (row count or byte threshold), then {@link EntityService#flushEventProducer()}
    * runs before checkpointing so resume state reflects fully sent batches.
    *
-   * @param indexName the ES index name, used as a prefix for per-index resume state
+   * @param indexName the ES index name, for logging
+   * @param lastUrnKey the checkpoint key this scan's resume URN is stored under; one per scan, so a
+   *     V3 index replayed per entity type resumes each type independently
    * @param urnLikePattern the SQL LIKE pattern to scope the DB query (e.g. "urn:li:dataset:%" for
    *     entity-scoped, "%" for global indices like graph/system metadata)
    */
   private void emitMCLsForTimeRange(
       UpgradeContext context,
       String indexName,
+      String lastUrnKey,
       String urnLikePattern,
       long fromEpochMs,
       long toEpochMs) {
-    String lastUrnKey = indexName + "." + LAST_URN_KEY;
-
     Optional<DataHubUpgradeResult> prevResult =
         context.upgrade().getUpgradeResult(opContext, upgradeIdUrn, entityService);
     String resumeUrn =
@@ -360,18 +471,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
                           entityService.alwaysProduceMCLAsync(
                               opContext,
                               systemAspect.getUrn(),
-                              systemAspect.getUrn().getEntityType(),
-                              systemAspect.getAspectSpec().getName(),
                               systemAspect.getAspectSpec(),
-                              null,
-                              systemAspect.getRecordTemplate(),
-                              null,
-                              systemAspect
-                                  .getSystemMetadata()
-                                  .setRunId(id())
-                                  .setLastObserved(System.currentTimeMillis()),
-                              AuditStampUtils.createDefaultAuditStamp(),
-                              ChangeType.RESTATE);
+                              catchUpChangeLog(systemAspect));
                       tracker.pendingFutures.add(future.getFirst());
                       tracker.lastProcessedAspect = systemAspect;
                       tracker.rowsSinceLastFlush++;

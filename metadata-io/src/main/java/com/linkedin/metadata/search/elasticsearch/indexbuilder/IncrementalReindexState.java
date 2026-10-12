@@ -1,13 +1,14 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -63,13 +64,81 @@ public final class IncrementalReindexState {
   /** Per-index Phase 2 catch-up completion status, stored on the catch-up upgrade result. */
   public static final String CATCH_UP_STATUS = "catchUpStatus";
 
+  /**
+   * Entity index generation of this row. Absent on rows written before generations were tracked,
+   * which were all V2 because Phase 1 refused V3 indices.
+   */
+  public static final String INDEX_VERSION = "indexVersion";
+
+  /** Index the historical fill writes into: the alias, or the next physical index for a rebuild. */
+  public static final String BACKFILL_TARGET_INDEX = "backfillTargetIndex";
+
+  /** Entity type the fill was scanning when it last checkpointed. */
+  public static final String BACKFILL_CURSOR_ENTITY = "backfillCursorEntity";
+
+  /** Last URN fully written for the cursor entity; the resume point is the URN after it. */
+  public static final String BACKFILL_CURSOR_URN = "backfillCursorUrn";
+
+  public static final String BACKFILL_PROCESSED_COUNT = "backfillProcessedCount";
+
+  public static final String BACKFILL_TOTAL_ESTIMATE = "backfillTotalEstimate";
+
+  /**
+   * Baseline document generation pinned when the fill started. A resumed run must write with the
+   * same value so a half-filled index never carries two baselines racing each other.
+   */
+  public static final String BACKFILL_GENERATION = "backfillGeneration";
+
+  /** Epoch millis when the fill first started scanning; the catch-up window opens here. */
+  public static final String BACKFILL_START_TIME = "backfillStartTime";
+
+  /** Epoch millis when the fill finished scanning. */
+  public static final String BACKFILL_COMPLETE_TIME = "backfillCompleteTime";
+
+  /**
+   * Entities the fill has read so far, summed over its runs. A resumed run re-reads the entity it
+   * checkpointed at, so this is progress reporting, not a document count; nothing is gated on it.
+   */
+  public static final String BACKFILL_URNS_PROCESSED = "backfillUrnsProcessed";
+
+  private static final List<String> TRACKED_PROPERTIES =
+      List.of(
+          NEXT_INDEX_NAME,
+          OLD_BACKING_INDEX_NAME,
+          REINDEX_START_TIME,
+          REINDEX_COMPLETE_TIME,
+          STATUS,
+          DUAL_WRITE_START_TIME,
+          REQUIRES_DATA_BACKFILL,
+          SOURCE_DOC_COUNT,
+          TASK_ID,
+          INDEX_VERSION,
+          BACKFILL_TARGET_INDEX,
+          BACKFILL_CURSOR_ENTITY,
+          BACKFILL_CURSOR_URN,
+          BACKFILL_PROCESSED_COUNT,
+          BACKFILL_TOTAL_ESTIMATE,
+          BACKFILL_GENERATION,
+          BACKFILL_START_TIME,
+          BACKFILL_COMPLETE_TIME,
+          BACKFILL_URNS_PROCESSED);
+
   public enum Status {
     PENDING,
     IN_PROGRESS,
     COMPLETED,
     FAILED,
-    DUAL_WRITE_DISABLED
+    DUAL_WRITE_DISABLED,
+    BACKFILL_PENDING,
+    BACKFILL_IN_PROGRESS
   }
+
+  /** Resume point for a historical fill, persisted between batches. */
+  public record BackfillCheckpoint(
+      @Nonnull String cursorEntity,
+      @Nullable String cursorUrn,
+      long processedCount,
+      long totalEstimate) {}
 
   public enum CatchUpStatus {
     PENDING,
@@ -120,6 +189,118 @@ public final class IncrementalReindexState {
     return result;
   }
 
+  /** Read the entity index generation for an index; rows predating tracking are V2. */
+  @Nonnull
+  public static EntityIndexVersion getIndexVersion(
+      @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
+    return get(resultMap, indexName, INDEX_VERSION)
+        .map(EntityIndexVersion::valueOf)
+        .orElse(EntityIndexVersion.V2);
+  }
+
+  public static Map<String, String> setIndexVersion(
+      @Nonnull Map<String, String> existing,
+      @Nonnull String indexName,
+      @Nonnull EntityIndexVersion version) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, INDEX_VERSION), version.name());
+    return result;
+  }
+
+  /**
+   * Mark an index as awaiting a historical fill into {@code targetIndex}: the index's own alias for
+   * a fresh or empty index, or a next physical index for a rebuild that is swapped in once filled.
+   * The baseline generation is pinned separately by the fill when it starts, see {@link
+   * #setBackfillGeneration}.
+   */
+  public static Map<String, String> setBackfillPending(
+      @Nullable Map<String, String> existing,
+      @Nonnull String indexName,
+      @Nonnull String targetIndex,
+      long startTime) {
+    Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
+    result.put(key(indexName, BACKFILL_TARGET_INDEX), targetIndex);
+    result.put(key(indexName, BACKFILL_START_TIME), String.valueOf(startTime));
+    result.put(key(indexName, STATUS), Status.BACKFILL_PENDING.name());
+    return result;
+  }
+
+  /** Pin the baseline generation every document of this fill is written with. */
+  public static Map<String, String> setBackfillGeneration(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName, long generation) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, BACKFILL_GENERATION), String.valueOf(generation));
+    return result;
+  }
+
+  public static Optional<Long> getBackfillGeneration(
+      @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
+    return get(resultMap, indexName, BACKFILL_GENERATION).map(Long::parseLong);
+  }
+
+  public static Map<String, String> setBackfillUrnsProcessed(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName, long urnsProcessed) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, BACKFILL_URNS_PROCESSED), String.valueOf(urnsProcessed));
+    return result;
+  }
+
+  public static Optional<Long> getBackfillUrnsProcessed(
+      @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
+    return get(resultMap, indexName, BACKFILL_URNS_PROCESSED).map(Long::parseLong);
+  }
+
+  public static boolean isBackfillStatus(@Nullable Status status) {
+    return status == Status.BACKFILL_PENDING || status == Status.BACKFILL_IN_PROGRESS;
+  }
+
+  /** Record fill progress and mark the fill in progress. */
+  public static Map<String, String> setBackfillCheckpoint(
+      @Nonnull Map<String, String> existing,
+      @Nonnull String indexName,
+      @Nonnull BackfillCheckpoint checkpoint) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, BACKFILL_CURSOR_ENTITY), checkpoint.cursorEntity());
+    if (checkpoint.cursorUrn() != null) {
+      result.put(key(indexName, BACKFILL_CURSOR_URN), checkpoint.cursorUrn());
+    } else {
+      result.remove(key(indexName, BACKFILL_CURSOR_URN));
+    }
+    result.put(
+        key(indexName, BACKFILL_PROCESSED_COUNT), String.valueOf(checkpoint.processedCount()));
+    result.put(key(indexName, BACKFILL_TOTAL_ESTIMATE), String.valueOf(checkpoint.totalEstimate()));
+    result.put(key(indexName, STATUS), Status.BACKFILL_IN_PROGRESS.name());
+    return result;
+  }
+
+  public static Optional<BackfillCheckpoint> getBackfillCheckpoint(
+      @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
+    return get(resultMap, indexName, BACKFILL_CURSOR_ENTITY)
+        .map(
+            cursorEntity ->
+                new BackfillCheckpoint(
+                    cursorEntity,
+                    get(resultMap, indexName, BACKFILL_CURSOR_URN).orElse(null),
+                    get(resultMap, indexName, BACKFILL_PROCESSED_COUNT)
+                        .map(Long::parseLong)
+                        .orElse(0L),
+                    get(resultMap, indexName, BACKFILL_TOTAL_ESTIMATE)
+                        .map(Long::parseLong)
+                        .orElse(0L)));
+  }
+
+  /**
+   * Record when the fill finished scanning. Like {@link #setReindexCompleteTime}, this leaves the
+   * status alone: the index becomes {@link Status#COMPLETED} only once the swap (for rebuilds) and
+   * catch-up have succeeded.
+   */
+  public static Map<String, String> setBackfillCompleteTime(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName, long completeTime) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, BACKFILL_COMPLETE_TIME), String.valueOf(completeTime));
+    return result;
+  }
+
   /**
    * Returns physical index names that must not be deleted by orphan cleanup while incremental
    * reindex catch-up or rollback dual-write still depends on them.
@@ -144,13 +325,20 @@ public final class IncrementalReindexState {
       String indexName = entry.getKey();
       Map<String, String> indexState = entry.getValue();
 
-      String oldBackingIndexName = indexState.get(OLD_BACKING_INDEX_NAME);
-      if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+      Optional<Status> phase1Status = getStatus(phase1State, indexName);
+      if (phase1Status.isEmpty()) {
+        continue;
+      }
+      // A fill in flight owns everything it touches: the physical index it writes (still without an
+      // alias for a rebuild, so it reads as an orphan) and the old backing index it will swap away
+      // from. Neither may be reaped until the fill completes and the swap runs.
+      if (isBackfillStatus(phase1Status.get())) {
+        protectedIndices.addAll(fillProtectedIndices(indexName, indexState));
         continue;
       }
 
-      Optional<Status> phase1Status = getStatus(phase1State, indexName);
-      if (phase1Status.isEmpty()) {
+      String oldBackingIndexName = indexState.get(OLD_BACKING_INDEX_NAME);
+      if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
         continue;
       }
       if (phase1Status.get() == Status.DUAL_WRITE_DISABLED) {
@@ -178,6 +366,19 @@ public final class IncrementalReindexState {
     return protectedIndices;
   }
 
+  private static Set<String> fillProtectedIndices(
+      @Nonnull String indexName, @Nonnull Map<String, String> indexState) {
+    Set<String> protectedIndices = new HashSet<>();
+    for (String property :
+        List.of(BACKFILL_TARGET_INDEX, NEXT_INDEX_NAME, OLD_BACKING_INDEX_NAME)) {
+      String physicalIndex = indexState.get(property);
+      if (physicalIndex != null && !physicalIndex.isEmpty() && !physicalIndex.equals(indexName)) {
+        protectedIndices.add(physicalIndex);
+      }
+    }
+    return protectedIndices;
+  }
+
   /** Returns true when every index with a T0 gap has terminal catch-up status. */
   public static boolean isCatchUpCompleteForAllIndices(
       @Nullable Map<String, String> phase1State, @Nullable Map<String, String> catchUpState) {
@@ -200,15 +401,33 @@ public final class IncrementalReindexState {
       @Nonnull String indexName,
       @Nullable IndexConvention indexConvention,
       boolean rollbackDualWriteEnabled) {
-    // This static upgrade-state utility has no OperationContext available from its callers
-    // (e.g. CleanIndicesStep); the index naming convention resolves to the deploy-wide prefix
-    // regardless of caller context.
+    // Any entity index generation qualifies, not only V2: a V3 old backing index is dual-written
+    // after a swap exactly like a V2 one.
     return rollbackDualWriteEnabled
         && indexConvention != null
-        && indexConvention.getEntityName(OperationFingerprint.EMPTY, indexName).isPresent();
+        && indexConvention.entityIndexVersionOf(indexName).isPresent();
+  }
+
+  /**
+   * When an index's catch-up window opens: the fill start for a filled index (writes handled by
+   * pre-upgrade consumers during the rollout reached only the old generation), otherwise the
+   * reindex start. Empty for rows that record neither.
+   */
+  public static Optional<Long> catchUpWindowStart(@Nonnull Map<String, String> indexState) {
+    String start = indexState.get(BACKFILL_START_TIME);
+    if (start == null) {
+      start = indexState.get(REINDEX_START_TIME);
+    }
+    return Optional.ofNullable(start).map(Long::parseLong);
   }
 
   private static boolean hasEmptyCatchUpWindow(@Nonnull Map<String, String> indexState) {
+    // A filled index always has a window: writes handled by pre-upgrade consumers during the
+    // rollout land only on the old generation, regardless of when this generation's dual-write
+    // began. The window is closed by catch-up, never by timing.
+    if (indexState.containsKey(BACKFILL_START_TIME)) {
+      return false;
+    }
     String reindexStartTimeStr = indexState.get(REINDEX_START_TIME);
     if (reindexStartTimeStr == null) {
       return true;
@@ -321,18 +540,7 @@ public final class IncrementalReindexState {
         String indexName =
             entry.getKey().substring(0, entry.getKey().length() - statusSuffix.length());
         Map<String, String> state = new HashMap<>();
-        for (String prop :
-            new String[] {
-              NEXT_INDEX_NAME,
-              OLD_BACKING_INDEX_NAME,
-              REINDEX_START_TIME,
-              REINDEX_COMPLETE_TIME,
-              STATUS,
-              DUAL_WRITE_START_TIME,
-              REQUIRES_DATA_BACKFILL,
-              SOURCE_DOC_COUNT,
-              TASK_ID
-            }) {
+        for (String prop : TRACKED_PROPERTIES) {
           String val = resultMap.get(key(indexName, prop));
           if (val != null) {
             state.put(prop, val);

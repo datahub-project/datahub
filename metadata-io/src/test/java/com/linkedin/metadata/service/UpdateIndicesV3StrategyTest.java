@@ -45,14 +45,17 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -62,6 +65,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -127,12 +131,12 @@ public class UpdateIndicesV3StrategyTest {
 
     // Create strategy with V2 disabled (testing V3-only scenario)
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .build();
   }
 
   @Test
@@ -218,14 +222,13 @@ public class UpdateIndicesV3StrategyTest {
     EntityDocumentIdHasher replacement =
         (operation, urn) -> DigestUtils.sha256Hex("extra|" + urn.toString());
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            replacement,
-            List.of());
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .entityDocumentIdHasher(replacement)
+            .build();
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -255,14 +258,13 @@ public class UpdateIndicesV3StrategyTest {
     V3SearchDocumentContributor contributor =
         (operation, urn, document) -> document.put("_ext", "1");
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(contributor));
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .documentContributors(List.of(contributor))
+            .build();
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -289,14 +291,13 @@ public class UpdateIndicesV3StrategyTest {
     V3SearchDocumentContributor contributor =
         (operation, urn, document) -> document.put("urn", "overwritten");
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(contributor));
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .documentContributors(List.of(contributor))
+            .build();
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -322,15 +323,14 @@ public class UpdateIndicesV3StrategyTest {
     V3SearchDocumentContributor contributor =
         (operation, urn, document) -> document.put("urn", "overwritten");
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(contributor),
-            true);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .documentContributors(List.of(contributor))
+            .v2Enabled(true)
+            .build();
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -353,14 +353,13 @@ public class UpdateIndicesV3StrategyTest {
     V3SearchDocumentContributor contributor =
         (operation, urn, document) -> document.put("runId", "stolen");
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(contributor));
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .documentContributors(List.of(contributor))
+            .build();
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -522,12 +521,12 @@ public class UpdateIndicesV3StrategyTest {
         expectThrows(
             RuntimeException.class,
             () ->
-                new UpdateIndicesV3Strategy(
-                    v3Config,
-                    elasticSearchService,
-                    searchDocumentTransformer,
-                    timeseriesAspectService,
-                    null));
+                UpdateIndicesV3Strategy.builder()
+                    .v3Config(v3Config)
+                    .elasticSearchService(elasticSearchService)
+                    .searchDocumentTransformer(searchDocumentTransformer)
+                    .timeseriesAspectService(timeseriesAspectService)
+                    .build());
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -545,12 +544,12 @@ public class UpdateIndicesV3StrategyTest {
         expectThrows(
             RuntimeException.class,
             () ->
-                new UpdateIndicesV3Strategy(
-                    v3Config,
-                    elasticSearchService,
-                    searchDocumentTransformer,
-                    timeseriesAspectService,
-                    null));
+                UpdateIndicesV3Strategy.builder()
+                    .v3Config(v3Config)
+                    .elasticSearchService(elasticSearchService)
+                    .searchDocumentTransformer(searchDocumentTransformer)
+                    .timeseriesAspectService(timeseriesAspectService)
+                    .build());
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -567,12 +566,12 @@ public class UpdateIndicesV3StrategyTest {
         expectThrows(
             RuntimeException.class,
             () ->
-                new UpdateIndicesV3Strategy(
-                    v3Config,
-                    elasticSearchService,
-                    searchDocumentTransformer,
-                    timeseriesAspectService,
-                    null));
+                UpdateIndicesV3Strategy.builder()
+                    .v3Config(v3Config)
+                    .elasticSearchService(elasticSearchService)
+                    .searchDocumentTransformer(searchDocumentTransformer)
+                    .timeseriesAspectService(timeseriesAspectService)
+                    .build());
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -588,12 +587,12 @@ public class UpdateIndicesV3StrategyTest {
 
     // Execute - should not throw exception
     UpdateIndicesV3Strategy strategyWithNullConfig =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .build();
 
     // Verify strategy was created successfully
     assertTrue(strategyWithNullConfig.isEnabled());
@@ -606,12 +605,12 @@ public class UpdateIndicesV3StrategyTest {
 
     // Execute - should not throw exception
     UpdateIndicesV3Strategy strategyWithEmptyConfig =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .build();
 
     // Verify strategy was created successfully
     assertTrue(strategyWithEmptyConfig.isEnabled());
@@ -624,12 +623,12 @@ public class UpdateIndicesV3StrategyTest {
 
     // Execute - should not throw exception
     UpdateIndicesV3Strategy strategyWithWhitespaceConfig =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .build();
 
     // Verify strategy was created successfully
     assertTrue(strategyWithWhitespaceConfig.isEnabled());
@@ -874,12 +873,13 @@ public class UpdateIndicesV3StrategyTest {
   public void testThrottle_EntityIndexSuppressesTimeseriesAspect() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
     UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            cache);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
@@ -913,12 +913,13 @@ public class UpdateIndicesV3StrategyTest {
   public void testThrottle_ObserveModeDoesNotSuppressInV3() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(false, false, true);
     UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            cache);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
@@ -950,12 +951,13 @@ public class UpdateIndicesV3StrategyTest {
   public void testThrottle_FirstWritePassesThroughInV3() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
     UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            cache);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
@@ -986,12 +988,13 @@ public class UpdateIndicesV3StrategyTest {
   public void testThrottle_EntityAndObserveBothEnabledInV3() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, true);
     UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            cache);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
@@ -1101,16 +1104,13 @@ public class UpdateIndicesV3StrategyTest {
     semanticConfig.setModels(Map.of("cohere_embed_v3", model));
 
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(),
-            false,
-            semanticConfig);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .semanticSearchConfiguration(semanticConfig)
+            .build();
 
     strategy.processBatch(
         operationContext,
@@ -1161,16 +1161,13 @@ public class UpdateIndicesV3StrategyTest {
     semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
 
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(),
-            false,
-            semanticConfig);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .semanticSearchConfiguration(semanticConfig)
+            .build();
 
     strategy.processBatch(
         operationContext,
@@ -1214,16 +1211,13 @@ public class UpdateIndicesV3StrategyTest {
     semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
 
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(),
-            false,
-            semanticConfig);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .semanticSearchConfiguration(semanticConfig)
+            .build();
 
     strategy.processBatch(
         operationContext,
@@ -1750,16 +1744,13 @@ public class UpdateIndicesV3StrategyTest {
     model.setVectorDimension(1024);
     semanticConfig.setModels(Map.of("cohere_embed_v3", model));
     strategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null,
-            new Sha256UrnEntityDocumentIdHasher(),
-            List.of(),
-            false,
-            semanticConfig);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .semanticSearchConfiguration(semanticConfig)
+            .build();
   }
 
   private ObjectNode capturedDocument(String searchGroup) throws Exception {
@@ -1769,5 +1760,136 @@ public class UpdateIndicesV3StrategyTest {
             eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
     return (ObjectNode)
         new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+  }
+
+  private static final String FILL_TARGET = "datasetindex_v3_0_14_0-0_1679000000000";
+
+  /** A change log carrying the headers a backfill stamps; {@code target} may be null. */
+  private static MetadataChangeLog backfillChangeLog(String mode, String target) {
+    Map<String, String> headers = new HashMap<>();
+    headers.put(BackfillHeaders.MODE_HEADER_NAME, mode);
+    if (target != null) {
+      headers.put(BackfillHeaders.TARGET_INDEX_HEADER_NAME, target);
+    }
+    return new MetadataChangeLog().setHeaders(new StringMap(headers));
+  }
+
+  private void stubTransformedDocument() throws Exception {
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+  }
+
+  @Test
+  public void testBaselineFillNamingATargetIndexWritesThereInsteadOfTheAlias() throws Exception {
+    stubTransformedDocument();
+    when(mockSystemMetadata.hasRunId()).thenReturn(true);
+    when(mockSystemMetadata.getRunId()).thenReturn("run-fill");
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(FILL_TARGET), anyString(), eq(expectedDocId));
+    verify(elasticSearchService)
+        .appendRunIdByIndexName(
+            eq(operationContext), eq(FILL_TARGET), eq(expectedDocId), eq(testUrn), eq("run-fill"));
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    // A backfill checkpoints what it has written once the batch returns, so the batch is drained.
+    verify(writeDAO).flushAndWait();
+  }
+
+  @Test
+  public void testLiveBatchIsNotDrainedSynchronously() throws Exception {
+    stubTransformedDocument();
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(writeDAO, never()).flushAndWait();
+  }
+
+  @Test
+  public void testRollbackCopyRepeatsTheWriteOnTheSwappedOutBackingIndex() throws Exception {
+    stubTransformedDocument();
+    RollbackDualWriteTargets targets = mock(RollbackDualWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    when(targets.oldBackingIndexFor(alias)).thenReturn(Optional.of(alias + "_old"));
+    UpdateIndicesV3Strategy dualWriting =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
+            .documentContributors(List.of())
+            .rollbackDualWriteTargets(targets)
+            .build();
+
+    dualWriting.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<String> live = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> copy = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), live.capture(), eq(expectedDocId));
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(alias + "_old"), copy.capture(), eq(expectedDocId));
+    assertEquals(copy.getValue(), live.getValue(), "the copy is the live document");
+    verify(targets).recordDualWriteStarted(alias);
+  }
+
+  @Test
+  public void testReplayFailureIsNotSkippedWhileV2IsDualWritten() throws Exception {
+    stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    doThrow(new RuntimeException("write failed"))
+        .when(elasticSearchService)
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    UpdateIndicesV3Strategy dualWriting =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
+            .documentContributors(List.of())
+            .v2Enabled(true)
+            .build();
+    Map<Urn, List<MCLItem>> batch = Collections.singletonMap(testUrn, List.of(mockEvent));
+
+    // A live write: V2 still has the entity, the next event rebuilds its V3 document.
+    dualWriting.processBatch(operationContext, batch, true);
+
+    // A replay: nothing comes back for the URN it drops, so the failure must reach the caller.
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class, () -> dualWriting.processBatch(operationContext, batch, true));
+    assertEquals(thrown.getMessage(), "write failed");
   }
 }

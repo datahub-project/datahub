@@ -15,6 +15,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.template.StringMap;
@@ -25,13 +27,17 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.PollReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -54,12 +60,17 @@ public class BuildIndicesIncrementalStepTest {
   private static final String UPGRADE_VERSION = "0.14.0-0";
   private static final String INDEX_NAME = "datasetindex_v2";
   private static final String NEXT_INDEX_NAME = "datasetindex_v2_0_14_0-0_1679000000000";
+  private static final String V3_INDEX_NAME = "primaryindex_v3";
 
   @Mock private EntityService<?> entityService;
   @Mock private ESIndexBuilder indexBuilder;
   @Mock private ElasticSearchIndexed indexedService;
   @Mock private UpgradeContext upgradeContext;
   @Mock private Upgrade upgrade;
+  @Mock private UpdateIndicesService updateIndicesService;
+
+  private final V3DocumentIdScheme docIdScheme =
+      new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher());
 
   private OperationContext opContext;
   private BuildIndicesIncrementalStep step;
@@ -90,6 +101,9 @@ public class BuildIndicesIncrementalStepTest {
         .thenReturn(true);
     when(indexBuilder.indexExists(any(OperationContext.class), anyString())).thenReturn(true);
 
+    when(updateIndicesService.indicesFilledFromPrimaryStorage(any(OperationContext.class)))
+        .thenReturn(Set.of(V3_INDEX_NAME));
+
     buildIndicesConfig =
         BuildIndicesConfiguration.builder().reconcileInPlaceMappingUpdates(false).build();
     step = createStep();
@@ -102,7 +116,32 @@ public class BuildIndicesIncrementalStepTest {
         Set.of(),
         entityService,
         UPGRADE_VERSION,
-        buildIndicesConfig);
+        buildIndicesConfig,
+        updateIndicesService,
+        docIdScheme,
+        true);
+  }
+
+  /** A filled-generation index whose live mapping records the running id scheme. */
+  private ReindexConfig currentSchemeV3Config(boolean requiresReindex) {
+    ReindexConfig config = mockReindexConfig(V3_INDEX_NAME, requiresReindex);
+    when(config.currentMappings())
+        .thenReturn(docIdScheme.stampedMappings(Map.of("properties", Map.of())));
+    return config;
+  }
+
+  private Map<String, String> persistedState() {
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityService, atLeastOnce())
+        .ingestProposal(any(), proposals.capture(), any(), anyBoolean());
+    MetadataChangeProposal last = proposals.getValue();
+    DataHubUpgradeResult result =
+        GenericRecordUtils.deserializeAspect(
+            last.getAspect().getValue(),
+            last.getAspect().getContentType(),
+            DataHubUpgradeResult.class);
+    return result.getResult();
   }
 
   @Test
@@ -563,7 +602,10 @@ public class BuildIndicesIncrementalStepTest {
             Set.of(),
             entityService,
             UPGRADE_VERSION,
-            buildIndicesConfig);
+            buildIndicesConfig,
+            updateIndicesService,
+            docIdScheme,
+            true);
 
     IncrementalReindexResult incrementalResult =
         new IncrementalReindexResult(
@@ -839,5 +881,199 @@ public class BuildIndicesIncrementalStepTest {
                 ImmutableMap.of(
                     "number_of_shards", 1, "number_of_replicas", 1, "refresh_interval", "1s")));
     return config;
+  }
+
+  @Test
+  public void testFillIsRefusedBeforeAnyWorkWhenNothingCouldRunIt() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    step =
+        new BuildIndicesIncrementalStep(
+            opContext,
+            List.of(indexedService),
+            Set.of(),
+            entityService,
+            UPGRADE_VERSION,
+            buildIndicesConfig,
+            updateIndicesService,
+            docIdScheme,
+            false);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
+    verify(entityService, never()).ingestProposal(any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testMissingFilledIndexIsCreatedBehindItsAliasAsAFillTarget() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<String> physical = ArgumentCaptor.forClass(String.class);
+    verify(indexBuilder)
+        .createAliasedIndex(
+            any(OperationContext.class), eq(V3_INDEX_NAME), physical.capture(), eq(v3Config));
+    assertTrue(physical.getValue().startsWith(V3_INDEX_NAME + "_"));
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), any());
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
+        Optional.of(V3_INDEX_NAME));
+    assertEquals(
+        IncrementalReindexState.get(state, V3_INDEX_NAME, IncrementalReindexState.NEXT_INDEX_NAME),
+        Optional.of(physical.getValue()));
+    assertEquals(
+        IncrementalReindexState.getIndexVersion(state, V3_INDEX_NAME), EntityIndexVersion.V3);
+  }
+
+  @Test
+  public void testFilledIndexFromAnotherIdSchemeIsRebuiltIntoANextIndex() throws Throwable {
+    // Unstamped live mapping: every existing fork V3 index predates the stamp.
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, true);
+    when(v3Config.currentMappings()).thenReturn(Map.of("properties", Map.of()));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
+        .thenReturn(Set.of("primaryindex_v3_old"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<String> next = ArgumentCaptor.forClass(String.class);
+    verify(indexBuilder).createIndex(any(OperationContext.class), next.capture(), eq(v3Config));
+    assertTrue(next.getValue().startsWith(V3_INDEX_NAME + "_"));
+    // A rebuild replaces the _reindex the mapping change would otherwise have triggered.
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder, never())
+        .validateAndSwapAlias(any(OperationContext.class), anyString(), anyString(), anyLong());
+
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
+        Optional.of(next.getValue()));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of("primaryindex_v3_old"));
+  }
+
+  @Test
+  public void testEmptyCurrentSchemeFilledIndexIsFilledInPlace() throws Throwable {
+    ReindexConfig v3Config = currentSchemeV3Config(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
+        Optional.of(V3_INDEX_NAME));
+  }
+
+  @Test
+  public void testPopulatedCurrentSchemeFilledIndexNeedsNothing() throws Throwable {
+    ReindexConfig v3Config = currentSchemeV3Config(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(42L);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+  }
+
+  @Test
+  public void testFilledIndexWithMappingChangeTakesTheReindexPath() throws Throwable {
+    // A populated, current-scheme V3 index with a mapping change is copied and swapped like a V2
+    // index; its write gap is replayed by catch-up per entity type. No fill row is planned.
+    String v3Next = V3_INDEX_NAME + "_0_14_0-0_1679000000000";
+    ReindexConfig v3Config = currentSchemeV3Config(true);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(42L);
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), eq(v3Config), eq(UPGRADE_VERSION)))
+        .thenReturn(
+            new IncrementalReindexResult(v3Next, 1679000000000L, "task3", false, 2, 42L, Map.of()));
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(V3_INDEX_NAME),
+            eq(v3Next),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("task3")))
+        .thenReturn(new PollReindexResult(true, Map.of(), Pair.of(42L, 42L)));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder)
+        .validateAndSwapAlias(any(OperationContext.class), eq(V3_INDEX_NAME), eq(v3Next), eq(42L));
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.COMPLETED));
+    assertEquals(
+        IncrementalReindexState.getIndexVersion(state, V3_INDEX_NAME), EntityIndexVersion.V3);
+    assertFalse(
+        state.containsKey(
+            IncrementalReindexState.key(
+                V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX)));
+  }
+
+  @Test
+  public void testFillInFlightIsLeftToTheNonBlockingPhaseOnRerun() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.currentMappings()).thenReturn(Map.of("properties", Map.of()));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    Map<String, String> previous =
+        IncrementalReindexState.setBackfillPending(
+            null, V3_INDEX_NAME, V3_INDEX_NAME + "_0_14_0-0_1679000000000", 1000L);
+    DataHubUpgradeResult previousResult = new DataHubUpgradeResult();
+    previousResult.setState(DataHubUpgradeState.IN_PROGRESS);
+    previousResult.setResult(new StringMap(previous));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
   }
 }

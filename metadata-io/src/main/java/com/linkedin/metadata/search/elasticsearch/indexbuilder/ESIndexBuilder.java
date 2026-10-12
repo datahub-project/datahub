@@ -88,6 +88,7 @@ import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.health.ClusterIndexHealth;
+import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
@@ -859,7 +860,11 @@ public class ESIndexBuilder {
         }
       }
       log.info("Updating index {} mappings in place.", indexState.name());
-      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappingsToPut);
+      // _meta is provenance written when an index is created (see V3DocumentIdScheme). A
+      // put-mapping onto an existing index must not relabel it, so the stamp never travels here.
+      Map<String, Object> mappings = new HashMap<>(mappingsToPut);
+      mappings.remove(V3DocumentIdScheme.META);
+      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappings);
       searchClient.putIndexMapping(opContext, request, requestOptionsLong);
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
@@ -1873,6 +1878,12 @@ public class ESIndexBuilder {
    * writes landing between the launch-time count and scroll open are copied into the destination on
    * busy indices. Undershoot (next below expected) fails the gate.
    *
+   * <p>The count is the completeness check available to a server-side {@code _reindex}: the copy
+   * runs outside this process, reports no per-document outcome, and the source keeps taking writes
+   * while it runs, so a launch-time floor is all that can be asserted. A client-driven fill that
+   * confirms each write as it goes has already established completeness and swaps with {@link
+   * #swapAlias} instead.
+   *
    * @param aliasName the alias to swap
    * @param newBackingIndex the physical index to point the alias to
    * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
@@ -1904,9 +1915,21 @@ public class ESIndexBuilder {
         newBackingIndex,
         expectedSourceDocCount,
         nextCount);
+    swapAlias(opContext, aliasName, newBackingIndex);
+    return true;
+  }
+
+  /**
+   * Points {@code aliasName} at {@code newBackingIndex}, leaving the index it pointed at in place.
+   * Carries no document-count check; see {@link #validateAndSwapAlias} for when one is needed.
+   */
+  public void swapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex)
+      throws Exception {
     renameReindexedIndices(
         searchClient, opContext, aliasName, null, newBackingIndex, false, requestOptionsLong);
-    return true;
   }
 
   public static void renameReindexedIndices(
@@ -2628,6 +2651,81 @@ public class ESIndexBuilder {
     }
   }
 
+  /**
+   * Whether an existing reindex destination still carries this version's target mappings. A resumed
+   * reindex skips {@link #createIndex}, so a destination that no longer matches must not be
+   * adopted. Settings are deliberately not compared: a reindex destination runs with
+   * reindex-optimal settings until the alias swap.
+   *
+   * <p>An absent or mapping-less destination is a mismatch — there is nothing worth resuming into.
+   * A failure to read the destination is not: it is reported as such, because the caller resolves a
+   * mismatch destructively (cancel, delete, restart from zero) and a cluster read timing out is no
+   * evidence that the destination is bad.
+   */
+  @VisibleForTesting
+  public boolean resumedReindexMatchesTarget(
+      @Nonnull OperationContext opContext, ReindexConfig indexState, String destinationIndex)
+      throws IOException {
+    final Map<String, Object> currentMappings = getCurrentMappings(opContext, destinationIndex);
+    if (currentMappings.isEmpty()) {
+      log.warn(
+          "Index: {} - reindex destination {} is missing or carries no mappings.",
+          indexState.name(),
+          destinationIndex);
+      return false;
+    }
+    final boolean matches =
+        ReindexConfig.mappingsMatchIgnoringDynamic(currentMappings, indexState.targetMappings());
+    log.info(
+        "Index: {} - reindex destination {} {} the target mappings.",
+        indexState.name(),
+        destinationIndex,
+        matches ? "carries" : "does not carry");
+    return matches;
+  }
+
+  /**
+   * Current mappings of {@code indexName}, or an empty map if the index does not exist. Retried
+   * like the neighbouring task and count lookups so a transient cluster error surfaces as an {@link
+   * IOException} rather than as a bogus "no mappings" answer.
+   */
+  private Map<String, Object> getCurrentMappings(
+      @Nonnull OperationContext opContext, String indexName) throws IOException {
+    try {
+      return retryRegistry
+          .retry("getCurrentMappings", "countRetry")
+          .executeSupplier(
+              () -> {
+                try {
+                  // Checked rather than reading the 404 off getIndexMapping: the two client shims
+                  // raise different exception types for a missing index, indexExists does not.
+                  if (!searchClient.indexExists(
+                      opContext, new GetIndexRequest(indexName), requestOptionsLong)) {
+                    return Collections.<String, Object>emptyMap();
+                  }
+                  return searchClient
+                      .getIndexMapping(
+                          opContext,
+                          new GetMappingsRequest().indices(indexName),
+                          requestOptionsLong)
+                      .mappings()
+                      .values()
+                      .stream()
+                      .findFirst()
+                      .map(MappingMetadata::getSourceAsMap)
+                      .orElse(Collections.emptyMap());
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      }
+      throw e;
+    }
+  }
+
   public long getCount(@Nonnull OperationContext opContext, @Nonnull String indexName)
       throws IOException {
     // we need to refreshIndex cause we are reindexing with refresh_interval=-1
@@ -2906,6 +3004,25 @@ public class ESIndexBuilder {
       throws Exception {
     renameReindexedIndices(
         searchClient, opContext, aliasName, indexPattern, newIndexName, true, requestOptionsLong);
+  }
+
+  /**
+   * Creates {@code physicalIndexName} from {@code state}'s target mappings and settings and points
+   * the alias {@code aliasName} at it. For an alias that does not exist yet; nothing is swapped or
+   * deleted.
+   */
+  public void createAliasedIndex(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String physicalIndexName,
+      @Nonnull ReindexConfig state)
+      throws IOException {
+    createIndex(opContext, physicalIndexName, state);
+    IndicesAliasesRequest request =
+        new IndicesAliasesRequest()
+            .addAliasAction(AliasActions.add().alias(aliasName).index(physicalIndexName));
+    searchClient.updateIndexAliases(opContext, request, requestOptionsLong);
+    log.info("Created index {} behind alias {}", physicalIndexName, aliasName);
   }
 
   public void createIndex(

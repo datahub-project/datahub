@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
@@ -41,9 +42,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -66,84 +69,39 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
+  @Nullable private final RollbackDualWriteTargets rollbackDualWriteTargets;
 
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        new Sha256UrnEntityDocumentIdHasher(),
-        List.of(),
-        false);
-  }
-
+  /**
+   * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
+   * document contributors, V2 not dual-written, no semantic search configuration, no rollback
+   * targets, no timeseries throttle.
+   */
+  @Builder
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        entityDocumentIdHasher,
-        documentContributors,
-        false);
-  }
-
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors,
-      boolean v2Enabled) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        entityDocumentIdHasher,
-        documentContributors,
-        v2Enabled,
-        null);
-  }
-
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      @Nullable EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nullable List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled,
-      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
+      @Nullable RollbackDualWriteTargets rollbackDualWriteTargets) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
     this.timeseriesAspectService = timeseriesAspectService;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
-    this.entityDocumentIdHasher = entityDocumentIdHasher;
+    this.entityDocumentIdHasher =
+        entityDocumentIdHasher == null
+            ? new Sha256UrnEntityDocumentIdHasher()
+            : entityDocumentIdHasher;
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
+    this.rollbackDualWriteTargets = rollbackDualWriteTargets;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -183,6 +141,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
+    }
+
+    // A backfill checkpoints what it has written once this returns, so its pages land before then.
+    if (groupedEvents.values().stream()
+        .flatMap(List::stream)
+        .anyMatch(UpdateIndicesV3Strategy::isBackfillEvent)) {
+      elasticSearchService.getEsWriteDAO().flushAndWait();
     }
   }
 
@@ -263,6 +228,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return v3Config.isEnabled();
   }
 
+  @Override
+  public boolean fillsNewIndicesFromPrimaryStorage() {
+    return true;
+  }
+
   /**
    * Processes all events for a single URN in V3 optimized fashion. Either deletes the entire entity
    * or performs a single upsert.
@@ -282,7 +252,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       processUrnBatchUnchecked(
           opContext, urn, events, structuredPropertiesHookEnabled, throttleSummary);
     } catch (RuntimeException e) {
-      if (v2Enabled) {
+      // Live dual-write: one URN's V3 failure must not stall V2, and the entity's next event
+      // rebuilds its document. A replay is different: nothing comes back for a URN it drops. A
+      // baseline fill is the only pass over the historical corpus, and a catch-up replay is the
+      // only pass over its window; the loader counts a URN as processed once this returns, and
+      // the system-update catch-up step checkpoints after producing the event, so neither sends
+      // it again. The failure propagates instead: the loader retries the batch, splitting it down
+      // to the single event, and otherwise fails the run with its checkpoint intact; the MAE
+      // consumer redelivers a retryable failure and fails loudly on a non-retryable one.
+      final boolean replay = events.stream().anyMatch(UpdateIndicesV3Strategy::isBackfillEvent);
+      if (v2Enabled && !replay) {
         log.error(
             "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
             urn,
@@ -326,13 +305,25 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 });
 
     String docId = entityDocumentIdHasher.documentId(opContext, urn);
+    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
+    // A baseline fill rebuilding into a next physical index names it on every event; the alias
+    // keeps serving the old index until the fill swaps it.
+    String fillTarget = fillTarget(events);
     if (hasKeyAspectDeletion) {
-      String indexKey = v3IndexKey(events.get(0).getEntitySpec());
-      elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
+      if (fillTarget != null) {
+        elasticSearchService.deleteDocumentByIndexName(opContext, fillTarget, docId);
+      } else {
+        elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
+      }
       log.debug(
           "V3 deleted entire document for URN: {} from index key: {} due to key aspect deletion",
           urn,
           indexKey);
+      rollbackCopy(
+          opContext,
+          indexKey,
+          oldBackingIndex ->
+              elasticSearchService.deleteDocumentByIndexName(opContext, oldBackingIndex, docId));
       return;
     }
 
@@ -373,11 +364,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
-
     String finalDocument = combinedDocument.toString();
 
-    elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    if (fillTarget != null) {
+      elasticSearchService.upsertDocumentByIndexName(opContext, fillTarget, finalDocument, docId);
+    } else {
+      elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    }
     log.debug(
         "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
         urn,
@@ -392,8 +385,85 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             .distinct()
             .collect(Collectors.toList());
     for (String runId : distinctRunIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      if (fillTarget != null) {
+        elasticSearchService.appendRunIdByIndexName(opContext, fillTarget, docId, urn, runId);
+      } else {
+        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      }
     }
+
+    rollbackCopy(
+        opContext,
+        indexKey,
+        oldBackingIndex -> {
+          elasticSearchService.upsertDocumentByIndexName(
+              opContext, oldBackingIndex, finalDocument, docId);
+          for (String runId : distinctRunIds) {
+            elasticSearchService.appendRunIdByIndexName(
+                opContext, oldBackingIndex, docId, urn, runId);
+          }
+        });
+  }
+
+  /**
+   * Repeats a write on the swapped-out backing index of {@code indexKey}'s alias while one awaits
+   * rollback: same document, same hashed id, so the alias can be swapped back to a faithful copy.
+   * The copy never fails the live write; a missed copy only degrades rollback fidelity.
+   */
+  private void rollbackCopy(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexKey,
+      @Nonnull Consumer<String> write) {
+    if (rollbackDualWriteTargets == null) {
+      return;
+    }
+    String alias =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
+    rollbackDualWriteTargets
+        .oldBackingIndexFor(alias)
+        .ifPresent(
+            oldBackingIndex -> {
+              try {
+                write.accept(oldBackingIndex);
+                rollbackDualWriteTargets.recordDualWriteStarted(alias);
+              } catch (RuntimeException e) {
+                log.error(
+                    "Rollback dual-write to '{}' failed for index '{}'", oldBackingIndex, alias, e);
+              }
+            });
+  }
+
+  /**
+   * The physical index a baseline fill names on every event of {@code events}, or null when the
+   * batch is not such a fill and the write goes to the alias.
+   */
+  @Nullable
+  private static String fillTarget(@Nonnull List<MCLItem> events) {
+    String target = null;
+    for (MCLItem event : events) {
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(backfillMode(event))) {
+        return null;
+      }
+      String named =
+          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.TARGET_INDEX_HEADER_NAME);
+      if (named == null || named.isEmpty() || (target != null && !target.equals(named))) {
+        return null;
+      }
+      target = named;
+    }
+    return target;
+  }
+
+  private static boolean isBackfillEvent(@Nonnull MCLItem event) {
+    return backfillMode(event) != null;
+  }
+
+  /** The backfill mode stamped on a replayed event, or null for a live write. */
+  @Nullable
+  private static String backfillMode(@Nonnull MCLItem event) {
+    return event.getMetadataChangeLog() != null && event.getMetadataChangeLog().getHeaders() != null
+        ? event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME)
+        : null;
   }
 
   /**

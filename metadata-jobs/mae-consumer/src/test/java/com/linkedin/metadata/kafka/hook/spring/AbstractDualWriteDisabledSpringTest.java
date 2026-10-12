@@ -21,5 +21,8 @@ public abstract class AbstractDualWriteDisabledSpringTest extends AbstractTestNG
     assertFalse(
         "dual-write strategy must not be registered when rollbackDualWriteEnabled is false",
         applicationContext.containsBean("updateIndicesUpgradeStrategy"));
+    assertFalse(
+        "dual-write targets must not be loaded when rollbackDualWriteEnabled is false",
+        applicationContext.containsBean("rollbackDualWriteTargets"));
   }
 }

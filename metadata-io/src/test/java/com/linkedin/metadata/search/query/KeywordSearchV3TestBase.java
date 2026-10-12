@@ -378,12 +378,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       }
     }
 
-    new UpdateIndicesV3Strategy(
-            entityIndex.getV3(),
-            searchService,
-            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-            mock(TimeseriesAspectService.class),
-            null)
+    UpdateIndicesV3Strategy.builder()
+        .v3Config(entityIndex.getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(mock(TimeseriesAspectService.class))
+        .build()
         .processBatch(
             opContext,
             seedEvents(
@@ -1043,12 +1044,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
     Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
     UpdateIndicesV3Strategy indexer =
-        new UpdateIndicesV3Strategy(
-            config.getEntityIndex().getV3(),
-            searchService,
-            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-            mock(TimeseriesAspectService.class),
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(config.getEntityIndex().getV3())
+            .elasticSearchService(searchService)
+            .searchDocumentTransformer(
+                new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+            .timeseriesAspectService(mock(TimeseriesAspectService.class))
+            .build();
 
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
     List<String> queries =
