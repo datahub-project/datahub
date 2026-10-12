@@ -4,6 +4,9 @@ query getQuery($urn: String!, $skipSiblingsSearch: Boolean = false) {
         type
         ... on QueryEntity {
             ...query
+            privileges {
+                canViewQueries
+            }
         }
     }
 }
@@ -22,9 +25,6 @@ fragment ActorWithDisplayName on CorpUser {
 
 fragment query on QueryEntity {
     urn
-    privileges {
-        canViewQueries
-    }
     properties {
         name
         description

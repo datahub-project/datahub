@@ -581,7 +581,7 @@ class KafkaEventSource(EventSource):
             return
 
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
-        topics_to_subscribe = list(topic_routes.values())
+        topics_to_subscribe = self._configured_topics()
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
         if self._closed or self._stop_requested:
             return
