@@ -105,10 +105,10 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
-    # Databricks column names are case-insensitive but case-preserving, and Delta
-    # rejects columns that differ only by case. sqlglot lowercases the query's
+    # "Unity Catalog preserves column name casing, but queries against Unity
+    # Catalog tables are case-insensitive." sqlglot lowercases the query's
     # columns, so we need to match them to the schema's case-preserved names.
-    # https://docs.databricks.com/en/sql/language-manual/sql-ref-identifiers.html
+    # https://docs.databricks.com/aws/en/data-governance/unity-catalog/requirements
     "databricks",
     # NOTE: SAP HANA and Informix also fold unquoted identifiers to uppercase
     # and are therefore semantically case-insensitive, but we deliberately do
