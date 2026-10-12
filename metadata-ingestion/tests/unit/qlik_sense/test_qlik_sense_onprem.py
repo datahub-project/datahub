@@ -1,9 +1,11 @@
 import json
 import ssl
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
@@ -56,7 +58,9 @@ class _Response:
         return None
 
 
-def _qrs_get(url, params=None, **_):
+def _qrs_get(
+    url: str, params: Optional[Dict[str, str]] = None, **_: object
+) -> _Response:
     assert params is not None
     assert len(params["xrfkey"]) == 16
     if url.endswith("/about"):
@@ -69,7 +73,7 @@ def _qrs_get(url, params=None, **_):
     raise AssertionError(url)
 
 
-def _engine_calls():
+def _engine_calls() -> List[Dict[str, object]]:
     return [
         {"qReturn": {"qHandle": 1}},
         {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
@@ -87,7 +91,9 @@ def _engine_calls():
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
-def test_onprem_lists_stream_and_opens_app(mock_session_cls, mock_engine) -> None:
+def test_onprem_lists_stream_and_opens_app(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
     session.get.side_effect = _qrs_get
@@ -111,8 +117,10 @@ def test_onprem_lists_stream_and_opens_app(mock_session_cls, mock_engine) -> Non
 
     items = api.get_items("stream-1")
     assert len(items) == 1
-    assert items[0].qTitle == "Sales"
-    assert [sheet.title for sheet in items[0].sheets] == ["Overview"]
+    app = items[0]
+    assert isinstance(app, App)
+    assert app.qTitle == "Sales"
+    assert [sheet.title for sheet in app.sheets] == ["Overview"]
     mock_engine.assert_called_once()
     assert mock_engine.call_args.kwargs["port"] == 4747
     assert mock_engine.call_args.kwargs["user_header"] == (
@@ -125,7 +133,7 @@ def test_onprem_lists_stream_and_opens_app(mock_session_cls, mock_engine) -> Non
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_keeps_app_when_engine_is_unreachable(
-    mock_session_cls, mock_engine
+    mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
@@ -137,12 +145,16 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
     items = api.get_items("stream-1")
 
     assert len(items) == 1
-    assert items[0].sheets == []
+    app = items[0]
+    assert isinstance(app, App)
+    assert app.sheets == []
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_onprem_source_uses_onprem_client(mock_cloud, mock_onprem) -> None:
+def test_onprem_source_uses_onprem_client(
+    mock_cloud: MagicMock, mock_onprem: MagicMock
+) -> None:
     QlikSenseSource(
         QlikSourceConfig.model_validate(ONPREM_CONFIG),
         PipelineContext(run_id="test-onprem"),
@@ -153,7 +165,7 @@ def test_onprem_source_uses_onprem_client(mock_cloud, mock_onprem) -> None:
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
-def test_onprem_websocket_skips_notifications(mock_connect) -> None:
+def test_onprem_websocket_skips_notifications(mock_connect: MagicMock) -> None:
     socket = MagicMock()
     socket.recv.side_effect = [
         json.dumps(
