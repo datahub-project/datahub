@@ -632,10 +632,14 @@ class SqlQueriesSource(Source):
         """
         if self.report.num_entries_processed == 0:
             if self.report.num_entries_failed > 0:
+                hint = (
+                    "check the file format (expected newline-delimited JSON)"
+                    if self.config.query_file
+                    else "check the query_source field mappings and record format"
+                )
                 self.report.failure(
                     title="All entries failed to parse",
-                    message="Every entry in the input file failed to parse — "
-                    "check the file format (expected newline-delimited JSON)",
+                    message=f"Every input record failed to parse — {hint}",
                     context=f"{self.report.num_entries_failed} entries failed",
                 )
             else:
