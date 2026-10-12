@@ -286,7 +286,12 @@ def _pushdown_projections(
         return sqlglot.optimizer.optimizer.pushdown_projections(expression)
     except sqlglot.errors.OptimizeError:
         # Upstream raises on stars it can't expand, which is the normal case for
-        # tables we have no schema for. See _legacy_pushdown_projections.
+        # tables we have no schema for. See _legacy_pushdown_projections. Any other
+        # optimizer error is not ours to paper over, so let it propagate.
+        if not any(
+            select.is_star for select in expression.find_all(sqlglot.exp.Select)
+        ):
+            raise
         return legacy_pushdown_projections(expression, schema=schema, dialect=dialect)
 
 
