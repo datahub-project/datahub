@@ -4,9 +4,10 @@ from typing import Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 
-# External-table partition discovery runs on ThreadedIteratorExecutor workers, and
-# StructuredLogs.report_log does an unlocked read-modify-write on a shared LossyDict
-# (check-then-insert / append). Every discovery warning funnels through here, so a single
+# Partition discovery emits warnings from worker threads (strategic-date probing runs in a
+# ThreadPoolExecutor here, external-table discovery runs on executor workers downstream),
+# and StructuredLogs.report_log does an unlocked read-modify-write on a shared LossyDict
+# (check-then-insert / append). Every discovery warning funnels through warn(), so a single
 # module-level lock serialises those concurrent writes and prevents dropped or corrupted
 # warnings. Warnings are rare, so the lock is effectively uncontended.
 _REPORT_WRITE_LOCK = threading.Lock()
