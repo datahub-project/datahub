@@ -10,7 +10,9 @@
                 "drive_file_id": "rootAAAAAAAA",
                 "drive_mime_type": "application/vnd.google-apps.folder",
                 "drive_folder_path": "Root A",
-                "drive_parent_id": ""
+                "drive_parent_id": "",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "3f055f6df950b637"
             },
             "title": "Root A",
             "source": {
@@ -25,11 +27,11 @@
                 "text": ""
             },
             "created": {
-                "time": 1772366400000,
+                "time": 1767323045000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "lastModified": {
-                "time": 1772366400000,
+                "time": 1770091506000,
                 "actor": "urn:li:corpuser:__ingestion"
             }
         }
@@ -103,6 +105,8 @@
                 "drive_mime_type": "application/vnd.google-apps.folder",
                 "drive_folder_path": "Shared Drive B",
                 "drive_parent_id": "",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "3f055f6df950b637",
                 "drive_id": "sharedBBBBBBB"
             },
             "title": "Shared Drive B",
@@ -118,11 +122,11 @@
                 "text": ""
             },
             "created": {
-                "time": 1772366400000,
+                "time": 1767323045000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "lastModified": {
-                "time": 1772366400000,
+                "time": 1770091506000,
                 "actor": "urn:li:corpuser:__ingestion"
             }
         }
@@ -195,7 +199,9 @@
                 "drive_file_id": "folderEngEng01",
                 "drive_mime_type": "application/vnd.google-apps.folder",
                 "drive_folder_path": "Root A/Eng",
-                "drive_parent_id": "rootAAAAAAAA"
+                "drive_parent_id": "rootAAAAAAAA",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "3f055f6df950b637"
             },
             "title": "Eng",
             "source": {
@@ -210,11 +216,11 @@
                 "text": ""
             },
             "created": {
-                "time": 1772366400000,
+                "time": 1767323045000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "lastModified": {
-                "time": 1772366400000,
+                "time": 1770091506000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "parentDocument": {
@@ -312,6 +318,8 @@
                 "drive_mime_type": "application/vnd.google-apps.folder",
                 "drive_folder_path": "Shared Drive B/Team",
                 "drive_parent_id": "sharedBBBBBBB",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "3f055f6df950b637",
                 "drive_id": "sharedBBBBBBB"
             },
             "title": "Team",
@@ -327,11 +335,11 @@
                 "text": ""
             },
             "created": {
-                "time": 1772366400000,
+                "time": 1767323045000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "lastModified": {
-                "time": 1772366400000,
+                "time": 1770091506000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "parentDocument": {
@@ -428,7 +436,9 @@
                 "drive_file_id": "folderSpecs001",
                 "drive_mime_type": "application/vnd.google-apps.folder",
                 "drive_folder_path": "Root A/Eng/Specs",
-                "drive_parent_id": "folderEngEng01"
+                "drive_parent_id": "folderEngEng01",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "3f055f6df950b637"
             },
             "title": "Specs",
             "source": {
@@ -443,11 +453,11 @@
                 "text": ""
             },
             "created": {
-                "time": 1772366400000,
+                "time": 1767323045000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "lastModified": {
-                "time": 1772366400000,
+                "time": 1770091506000,
                 "actor": "urn:li:corpuser:__ingestion"
             },
             "parentDocument": {
@@ -589,21 +599,34 @@
 {
     "entityType": "document",
     "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
         "json": {
-            "owners": [
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
                 {
-                    "owner": "urn:li:corpuser:alice@example.com",
-                    "type": "TECHNICAL_OWNER"
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
                 }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
+            ]
         }
     },
     "systemMetadata": {
@@ -823,25 +846,48 @@
 {
     "entityType": "document",
     "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
         "json": {
-            "owners": [
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
                 {
-                    "owner": "urn:li:corpuser:alice@example.com",
-                    "type": "TECHNICAL_OWNER"
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
                 },
                 {
-                    "owner": "urn:li:corpuser:bob@example.com",
-                    "type": "TECHNICAL_OWNER"
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:bob@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:bob@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
                 }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
+            ]
         }
     },
     "systemMetadata": {

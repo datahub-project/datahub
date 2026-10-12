@@ -71,6 +71,8 @@ ELEMENT_TYPE_NARRATIVE_TEXT = "NarrativeText"
 DOCUMENT_ENTITY_TYPE = "document"
 ASPECT_DOCUMENT_INFO = "documentInfo"
 ASPECT_STATUS = "status"
+ASPECT_OWNERSHIP = "ownership"
+OWNERSHIP_ATTRIBUTION_ACTOR = "urn:li:corpuser:datahub"
 DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 FAILURE_NOT_FOUND = "not_found"

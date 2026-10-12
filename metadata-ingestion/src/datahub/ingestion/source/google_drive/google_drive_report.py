@@ -14,6 +14,7 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     folders_discovered: int = 0
     folders_filtered: int = 0
     folders_emitted: int = 0
+    folders_skipped_unchanged: int = 0
     folders_failed: int = 0
     documents_discovered: int = 0
     documents_filtered: int = 0

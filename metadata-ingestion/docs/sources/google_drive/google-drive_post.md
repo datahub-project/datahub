@@ -48,7 +48,9 @@ On each run the connector lists every configured folder, then compares each Doc'
 - A run stops with a failure once `max_documents` Docs (default 10,000) have been embedded. Raise the limit, or set it to `0` to remove it, for larger folders.
 - Permissions are not mirrored. Anyone who can read the Document in DataHub can read its text, so choose roots whose audience matches your DataHub audience.
 - Files in shared drives have no owners, so they are ingested without ownership.
-- Each run lists every folder in scope. Unchanged Docs are not exported again.
+- Drive owners are added alongside any owners you assign in DataHub. When a Doc's Drive owner changes, only the owner this source added is removed.
+- Each run lists every folder in scope. Unchanged Docs are not exported again, and unchanged folders are not written again.
+- Re-ingesting a changed Doc or folder replaces its related assets and related documents, so links you add to them in DataHub are not kept.
 - Do not point two recipes at overlapping folders. With stateful ingestion enabled, one recipe can soft-delete Documents that the other still ingests.
 
 ### Troubleshooting

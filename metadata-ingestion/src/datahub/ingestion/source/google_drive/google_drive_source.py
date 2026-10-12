@@ -3,11 +3,12 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 from googleapiclient.discovery import Resource
 
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
@@ -34,6 +35,7 @@ from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
     ASPECT_DOCUMENT_INFO,
+    ASPECT_OWNERSHIP,
     ASPECT_STATUS,
     CAPABILITY_SEMANTIC_SEARCH,
     CHANGE_DETECTION_BATCH_SIZE,
@@ -48,6 +50,7 @@ from datahub.ingestion.source.google_drive.constants import (
     IMAGE_PLACEHOLDER_WITH_ALT,
     INLINE_DATA_IMAGE_RE,
     MIME_FOLDER,
+    OWNERSHIP_ATTRIBUTION_ACTOR,
     PLATFORM,
     PROGRESS_LOG_INTERVAL,
     PROP_CONTENT_HASH,
@@ -116,16 +119,18 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentStateClass,
+    MetadataAttributionClass,
+    OwnerClass,
+    OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.document import Document
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
-
-OwnerTuple = Tuple[CorpUserUrn, str]
 
 
 def image_placeholder(alt: str) -> str:
@@ -154,12 +159,27 @@ def clean_markdown(text: str) -> str:
     return text.strip()
 
 
-def to_stored_document(info: object, status: object) -> StoredDocument:
+class DocumentOwnershipPatchBuilder(HasOwnershipPatch):
+    """Ownership patches for document entities, which have no SDK patch builder."""
+
+
+def to_stored_document(
+    info: object, status: object, ownership: object, attribution_source: str
+) -> StoredDocument:
+    connector_owners: List[str] = []
+    if isinstance(ownership, OwnershipClass):
+        connector_owners = [
+            owner.owner
+            for owner in ownership.owners
+            if owner.attribution is not None
+            and owner.attribution.source == attribution_source
+        ]
     return StoredDocument(
         info=info
         if isinstance(info, DocumentInfoClass) and info.customProperties
         else None,
         removed=isinstance(status, StatusClass) and status.removed,
+        connector_owners=connector_owners,
     )
 
 
@@ -209,6 +229,17 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
         )
         self._ingest_fingerprint = self._compute_ingest_fingerprint()
+        instance = config.platform_instance
+        # Owners this connector writes carry this source, so later runs can update or
+        # remove them without touching owners added in DataHub.
+        self._owner_attribution_source = (
+            make_dataplatform_instance_urn(PLATFORM, instance)
+            if instance
+            else make_data_platform_urn(PLATFORM)
+        )
+        # An item found unchanged, kept so that a run which writes nothing can still
+        # emit one workunit (see _emit_presence_if_idle).
+        self._unchanged_urn: Optional[str] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GoogleDriveSource":
@@ -270,17 +301,29 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         with self.report.new_stage(STAGE_FOLDERS):
-            for folder in tree.folders.values():
-                if folder.is_root and not self.config.create_root_documents:
-                    continue
-                yield from self._emit_folder_safely(folder, tree)
+            folders = [
+                folder
+                for folder in tree.folders.values()
+                if self.config.create_root_documents or not folder.is_root
+            ]
+            for start in range(0, len(folders), CHANGE_DETECTION_BATCH_SIZE):
+                folder_page = folders[start : start + CHANGE_DETECTION_BATCH_SIZE]
+                stored_folders = self._load_stored_documents(
+                    [folder.id for folder in folder_page if folder.version]
+                )
+                for folder in folder_page:
+                    yield from self._emit_folder_safely(
+                        folder, tree, stored_folders.get(make_document_urn(folder.id))
+                    )
 
         with self.report.new_stage(STAGE_DOCUMENTS):
             total = len(tree.documents)
             processed = 0
             for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
                 page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
-                stored = self._load_stored_documents(page)
+                stored = self._load_stored_documents(
+                    [ref.file.id for ref in page if ref.file.version]
+                )
                 for ref in page:
                     yield from self._process_document_safely(
                         ref, tree, stored.get(make_document_urn(ref.file.id))
@@ -289,12 +332,32 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
                         logger.info("Processed %d of %d Google Docs", processed, total)
             self._merge_chunking_logs()
+            yield from self._emit_presence_if_idle()
+
+    def _emit_presence_if_idle(self) -> Iterable[MetadataWorkUnit]:
+        """Emit one no-op status write when every item was skipped as unchanged.
+
+        Stale-entity removal treats a run that produced no workunits as a failed
+        discovery and keeps the previous state, so a quiet run would never remove
+        Docs deleted from Drive. Re-asserting that one present item is not removed
+        changes nothing in DataHub, and a run that discovers nothing still produces
+        nothing, so that fail-safe keeps working.
+        """
+        if self.report.events_produced == 0 and self._unchanged_urn is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self._unchanged_urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
+
+    def _record_unchanged(self, urn: str) -> None:
+        self.stale_entity_removal_handler.add_entity_to_state(DOCUMENT_ENTITY_TYPE, urn)
+        if self._unchanged_urn is None:
+            self._unchanged_urn = urn
 
     def _emit_folder_safely(
-        self, folder: FolderNode, tree: DriveTree
+        self, folder: FolderNode, tree: DriveTree, stored: Optional[StoredDocument]
     ) -> Iterable[MetadataWorkUnit]:
         try:
-            yield from self._emit_folder(folder, tree)
+            yield from self._emit_folder(folder, tree, stored)
         except Exception as e:
             self.report.folders_failed += 1
             # Keep the folder in state: its documents still point to it as parent.
@@ -367,8 +430,23 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         return roots
 
     def _emit_folder(
-        self, folder: FolderNode, tree: DriveTree
+        self, folder: FolderNode, tree: DriveTree, stored: Optional[StoredDocument]
     ) -> Iterable[MetadataWorkUnit]:
+        urn = make_document_urn(folder.id)
+        check = self._check_unchanged(
+            stored,
+            version=folder.version,
+            title=folder.title,
+            parent_id=folder.parent_id or "",
+            folder_path=folder.path,
+        )
+        if check.unchanged:
+            self.report.folders_skipped_unchanged += 1
+            self._record_unchanged(urn)
+            if check.soft_deleted:
+                yield from self._resurrect(urn)
+            return
+
         parent_folder = tree.folders.get(folder.parent_id) if folder.parent_id else None
         parent_urn = resolve_parent_urn(
             parent_folder,
@@ -380,6 +458,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             PROP_MIME_TYPE: MIME_FOLDER,
             PROP_FOLDER_PATH: folder.path,
             PROP_PARENT_ID: folder.parent_id or "",
+            PROP_VERSION: folder.version or "",
+            PROP_INGEST_FINGERPRINT: self._ingest_fingerprint,
         }
         if folder.drive_id:
             custom_properties[PROP_DRIVE_ID] = folder.drive_id
@@ -406,12 +486,16 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         urn = make_document_urn(file.id)
         folder = tree.folders[ref.folder_id]
 
-        check = self._check_unchanged(stored, file, folder)
+        check = self._check_unchanged(
+            stored,
+            version=file.version,
+            title=file.name,
+            parent_id=folder.id,
+            folder_path=folder.path,
+        )
         if check.unchanged:
             self.report.documents_skipped_unchanged += 1
-            self.stale_entity_removal_handler.add_entity_to_state(
-                DOCUMENT_ENTITY_TYPE, urn
-            )
+            self._record_unchanged(urn)
             if check.soft_deleted:
                 yield from self._resurrect(urn)
             return
@@ -457,13 +541,13 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.parent_document_urn,
             ),
             custom_properties=custom_properties,
-            owners=self._owners(file),
             created_time=file.created_time,
             last_modified_time=file.modified_time,
         )
         self._attach_common_aspects(doc, folder, tree)
         self.report.documents_emitted += 1
         yield from doc.as_workunits()
+        yield from self._ownership_workunits(urn, file, stored)
         yield from embedded.workunits
         if embedded.limit_error is not None:
             self.report.num_documents_limit_reached = True
@@ -547,10 +631,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             exc=exc,
         )
 
-    def _load_stored_documents(
-        self, refs: List[DocumentRef]
-    ) -> Dict[str, StoredDocument]:
-        """Read back what DataHub holds for a page of documents, keyed by URN.
+    def _load_stored_documents(self, file_ids: List[str]) -> Dict[str, StoredDocument]:
+        """Read back what DataHub holds for a page of Drive items, keyed by URN.
 
         Reads go to the entity store rather than search: a document soft-deleted by
         the previous run may not be indexed as removed yet, and missing that would
@@ -558,14 +640,14 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         absent from the result.
         """
         graph = self.ctx.graph
-        urns = [make_document_urn(ref.file.id) for ref in refs if ref.file.version]
+        urns = [make_document_urn(file_id) for file_id in file_ids]
         if graph is None or not urns:
             return {}
         try:
             entities = graph.get_entities(
                 DOCUMENT_ENTITY_TYPE,
                 urns,
-                aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS],
+                aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS, ASPECT_OWNERSHIP],
             )
         except Exception as e:
             self.report.change_detection_batch_fallbacks += 1
@@ -582,8 +664,12 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         for urn, aspects in entities.items():
             info = aspects.get(ASPECT_DOCUMENT_INFO)
             status = aspects.get(ASPECT_STATUS)
+            ownership = aspects.get(ASPECT_OWNERSHIP)
             stored[urn] = to_stored_document(
-                info[0] if info else None, status[0] if status else None
+                info[0] if info else None,
+                status[0] if status else None,
+                ownership[0] if ownership else None,
+                self._owner_attribution_source,
             )
         return stored
 
@@ -594,7 +680,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         for urn in urns:
             try:
                 aspects = graph.get_entity_semityped(
-                    urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS]
+                    urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS, ASPECT_OWNERSHIP]
                 )
             except Exception as e:
                 self.report.change_detection_lookup_failures += 1
@@ -607,22 +693,32 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
             stored[urn] = to_stored_document(
-                aspects.get(ASPECT_DOCUMENT_INFO), aspects.get(ASPECT_STATUS)
+                aspects.get(ASPECT_DOCUMENT_INFO),
+                aspects.get(ASPECT_STATUS),
+                aspects.get(ASPECT_OWNERSHIP),
+                self._owner_attribution_source,
             )
         return stored
 
     def _check_unchanged(
-        self, stored: Optional[StoredDocument], file: DriveFile, folder: FolderNode
+        self,
+        stored: Optional[StoredDocument],
+        version: Optional[str],
+        title: str,
+        parent_id: str,
+        folder_path: str,
     ) -> UnchangedCheck:
-        if stored is None or stored.info is None or not file.version:
+        if stored is None or stored.info is None or not version:
             return UnchangedCheck(unchanged=False, soft_deleted=False)
         info = stored.info
         props = info.customProperties
         unchanged = (
-            props.get(PROP_VERSION) == file.version
+            props.get(PROP_VERSION) == version
             and props.get(PROP_INGEST_FINGERPRINT) == self._ingest_fingerprint
-            and props.get(PROP_PARENT_ID) == folder.id
-            and info.title == file.name
+            and props.get(PROP_PARENT_ID) == parent_id
+            # Renaming or moving an ancestor changes the path but not the item.
+            and props.get(PROP_FOLDER_PATH) == folder_path
+            and info.title == title
         )
         return UnchangedCheck(unchanged=unchanged, soft_deleted=stored.removed)
 
@@ -661,17 +757,53 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
         return properties
 
-    def _owners(self, file: DriveFile) -> Optional[List[OwnerTuple]]:
+    def _owner_urns(self, file: DriveFile) -> List[str]:
         if not self.config.extract_owners:
-            return None
-        owners: List[OwnerTuple] = []
-        seen: Set[str] = set()
+            return []
+        owners: List[str] = []
         for owner in file.owners:
-            email = owner.email_address
-            if email and email not in seen:
-                seen.add(email)
-                owners.append((CorpUserUrn(email), OwnershipTypeClass.TECHNICAL_OWNER))
-        return owners or None
+            if owner.email_address:
+                urn = str(CorpUserUrn(owner.email_address))
+                if urn not in owners:
+                    owners.append(urn)
+        return owners
+
+    def _ownership_workunits(
+        self, urn: str, file: DriveFile, stored: Optional[StoredDocument]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Patch the Drive owners in rather than replacing the ownership aspect.
+
+        Owners added in DataHub must survive a re-ingest, so each Drive owner is
+        attributed to this connector, and only attributed owners that Drive no longer
+        lists are removed.
+        """
+        current = self._owner_urns(file)
+        previous = stored.connector_owners if stored else []
+        removed = [owner for owner in previous if owner not in current]
+        if not current and not removed:
+            return
+        patch = DocumentOwnershipPatchBuilder(urn)
+        for owner in removed:
+            patch.remove_owner(owner, attribution_source=self._owner_attribution_source)
+        attributed_at = (
+            int(file.modified_time.timestamp() * 1000)
+            if file.modified_time
+            else get_sys_time()
+        )
+        for owner in current:
+            patch.add_owner(
+                OwnerClass(
+                    owner=owner,
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    attribution=MetadataAttributionClass(
+                        time=attributed_at,
+                        actor=OWNERSHIP_ATTRIBUTION_ACTOR,
+                        source=self._owner_attribution_source,
+                    ),
+                )
+            )
+        for mcp in patch.build():
+            yield MetadataWorkUnit(id=f"{urn}-{ASPECT_OWNERSHIP}", mcp_raw=mcp)
 
     def _build_document(
         self,
@@ -682,7 +814,6 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         parent_urn: Optional[str],
         custom_properties: Dict[str, str],
         subtype: Optional[str] = None,
-        owners: Optional[List[OwnerTuple]] = None,
         created_time: Optional[datetime] = None,
         last_modified_time: Optional[datetime] = None,
     ) -> Document:
@@ -694,7 +825,6 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 status=DocumentStateClass.PUBLISHED,
                 subtype=subtype,
                 parent_document=parent_urn,
-                owners=owners,
                 custom_properties=custom_properties,
                 created_time=created_time,
                 last_modified_time=last_modified_time,
@@ -709,7 +839,6 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             status=DocumentStateClass.PUBLISHED,
             subtype=subtype,
             parent_document=parent_urn,
-            owners=owners,
             custom_properties=custom_properties,
             created_time=created_time,
             last_modified_time=last_modified_time,

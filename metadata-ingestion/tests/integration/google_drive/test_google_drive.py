@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Set
+from typing import Any, Callable, Dict, List, Set
 from unittest import mock
 
 import pytest
@@ -10,6 +10,11 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
     make_document_urn,
 )
+from datahub.ingestion.source.google_drive.google_drive_source import (
+    GoogleDriveSource,
+)
+from datahub.ingestion.source.google_drive.models import StoredDocument
+from datahub.metadata.schema_classes import DocumentInfoClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.google_drive_fakes import (
     DOC_B1,
@@ -82,7 +87,9 @@ def test_google_drive_ingest(pytestconfig: pytest.Config, tmp_path: Path) -> Non
     )
 
 
-def stateful_pipeline_config(output_path: Path) -> Dict[str, Any]:
+def stateful_pipeline_config(
+    output_path: Path, fail_safe_threshold: float = 100.0, **overrides: Any
+) -> Dict[str, Any]:
     return {
         "pipeline_name": "google-drive-stateful",
         "run_id": "google-drive-stateful",
@@ -95,16 +102,26 @@ def stateful_pipeline_config(output_path: Path) -> Dict[str, Any]:
                 "stateful_ingestion": {
                     "enabled": True,
                     "remove_stale_metadata": True,
-                    "fail_safe_threshold": 100.0,
+                    "fail_safe_threshold": fail_safe_threshold,
                     "state_provider": {
                         "type": "datahub",
                         "config": {"datahub_api": {"server": "http://fake.local"}},
                     },
                 },
+                **overrides,
             },
         },
         "sink": {"type": "file", "config": {"filename": str(output_path)}},
     }
+
+
+def written_infos(output_path: Path) -> Dict[str, DocumentInfoClass]:
+    with open(output_path) as f:
+        return {
+            mcp["entityUrn"]: DocumentInfoClass.from_obj(mcp["aspect"]["json"])
+            for mcp in json.load(f)
+            if mcp.get("aspectName") == "documentInfo"
+        }
 
 
 def soft_deleted_urns(output_path: Path) -> Set[str]:
@@ -179,3 +196,58 @@ def test_stateful_ingestion_soft_deletes_only_documents_that_are_gone(
     assert soft_deleted_urns(tmp_path / "2.json") == {
         make_document_urn(file_id) for file_id in expected_soft_deleted
     }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {},
+        # Nothing but documents is emitted, so a quiet run has no folder writes either.
+        {"create_root_documents": False, "recursive": False},
+    ],
+)
+def test_run_where_nothing_changed_still_removes_deleted_documents(
+    tmp_path: Path, mock_datahub_graph: Any, overrides: Dict[str, Any]
+) -> None:
+    # The default fail_safe_threshold applies, as in a real deployment.
+    with mock.patch(CHECKPOINT_GRAPH, mock_datahub_graph) as graph:
+        graph.return_value = mock_datahub_graph
+        config = stateful_pipeline_config(
+            tmp_path / "1.json", fail_safe_threshold=75.0, **overrides
+        )
+        with mock.patch(BUILD_DRIVE_SERVICE, return_value=build_fixture_service()):
+            first = run_and_get_pipeline(config)
+        validate_all_providers_have_committed_successfully(first, 1)
+
+        # DataHub now holds what the first run wrote, so everything still in Drive
+        # is unchanged.
+        infos = written_infos(tmp_path / "1.json")
+
+        def load_stored(file_ids: List[str]) -> Dict[str, StoredDocument]:
+            urns = [make_document_urn(file_id) for file_id in file_ids]
+            return {
+                urn: StoredDocument(info=infos[urn], removed=False)
+                for urn in urns
+                if urn in infos
+            }
+
+        second_svc = build_fixture_service()
+        remove_doc_b1(second_svc)
+        config = stateful_pipeline_config(
+            tmp_path / "2.json", fail_safe_threshold=75.0, **overrides
+        )
+        with (
+            mock.patch(BUILD_DRIVE_SERVICE, return_value=second_svc),
+            mock.patch.object(
+                GoogleDriveSource, "_load_stored_documents", side_effect=load_stored
+            ),
+        ):
+            second = run_and_get_pipeline(config)
+        validate_all_providers_have_committed_successfully(second, 1)
+
+    assert not second.source.get_report().failures
+    assert soft_deleted_urns(tmp_path / "2.json") == {make_document_urn(DOC_B1)}
+    # Nothing that was unchanged was written again.
+    assert written_infos(tmp_path / "2.json") == {}

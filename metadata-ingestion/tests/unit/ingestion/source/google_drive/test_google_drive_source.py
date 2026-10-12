@@ -1,4 +1,5 @@
 import copy
+import json
 from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, cast
 from unittest import mock
 
@@ -28,8 +29,13 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
+    ChangeTypeClass,
     DocumentInfoClass,
+    MetadataAttributionClass,
+    MetadataChangeProposalClass,
+    OwnerClass,
     OwnershipClass,
+    OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
 )
@@ -57,6 +63,12 @@ from tests.test_helpers.test_connection_helpers import (
 
 Aspects = Dict[str, Dict[str, Any]]
 SOURCE_MODULE = "datahub.ingestion.source.google_drive.google_drive_source"
+OWNERSHIP_PATCH = "ownershipPatch"
+DRIVE_SOURCE = "urn:li:dataPlatform:google_drive"
+ALICE = "urn:li:corpuser:alice@example.com"
+BOB = "urn:li:corpuser:bob@example.com"
+CAROL = "urn:li:corpuser:carol@example.com"
+MANUAL_OWNER = "urn:li:corpuser:steward@example.com"
 
 
 def make_source(
@@ -92,6 +104,16 @@ def run(
         workunits: Iterable[MetadataWorkUnit] = source.get_workunits_internal()
         for wu in workunits:
             mcp = wu.metadata
+            if (
+                isinstance(mcp, MetadataChangeProposalClass)
+                and mcp.changeType == ChangeTypeClass.PATCH
+            ):
+                assert mcp.entityUrn is not None and mcp.aspect is not None
+                ops = json.loads(mcp.aspect.value)["patch"]
+                collected.setdefault(mcp.entityUrn, {}).setdefault(
+                    f"{mcp.aspectName}Patch", []
+                ).extend(ops)
+                continue
             assert isinstance(mcp, MetadataChangeProposalWrapper)
             assert mcp.entityUrn is not None and mcp.aspect is not None
             collected.setdefault(mcp.entityUrn, {})[mcp.aspect.get_aspect_name()] = (
@@ -107,16 +129,23 @@ def doc_info(aspects: Aspects, file_id: str) -> DocumentInfoClass:
 
 
 def stored_aspects(
-    urn: str, infos: Dict[str, DocumentInfoClass], removed: FrozenSet[str]
+    urn: str,
+    infos: Dict[str, DocumentInfoClass],
+    removed: FrozenSet[str],
+    ownerships: Optional[Dict[str, OwnershipClass]] = None,
 ) -> Dict[str, object]:
     bag: Dict[str, object] = {"status": StatusClass(removed=urn in removed)}
     if urn in infos:
         bag["documentInfo"] = infos[urn]
+    if ownerships and urn in ownerships:
+        bag["ownership"] = ownerships[urn]
     return bag
 
 
 def graph_returning(
-    infos: Dict[str, DocumentInfoClass], removed: FrozenSet[str] = frozenset()
+    infos: Dict[str, DocumentInfoClass],
+    removed: FrozenSet[str] = frozenset(),
+    ownerships: Optional[Dict[str, OwnershipClass]] = None,
 ) -> mock.MagicMock:
     """A graph whose batched reads return `infos`, like the OpenAPI v3 batchGet:
     URNs DataHub has never stored are absent from the result."""
@@ -127,7 +156,9 @@ def graph_returning(
         return {
             urn: {
                 name: (value, None)
-                for name, value in stored_aspects(urn, infos, removed).items()
+                for name, value in stored_aspects(
+                    urn, infos, removed, ownerships
+                ).items()
             }
             for urn in urns
             if urn in infos or urn in removed
@@ -145,6 +176,33 @@ def graph_returning(
 
 def exported_ids(svc: FakeDriveService) -> List[str]:
     return [target.split(":")[0] for target in svc.calls_for("files.export")]
+
+
+def stored_infos(aspects: Aspects) -> Dict[str, DocumentInfoClass]:
+    """Everything a run wrote, as DataHub would return it to the next run."""
+    return {
+        urn: info
+        for urn, bag in aspects.items()
+        if isinstance(info := bag.get("documentInfo"), DocumentInfoClass)
+    }
+
+
+def owner_ops(aspects: Aspects, file_id: str) -> List[Tuple[str, str]]:
+    """(op, owner urn) for each ownership patch operation on a document."""
+    return sorted(
+        (op["op"], op["path"].split("/")[2])
+        for op in aspects.get(make_document_urn(file_id), {}).get(OWNERSHIP_PATCH, [])
+    )
+
+
+def attributed(owner: str, source: str = DRIVE_SOURCE) -> OwnerClass:
+    return OwnerClass(
+        owner=owner,
+        type=OwnershipTypeClass.TECHNICAL_OWNER,
+        attribution=MetadataAttributionClass(
+            time=0, actor="urn:li:corpuser:datahub", source=source
+        ),
+    )
 
 
 def test_full_run_emits_folders_and_documents() -> None:
@@ -188,22 +246,91 @@ def test_folder_documents_use_drive_timestamps_not_ingestion_time() -> None:
         assert info.lastModified.time == 1770091506000  # 2026-02-03T04:05:06Z
 
 
-def test_owners_are_mapped_and_deduplicated() -> None:
+def test_owners_are_patched_in_with_connector_attribution() -> None:
     aspects = run(make_source(build_fixture_service()))
+    runbook = aspects[make_document_urn(DOC_RUNBOOK)]
 
-    ownership = aspects[make_document_urn(DOC_RUNBOOK)]["ownership"]
-    assert isinstance(ownership, OwnershipClass)
-    assert sorted(o.owner for o in ownership.owners) == [
-        "urn:li:corpuser:alice@example.com",
-        "urn:li:corpuser:bob@example.com",
-    ]
+    # A full ownership write would replace owners added in DataHub.
+    assert "ownership" not in runbook
+    assert owner_ops(aspects, DOC_RUNBOOK) == [("add", ALICE), ("add", BOB)]
+    for op in runbook[OWNERSHIP_PATCH]:
+        assert op["value"]["attribution"]["source"] == DRIVE_SOURCE
+        assert op["path"].endswith(f"/{DRIVE_SOURCE}")
     # Shared drive files have no owners.
-    assert "ownership" not in aspects[make_document_urn(DOC_B1)]
+    assert OWNERSHIP_PATCH not in aspects[make_document_urn(DOC_B1)]
+
+
+def test_owner_attribution_names_the_platform_instance() -> None:
+    aspects = run(
+        make_source(build_fixture_service(), platform_instance="test-workspace")
+    )
+    sources = {
+        op["value"]["attribution"]["source"]
+        for op in aspects[make_document_urn(DOC_RUNBOOK)][OWNERSHIP_PATCH]
+    }
+    assert sources == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+    }
 
 
 def test_extract_owners_disabled() -> None:
     aspects = run(make_source(build_fixture_service(), extract_owners=False))
-    assert "ownership" not in aspects[make_document_urn(DOC_RUNBOOK)]
+    assert OWNERSHIP_PATCH not in aspects[make_document_urn(DOC_RUNBOOK)]
+
+
+def rerun_with_stored_owners(
+    stored_owners: List[OwnerClass], **overrides: Any
+) -> Aspects:
+    """Re-ingest the runbook after a Drive edit, with `stored_owners` in DataHub."""
+    first = run(make_source(build_fixture_service()))
+    urn = make_document_urn(DOC_RUNBOOK)
+    info = copy.deepcopy(doc_info(first, DOC_RUNBOOK))
+    info.customProperties["drive_version"] = "6"
+    graph = graph_returning(
+        {urn: info}, ownerships={urn: OwnershipClass(owners=stored_owners)}
+    )
+    return run(make_source(build_fixture_service(), graph=graph, **overrides))
+
+
+def test_reingest_keeps_datahub_owners_and_drops_owners_drive_no_lists() -> None:
+    other_instance = (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,other)"
+    )
+    aspects = rerun_with_stored_owners(
+        [
+            OwnerClass(owner=MANUAL_OWNER, type=OwnershipTypeClass.TECHNICAL_OWNER),
+            attributed(ALICE),
+            # Ownership was transferred away from Carol in Drive.
+            attributed(CAROL),
+            # Written by another connector instance, which owns its own entries.
+            attributed("urn:li:corpuser:dave@example.com", source=other_instance),
+        ]
+    )
+
+    assert owner_ops(aspects, DOC_RUNBOOK) == [
+        ("add", ALICE),
+        ("add", BOB),
+        ("remove", CAROL),
+    ]
+    removal = next(
+        op
+        for op in aspects[make_document_urn(DOC_RUNBOOK)][OWNERSHIP_PATCH]
+        if op["op"] == "remove"
+    )
+    # Keyed by attribution source, so a hand-added entry for Carol would survive.
+    assert removal["path"].endswith(f"/{DRIVE_SOURCE}")
+
+
+def test_disabling_extract_owners_removes_only_connector_owners() -> None:
+    aspects = rerun_with_stored_owners(
+        [
+            OwnerClass(owner=MANUAL_OWNER, type=OwnershipTypeClass.TECHNICAL_OWNER),
+            attributed(ALICE),
+            attributed(BOB),
+        ],
+        extract_owners=False,
+    )
+    assert owner_ops(aspects, DOC_RUNBOOK) == [("remove", ALICE), ("remove", BOB)]
 
 
 def test_clean_markdown_strips_data_uri_images() -> None:
@@ -358,6 +485,100 @@ def test_soft_deleted_unchanged_document_is_resurrected() -> None:
     assert DOC_RUNBOOK not in exported_ids(svc)
 
 
+def test_unchanged_folders_are_skipped_but_kept_in_state() -> None:
+    first = run(make_source(build_fixture_service()))
+    source = make_source(
+        build_fixture_service(), graph=graph_returning(stored_infos(first))
+    )
+    with mock.patch.object(
+        source.stale_entity_removal_handler, "add_entity_to_state"
+    ) as add_to_state:
+        aspects = run(source)
+
+    for folder_id in (ROOT_A, ENG, SPECS):
+        assert "documentInfo" not in aspects.get(make_document_urn(folder_id), {})
+        add_to_state.assert_any_call("document", make_document_urn(folder_id))
+    assert source.report.folders_skipped_unchanged == 5
+    assert source.report.folders_emitted == 0
+
+
+@pytest.mark.parametrize("mutation", ["version", "title", "parent", "path"])
+def test_folder_changes_force_reemit(mutation: str) -> None:
+    infos = stored_infos(run(make_source(build_fixture_service())))
+    stored = infos[make_document_urn(SPECS)]
+    if mutation == "version":
+        stored.customProperties["drive_version"] = "0"
+    elif mutation == "title":
+        stored.title = "Old title"
+    elif mutation == "parent":
+        stored.customProperties["drive_parent_id"] = "someOtherFolder"
+    else:
+        stored.customProperties["drive_folder_path"] = "Root A/Old/Specs"
+
+    aspects = run(make_source(build_fixture_service(), graph=graph_returning(infos)))
+    assert "documentInfo" in aspects[make_document_urn(SPECS)]
+    assert "documentInfo" not in aspects.get(make_document_urn(ENG), {})
+
+
+def test_renamed_ancestor_refreshes_the_hierarchy_below_it() -> None:
+    infos = stored_infos(run(make_source(build_fixture_service())))
+    svc = build_fixture_service()
+    # Renaming a folder changes neither its children's versions nor their parents.
+    svc.files_by_id[ENG]["name"] = "Engineering"
+    aspects = run(make_source(svc, graph=graph_returning(infos)))
+
+    assert doc_info(aspects, SPECS).customProperties["drive_folder_path"] == (
+        "Root A/Engineering/Specs"
+    )
+    assert DOC_RUNBOOK in exported_ids(svc)
+    browse = aspects[make_document_urn(DOC_IMAGES)]["browsePathsV2"]
+    assert isinstance(browse, BrowsePathsV2Class)
+    assert [e.id for e in browse.path] == ["Root A", "Engineering", "Specs"]
+    # Documents outside the renamed folder are untouched.
+    assert DOC_B1 not in exported_ids(svc)
+
+
+def test_soft_deleted_unchanged_folder_is_resurrected() -> None:
+    infos = stored_infos(run(make_source(build_fixture_service())))
+    urn = make_document_urn(ENG)
+    source = make_source(
+        build_fixture_service(), graph=graph_returning(infos, removed=frozenset({urn}))
+    )
+    aspects = run(source)
+
+    status = aspects[urn]["status"]
+    assert isinstance(status, StatusClass) and status.removed is False
+    assert "documentInfo" not in aspects[urn]
+
+
+def test_run_with_nothing_changed_still_emits_one_presence_workunit() -> None:
+    first = run(make_source(build_fixture_service(), create_root_documents=False))
+    source = make_source(
+        build_fixture_service(),
+        graph=graph_returning(stored_infos(first)),
+        create_root_documents=False,
+    )
+    # The pipeline counts workunits through a processor; mirror that here.
+    emitted: List[MetadataWorkUnit] = []
+    with mock.patch.object(
+        source.chunking_source, "process_elements_inline", return_value=iter([])
+    ):
+        for wu in source.get_workunits_internal():
+            source.report.report_workunit(wu)
+            emitted.append(wu)
+
+    # Only the empty Doc (never stored) is exported again, and it emits nothing.
+    assert len(emitted) == 1
+    mcp = emitted[0].metadata
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    assert isinstance(mcp.aspect, StatusClass) and mcp.aspect.removed is False
+
+
+def test_run_that_discovers_nothing_emits_nothing() -> None:
+    source = make_source(build_fixture_service(), root_folder_ids=["missingRoot0"])
+    assert run(source) == {}
+
+
 def test_document_limit_stops_the_run_after_emitting_the_document() -> None:
     source = make_source(build_fixture_service())
 
@@ -407,7 +628,9 @@ def test_stored_documents_are_read_in_pages() -> None:
         run(source)
 
     documents = source.report.documents_discovered - source.report.documents_filtered
-    assert graph.get_entities.call_count == -(-documents // 2)
+    # Folders are read the same way: both roots, Eng, Specs and Team.
+    folders = 5
+    assert graph.get_entities.call_count == -(-documents // 2) + -(-folders // 2)
     assert source.report.change_detection_batch_reads == graph.get_entities.call_count
     assert source.report.documents_skipped_unchanged == 1
 
@@ -444,8 +667,9 @@ def test_change_detection_read_failure_falls_back_to_export() -> None:
     run(source)
 
     assert DOC_RUNBOOK in exported_ids(svc)
-    assert source.report.change_detection_lookup_failures == len(
-        {make_document_urn(fid) for fid in exported_ids(svc)}
+    assert source.report.folders_emitted == 5
+    assert source.report.change_detection_lookup_failures == (
+        len(set(exported_ids(svc))) + source.report.folders_emitted
     )
 
 

@@ -72,6 +72,8 @@ class FolderNode:
     # Taken from Drive so folder documents keep stable timestamps across runs.
     created_time: Optional[datetime] = None
     modified_time: Optional[datetime] = None
+    # Unset for shared drives resolved through drives.get, which have no version.
+    version: Optional[str] = None
 
     @property
     def is_root(self) -> bool:
@@ -106,6 +108,8 @@ class StoredDocument:
 
     info: Optional[DocumentInfoClass]
     removed: bool
+    # Owners this connector added earlier, identified by their attribution source.
+    connector_owners: List[str] = field(default_factory=list)
 
 
 @dataclass

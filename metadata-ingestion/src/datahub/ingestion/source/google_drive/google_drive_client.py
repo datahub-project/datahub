@@ -158,6 +158,7 @@ class GoogleDriveClient:
             web_view_link=root.web_view_link,
             created_time=root.created_time,
             modified_time=root.modified_time,
+            version=root.version,
         )
 
     def _get_shared_drive(self, drive_id: str) -> SharedDrive:
@@ -306,6 +307,7 @@ class GoogleDriveClient:
             web_view_link=child.web_view_link,
             created_time=child.created_time,
             modified_time=child.modified_time,
+            version=child.version,
         )
         tree.folders[child.id] = node
         queue.append(node)
