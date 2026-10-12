@@ -1,12 +1,14 @@
 import copy
-from typing import Any, Dict, FrozenSet, Iterable, List, Optional, cast
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, cast
 from unittest import mock
 
 import pytest
 from googleapiclient.discovery import Resource
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api import source as api_source
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import CapabilityReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.google_drive.google_drive_config import (
@@ -35,6 +37,7 @@ from tests.test_helpers.google_drive_fakes import (
     DOC_HUGE,
     DOC_IMAGES,
     DOC_RUNBOOK,
+    ENG,
     ROOT_A,
     SHARED_B,
     SPECS,
@@ -66,22 +69,24 @@ def make_source(
     return source
 
 
-def run(source: GoogleDriveSource) -> Aspects:
-    aspects: Aspects = {}
+def run(
+    source: GoogleDriveSource,
+    embed: Callable[..., Iterable[MetadataWorkUnit]] = lambda **_: iter([]),
+    aspects: Optional[Aspects] = None,
+) -> Aspects:
+    collected: Aspects = {} if aspects is None else aspects
     with mock.patch.object(
-        source.chunking_source,
-        "process_elements_inline",
-        side_effect=lambda **_: iter([]),
+        source.chunking_source, "process_elements_inline", side_effect=embed
     ):
         workunits: Iterable[MetadataWorkUnit] = source.get_workunits_internal()
         for wu in workunits:
             mcp = wu.metadata
             assert isinstance(mcp, MetadataChangeProposalWrapper)
             assert mcp.entityUrn is not None and mcp.aspect is not None
-            aspects.setdefault(mcp.entityUrn, {})[mcp.aspect.get_aspect_name()] = (
+            collected.setdefault(mcp.entityUrn, {})[mcp.aspect.get_aspect_name()] = (
                 mcp.aspect
             )
-    return aspects
+    return collected
 
 
 def doc_info(aspects: Aspects, file_id: str) -> DocumentInfoClass:
@@ -264,19 +269,7 @@ def test_embedding_failure_blanks_version_so_next_run_retries() -> None:
     def fail(**_: Any) -> Iterable[MetadataWorkUnit]:
         raise ValueError("embedding provider unavailable")
 
-    aspects: Aspects = {}
-    with mock.patch.object(
-        source.chunking_source, "process_elements_inline", side_effect=fail
-    ):
-        for wu in source.get_workunits_internal():
-            mcp = wu.metadata
-            assert isinstance(mcp, MetadataChangeProposalWrapper)
-            assert mcp.entityUrn is not None and mcp.aspect is not None
-            aspects.setdefault(mcp.entityUrn, {})[mcp.aspect.get_aspect_name()] = (
-                mcp.aspect
-            )
-
-    info = doc_info(aspects, DOC_RUNBOOK)
+    info = doc_info(run(source, embed=fail), DOC_RUNBOOK)
     assert info.customProperties["drive_version"] == ""
     assert any(
         w.title == "Embedding generation deferred" for w in source.report.warnings
@@ -298,6 +291,67 @@ def test_soft_deleted_unchanged_document_is_resurrected() -> None:
     assert isinstance(status, StatusClass) and status.removed is False
     assert source.report.documents_resurrected == 1
     assert DOC_RUNBOOK not in exported_ids(svc)
+
+
+def test_document_limit_stops_the_run_after_emitting_the_document() -> None:
+    source = make_source(build_fixture_service())
+
+    def hit_limit(**_: Any) -> Iterable[MetadataWorkUnit]:
+        source.chunking_source.report.num_documents_limit_reached = True
+        raise RuntimeError("max_documents reached")
+
+    aspects: Aspects = {}
+    with pytest.raises(RuntimeError):
+        run(source, embed=hit_limit, aspects=aspects)
+
+    assert source.report.num_documents_limit_reached
+    assert source.report.documents_emitted == 1
+    assert sum("documentInfo" in a for a in aspects.values()) >= 1
+
+
+def test_failed_document_is_reported_and_the_run_continues() -> None:
+    source = make_source(build_fixture_service())
+    real_export = source.client.export_markdown
+
+    def export(file_id: str) -> ExportResult:
+        if file_id == DOC_RUNBOOK:
+            raise RuntimeError("boom")
+        return real_export(file_id)
+
+    with mock.patch.object(source.client, "export_markdown", side_effect=export):
+        aspects = run(source)
+
+    assert source.report.documents_failed == 1
+    assert DOC_RUNBOOK in source.report.failed_documents
+    assert make_document_urn(DOC_B1) in aspects
+
+
+def test_change_detection_read_failure_falls_back_to_export() -> None:
+    graph = mock.MagicMock(spec=DataHubGraph)
+    graph.get_entity_semityped.side_effect = ConnectionError("gms unavailable")
+    svc = build_fixture_service()
+    run(make_source(svc, graph=cast(DataHubGraph, graph)))
+
+    assert DOC_RUNBOOK in exported_ids(svc)
+
+
+def test_without_root_documents_root_children_attach_to_parent_document() -> None:
+    parent = "urn:li:document:handbook"
+    aspects = run(
+        make_source(
+            build_fixture_service(),
+            create_root_documents=False,
+            parent_document_urn=parent,
+        )
+    )
+
+    assert make_document_urn(ROOT_A) not in aspects
+    assert make_document_urn(SHARED_B) not in aspects
+    a1_parent = doc_info(aspects, DOC_A1).parentDocument
+    assert a1_parent is not None and a1_parent.document == parent
+    runbook_parent = doc_info(aspects, DOC_RUNBOOK).parentDocument
+    assert runbook_parent is not None
+    assert runbook_parent.document == make_document_urn(ENG)
 
 
 def test_native_and_external_import_modes() -> None:
@@ -359,3 +413,51 @@ def test_export_failure_state_handling(
     assert "documentInfo" not in aspects.get(urn, {})
     registered = mock.call("document", urn) in add_to_state.call_args_list
     assert registered == kept_in_state
+
+
+def connection_report(
+    config: Optional[Dict[str, Any]] = None,
+    auth_error: Optional[Exception] = None,
+) -> "api_source.TestConnectionReport":
+    with (
+        mock.patch(
+            "datahub.ingestion.source.google_drive.google_drive_client.build_drive_service",
+            return_value=build_fixture_service(),
+            side_effect=auth_error,
+        ),
+        mock.patch.object(
+            GoogleDriveSource,
+            "_test_semantic_search_capability",
+            return_value=CapabilityReport(capable=True),
+        ),
+    ):
+        return GoogleDriveSource.test_connection(
+            config or {"root_folder_ids": [ROOT_A, SHARED_B]}
+        )
+
+
+def test_connection_succeeds_when_every_root_is_reachable() -> None:
+    report = connection_report()
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    assert report.capability_report["Semantic Search"].capable
+
+
+def test_connection_names_inaccessible_roots() -> None:
+    report = connection_report(config={"root_folder_ids": [ROOT_A, "missingRoot0"]})
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    reason = report.basic_connectivity.failure_reason or ""
+    assert "missingRoot0" in reason and ROOT_A not in reason
+
+
+def test_connection_reports_authentication_failure() -> None:
+    report = connection_report(auth_error=ValueError("invalid key"))
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+
+
+def test_connection_reports_invalid_config() -> None:
+    report = connection_report(config={"root_folder_ids": ["not a drive id!"]})
+    assert report.internal_failure

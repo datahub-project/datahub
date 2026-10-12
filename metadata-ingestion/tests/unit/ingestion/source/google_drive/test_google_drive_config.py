@@ -4,15 +4,9 @@ from pydantic import ValidationError
 from datahub.ingestion.source.google_drive.google_drive_config import (
     GoogleDriveSourceConfig,
 )
+from tests.test_helpers.google_drive_fakes import CREDENTIAL
 
 FOLDER_ID = "1AbCdEfGhIjKlMnOp"
-CREDENTIAL = {
-    "project_id": "test-project",
-    "private_key_id": "key-id",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
-    "client_email": "ingest@test-project.iam.gserviceaccount.com",
-    "client_id": "123",
-}
 
 
 @pytest.mark.parametrize(
@@ -63,6 +57,13 @@ def test_delegated_user_requires_service_account_credential() -> None:
         }
     )
     assert config.delegated_user == "user@example.com"
+
+
+def test_platform_instance_rejects_unsafe_characters() -> None:
+    with pytest.raises(ValidationError):
+        GoogleDriveSourceConfig.model_validate(
+            {"root_folder_ids": [FOLDER_ID], "platform_instance": "team drive/1"}
+        )
 
 
 def test_parent_document_urn_must_be_a_document() -> None:

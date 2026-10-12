@@ -1,9 +1,14 @@
 from typing import Any, Dict, cast
+from unittest import mock
 
+import pytest
+from google.oauth2 import service_account
 from googleapiclient.discovery import Resource
+from googleapiclient.errors import HttpError
 
 from datahub.ingestion.source.google_drive.google_drive_client import (
     GoogleDriveClient,
+    build_drive_service,
 )
 from datahub.ingestion.source.google_drive.google_drive_config import (
     GoogleDriveSourceConfig,
@@ -13,6 +18,7 @@ from datahub.ingestion.source.google_drive.google_drive_report import (
 )
 from tests.test_helpers.google_drive_fakes import (
     ARCHIVE,
+    CREDENTIAL,
     DOC_A1,
     DOC_B1,
     DOC_B2,
@@ -125,6 +131,47 @@ def test_shared_drive_root_uses_drive_name() -> None:
     root = client.get_root(SHARED_B)
     assert root.title == "Shared Drive B"
     assert root.drive_id == SHARED_B
+
+
+def test_shared_drive_not_addressable_by_files_get_falls_back_to_drives_get() -> None:
+    svc = build_fixture_service()
+    svc.shared_drives["0AteamDriveOnly"] = "Team Drive"
+    root = make_client(svc).get_root("0AteamDriveOnly")
+
+    assert root.title == "Team Drive"
+    assert root.drive_id == "0AteamDriveOnly"
+    assert svc.calls_for("drives.get") == ["0AteamDriveOnly"]
+
+
+def test_root_that_is_not_a_folder_or_shared_drive_is_rejected() -> None:
+    client = make_client(build_fixture_service())
+    with pytest.raises(ValueError):
+        client.get_root(DOC_A1)
+    with pytest.raises(HttpError):
+        client.get_root("missingRoot0")
+
+
+def test_service_account_credentials_honour_delegated_user() -> None:
+    config = GoogleDriveSourceConfig.model_validate(
+        {
+            "root_folder_ids": [ROOT_A],
+            "credential": CREDENTIAL,
+            "delegated_user": "reader@example.com",
+        }
+    )
+    with (
+        mock.patch.object(
+            service_account.Credentials, "from_service_account_info"
+        ) as from_info,
+        mock.patch(
+            "datahub.ingestion.source.google_drive.google_drive_client.build"
+        ) as build,
+    ):
+        build_drive_service(config)
+
+    delegated = from_info.return_value.with_subject
+    delegated.assert_called_once_with("reader@example.com")
+    assert build.call_args.kwargs["credentials"] is delegated.return_value
 
 
 def test_export_markdown_success() -> None:

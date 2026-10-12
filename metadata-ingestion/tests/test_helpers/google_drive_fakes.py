@@ -21,6 +21,14 @@ EXPORT_HTML = "text/html"
 
 _PARENT_RE = re.compile(r"'([A-Za-z0-9_-]+)' in parents")
 
+CREDENTIAL = {
+    "project_id": "test-project",
+    "private_key_id": "key-id",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+    "client_email": "ingest@test-project.iam.gserviceaccount.com",
+    "client_id": "123",
+}
+
 ExportValue = Union[bytes, HttpError]
 
 
