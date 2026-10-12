@@ -7,9 +7,9 @@ import values from 'lodash/values';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
-import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 import {
@@ -606,16 +606,6 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
 
     return combinedBaseEntity;
 };
-
-export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
-    if (!entityValue) return siblingValue;
-    if (!siblingValue) return entityValue;
-
-    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
-        arrayMerge: combineMerge,
-        customMerge: customMerge.bind({}, isPrimary),
-    });
-}
 
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {

@@ -13,8 +13,10 @@ describe('downgradeV2FieldPath', () => {
         expect(downgradeV2FieldPath('address.street')).toBe('address.street');
     });
 
-    it('returns an empty path unchanged', () => {
+    it('returns empty or missing paths unchanged', () => {
         expect(downgradeV2FieldPath('')).toBe('');
+        expect(downgradeV2FieldPath(undefined)).toBeUndefined();
+        expect(downgradeV2FieldPath(null)).toBeNull();
     });
 
     // Unlike the schema utils version, this one keeps bracket suffixes inside a segment.

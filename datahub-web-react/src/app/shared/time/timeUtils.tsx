@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import dayjs from '@utils/dayjs';
-import type { Dayjs, ManipulateType } from '@utils/dayjs';
+import type { ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 
@@ -246,41 +246,6 @@ export function getTimeFromNow(timestampMillis) {
         return i18next.t('shared.time:now');
     }
     return relativeTimeString;
-}
-
-export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
-    if (!startDate && !endDate) {
-        return i18next.t('shared.time:allTime');
-    }
-
-    if (!startDate && endDate) {
-        return i18next.t('shared.time:untilDate', { date: endDate.format('ll') });
-    }
-
-    if (startDate && !endDate) {
-        const dayDiff = dayjs().diff(startDate, 'days');
-        if (dayDiff <= 30) {
-            return i18next.t('shared.time:lastDaysCount', { count: dayDiff });
-        }
-        return i18next.t('shared.time:fromDate', { date: startDate.format('ll') });
-    }
-
-    if (startDate && endDate) {
-        if (endDate && endDate.isSame(dayjs(), 'day')) {
-            const startDateRelativeTime = dayjs().diff(startDate, 'days');
-            return i18next.t('shared.time:lastDaysCount', { count: startDateRelativeTime });
-        }
-
-        if (endDate.isSame(startDate, 'day')) {
-            return startDate.format('ll');
-        }
-        return i18next.t('shared.time:dateRange', {
-            startDate: startDate.format('ll'),
-            endDate: endDate.format('ll'),
-        });
-    }
-
-    return i18next.t('shared.time:unknownTimeRange');
 }
 
 export function formatDuration(durationMs: number): string {
