@@ -100,6 +100,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const refetch = useRefetchLineage(urn, type);
     // The menu lives inside the hover card, which unmounts when it closes, so the modal is rendered here instead.
     const [manageLineageDirection, setManageLineageDirection] = useState<LineageDirection | null>(null);
+    const [isHoverCardOpen, setIsHoverCardOpen] = useState(false);
 
     const isQuery = type === EntityType.Query;
 
@@ -218,6 +219,9 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     return (
         <>
             <Popover
+                // Keep the card open while its menu is open; closing the card unmounts the menu.
+                open={isHoverCardOpen || displayedMenuNode === urn}
+                onOpenChange={setIsHoverCardOpen}
                 content={popoverContent}
                 overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
                 overlayStyle={{ padding: 0 }}
