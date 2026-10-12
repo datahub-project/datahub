@@ -802,6 +802,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
         return SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
             # Query history yields table lineage; always on with usage, independent

@@ -1852,6 +1852,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 SqlParsingAggregator(
                     platform="teradata",
                     platform_instance=self.config.platform_instance,
+                    emit_query_platform_instance=self.config.emit_query_platform_instance,
                     env=self.config.env,
                     schema_resolver=self.schema_resolver,
                     graph=self.ctx.graph,

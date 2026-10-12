@@ -15,6 +15,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetUsageStatisticsClass,
     OperationClass,
     QueryPropertiesClass,
@@ -2600,3 +2601,74 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def _gen_query_mcps(
+    emit_query_platform_instance: bool,
+) -> List[MetadataChangeProposalWrapper]:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        platform_instance="my_instance",
+        generate_lineage=True,
+        generate_query_usage_statistics=True,
+        usage_config=BaseUsageConfig(
+            start_time=parse_user_datetime("2024-07-01T00:00:00Z"),
+            end_time=parse_user_datetime("2024-07-02T00:00:00Z"),
+        ),
+        emit_query_platform_instance=emit_query_platform_instance,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=parse_user_datetime("2024-07-01T10:00:00Z"),
+        )
+    )
+    return [
+        mcp
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.entityType == "query"
+    ]
+
+
+def test_query_platform_instance_off_by_default() -> None:
+    assert (
+        SqlParsingAggregator(platform="redshift").emit_query_platform_instance is False
+    )
+    mcps = _gen_query_mcps(emit_query_platform_instance=False)
+
+    assert [mcp.aspectName for mcp in mcps] == [
+        "queryProperties",
+        "querySubjects",
+        "dataPlatformInstance",
+        "queryUsageStatistics",
+    ]
+    dpi = mcps[2].aspect
+    assert isinstance(dpi, DataPlatformInstanceClass)
+    assert dpi.platform == "urn:li:dataPlatform:redshift"
+    assert dpi.instance is None
+
+
+def test_query_platform_instance_emitted_first_when_enabled() -> None:
+    off = _gen_query_mcps(emit_query_platform_instance=False)
+    on = _gen_query_mcps(emit_query_platform_instance=True)
+
+    # The instance must be stored before any other write to the query entity,
+    # so it is the first aspect emitted for that query.
+    assert [mcp.aspectName for mcp in on] == [
+        "dataPlatformInstance",
+        "queryProperties",
+        "querySubjects",
+        "queryUsageStatistics",
+    ]
+    dpi = on[0].aspect
+    assert isinstance(dpi, DataPlatformInstanceClass)
+    assert dpi.platform == "urn:li:dataPlatform:redshift"
+    assert (
+        dpi.instance
+        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:redshift,my_instance)"
+    )
+
+    # Query ids are unchanged by the flag.
+    assert {mcp.entityUrn for mcp in on} == {mcp.entityUrn for mcp in off}

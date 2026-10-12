@@ -930,6 +930,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         self._query_log_aggregator = SqlParsingAggregator(
             platform="clickhouse",
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             schema_resolver=self.get_schema_resolver(),
             graph=self.ctx.graph,

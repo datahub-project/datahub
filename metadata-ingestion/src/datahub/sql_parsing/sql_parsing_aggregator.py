@@ -486,9 +486,11 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        emit_query_platform_instance: bool = False,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
+        self.emit_query_platform_instance = emit_query_platform_instance
         self.env = env
 
         self.generate_lineage = generate_lineage
@@ -1888,20 +1890,35 @@ class SqlParsingAggregator(Closeable):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
-        yield from MetadataChangeProposalWrapper.construct_many(
-            entityUrn=self._query_urn(query_id),
-            aspects=[
-                query.make_query_properties(),
-                make_query_subjects(
-                    query.get_subjects(
-                        downstream_urn=downstream_urn,
-                        include_fields=self.generate_query_subject_fields,
-                    )
-                ),
+        query_aspects: List[models._Aspect] = [
+            query.make_query_properties(),
+            make_query_subjects(
+                query.get_subjects(
+                    downstream_urn=downstream_urn,
+                    include_fields=self.generate_query_subject_fields,
+                )
+            ),
+        ]
+        if self.emit_query_platform_instance and self.platform_instance:
+            # Emitted first so the instance is stored before any other write to
+            # this query; instance-scoped write policies can then cover the
+            # follow-up writes (properties, subjects, usage, status).
+            query_aspects.insert(
+                0,
                 models.DataPlatformInstanceClass(
                     platform=self.platform.urn(),
+                    instance=builder.make_dataplatform_instance_urn(
+                        self.platform.urn(), self.platform_instance
+                    ),
                 ),
-            ],
+            )
+        else:
+            query_aspects.append(
+                models.DataPlatformInstanceClass(platform=self.platform.urn())
+            )
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=self._query_urn(query_id),
+            aspects=query_aspects,
         )
         self.report.num_queries_entities_generated += 1
 

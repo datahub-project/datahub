@@ -126,6 +126,7 @@ class ClickHouseUsageSource(Source):
         self.aggregator = SqlParsingAggregator(
             platform="clickhouse",
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             graph=ctx.graph,
             eager_graph_load=False,

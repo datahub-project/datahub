@@ -644,6 +644,7 @@ class GlueSource(StatefulIngestionSourceBase):
             self.aggregator = SqlParsingAggregator(
                 platform=self.platform,
                 platform_instance=self.source_config.platform_instance,
+                emit_query_platform_instance=self.source_config.emit_query_platform_instance,
                 env=self.env,
                 graph=self.ctx.graph,
                 eager_graph_load=False,

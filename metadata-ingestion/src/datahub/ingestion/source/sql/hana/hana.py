@@ -84,6 +84,7 @@ class HanaSource(SQLAlchemySource):
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
             generate_lineage=self.include_lineage,
