@@ -2257,9 +2257,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             try:
+                # The asserted dataset is the warehouse table, so it takes the warehouse instance.
                 upstream_urn = node.get_urn(
                     target_platform=self.config.target_platform,
-                    data_platform_instance=self.config.platform_instance,
+                    data_platform_instance=self.config.target_platform_instance,
                     env=self.config.env,
                 )
 

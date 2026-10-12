@@ -2935,6 +2935,46 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
     assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
 
 
+def test_create_freshness_assertion_mcps_asserts_on_target_platform_instance():
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        platform_instance="dbt-instance",
+        target_platform_instance="warehouse-instance",
+    )
+    source = DBTCoreSource(config, ctx)
+    source_node = _make_dbt_node(
+        "source.project.raw.users",
+        node_type="source",
+        database="my_db",
+        schema="raw",
+    )
+    source_node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="pass",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=None,
+    )
+
+    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+
+    expected = mce_builder.make_dataset_urn_with_platform_instance(
+        platform="postgres",
+        name="my_db.raw.users",
+        platform_instance="warehouse-instance",
+        env="PROD",
+    )
+    infos = [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+    events = [m.aspect for m in mcps if isinstance(m.aspect, AssertionRunEventClass)]
+    assert len(infos) == 1 and len(events) == 1
+    assert infos[0].customAssertion is not None
+    assert infos[0].customAssertion.entity == expected
+    assert events[0].asserteeUrn == expected
+
+
 def test_load_run_results_skips_generate():
     run_results_json = {
         "args": {"which": "generate"},
