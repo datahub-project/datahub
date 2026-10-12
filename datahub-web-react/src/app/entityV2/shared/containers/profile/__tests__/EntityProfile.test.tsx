@@ -4,7 +4,6 @@ import React from 'react';
 
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarStatsSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
@@ -78,16 +77,6 @@ describe('EntityProfile', () => {
                         sidebarSections={[
                             {
                                 component: SidebarAboutSection,
-                            },
-                            {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
                             },
                             {
                                 component: SidebarTagsSection,
@@ -167,16 +156,6 @@ describe('EntityProfile', () => {
                                 component: SidebarAboutSection,
                             },
                             {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
-                            },
-                            {
                                 component: SidebarTagsSection,
                             },
                             {
@@ -251,16 +230,6 @@ describe('EntityProfile', () => {
                         sidebarSections={[
                             {
                                 component: SidebarAboutSection,
-                            },
-                            {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
                             },
                             {
                                 component: SidebarTagsSection,
@@ -346,16 +315,6 @@ describe('EntityProfile', () => {
                                 component: SidebarAboutSection,
                             },
                             {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
-                            },
-                            {
                                 component: SidebarTagsSection,
                             },
                             {
@@ -430,16 +389,6 @@ describe('EntityProfile', () => {
                         sidebarSections={[
                             {
                                 component: SidebarAboutSection,
-                            },
-                            {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
                             },
                             {
                                 component: SidebarTagsSection,
