@@ -312,6 +312,14 @@ PARTITION_LE_BOUND_RE = re.compile(
     r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*<=\s*(.+?)(?:\s+AND\s|$)"
 )
 
+# Upper bound of a discovered range, matching both the exclusive `col` < U that
+# discovery emits for half-open temporal partitions and the inclusive `col` <= U that
+# equality windowing emits. Captures the operator (group 2) so date windowing can
+# anchor a narrower window on the discovered upper edge while preserving < vs <=.
+PARTITION_UPPER_BOUND_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*(<=?)\s*(.+?)(?:\s+AND\s|$)"
+)
+
 # Unwraps a DATE()/DATETIME()/TIMESTAMP() call around a date literal.
 DATE_WRAPPER_RE = re.compile(r"(DATE|DATETIME|TIMESTAMP)\((.+)\)", re.IGNORECASE)
 
