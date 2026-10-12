@@ -20,7 +20,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.text};
     line-height: 16px;
     font-size: 12px;
     max-width: 100%;

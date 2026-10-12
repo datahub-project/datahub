@@ -276,7 +276,7 @@ To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.c
 The artifacts used by this source are:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json) — **required**
-  - Models, sources, seeds, snapshots, tests, exposures, semantic models, and lineage.
+  - Models, sources, seeds, snapshots, tests, exposures, semantic models, metrics, and lineage.
   - The manifest is the source of truth for which nodes and tests are active. Tests disabled in the manifest (via `enabled: false` or the `--exclude` flag) are excluded from DataHub even if they appear in `run_results.json`.
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json) — optional but recommended
   - Column schemas and table statistics. Generate it with `dbt docs generate`.
@@ -300,7 +300,8 @@ The table below summarizes the DataHub entities and aspects produced from each a
 |                    | Dataset · Ownership, GlobalTags, GlossaryTerms, Domains, StructuredProperties | Owners and tags from `meta`/`config`; terms, domains, and structured properties via `meta_mapping`/`column_meta_mapping`        |
 |                    | Assertion · AssertionInfo                                                     | Test definitions and parameters                                                                                                 |
 |                    | Dashboard                                                                     | dbt exposures (dashboards, notebooks, ML models, applications) with upstream lineage                                            |
-|                    | Dataset (Semantic Model)                                                      | dbt semantic models (dbt 1.6+): entities, dimensions, and measures                                                              |
+|                    | Dataset (Semantic Model)                                                      | dbt semantic models (dbt 1.6+): entities, dimensions, and measures, as a dataset with flattened columns                         |
+|                    | SemanticModel · Metric · Dataset · SemanticModelProperties                    | The project's semantic layer as first-class entities, layered onto the same datasets. Requires `emit_semantic_model_entities`   |
 |                    | Query                                                                         | Queries defined in a model's `meta.queries`                                                                                     |
 | `catalog.json`     | Dataset · SchemaMetadata                                                      | Column names, types, comments, and descriptions                                                                                 |
 |                    | Dataset · DatasetProfile                                                      | Table statistics: row count, size, and column count                                                                             |

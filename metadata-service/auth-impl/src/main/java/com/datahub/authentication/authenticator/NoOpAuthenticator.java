@@ -51,9 +51,8 @@ public class NoOpAuthenticator implements Authenticator {
     // X-DataHub-Actor header.
     if (actorUrn == null || "".equals(actorUrn)) {
       log.debug(
-          String.format(
-              "Found no X-DataHub-Actor header provided with the request. Falling back to system creds %s",
-              Constants.UNKNOWN_ACTOR));
+          "Found no X-DataHub-Actor header provided with the request. Falling back to system creds {}",
+          Constants.UNKNOWN_ACTOR);
       return new Authentication(new Actor(ActorType.USER, this.systemClientId), "");
     }
 

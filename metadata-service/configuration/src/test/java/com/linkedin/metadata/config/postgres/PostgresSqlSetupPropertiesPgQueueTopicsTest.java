@@ -22,7 +22,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().setInheritKafkaTopics(true);
     PgQueueTopicOverride uh = new PgQueueTopicOverride();
     uh.setMaxRowsPerTopic(10L);
-    props.getPgQueue().getTopics().put("datahubUpgradeHistory", uh);
+    props.getPgQueue().getTopics().put("failedMetadataChangeProposal", uh);
 
     KafkaConfiguration kafka = new KafkaConfiguration();
     TopicsConfiguration.TopicConfiguration td = new TopicsConfiguration.TopicConfiguration();
@@ -31,9 +31,9 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
 
     Map<String, TopicsConfiguration.TopicConfiguration> kt = new HashMap<>();
     TopicsConfiguration.TopicConfiguration duh = new TopicsConfiguration.TopicConfiguration();
-    duh.setName("DataHubUpgradeHistory_v1");
+    duh.setName("FailedMetadataChangeProposal_v1");
     duh.setConfigProperties(Map.of("retention.ms", "-1"));
-    kt.put("datahubUpgradeHistory", duh);
+    kt.put("failedMetadataChangeProposal", duh);
 
     TopicsConfiguration.TopicConfiguration mcl = new TopicsConfiguration.TopicConfiguration();
     mcl.setName("MetadataChangeLog_Timeseries_v1");
@@ -49,7 +49,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
         q.getResolvedTopicCatalog().stream()
             .anyMatch(
                 e ->
-                    "DataHubUpgradeHistory_v1".equals(e.getTopicName())
+                    "FailedMetadataChangeProposal_v1".equals(e.getTopicName())
                         && e.getMaxRowsPerTopic() == 10L
                         && e.getRetentionMaxAgeSeconds() == 0));
     assertTrue(
@@ -71,10 +71,10 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().getTopics().put("metadataChangeLogTimeseries", ts);
 
     PgQueueTopicOverride uh = new PgQueueTopicOverride();
-    uh.setTopicName("DataHubUpgradeHistory_v1");
+    uh.setTopicName("FailedMetadataChangeProposal_v1");
     uh.setRetentionMaxAgeSeconds(0);
     uh.setMaxRowsPerTopic(10L);
-    props.getPgQueue().getTopics().put("datahubUpgradeHistory", uh);
+    props.getPgQueue().getTopics().put("failedMetadataChangeProposal", uh);
 
     props.validateForUse(DatabaseType.POSTGRES);
 
@@ -91,7 +91,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
         q.getResolvedTopicCatalog().stream()
             .anyMatch(
                 e ->
-                    e.getTopicName().equals("DataHubUpgradeHistory_v1")
+                    e.getTopicName().equals("FailedMetadataChangeProposal_v1")
                         && e.getRetentionMaxAgeSeconds() == 0
                         && e.getMaxRowsPerTopic() == 10L));
 

@@ -16,7 +16,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import java.util.List;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.testng.annotations.Test;
 
 public class EntitySearchIndexResolverTest {
@@ -121,12 +121,19 @@ public class EntitySearchIndexResolverTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
             .build();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    EntitySearchIndexResolver.applyEntityTypeFilter(query, List.of("dataset"), cfg);
+    // Registry keys are lower-cased; V3 stores the entity name (glossaryTerm)
+    EntitySearchIndexResolver.applyEntityTypeFilter(query, List.of("dataset", "glossaryterm"), cfg);
 
     assertEquals(query.filter().size(), 1);
-    TermsQueryBuilder terms = (TermsQueryBuilder) query.filter().get(0);
-    assertEquals(terms.fieldName(), "_entityType");
-    assertTrue(terms.values().contains("dataset"));
+    BoolQueryBuilder entityTypes = (BoolQueryBuilder) query.filter().get(0);
+    assertEquals(entityTypes.minimumShouldMatch(), "1");
+    List<TermQueryBuilder> terms =
+        entityTypes.should().stream().map(TermQueryBuilder.class::cast).toList();
+    assertEquals(
+        terms.stream().map(TermQueryBuilder::value).toList(), List.of("dataset", "glossaryterm"));
+    assertTrue(
+        terms.stream()
+            .allMatch(term -> term.fieldName().equals("_entityType") && term.caseInsensitive()));
   }
 
   @Test

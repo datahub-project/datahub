@@ -9,8 +9,9 @@ after checking the real semantics. It is loaded by the ``sys.meta_path`` finder
 in ``datahub/_pkg_resources_finder.py``, which defers to a real ``pkg_resources``
 whenever one is installed.
 
-Temporary: removable once ``sqlalchemy>=2`` unblocks pkg_resources-free dialect
-releases; ``test_sqlalchemy_stays_below_2_until_shim_removed`` enforces the deletion.
+The dialects' SQLAlchemy 2.0 releases no longer import ``pkg_resources``; the shim
+is kept as a process-wide fallback. See ``datahub/_pkg_resources_finder.py`` for
+why removing it is a separate change.
 """
 
 import importlib

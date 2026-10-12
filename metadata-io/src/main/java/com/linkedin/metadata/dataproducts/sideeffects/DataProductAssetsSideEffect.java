@@ -177,16 +177,16 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
         associationsByAsset(mclItem.getAspect(DataProductProperties.class));
     final DataProductProperties previous = mclItem.getPreviousAspect(DataProductProperties.class);
 
-    // CREATE / CREATE_ENTITY / RESTATE, first write, or ZDU/system-update rewrite: treat every
-    // unsynced member as an ADD (idempotent). MigrateAspects UPSERTs identical payloads, so a
-    // pure before/after diff would emit nothing without this branch. Skip assets that already
-    // mirror this membership so a later reprocess can advance past already-synced members.
+    // CREATE / CREATE_ENTITY / RESTATE, first write, or system-update rewrite: treat every
+    // unsynced member as an ADD (idempotent). A parent UPSERT of an identical payload is a
+    // no-op MCL, so ResyncDataProductAssetsStep feeds RESTATE items here directly. Skip
+    // assets that already mirror this membership so a later reprocess can advance past them.
     if (!ChangeType.UPSERT.equals(mclItem.getChangeType())
         || previous == null
         || isSystemUpdate(mclItem.getSystemMetadata())) {
       // Materialize ADDs first: removeStaleMirrors may throw on scroll failure, and Stream.concat
       // evaluates args eagerly — without this, a REMOVE-heal failure would discard already-built
-      // ADDs. MigrateAspects / Resync enqueue async MCPs and FailedMCP has no retry, so keep ADDs.
+      // ADDs. Resync enqueues async MCPs and FailedMCP has no retry, so keep ADDs.
       List<MCPItem> adds =
           addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext)
               .collect(Collectors.toList());
@@ -353,7 +353,7 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
           "Unable to scroll for stale dataProduct mirrors for {}; failing REMOVE heal",
           dataProductUrn,
           e);
-      // Do not return a partial REMOVE list — incomplete heal would leave MigrateAspects /
+      // Do not return a partial REMOVE list — incomplete heal would leave
       // ResyncDataProductAssetsStep marked successful while stale mirrors remain.
       throw e;
     }

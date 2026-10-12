@@ -59,6 +59,12 @@ def _install_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/api/v1/datasphere/spaces/S2/connections",
         json=[],
     )
+    for _space in ("S1", "S2"):
+        m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/{_space}/views", json=[])
+        m.get(
+            f"{TENANT_URL}/dwaas-core/api/v1/spaces/{_space}/analyticmodels",
+            json=[],
+        )
     # S1 has two base tables, S2 none — exercises both the populated and empty
     # branches plus the per-table CSN fetch that backfills schemas for CLL.
     m.get(
@@ -383,6 +389,11 @@ def _install_lineage_mocks(m: rm_module.Mocker) -> None:
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/spaces/LINEAGE_TEST/connections",
         text=(fixtures_dir / "connections_lineage.json").read_text(),
+    )
+    m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views", json=[])
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/analyticmodels",
+        json=[],
     )
     m.get(
         f"{TENANT_URL}/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
@@ -813,6 +824,11 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/api/v1/datasphere/spaces/FED_TEST/connections",
         json=[],
     )
+    m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/views", json=[])
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/analyticmodels",
+        json=[],
+    )
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/dataflows",
         json=[{"technicalName": "DF_ENRICH_CUSTOMER"}],
@@ -947,3 +963,79 @@ def test_sap_datasphere_lineage_federated_golden_has_column_lineage() -> None:
     assert any(fg.get("transformOperation") == "AGGREGATE" for fg in all_fg), (
         "Expected at least one AGGREGATE transformOperation in fineGrainedLineages"
     )
+
+
+def _run_lineage_source(m: rm_module.Mocker, **overrides: object) -> tuple:
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
+    from datahub.ingestion.source.sap_datasphere.source import SapDatasphereSource
+
+    config = _lineage_pipeline_config(Path("unused.json"), max_workers_assets=1)
+    source_config = {**config["source"]["config"], **overrides}
+    source = SapDatasphereSource(
+        PipelineContext(run_id="discover-unexposed-views"),
+        SapDatasphereConfig.model_validate(source_config),
+    )
+    return source, list(source.get_workunits())
+
+
+def _dataset_properties_by_urn(workunits: list) -> dict:
+    from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+    by_urn: dict = {}
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, DatasetPropertiesClass):
+            by_urn.setdefault(wu.metadata.entityUrn, []).append(aspect)
+    return by_urn
+
+
+# The design-time /views listing returns every View in the space, including the
+# ones the consumption catalog already exposes.
+_ALL_LINEAGE_TEST_VIEWS = [
+    {"technicalName": name}
+    for name in ("BASE_TABLE", "MID_VIEW", "FED_SNOWFLAKE_CUST", "FED_UNSUPPORTED")
+]
+
+
+def test_discover_unexposed_views_skips_federated_catalog_views() -> None:
+    with rm_module.Mocker() as m:
+        _install_lineage_mocks(m)
+        m.get(
+            f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views",
+            json=_ALL_LINEAGE_TEST_VIEWS,
+        )
+        source, workunits = _run_lineage_source(m)
+
+    # FED_SNOWFLAKE_CUST was emitted on its snowflake URN by the catalog pass; the
+    # design-time pass must not emit it again (without its catalog metadata).
+    emits_per_urn = {
+        urn: len(props) for urn, props in _dataset_properties_by_urn(workunits).items()
+    }
+    assert all(count == 1 for count in emits_per_urn.values()), emits_per_urn
+    assert source.report.non_consumption_views_emitted == 0
+    # Catalog assets skipped for an unmapped connection are not re-tried.
+    assert len(list(source.report.assets_skipped_unknown_typeid)) == 1
+
+
+def test_discover_unexposed_views_does_not_relabel_views_when_catalog_listing_fails() -> (
+    None
+):
+    with rm_module.Mocker() as m:
+        _install_lineage_mocks(m)
+        m.get(
+            f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces('LINEAGE_TEST')/assets",
+            status_code=500,
+        )
+        m.get(
+            f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views",
+            json=[{"technicalName": "MID_VIEW"}],
+        )
+        source, workunits = _run_lineage_source(m)
+
+    # MID_VIEW is exposed in the catalog; a failed catalog listing says nothing
+    # about its exposure, so it must not be reported as a non-consumption View.
+    assert source.report.non_consumption_views_emitted == 0
+    for props in _dataset_properties_by_urn(workunits).values():
+        for p in props:
+            assert p.customProperties.get("exposed_for_consumption") != "false"

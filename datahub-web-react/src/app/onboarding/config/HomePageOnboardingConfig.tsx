@@ -43,21 +43,27 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     <Trans i18nKey="onboarding:home.welcomeTitle" />
                 </Heading>
                 <Text type="div" size="md">
-                    <Trans i18nKey="onboarding:home.welcomeIntro" components={{ bold: <strong /> }} />
+                    <Trans i18nKey="onboarding:home.welcomeIntroV2" components={{ bold: <strong /> }} />
                 </Text>
                 <Text type="div" size="md">
                     <ul>
                         <li>
-                            <Trans i18nKey="onboarding:home.bulletSearch" components={{ bold: <strong /> }} />
+                            <Trans i18nKey="onboarding:home.bulletSearchV2" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            <Trans i18nKey="onboarding:home.bulletLineage" components={{ bold: <strong /> }} />
+                            <Trans i18nKey="onboarding:home.bulletQuality" components={{ bold: <strong /> }} />
+                        </li>
+                        <li>
+                            <Trans i18nKey="onboarding:home.bulletLineageV2" components={{ bold: <strong /> }} />
                         </li>
                         <li>
                             <Trans i18nKey="onboarding:home.bulletInsights" components={{ bold: <strong /> }} />
                         </li>
                         <li>
                             <Trans i18nKey="onboarding:home.bulletOwnership" components={{ bold: <strong /> }} />
+                        </li>
+                        <li>
+                            <Trans i18nKey="onboarding:home.bulletGovernance" components={{ bold: <strong /> }} />
                         </li>
                     </ul>
                     <p>

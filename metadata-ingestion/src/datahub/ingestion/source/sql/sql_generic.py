@@ -16,6 +16,14 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
+try:
+    # SQLAlchemy loads pyhive's dialects via entry points at create_engine() time, so
+    # hive:// / presto:// / databricks+pyhive:// URIs need the SA 2.0 patches applied
+    # first. pyhive is optional here; without it those URIs can't work anyway.
+    import datahub.ingestion.source.sql._pyhive_compat  # noqa: F401
+except ImportError:
+    pass
+
 
 @dataclass
 class BaseColumn:
@@ -55,7 +63,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         description="Name of platform being ingested, used in constructing URNs."
     )
     connect_uri: str = Field(
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls"
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls"
     )
 
     def get_sql_alchemy_url(self):

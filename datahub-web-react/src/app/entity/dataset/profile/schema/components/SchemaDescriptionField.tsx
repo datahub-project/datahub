@@ -1,4 +1,3 @@
-import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Typography, message } from 'antd';
@@ -29,7 +28,7 @@ const DIFF_REMOVED_BG = '#ffa39e99';
 const DIFF_REMOVED_BG_HOVER = '#ffa39eaa';
 /* eslint-enable rulesdir/no-hardcoded-colors */
 
-const EditIcon = styled(EditOutlined)`
+const EditIcon = styled(PencilSimple)`
     cursor: pointer;
     display: none;
 `;

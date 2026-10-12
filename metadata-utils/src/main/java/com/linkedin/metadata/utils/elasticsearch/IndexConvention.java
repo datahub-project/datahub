@@ -10,6 +10,7 @@ import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The convention for naming search indices.
@@ -62,6 +63,14 @@ public interface IndexConvention {
       @Nonnull String baseIndexName) {
     return getIndexName(operation, baseIndexName);
   }
+
+  /**
+   * Index service that owns {@code indexName}, or null when the name is not a DataHub index.
+   * Semantic names are classified before {@code index_v2}.
+   */
+  @Nullable
+  SearchComponent componentForIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName);
 
   @Nonnull
   String getEntityIndexName(@Nonnull OperationFingerprint operation, String entityName);

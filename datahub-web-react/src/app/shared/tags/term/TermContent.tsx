@@ -1,5 +1,5 @@
-import { ThunderboltOutlined } from '@ant-design/icons';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -37,7 +37,7 @@ const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $sh
         `}
 `;
 
-const PropagateThunderbolt = styled(ThunderboltOutlined)`
+const PropagateThunderbolt = styled(Lightning)`
     color: ${(props) => props.theme.colors.textSuccess};
     margin-right: -4px;
     font-weight: bold;

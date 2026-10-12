@@ -19,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,7 +54,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               key.setId(input.getName());
 
               if (_entityClient.exists(
-                  context.getOperationContext(),
+                  context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
                   EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Secret already exists!");
               }

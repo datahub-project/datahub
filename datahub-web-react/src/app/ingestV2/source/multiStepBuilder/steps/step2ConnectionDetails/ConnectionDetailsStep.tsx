@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -154,15 +154,9 @@ export function ConnectionDetailsStep() {
         } catch (e: unknown) {
             if (e instanceof Error) {
                 if (e.message === INGESTION_TYPE_EMPTY_ERROR) {
-                    message.warning({
-                        content: t('multiStep.connection.invalidIngestionType'),
-                        duration: 3,
-                    });
+                    toast.warning(t('multiStep.connection.invalidIngestionType'), { duration: 3 });
                 } else if (e.message === INGESTION_TYPE_CHANGED_ERROR) {
-                    message.warning({
-                        content: t('multiStep.connection.cannotChangeSourceType'),
-                        duration: 3,
-                    });
+                    toast.warning(t('multiStep.connection.cannotChangeSourceType'), { duration: 3 });
                 }
             }
             throw e;

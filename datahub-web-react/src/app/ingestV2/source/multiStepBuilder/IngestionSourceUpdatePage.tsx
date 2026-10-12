@@ -1,6 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Loader, Text } from '@components';
-import { message } from 'antd';
+import { Loader, Text, toast } from '@components';
 import deepEqual from 'fast-deep-equal';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -113,21 +112,15 @@ export function IngestionSourceUpdatePage() {
                     exitType: shouldRun ? 'save_and_run' : 'save_draft',
                 });
 
-                message.success({
-                    content: t('multiStep.updatePage.successMessage'),
-                    duration: 3,
-                });
+                toast.success(t('multiStep.updatePage.successMessage'), { duration: 3 });
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
                     sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                 });
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: e.message,
-                        duration: 3,
-                    });
+                    toast.error(e.message, { duration: 3 });
                 }
             }
 
@@ -210,11 +203,7 @@ export function IngestionSourceUpdatePage() {
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle={t('multiStep.builder.discard.title')}
-            confirmModalContent={
-                <Text color="gray" colorLevel={1700}>
-                    {t('multiStep.builder.discard.description')}
-                </Text>
-            }
+            confirmModalContent={<Text color="textSecondary">{t('multiStep.builder.discard.description')}</Text>}
             confirmButtonText={t('multiStep.builder.discard.confirm')}
             closeButtonText={t('multiStep.builder.discard.close')}
         >
