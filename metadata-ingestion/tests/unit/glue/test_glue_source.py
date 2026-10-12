@@ -1593,6 +1593,50 @@ def test_database_resource_link_same_name_unmapped_owner_warns_once():
     assert len(unmapped[0].context) == 2
 
 
+def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner():
+    # The link database has the owner's name and the owner is mapped. Previously the link tables were
+    # named with the owner's mapped instance, i.e. exactly the owner's own URN, overwriting it.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}
+            },
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(get_tables_response_for_target_database),
+            {"DatabaseName": "test-database"},
+        )
+        _, tables = source.get_all_databases_and_tables()
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.test-database.transactions,PROD)"
+    )
+    owner_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "owner_inst.test-database.transactions,PROD)"
+    )
+    assert {
+        wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
+    } == {link_urn}
+    assert _upstream_urns(wus, link_urn) == [owner_urn]
+    assert source.report.num_resource_link_self_referential == 0
+
+
 def test_database_resource_link_preserves_existing_target_table():
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     explicit_target = {
