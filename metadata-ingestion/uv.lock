@@ -2238,6 +2238,7 @@ requires-dist = [
     { name = "opensearch-py", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "opensearch-py", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
     { name = "opensearch-py", marker = "extra == 'elasticsearch'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "opensearch-py", marker = "extra == 'sql-queries'", specifier = ">=3.0.0,<4.0.0" },
     { name = "oracledb", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "oracledb", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "oracledb", marker = "extra == 'docs'", specifier = "<4.0.0" },

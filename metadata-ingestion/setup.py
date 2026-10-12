@@ -849,7 +849,10 @@ plugins: Dict[str, Set[str]] = {
     "sql-queries": usage_common
     | sqlglot_lib
     | aws_common
-    | {"smart-open[s3]>=5.2.1,<8.0.0"},
+    | {"smart-open[s3]>=5.2.1,<8.0.0"}
+    # opensearch-py (same client the elasticsearch source uses, for ES + OpenSearch)
+    # powers the optional Elasticsearch query_source backend.
+    | {"opensearch-py>=3.0.0,<4.0.0"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,

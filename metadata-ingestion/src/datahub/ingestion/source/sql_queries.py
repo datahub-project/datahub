@@ -76,10 +76,7 @@ logger = logging.getLogger(__name__)
 
 
 class ElasticsearchQueryFieldMappings(ConfigModel):
-    """Maps QueryEntry fields to document fields in the Elasticsearch index.
-
-    Values are field names (dotted paths are supported for nested fields).
-    """
+    """Maps QueryEntry fields to Elasticsearch document fields (dotted paths allowed)."""
 
     query: str = Field(
         "query", description="Document field holding the SQL query text."
@@ -378,10 +375,8 @@ class FileQueryLogReader(QueryLogReader):
 class ElasticsearchQueryLogReader(QueryLogReader):
     """Reads query records from an Elasticsearch/OpenSearch index.
 
-    Each matching document becomes one QueryEntry via the configured field
-    mappings. Documents without SQL text in the query field are skipped, so an
-    index that mixes query records with other audit events (connects, etc.) can
-    be read directly without pre-filtering.
+    Documents with no SQL in the query field are skipped, so an index that mixes
+    query records with other audit events can be read directly.
     """
 
     def __init__(
@@ -394,7 +389,7 @@ class ElasticsearchQueryLogReader(QueryLogReader):
 
     @staticmethod
     def _get(source: Dict[str, Any], path: Optional[str]) -> Any:
-        """Look up a possibly-dotted field path in a document source."""
+        """Look up a dotted field path in a document source."""
         if not path:
             return None
         current: Any = source
@@ -412,8 +407,7 @@ class ElasticsearchQueryLogReader(QueryLogReader):
 
         sql = str(raw_sql)
         if self.config.unescape_sql:
-            # Audit logs commonly escape quotes (e.g. \' and \") inside the stored
-            # statement; undo that so the SQL parser sees valid syntax.
+            # Audit logs often store SQL with escaped quotes; undo so it parses.
             sql = sql.replace("\\'", "'").replace('\\"', '"')
 
         user = self._get(source, fm.user)
@@ -423,9 +417,8 @@ class ElasticsearchQueryLogReader(QueryLogReader):
                 user = f"{user}@{self.config.email_domain}"
 
         session_id = self._get(source, fm.session_id)
-        # Validate through the model (not the typed constructor) so the shared
-        # timestamp/user field validators run on the raw document values. No
-        # config context is needed: query records carry no table-name hints.
+        # Validate via the model so QueryEntry's field validators run. No config
+        # context needed: query records carry no table-name hints.
         return QueryEntry.model_validate(
             {
                 "query": sql,
@@ -443,8 +436,8 @@ class ElasticsearchQueryLogReader(QueryLogReader):
             from opensearchpy.helpers import scan
         except ImportError as e:
             raise ImportError(
-                "The Elasticsearch query source requires the 'elasticsearch' extra: "
-                "pip install 'acryl-datahub[elasticsearch]'"
+                "The Elasticsearch query source requires opensearch-py: "
+                "pip install 'acryl-datahub[sql-queries]'"
             ) from e
 
         fm = self.config.field_mappings
