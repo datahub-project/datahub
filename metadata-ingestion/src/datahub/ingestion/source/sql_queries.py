@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -161,142 +162,39 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
-@platform_name("SQL Queries", id="sql-queries")
-@config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.GA)
-@capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
-@capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
-@capability(SourceCapability.OPERATION_CAPTURE, "Parsed from non-SELECT SQL queries")
-class SqlQueriesSource(Source):
-    """
-    Source that parses SQL queries from a newline-delimited JSON file to generate lineage.
+class QueryLogReader(ABC):
+    """Yields QueryEntry records from a query-log backend.
 
-    Implementation notes:
-    - Uses SqlParsingAggregator for query parsing and deduplication
-    - Optionally uses SchemaResolver to fetch table schemas from DataHub for better parsing accuracy
-    - Maintains temp table mappings across queries using session_id
+    Separates the source of query records from the aggregator so a backend can be
+    swapped without touching lineage, usage, or reporting.
     """
 
-    schema_resolver: Optional[SchemaResolver]
-    aggregator: SqlParsingAggregator
+    @abstractmethod
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        raise NotImplementedError
 
-    def __init__(self, ctx: PipelineContext, config: SqlQueriesSourceConfig):
-        if not ctx.graph:
-            raise ValueError(
-                "SqlQueriesSource needs a datahub_api from which to pull schema metadata"
-            )
 
-        self.graph: DataHubGraph = ctx.graph
-        self.ctx = ctx
+class FileQueryLogReader(QueryLogReader):
+    """Reads query records from a newline-delimited JSON file (local or S3)."""
+
+    def __init__(
+        self, config: SqlQueriesSourceConfig, report: SqlQueriesSourceReport
+    ) -> None:
         self.config = config
-        self.report = SqlQueriesSourceReport()
+        self.report = report
 
-        if self.config.use_schema_resolver:
-            self.report.schema_resolver_report = SchemaResolverReport()
-
-            self.schema_resolver = SchemaResolver(
-                platform=self.config.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                graph=self.graph,
-                report=self.report.schema_resolver_report,
-            )
-        else:
-            self.schema_resolver = None
-
-        self.aggregator = SqlParsingAggregator(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            schema_resolver=self.schema_resolver,
-            eager_graph_load=False,
-            generate_lineage=True,  # TODO: make this configurable
-            generate_queries=True,  # TODO: make this configurable
-            generate_query_subject_fields=True,  # TODO: make this configurable
-            generate_query_usage_statistics=True,  # This enables publishing SELECT query entities, otherwise only mutation queries are published
-            generate_usage_statistics=True,
-            generate_operations=True,  # TODO: make this configurable
-            usage_config=self.config.usage,
-            is_temp_table=self.is_temp_table
-            if self.config.temp_table_patterns
-            else None,
-            is_allowed_table=None,
-            format_queries=False,
-        )
-        self.report.sql_aggregator = self.aggregator.report
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
-        config = SqlQueriesSourceConfig.model_validate(config_dict)
-        return cls(ctx, config)
-
-    def get_report(self) -> SqlQueriesSourceReport:
-        return self.report
-
-    def get_allowed_workunit_processors(self):
-        return [
-            AutoWorkunitsReporterProcessor,
-            AutoIncrementalLineageProcessor,
-        ]
-
-    def get_workunits_internal(
-        self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
-
-        with self.report.new_stage(QUERIES_EXTRACTION):
-            for entry in self._parse_query_file():
-                try:
-                    self._add_query_to_aggregator(entry)
-                    self.report.num_queries_processed += 1
-                except (MemoryError, SystemExit, KeyboardInterrupt):
-                    raise
-                except Exception as e:
-                    self.report.num_queries_aggregator_failures += 1
-                    self.report.warning(
-                        title="Error adding query to aggregator",
-                        message="Query skipped due to failure when adding query to SQL parsing aggregator",
-                        context=entry.query,
-                        exc=e,
-                    )
-
-        self._report_run_health()
-
-        with self.report.new_stage(LINEAGE_EXTRACTION):
-            logger.info("Generating workunits from SQL parsing aggregator")
-            yield from auto_workunit(self.aggregator.gen_metadata())
-
-    def _report_run_health(self) -> None:
-        """Report a failure when the run produced nothing usable.
-
-        Without this a run where every entry or every query failed completes
-        green with an empty report, indistinguishable from a healthy run with
-        nothing to do. Reporting is all this does — the pipeline turns a
-        reported failure into a non-zero exit.
-        """
-        if self.report.num_entries_processed == 0:
-            if self.report.num_entries_failed > 0:
-                self.report.failure(
-                    title="All entries failed to parse",
-                    message="Every entry in the input file failed to parse — "
-                    "check the file format (expected newline-delimited JSON)",
-                    context=f"{self.report.num_entries_failed} entries failed",
-                )
-            else:
-                self.report.warning(
-                    title="Empty input",
-                    message="No query entries found in input file",
-                    context=self.config.query_file,
-                )
+        if not is_s3_uri(self.config.query_file):
+            yield from self._parse_local_query_file()
             return
 
-        if self.report.num_queries_processed == 0:
-            self.report.failure(
-                title="All queries failed aggregation",
-                message="Every query failed during aggregation — "
-                "likely a systemic issue (auth, connectivity, config)",
-                context=f"{self.report.num_queries_aggregator_failures} failures",
-            )
+        aws_config = self.config.aws_config
+        if aws_config is None:
+            # validate_s3_config rejects this at config time, so this only
+            # trips if the config was mutated after construction.
+            raise ValueError(f"aws_config is required to read {self.config.query_file}")
+        yield from self._parse_s3_query_file(aws_config)
 
     def _parse_s3_query_file(
         self, aws_config: AwsConnectionConfig
@@ -402,18 +300,143 @@ class SqlQueriesSource(Source):
                 )
             yield entry
 
-    def _parse_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse the query file and yield QueryEntry objects."""
-        if not is_s3_uri(self.config.query_file):
-            yield from self._parse_local_query_file()
+
+@platform_name("SQL Queries", id="sql-queries")
+@config_class(SqlQueriesSourceConfig)
+@support_status(SupportStatus.GA)
+@capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
+@capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
+@capability(SourceCapability.OPERATION_CAPTURE, "Parsed from non-SELECT SQL queries")
+class SqlQueriesSource(Source):
+    """
+    Source that parses SQL queries from a newline-delimited JSON file to generate lineage.
+
+    Implementation notes:
+    - Uses SqlParsingAggregator for query parsing and deduplication
+    - Optionally uses SchemaResolver to fetch table schemas from DataHub for better parsing accuracy
+    - Maintains temp table mappings across queries using session_id
+    """
+
+    schema_resolver: Optional[SchemaResolver]
+    aggregator: SqlParsingAggregator
+
+    def __init__(self, ctx: PipelineContext, config: SqlQueriesSourceConfig):
+        if not ctx.graph:
+            raise ValueError(
+                "SqlQueriesSource needs a datahub_api from which to pull schema metadata"
+            )
+
+        self.graph: DataHubGraph = ctx.graph
+        self.ctx = ctx
+        self.config = config
+        self.report = SqlQueriesSourceReport()
+
+        if self.config.use_schema_resolver:
+            self.report.schema_resolver_report = SchemaResolverReport()
+
+            self.schema_resolver = SchemaResolver(
+                platform=self.config.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.graph,
+                report=self.report.schema_resolver_report,
+            )
+        else:
+            self.schema_resolver = None
+
+        self.aggregator = SqlParsingAggregator(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            schema_resolver=self.schema_resolver,
+            eager_graph_load=False,
+            generate_lineage=True,  # TODO: make this configurable
+            generate_queries=True,  # TODO: make this configurable
+            generate_query_subject_fields=True,  # TODO: make this configurable
+            generate_query_usage_statistics=True,  # This enables publishing SELECT query entities, otherwise only mutation queries are published
+            generate_usage_statistics=True,
+            generate_operations=True,  # TODO: make this configurable
+            usage_config=self.config.usage,
+            is_temp_table=self.is_temp_table
+            if self.config.temp_table_patterns
+            else None,
+            is_allowed_table=None,
+            format_queries=False,
+        )
+        self.report.sql_aggregator = self.aggregator.report
+
+        self.reader: QueryLogReader = FileQueryLogReader(self.config, self.report)
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
+        return cls(ctx, config)
+
+    def get_report(self) -> SqlQueriesSourceReport:
+        return self.report
+
+    def get_allowed_workunit_processors(self):
+        return [
+            AutoWorkunitsReporterProcessor,
+            AutoIncrementalLineageProcessor,
+        ]
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+        with self.report.new_stage(QUERIES_EXTRACTION):
+            for entry in self.reader.get_query_entries():
+                try:
+                    self._add_query_to_aggregator(entry)
+                    self.report.num_queries_processed += 1
+                except (MemoryError, SystemExit, KeyboardInterrupt):
+                    raise
+                except Exception as e:
+                    self.report.num_queries_aggregator_failures += 1
+                    self.report.warning(
+                        title="Error adding query to aggregator",
+                        message="Query skipped due to failure when adding query to SQL parsing aggregator",
+                        context=entry.query,
+                        exc=e,
+                    )
+
+        self._report_run_health()
+
+        with self.report.new_stage(LINEAGE_EXTRACTION):
+            logger.info("Generating workunits from SQL parsing aggregator")
+            yield from auto_workunit(self.aggregator.gen_metadata())
+
+    def _report_run_health(self) -> None:
+        """Report a failure when the run produced nothing usable.
+
+        Without this a run where every entry or every query failed completes
+        green with an empty report, indistinguishable from a healthy run with
+        nothing to do. Reporting is all this does — the pipeline turns a
+        reported failure into a non-zero exit.
+        """
+        if self.report.num_entries_processed == 0:
+            if self.report.num_entries_failed > 0:
+                self.report.failure(
+                    title="All entries failed to parse",
+                    message="Every entry in the input file failed to parse — "
+                    "check the file format (expected newline-delimited JSON)",
+                    context=f"{self.report.num_entries_failed} entries failed",
+                )
+            else:
+                self.report.warning(
+                    title="Empty input",
+                    message="No query entries found in input file",
+                    context=self.config.query_file,
+                )
             return
 
-        aws_config = self.config.aws_config
-        if aws_config is None:
-            # validate_s3_config rejects this at config time, so this only
-            # trips if the config was mutated after construction.
-            raise ValueError(f"aws_config is required to read {self.config.query_file}")
-        yield from self._parse_s3_query_file(aws_config)
+        if self.report.num_queries_processed == 0:
+            self.report.failure(
+                title="All queries failed aggregation",
+                message="Every query failed during aggregation — "
+                "likely a systemic issue (auth, connectivity, config)",
+                context=f"{self.report.num_queries_aggregator_failures} failures",
+            )
 
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
         """Add a query to the SQL parsing aggregator.
