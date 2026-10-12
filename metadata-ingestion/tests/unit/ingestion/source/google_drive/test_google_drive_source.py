@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, cast
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -56,6 +56,7 @@ from tests.test_helpers.test_connection_helpers import (
 )
 
 Aspects = Dict[str, Dict[str, Any]]
+SOURCE_MODULE = "datahub.ingestion.source.google_drive.google_drive_source"
 
 
 def make_source(
@@ -105,20 +106,41 @@ def doc_info(aspects: Aspects, file_id: str) -> DocumentInfoClass:
     return info
 
 
+def stored_aspects(
+    urn: str, infos: Dict[str, DocumentInfoClass], removed: FrozenSet[str]
+) -> Dict[str, object]:
+    bag: Dict[str, object] = {"status": StatusClass(removed=urn in removed)}
+    if urn in infos:
+        bag["documentInfo"] = infos[urn]
+    return bag
+
+
 def graph_returning(
     infos: Dict[str, DocumentInfoClass], removed: FrozenSet[str] = frozenset()
-) -> DataHubGraph:
-    def stored(urn: str, aspects: List[str]) -> Dict[str, object]:
-        bag: Dict[str, object] = {"status": StatusClass(removed=urn in removed)}
-        if urn in infos:
-            bag["documentInfo"] = infos[urn]
-        return bag
+) -> mock.MagicMock:
+    """A graph whose batched reads return `infos`, like the OpenAPI v3 batchGet:
+    URNs DataHub has never stored are absent from the result."""
+
+    def batch_get(
+        entity_name: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Dict[str, Tuple[object, None]]]:
+        return {
+            urn: {
+                name: (value, None)
+                for name, value in stored_aspects(urn, infos, removed).items()
+            }
+            for urn in urns
+            if urn in infos or urn in removed
+        }
 
     graph = mock.MagicMock(spec=DataHubGraph)
-    graph.get_entity_semityped.side_effect = stored
+    graph.get_entities.side_effect = batch_get
+    graph.get_entity_semityped.side_effect = AssertionError(
+        "stored documents must be read in batches"
+    )
     # Soft-deleted state must come from the entity, not from (lagging) search.
     graph.get_urns_by_filter.side_effect = AssertionError("search must not be used")
-    return cast(DataHubGraph, graph)
+    return graph
 
 
 def exported_ids(svc: FakeDriveService) -> List[str]:
@@ -363,11 +385,50 @@ def test_failed_document_is_reported_and_the_run_continues() -> None:
     assert make_document_urn(DOC_B1) in aspects
 
 
+def test_stored_documents_are_read_in_pages() -> None:
+    first = run(make_source(build_fixture_service()))
+    infos = {make_document_urn(DOC_RUNBOOK): doc_info(first, DOC_RUNBOOK)}
+    graph = graph_returning(infos)
+
+    with mock.patch(f"{SOURCE_MODULE}.CHANGE_DETECTION_BATCH_SIZE", 2):
+        source = make_source(build_fixture_service(), graph=graph)
+        run(source)
+
+    documents = source.report.documents_discovered - source.report.documents_filtered
+    assert graph.get_entities.call_count == -(-documents // 2)
+    assert source.report.change_detection_batch_reads == graph.get_entities.call_count
+    assert source.report.documents_skipped_unchanged == 1
+
+
+def test_failed_batch_read_falls_back_to_individual_reads() -> None:
+    first = run(make_source(build_fixture_service()))
+    urn = make_document_urn(DOC_RUNBOOK)
+    infos = {urn: doc_info(first, DOC_RUNBOOK)}
+    removed = frozenset({urn})
+    graph = graph_returning(infos, removed)
+    graph.get_entities.side_effect = ConnectionError("batchGet unavailable")
+    graph.get_entity_semityped.side_effect = lambda urn, aspects: stored_aspects(
+        urn, infos, removed
+    )
+
+    svc = build_fixture_service()
+    source = make_source(svc, graph=graph)
+    aspects = run(source)
+
+    assert source.report.change_detection_batch_fallbacks >= 1
+    assert DOC_RUNBOOK not in exported_ids(svc)
+    # The soft-deleted state still comes through on the slower path.
+    assert source.report.documents_resurrected == 1
+    status = aspects[urn]["status"]
+    assert isinstance(status, StatusClass) and status.removed is False
+
+
 def test_change_detection_read_failure_falls_back_to_export() -> None:
     graph = mock.MagicMock(spec=DataHubGraph)
+    graph.get_entities.side_effect = ConnectionError("gms unavailable")
     graph.get_entity_semityped.side_effect = ConnectionError("gms unavailable")
     svc = build_fixture_service()
-    source = make_source(svc, graph=cast(DataHubGraph, graph))
+    source = make_source(svc, graph=graph)
     run(source)
 
     assert DOC_RUNBOOK in exported_ids(svc)

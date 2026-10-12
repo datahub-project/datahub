@@ -20,6 +20,9 @@ STAGE_DISCOVERY = "Discover Drive folders and Google Docs"
 STAGE_FOLDERS = "Emit folder documents"
 STAGE_DOCUMENTS = "Ingest Google Docs"
 PROGRESS_LOG_INTERVAL = 100
+# Stored documents are read back from DataHub in pages of this size for change
+# detection, instead of one request per document.
+CHANGE_DETECTION_BATCH_SIZE = 100
 CAPABILITY_SEMANTIC_SEARCH = "Semantic Search"
 
 # Bump when export cleaning or text normalisation changes, to force a re-export of

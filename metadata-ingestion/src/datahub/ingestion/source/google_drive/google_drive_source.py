@@ -29,12 +29,14 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
     ASPECT_DOCUMENT_INFO,
     ASPECT_STATUS,
     CAPABILITY_SEMANTIC_SEARCH,
+    CHANGE_DETECTION_BATCH_SIZE,
     DOCUMENT_ENTITY_TYPE,
     DRIVE_SCOPES,
     ELEMENT_TYPE_NARRATIVE_TEXT,
@@ -87,6 +89,7 @@ from datahub.ingestion.source.google_drive.models import (
     EmbedResult,
     ExportResult,
     FolderNode,
+    StoredDocument,
     UnchangedCheck,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -149,6 +152,15 @@ def clean_markdown(text: str) -> str:
     text = text.replace("\r\n", "\n")
     text = EXCESS_BLANK_LINES_RE.sub("\n\n", text)
     return text.strip()
+
+
+def to_stored_document(info: object, status: object) -> StoredDocument:
+    return StoredDocument(
+        info=info
+        if isinstance(info, DocumentInfoClass) and info.customProperties
+        else None,
+        removed=isinstance(status, StatusClass) and status.removed,
+    )
 
 
 @platform_name("Google Drive", id=PLATFORM)
@@ -261,10 +273,17 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
 
         with self.report.new_stage(STAGE_DOCUMENTS):
             total = len(tree.documents)
-            for index, ref in enumerate(tree.documents, start=1):
-                yield from self._process_document_safely(ref, tree)
-                if index % PROGRESS_LOG_INTERVAL == 0 or index == total:
-                    logger.info("Processed %d of %d Google Docs", index, total)
+            processed = 0
+            for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
+                page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
+                stored = self._load_stored_documents(page)
+                for ref in page:
+                    yield from self._process_document_safely(
+                        ref, tree, stored.get(make_document_urn(ref.file.id))
+                    )
+                    processed += 1
+                    if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
+                        logger.info("Processed %d of %d Google Docs", processed, total)
             self._merge_chunking_logs()
 
     def _emit_folder_safely(
@@ -287,10 +306,10 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_document_safely(
-        self, ref: DocumentRef, tree: DriveTree
+        self, ref: DocumentRef, tree: DriveTree, stored: Optional[StoredDocument]
     ) -> Iterable[MetadataWorkUnit]:
         try:
-            yield from self._process_document(ref, tree)
+            yield from self._process_document(ref, tree, stored)
         except Exception as e:
             if self.report.num_documents_limit_reached:
                 self.report.failure(
@@ -377,13 +396,13 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         yield from doc.as_workunits()
 
     def _process_document(
-        self, ref: DocumentRef, tree: DriveTree
+        self, ref: DocumentRef, tree: DriveTree, stored: Optional[StoredDocument]
     ) -> Iterable[MetadataWorkUnit]:
         file = ref.file
         urn = make_document_urn(file.id)
         folder = tree.folders[ref.folder_id]
 
-        check = self._check_unchanged(urn, file, folder)
+        check = self._check_unchanged(stored, file, folder)
         if check.unchanged:
             self.report.documents_skipped_unchanged += 1
             self.stale_entity_removal_handler.add_entity_to_state(
@@ -524,32 +543,76 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             exc=exc,
         )
 
-    def _check_unchanged(
-        self, urn: str, file: DriveFile, folder: FolderNode
-    ) -> UnchangedCheck:
-        if not self.ctx.graph or not file.version:
-            return UnchangedCheck(unchanged=False, soft_deleted=False)
+    def _load_stored_documents(
+        self, refs: List[DocumentRef]
+    ) -> Dict[str, StoredDocument]:
+        """Read back what DataHub holds for a page of documents, keyed by URN.
+
+        Reads go to the entity store rather than search: a document soft-deleted by
+        the previous run may not be indexed as removed yet, and missing that would
+        leave a restored document deleted. Documents DataHub has never seen are
+        absent from the result.
+        """
+        graph = self.ctx.graph
+        urns = [make_document_urn(ref.file.id) for ref in refs if ref.file.version]
+        if graph is None or not urns:
+            return {}
         try:
-            # Status is read from the entity itself rather than from search: a
-            # document soft-deleted by the previous run may not be indexed as removed
-            # yet, and missing it would leave a restored document deleted.
-            stored = self.ctx.graph.get_entity_semityped(
-                urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS]
+            entities = graph.get_entities(
+                DOCUMENT_ENTITY_TYPE,
+                urns,
+                aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS],
             )
         except Exception as e:
-            self.report.change_detection_lookup_failures += 1
+            self.report.change_detection_batch_fallbacks += 1
             self.report.warning(
-                title="Change detection lookup failed",
-                message="The stored document could not be read from DataHub, so it "
-                "was exported again instead of being checked for changes.",
-                context=f"urn={urn}",
+                title="Batched change detection lookup failed",
+                message="Stored documents were read from DataHub one at a time "
+                "instead, which is slower.",
+                context=f"documents={len(urns)}",
                 exc=e,
             )
+            return self._load_stored_documents_individually(graph, urns)
+        self.report.change_detection_batch_reads += 1
+        stored: Dict[str, StoredDocument] = {}
+        for urn, aspects in entities.items():
+            info = aspects.get(ASPECT_DOCUMENT_INFO)
+            status = aspects.get(ASPECT_STATUS)
+            stored[urn] = to_stored_document(
+                info[0] if info else None, status[0] if status else None
+            )
+        return stored
+
+    def _load_stored_documents_individually(
+        self, graph: DataHubGraph, urns: List[str]
+    ) -> Dict[str, StoredDocument]:
+        stored: Dict[str, StoredDocument] = {}
+        for urn in urns:
+            try:
+                aspects = graph.get_entity_semityped(
+                    urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS]
+                )
+            except Exception as e:
+                self.report.change_detection_lookup_failures += 1
+                self.report.warning(
+                    title="Change detection lookup failed",
+                    message="The stored document could not be read from DataHub, so "
+                    "it was exported again instead of being checked for changes.",
+                    context=f"urn={urn}",
+                    exc=e,
+                )
+                continue
+            stored[urn] = to_stored_document(
+                aspects.get(ASPECT_DOCUMENT_INFO), aspects.get(ASPECT_STATUS)
+            )
+        return stored
+
+    def _check_unchanged(
+        self, stored: Optional[StoredDocument], file: DriveFile, folder: FolderNode
+    ) -> UnchangedCheck:
+        if stored is None or stored.info is None or not file.version:
             return UnchangedCheck(unchanged=False, soft_deleted=False)
-        info = stored.get(ASPECT_DOCUMENT_INFO)
-        status = stored.get(ASPECT_STATUS)
-        if not isinstance(info, DocumentInfoClass) or not info.customProperties:
-            return UnchangedCheck(unchanged=False, soft_deleted=False)
+        info = stored.info
         props = info.customProperties
         unchanged = (
             props.get(PROP_VERSION) == file.version
@@ -557,10 +620,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             and props.get(PROP_PARENT_ID) == folder.id
             and info.title == file.name
         )
-        return UnchangedCheck(
-            unchanged=unchanged,
-            soft_deleted=isinstance(status, StatusClass) and status.removed,
-        )
+        return UnchangedCheck(unchanged=unchanged, soft_deleted=stored.removed)
 
     def _resurrect(self, urn: str) -> Iterable[MetadataWorkUnit]:
         self.report.documents_resurrected += 1

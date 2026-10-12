@@ -10,6 +10,7 @@ from datahub.ingestion.source.google_drive.constants import (
     MIME_FOLDER,
     MIME_SHORTCUT,
 )
+from datahub.metadata.schema_classes import DocumentInfoClass
 
 
 class DriveUser(BaseModel):
@@ -97,6 +98,14 @@ class ExportResult:
     failure_reason: Optional[str]
     # Short description of the last API error, surfaced in the run report.
     error: Optional[str] = None
+
+
+@dataclass
+class StoredDocument:
+    """What DataHub holds for a document from an earlier run."""
+
+    info: Optional[DocumentInfoClass]
+    removed: bool
 
 
 @dataclass

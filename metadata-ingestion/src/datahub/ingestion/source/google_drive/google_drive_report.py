@@ -29,6 +29,9 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     # Stored documents that could not be read back from DataHub, so they were
     # re-exported instead of being checked for changes.
     change_detection_lookup_failures: int = 0
+    change_detection_batch_reads: int = 0
+    # Batched reads that failed and were retried one document at a time.
+    change_detection_batch_fallbacks: int = 0
     shortcuts_skipped: int = 0
     failed_documents: LossyList[str] = field(default_factory=LossyList)
 
