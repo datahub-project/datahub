@@ -11,6 +11,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
+    FileQueryLogReader,
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
@@ -502,6 +503,42 @@ class TestQueryEntry:
         assert query_entry.session_id == expected_query_entry.session_id
 
 
+# ── File reader tests ────────────────────────────────────────────────────
+
+
+class TestFileQueryLogReader:
+    """The file reader is the default QueryLogReader backend."""
+
+    def test_yields_parsed_entries_from_local_file(self, query_file_with):
+        path = query_file_with([_query_line(0), _query_line(1)])
+        report = SqlQueriesSourceReport()
+        reader = FileQueryLogReader(
+            SqlQueriesSourceConfig(query_file=path, platform="snowflake"), report
+        )
+
+        entries = list(reader.get_query_entries())
+
+        assert [e.query for e in entries] == [
+            "SELECT 0 FROM table_0",
+            "SELECT 1 FROM table_1",
+        ]
+        assert report.num_entries_processed == 2
+        assert report.num_entries_failed == 0
+
+    def test_malformed_line_is_counted_and_skipped(self, query_file_with):
+        path = query_file_with([_query_line(0), "not json"])
+        report = SqlQueriesSourceReport()
+        reader = FileQueryLogReader(
+            SqlQueriesSourceConfig(query_file=path, platform="snowflake"), report
+        )
+
+        entries = list(reader.get_query_entries())
+
+        assert len(entries) == 1
+        assert report.num_entries_processed == 1
+        assert report.num_entries_failed == 1
+
+
 # ── Config tests ─────────────────────────────────────────────────────────
 
 
@@ -777,13 +814,15 @@ class TestErrorHandling:
     def test_mid_read_error_reports_and_propagates(self, pipeline_context):
         """_guarded_stream converts a mid-transfer read error into a failure."""
         source = _make_source(pipeline_context, "dummy.jsonl")
+        reader = source.reader
+        assert isinstance(reader, FileQueryLogReader)
 
         def failing_stream():
             yield _lineage_line(0) + "\n"
             raise OSError("connection reset")
 
         with pytest.raises(OSError):
-            list(source._guarded_stream(failing_stream()))
+            list(reader._guarded_stream(failing_stream()))
 
         assert any(f.title == "Query file read error" for f in source.report.failures)
 
@@ -794,7 +833,9 @@ class TestErrorHandling:
         not be reported as a read failure.
         """
         source = _make_source(pipeline_context, "dummy.jsonl")
-        gen = source._guarded_stream(iter(["a\n", "b\n"]))
+        reader = source.reader
+        assert isinstance(reader, FileQueryLogReader)
+        gen = reader._guarded_stream(iter(["a\n", "b\n"]))
         next(gen)
 
         with pytest.raises(ValueError):
