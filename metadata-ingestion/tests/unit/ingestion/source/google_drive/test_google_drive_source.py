@@ -19,6 +19,7 @@ from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
     make_document_urn,
 )
 from datahub.ingestion.source.google_drive.google_drive_source import (
+    DocumentExportError,
     GoogleDriveSource,
     clean_markdown,
 )
@@ -49,11 +50,14 @@ from tests.test_helpers.google_drive_fakes import (
     DOC_IMAGES,
     DOC_RUNBOOK,
     ENG,
+    EXPORT_HTML,
+    EXPORT_MD,
     ROOT_A,
     SHARED_B,
     SPECS,
     FakeDriveService,
     build_fixture_service,
+    http_error,
 )
 from tests.test_helpers.test_connection_helpers import (
     assert_basic_connectivity_failure,
@@ -370,21 +374,33 @@ def test_documents_over_max_text_length_are_skipped() -> None:
     )
 
 
+CLASSICAL_EMBEDDING = {"provider": "classical", "model": "hash-v1-256"}
+
+
 @pytest.mark.parametrize(
-    "changed_setting",
+    ("baseline", "changed_setting"),
     [
-        {"max_text_length": 10},
-        {"min_text_length": 10},
-        {"skip_empty_documents": False},
+        ({}, {"max_text_length": 10}),
+        ({}, {"min_text_length": 10}),
+        ({}, {"skip_empty_documents": False}),
         # Docs ingested before an embedding provider was available get embedded.
-        {"embedding": {"provider": "classical", "model": "hash-v1-256"}},
+        ({}, {"embedding": CLASSICAL_EMBEDDING}),
+        ({}, {"chunking": {"max_characters": 1000}}),
+        (
+            {"embedding": CLASSICAL_EMBEDDING},
+            {"embedding": {**CLASSICAL_EMBEDDING, "model_embedding_key": "custom"}},
+        ),
     ],
 )
 def test_settings_that_change_output_reevaluate_unchanged_documents(
-    changed_setting: Dict[str, Any],
+    baseline: Dict[str, Any], changed_setting: Dict[str, Any]
 ) -> None:
-    first = run(make_source(build_fixture_service()))
+    first = run(make_source(build_fixture_service(), **baseline))
     infos = {make_document_urn(DOC_RUNBOOK): doc_info(first, DOC_RUNBOOK)}
+
+    svc = build_fixture_service()
+    run(make_source(svc, graph=graph_returning(infos), **baseline))
+    assert DOC_RUNBOOK not in exported_ids(svc)
 
     svc = build_fixture_service()
     run(make_source(svc, graph=graph_returning(infos), **changed_setting))
@@ -716,6 +732,64 @@ def test_inaccessible_root_is_a_failure_and_other_roots_continue() -> None:
     assert source.report.roots_failed == 1
     assert source.report.failures
     assert make_document_urn(DOC_B1) in aspects
+
+
+def failing_export_service() -> FakeDriveService:
+    svc = build_fixture_service()
+    svc.exports[(DOC_RUNBOOK, EXPORT_MD)] = http_error(500, "backendError")
+    svc.exports[(DOC_RUNBOOK, EXPORT_HTML)] = http_error(500, "backendError")
+    return svc
+
+
+def test_failed_export_keeps_the_stored_copy_and_the_run_continues() -> None:
+    source = make_source(failing_export_service())
+    with mock.patch.object(
+        source.stale_entity_removal_handler, "add_entity_to_state"
+    ) as add_to_state:
+        aspects = run(source)
+
+    add_to_state.assert_any_call("document", make_document_urn(DOC_RUNBOOK))
+    assert any(DOC_RUNBOOK in failed for failed in source.report.failed_documents)
+    assert make_document_urn(DOC_B1) in aspects
+
+
+def test_failed_export_stops_the_run_when_continue_on_failure_is_false() -> None:
+    source = make_source(failing_export_service(), continue_on_failure=False)
+    with pytest.raises(DocumentExportError):
+        run(source)
+
+
+def test_doc_too_large_to_export_is_skipped_even_without_continue_on_failure() -> None:
+    source = make_source(build_fixture_service(), continue_on_failure=False)
+    with mock.patch.object(
+        source.stale_entity_removal_handler, "add_entity_to_state"
+    ) as add_to_state:
+        aspects = run(source)
+
+    # Left to stale removal: Drive will never export it.
+    assert (
+        mock.call("document", make_document_urn(DOC_HUGE))
+        not in add_to_state.call_args_list
+    )
+    assert source.report.documents_export_failed == 1
+    assert make_document_urn(DOC_B2) in aspects
+
+
+def test_unparseable_doc_is_skipped_but_kept_in_state() -> None:
+    svc = build_fixture_service()
+    del svc.files_by_id[DOC_RUNBOOK]["name"]
+    source = make_source(svc)
+    with mock.patch.object(
+        source.stale_entity_removal_handler, "add_entity_to_state"
+    ) as add_to_state:
+        aspects = run(source)
+
+    assert make_document_urn(DOC_RUNBOOK) not in aspects
+    add_to_state.assert_any_call("document", make_document_urn(DOC_RUNBOOK))
+    assert source.report.documents_unparseable == 1
+    assert source.report.warnings
+    assert not source.report.failures
+    assert make_document_urn(DOC_IMAGES) in aspects
 
 
 def test_continue_on_failure_false_reraises() -> None:

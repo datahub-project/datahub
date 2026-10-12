@@ -91,6 +91,7 @@ class DriveTree:
     # Insertion order is BFS order, so parents always precede their children.
     folders: Dict[str, FolderNode] = field(default_factory=dict)
     documents: List[DocumentRef] = field(default_factory=list)
+    unparseable_document_ids: List[str] = field(default_factory=list)
 
 
 @dataclass

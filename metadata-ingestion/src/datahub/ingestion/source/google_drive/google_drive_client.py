@@ -36,6 +36,7 @@ from datahub.ingestion.source.google_drive.constants import (
     LIST_FIELDS,
     LIST_PAGE_SIZE,
     MARKDOWNIFY_HEADING_STYLE,
+    MIME_DOCUMENT,
     MIME_FOLDER,
     ORDER_BY,
     SHARED_DRIVE_URL_TEMPLATE,
@@ -189,7 +190,9 @@ class GoogleDriveClient:
             modified_time=drive.created_time,
         )
 
-    def list_children(self, folder_id: str) -> Iterator[DriveFile]:
+    def list_children(
+        self, folder_id: str, unparseable_document_ids: List[str]
+    ) -> Iterator[DriveFile]:
         # IDs are interpolated into the Drive query language, so refuse anything that
         # is not a plain Drive ID rather than risk altering the query.
         if not DRIVE_ID_RE.match(folder_id):
@@ -227,6 +230,16 @@ class GoogleDriveClient:
                             context=context,
                             exc=e,
                         )
+                    elif raw.get("mimeType") == MIME_DOCUMENT and raw.get("id"):
+                        self.report.documents_unparseable += 1
+                        unparseable_document_ids.append(raw["id"])
+                        self.report.warning(
+                            title="Unparseable Google Doc",
+                            message="A Google Doc could not be parsed and was skipped; "
+                            "the copy already in DataHub, if any, was kept.",
+                            context=context,
+                            exc=e,
+                        )
                     else:
                         self.report.warning(
                             title="Unparseable Drive file",
@@ -251,7 +264,9 @@ class GoogleDriveClient:
         while queue:
             folder = queue.popleft()
             try:
-                children = list(self.list_children(folder.id))
+                children = list(
+                    self.list_children(folder.id, tree.unparseable_document_ids)
+                )
             except Exception as e:
                 # A partial listing would make stale-entity removal soft-delete every
                 # document under this folder, so this is a failure (which suppresses

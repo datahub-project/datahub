@@ -159,6 +159,10 @@ def clean_markdown(text: str) -> str:
     return text.strip()
 
 
+class DocumentExportError(Exception):
+    """Both exports failed for a reason that may be transient."""
+
+
 class DocumentOwnershipPatchBuilder(HasOwnershipPatch):
     """Ownership patches for document entities, which have no SDK patch builder."""
 
@@ -281,6 +285,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 # A run without an embedding provider still records the Drive
                 # version, so enabling or switching the model must re-embed.
                 "embedding_model": self.chunking_source.embedding_model,
+                "embedding_key": self.chunking_source.get_model_embedding_key(),
+                "chunking": self.config.chunking.model_dump(mode="json"),
             },
             sort_keys=True,
         )
@@ -293,6 +299,12 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             if not roots:
                 return
             tree = self.client.walk(roots)
+            # An unparseable Doc may still exist in DataHub; keep it rather than
+            # letting stale removal soft-delete it.
+            for file_id in tree.unparseable_document_ids:
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    DOCUMENT_ENTITY_TYPE, make_document_urn(file_id)
+                )
             logger.info(
                 "Discovered %d folders and %d Google Docs under %d root(s)",
                 len(tree.folders),
@@ -504,7 +516,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         if result.used_html_fallback:
             self.report.documents_html_fallback += 1
         if result.text is None:
-            self._handle_export_failure(urn, file, result)
+            self._handle_export_failure(file, result)
             return
 
         text = clean_markdown(result.text)
@@ -553,9 +565,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             self.report.num_documents_limit_reached = True
             raise embedded.limit_error
 
-    def _handle_export_failure(
-        self, urn: str, file: DriveFile, result: ExportResult
-    ) -> None:
+    def _handle_export_failure(self, file: DriveFile, result: ExportResult) -> None:
         self.report.documents_export_failed += 1
         if result.failure_reason == FAILURE_TOO_LARGE:
             self.report.warning(
@@ -564,19 +574,18 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 "the document was skipped.",
                 context=f"file_id={file.id}, title={file.name}",
             )
-        else:
+        elif result.failure_reason == FAILURE_NOT_FOUND:
             self.report.warning(
-                title="Google Doc export failed",
-                message="The document could not be exported as markdown or HTML "
+                title="Google Doc no longer exists",
+                message="The document was removed from Drive after it was listed "
                 "and was skipped.",
-                context=f"file_id={file.id}, title={file.name}, "
-                f"reason={result.failure_reason}, error={result.error}",
+                context=f"file_id={file.id}, title={file.name}",
             )
-        # A document that vanished or outgrew the export limit is left to stale
-        # removal; any other (possibly transient) failure keeps what DataHub has.
-        if result.failure_reason not in (FAILURE_NOT_FOUND, FAILURE_TOO_LARGE):
-            self.stale_entity_removal_handler.add_entity_to_state(
-                DOCUMENT_ENTITY_TYPE, urn
+        else:
+            # Possibly transient: fail the document so its stored copy is kept and
+            # continue_on_failure decides whether the run goes on.
+            raise DocumentExportError(
+                f"reason={result.failure_reason}, error={result.error}"
             )
 
     def _embed(

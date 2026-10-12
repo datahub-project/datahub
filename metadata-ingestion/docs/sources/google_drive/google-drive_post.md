@@ -63,7 +63,7 @@ When any root or folder fails, the run reports a failure and stale-entity remova
 
 #### Docs are missing
 
-- Check `documents_filtered`, `folders_filtered`, `documents_skipped_empty`, `documents_skipped_too_long`, `documents_export_failed`, `documents_failed`, and `shortcuts_skipped` in the ingestion report. `failed_documents` lists the Docs that could not be ingested; their existing copies in DataHub are kept.
+- Check `documents_filtered`, `folders_filtered`, `documents_skipped_empty`, `documents_skipped_too_long`, `documents_export_failed`, `documents_unparseable`, `documents_failed`, and `shortcuts_skipped` in the ingestion report. `failed_documents` lists the Docs that could not be ingested; their existing copies in DataHub are kept.
 - Without `delegated_user`, the service account only sees files shared with it. Files that a folder's owner can see are not automatically visible to it.
 - Docs in the trash are never ingested.
 

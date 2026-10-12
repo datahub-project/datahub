@@ -158,6 +158,10 @@ def runbook_deleted_after_listing(svc: FakeDriveService) -> None:
     del svc.exports[(DOC_RUNBOOK, EXPORT_MD)]
 
 
+def runbook_unparseable(svc: FakeDriveService) -> None:
+    del svc.files_by_id[DOC_RUNBOOK]["name"]
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -169,6 +173,7 @@ def runbook_deleted_after_listing(svc: FakeDriveService) -> None:
         # Possibly transient errors keep the existing document.
         (runbook_connection_reset, set()),
         (runbook_export_unavailable, set()),
+        (runbook_unparseable, set()),
         # Documents that can never be exported, or no longer exist, are removed.
         (runbook_too_large, {DOC_RUNBOOK}),
         (runbook_deleted_after_listing, {DOC_RUNBOOK}),
