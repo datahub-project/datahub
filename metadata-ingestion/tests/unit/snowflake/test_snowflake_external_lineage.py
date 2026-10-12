@@ -1,7 +1,5 @@
 import json
 
-from pydantic import SecretStr
-
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
@@ -22,10 +20,12 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 
 def test_external_s3_location_with_reserved_chars_produces_lineage() -> None:
-    config = SnowflakeV2Config(  # type: ignore[call-arg]
-        account_id="test_account",
-        username="test_user",
-        password=SecretStr("test_password"),
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test_account",
+            "username": "test_user",
+            "password": "test_password",
+        }
     )
     identifiers = SnowflakeIdentifierBuilder(
         identifier_config=config, structured_reporter=SnowflakeV2Report()
