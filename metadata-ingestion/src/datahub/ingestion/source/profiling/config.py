@@ -269,6 +269,16 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
+    copy_latest_partition_column_profiles_to_table: Annotated[
+        bool, SupportedSources(["bigquery"])
+    ] = Field(
+        default=False,
+        description="Also emit the latest partition's column profiles as a full-table "
+        "profile. Only `fieldProfiles` are copied. Row count and size are not. "
+        "The column numbers still come from that one partition "
+        "(or from `partition_datetime` when set), not from a scan of the whole table. "
+        "Only BigQuery supports this.",
+    )
     use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
         default=True,
         description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "

@@ -1,3 +1,4 @@
+import copy
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_patt
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
+from datahub.metadata.schema_classes import PartitionSpecClass
 
 
 @dataclass
@@ -130,6 +132,36 @@ class GenericProfiler:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=profile
             ).as_workunit()
+            yield from self._copy_partition_column_profiles_to_table(
+                dataset_urn, profile
+            )
+
+    def _copy_partition_column_profiles_to_table(
+        self, dataset_urn: str, profile: DatasetProfile
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit the latest partition's column profiles as a full-table profile.
+
+        Only fieldProfiles are copied. Row count and size stay on the partition
+        profile. The column numbers still describe only that partition.
+        """
+        if (
+            not self.config.profiling.copy_latest_partition_column_profiles_to_table
+            or profile.partitionSpec is None
+            or profile.partitionSpec.type != PartitionType.PARTITION
+            or not profile.fieldProfiles
+        ):
+            return
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetProfile(
+                timestampMillis=profile.timestampMillis,
+                fieldProfiles=copy.deepcopy(profile.fieldProfiles),
+                partitionSpec=PartitionSpecClass(
+                    partition="FULL_TABLE_SNAPSHOT",
+                    type=PartitionType.FULL_TABLE,
+                ),
+            ),
+        ).as_workunit()
 
     def dataset_urn_builder(self, dataset_name: str) -> str:
         return make_dataset_urn_with_platform_instance(

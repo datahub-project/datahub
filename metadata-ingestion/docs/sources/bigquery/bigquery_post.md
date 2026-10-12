@@ -184,6 +184,8 @@ When profiling is enabled, the `bigquery.tables.getData` permission is **require
 For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
 You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.
 
+Set `profiling.copy_latest_partition_column_profiles_to_table: true` to also store that partition's column profiles on a full-table profile. Only the column profiles are copied. Row count and size are not. The column numbers still describe only the profiled partition.
+
 #### Caveats
 
 - For materialized views, lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.

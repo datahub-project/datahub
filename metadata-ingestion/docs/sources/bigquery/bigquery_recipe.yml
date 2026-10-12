@@ -24,6 +24,8 @@ source:
     profiling:
       enabled: true
       profile_table_level_only: true
+      # Also write the latest partition's column stats as the table profile.
+      # copy_latest_partition_column_profiles_to_table: true
 
 sink:
   # sink configs

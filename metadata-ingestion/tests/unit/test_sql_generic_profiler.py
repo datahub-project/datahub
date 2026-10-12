@@ -17,6 +17,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
     DatasetProfileClass,
     PartitionSpecClass,
     PartitionTypeClass,
@@ -119,6 +120,76 @@ def test_no_metadata_row_count_emits_no_row_count() -> None:
         _emit(SAMPLED, measured_row_count=1000, metadata_rows_count=None).rowCount
         is None
     )
+
+
+def test_copy_latest_partition_column_profiles_emits_a_full_table_profile() -> None:
+    table = BaseTable(
+        name="t",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=1610,
+        column_count=2,
+    )
+    request = TableProfilerRequest(pretty_name="db.sch.t", batch_kwargs={}, table=table)
+    column_profile = DatasetFieldProfileClass(fieldPath="order_id", uniqueCount=4)
+    profile = DatasetProfileClass(
+        timestampMillis=0,
+        rowCount=10,
+        columnCount=2,
+        sizeInBytes=500,
+        fieldProfiles=[column_profile],
+        partitionSpec=PartitionSpecClass(
+            type=PartitionTypeClass.PARTITION, partition="20261010"
+        ),
+    )
+    profiler = _StubProfiler(profile)
+    profiler.config.profiling.copy_latest_partition_column_profiles_to_table = True
+
+    workunits = list(profiler.generate_profile_workunits([request], max_workers=1))
+
+    assert len(workunits) == 2
+    aspects = []
+    for workunit in workunits:
+        mcp = workunit.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, DatasetProfileClass)
+        aspects.append(mcp.aspect)
+    assert aspects[0].partitionSpec is not None
+    assert aspects[0].partitionSpec.partition == "20261010"
+    assert aspects[0].rowCount == 1610
+    assert aspects[1].partitionSpec == FULL_TABLE
+    assert aspects[1].fieldProfiles == [column_profile]
+    assert aspects[1].rowCount is None
+    assert aspects[1].columnCount is None
+    assert aspects[1].sizeInBytes is None
+
+
+def test_copy_latest_partition_column_profiles_skips_a_non_partition_profile() -> None:
+    profiler = _StubProfiler(
+        DatasetProfileClass(
+            timestampMillis=0,
+            rowCount=3,
+            columnCount=2,
+            partitionSpec=FULL_TABLE,
+        )
+    )
+    profiler.config.profiling.copy_latest_partition_column_profiles_to_table = True
+    table = BaseTable(
+        name="t",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=999,
+        column_count=2,
+    )
+    request = TableProfilerRequest(pretty_name="db.sch.t", batch_kwargs={}, table=table)
+
+    workunits = list(profiler.generate_profile_workunits([request], max_workers=1))
+
+    assert len(workunits) == 1
 
 
 def test_full_table_profile_keeps_the_measured_count() -> None:
