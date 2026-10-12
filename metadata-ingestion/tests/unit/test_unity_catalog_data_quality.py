@@ -315,6 +315,8 @@ def test_query_targets_system_table_and_window() -> None:
     query = proxy.queries[0]
     assert RESULTS_TABLE in query
     assert "'table-uuid'" in query
+    assert "event_time >= TIMESTAMP '2026-09-05 00:00:00.000000'" in query
+    assert "event_time <= TIMESTAMP '2026-09-12 00:00:00.000000'" in query
     assert "commit_freshness_status" in query
     assert "daily_row_count_status" in query
     assert "total_row_count_status" in query
