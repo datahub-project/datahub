@@ -258,14 +258,20 @@ def test_ack(mock_pipeline_context: PipelineContext, base_config_dict: dict) -> 
 def test_stop_before_events_does_not_poll(
     mock_pipeline_context: PipelineContext, base_config_dict: dict
 ) -> None:
-    source = DataHubEventSource.create(base_config_dict, mock_pipeline_context)
+    source = cast(
+        DataHubEventSource,
+        DataHubEventSource.create(base_config_dict, mock_pipeline_context),
+    )
+    polls: List[MagicMock] = []
     for consumer in source.topic_consumers.values():
-        consumer.poll_events = MagicMock()  # type: ignore[method-assign]
+        poll = MagicMock()
+        consumer.poll_events = poll  # type: ignore[method-assign]
+        polls.append(poll)
     source.request_stop()
 
     assert list(source.events()) == []
-    for consumer in source.topic_consumers.values():
-        consumer.poll_events.assert_not_called()
+    for poll in polls:
+        poll.assert_not_called()
     assert source.running is False
 
 

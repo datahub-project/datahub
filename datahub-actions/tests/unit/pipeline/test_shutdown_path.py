@@ -29,6 +29,11 @@ def _pipeline(name: str = "test_pipeline", tmp_path: Optional[Any] = None) -> Pi
     )
 
 
+def _mock(value: Any) -> MagicMock:
+    assert isinstance(value, MagicMock)
+    return value
+
+
 @pytest.fixture(autouse=True)
 def _clear_registry() -> Any:
     # pipeline_registry is declared on the class, not the instance, so state
@@ -40,18 +45,20 @@ def _clear_registry() -> Any:
 
 def test_close_retries_only_the_resource_that_failed(tmp_path: Any) -> None:
     pipeline = _pipeline(tmp_path=tmp_path)
-    pipeline.source.close.side_effect = [RuntimeError("source"), None]
+    source = _mock(pipeline.source)
+    action = _mock(pipeline.action)
+    source.close.side_effect = [RuntimeError("source"), None]
 
     with pytest.raises(PipelineException, match="Failed to close"):
         pipeline.close()
 
-    pipeline.action.close.assert_called_once()
-    pipeline.action.close.reset_mock()
+    action.close.assert_called_once()
+    action.close.reset_mock()
 
     pipeline.close()
 
-    assert pipeline.source.close.call_count == 2
-    pipeline.action.close.assert_not_called()
+    assert source.close.call_count == 2
+    action.close.assert_not_called()
 
 
 def test_stop_leaves_the_failed_events_file_open_until_close(tmp_path: Any) -> None:
@@ -93,8 +100,8 @@ def test_stop_all_abandons_remaining_pipelines_when_one_fails_to_stop(
         manager.stop_all()
 
     surviving.stop.assert_not_called()
-    failing.source.close.assert_called_once()
-    surviving.source.close.assert_not_called()
+    _mock(failing.source).close.assert_called_once()
+    _mock(surviving.source).close.assert_not_called()
     assert "surviving" in manager.pipeline_registry
 
 
@@ -188,8 +195,8 @@ def test_stop_failure_marks_the_pipeline_failed(tmp_path: Any) -> None:
     manager.pipeline_registry["stopping"].thread.join(timeout=5)
 
     assert manager.pipeline_registry["stopping"].failed is True
-    pipeline.source.close.assert_called_once()
-    pipeline.action.close.assert_called_once()
+    _mock(pipeline.source).close.assert_called_once()
+    _mock(pipeline.action).close.assert_called_once()
 
 
 def test_start_pipeline_refuses_to_start_while_shutting_down(tmp_path: Any) -> None:

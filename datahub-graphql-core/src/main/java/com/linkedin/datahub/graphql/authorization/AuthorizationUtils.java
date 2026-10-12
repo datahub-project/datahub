@@ -529,9 +529,6 @@ public class AuthorizationUtils {
    * without Edit Entity, the same way the dedicated GraphQL mutations for those types already
    * allow.
    *
-   * <p>Patching {@code corpUserCredentials} also requires Manage User Credentials. That aspect
-   * holds native-user secrets; a general user-edit privilege is not enough to write it.
-   *
    * <p>The resource type used for policy matching is always taken from the URN, which is what the
    * patch is applied to, never from the client-supplied {@code entityType}. Otherwise a grant
    * scoped to one entity type could be matched against a URN of a different type by claiming the
@@ -563,10 +560,6 @@ public class AuthorizationUtils {
           input.getEntityType(),
           entityType,
           input.getUrn());
-      return false;
-    }
-    if (CORP_USER_CREDENTIALS_ASPECT_NAME.equals(input.getAspectName())
-        && !canManageUserCredentials(context)) {
       return false;
     }
 

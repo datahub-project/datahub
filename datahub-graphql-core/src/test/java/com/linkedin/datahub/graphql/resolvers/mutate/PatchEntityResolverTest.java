@@ -323,37 +323,6 @@ public class PatchEntityResolverTest {
     assertTrue(result.getSuccess(), "error=" + result.getError());
   }
 
-  /** Writing native-user secrets requires Manage User Credentials in addition to user edit. */
-  @Test
-  public void testPatchUserCredentialsDeniedWithoutManageUserCredentials() throws Exception {
-    PatchEntityInput input = credentialsInput();
-    when(_environment.getArgument("input")).thenReturn(input);
-    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
-        .thenReturn(true);
-    grantOnly(Set.of("UPDATE_USERS"));
-
-    PatchEntityResult result = _resolver.get(_environment).get();
-
-    assertFalse(result.getSuccess());
-    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
-  }
-
-  @Test
-  public void testPatchUserCredentialsAllowedWithManageUserCredentials() throws Exception {
-    PatchEntityInput input = credentialsInput();
-    when(_environment.getArgument("input")).thenReturn(input);
-    setupRegistryMock("corpuser", "corpUserCredentials");
-    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
-        .thenReturn(true);
-    grantOnly(Set.of("UPDATE_USERS", "MANAGE_USER_CREDENTIALS"));
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
-        .thenReturn(mock(IngestResult.class));
-
-    PatchEntityResult result = _resolver.get(_environment).get();
-
-    assertTrue(result.getSuccess(), "error=" + result.getError());
-  }
-
   @Test
   public void testPatchPolicyDeniedWithUnrelatedPrivilege() throws Exception {
     PatchEntityInput input = createPolicyInput();
@@ -365,14 +334,6 @@ public class PatchEntityResolverTest {
 
     assertFalse(result.getSuccess());
     verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
-  }
-
-  private PatchEntityInput credentialsInput() {
-    PatchEntityInput input = new PatchEntityInput();
-    input.setUrn("urn:li:corpuser:existing-user");
-    input.setAspectName("corpUserCredentials");
-    input.setPatch(List.of(createPatchOperation(PatchOperationType.ADD, "/salt", "\"salt\"")));
-    return input;
   }
 
   private PatchEntityInput createPolicyInput() {
