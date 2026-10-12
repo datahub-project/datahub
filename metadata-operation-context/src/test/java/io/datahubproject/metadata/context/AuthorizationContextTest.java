@@ -17,9 +17,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.UrnArray;
@@ -137,43 +135,6 @@ public class AuthorizationContextTest {
   private static final Urn GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:test");
   private static final Urn DIRECT_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Editor");
   private static final Urn INHERITED_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Admin");
-
-  @Test
-  public void authorizeReevaluatesWhileResourceHasFieldOverride() {
-    Authorizer authorizer = mock(Authorizer.class);
-    when(authorizer.authorize(any()))
-        .thenAnswer(
-            invocation ->
-                new AuthorizationResult(
-                    invocation.getArgument(0), AuthorizationResult.Type.ALLOW, null));
-    AuthorizationContext authorizationContext =
-        AuthorizationContext.builder().authorizer(authorizer).build();
-    ActorContext actorContext = sessionActor(Map.of());
-    EntitySpec resource = new EntitySpec("dataset", "urn:li:dataset:test");
-    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
-
-    // Cached against the stored fields.
-    authorizationContext.authorize(opContext, actorContext, "EDIT", resource);
-    authorizationContext.authorize(opContext, actorContext, "EDIT", resource);
-    verify(authorizer, times(1)).authorize(any());
-
-    // A field override changes what the resource looks like, so the cached result must not be
-    // served, and results computed under the override must not be cached.
-    authorizationContext
-        .getSessionResourceFieldOverrides()
-        .put(
-            resource,
-            Map.of(
-                EntityFieldType.DATA_PLATFORM_INSTANCE,
-                FieldResolver.getResolverFromValues(Set.of("urn:li:dataPlatformInstance:x"))));
-    authorizationContext.authorize(opContext, actorContext, "EDIT", resource);
-    authorizationContext.authorize(opContext, actorContext, "EDIT", resource);
-    verify(authorizer, times(3)).authorize(any());
-
-    authorizationContext.getSessionResourceFieldOverrides().remove(resource);
-    authorizationContext.authorize(opContext, actorContext, "EDIT", resource);
-    verify(authorizer, times(3)).authorize(any());
-  }
 
   @Test
   public void getOrResolveSessionActorIdentity_cachesResult() {

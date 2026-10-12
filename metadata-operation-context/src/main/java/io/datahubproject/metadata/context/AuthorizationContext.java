@@ -171,7 +171,14 @@ public class AuthorizationContext implements ContextInterface {
       @Nullable final EntitySpec resourceSpec) {
     final AuthorizationRequest request =
         buildAuthorizationRequest(actorContext, privilege, resourceSpec, Collections.emptyList());
-    return cachedAuthorize(opContext, request, resourceSpec);
+    // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
+    // outside a blocking function
+    AuthorizationResult result = sessionAuthorizationCache.get(request);
+    if (result == null) {
+      result = runAuthorize(opContext, request);
+      sessionAuthorizationCache.putIfAbsent(request, result);
+    }
+    return result;
   }
 
   public AuthorizationResult authorize(
@@ -182,18 +189,6 @@ public class AuthorizationContext implements ContextInterface {
       @Nonnull final Collection<EntitySpec> subResources) {
     final AuthorizationRequest request =
         buildAuthorizationRequest(actorContext, privilege, resourceSpec, subResources);
-    return cachedAuthorize(opContext, request, resourceSpec);
-  }
-
-  private AuthorizationResult cachedAuthorize(
-      @Nonnull OperationContext opContext,
-      @Nonnull final AuthorizationRequest request,
-      @Nullable final EntitySpec resourceSpec) {
-    // The cache key does not include field overrides, which change how the resource resolves.
-    // While a resource has one, evaluate directly and keep the result out of the cache.
-    if (resourceSpec != null && sessionResourceFieldOverrides.containsKey(resourceSpec)) {
-      return runAuthorize(opContext, request);
-    }
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
     // outside a blocking function
     AuthorizationResult result = sessionAuthorizationCache.get(request);
