@@ -1,67 +1,68 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Modal, message } from 'antd';
-import React from 'react';
+import { toast } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
+import {
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { ActionItem } from '@app/shared/actions';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { Assertion } from '@types';
-
-const StyledDeleteOutlined = styled(DeleteOutlined)`
-    && {
-        font-size: 12px;
-        display: flex;
-    }
-`;
 
 type Props = {
     assertion: Assertion;
     canEdit: boolean;
     refetch?: () => void;
     isExpandedView?: boolean;
+    onActionTriggered?: () => void;
 };
 
-export const DeleteAction = ({ assertion, canEdit, refetch, isExpandedView = false }: Props) => {
+export const DeleteAction = ({ assertion, canEdit, refetch, isExpandedView = false, onActionTriggered }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
     const [deleteAssertionMutation] = useDeleteAssertionMutationWithCache();
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const deleteAssertion = async () => {
+        setShowConfirmationModal(false);
         try {
             const response = await deleteAssertionMutation({ variables: { urn: assertion.urn } });
             if (!response.data?.deleteAssertion) {
                 throw new Error('Assertion deletion was not acknowledged');
             }
-            await message.success({ content: t('action.removedAssertion'), duration: 2 });
+            toast.success(t('action.removedAssertion'), { duration: 2 });
             refetch?.();
         } catch {
-            message.destroy();
-            message.error({ content: t('action.failedRemoveAssertion'), duration: 3 });
+            toast.destroy();
+            toast.error(t('action.failedRemoveAssertion'), { duration: 3 });
         }
     };
 
-    const onDeleteAssertion = () => {
-        Modal.confirm({
-            title: t('action.confirmRemovalTitle'),
-            content: t('action.confirmRemovalContent'),
-            onOk: deleteAssertion,
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <ActionItem
-            key="delete"
-            tip={canEdit ? t('action.deleteAssertionTip') : t('action.noPermissionDelete')}
-            disabled={!canEdit}
-            onClick={onDeleteAssertion}
-            icon={<StyledDeleteOutlined />}
-            isExpandedView={isExpandedView}
-            actionName={tc('delete')}
-        />
+        <>
+            <ActionItem
+                key="delete"
+                tip={canEdit ? t('action.deleteAssertionTip') : t('action.noPermissionDelete')}
+                disabled={!canEdit}
+                onClick={() => setShowConfirmationModal(true)}
+                icon={<Trash size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />}
+                isExpandedView={isExpandedView}
+                actionName={tc('delete')}
+                onActionTriggered={onActionTriggered}
+            />
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={deleteAssertion}
+                modalTitle={t('action.confirmRemovalTitle')}
+                modalText={t('action.confirmRemovalContent')}
+                confirmButtonText={tc('yes')}
+                isDeleteModal
+            />
+        </>
     );
 };

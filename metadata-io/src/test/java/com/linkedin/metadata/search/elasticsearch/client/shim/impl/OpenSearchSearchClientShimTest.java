@@ -11,6 +11,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -18,13 +19,16 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
 import org.apache.http.StatusLine;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicStatusLine;
@@ -373,6 +377,45 @@ public class OpenSearchSearchClientShimTest {
   }
 
   @Test
+  public void searchKnnBoundsTheCallByTheRequestTimeout() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, "{\"hits\":{\"hits\":[]}}");
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("document_v3")
+            .vectorField("embeddings.model.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .timeout(Duration.ofMillis(1_500))
+            .build();
+
+    shimWith(restClient).searchKnn(OP, request);
+
+    ArgumentCaptor<Request> sent = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient).performRequest(sent.capture());
+    assertEquals(sent.getValue().getParameters().get("timeout"), "1500ms");
+    RequestConfig config = sent.getValue().getOptions().getRequestConfig();
+    assertEquals(config.getConnectTimeout(), 1_500);
+    assertEquals(config.getConnectionRequestTimeout(), 1_500);
+    assertEquals(config.getSocketTimeout(), 1_500);
+  }
+
+  @Test
+  public void parseSearchKnnResponseFlagsTimedOutAndFailedShards() throws Exception {
+    String hits = "\"hits\":{\"hits\":[]}";
+
+    assertFalse(
+        parseKnn("{\"timed_out\":false,\"_shards\":{\"failed\":0}," + hits + "}").partial());
+    assertTrue(parseKnn("{\"timed_out\":true," + hits + "}").partial());
+    assertTrue(parseKnn("{\"_shards\":{\"total\":2,\"failed\":1}," + hits + "}").partial());
+  }
+
+  private static KnnSearchResponse parseKnn(String json) throws IOException {
+    return OpenSearchSearchClientShim.parseSearchKnnResponse(MAPPER.readTree(json), MAPPER);
+  }
+
+  @Test
   public void indexEmbeddingsWritesDocumentShapeAndRequiresWriteResult() throws Exception {
     RestClient restClient = mock(RestClient.class);
     String created =
@@ -652,5 +695,38 @@ public class OpenSearchSearchClientShimTest {
     ShimConfiguration nullEngine = mock(ShimConfiguration.class);
     when(nullEngine.getEngineType()).thenReturn(null);
     assertThrows(IllegalArgumentException.class, () -> new OpenSearchSearchClientShim(nullEngine));
+  }
+
+  @Test
+  public void registerConnectionPoolMetricsExposesPoolGauges() throws Exception {
+    ShimConfiguration config = mock(ShimConfiguration.class);
+    when(config.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_2);
+    when(config.getHost()).thenReturn("localhost");
+    when(config.getPort()).thenReturn(9200);
+    when(config.getThreadCount()).thenReturn(2);
+    when(config.getConnectionRequestTimeout()).thenReturn(1000);
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    try (OpenSearchSearchClientShim shim = new OpenSearchSearchClientShim(config)) {
+      shim.registerConnectionPoolMetrics(registry, "primary");
+
+      for (String state : List.of("leased", "waiting")) {
+        assertEquals(
+            registry
+                .get(SearchConnectionPoolMetrics.CONNECTIONS_METRIC)
+                .tags("cluster", "primary", "state", state)
+                .gauge()
+                .value(),
+            0.0,
+            state);
+      }
+      assertEquals(
+          registry
+              .get(SearchConnectionPoolMetrics.LEASE_WAIT_METRIC)
+              .tags("cluster", "primary")
+              .timer()
+              .count(),
+          0L);
+    }
   }
 }

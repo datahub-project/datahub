@@ -1,0 +1,49 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "b061839e6ebae0796c7e2de8d9b9ea75f1db3c55b80c3ccc67f31d45e3ebf934",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,s.a,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,s.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,s.target,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,s.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"a\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,s.target,PROD)",
+                "column": "n",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"g\".\"n\" AS \"n\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO s.target SELECT a.id, g.n FROM s.a CROSS JOIN GENERATE_SERIES(?, ?) AS g(n)"
+    }
+}

@@ -1,5 +1,4 @@
 import { Modal, Text } from '@components';
-import { Image } from 'antd';
 import React, { useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -19,7 +18,7 @@ const ContentContainer = styled.div`
     gap: 12px;
 `;
 
-const StyledImage = styled(Image)`
+const StyledImage = styled.img`
     border-radius: 8px;
     box-shadow: ${(props) => props.theme.colors.shadowLg};
     border: 0.3px solid ${(props) => props.theme.colors.border};
@@ -86,7 +85,7 @@ export default function CreateSourceEducationModal() {
                 <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
                     {t('multiStep.education.lineage')}
                 </Text>
-                <StyledImage src={displayImage} preview={false} />
+                <StyledImage src={displayImage} alt="" />
                 <ItalicsText size="sm" style={{ color: theme.colors.textSecondary }}>
                     <Trans
                         t={t}

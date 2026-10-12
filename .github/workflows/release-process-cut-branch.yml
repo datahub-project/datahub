@@ -79,20 +79,17 @@ jobs:
         with:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
 
       - name: Check out source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.sha != '' && inputs.sha || steps.branches.outputs.source }}
-          # PAT required: GITHUB_TOKEN pushes do not trigger push-event workflows
-          # (e.g. docker-unified.yml on releases/** and hotfixes/**).
+          # App token required: a ref created by GITHUB_TOKEN does not trigger
+          # push-event workflows (e.g. docker-unified.yml on releases/** and hotfixes/**).
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 1
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Validate target branch does not already exist
         run: |
@@ -107,13 +104,17 @@ jobs:
             exit 1
           fi
 
-      - name: Create and push branch
+      - name: Create branch
         id: create_branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           TARGET="${{ steps.branches.outputs.target }}"
-          git checkout -b "$TARGET"
-          git push origin "$TARGET"
-          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          SHA=$(git rev-parse HEAD)
+          gh api --method POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/heads/${TARGET}" \
+            -f sha="$SHA"
+          echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
           echo "Created branch: $TARGET"
 
       - name: Write job summary

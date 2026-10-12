@@ -151,6 +151,7 @@
     "document.linkRelatedTooltip": "Связать ассеты или контекстные документы",
     "document.name": "Документ",
     "document.namePlural": "Документы",
+    "document.newDocumentPlaceholder": "Новый документ",
     "document.noChangeHistoryEmpty": "История изменений пока пуста!",
     "document.noContentPlaceholder": "Нет содержимого",
     "document.previousVersionTitle": "Предыдущая версия",

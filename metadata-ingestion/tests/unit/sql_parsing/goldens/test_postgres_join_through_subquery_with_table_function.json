@@ -1,0 +1,60 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "94f8616a9a60683fdbd9c9c5f18be3f6bc023b4d4c1ac287f669c2654e97fa89",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"a\".\"id\" AS \"id\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.b,PROD)"
+            ],
+            "on_clause": "\"a\".\"id\" = \"s2\".\"id\" AND \"a\".\"n\" = \"s2\".\"x\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.a,PROD)",
+                    "column": "n"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.s.b,PROD)",
+                    "column": "id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT a.id FROM s.a AS a JOIN (SELECT b.id, b.v, g.x FROM s.b AS b CROSS JOIN GENERATE_SERIES(?, ?) AS g(x)) AS s2 ON a.id = s2.id AND a.n = s2.x"
+    }
+}

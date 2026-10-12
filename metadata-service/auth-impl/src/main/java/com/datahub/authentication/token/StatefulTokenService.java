@@ -1,9 +1,7 @@
 package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -17,9 +15,8 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +33,7 @@ public class StatefulTokenService extends StatelessTokenService {
 
   private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
-  private final LoadingCache<String, Boolean> _revokedTokenCache;
+  private final TokenRevocationMap.State revokedTokens;
   private final String salt;
 
   public StatefulTokenService(
@@ -45,22 +42,14 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss,
       @Nonnull final EntityService<?> entityService,
-      @Nonnull final String salt) {
+      @Nonnull final String salt,
+      @Nullable final HazelcastInstance hazelcast) {
     super(systemOperationContext, signingKey, signingAlgorithm, iss);
     this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
-    this._revokedTokenCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .build(
-                new CacheLoader<String, Boolean>() {
-                  @Override
-                  public Boolean load(final String key) {
-                    final Urn accessUrn = tokenUrnFromKey(key);
-                    return !_entityService.exists(systemOperationContext, accessUrn, true);
-                  }
-                });
+    // MCE and partial Spring tests have no embedded node. GMS always does.
+    this.revokedTokens =
+        hazelcast == null ? TokenRevocationMap.local() : TokenRevocationMap.cluster(hazelcast);
     this.salt = Objects.requireNonNull(salt);
   }
 
@@ -151,6 +140,9 @@ public class StatefulTokenService extends StatelessTokenService {
             .build(opContext),
         false);
 
+    // Published only after the primary commit. putIfAbsent so a revoke that already won is not
+    // overwritten with not-revoked for the rest of the map TTL.
+    revokedTokens.putIfAbsent(tokenHash, Boolean.FALSE);
     return accessToken;
   }
 
@@ -161,7 +153,7 @@ public class StatefulTokenService extends StatelessTokenService {
       final TokenClaims tokenClaims = super.validateAccessToken(accessToken);
       if (tokenClaims.getTokenVersion().equals(TokenVersion.TWO)) {
         final String hash = hash(accessToken);
-        if (_revokedTokenCache.get(hash)) {
+        if (isRevoked(hash)) {
           throw new TokenException("Failed to validate DataHub token: Token has been revoked");
         }
       }
@@ -170,9 +162,6 @@ public class StatefulTokenService extends StatelessTokenService {
       // delete entity
       this.revokeAccessToken(systemOperationContext, hash(accessToken));
       throw e;
-    } catch (final ExecutionException e) {
-      throw new TokenException(
-          "Failed to validate DataHub token: Unable to load token information from store", e);
     }
   }
 
@@ -182,17 +171,43 @@ public class StatefulTokenService extends StatelessTokenService {
 
   public void revokeAccessToken(OperationContext opContext, @Nonnull String hashedToken)
       throws TokenException {
-    try {
-      if (!_revokedTokenCache.get(hashedToken)) {
-        final Urn tokenUrn = tokenUrnFromKey(hashedToken);
-        _entityService.deleteUrn(opContext, tokenUrn);
-        _revokedTokenCache.put(hashedToken, true);
-        return;
-      }
-    } catch (ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token from cache", e);
+    if (tokenExists(hashedToken)) {
+      final Urn tokenUrn = tokenUrnFromKey(hashedToken);
+      _entityService.deleteUrn(opContext, tokenUrn);
+      revokedTokens.put(hashedToken, Boolean.TRUE);
+      return;
     }
+    revokedTokens.put(hashedToken, Boolean.TRUE);
     throw new TokenException("Access token no longer exists");
+  }
+
+  /**
+   * Map value {@code true} means revoked. A miss is not revoked: reload {@code exists} from primary
+   * so a lagging replica cannot be cached as a revocation.
+   */
+  private boolean isRevoked(@Nonnull String hashedToken) throws TokenException {
+    return !tokenExists(hashedToken);
+  }
+
+  private boolean tokenExists(@Nonnull String hashedToken) throws TokenException {
+    Boolean cached = revokedTokens.get(hashedToken);
+    if (cached != null) {
+      return !cached;
+    }
+    final boolean exists;
+    try {
+      exists =
+          _entityService.exists(
+              systemOperationContext.withReadPreference(ReadPreference.PRIMARY),
+              tokenUrnFromKey(hashedToken),
+              true);
+    } catch (RuntimeException e) {
+      throw new TokenException(
+          "Failed to validate DataHub token: Unable to load token information from store", e);
+    }
+    revokedTokens.putIfAbsent(hashedToken, !exists);
+    Boolean published = revokedTokens.get(hashedToken);
+    return published == null ? exists : !published;
   }
 
   /** Hashes the input after salting it. */

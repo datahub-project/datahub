@@ -1,6 +1,8 @@
 import { green, red } from '@ant-design/colors';
-import { CheckOutlined, CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -25,17 +27,17 @@ const CapabilityMessage = styled.span<{ success: boolean }>`
     padding-left: 4px;
 `;
 
-const StyledQuestion = styled(QuestionCircleOutlined)`
+const StyledQuestion = styled(Question)`
     color: rgba(0, 0, 0, 0.45);
     margin-left: 4px;
 `;
 
-const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(Check)`
     color: ${green[6]};
     margin-right: 15px;
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     color: ${red[5]};
     margin-right: 15px;
 `;

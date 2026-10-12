@@ -52,9 +52,10 @@ public class PostgresSqlSetupProperties {
 
   /**
    * PostgreSQL schema (namespace) for SqlSetup DDL and Ebean metadata tables. Defaults to {@code
-   * public}; the JDBC URL supplies only the database name. Bound from {@code application.yaml} or
-   * set by {@link #applySqlSetupSchemaFromJdbcUrl(String)} when {@code postgres.schema} is unset
-   * (non-Spring callers).
+   * public}; override with {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema}. The JDBC URL
+   * supplies only the database name ({@code currentSchema} does not drive DDL). Bound from {@code
+   * application.yaml} or set by {@link #applySqlSetupSchemaFromJdbcUrl(String)} when {@code
+   * postgres.schema} is unset (non-Spring callers).
    */
   private String schema;
 
@@ -422,8 +423,9 @@ public class PostgresSqlSetupProperties {
 
   /**
    * When {@link #schema} is unset and {@code jdbcUrl} targets PostgreSQL, sets it to {@code
-   * public}. The database name comes only from the JDBC URL path; application DDL does not use a
-   * separate schema named after the database.
+   * public}. Prefer configuring {@code DATAHUB_POSTGRES_SCHEMA} / {@code postgres.schema}
+   * explicitly for non-{@code public} metadata schemas. The JDBC URL path selects the database
+   * only; {@code currentSchema} is not used for DDL.
    */
   public void applySqlSetupSchemaFromJdbcUrl(String jdbcUrl) {
     if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {

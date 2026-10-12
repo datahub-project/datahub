@@ -24,9 +24,9 @@ The logic for generating stable assertion IDs differs based on the source of the
 
 - **Native Assertions**: Created in DataHub Cloud's UI or API, the platform generates a UUID
 - **External Assertions**: Each integration tool generates IDs based on its own conventions:
-  - **Great Expectations**: Combines expectation suite name, expectation type, and parameters
-  - **dbt Tests**: Uses the test's unique_id from the manifest
-  - **Snowflake Data Quality**: Uses the native DMF rule ID
+  - **Great Expectations**: A GUID derived from the platform, expectation type, expectation kwargs, dataset, and column (if any). The expectation suite name is not part of the ID.
+  - **dbt Tests**: A GUID derived from the platform, the test's `unique_id` from the manifest, and the platform instance, plus the env (only when `include_env_in_assertion_guid` is set and env is not `PROD`) and the upstream node (only when the test depends on more than one upstream)
+  - **Snowflake Data Quality**: For DataHub-compiled DMFs, the ID embedded in the DMF name (`datahub__<id>`); for external DMFs, a GUID derived from the platform, Snowflake's `REFERENCE_ID` for the DMF-table binding, and the platform instance
 - **Inferred Assertions**: ML-based systems generate IDs based on the inference model and target
 
 The key requirement is that the same assertion definition should always produce the same `assertionId`, enabling DataHub to track the assertion's history over time even as it's re-evaluated.
@@ -253,7 +253,7 @@ Datasets maintain a reverse relationship, showing all assertions that validate t
 
 ### Relationship to Data Jobs
 
-Freshness assertions can target data jobs (pipelines) to ensure they execute on schedule. When a `FreshnessAssertionInfo` has `type=DATA_JOB_RUN`, the `entity` field references a dataJob URN rather than a dataset.
+The native `FreshnessAssertionInfo` model allows a data job (pipeline) as its target: when `type=DATA_JOB_RUN`, the `entity` field references a dataJob URN rather than a dataset. This applies only to the native freshness model. External (`CUSTOM`) assertions target datasets (`CustomAssertionInfo.entity`), and `AssertionRunEvent.asserteeUrn` accepts only dataset URNs.
 
 ### Relationship to Data Platforms
 
@@ -295,12 +295,16 @@ Each expectation suite becomes a collection of CUSTOM assertions in DataHub.
 
 ### Integration with Snowflake Data Quality
 
-Snowflake DMF (Data Metric Functions) rules are ingested as assertions:
+Snowflake DMF (Data Metric Functions) results are ingested as assertion results. How the assertion is typed depends on where the DMF was defined:
 
-- Row count rules → Volume assertions
-- Uniqueness rules → Field metric assertions
-- Freshness rules → Freshness assertions
-- Custom metric rules → SQL / CUSTOM assertions (see the Snowflake connector docs)
+- **DataHub-compiled DMFs** (`datahub__` prefix, created via `datahub assertions compile`) keep the type from their YAML definition, with `NATIVE` source:
+  - Row count rules → Volume assertions
+  - Uniqueness rules → Field metric assertions
+  - Freshness rules → Freshness assertions
+  - Custom SQL rules → SQL assertions
+- **External DMFs** (created directly in Snowflake, ingested with `include_externally_managed_dmfs`) are emitted as `CUSTOM` assertions with `EXTERNAL` source.
+
+See [Snowflake DMF assertions](/docs/assertions/snowflake/snowflake_dmfs.md#how-external-dmfs-differ-from-datahub-created-dmfs) for details.
 
 ## Notable Exceptions
 
@@ -310,7 +314,7 @@ The `DATASET` assertion type is a **deprecated** legacy format for externally ma
 
 **New external integrations must use `AssertionType.CUSTOM` with `CustomAssertionInfo`**, which now supports the same structured display fields (scope, aggregation, operator, parameters, fields, nativeType). Prefer the GraphQL `upsertCustomAssertion` / `reportAssertionResult` APIs, or the Python helpers documented in [Custom Assertions](/docs/api/tutorials/custom-assertions.md).
 
-Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and must not be used for external self-reporting.
+Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and should not be used for external self-reporting.
 
 ### Assertion Results vs. Assertion Metrics
 

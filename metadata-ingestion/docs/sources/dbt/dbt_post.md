@@ -541,6 +541,100 @@ If these conditions are not met, warnings will appear in the ingestion report:
 >
 > Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
 
+#### Semantic Models
+
+DataHub ingests [dbt semantic models](https://docs.getdbt.com/docs/build/semantic-models) (dbt 1.6+) - the `semantic_models:` entries in your YAML that define entities, dimensions, and measures on top of a dbt model.
+
+A semantic model is a **logical** structure: it lives in your dbt project and is never materialized in the warehouse. DataHub models it accordingly.
+
+##### How Semantic Models Appear in DataHub
+
+- **Subtype**: Datasets are tagged with the subtype `Semantic Model`.
+- **Name**: The dataset is named from dbt's own unique id, `semantic_model.<project>.<semantic_model_name>`, giving a urn like:
+
+  ```
+  urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.jaffle_shop.orders,PROD)
+  ```
+
+  This is the same rule already used for [exposures](#exposures), which are named `exposure.<project>.<name>`. A semantic model has no warehouse address of its own, so it is not named `<database>.<schema>.<name>` like a model, seed, or snapshot. Naming it that way would give it the address of the model it sits on - colliding with that model whenever the two share a name, which is dbt's own documented convention:
+
+  ```yaml
+  semantic_models:
+    - name: orders
+      model: ref("orders")
+  ```
+
+- **No warehouse entity**: Unlike models, seeds, and snapshots, a semantic model produces no dataset on the target platform, no sibling relationship, and no lineage into one - there is no warehouse table to describe.
+- **Schema**: Entities, dimensions, and measures are surfaced as columns, with native types of the form `entity:primary`, `dimension:time`, and `measure:sum`.
+- **Lineage**: Upstream lineage points at the dbt model the semantic model is built on.
+
+##### Configuration
+
+Semantic models are emitted by default. Control them with `entities_enabled.semantic_models`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    entities_enabled:
+      semantic_models: "NO"
+```
+
+Two connector settings do not apply to semantic models, because both concern physical assets: `include_database_name` (the urn carries no database) and `materialized_node_pattern` (there is no materialized location to match against). To filter semantic models by name, use `node_name_pattern`, which matches the dbt unique id.
+
+#### Semantic Model and Metric Entities
+
+On top of the datasets described above, DataHub can also describe your dbt semantic layer with first-class [Semantic Model](../../metamodel/entities/semanticModel.md) and [Metric](../../metamodel/entities/metric.md) entities. This is **purely additive**: it does not change the dataset urns, and it does not change any aspect the connector already writes for them.
+
+##### What Gets Emitted
+
+- **One `semanticModel` per dbt project**, holding the join relationships between your semantic models. Its urn is `urn:li:semanticModel:(urn:li:dataPlatform:dbt,<project>,semantic_layer)`.
+- **Semantic annotations on each semantic model's dataset.** The dataset keeps the urn, name, description, schema, subtype, tags, owners and lineage described above, and gains a link to its parent `semanticModel` plus a per-column annotation recording whether the column is a dimension or a measure, its aggregation function, and whether it is a time dimension.
+- **One `metric` per measure with `create_metric: true`**, and one per top-level `metrics:` entry. Its urn is `urn:li:metric:(urn:li:dataPlatform:dbt,<project>,<metric_name>)`. Metrics carry an expression, a subtype naming dbt's metric type (`Simple`, `Ratio`, `Derived`, `Cumulative`, `Conversion`), upstream lineage to the datasets of the semantic models they read, and `derivedFrom` edges to the metrics they are built on.
+
+Relationships follow MetricFlow's own join semantics: a semantic model that declares an entity as `foreign`, `unique` or `natural` joins to every semantic model that declares an entity of the **same name** as `primary`, `unique` or `natural`. When a key is declared in more than one semantic model, an edge is emitted to each - MetricFlow joins to each of them too. A reference to a key that is not in the ingested project is counted in the ingestion report rather than warned about, since that is normal when you filter part of a project.
+
+##### Enabling It
+
+```yaml
+source:
+  type: dbt
+  config:
+    emit_semantic_model_entities: true
+```
+
+`emit_semantic_model_entities` is three-valued:
+
+| Value           | Behavior                                                                                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| unset (default) | Follow the server. Enabled on DataHub Cloud new enough to register these entity types, unless the Metrics feature is disabled. Off on OSS, older DataHub Cloud, and runs with no server connection (for example a `file` sink). |
+| `true`          | Request emission. Refused, with the reason in the ingestion report, where the server cannot accept these entities.                                                                                                              |
+| `false`         | Off, whatever the server says.                                                                                                                                                                                                  |
+
+Because nothing about the datasets changes, you can turn this on and off freely: there is no urn change and no migration.
+
+##### Project Name
+
+The `semanticModel` and `metric` urns are keyed by your dbt project name, read from `manifest.metadata.project_name` (dbt Core) or from the semantic models' package name (dbt Cloud). Since it is part of the entities' identity, pin it if it might change:
+
+```yaml
+source:
+  type: dbt
+  config:
+    emit_semantic_model_entities: true
+    semantic_model_project_name: jaffle_shop
+```
+
+If the project name cannot be determined, the run reports a failure and emits no semantic model or metric entities rather than inventing a placeholder name - the datasets are unaffected.
+
+When `platform_instance` is set it is folded into the path segment of these urns (`urn:li:semanticModel:(urn:li:dataPlatform:dbt,<instance>.<project>,semantic_layer)`), because `semanticModelKey` and `metricKey` have no platform-instance field of their own. It is not folded twice when `platform_instance` and the project name are the same, which is the documented setup for multi-project dbt.
+
+##### Limitations
+
+- **dbt Cloud has no `metrics:` block.** The Discovery API does not expose it, so only metrics from `create_metric: true` measures are ingested there. The ingestion report says so on every dbt Cloud run that emits these entities. Use the dbt Core source if you need the `metrics:` block.
+- **Metric type, filters and cumulative windows have no field of their own on `metricInfo`.** The type becomes a subtype; a filter is folded into the metric's expression as a `FILTER (WHERE ...)` clause, or stated as a trailing SQL comment where the expression cannot carry one (a ratio, or an author-written `expr`); a cumulative window becomes a trailing comment such as `/* cumulative over 7 day */`. dbt keeps filters as Jinja templates, so a folded filter is not always parseable SQL.
+- **Time-dimension granularity** is recorded only as "this is a time dimension" - the annotation has no field for the grain itself.
+
 #### Exposures
 
 DataHub supports ingesting [dbt exposures](https://docs.getdbt.com/docs/build/exposures) - downstream consumers of your dbt models such as dashboards, notebooks, ML models, and applications.

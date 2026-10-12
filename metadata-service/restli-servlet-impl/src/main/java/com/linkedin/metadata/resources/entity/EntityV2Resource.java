@@ -138,7 +138,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_ALWAYS_INCLUDE_KEY_ASPECT) @Optional @Nullable Boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
-    log.debug("BATCH GET V2 {}", urnStrs.toString());
+    log.debug("BATCH GET V2 {}", urnStrs);
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));

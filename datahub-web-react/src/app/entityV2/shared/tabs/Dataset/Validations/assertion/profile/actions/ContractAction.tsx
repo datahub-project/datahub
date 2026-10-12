@@ -1,10 +1,14 @@
-import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
-import { message } from 'antd';
+import { toast } from '@components';
+import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useIsContractsEnabled } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/useIsContractsEnabled';
 import {
     buildAddAssertionToContractMutationVariables,
@@ -19,20 +23,6 @@ import { ActionItem } from '@app/shared/actions/ActionItem';
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, DataContract } from '@types';
 
-const StyledMinusOutlined = styled(MinusOutlined)`
-    && {
-        font-size: 12px;
-        display: flex;
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 12px;
-        display: flex;
-    }
-`;
-
 type Props = {
     assertion: Assertion;
     contract?: DataContract | null;
@@ -40,9 +30,17 @@ type Props = {
     // Should be defined if canEdit
     refetch?: () => void;
     isExpandedView?: boolean;
+    onActionTriggered?: () => void;
 };
 
-export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
+export const ContractAction = ({
+    assertion,
+    contract,
+    canEdit,
+    refetch,
+    isExpandedView = false,
+    onActionTriggered,
+}: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -61,13 +59,13 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('action.addedToContract'), duration: 2 });
+                    toast.success(t('action.addedToContract'), { duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: t('action.failedAddToContract') });
+                toast.destroy();
+                toast.error(t('action.failedAddToContract'));
             });
     };
 
@@ -77,13 +75,13 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('action.removedFromContract'), duration: 2 });
+                    toast.success(t('action.removedFromContract'), { duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: t('action.failedRemoveFromContract') });
+                toast.destroy();
+                toast.error(t('action.failedRemoveFromContract'));
             });
     };
 
@@ -101,9 +99,16 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
                     tip={tip}
                     disabled={!canEdit}
                     onClick={isPartOfContract ? onRemoveFromContract : onAddToContract}
-                    icon={isPartOfContract ? <StyledMinusOutlined /> : <StyledPlusOutlined />}
+                    icon={
+                        isPartOfContract ? (
+                            <Minus size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                        ) : (
+                            <Plus size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                        )
+                    }
                     isExpandedView={isExpandedView}
                     actionName={contractTip}
+                    onActionTriggered={onActionTriggered}
                 />
             )) ||
                 null}

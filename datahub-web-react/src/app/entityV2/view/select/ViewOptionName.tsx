@@ -1,5 +1,5 @@
 import { Icon, Tooltip } from '@components';
-import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
+import { Crosshair } from '@phosphor-icons/react/dist/csr/Crosshair';
 import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisphereEast';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
@@ -65,9 +65,7 @@ const ViewDropdownMenuContainer = styled.div`
     align-items: center;
 `;
 
-const FilterCenterFocusOutlinedIconStyle = styled(FilterCenterFocusOutlinedIcon)`
-    font-size: 18px !important;
-`;
+const FilterCenterFocusOutlinedIconStyle = styled(Crosshair).attrs({ size: 18 })``;
 
 type Props = {
     name: string;

@@ -20,6 +20,7 @@ interface Props {
     highlightedIndex: number | null;
     selectedEntity?: EntityAndType | null;
     searchResultLineage?: SearchResultLineageCounts | null;
+    searchResultLineageLoading?: boolean;
 }
 
 export const SearchEntitySidebarContainer = ({
@@ -27,6 +28,7 @@ export const SearchEntitySidebarContainer = ({
     highlightedIndex,
     selectedEntity,
     searchResultLineage,
+    searchResultLineageLoading,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
@@ -37,7 +39,15 @@ export const SearchEntitySidebarContainer = ({
     }
 
     return (
-        <EntitySidebarContext.Provider value={{ width, isClosed, setSidebarClosed: setIsClosed, searchResultLineage }}>
+        <EntitySidebarContext.Provider
+            value={{
+                width,
+                isClosed,
+                setSidebarClosed: setIsClosed,
+                searchResultLineage,
+                searchResultLineageLoading,
+            }}
+        >
             <SidebarContainer key={selectedEntity?.urn || ''} height={height}>
                 {selectedEntity && (
                     <CompactContext.Provider value>

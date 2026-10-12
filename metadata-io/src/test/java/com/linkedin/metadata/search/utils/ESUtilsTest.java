@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -25,7 +26,11 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -203,6 +208,76 @@ public class ESUtilsTest {
             .collect(Collectors.toList()),
         conditions,
         "Expected each condition to reach the rewrite chain unchanged");
+  }
+
+  /** Unfiltered searches must hide non-latest versions just like filtered ones. */
+  @Test
+  public void testBuildFilterQueryNullFilterAppliesLatestVersionFlag() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    String withFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(true)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    String withoutFlag =
+        ESUtils.buildFilterQuery(
+                null,
+                false,
+                new HashMap<>(),
+                opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false)),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(withFlag.contains("isLatest"), withFlag);
+    assertFalse(withoutFlag.contains("isLatest"), withoutFlag);
+  }
+
+  @Test
+  public void testToV3EntityFilter() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    true,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion(
+                                    "_entityType",
+                                    Condition.EQUAL,
+                                    "DATA_PRODUCT",
+                                    "dataset",
+                                    "NOT_AN_ENTITY"),
+                                new Criterion()
+                                    .setField("_entityType.keyword")
+                                    .setCondition(Condition.EQUAL)))))
+            .setCriteria(
+                new CriterionArray(buildCriterion("_entityType", Condition.EQUAL, "CHART")));
+
+    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
+
+    CriterionArray and = result.getOr().get(0).getAnd();
+    // V3 root fields keep the V2 .keyword subfield, so other criteria pass through unchanged
+    assertEquals(
+        and.get(0),
+        buildCriterion("platform.keyword", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
+    // UI and GraphQL send entity type enum names; V3 stores the registry entity name
+    assertEquals(and.get(1).getValues(), List.of("dataProduct", "dataset", "NOT_AN_ENTITY"));
+    // A criterion without values stays without values, so it is still skipped as on V2
+    assertEquals(and.get(2).getField(), "_entityType");
+    assertFalse(and.get(2).hasValues());
+    assertEquals(result.getCriteria().get(0).getValues(), List.of("chart"));
+    // The search DAO and the request handlers both normalize, so a second pass changes nothing
+    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
   }
 
   @Test
