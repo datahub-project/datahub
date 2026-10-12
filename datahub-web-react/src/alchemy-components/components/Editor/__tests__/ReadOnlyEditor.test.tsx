@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
@@ -78,7 +78,79 @@ describe('read-only editor', () => {
         expect(fileNode).toHaveAttribute('data-file-url', '/openapi/v1/files/report.pdf');
         expect(fileNode).toHaveAttribute('data-file-name', 'report.pdf');
         expect(fileNode).toHaveTextContent('report.pdf');
+        expect(screen.queryByTitle('report.pdf')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('file-preview-toggle-report.pdf'));
         expect(screen.getByTitle('report.pdf')).toHaveAttribute('src', '/openapi/v1/files/report.pdf');
+    });
+
+    function documentFor(markdown: string): Document {
+        return new DOMParser().parseFromString(toReadOnlyHtml(markdown), 'text/html');
+    }
+
+    it.each(['docs/page', './page', '../page', '?q=1'])('keeps the relative link %s', (href) => {
+        const anchor = documentFor(`<a href="${href}">page</a>`).querySelector('a');
+        expect(anchor?.getAttribute('href')).toBe(href);
+    });
+
+    it('keeps a backslash in a query string', () => {
+        const href = 'https://example.com/search?q=a\\b';
+        const anchor = documentFor(`<a href="${href}">search</a>`).querySelector('a');
+        expect(anchor?.getAttribute('href')).toBe(href);
+    });
+
+    it('does not fetch backslash urls from img, video, or form', () => {
+        const doc = documentFor(
+            [
+                '<img src="/\\evil.example/pixel.png" alt="pixel">',
+                '<video src="/\t/evil.example/a.mp4" autoplay></video>',
+                '<form action="/\\evil.example/submit"></form>',
+                '<source srcset="/\\evil.example/a.png 1x, /ok.png 2x">',
+            ].join(''),
+        );
+        expect(doc.querySelector('img')?.hasAttribute('src')).toBe(false);
+        expect(doc.querySelector('video')?.hasAttribute('src')).toBe(false);
+        expect(doc.querySelector('form')?.hasAttribute('action')).toBe(false);
+        const srcset = doc.querySelector('source')?.getAttribute('srcset') ?? '';
+        expect(srcset).not.toContain('evil.example');
+        expect(srcset).toContain('/ok.png');
+    });
+
+    it('keeps a font size and drops the rest of the style', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content='<span style="font-size: 18px; color: red">Big</span>' readOnly />
+            </ThemeProvider>,
+        );
+        const text = screen.getByText('Big');
+        expect(text).toHaveStyle({ fontSize: '18px' });
+        expect(text).not.toHaveStyle({ color: 'red' });
+    });
+
+    it('keeps a file mentioned in a sentence inside the paragraph', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="See [report.pdf](/openapi/v1/files/report.pdf) for details." readOnly />
+            </ThemeProvider>,
+        );
+        const chip = screen.getByTestId('file-node-report.pdf');
+        expect(chip.tagName).toBe('BUTTON');
+        expect(chip.closest('p')?.querySelector('div')).toBeNull();
+        expect(screen.queryByTitle('report.pdf')).not.toBeInTheDocument();
+    });
+
+    it('previews a text file only after the card is expanded', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => 'column notes' });
+        vi.stubGlobal('fetch', fetchMock);
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="[notes.txt](/openapi/v1/files/notes.txt)" readOnly />
+            </ThemeProvider>,
+        );
+        expect(screen.queryByText('column notes')).not.toBeInTheDocument();
+        expect(fetchMock).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByTestId('file-preview-toggle-notes.txt'));
+        expect(await screen.findByText('column notes')).toBeInTheDocument();
+        vi.unstubAllGlobals();
     });
 
     it('does not open protocol-relative links in a new tab', () => {

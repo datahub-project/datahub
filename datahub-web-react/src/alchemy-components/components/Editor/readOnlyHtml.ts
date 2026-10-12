@@ -4,25 +4,60 @@ import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDro
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
 
-// Relative file URLs point at DataHub's file API. A single leading slash is a
-// same-origin path; "//host" is protocol-relative and must not open in a new tab.
-// Everything else must be an absolute http(s) or mailto link. DOMPurify has
-// already dropped javascript: URLs.
-const SAFE_HREF = /^(https?:|mailto:|\/(?!\/)|#)/i;
+const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto']);
+
+// Attributes the browser fetches or navigates while the page is rendering.
+const URL_ATTRIBUTES = ['href', 'src', 'poster', 'action', 'formaction'] as const;
 
 /**
  * Browsers treat `\` as `/`, and strip tab, newline, and carriage return before
  * parsing. `/\host` and `/<tab>/host` are both protocol-relative `//host`.
+ * The normalized form is only for the safety check. A passing value is left
+ * as authored so a backslash in a query string is not rewritten to a slash.
  */
-function normalizeHref(href: string): string {
+export function normalizeHref(href: string): string {
     return href
         .trim()
         .replace(/\\/g, '/')
         .replace(/[\t\n\r]/g, '');
 }
 
-function isSafeHref(href: string): boolean {
-    return SAFE_HREF.test(normalizeHref(href));
+/**
+ * Allow http(s), mailto, and any relative reference that does not become a
+ * protocol-relative host after normalization. Reject `javascript:`, `data:`,
+ * and `//host`.
+ */
+export function isSafeHref(href: string): boolean {
+    const normalized = normalizeHref(href);
+    if (!normalized || normalized.startsWith('//')) return false;
+
+    const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
+    if (!scheme) return true;
+    return ALLOWED_SCHEMES.has(scheme[1].toLowerCase());
+}
+
+function scrubSrcset(value: string): string | null {
+    const candidates = value
+        .split(',')
+        .map((candidate) => candidate.trim())
+        .filter(Boolean);
+    const safe = candidates.filter((candidate) => isSafeHref(candidate.split(/\s+/)[0] ?? ''));
+    if (safe.length === 0) return null;
+    if (safe.length === candidates.length) return value;
+    return safe.join(', ');
+}
+
+function scrubUrlAttributes(element: Element): void {
+    URL_ATTRIBUTES.forEach((name) => {
+        if (!element.hasAttribute(name)) return;
+        const value = element.getAttribute(name) ?? '';
+        if (!isSafeHref(value)) element.removeAttribute(name);
+    });
+
+    if (!element.hasAttribute('srcset')) return;
+    const srcset = scrubSrcset(element.getAttribute('srcset') ?? '');
+    if (srcset === null) element.removeAttribute('srcset');
+    else element.setAttribute('srcset', srcset);
 }
 
 /**
@@ -43,22 +78,16 @@ export function toReadOnlyHtml(markdown: string): string {
     });
 
     doc.querySelectorAll('span.file-node').forEach((node) => {
-        const url = normalizeHref(node.getAttribute(FILE_ATTRS.url) ?? '');
+        const url = node.getAttribute(FILE_ATTRS.url) ?? '';
         const name = node.getAttribute(FILE_ATTRS.name) || url;
         if (!isSafeHref(url)) {
             node.replaceWith(doc.createTextNode(name));
-            return;
         }
-        node.setAttribute(FILE_ATTRS.url, url);
     });
 
+    doc.querySelectorAll('*').forEach(scrubUrlAttributes);
+
     doc.querySelectorAll('a[href]').forEach((anchor) => {
-        const href = normalizeHref(anchor.getAttribute('href') ?? '');
-        if (!isSafeHref(href)) {
-            anchor.removeAttribute('href');
-            return;
-        }
-        anchor.setAttribute('href', href);
         anchor.setAttribute('target', '_blank');
         anchor.setAttribute('rel', 'noopener noreferrer');
     });
