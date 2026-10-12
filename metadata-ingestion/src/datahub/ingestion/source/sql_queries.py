@@ -183,7 +183,10 @@ class SqlTableQueryFieldMappings(ConfigModel):
 class SqlTableQuerySourceConfig(ConfigModel):
     type: Literal["sql_table"] = "sql_table"
     connection: SQLAlchemyConnectionConfig = Field(
-        description="SQLAlchemy connection to the database holding the query records."
+        description="SQLAlchemy connection to the database holding the query records. "
+        "The `query` below is executed verbatim, so use a dedicated read-only account "
+        "scoped to just the audit table(s) — the database grants are the authorization "
+        "boundary, not this connector."
     )
     query: str = Field(
         description="SQL SELECT returning one row per query record. Use it to pick the "
