@@ -41,6 +41,7 @@ from datahub.ingestion.source.thoughtspot.models import (
     WorkspaceResponse,
 )
 from datahub.ingestion.source.thoughtspot.report import ThoughtSpotReport
+from datahub.sql_parsing.sql_parsing_common import lower_if_all_upper
 
 logger = logging.getLogger(__name__)
 
@@ -251,9 +252,10 @@ assert not _missing_builders, (
 #   its own source lowercases them for the URN.
 # * ``oracle``/``hana``: both ride a SQLAlchemy dialect whose
 #   ``normalize_name`` lowercases only all-uppercase identifiers
-#   (``oracle.py``'s ``normalize_db_name`` replicates the same rule;
-#   ``sqlalchemy-hana``'s dialect does it natively) — mixed-case names
-#   pass through untouched, so this is conditional, not a blanket lower.
+#   (shared as ``lower_if_all_upper``, which ``oracle.py``'s
+#   ``normalize_db_name`` also delegates to; ``sqlalchemy-hana``'s
+#   dialect does it natively) — mixed-case names pass through
+#   untouched, so this is conditional, not a blanket lower.
 # * Every other platform's own DataHub source does no case
 #   transformation at all (it emits the database's native case
 #   verbatim), so the identity default is correct for them.
@@ -262,15 +264,11 @@ def _identity(name: str) -> str:
     return name
 
 
-def _lower_if_upper(name: str) -> str:
-    return name.lower() if name.isupper() else name
-
-
 # Platforms not listed here fall back to ``_identity``.
 _CASE_NORMALIZERS: Dict[str, Callable[[str], str]] = {
     "snowflake": str.lower,
-    "oracle": _lower_if_upper,
-    "hana": _lower_if_upper,
+    "oracle": lower_if_all_upper,
+    "hana": lower_if_all_upper,
 }
 
 
