@@ -1110,7 +1110,7 @@ tidb = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "pymysql[rsa]>=1.0.2,<2.0.0",
-    "sqlalchemy>=1.4.39,<2",
+    "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
 ]
