@@ -89,7 +89,7 @@ For quick local development, you can set env variable `REACT_APP_THEME` in `.env
 
 Set `REACT_APP_DEFAULT_LANDING_PAGE` when building the frontend assets to choose the initial page. Supported values are `home` and `discover`; the default is `home`. For example, set `REACT_APP_DEFAULT_LANDING_PAGE=discover` in the CI job that builds the frontend.
 
-This Vite variable is embedded in the frontend bundle at build time, so setting it only on the running frontend or GMS container has no effect. Home remains available at `/home` when Discover is the default landing page.
+This Vite variable is embedded in the frontend bundle at build time, so setting it only on the running frontend or GMS container has no effect. Home remains at `/` by default. When Discover is selected, Home remains available from navigation at `/home`.
 
 We are transitioning away from Ant theming, but still depend on it for some styling. The Ant theme is stored in json files, in `./src/conf/theme`. To select the Ant theme, choose a json file and set env variable `ANT_THEME_CONFIG` in `.env` to the theme's filename, including `.json`, then re-run `yarn start` from `datahub/datahub-web-react`.
 

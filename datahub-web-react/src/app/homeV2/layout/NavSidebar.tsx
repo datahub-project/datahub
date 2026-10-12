@@ -8,11 +8,11 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { getHomePageRoute } from '@app/defaultLandingPage';
 import { NavLinks } from '@app/homeV2/layout/NavLinks';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
 
@@ -121,7 +121,7 @@ export const NavSidebar = () => {
                     <NavSkeleton />
                 ) : (
                     <>
-                        <Link to={PageRoutes.HOME}>
+                        <Link to={getHomePageRoute(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE)}>
                             <Icon data-testid="datahub-logo-svg">{appConfig.loaded ? logoComponent : undefined}</Icon>
                         </Link>
                         <NavLinks />

@@ -12,10 +12,12 @@ vi.mock('react-router', () => ({
 describe('useIsHomePage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.stubEnv('REACT_APP_DEFAULT_LANDING_PAGE', 'home');
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllEnvs();
     });
 
     it('should return true when pathname is the Home route', () => {
@@ -24,6 +26,23 @@ describe('useIsHomePage', () => {
         const { result } = renderHook(() => useIsHomePage());
 
         expect(result.current).toBe(true);
+    });
+
+    it('should return true at the root when Home is the default', () => {
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.ROOT });
+
+        const { result } = renderHook(() => useIsHomePage());
+
+        expect(result.current).toBe(true);
+    });
+
+    it('should return false at the root when Discover is the default', () => {
+        vi.stubEnv('REACT_APP_DEFAULT_LANDING_PAGE', 'discover');
+        mockUseLocation.mockReturnValue({ pathname: PageRoutes.ROOT });
+
+        const { result } = renderHook(() => useIsHomePage());
+
+        expect(result.current).toBe(false);
     });
 
     it('should return false when pathname is not the Home route', () => {
@@ -130,7 +149,7 @@ describe('useIsHomePage', () => {
             { pathname: '/browse', expected: false },
             { pathname: '/search', expected: false },
             { pathname: '/datasets', expected: false },
-            { pathname: '/', expected: false },
+            { pathname: PageRoutes.ROOT, expected: true },
             { pathname: PageRoutes.HOME, expected: true },
             { pathname: '/settings', expected: false },
             { pathname: '/profile', expected: false },
