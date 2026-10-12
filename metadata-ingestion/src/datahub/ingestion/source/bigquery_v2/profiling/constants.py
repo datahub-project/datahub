@@ -237,14 +237,25 @@ PARTITION_FILTER_PATTERN = re.compile(
 # extracted, the table IS partitioned but we can't build a filter, so it must be treated
 # as unknown (skip) rather than unpartitioned.
 #
-# The option keys are anchored on the `= ` assignment so the marker is only detected as an
-# actual OPTIONS entry, not when the same text appears inside a quoted value such as a GCS
-# URI (`gs://bucket/hive_partitioning_mode=.../`). A SQL comment that assigns the option is
-# a residual false positive, but it errs toward skipping (never toward a full scan).
+# The option keys are anchored on the `=` assignment to look like an actual OPTIONS entry.
+# This alone does NOT protect against the same text appearing inside a quoted value such as
+# a GCS URI (`gs://bucket/hive_partitioning_mode=.../`) — that substring would still match —
+# so callers must strip string literals (see SQL_STRING_LITERAL_RE) before searching. A SQL
+# comment that assigns the option is a residual false positive, but it errs toward skipping
+# (never toward a full scan).
 HIVE_PARTITIONING_DDL_RE = re.compile(
     r"hive_partitioning_(?:mode|options)\s*=|WITH\s+PARTITION\s+COLUMNS\b",
     re.IGNORECASE,
 )
+
+# Matches single- or double-quoted SQL string literals (including the doubled-quote escape
+# form '' / "") so a DDL scan can blank out literal contents before pattern-matching, keeping
+# option markers that live inside URIs/strings from being read as real OPTIONS entries.
+# ponytail: does not handle BigQuery raw/byte prefixes (r'' / b'') or triple-quoted strings;
+# those would leave the delimiter chars but still blank the inner text, which is sufficient
+# here (a false negative only costs a skipped profile, never a full scan). Upgrade to a
+# sqlglot tokenizer pass if richer literal handling is ever needed.
+SQL_STRING_LITERAL_RE = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
 
 DATE_FORMAT_YYYYMMDD = "YYYYMMDD"
 DATE_FORMAT_YYYY_MM_DD = "YYYY-MM-DD"

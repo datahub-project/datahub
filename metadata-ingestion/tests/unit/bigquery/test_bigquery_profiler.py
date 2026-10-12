@@ -1061,27 +1061,34 @@ def test_external_table_discovery_fallback_warns():
 
 
 def test_external_discovery_short_circuits_on_sampling_success():
-    # When sampling already found values, the external path returns them immediately and
-    # never consults INFORMATION_SCHEMA / DDL.
+    # Partition columns are discovered once up front and threaded into sampling. When
+    # sampling finds values the path returns them immediately, without a second discovery
+    # pass or the DDL fallback.
     discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
     table = create_test_table(external=True)
 
     with (
         patch.object(
             discovery,
+            "_discover_partition_columns_with_types",
+            return_value={"event_date": "DATE"},
+        ) as mock_discover,
+        patch.object(
+            discovery,
             "_get_partitions_with_sampling",
             return_value=["`event_date` = '2023-01-01'"],
-        ),
-        patch.object(
-            discovery, "_discover_partition_columns_with_types"
-        ) as mock_discover,
+        ) as mock_sampling,
+        patch.object(discovery, "_get_fallback_partition_filters") as mock_fallback,
     ):
         filters = discovery._get_external_table_partition_filters(
             table, "test-project", "dataset", lambda q, jc, ctx: []
         )
 
     assert filters == ["`event_date` = '2023-01-01'"]
-    mock_discover.assert_not_called()
+    mock_discover.assert_called_once()
+    mock_fallback.assert_not_called()
+    # The discovered columns are threaded into sampling, not re-discovered there.
+    assert mock_sampling.call_args.kwargs["known_columns"] == ["event_date"]
 
 
 def test_external_discovery_unknown_without_ddl_returns_none():
