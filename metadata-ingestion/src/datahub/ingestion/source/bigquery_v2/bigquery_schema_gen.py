@@ -1673,6 +1673,7 @@ class BigQuerySchemaGenerator:
                         items_to_get,
                         with_partitions=with_partitions,
                         use_legacy_table_stats=self.config.use_legacy_table_stats,
+                        aggregate_sharded_stats=self.config.enable_legacy_sharded_table_support,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1684,6 +1685,7 @@ class BigQuerySchemaGenerator:
                     items_to_get,
                     with_partitions=with_partitions,
                     use_legacy_table_stats=self.config.use_legacy_table_stats,
+                    aggregate_sharded_stats=self.config.enable_legacy_sharded_table_support,
                     report=self.report,
                 )
 

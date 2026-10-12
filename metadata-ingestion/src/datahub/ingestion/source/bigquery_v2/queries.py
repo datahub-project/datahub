@@ -1,10 +1,18 @@
 import textwrap
-from typing import Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_NULL_PARTITION_ID,
     BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
     BQ_UNPARTITIONED_PARTITION_ID,
+)
+
+# Strips a trailing date shard suffix (`_20251121`, `$20251121`, `20251121`) from a
+# BigQuery table name to recover the logical wildcard table's base name. Kept in sync with
+# the `table_base` expressions embedded in the stats query templates below and used to sum
+# per-shard stats back onto the single collapsed entity (see build_sharded_stats_clauses).
+SHARDED_TABLE_BASE_STRIP_REGEX = (
+    r"(?:[_$]?)(\d\d\d\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
 
 
@@ -51,8 +59,8 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  ts.row_count as row_count,
-  ts.size_bytes as bytes,
+  {{row_count_select}} as row_count,
+  {{bytes_select}} as bytes,
   p.num_partitions,
   p.max_partition_id,
   p.active_billable_bytes as active_billable_bytes,
@@ -78,7 +86,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name
+    t.table_name = p.table_name{{shard_stats_join}}
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -104,8 +112,8 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  p.total_rows as row_count,
-  p.total_logical_bytes as bytes,
+  {{row_count_select}} as row_count,
+  {{bytes_select}} as bytes,
   p.num_partitions,
   p.max_partition_id,
   p.active_billable_bytes as active_billable_bytes,
@@ -132,7 +140,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name
+    t.table_name = p.table_name{{shard_stats_join}}
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -385,6 +393,59 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     and tc.constraint_schema = ccu.constraint_schema
     and tc.constraint_name = ccu.constraint_name
 """
+
+    @staticmethod
+    def build_sharded_stats_clauses(
+        project_id: str,
+        dataset_name: str,
+        use_legacy_table_stats: bool,
+        aggregate_sharded_stats: bool,
+    ) -> Dict[str, str]:
+        """Build the row_count / bytes selects and the optional shard-rollup join for the
+        stats query templates.
+
+        A collapsed date-sharded table (the default, legacy support on) is represented by
+        its latest shard alone, so its row_count / size would otherwise reflect only that
+        one shard. When aggregate_sharded_stats is set we LEFT JOIN a per-base rollup
+        (`sh`) that sums every shard's stats and COALESCE it over the latest shard's own
+        values. The `t.table_name != <base>` join condition leaves un-sharded tables on
+        their own per-table stats.
+        """
+        if use_legacy_table_stats:
+            own_rows, own_bytes = "ts.row_count", "ts.size_bytes"
+            source, name_col = "__TABLES__", "table_id"
+            src_rows, src_bytes = "row_count", "size_bytes"
+        else:
+            own_rows, own_bytes = "p.total_rows", "p.total_logical_bytes"
+            source, name_col = "INFORMATION_SCHEMA.PARTITIONS", "table_name"
+            src_rows, src_bytes = "total_rows", "total_logical_bytes"
+
+        if not aggregate_sharded_stats:
+            return {
+                "row_count_select": own_rows,
+                "bytes_select": own_bytes,
+                "shard_stats_join": "",
+            }
+
+        regex = SHARDED_TABLE_BASE_STRIP_REGEX
+        table_base = f'REGEXP_REPLACE(t.table_name, r"{regex}", "")'
+        shard_stats_join = f"""
+  left join (
+    select
+        REGEXP_REPLACE({name_col}, r"{regex}", "") as table_base,
+        sum({src_rows}) as total_rows,
+        sum({src_bytes}) as total_bytes
+    from
+        `{project_id}`.`{dataset_name}`.{source}
+    group by
+        table_base) as sh on
+    {table_base} = sh.table_base
+    and t.table_name != {table_base}"""
+        return {
+            "row_count_select": f"COALESCE(sh.total_rows, {own_rows})",
+            "bytes_select": f"COALESCE(sh.total_bytes, {own_bytes})",
+            "shard_stats_join": shard_stats_join,
+        }
 
 
 BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """

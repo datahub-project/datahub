@@ -1375,6 +1375,46 @@ def test_get_tables_for_dataset_query_selection(
 @patch.object(BigQuerySchemaApi, "get_query_result")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("aggregate_sharded_stats", [True, False])
+def test_get_tables_for_dataset_shard_rollup_toggle(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    aggregate_sharded_stats: bool,
+) -> None:
+    # Only the latest shard of a collapsed sharded table is queried, so when the shards
+    # collapse into one entity the query must sum their stats back onto it; otherwise the
+    # latest shard's own stats are kept unchanged.
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    list(
+        schema_api.get_tables_for_dataset(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            tables={"table1": MagicMock()},
+            report=BigQueryV2Report(),
+            with_partitions=True,
+            aggregate_sharded_stats=aggregate_sharded_stats,
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    rollup_present = ") as sh on" in executed_query
+    assert rollup_present is aggregate_sharded_stats
+    if aggregate_sharded_stats:
+        assert "COALESCE(sh.total_rows, p.total_rows) as row_count" in executed_query
+    else:
+        assert "p.total_rows as row_count" in executed_query
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
 @pytest.mark.parametrize("entity", ["views", "snapshots"])
 @pytest.mark.parametrize("use_legacy_table_stats", [False, True])
 def test_get_views_and_snapshots_legacy_tables_selection(
@@ -1416,13 +1456,57 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
     query = BigqueryQuery.tables_for_dataset_with_partition_stats
-    assert "p.total_rows as row_count" in query
-    assert "p.total_logical_bytes as bytes" in query
+    assert "{row_count_select} as row_count" in query
+    assert "{bytes_select} as bytes" in query
     assert "p.last_modified_time as last_altered" in query
     # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
     # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
     # silently feed wrong timestamps rather than raise.
     assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+    # Without shard aggregation the row_count / bytes aliases map straight onto the
+    # PARTITIONS rollup `p`, preserving the pre-existing behaviour.
+    clauses = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=False,
+        aggregate_sharded_stats=False,
+    )
+    assert clauses["row_count_select"] == "p.total_rows"
+    assert clauses["bytes_select"] == "p.total_logical_bytes"
+    assert clauses["shard_stats_join"] == ""
+
+
+def test_build_sharded_stats_clauses_sums_across_shards() -> None:
+    # Collapsing a date-sharded table keeps only the latest shard, so its stats must be
+    # summed across every shard and fall back to the latest shard's own stats for
+    # un-sharded tables (COALESCE + the `t.table_name != <base>` join condition).
+    partition = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=False,
+        aggregate_sharded_stats=True,
+    )
+    assert partition["row_count_select"] == "COALESCE(sh.total_rows, p.total_rows)"
+    assert (
+        partition["bytes_select"] == "COALESCE(sh.total_bytes, p.total_logical_bytes)"
+    )
+    assert "INFORMATION_SCHEMA.PARTITIONS" in partition["shard_stats_join"]
+    assert "sum(total_rows) as total_rows" in partition["shard_stats_join"]
+    assert "sum(total_logical_bytes) as total_bytes" in partition["shard_stats_join"]
+    assert "and t.table_name != " in partition["shard_stats_join"]
+
+    # Legacy opt-in sums the undocumented __TABLES__ columns instead.
+    legacy = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=True,
+        aggregate_sharded_stats=True,
+    )
+    assert legacy["row_count_select"] == "COALESCE(sh.total_rows, ts.row_count)"
+    assert legacy["bytes_select"] == "COALESCE(sh.total_bytes, ts.size_bytes)"
+    assert "__TABLES__" in legacy["shard_stats_join"]
+    assert "sum(size_bytes) as total_bytes" in legacy["shard_stats_join"]
 
 
 def test_make_bigquery_table_null_partition_stats() -> None:
