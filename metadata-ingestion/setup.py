@@ -346,25 +346,19 @@ trino = {
     "trino[sqlalchemy]>=0.308,<=0.336.0",
 }
 
-pyhive_common = {
-    # DataHub maintains a fork of PyHive
-    # - 0.6.11 adds support for table comments and column comments,
-    #   and also releases HTTP and HTTPS transport schemes
-    # - 0.6.12 adds support for Spark Thrift Server
-    # - 0.6.13 adds a small fix for Databricks
-    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
-    # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
-    #   (https://github.com/acryldata/PyHive/pull/11)
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
-    # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
-    # of thrift broke PyHive's hive+http transport.
-    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0
-    # which is unfortunately not on PyPi.
-    # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
+# Kerberos (GSSAPI) over Thrift SASL, for HiveServer2 and the Hive Metastore.
+thrift_sasl_common = {
+    "pure-sasl>=0.6.2,<1.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
+}
+
+# HiveServer2 / Spark Thrift Server driver for DataHub's Hive SQLAlchemy dialects.
+hive_common = thrift_sasl_common | {
+    "impyla>=0.24.0,<1.0.0",
+}
+
+presto_common = {
+    "presto-python-client>=0.8.4,<1.0.0",
 }
 
 microsoft_common = {
@@ -723,16 +717,12 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "defusedxml>=0.7.1,<0.8.0",
     },
-    "hive": sql_common
-    | pyhive_common
-    | {
-        "databricks-dbapi<0.7.0",
-    },
+    "hive": sql_common | hive_common,
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
         "pymysql>=1.0.2,<2.0.0",
@@ -793,10 +783,10 @@ plugins: Dict[str, Set[str]] = {
     "openapi": {"requests<3.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
-    "presto": sql_common | pyhive_common | trino,
+    "presto": sql_common | presto_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
         "pymysql>=1.0.2,<2.0.0",
