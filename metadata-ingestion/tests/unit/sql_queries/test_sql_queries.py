@@ -680,14 +680,38 @@ class TestSqlQueriesSource:
         )
         source.aggregator.add_observed_query = Mock()
 
-        # Row carries its own schema; config supplies the db.
-        source._add_query_to_aggregator(
+        def observed_for(entry):
+            source.aggregator.add_observed_query.reset_mock()
+            source._add_query_to_aggregator(entry)
+            return source.aggregator.add_observed_query.call_args.args[0]
+
+        # Each dimension overrides independently; the other falls back to config.
+        schema_override = observed_for(
             QueryEntry(query="SELECT 1 FROM t", default_schema="row_schema")
         )
+        assert schema_override.default_schema == "row_schema"
+        assert schema_override.default_db == "config_db"
 
-        observed = source.aggregator.add_observed_query.call_args.args[0]
+        db_override = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_db="row_db")
+        )
+        assert db_override.default_db == "row_db"
+        assert db_override.default_schema == "config_schema"
+
+        # The fields must also populate from a parsed JSONL row, not only direct
+        # construction — that is the shape the feature targets.
+        parsed = QueryEntry.create(
+            {
+                "query": "SELECT 1 FROM t",
+                "default_db": "row_db",
+                "default_schema": "row_schema",
+            },
+            config=source.config,
+            report=source.report,
+        )
+        observed = observed_for(parsed)
+        assert observed.default_db == "row_db"
         assert observed.default_schema == "row_schema"
-        assert observed.default_db == "config_db"
 
 
 class TestErrorHandling:
