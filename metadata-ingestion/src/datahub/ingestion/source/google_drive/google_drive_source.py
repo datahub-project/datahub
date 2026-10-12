@@ -369,6 +369,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             parent_urn=parent_urn,
             custom_properties=custom_properties,
             subtype=DocumentSubTypes.FOLDER,
+            created_time=folder.created_time,
+            last_modified_time=folder.modified_time,
         )
         self._attach_common_aspects(doc, parent_folder, tree)
         self.report.folders_emitted += 1

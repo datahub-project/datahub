@@ -142,6 +142,7 @@ def test_shared_drive_not_addressable_by_files_get_falls_back_to_drives_get() ->
 
     assert root.title == "Team Drive"
     assert root.drive_id == "0AteamDriveOnly"
+    assert root.created_time is not None
     assert svc.calls_for("drives.get") == ["0AteamDriveOnly"]
 
 

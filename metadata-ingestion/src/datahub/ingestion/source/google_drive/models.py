@@ -15,7 +15,6 @@ from datahub.ingestion.source.google_drive.constants import (
 class DriveUser(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    display_name: Optional[str] = Field(default=None, alias="displayName")
     email_address: Optional[str] = Field(default=None, alias="emailAddress")
 
 
@@ -25,7 +24,6 @@ class DriveFile(BaseModel):
     id: str
     name: str
     mime_type: str = Field(alias="mimeType")
-    parents: List[str] = Field(default_factory=list)
     drive_id: Optional[str] = Field(default=None, alias="driveId")
     # Drive returns the version as a decimal string (int64 in JSON).
     version: Optional[str] = None
@@ -53,17 +51,26 @@ class DriveFile(BaseModel):
         return self.mime_type == MIME_SHORTCUT
 
 
+class SharedDrive(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    id: str
+    name: Optional[str] = None
+    created_time: Optional[datetime] = Field(default=None, alias="createdTime")
+
+
 @dataclass
 class FolderNode:
     id: str
     title: str
     # None for configured roots.
     parent_id: Optional[str]
-    root_id: str
     path: str
-    depth: int
     drive_id: Optional[str]
     web_view_link: Optional[str]
+    # Taken from Drive so folder documents keep stable timestamps across runs.
+    created_time: Optional[datetime] = None
+    modified_time: Optional[datetime] = None
 
     @property
     def is_root(self) -> bool:

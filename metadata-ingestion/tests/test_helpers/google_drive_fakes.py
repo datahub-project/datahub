@@ -198,7 +198,11 @@ class _FakeDrives:
             self._svc.calls.append(("drives.get", driveId))
             if driveId not in self._svc.shared_drives:
                 raise http_error(404, "notFound")
-            return {"id": driveId, "name": self._svc.shared_drives[driveId]}
+            return {
+                "id": driveId,
+                "name": self._svc.shared_drives[driveId],
+                "createdTime": "2025-12-01T00:00:00.000Z",
+            }
 
         return _Request(run)
 

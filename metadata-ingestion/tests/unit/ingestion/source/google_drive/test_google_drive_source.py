@@ -156,6 +156,16 @@ def test_full_run_emits_folders_and_documents() -> None:
     assert [e.id for e in browse.path] == ["Root A", "Eng", "Specs"]
 
 
+def test_folder_documents_use_drive_timestamps_not_ingestion_time() -> None:
+    # Golden-file comparison ignores audit timestamps, so this is checked here: a
+    # folder stamped with the run time would change on every ingestion.
+    aspects = run(make_source(build_fixture_service()))
+    for folder_id in (ROOT_A, ENG, SHARED_B):
+        info = doc_info(aspects, folder_id)
+        assert info.created.time == 1767323045000  # 2026-01-02T03:04:05Z
+        assert info.lastModified.time == 1770091506000  # 2026-02-03T04:05:06Z
+
+
 def test_owners_are_mapped_and_deduplicated() -> None:
     aspects = run(make_source(build_fixture_service()))
 

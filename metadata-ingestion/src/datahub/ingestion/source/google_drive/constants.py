@@ -30,13 +30,12 @@ API_MAX_RETRIES = 5
 LIST_PAGE_SIZE = 1000
 
 FILE_FIELDS = (
-    "id,name,mimeType,parents,driveId,version,size,createdTime,modifiedTime,"
-    "webViewLink,owners(displayName,emailAddress),"
-    "lastModifyingUser(displayName,emailAddress)"
+    "id,name,mimeType,driveId,version,size,createdTime,modifiedTime,"
+    "webViewLink,owners(emailAddress),lastModifyingUser(emailAddress)"
 )
 LIST_FIELDS = f"nextPageToken,files({FILE_FIELDS})"
 ABOUT_FIELDS = "user(emailAddress)"
-DRIVE_FIELDS = "id,name"
+DRIVE_FIELDS = "id,name,createdTime"
 ORDER_BY = "folder,name"
 
 CHILDREN_QUERY_TEMPLATE = (

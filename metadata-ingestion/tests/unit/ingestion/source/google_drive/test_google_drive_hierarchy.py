@@ -10,24 +10,20 @@ from datahub.ingestion.source.google_drive.models import FolderNode
 PARENT_DOC = "urn:li:document:existing-parent"
 
 
-def node(
-    folder_id: str, title: str, parent_id: Optional[str], depth: int
-) -> FolderNode:
+def node(folder_id: str, title: str, parent_id: Optional[str]) -> FolderNode:
     return FolderNode(
         id=folder_id,
         title=title,
         parent_id=parent_id,
-        root_id="root00000000",
         path=title,
-        depth=depth,
         drive_id=None,
         web_view_link=None,
     )
 
 
-ROOT = node("root00000000", "Root", None, 0)
-SUB = node("sub000000000", "Sub", ROOT.id, 1)
-LEAF = node("leaf00000000", "Leaf", SUB.id, 2)
+ROOT = node("root00000000", "Root", None)
+SUB = node("sub000000000", "Sub", ROOT.id)
+LEAF = node("leaf00000000", "Leaf", SUB.id)
 FOLDERS: Dict[str, FolderNode] = {f.id: f for f in (ROOT, SUB, LEAF)}
 
 

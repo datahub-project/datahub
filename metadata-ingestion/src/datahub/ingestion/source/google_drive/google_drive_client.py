@@ -52,6 +52,7 @@ from datahub.ingestion.source.google_drive.models import (
     DriveTree,
     ExportResult,
     FolderNode,
+    SharedDrive,
 )
 
 logger = logging.getLogger(__name__)
@@ -152,33 +153,36 @@ class GoogleDriveClient:
             id=root.id,
             title=title,
             parent_id=None,
-            root_id=root.id,
             path=title,
-            depth=0,
             drive_id=root.drive_id,
             web_view_link=root.web_view_link,
+            created_time=root.created_time,
+            modified_time=root.modified_time,
         )
 
-    def _get_shared_drive_name(self, drive_id: str) -> Optional[str]:
+    def _get_shared_drive(self, drive_id: str) -> SharedDrive:
         self.report.report_api_call(API_DRIVES_GET)
-        drive = (
+        raw = (
             self._service.drives()
             .get(driveId=drive_id, fields=DRIVE_FIELDS)
             .execute(num_retries=API_MAX_RETRIES)
         )
-        return drive.get("name")
+        return SharedDrive.model_validate(raw)
+
+    def _get_shared_drive_name(self, drive_id: str) -> Optional[str]:
+        return self._get_shared_drive(drive_id).name
 
     def _get_shared_drive_root(self, drive_id: str) -> FolderNode:
-        title = self._get_shared_drive_name(drive_id) or drive_id
+        drive = self._get_shared_drive(drive_id)
+        title = drive.name or drive_id
         return FolderNode(
             id=drive_id,
             title=title,
             parent_id=None,
-            root_id=drive_id,
             path=title,
-            depth=0,
             drive_id=drive_id,
             web_view_link=SHARED_DRIVE_URL_TEMPLATE.format(drive_id=drive_id),
+            created_time=drive.created_time,
         )
 
     def list_children(self, folder_id: str) -> Iterator[DriveFile]:
@@ -294,11 +298,11 @@ class GoogleDriveClient:
             id=child.id,
             title=child.name,
             parent_id=parent.id,
-            root_id=parent.root_id,
             path=path,
-            depth=parent.depth + 1,
             drive_id=child.drive_id,
             web_view_link=child.web_view_link,
+            created_time=child.created_time,
+            modified_time=child.modified_time,
         )
         tree.folders[child.id] = node
         queue.append(node)

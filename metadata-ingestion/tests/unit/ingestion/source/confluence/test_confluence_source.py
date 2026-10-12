@@ -1133,8 +1133,8 @@ def test_folder_entity_emits_folder_subtype_document(
 ) -> None:
     """A folder ancestor is emitted as a Folder-subtyped document with no text."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
-    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
     from datahub.ingestion.source.common.subtypes import DocumentSubTypes
+    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
     from datahub.metadata.schema_classes import (
         DocumentInfoClass,
         SubTypesClass,
