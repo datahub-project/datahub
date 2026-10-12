@@ -740,6 +740,11 @@ class TestSqlQueriesSource:
         plain = observed_for(QueryEntry(query="SELECT 1 FROM t"))
         assert plain.query_hash is None
 
+        # A blank per-row value falls back to the config default just like an
+        # omitted one, so it must not get a distinct fingerprint.
+        blank = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db=""))
+        assert blank.query_hash is None
+
 
 class TestErrorHandling:
     def test_malformed_lines_skipped_and_counted(

@@ -469,10 +469,12 @@ class SqlQueriesSource(Source):
             # lineage). Config-level defaults are constant across the run and never
             # cause this, so we only disambiguate when the row carries its own.
             query_hash: Optional[str] = None
-            if (
-                query_entry.default_db is not None
-                or query_entry.default_schema is not None
-            ):
+            if query_entry.default_db or query_entry.default_schema:
+                # Gate on truthiness, not "is not None": a blank/empty per-row value
+                # falls back to the config default (via `or` below) exactly like an
+                # omitted one, so it must not get a distinct fingerprint — otherwise
+                # empty-string rows (common in exported logs) would split from the
+                # legacy SQL-only Query URN and stop aggregating with it.
                 # Disambiguate on the effective (post-config-fallback) defaults so two
                 # per-row rows that resolve to the same db/schema still share a
                 # fingerprint, and encode the pair structurally so an identifier
