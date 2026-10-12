@@ -669,6 +669,26 @@ class TestSqlQueriesSource:
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
 
+    def test_per_row_schema_overrides_config_default(
+        self, pipeline_context, query_file_with
+    ):
+        source = _make_source(
+            pipeline_context,
+            query_file_with([]),
+            default_db="config_db",
+            default_schema="config_schema",
+        )
+        source.aggregator.add_observed_query = Mock()
+
+        # Row carries its own schema; config supplies the db.
+        source._add_query_to_aggregator(
+            QueryEntry(query="SELECT 1 FROM t", default_schema="row_schema")
+        )
+
+        observed = source.aggregator.add_observed_query.call_args.args[0]
+        assert observed.default_schema == "row_schema"
+        assert observed.default_db == "config_db"
+
 
 class TestErrorHandling:
     def test_malformed_lines_skipped_and_counted(

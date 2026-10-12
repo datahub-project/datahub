@@ -466,8 +466,8 @@ class SqlQueriesSource(Source):
                 timestamp=query_entry.timestamp,
                 user=query_entry.user,
                 session_id=query_entry.session_id,
-                default_db=self.config.default_db,
-                default_schema=self.config.default_schema,
+                default_db=query_entry.default_db or self.config.default_db,
+                default_schema=query_entry.default_schema or self.config.default_schema,
                 override_dialect=self.config.override_dialect,
             )
             self.aggregator.add_observed_query(observed_query)
@@ -495,6 +495,12 @@ class QueryEntry(BaseModel):
     downstream_tables: List[DatasetUrn] = Field(default_factory=list)
     upstream_tables: List[DatasetUrn] = Field(default_factory=list)
     session_id: Optional[str] = None
+    # Per-row defaults for unqualified table names. Take precedence over the
+    # source-level default_db/default_schema so a single run can span query
+    # records from different databases/schemas (e.g. an audit log keyed by
+    # database per row).
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
