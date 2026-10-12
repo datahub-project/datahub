@@ -3,11 +3,13 @@ from unittest.mock import ANY, patch
 import pytest
 from databricks.sdk.service.catalog import TableType
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
 from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.metadata.schema_classes import DataPlatformInstanceClass, StatusClass
 
 
 class TestUnityCatalogSource:
@@ -3039,6 +3041,61 @@ class TestUnityCatalogMlModelControls:
         ml_model_urns = [wu.get_urn() for wu in wus if "mlModel:" in wu.get_urn()]
         assert ml_model_urns
         assert all(u.endswith(",DEV)") for u in ml_model_urns), ml_model_urns
+
+    @pytest.mark.parametrize("flag", [True, False])
+    def test_emit_ml_model_platform_instance(self, flag: bool) -> None:
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import ModelVersion
+
+        source = self._build_source(
+            platform_instance="my_instance", emit_ml_model_platform_instance=flag
+        )
+        schema, models = self._schema_and_models(1)
+        version = ModelVersion(
+            id="c.s.model_0_1",
+            name="model_0_1",
+            model=models[0],
+            version="1",
+            aliases=[],
+            description=None,
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="u",
+            run_details=None,
+            signature=None,
+        )
+        group_wus = list(source.process_ml_model(models[0], schema))
+        model_wus = list(
+            source.process_ml_model_version(
+                source.gen_ml_model_urn(models[0].id), version, schema
+            )
+        )
+        expected_instance = (
+            "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,my_instance)"
+        )
+
+        for wus in (group_wus, model_wus):
+            mcps = [
+                wu.metadata
+                for wu in wus
+                if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            ]
+            assert len(mcps) == len(wus)
+            instances = [
+                m.aspect.instance
+                for m in mcps
+                if isinstance(m.aspect, DataPlatformInstanceClass)
+            ]
+            if flag:
+                # Instance first, then an UPSERT status (no auto-status PATCH):
+                # instance-scoped write policies read the stored instance.
+                assert isinstance(mcps[0].aspect, DataPlatformInstanceClass)
+                assert isinstance(mcps[1].aspect, StatusClass)
+                assert instances == [expected_instance]
+            else:
+                assert expected_instance not in instances
+                assert not any(isinstance(m.aspect, StatusClass) for m in mcps)
 
 
 class TestUnityCatalogViewFiltering:

@@ -565,6 +565,15 @@ class UnityCatalogSourceConfig(
         "(including API calls), use `include_ml_models: false` instead.",
     )
 
+    emit_ml_model_platform_instance: bool = pydantic.Field(
+        default=False,
+        description="If enabled, ML model groups and ML models carry the source's "
+        "platform instance (the same one used for tables) in their "
+        "`dataPlatformInstance` aspect, emitted first and followed by a `status` "
+        "aspect. This lets write policies scoped by platform instance cover ML "
+        "models. URNs are unchanged.",
+    )
+
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
     _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
 

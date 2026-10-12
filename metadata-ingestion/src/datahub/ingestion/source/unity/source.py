@@ -152,6 +152,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StatusClass,
     SubTypesClass,
     TimeStampClass,
     UpstreamClass,
@@ -1054,13 +1055,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             id=ml_model.id,
             name=ml_model.name,
             platform=self.platform,
-            platform_instance=schema.name,
+            platform_instance=(
+                self.platform_instance_name
+                if self.config.emit_ml_model_platform_instance
+                else schema.name
+            ),
             env=self.config.env,
             description=ml_model.description,
             created=ml_model.created_at,
             last_modified=ml_model.updated_at,
         )
-        yield from ml_model_group.as_workunits()
+        yield from self._ml_workunits_instance_first(ml_model_group.as_workunits())
         yield from self.add_model_to_schema_container(str(ml_model_group.urn), schema)
         self.report.ml_models.processed(ml_model.id)
 
@@ -1100,6 +1105,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=ml_model_version.description,
             model_group=ml_model_urn,
             platform=self.platform,
+            platform_instance=(
+                self.platform_instance_name
+                if self.config.emit_ml_model_platform_instance
+                else None
+            ),
             env=self.config.env,
             last_modified=ml_model_version.updated_at,
             training_metrics=cast(
@@ -1117,7 +1127,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             extra_aspects=extra_aspects,
         )
 
-        yield from ml_model.as_workunits()
+        yield from self._ml_workunits_instance_first(ml_model.as_workunits())
         yield from self.add_model_version_to_schema_container(str(ml_model.urn), schema)
         self.report.ml_model_versions.processed(ml_model_version.id)
 
@@ -1252,6 +1262,30 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if user in self.service_principals:
             user = self.service_principals[user].display_name
         return make_user_urn(user)
+
+    def _ml_workunits_instance_first(
+        self, workunits: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        """With emit_ml_model_platform_instance, send dataPlatformInstance first,
+        then an UPSERT status. Instance-scoped write policies read the stored
+        instance, and auto-status would otherwise send a PATCH, which needs EDIT
+        and can be authorized before the instance is stored."""
+        if not self.config.emit_ml_model_platform_instance:
+            yield from workunits
+            return
+        wus = list(workunits)
+        first = [
+            wu
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DataPlatformInstanceClass)
+        ]
+        yield from first
+        if first:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=first[0].get_urn(), aspect=StatusClass(removed=False)
+            ).as_workunit()
+        yield from (wu for wu in wus if wu not in first)
 
     def gen_dataset_urn(self, table_ref: TableReference) -> str:
         return make_dataset_urn_with_platform_instance(
