@@ -215,6 +215,8 @@ def set_view_entity_profile_privileges_policy_status(status, session):
                 "description": "Grants entity view to all users",
                 "privileges": [
                     "VIEW_ENTITY_PAGE",
+                    "VIEW_ENTITY_QUERIES",
+                    "VIEW_ALL_QUERIES",
                     "SEARCH_PRIVILEGE",
                     "GET_COUNTS_PRIVILEGE",
                     "GET_TIMESERIES_ASPECT_PRIVILEGE",

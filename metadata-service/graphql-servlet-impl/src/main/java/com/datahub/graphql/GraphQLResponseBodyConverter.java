@@ -93,10 +93,12 @@ public class GraphQLResponseBodyConverter
 
         if (clientAbort) {
           incrementMetric(CLIENT_ABORT_METRIC);
-          log.debug(
-              "GraphQL response streaming aborted by client after {} bytes: {}",
-              counting.getCount(),
-              e.toString());
+          if (log.isDebugEnabled()) {
+            log.debug(
+                "GraphQL response streaming aborted by client after {} bytes: {}",
+                counting.getCount(),
+                e.toString());
+          }
           GraphQLResponseStreamAbortedException aborted =
               new GraphQLResponseStreamAbortedException(e);
           primaryFailure = aborted;

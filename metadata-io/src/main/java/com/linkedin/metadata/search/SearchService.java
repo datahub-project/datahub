@@ -147,9 +147,13 @@ public class SearchService {
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     log.debug(
-        String.format(
-            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-            entities, input, postFilters, sortCriteria, from, size));
+        "Searching Search documents entities: {}, input: {}, postFilters: {}, sortCriterion: {}, from: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        from,
+        size);
 
     final List<String> finalFacets = facetInput(facets);
     List<String> nonEmptyEntities = getEntitiesToSearch(opContext, entities, size);
@@ -257,9 +261,13 @@ public class SearchService {
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final List<String> finalFacets = facetInput(facets);
     log.debug(
-        String.format(
-            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Searching Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, from: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entities, size);
     if (entitiesToSearch.isEmpty()) {
       // No indices with non-zero entries: skip querying and return empty result

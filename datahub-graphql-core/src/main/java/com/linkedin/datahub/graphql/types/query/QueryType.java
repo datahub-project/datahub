@@ -70,18 +70,19 @@ public class QueryType
               aspectsToResolve);
 
       final Set<Urn> viewableQueryUrns;
-      if (context
-              .getOperationContext()
-              .getOperationContextConfig()
-              .getViewAuthorizationConfiguration()
-              .isEnabled()
+      // Active when query-read authorization is enabled (dedicated flag or the legacy
+      // view-authorization switch); disabled means no subject lookups at all.
+      if (EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+              context.getOperationContext())
           && !context.getOperationContext().isSystemAuth()) {
         viewableQueryUrns =
             EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                 context.getOperationContext(),
                 context.getOperationContext(),
                 context.getOperationContext().getAspectRetriever(),
-                viewUrns);
+                viewUrns,
+                EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+                    context.getOperationContext()));
       } else {
         viewableQueryUrns = new HashSet<>(viewUrns);
       }

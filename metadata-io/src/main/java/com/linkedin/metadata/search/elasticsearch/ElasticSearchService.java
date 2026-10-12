@@ -161,9 +161,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String document,
       @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document entityName: %s, document: %s, docId: %s",
-            entityName, document, docId));
+        "Upserting Search document entityName: {}, document: {}, docId: {}",
+        entityName,
+        document,
+        docId);
     esWriteDAO.upsertDocument(opContext, entityName, document, docId);
   }
 
@@ -181,17 +182,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String document,
       @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document indexName: %s, document: %s, docId: %s",
-            indexName, document, docId));
+        "Upserting Search document indexName: {}, document: {}, docId: {}",
+        indexName,
+        document,
+        docId);
     esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
   }
 
   @Override
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
-    log.debug(
-        String.format("Deleting Search document entityName: %s, docId: %s", entityName, docId));
+    log.debug("Deleting Search document entityName: {}, docId: {}", entityName, docId);
     esWriteDAO.deleteDocument(opContext, entityName, docId);
   }
 
@@ -204,7 +205,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    */
   public void deleteDocumentByIndexName(
       @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String docId) {
-    log.debug(String.format("Deleting Search document indexName: %s, docId: %s", indexName, docId));
+    log.debug("Deleting Search document indexName: {}, docId: {}", indexName, docId);
     esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
   }
 
@@ -260,9 +261,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String document,
       @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document searchGroup: %s, document: %s, docId: %s",
-            searchGroup, document, docId));
+        "Upserting Search document searchGroup: {}, document: {}, docId: {}",
+        searchGroup,
+        document,
+        docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, searchGroup, document, docId);
   }
 
@@ -277,8 +279,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
-    log.debug(
-        String.format("Deleting Search document searchGroup: %s, docId: %s", searchGroup, docId));
+    log.debug("Deleting Search document searchGroup: {}, docId: {}", searchGroup, docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
   }
 
@@ -390,9 +391,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
-            entityNames, input, postFilters, sortCriteria, from, size));
+        "Searching FullText Search documents entityName: {}, input: {}, postFilters: {}, sortCriteria: {}, from: {}, size: {}",
+        entityNames,
+        input,
+        postFilters,
+        sortCriteria,
+        from,
+        size);
 
     return esSearchDAO.search(
         opContext.withSearchFlags(
@@ -416,9 +421,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int from,
       @Nullable Integer size) {
     log.debug(
-        String.format(
-            "Filtering Search documents entityName: %s, filters: %s, sortCriteria: %s, from: %s, size: %s",
-            entityName, filters, sortCriteria, from, size));
+        "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, from: {}, size: {}",
+        entityName,
+        filters,
+        sortCriteria,
+        from,
+        size);
 
     return esSearchDAO.filter(
         opContext.withSearchFlags(
@@ -440,9 +448,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
     log.debug(
-        String.format(
-            "Autocompleting query entityName: %s, query: %s, field: %s, requestParams: %s, limit: %s",
-            entityName, query, field, requestParams, limit));
+        "Autocompleting query entityName: {}, query: {}, field: {}, requestParams: {}, limit: {}",
+        entityName,
+        query,
+        field,
+        requestParams,
+        limit);
 
     return esSearchDAO.autoComplete(
         opContext.withSearchFlags(
@@ -464,7 +475,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer limit) {
     log.debug(
         "Aggregating by value: {}, field: {}, requestParams: {}, limit: {}",
-        entityNames != null ? entityNames.toString() : null,
+        entityNames,
         field,
         requestParams,
         limit);
@@ -495,9 +506,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int from,
       @Nullable Integer size) {
     log.debug(
-        String.format(
-            "Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s",
-            entityName, path, filters, from, size));
+        "Browsing entities entityName: {}, path: {}, filters: {}, from: {}, size: {}",
+        entityName,
+        path,
+        filters,
+        from,
+        size);
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
             flags ->
@@ -562,8 +576,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public List<String> getBrowsePaths(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
-    log.debug(
-        String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
+    log.debug("Getting browse paths for entity entityName: {}, urn: {}", entityName, urn);
     return esBrowseDAO.getBrowsePaths(opContext, entityName, urn);
   }
 
@@ -580,9 +593,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Scrolling Structured Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, scrollId: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
@@ -611,9 +628,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Scrolling FullText Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, scrollId: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(

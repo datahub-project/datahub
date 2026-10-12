@@ -99,15 +99,19 @@ const darkTheme: ColorTheme = {
     iconDisabled: colors.gray700,
     bgSurfaceDisabled: colors.gray900,
     // Shadows
-    shadowXs: '0 1px 2px 0 rgba(13, 14, 27, 0.28)',
-    shadowSm: '0 2px 4px 0 rgba(13, 14, 27, 0.36)',
-    shadowMd: '0 4px 12px -2px rgba(13, 14, 27, 0.40)',
-    shadowLg: '0 6px 16px -4px rgba(13, 14, 27, 0.48)',
-    shadowXl: '0 8px 24px -4px rgba(13, 14, 27, 0.56)',
+    // A translucent shadow has almost no luminance to play against on a near-black canvas,
+    // so the light-mode opacities read as nothing here. Elevation is the only thing
+    // separating overlays from the page, so these go opaque black, wider, and layered:
+    // a soft ambient pool plus a tighter contact shadow to define the overlay's edge.
+    shadowXs: '0 1px 2px 0 rgba(0, 0, 0, 0.48)',
+    shadowSm: '0 2px 6px -1px rgba(0, 0, 0, 0.56)',
+    shadowMd: '0 8px 20px -4px rgba(0, 0, 0, 0.72), 0 2px 6px -2px rgba(0, 0, 0, 0.56)',
+    shadowLg: '0 12px 28px -6px rgba(0, 0, 0, 0.76), 0 4px 10px -4px rgba(0, 0, 0, 0.6)',
+    shadowXl: '0 20px 40px -8px rgba(0, 0, 0, 0.8), 0 6px 14px -6px rgba(0, 0, 0, 0.64)',
     shadowFocus: '0px 0px 0px 1px rgba(139, 135, 157, 0.20)',
     shadowFocusBrand: '0px 0px 0px 1px rgba(108, 71, 255, 0.20)',
     shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.40)',
-    shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.40)',
+    shadowNavbar: '0px 2px 12px rgba(0, 0, 0, 0.64)',
     shadowDropBrandColor: 'rgba(33, 23, 95, 0.3)',
     shadowViewSelect: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
 
@@ -138,6 +142,7 @@ const darkTheme: ColorTheme = {
     // Tooltip copy is painted with `text`, so this has to stay a dark surface —
     // pointing it at a light gray made the two colors near-identical.
     bgTooltip: colors.gray1000,
+    bgOverlay: colors.gray1100,
     // Brand gradients
     brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #8C7EE0 38.97%, #705EE4 100%)',
     // Stops stay above 4.5:1 on the nav surface — this paints selected label text

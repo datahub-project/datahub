@@ -792,6 +792,11 @@
           {
             "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
           }
+        ],
+        "fieldUpstreams": [
+          {
+            "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),amount)"
+          }
         ]
       }
     }

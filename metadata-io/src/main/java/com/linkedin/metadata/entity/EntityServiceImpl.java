@@ -1759,7 +1759,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               // do final pre-commit checks with previous aspect value
                               ValidationExceptionCollection exceptions =
                                   AspectsBatch.validatePreCommit(
-                                      opContext,
+                                      primaryRead(opContext),
                                       changeMCPs,
                                       opContext.getRetrieverContext(),
                                       opContext);
@@ -3188,7 +3188,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         "Invoked ingestEntity with entity {}, audit stamp {} systemMetadata {}",
         entity,
         auditStamp,
-        systemMetadata.toString());
+        systemMetadata);
     ingestSnapshotUnion(opContext, entity.getValue(), auditStamp, systemMetadata);
   }
 
@@ -3250,7 +3250,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata);
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
@@ -3820,7 +3820,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // Delete validation hooks
                     ValidationExceptionCollection preCommitExceptions =
                         AspectsBatch.validatePreCommit(
-                            opContext,
+                            primaryRead(opContext),
                             aspectsToDelete.stream()
                                 .map(
                                     toDelete ->
@@ -4412,7 +4412,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // the 3-arg overload passes a null session, which those validators treat as "skip auth".
     ValidationExceptionCollection exceptions =
         AspectsBatch.validatePreCommit(
-            opContext, changeMCPs, opContext.getRetrieverContext(), opContext);
+            primaryRead(opContext), changeMCPs, opContext.getRetrieverContext(), opContext);
 
     List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults = new ArrayList<>();
     if (exceptions.hasFatalExceptions()) {
@@ -5077,6 +5077,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } else {
       log.debug(message);
     }
+  }
+
+  /**
+   * Write-path checks must see primary. A lagging replica can hide a row that was just committed.
+   */
+  private static OperationContext primaryRead(@Nonnull OperationContext opContext) {
+    return opContext.withReadPreference(ReadPreference.PRIMARY);
   }
 
   /** Mutable holder for propertyDefinition captured inside a transaction lambda. */

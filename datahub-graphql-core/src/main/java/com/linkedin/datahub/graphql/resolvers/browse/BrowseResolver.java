@@ -43,9 +43,12 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
         () -> {
           try {
             _logger.debug(
-                String.format(
-                    "Executing browse. entity type: %s, path: %s, filters: %s, start: %s, count: %s",
-                    input.getType(), input.getPath(), input.getFilters(), start, count));
+                "Executing browse. entity type: {}, path: {}, filters: {}, start: {}, count: {}",
+                input.getType(),
+                input.getPath(),
+                input.getFilters(),
+                start,
+                count);
             return _typeToEntity
                 .get(input.getType())
                 .browse(

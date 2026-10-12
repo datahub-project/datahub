@@ -1,40 +1,36 @@
-import { Checkbox, Select, Tag } from 'antd';
+import { Checkbox, SimpleSelect } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { AllowedValue } from '@types';
 
-const StyledCheckbox = styled(Checkbox)`
+const Options = styled.div`
     display: flex;
-    margin: 0 0 4px 0;
-    .ant-checkbox-inner {
-        border-color: ${(props) => props.theme.colors.border};
-    }
-    &&& {
-        margin-left: 0;
-    }
+    flex-direction: column;
+    gap: 8px;
 `;
 
-const StyleTag = styled(Tag)`
-    font-family: Manrope;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 400;
+const Option = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
-const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left' };
+const OptionLabel = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+`;
 
-interface Props {
-    selectedValues: any[];
+type Props = {
+    selectedValues: (string | number | null)[];
     allowedValues: AllowedValue[];
     toggleSelectedValue: (value: string | number) => void;
-    updateSelectedValues: (values: string[] | number[]) => void;
-}
+    updateSelectedValues: (values: (string | number | null)[]) => void;
+};
 
 export default function MultiSelectInput({
     toggleSelectedValue,
@@ -44,44 +40,55 @@ export default function MultiSelectInput({
 }: Props) {
     const { t } = useTranslation('entityV1.shared.components');
     const shouldShowSelectDropdown = allowedValues.length > 5;
+    const options = allowedValues.flatMap((allowedValue) => {
+        const value = getStructuredPropertyValue(allowedValue.value);
+        return value === null
+            ? []
+            : [
+                  {
+                      value: String(value),
+                      label: String(value),
+                      description: allowedValue.description ?? undefined,
+                      originalValue: value,
+                  },
+              ];
+    });
 
     return shouldShowSelectDropdown ? (
-        <Select
-            style={DROPDOWN_STYLE as any}
+        <SimpleSelect
+            width="full"
             placeholder={t('structuredProperty.selectPlaceholder')}
-            value={selectedValues}
-            mode="multiple"
-            options={allowedValues.map((allowedValue) => ({
-                value: getStructuredPropertyValue(allowedValue.value),
-                label: (
-                    <DropdownLabel
-                        value={getStructuredPropertyValue(allowedValue.value)}
-                        description={allowedValue.description}
-                    />
-                ),
-            }))}
-            tagRender={(tagProps: any) => {
-                return (
-                    <StyleTag closable={tagProps.closable} onClose={tagProps.onClose}>
-                        {tagProps.value}
-                    </StyleTag>
-                );
+            values={selectedValues.map(String)}
+            isMultiSelect
+            options={options}
+            showDescriptions
+            sortSelectedFirst={false}
+            dataTestId="structured-property-multi-select"
+            onUpdate={(values) => {
+                const originalValues = values.flatMap((value) => {
+                    const selected = options.find((option) => option.value === value);
+                    return selected ? [selected.originalValue] : [];
+                });
+                updateSelectedValues(originalValues);
             }}
-            onChange={(value) => updateSelectedValues(value)}
         />
     ) : (
-        <div>
-            {allowedValues.map((allowedValue) => (
-                <StyledCheckbox
-                    key={getStructuredPropertyValue(allowedValue.value)}
-                    value={getStructuredPropertyValue(allowedValue.value)}
-                    onChange={(e) => toggleSelectedValue(e.target.value)}
-                    checked={selectedValues.includes(getStructuredPropertyValue(allowedValue.value))}
-                >
-                    {getStructuredPropertyValue(allowedValue.value)}
-                    {allowedValue.description && <ValueDescription description={allowedValue.description} />}
-                </StyledCheckbox>
+        <Options>
+            {options.map((option) => (
+                <Option key={option.value}>
+                    <Checkbox
+                        value={option.value}
+                        aria-label={option.label}
+                        isChecked={selectedValues.map(String).includes(option.value)}
+                        setIsChecked={() => toggleSelectedValue(option.originalValue)}
+                        justifyContent="flex-start"
+                    />
+                    <OptionLabel onClick={() => toggleSelectedValue(option.originalValue)}>
+                        {option.label}
+                        {option.description && <ValueDescription description={option.description} />}
+                    </OptionLabel>
+                </Option>
             ))}
-        </div>
+        </Options>
     );
 }

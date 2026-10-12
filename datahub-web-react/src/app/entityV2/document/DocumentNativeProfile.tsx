@@ -20,6 +20,7 @@ import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -216,7 +217,10 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
-                                            <DocumentSummaryTab />
+                                            {/* Prompts before navigating away with unsaved explicit-save body edits */}
+                                            <DiscardUnsavedChangesConfirmationProvider>
+                                                <DocumentSummaryTab />
+                                            </DiscardUnsavedChangesConfirmationProvider>
                                         </MainContent>
                                     )}
                                 </ContentCard>

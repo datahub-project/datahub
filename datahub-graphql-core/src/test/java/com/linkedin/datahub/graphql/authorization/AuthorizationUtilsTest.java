@@ -55,13 +55,13 @@ public class AuthorizationUtilsTest {
             .setLogic("testLogic")
             .build();
 
+    // logic is nullable in the schema (PR #16319 made it so, matching formattedLogic, since it's
+    // withheld rather than empty-stringed when the actor lacks VIEW_ENTITY_QUERIES) —
+    // restrictEntity
+    // reflects that via the field's absent @Nonnull annotation and nulls it out, same as
+    // formattedLogic, rather than the "" placeholder still used for @Nonnull String fields.
     String expected =
-        ViewProperties.builder()
-            .setMaterialized(true)
-            .setLanguage("")
-            .setLogic("")
-            .build()
-            .toString();
+        ViewProperties.builder().setMaterialized(true).setLanguage("").build().toString();
 
     assertEquals(
         AuthorizationUtils.restrictEntity(viewProperties, ViewProperties.class).toString(),

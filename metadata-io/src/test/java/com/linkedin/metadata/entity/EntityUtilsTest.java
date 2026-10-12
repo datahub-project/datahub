@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -72,7 +73,8 @@ public class EntityUtilsTest {
     String aspectName = "testAspect";
     MockRecordTemplate mockAspect = new MockRecordTemplate();
 
-    when(entityService.getAspect(eq(opContext), any(Urn.class), eq(aspectName), eq(0L)))
+    when(entityService.getAspect(
+            any(OperationContext.class), any(Urn.class), eq(aspectName), eq(0L)))
         .thenReturn(mockAspect);
 
     MockRecordTemplate defaultValue = new MockRecordTemplate();
@@ -83,6 +85,14 @@ public class EntityUtilsTest {
 
     assertNotNull(result);
     assertEquals(result, mockAspect);
+    verify(entityService)
+        .getAspect(
+            argThat(
+                ctx ->
+                    ctx.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY),
+            any(Urn.class),
+            eq(aspectName),
+            eq(0L));
   }
 
   @Test
@@ -105,7 +115,8 @@ public class EntityUtilsTest {
     String aspectName = "testAspect";
     MockRecordTemplate defaultValue = new MockRecordTemplate();
 
-    when(entityService.getAspect(eq(opContext), any(Urn.class), eq(aspectName), eq(0L)))
+    when(entityService.getAspect(
+            any(OperationContext.class), any(Urn.class), eq(aspectName), eq(0L)))
         .thenReturn(null);
 
     MockRecordTemplate result =

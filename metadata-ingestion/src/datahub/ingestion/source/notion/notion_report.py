@@ -50,7 +50,7 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
     num_documents_truncated_oversized: int = 0
     num_documents_dropped_oversized: int = 0
 
-    # Synced blocks (unsupported in unstructured-ingest v0.7.2)
+    # Synced blocks (empty originals may still omit children in 1.4.28)
     num_synced_blocks_skipped: int = 0
     synced_blocks_skipped: LossyList[str] = field(
         default_factory=LossyList

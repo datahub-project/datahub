@@ -28,10 +28,15 @@ import { LogicalOperator } from '@types';
 
 const ScrollableFiltersWrapper = styled.div`
     max-height: 300px;
+    min-height: 0;
     overflow-y: auto;
 `;
 
 const ReadOnlyWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     pointer-events: none;
     opacity: 0.75;
 `;
@@ -144,10 +149,10 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     if (isDisabled) {
         return (
             <ReadOnlyWrapper>
-                <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} />
+                <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} fillHeight />
             </ReadOnlyWrapper>
         );
     }
 
-    return <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} />;
+    return <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} fillHeight />;
 };

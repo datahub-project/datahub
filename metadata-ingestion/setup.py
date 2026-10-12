@@ -53,6 +53,9 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
+    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
+    # pyproject [tool.uv] constraint-dependencies.
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
@@ -77,7 +80,7 @@ framework_common = {
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
-    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
+    # airflow-plugin CI installs with -c constraints-3.11.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
@@ -109,7 +112,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -317,11 +324,18 @@ snowflake_common = {
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=1.11.0 for CVE-2026-15736: SQL injection via MERGE INTO column keys and via
+    # literal-rendered DDL bound params, plus a local file read from connection params
+    # forwarded out of the URL query string. 1.11.x still requires only sqlalchemy>=1.4.19,
+    # so this does not disturb the sqlalchemy<2 pin.
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
-    "snowflake-connector-python>=4.4.0,<5.0.0",
+    # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
+    # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -521,9 +535,10 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    "unstructured[md]==0.18.24",
-    # Unstructured ingest framework for pipeline orchestration
-    "unstructured-ingest==0.7.2",
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
+    "unstructured[md]==0.24.1",
+    # unstructured 0.24.x requires ingest >=1.4.0
+    "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
@@ -542,12 +557,12 @@ unstructured_lib = {
 
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
-    "unstructured-ingest[notion]==0.7.2",
+    "unstructured-ingest[notion]==1.4.28",
 } | unstructured_lib
 
 confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
-    "unstructured-ingest[confluence]==0.7.2",
+    "unstructured-ingest[confluence]==1.4.28",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
@@ -576,7 +591,11 @@ plugins: Dict[str, Set[str]] = {
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
     "datahub-lite": {
         "duckdb>=1.0.0,<2.0.0",
-        "fastapi<0.129.0",
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
+        "fastapi>=0.133.0,<0.142.0",
+        # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
+        # CVE-2026-54283; fixed in 1.3.1.
+        "starlette>=1.3.1,<2.0.0",
         "uvicorn<0.41.0",
     },
     # Integrations.
@@ -682,6 +701,8 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
+        # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
+        "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -888,8 +909,10 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
-        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError);
+        # 8.2.0+ required for aiohttp 3.14, which removed streams.AsyncStreamReaderMixin
+        # that older vcrpy aiohttp stubs subclass.
+        "vcrpy>=8.2.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
@@ -931,6 +954,15 @@ all_exclude_plugins: Set[str] = {
     # opt-in feature, so keep it out of "all" (and the bundled ingestion image).
     # Install explicitly with acryl-datahub[onnx-embeddings].
     "onnx-embeddings",
+    # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
+    # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
+    # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
+    # or [unstructured]. Managed ingestion still maps source type to those extras.
+    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
+    "datahub-documents",
+    "unstructured",
+    "notion",
+    "confluence",
 }
 
 mypy_stubs = {
@@ -970,8 +1002,9 @@ test_api_requirements = {
     # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0,<9.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    # 8.0.0 is also excluded (missing numpy requirement).
+    "deepdiff>=8.6.2,<9.0.0",
     "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
     "PyYAML<7.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
@@ -1105,7 +1138,7 @@ dev_requirements = {
 }
 
 # Documentation generation requirements
-# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+# Includes datahub-documents which requires Python 3.11+ (due to unstructured library)
 docs_requirements = {
     *base_dev_requirements,
     *plugins["datahub-documents"],
@@ -1159,6 +1192,7 @@ entry_points = {
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+        "oauth_session = datahub.ingestion.auth.oauth_session:OAuthSessionTokenProvider",
     ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
@@ -1436,7 +1470,7 @@ setuptools.setup(
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements
-        ),  # For documentation generation (requires Python 3.10+)
+        ),  # For documentation generation (requires Python 3.11+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),

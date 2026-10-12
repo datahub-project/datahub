@@ -17,7 +17,8 @@ import importlib
 import importlib.metadata as _im
 import importlib.resources as _ir
 import os
-from typing import List
+import sys
+from typing import List, Optional
 
 from packaging.version import Version as _Version, parse as _parse
 
@@ -28,6 +29,7 @@ _PUBLIC = (
     "DistributionNotFound",
     "get_distribution",
     "require",
+    "iter_entry_points",
     "parse_version",
     "resource_filename",
     "declare_namespace",
@@ -67,6 +69,18 @@ def get_distribution(name: str) -> "_Distribution":
 def require(requirement: str) -> List["_Distribution"]:
     # Unlike real pkg_resources, this does not resolve or activate dependency sets.
     return [get_distribution(requirement)]
+
+
+def iter_entry_points(group: str, name: Optional[str] = None) -> List[_im.EntryPoint]:
+    # Some libraries enumerate entry points at import via pkg_resources. Read them
+    # from the installed distributions via importlib.metadata; the returned objects
+    # expose .name and .load(), matching how callers consume them. Unlike real
+    # pkg_resources, this does not resolve the entry points' [extra] deps.
+    if sys.version_info >= (3, 10):
+        eps = _im.entry_points(group=group)
+    else:
+        eps = _im.entry_points().get(group, [])
+    return [ep for ep in eps if name is None or ep.name == name]
 
 
 def resource_filename(package_or_requirement: str, resource_name: str) -> str:

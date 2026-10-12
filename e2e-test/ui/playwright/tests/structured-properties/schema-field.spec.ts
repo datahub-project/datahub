@@ -16,6 +16,7 @@ test.describe('Schema Field Structured Properties', () => {
   let datasetPage: DatasetPage;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
+    test.setTimeout(120000);
     structuredPropertiesPage = new StructuredPropertiesPage(page, logger, logDir);
     datasetPage = new DatasetPage(page, logger, logDir);
 

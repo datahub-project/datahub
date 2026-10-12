@@ -14,9 +14,7 @@ import logging
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "smoke-test"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "smoke-test"))
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -96,7 +94,9 @@ def emit_dataset(graph, platform: str, name: str, description: str) -> str:
     graph.emit_mcp(
         MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=DatasetPropertiesClass(name=name.split(".")[-1], description=description),
+            aspect=DatasetPropertiesClass(
+                name=name.split(".")[-1], description=description
+            ),
         )
     )
     return urn

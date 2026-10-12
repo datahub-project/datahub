@@ -682,7 +682,9 @@ def _suggest_recovery(
     if all_down:
         return "All services are down. Try: python3 scripts/dev/datahub_dev.py nuke --keep-data"
     if any_crash_loop:
-        return "Services are crash-looping. Try: python3 scripts/dev/datahub_dev.py reset"
+        return (
+            "Services are crash-looping. Try: python3 scripts/dev/datahub_dev.py reset"
+        )
     if any_bad_exit:
         return "Some services have exited with errors. Try: python3 scripts/dev/datahub_dev.py reset"
     if not gms_ok:
