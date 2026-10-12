@@ -119,3 +119,20 @@ class TestElasticsearchQueryLogReaderScan:
 
         assert [e.query for e in entries] == ["select 1", "select 2"]
         assert reader.report.num_entries_processed == 2
+
+    def test_get_query_entries_tolerates_malformed_document(self):
+        reader = _reader()
+        hits = [
+            {"_id": "1", "_source": {"object": "select 1"}},
+            # Unparseable timestamp fails QueryEntry validation in _to_entry.
+            {"_id": "2", "_source": {"object": "select 2", "@timestamp": "not-a-date"}},
+            {"_id": "3", "_source": {"object": "select 3"}},
+        ]
+        with patch("opensearchpy.helpers.scan", return_value=iter(hits)):
+            entries = list(reader.get_query_entries())
+
+        # The bad row is skipped and counted; valid rows after it still yield.
+        assert [e.query for e in entries] == ["select 1", "select 3"]
+        assert reader.report.num_entries_processed == 2
+        assert reader.report.num_entries_failed == 1
+        assert len(reader.report.warnings) == 1

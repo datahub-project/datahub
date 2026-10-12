@@ -445,7 +445,17 @@ class ElasticsearchQueryLogReader(QueryLogReader):
         filters: List[Dict[str, Any]] = [{"exists": {"field": fm.query}}]
         if self.config.query_filter:
             filters.append(self.config.query_filter)
-        query = {"query": {"bool": {"filter": filters}}}
+        query: Dict[str, Any] = {"query": {"bool": {"filter": filters}}}
+
+        # The aggregator resolves session temp tables from earlier statements, so
+        # it needs records in ascending timestamp order. When a timestamp field is
+        # mapped, sort server-side and keep the scroll ordered. preserve_order
+        # disables the parallel-scroll optimisation and is slower on huge indices
+        # (scope with query_filter if that bites); without a timestamp we can't
+        # order, so fall back to the faster unordered scroll.
+        preserve_order = fm.timestamp is not None
+        if preserve_order:
+            query["sort"] = [{fm.timestamp: {"order": "asc"}}]
 
         logger.info(
             f"Reading query records from Elasticsearch index '{self.config.index}'"
@@ -455,7 +465,7 @@ class ElasticsearchQueryLogReader(QueryLogReader):
             index=self.config.index,
             query=query,
             size=self.config.batch_size,
-            preserve_order=False,
+            preserve_order=preserve_order,
         ):
             source = hit.get("_source", {})
             try:
@@ -473,6 +483,12 @@ class ElasticsearchQueryLogReader(QueryLogReader):
                     exc=e,
                     log=False,
                 )
+                if self.report.num_entries_failed % 1000 == 0:
+                    # Warnings are sampled; without this the true volume of a
+                    # systematically-malformed index never reaches the log.
+                    logger.warning(
+                        f"{self.report.num_entries_failed} query records have failed to parse"
+                    )
                 continue
             if entry is None:
                 continue
