@@ -12,7 +12,23 @@ In the Google Cloud project that owns your service account, enable the **Google 
 
 #### 2. Create a service account
 
-Create a service account and a JSON key for it. The connector takes the key's fields under `credential`, the same shape the BigQuery source uses. If you omit `credential`, the connector uses Application Default Credentials. Those credentials must carry the `https://www.googleapis.com/auth/drive.readonly` scope; the `cloud-platform` scope alone does not grant Drive access. For local testing, run `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/cloud-platform`.
+Create a service account and a JSON key for it. The connector takes the key's fields under `credential`, the same shape the BigQuery source uses.
+
+If you omit `credential`, the connector uses Application Default Credentials. Those credentials must carry the `https://www.googleapis.com/auth/drive.readonly` scope; the `cloud-platform` scope alone does not grant Drive access. On Google Cloud, attach the service account to the VM or workload and grant it folder access as described below.
+
+To test locally with your own Google account instead of a service account key:
+
+1. In your Google Cloud project, configure the OAuth consent screen (APIs & Services → OAuth consent screen). If your account is in a Google Workspace organization, choose **Internal**.
+2. Create an OAuth client ID of type **Desktop app** (APIs & Services → Credentials) and download its JSON file. The gcloud CLI's built-in OAuth client cannot request the Drive scope, so you need your own.
+3. Log in with that client:
+
+   ```shell
+   gcloud auth application-default login \
+     --client-id-file=<path-to-oauth-client.json> \
+     --scopes=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/cloud-platform
+   ```
+
+The connector then reads Drive as you, so it sees the folders your account can open. `delegated_user` is not supported with these credentials.
 
 #### 3. Grant access to the folders
 
