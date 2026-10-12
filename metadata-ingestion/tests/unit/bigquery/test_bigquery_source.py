@@ -1454,6 +1454,23 @@ def test_get_views_and_snapshots_legacy_tables_selection(
     assert ("__TABLES__" in executed_query) is use_legacy_table_stats
 
 
+def test_list_tables_uses_large_page_size() -> None:
+    # tables.list is paginated; passing an explicit large page size avoids hundreds of
+    # round trips on datasets with many (e.g. date-sharded) tables.
+    client = MagicMock()
+    client.list_tables.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=client,
+        projects_client=MagicMock(),
+    )
+
+    list(schema_api.list_tables("test-dataset", "test-project"))
+
+    client.list_tables.assert_called_once()
+    assert client.list_tables.call_args.kwargs["page_size"] == 1000
+
+
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
