@@ -2,6 +2,8 @@ package datahub.client.v2.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
@@ -553,6 +555,23 @@ public class Container extends Entity
         // Cache the aspect
         String aspectName = container.getAspectName(ContainerProperties.class);
         container.cache.put(aspectName, props, AspectSource.LOCAL, true);
+
+        // Store the platform instance on the container (as Dataset does), so policies scoped by
+        // platform instance can match it.
+        if (platform != null && platformInstance != null) {
+          DataPlatformInstance dataPlatformInstance = new DataPlatformInstance();
+          dataPlatformInstance.setPlatform(new DataPlatformUrn(platform));
+          dataPlatformInstance.setInstance(
+              Urn.createFromString(
+                  String.format(
+                      "urn:li:dataPlatformInstance:(urn:li:dataPlatform:%s,%s)",
+                      platform, platformInstance)));
+          container.cache.put(
+              container.getAspectName(DataPlatformInstance.class),
+              dataPlatformInstance,
+              AspectSource.LOCAL,
+              true);
+        }
 
         // Set parent container if provided
         if (parentContainer != null) {
