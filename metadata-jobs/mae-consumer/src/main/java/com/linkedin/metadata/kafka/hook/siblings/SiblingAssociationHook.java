@@ -284,14 +284,6 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(operationContext, dbtUrn);
     Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(operationContext, sourceUrn);
 
-    if (existingDbtSiblingAspect != null
-        && existingSourceSiblingAspect != null
-        && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
-        && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())) {
-      // we have already connected them- we can abort here
-      return;
-    }
-
     // Skip if any siblings exist to avoid conflicts with patch-based management
     if (hasSiblingRelationship(existingDbtSiblingAspect)
         || hasSiblingRelationship(existingSourceSiblingAspect)) {
