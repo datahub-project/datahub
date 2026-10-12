@@ -23,6 +23,9 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -32,6 +35,8 @@ import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.versionset.VersionSetProperties;
 import com.linkedin.versionset.VersioningScheme;
 import io.datahubproject.metadata.context.RetrieverContext;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,12 +66,16 @@ public class VersionPropertiesAuthorizationValidatorTest {
       UrnUtils.getUrn("urn:li:versionSet:(own-set,dataset)");
   private static final Urn NEW_VERSION_SET_URN =
       UrnUtils.getUrn("urn:li:versionSet:(new-set,dataset)");
+  // Member of OTHER_VERSION_SET_URN the caller may not edit.
+  private static final Urn FOREIGN_MEMBER_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foreign-member,PROD)");
 
   private VersionPropertiesAuthorizationValidator validator;
   private AuthorizationSession session;
   private MockedStatic<AuthUtil> authUtil;
   private RetrieverContext retrieverContext;
   private MockAspectRetriever aspectRetriever;
+  private SearchRetriever searchRetriever;
 
   @BeforeMethod
   public void setup() {
@@ -100,10 +109,12 @@ public class VersionPropertiesAuthorizationValidatorTest {
                 List.of(versionProperties(OWN_VERSION_SET_URN, "v1", "aaa"))));
     aspectRetriever.setEntityRegistry(TEST_REGISTRY);
     aspectRetriever = Mockito.spy(aspectRetriever);
+    searchRetriever = mock(SearchRetriever.class);
+    members();
     retrieverContext =
         RetrieverContext.builder()
             .aspectRetriever(aspectRetriever)
-            .searchRetriever(mock(SearchRetriever.class))
+            .searchRetriever(searchRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
   }
@@ -133,6 +144,61 @@ public class VersionPropertiesAuthorizationValidatorTest {
   public void testNewLatestAllowedWithEditOnVersionSetAndPreviousLatest() {
     allowEdit(ENTITY_URN, OTHER_VERSION_SET_URN, OTHER_LATEST_URN);
     Assert.assertTrue(validate(upsert(OTHER_VERSION_SET_URN, "v2", "ccc")).isEmpty());
+    // Edit on the version set short-circuits the member lookup.
+    Mockito.verifyNoInteractions(searchRetriever);
+  }
+
+  @Test
+  public void testExistingVersionSetAllowedWhenCallerCanEditAllMembers() {
+    allowEdit(ENTITY_URN, SECOND_ENTITY_URN, OTHER_LATEST_URN);
+    members(OTHER_LATEST_URN, SECOND_ENTITY_URN);
+    Assert.assertTrue(validate(upsert(OTHER_VERSION_SET_URN, "v2", "ccc")).isEmpty());
+  }
+
+  @Test
+  public void testExistingVersionSetWithForeignMemberRequiresEditOnIt() {
+    allowEdit(ENTITY_URN, OTHER_LATEST_URN);
+    members(OTHER_LATEST_URN, FOREIGN_MEMBER_URN);
+    List<AspectValidationException> failures = validate(upsert(OTHER_VERSION_SET_URN, "v0", "aaa"));
+    Assert.assertEquals(failures.size(), 1);
+  }
+
+  @Test
+  public void testLatestFromPrimaryStoreCountsAsMemberWhenIndexLags() {
+    // The index has not caught up, but the stored latest pointer still names a member.
+    allowEdit(ENTITY_URN);
+    Assert.assertFalse(validate(upsert(OTHER_VERSION_SET_URN, "v0", "aaa")).isEmpty());
+  }
+
+  @Test
+  public void testVersionSetAboveMemberCapRequiresEditOnIt() {
+    List<Urn> many = new ArrayList<>();
+    for (int i = 0; i <= VersionPropertiesAuthorizationValidator.MAX_MEMBERS_CHECKED; i++) {
+      many.add(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,member-" + i + ",PROD)"));
+    }
+    many.add(OTHER_LATEST_URN);
+    many.add(ENTITY_URN);
+    allowEdit(many.toArray(Urn[]::new));
+    members(many.toArray(Urn[]::new));
+    Assert.assertFalse(validate(upsert(OTHER_VERSION_SET_URN, "v0", "aaa")).isEmpty());
+  }
+
+  @Test
+  public void testMembersReadOncePerVersionSetPerBatch() {
+    allowEdit(ENTITY_URN, SECOND_ENTITY_URN, OTHER_LATEST_URN);
+    members(OTHER_LATEST_URN);
+    List<BatchItem> items =
+        List.of(
+            upsert(OTHER_VERSION_SET_URN, "v0", "aaa"),
+            upsertFor(SECOND_ENTITY_URN, OTHER_VERSION_SET_URN, "v00", "aab"));
+    Assert.assertTrue(
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY, items, retrieverContext, session)
+            .toList()
+            .isEmpty());
+    Mockito.verify(searchRetriever, Mockito.times(1))
+        .scroll(any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -142,9 +208,9 @@ public class VersionPropertiesAuthorizationValidatorTest {
   }
 
   @Test
-  public void testCreatingVersionSetRequiresEditOnIt() {
+  public void testCreatingVersionSetDoesNotRequireEditOnIt() {
     allowEdit(ENTITY_URN);
-    Assert.assertFalse(validate(upsert(NEW_VERSION_SET_URN, "v1", "aaa")).isEmpty());
+    Assert.assertTrue(validate(upsert(NEW_VERSION_SET_URN, "v1", "aaa")).isEmpty());
   }
 
   @Test
@@ -206,6 +272,17 @@ public class VersionPropertiesAuthorizationValidatorTest {
               Collection<Urn> urns = invocation.getArgument(2);
               return allowedUrns.containsAll(urns);
             });
+  }
+
+  private void members(Urn... members) {
+    SearchEntityArray entities = new SearchEntityArray();
+    Arrays.stream(members).forEach(urn -> entities.add(new SearchEntity().setEntity(urn)));
+    Mockito.when(searchRetriever.scroll(any(), any(), any(), any(), any(), any()))
+        .thenReturn(
+            new ScrollResult()
+                .setEntities(entities)
+                .setNumEntities(entities.size())
+                .setPageSize(entities.size()));
   }
 
   private List<AspectValidationException> validate(BatchItem item) {
