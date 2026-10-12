@@ -473,10 +473,19 @@ class SqlQueriesSource(Source):
                 query_entry.default_db is not None
                 or query_entry.default_schema is not None
             ):
+                # Disambiguate on the effective (post-config-fallback) defaults so two
+                # per-row rows that resolve to the same db/schema still share a
+                # fingerprint, and encode the pair structurally so an identifier
+                # containing the delimiter can't collide with a different pair.
                 query_hash = get_query_fingerprint(
                     query_entry.query,
                     platform=self.config.platform,
-                    secondary_id=f"{query_entry.default_db}:{query_entry.default_schema}",
+                    secondary_id=repr(
+                        (
+                            query_entry.default_db or self.config.default_db,
+                            query_entry.default_schema or self.config.default_schema,
+                        )
+                    ),
                 )
             observed_query = ObservedQuery(
                 query=query_entry.query,
