@@ -23,11 +23,7 @@ def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
 
 
 class ElasticsearchConnectionConfig(ConfigModel):
-    """Connection settings for an Elasticsearch/OpenSearch cluster.
-
-    Extracted so any consumer (the Elasticsearch source, the sql-queries query
-    log reader, etc.) can build an authenticated client the same way.
-    """
+    """Connection settings for an Elasticsearch/OpenSearch cluster."""
 
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
@@ -102,8 +98,7 @@ class ElasticsearchConnectionConfig(ConfigModel):
         )
 
     def get_client(self) -> "OpenSearch":
-        # Imported lazily so that consumers which only need the config (not a live
-        # client) don't pull in the optional opensearch-py dependency.
+        # Lazy so config-only consumers don't require the opensearch-py dependency.
         from opensearchpy import OpenSearch
 
         # opensearch-py has no api_key param and silently drops unknown kwargs, so it must
