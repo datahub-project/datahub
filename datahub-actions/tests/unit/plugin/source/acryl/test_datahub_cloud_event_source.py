@@ -255,6 +255,20 @@ def test_ack(mock_pipeline_context: PipelineContext, base_config_dict: dict) -> 
     mock_ack_manager.ack.assert_called_once_with(envelope.meta, processed=True)
 
 
+def test_stop_before_events_does_not_poll(
+    mock_pipeline_context: PipelineContext, base_config_dict: dict
+) -> None:
+    source = DataHubEventSource.create(base_config_dict, mock_pipeline_context)
+    for consumer in source.topic_consumers.values():
+        consumer.poll_events = MagicMock()  # type: ignore[method-assign]
+    source.request_stop()
+
+    assert list(source.events()) == []
+    for consumer in source.topic_consumers.values():
+        consumer.poll_events.assert_not_called()
+    assert source.running is False
+
+
 def test_close(mock_pipeline_context: PipelineContext, base_config_dict: dict) -> None:
     """
     Verify that close() stops the source, commits offsets, and calls consumer.close().
