@@ -124,7 +124,6 @@ export class GroupsPage extends BaseSettingsPage {
     await this.addMembersModal.waitFor({ state: 'attached', timeout: WAIT_TIMEOUT });
 
     await this.selectFromDropdown(this.addMembersSelectBase, this.addMembersSelectDropdown, username);
-    await this.addMembersSelectBase.click();
     await this.addMemberConfirmButton.click();
     await this.toast.expectVisible(TOAST_MESSAGES.GROUP_MEMBERS_ADDED);
     await expect(this.membersSection.getByText(username)).toBeVisible();
@@ -136,7 +135,6 @@ export class GroupsPage extends BaseSettingsPage {
     await this.addOwnersModal.waitFor({ state: 'attached', timeout: WAIT_TIMEOUT });
 
     await this.selectFromDropdown(this.addOwnersSelectBase, this.addOwnersSelectDropdown, username);
-    await this.addOwnersSelectBase.click();
     await this.addOwnerConfirmButton.click();
     await this.toast.expectVisible(TOAST_MESSAGES.OWNERS_ADDED);
   }
