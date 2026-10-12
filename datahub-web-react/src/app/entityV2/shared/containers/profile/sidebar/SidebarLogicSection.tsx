@@ -1,6 +1,8 @@
-import { Button, CodeBlock } from '@components';
+import { Button } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
