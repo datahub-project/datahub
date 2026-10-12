@@ -495,25 +495,9 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target():
     del tables_response["TableList"][0]["CatalogId"]
     del tables_response["TableList"][0]["StorageDescriptor"]
 
-    source = GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(
-            aws_region="us-east-1",
-            platform_instance="consumer_inst",
-            extract_transforms=False,
-            use_s3_bucket_tags=False,
-            use_s3_object_tags=False,
-        ),
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
     )
-    with Stubber(source.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", databases_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            tables_response,
-            {"DatabaseName": "resource-link-test-database"},
-        )
-        _, tables = source.get_all_databases_and_tables()
-        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
 
     link_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
@@ -1441,10 +1425,15 @@ def test_ignore_resource_links_filters_table_level_links(
 def _ingest_database_resource_link(
     catalog_to_platform_instance: Dict[str, Dict[str, str]],
     tables_response: Optional[Dict[str, Any]] = None,
+    databases_response: Optional[Dict[str, Any]] = None,
 ) -> Tuple[GlueSource, List[Dict], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
     # DatabaseName and no TargetTable.
+    databases: Dict[str, Any] = copy.deepcopy(
+        databases_response or get_databases_response_with_resource_link
+    )
+    link_database_name = databases["DatabaseList"][0]["Name"]
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -1457,15 +1446,11 @@ def _ingest_database_resource_link(
         ),
     )
     with Stubber(source.glue_client) as glue_stubber:
-        glue_stubber.add_response(
-            "get_databases",
-            copy.deepcopy(get_databases_response_with_resource_link),
-            {},
-        )
+        glue_stubber.add_response("get_databases", databases, {})
         glue_stubber.add_response(
             "get_tables",
             copy.deepcopy(tables_response or get_tables_response_for_target_database),
-            {"DatabaseName": "resource-link-test-database"},
+            {"DatabaseName": link_database_name},
         )
         _, tables = source.get_all_databases_and_tables()
         # Generate inside the Stubber so any Glue call made while building workunits (e.g. a
@@ -1558,23 +1543,9 @@ def test_database_resource_link_same_name_unmapped_owner_warns_once():
     second_table["Name"] = "orders"
     tables_response["TableList"].append(second_table)
 
-    source = GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(
-            aws_region="us-east-1",
-            platform_instance="consumer_inst",
-            extract_transforms=False,
-            use_s3_bucket_tags=False,
-            use_s3_object_tags=False,
-        ),
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
     )
-    with Stubber(source.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", databases_response, {})
-        glue_stubber.add_response(
-            "get_tables", tables_response, {"DatabaseName": "test-database"}
-        )
-        _, tables = source.get_all_databases_and_tables()
-        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
 
     for name in ("transactions", "orders"):
         link_urn = (
@@ -1599,30 +1570,10 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
     databases_response["DatabaseList"][0]["Name"] = "test-database"
 
-    source = GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(
-            aws_region="us-east-1",
-            platform_instance="consumer_inst",
-            extract_transforms=False,
-            use_s3_bucket_tags=False,
-            use_s3_object_tags=False,
-            catalog_to_platform_instance={
-                "arn:aws:glue:us-east-1:432143214321": {
-                    "platform_instance": "owner_inst"
-                }
-            },
-        ),
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        databases_response=databases_response,
     )
-    with Stubber(source.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", databases_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            copy.deepcopy(get_tables_response_for_target_database),
-            {"DatabaseName": "test-database"},
-        )
-        _, tables = source.get_all_databases_and_tables()
-        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
 
     link_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
