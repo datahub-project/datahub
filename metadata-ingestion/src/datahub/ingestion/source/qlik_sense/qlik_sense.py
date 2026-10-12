@@ -28,6 +28,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
     PlatformDetail,
+    QlikDeployment,
     QlikSourceConfig,
     QlikSourceReport,
 )
@@ -46,6 +47,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SpaceKey,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -109,8 +111,8 @@ logger = logging.getLogger(__name__)
 class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
-    - Qlik Sense Spaces and Apps as Container.
-    - Qlik Datasets
+    - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
+    - Qlik Datasets (Cloud)
     - Sheets as dashboard and its charts
     """
 
@@ -122,8 +124,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.reporter = QlikSourceReport()
+        self.ui_host = config.ui_hostname()
         try:
-            self.qlik_api = QlikAPI(self.config)
+            if config.deployment == QlikDeployment.ON_PREM:
+                self.qlik_api = QlikOnPremAPI(self.config)
+            else:
+                self.qlik_api = QlikAPI(self.config)
         except Exception as e:
             logger.warning(e)
             exit(
@@ -134,7 +140,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            QlikAPI(QlikSourceConfig.parse_obj_allow_extras(config_dict))
+            config = QlikSourceConfig.parse_obj_allow_extras(config_dict)
+            if config.deployment == QlikDeployment.ON_PREM:
+                QlikOnPremAPI(config)
+            else:
+                QlikAPI(config)
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -197,7 +207,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if self.config.ingest_owner and owner_username
                 else None
             ),
-            external_url=f"https://{self.config.tenant_hostname}/catalog?space_filter={space.id}",
+            external_url=f"https://{self.ui_host}/hub/stream/{space.id}"
+            if self.config.deployment == QlikDeployment.ON_PREM
+            else f"https://{self.ui_host}/catalog?space_filter={space.id}",
             created=int(space.createdAt.timestamp() * 1000),
             last_modified=int(space.updatedAt.timestamp() * 1000),
         )
@@ -251,7 +263,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 lastModified=self._get_audit_stamp(sheet.updatedAt, sheet.ownerId),
             ),
             customProperties=custom_properties,
-            dashboardUrl=f"https://{self.config.tenant_hostname}/sense/app/{app_id}/sheet/{sheet.id}/state/analysis",
+            dashboardUrl=f"https://{self.ui_host}/sense/app/{app_id}/sheet/{sheet.id}/state/analysis",
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
@@ -462,7 +474,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if self.config.ingest_owner and owner_username
                 else None
             ),
-            external_url=f"https://{self.config.tenant_hostname}/sense/app/{app.id}/overview",
+            external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
         )
@@ -539,7 +551,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             name=dataset.name,
             description=dataset.description,
             qualifiedName=dataset.name,
-            externalUrl=f"https://{self.config.tenant_hostname}/dataset/{dataset.itemId}",
+            externalUrl=f"https://{self.ui_host}/dataset/{dataset.itemId}",
             created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
             lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
         )

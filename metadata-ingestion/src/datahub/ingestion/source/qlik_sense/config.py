@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, Optional
 
 import pydantic
@@ -110,11 +111,67 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     pass
 
 
+class QlikDeployment(str, Enum):
+    CLOUD = "cloud"
+    ON_PREM = "on_prem"
+
+
 class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
-    tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
-    api_key: TransparentSecretStr = pydantic.Field(description="Qlik API Key")
+    deployment: QlikDeployment = pydantic.Field(
+        default=QlikDeployment.CLOUD,
+        description="Qlik Cloud (`cloud`) or Qlik Sense Enterprise on Windows (`on_prem`).",
+    )
+    tenant_hostname: Optional[str] = pydantic.Field(
+        default=None,
+        description="Qlik Cloud tenant hostname. Required when deployment is cloud.",
+    )
+    api_key: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Qlik Cloud API key. Required when deployment is cloud.",
+    )
+    server: Optional[str] = pydantic.Field(
+        default=None,
+        description="Qlik Sense Enterprise hostname. Required when deployment is on_prem. "
+        "Must match the certificate name. Repository Service and Engine ports are reached on this host.",
+    )
+    qrs_port: int = pydantic.Field(
+        default=4242,
+        description="Qlik Repository Service port used for on-prem inventory.",
+    )
+    engine_port: int = pydantic.Field(
+        default=4747,
+        description="Qlik Engine port used for on-prem app, sheet, and chart reads.",
+    )
+    client_cert: Optional[str] = pydantic.Field(
+        default=None,
+        description="Path to the PEM client certificate exported from the QMC. Required on-prem.",
+    )
+    client_key: Optional[str] = pydantic.Field(
+        default=None,
+        description="Path to the PEM client key exported from the QMC. Required on-prem.",
+    )
+    root_cert: Optional[str] = pydantic.Field(
+        default=None,
+        description="Path to the PEM root certificate exported from the QMC. Required on-prem.",
+    )
+    user_directory: str = pydantic.Field(
+        default="INTERNAL",
+        description="User directory for the on-prem X-Qlik-User header.",
+    )
+    qrs_user_id: str = pydantic.Field(
+        default="sa_repository",
+        description="User id for Repository Service calls. Certificate auth defaults to the repository service account.",
+    )
+    engine_user_id: str = pydantic.Field(
+        default="sa_engine",
+        description="User id for Engine websocket calls. Certificate auth defaults to the engine service account.",
+    )
+    ingest_unpublished_apps: bool = pydantic.Field(
+        default=False,
+        description="On-prem only. Also ingest apps that are not published to a stream.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None,
         description="Configuration for stateful ingestion and stale metadata removal.",
@@ -135,3 +192,33 @@ class QlikSourceConfig(
         description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
         "Use 'data_connection_name' as key.",
     )
+
+    @pydantic.model_validator(mode="after")
+    def validate_deployment_credentials(self) -> "QlikSourceConfig":
+        if self.deployment == QlikDeployment.ON_PREM:
+            missing = [
+                name
+                for name, value in (
+                    ("server", self.server),
+                    ("client_cert", self.client_cert),
+                    ("client_key", self.client_key),
+                    ("root_cert", self.root_cert),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError("On-prem Qlik Sense requires " + ", ".join(missing))
+            return self
+        if not self.tenant_hostname or self.api_key is None:
+            raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
+        return self
+
+    def ui_hostname(self) -> str:
+        if self.deployment == QlikDeployment.ON_PREM:
+            assert self.server is not None
+            return self.server
+        assert self.tenant_hostname is not None
+        return self.tenant_hostname
+
+    def qlik_user_header(self, user_id: str) -> str:
+        return f"UserDirectory={self.user_directory}; UserId={user_id}"
