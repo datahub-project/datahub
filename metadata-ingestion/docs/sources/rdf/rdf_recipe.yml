@@ -3,6 +3,12 @@ source:
   config:
     # Required: RDF source (file, folder, URL, or comma-separated files)
     source: path/to/glossary.ttl
+
+    # Or clone a Git repository and scan it (source is resolved relative to checkout):
+    # git_info:
+    #   repo: https://github.com/acme/ontologies
+    #   branch: main
+    #   deploy_key_file: ~/.ssh/datahub_rdf_deploy_key
     
     # Optional: DataHub environment
     environment: PROD
