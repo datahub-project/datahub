@@ -193,6 +193,7 @@ class TestEdgeCases:
         """Test that S3 URIs require aws_config."""
         # Non-S3 URIs don't require aws_config
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
+        assert config.query_file is not None
         assert not config.query_file.startswith("s3://")
 
         # S3 URIs require aws_config
@@ -221,4 +222,5 @@ class TestIntegrationScenarios:
         )
 
         # Verify S3 URI detected
+        assert config.query_file is not None
         assert config.query_file.startswith("s3://")
