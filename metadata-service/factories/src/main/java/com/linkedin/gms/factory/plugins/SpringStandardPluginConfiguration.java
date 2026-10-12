@@ -25,6 +25,7 @@ import com.linkedin.metadata.aspect.validation.AssetSettingsAuthorizationValidat
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
+import com.linkedin.metadata.aspect.validation.DataPlatformInstanceWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
@@ -739,6 +740,28 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(DOMAINS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.dataPlatformInstance.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator dataPlatformInstanceWriteAuthorizationValidator() {
+    return new DataPlatformInstanceWriteAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DataPlatformInstanceWriteAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                             .build()))
                 .build());
   }

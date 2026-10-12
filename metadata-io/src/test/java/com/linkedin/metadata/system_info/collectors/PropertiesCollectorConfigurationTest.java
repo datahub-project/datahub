@@ -1042,6 +1042,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.ignoreUnknown",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.assetSettings.enabled",
+          "metadataChangeProposal.validation.aspectAuthorization.dataPlatformInstance.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled",
