@@ -495,10 +495,8 @@ class QueryEntry(BaseModel):
     downstream_tables: List[DatasetUrn] = Field(default_factory=list)
     upstream_tables: List[DatasetUrn] = Field(default_factory=list)
     session_id: Optional[str] = None
-    # Per-row defaults for unqualified table names. Take precedence over the
-    # source-level default_db/default_schema so a single run can span query
-    # records from different databases/schemas (e.g. an audit log keyed by
-    # database per row).
+    # Per-row overrides for the source-level default_db/default_schema, so one
+    # run can span records from different databases.
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
 
