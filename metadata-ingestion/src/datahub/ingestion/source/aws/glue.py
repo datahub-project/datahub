@@ -879,10 +879,11 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Resource link owner catalog not mapped",
                 message="A Lake Formation resource link's owning catalog is not in "
-                "catalog_to_platform_instance, so the shared table resolves to the link's own URN "
-                "and no upstream lineage or owner schema is emitted for it. Add the owning "
-                "account (arn:<partition>:glue:<region>:<account_id>) to "
-                "catalog_to_platform_instance.",
+                "catalog_to_platform_instance, or is mapped to the same platform_instance/env as "
+                "the ingesting catalog, so the shared table resolves to the link's own URN and no "
+                "upstream lineage or owner schema is emitted for it. Map the owning account "
+                "(arn:<partition>:glue:<region>:<account_id>) in catalog_to_platform_instance to "
+                "the platform_instance/env its own Glue ingestion uses.",
                 context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
             return []
