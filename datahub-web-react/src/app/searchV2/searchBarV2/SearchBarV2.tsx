@@ -88,6 +88,8 @@ export const SearchBarV2 = ({
     const [inputValue, setInputValue] = useState<string>(initialQuery || '');
     // State for what is actually used to fetch search results. Updates only when stable.
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
+    const searchQueryRef = useRef(searchQuery);
+    searchQueryRef.current = searchQuery;
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
     const [isViewsDropdownOpened, setIsViewsDropdownOpened] = useState(false);
@@ -140,8 +142,10 @@ export const SearchBarV2 = ({
 
     const clearQueryAndFilters = useCallback(() => {
         setInputValue('');
+        if (searchQueryRef.current !== '') {
+            setHasUserTyped(true);
+        }
         setSearchQuery('');
-        setHasUserTyped(true);
         clear();
     }, [clear]);
 
@@ -176,11 +180,15 @@ export const SearchBarV2 = ({
             // Always update the visible input value immediately
             setInputValue(filteredQuery);
 
-            // If not composing, also update the stable search query
+            // If not composing, also update the stable search query. IME updates the visible
+            // value before composition ends; marking that as typed would typeahead the URL
+            // query while searchQuery is still the seeded value.
             if (!isComposingRef.current) {
+                if (filteredQuery !== searchQueryRef.current) {
+                    setHasUserTyped(true);
+                }
                 setSearchQuery(filteredQuery);
             }
-            setHasUserTyped(true);
             if (filteredQuery === '') {
                 clear();
             }
@@ -197,8 +205,10 @@ export const SearchBarV2 = ({
         // sync the stable search query with the final composed value.
         const finalValue = event.currentTarget.value;
         const filteredQuery = filterSearchQuery(finalValue);
+        if (filteredQuery !== searchQueryRef.current) {
+            setHasUserTyped(true);
+        }
         setSearchQuery(filteredQuery);
-        setHasUserTyped(true);
     }, []);
 
     const onFocusHandler = useCallback(() => {

@@ -145,6 +145,26 @@ describe('useSearchBarData', () => {
     );
 
     it.each([SearchBarApi.AutocompleteForMultiple, SearchBarApi.SearchAcrossEntities])(
+        'does not fetch the previous query when activation and a query change happen together (%s)',
+        (apiVariant) => {
+            const { rerender } = renderSearchBarData(apiVariant, { query: 'foo', isActive: false });
+            const activeQuery = apiVariant === SearchBarApi.SearchAcrossEntities ? getSearchResults : getAutoComplete;
+
+            elapseDebounce();
+            expect(getAutoComplete).not.toHaveBeenCalled();
+            expect(getSearchResults).not.toHaveBeenCalled();
+
+            rerender({ query: 'bars', isActive: true });
+            expect(getAutoComplete).not.toHaveBeenCalled();
+            expect(getSearchResults).not.toHaveBeenCalled();
+
+            elapseDebounce();
+            expectTypeahead(apiVariant, 'bars', undefined);
+            expect(activeQuery).toHaveBeenCalledTimes(1);
+        },
+    );
+
+    it.each([SearchBarApi.AutocompleteForMultiple, SearchBarApi.SearchAcrossEntities])(
         'fetches query and selected-view changes while active (%s)',
         (apiVariant) => {
             const { rerender } = renderSearchBarData(apiVariant, { query: 'foo', isActive: true });

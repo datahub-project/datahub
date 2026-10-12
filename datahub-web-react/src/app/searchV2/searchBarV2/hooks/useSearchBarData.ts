@@ -178,14 +178,26 @@ export const useSearchBarData = (
             return;
         }
 
-        // Fetch when the bar becomes active (focus / dropdown open), or when query / filters /
-        // view change while the user is using the bar. Skip mount-time seeding and inactive
-        // selectedView resolution so typeahead does not compete with the main search request.
+        // Fetch when the bar becomes active with a settled debounce, or when query / filters /
+        // view change while the user is using the bar. Skip the immediate fetch when activation
+        // happens in the same update as a query edit: debouncedQuery is still the previous value
+        // (often the URL-seeded query) until the debounce catches up.
         const becameActive = previousIsActive !== true;
-        if (becameActive || !isEqual(inputs, previousInputs)) {
+        const debounceSettled = query === debouncedQuery;
+        if ((becameActive && debounceSettled) || !isEqual(inputs, previousInputs)) {
             updateData(debouncedQuery, orFilters, selectedView);
         }
-    }, [isActive, previousIsActive, updateData, debouncedQuery, orFilters, selectedView, inputs, previousInputs]);
+    }, [
+        isActive,
+        previousIsActive,
+        updateData,
+        debouncedQuery,
+        orFilters,
+        selectedView,
+        inputs,
+        previousInputs,
+        query,
+    ]);
 
     return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };
