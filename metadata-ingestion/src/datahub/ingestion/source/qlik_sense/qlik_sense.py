@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -119,6 +119,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     config: QlikSourceConfig
     reporter: QlikSourceReport
     platform: str = "qlik-sense"
+    qlik_api: Union[QlikAPI, QlikOnPremAPI]
 
     def __init__(self, config: QlikSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
