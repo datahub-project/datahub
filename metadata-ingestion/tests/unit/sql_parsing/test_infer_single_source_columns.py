@@ -37,6 +37,13 @@ def _qualify(sql: str, schema: Optional[dict] = None) -> str:
             id="cte_joined_to_table",
         ),
         pytest.param(
+            # The CTE's columns are known, so t1 is the only source without schema.
+            "WITH c AS (SELECT a, id FROM t2) SELECT x, c.a FROM t1 JOIN c ON t1.id = c.id",
+            "WITH c AS (SELECT t2.a AS a, t2.id AS id FROM t2 AS t2) "
+            "SELECT t1.x AS x, c.a AS a FROM t1 AS t1 JOIN c AS c ON t1.id = c.id",
+            id="sole_schemaless_source_among_several",
+        ),
+        pytest.param(
             "SELECT a, b FROM t1 JOIN t2 ON t1.id = t2.id",
             "SELECT a AS a, b AS b FROM t1 AS t1 JOIN t2 AS t2 ON t1.id = t2.id",
             id="ambiguous_between_two_tables",
