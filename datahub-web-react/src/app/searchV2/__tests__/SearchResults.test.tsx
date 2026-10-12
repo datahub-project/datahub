@@ -41,27 +41,41 @@ function searchResult(urn: string) {
     };
 }
 
+const INITIAL_RESPONSE = {
+    start: 0,
+    count: 2,
+    total: 2,
+    searchResults: [searchResult(FIRST_URN), searchResult(LAST_URN)],
+};
+
 const entityRegistry = {
     renderSearchResult: () => <div data-testid="search-result-card" />,
     renderProfile: (_type: EntityType, urn: string) => <div data-testid="search-result-profile">{urn}</div>,
 };
 
-function renderResults() {
-    return render(
+type ResultsOverrides = {
+    query?: string;
+    page?: number;
+    searchResponse?: typeof INITIAL_RESPONSE;
+    selectedFilters?: React.ComponentProps<typeof SearchResults>['selectedFilters'];
+};
+
+function resultsTree({
+    query = 'events',
+    page = 1,
+    searchResponse = INITIAL_RESPONSE,
+    selectedFilters = [],
+}: ResultsOverrides = {}) {
+    return (
         <MemoryRouter>
             <CustomThemeProvider>
                 <EntityRegistryContext.Provider value={entityRegistry as never}>
                     <SearchResults
                         loading={false}
-                        query="events"
-                        page={1}
-                        searchResponse={{
-                            start: 0,
-                            count: 2,
-                            total: 2,
-                            searchResults: [searchResult(FIRST_URN), searchResult(LAST_URN)],
-                        }}
-                        selectedFilters={[]}
+                        query={query}
+                        page={page}
+                        searchResponse={searchResponse}
+                        selectedFilters={selectedFilters}
                         error={undefined}
                         onChangeFilters={() => undefined}
                         onChangePage={() => undefined}
@@ -77,8 +91,12 @@ function renderResults() {
                     />
                 </EntityRegistryContext.Provider>
             </CustomThemeProvider>
-        </MemoryRouter>,
+        </MemoryRouter>
     );
+}
+
+function renderResults() {
+    return render(resultsTree());
 }
 
 describe('SearchResults profile sidebar', () => {
@@ -118,5 +136,43 @@ describe('SearchResults profile sidebar', () => {
 
         fireEvent.keyDown(document.body, { key: 'Escape' });
         expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
+    });
+
+    it('drops the selection when the query, page, filters, or results change', () => {
+        const nextUrn = 'urn:li:dataset:(urn:li:dataPlatform:hive,sample.customers,PROD)';
+        const { rerender } = render(resultsTree());
+
+        fireEvent.click(screen.getAllByTestId('search-result')[1]);
+        expect(screen.getByTestId('search-result-profile')).toHaveTextContent(LAST_URN);
+
+        rerender(resultsTree({ page: 2 }));
+        expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
+
+        rerender(resultsTree());
+        fireEvent.click(screen.getAllByTestId('search-result')[1]);
+        rerender(resultsTree({ query: 'orders' }));
+        expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
+
+        rerender(resultsTree());
+        fireEvent.click(screen.getAllByTestId('search-result')[1]);
+        rerender(resultsTree({ selectedFilters: [{ field: 'platform', values: ['hive'] }] }));
+        expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
+
+        rerender(resultsTree());
+        fireEvent.click(screen.getAllByTestId('search-result')[1]);
+        rerender(
+            resultsTree({
+                searchResponse: {
+                    start: 0,
+                    count: 2,
+                    total: 2,
+                    searchResults: [searchResult(nextUrn), searchResult(FIRST_URN)],
+                },
+            }),
+        );
+        expect(screen.queryByTestId('search-result-profile')).not.toBeInTheDocument();
+
+        fireEvent.keyDown(document.body, { key: 'ArrowDown' });
+        expect(screen.getByTestId('search-result-profile')).toHaveTextContent(nextUrn);
     });
 });

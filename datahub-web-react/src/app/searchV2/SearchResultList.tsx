@@ -186,6 +186,10 @@ export const SearchResultList = ({
     // Used to scroll on arrow key up / down, but not on mouse scrolling
     // Stores a pointer to a number, rather than number directly, so we scroll even if you hit up at the top of the page
     const [highlightedByKeyboardIndex, setHighlightedByKeyboardIndex] = useState<[number | null]>([highlightedIndex]);
+    // A cleared highlight should not scroll the next result list to the old slot.
+    if (highlightedIndex === null && highlightedByKeyboardIndex[0] !== null) {
+        setHighlightedByKeyboardIndex([null]);
+    }
 
     const onKeyPress = useSearchKeyboardControls(
         highlightedIndex,

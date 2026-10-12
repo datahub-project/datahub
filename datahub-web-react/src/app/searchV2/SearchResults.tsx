@@ -187,11 +187,24 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
+    const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     // Stay closed until click or keyboard. Hover would reflow the list under the pointer
     // and mount a profile for every row the pointer crosses.
+    // SearchPage keeps this mounted across query, page, and filter changes. The index is a
+    // slot in the list on screen, so clear it before the next list paints — a stored slot
+    // would open another entity's profile on its own.
+    const resultsKey = JSON.stringify([
+        query,
+        page,
+        selectedFilters.map((filter) => [filter.field, filter.values ?? []]),
+        searchResultUrns,
+    ]);
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
-
-    const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
+    const [highlightedResultsKey, setHighlightedResultsKey] = useState(resultsKey);
+    if (highlightedResultsKey !== resultsKey) {
+        setHighlightedResultsKey(resultsKey);
+        setHighlightedIndex(null);
+    }
     const {
         countsByUrn,
         loading: searchResultLineageLoading,

@@ -34,7 +34,7 @@ export const SearchEntitySidebarContainer = ({
     const [isClosed, setIsClosed] = useState(false);
     const width = useSidebarWidth();
 
-    if (highlightedIndex === null) {
+    if (highlightedIndex === null || !selectedEntity) {
         return null;
     }
 
