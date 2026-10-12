@@ -4342,12 +4342,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private boolean ownedOnlyByRun(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String runId) {
-    return aspectDao
-        .getLatestAspectsLocked(
-            opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
-        .getOrDefault(urn.toString(), Map.of())
-        .entrySet()
-        .stream()
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // The key being rolled back must be among the rows read; reading nothing proves nothing, so
+    // keep the entity (as withinCeiling does) rather than delete it on an empty match.
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
+      return false;
+    }
+    return latest.entrySet().stream()
         .filter(row -> !STATUS_ASPECT_NAME.equals(row.getKey()))
         .allMatch(
             row ->
