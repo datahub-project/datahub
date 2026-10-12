@@ -801,6 +801,31 @@ def test_databricks_case_sensitive_column_lineage() -> None:
     )
 
 
+def test_databricks_explicit_mixed_case_columns() -> None:
+    # Databricks folds every query column to lowercase, even backticked ones. Unlike
+    # SELECT *, which expands from the schema, named columns only resolve to the
+    # schema's mixed-case fields through the case-insensitive lookup.
+    assert_sql_result(
+        """
+SELECT o.orderId, `customerId`, amountUsd
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+                "amountUsd": "DOUBLE",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_databricks_explicit_mixed_case_columns.json",
+    )
+
+
 def test_snowflake_case_statement() -> None:
     assert_sql_result(
         """
