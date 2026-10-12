@@ -178,3 +178,14 @@ class GoogleDriveSourceConfig(
                 "Application Default Credentials cannot impersonate users"
             )
         return self
+
+    @model_validator(mode="after")
+    def validate_text_length_range(self) -> "GoogleDriveSourceConfig":
+        # An inverted range would skip every document and, through stale removal,
+        # soft-delete everything already ingested.
+        if self.max_text_length and self.min_text_length > self.max_text_length:
+            raise ValueError(
+                f"min_text_length ({self.min_text_length}) must not exceed "
+                f"max_text_length ({self.max_text_length})"
+            )
+        return self

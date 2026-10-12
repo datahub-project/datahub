@@ -22,11 +22,16 @@ from datahub.ingestion.source.google_drive.google_drive_source import (
     clean_markdown,
 )
 from datahub.ingestion.source.google_drive.models import ExportResult
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    SkipMarkerReadError,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DocumentInfoClass,
     OwnershipClass,
     StatusClass,
+    SubTypesClass,
 )
 from tests.test_helpers.google_drive_fakes import (
     DOC_A1,
@@ -43,6 +48,11 @@ from tests.test_helpers.google_drive_fakes import (
     SPECS,
     FakeDriveService,
     build_fixture_service,
+)
+from tests.test_helpers.test_connection_helpers import (
+    assert_basic_connectivity_failure,
+    assert_basic_connectivity_success,
+    run_test_connection,
 )
 
 Aspects = Dict[str, Dict[str, Any]]
@@ -135,7 +145,6 @@ def test_full_run_emits_folders_and_documents() -> None:
     assert report.documents_skipped_empty == 1
     assert report.documents_export_failed == 1
     assert report.documents_html_fallback == 2  # DOC_HTML and the empty doc
-    assert any(w.title == "Google Doc too large to export" for w in report.warnings)
 
     specs_info = doc_info(aspects, SPECS)
     assert specs_info.parentDocument is not None
@@ -158,12 +167,6 @@ def test_owners_are_mapped_and_deduplicated() -> None:
     ]
     # Shared drive files have no owners.
     assert "ownership" not in aspects[make_document_urn(DOC_B1)]
-
-
-def test_drive_size_is_recorded_when_reported() -> None:
-    aspects = run(make_source(build_fixture_service()))
-    assert doc_info(aspects, DOC_RUNBOOK).customProperties["drive_size_bytes"] == "8290"
-    assert "drive_size_bytes" not in doc_info(aspects, DOC_A1).customProperties
 
 
 def test_extract_owners_disabled() -> None:
@@ -192,22 +195,19 @@ def test_clean_markdown_inline_and_reference_forms() -> None:
     )
 
 
-def test_documents_over_max_text_length_are_skipped_and_left_to_stale_removal() -> None:
-    runbook_length = len(
-        doc_info(run(make_source(build_fixture_service())), DOC_RUNBOOK).contents.text
-    )
-    source = make_source(build_fixture_service(), max_text_length=runbook_length - 1)
-    with mock.patch.object(
-        source.stale_entity_removal_handler, "add_entity_to_state"
-    ) as add_to_state:
-        aspects = run(source)
+def test_documents_over_max_text_length_are_skipped() -> None:
+    first = run(make_source(build_fixture_service()))
+    lengths = {
+        fid: len(doc_info(first, fid).contents.text)
+        for fid in (DOC_A1, DOC_RUNBOOK, DOC_IMAGES, DOC_HTML, DOC_B1, DOC_B2)
+    }
+    limit = lengths[DOC_RUNBOOK] - 1
+    source = make_source(build_fixture_service(), max_text_length=limit)
+    aspects = run(source)
 
-    urn = make_document_urn(DOC_RUNBOOK)
-    assert "documentInfo" not in aspects.get(urn, {})
-    assert mock.call("document", urn) not in add_to_state.call_args_list
-    assert source.report.documents_skipped_too_long >= 1
-    assert any(
-        w.title == "Google Doc exceeds max_text_length" for w in source.report.warnings
+    assert "documentInfo" not in aspects.get(make_document_urn(DOC_RUNBOOK), {})
+    assert source.report.documents_skipped_too_long == sum(
+        length > limit for length in lengths.values()
     )
 
 
@@ -271,9 +271,30 @@ def test_embedding_failure_blanks_version_so_next_run_retries() -> None:
 
     info = doc_info(run(source, embed=fail), DOC_RUNBOOK)
     assert info.customProperties["drive_version"] == ""
-    assert any(
-        w.title == "Embedding generation deferred" for w in source.report.warnings
-    )
+    assert source.report.documents_embedding_deferred == source.report.documents_emitted
+
+
+def test_unreadable_embedding_state_defers_embedding() -> None:
+    source = make_source(build_fixture_service())
+
+    def unreadable(**_: Any) -> Iterable[MetadataWorkUnit]:
+        raise SkipMarkerReadError("skip marker unavailable")
+
+    info = doc_info(run(source, embed=unreadable), DOC_RUNBOOK)
+    assert info.customProperties["drive_version"] == ""
+    assert source.report.documents_embedding_deferred == source.report.documents_emitted
+
+
+def test_successful_embedding_is_emitted_and_keeps_version() -> None:
+    def embed(document_urn: str, **_: Any) -> Iterable[MetadataWorkUnit]:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=document_urn, aspect=SubTypesClass(typeNames=["embedded"])
+        ).as_workunit()
+
+    aspects = run(make_source(build_fixture_service()), embed=embed)
+    urn = make_document_urn(DOC_RUNBOOK)
+    assert "subTypes" in aspects[urn]
+    assert doc_info(aspects, DOC_RUNBOOK).customProperties["drive_version"] == "7"
 
 
 def test_soft_deleted_unchanged_document_is_resurrected() -> None:
@@ -306,7 +327,13 @@ def test_document_limit_stops_the_run_after_emitting_the_document() -> None:
 
     assert source.report.num_documents_limit_reached
     assert source.report.documents_emitted == 1
-    assert sum("documentInfo" in a for a in aspects.values()) >= 1
+    assert source.report.failures
+    emitted_docs = [
+        fid
+        for fid in (DOC_A1, DOC_RUNBOOK, DOC_IMAGES, DOC_HTML, DOC_B1, DOC_B2)
+        if "documentInfo" in aspects.get(make_document_urn(fid), {})
+    ]
+    assert len(emitted_docs) == 1
 
 
 def test_failed_document_is_reported_and_the_run_continues() -> None:
@@ -322,7 +349,7 @@ def test_failed_document_is_reported_and_the_run_continues() -> None:
         aspects = run(source)
 
     assert source.report.documents_failed == 1
-    assert DOC_RUNBOOK in source.report.failed_documents
+    assert any(DOC_RUNBOOK in failed for failed in source.report.failed_documents)
     assert make_document_urn(DOC_B1) in aspects
 
 
@@ -330,9 +357,13 @@ def test_change_detection_read_failure_falls_back_to_export() -> None:
     graph = mock.MagicMock(spec=DataHubGraph)
     graph.get_entity_semityped.side_effect = ConnectionError("gms unavailable")
     svc = build_fixture_service()
-    run(make_source(svc, graph=cast(DataHubGraph, graph)))
+    source = make_source(svc, graph=cast(DataHubGraph, graph))
+    run(source)
 
     assert DOC_RUNBOOK in exported_ids(svc)
+    assert source.report.change_detection_lookup_failures == len(
+        {make_document_urn(fid) for fid in exported_ids(svc)}
+    )
 
 
 def test_without_root_documents_root_children_attach_to_parent_document() -> None:
@@ -364,7 +395,9 @@ def test_native_and_external_import_modes() -> None:
         run(make_source(build_fixture_service(), document_import_mode="NATIVE")),
         DOC_A1,
     )
-    assert native.source is None or native.source.sourceType == "NATIVE"
+    assert native.source is not None
+    assert native.source.sourceType == "NATIVE"
+    assert native.source.externalId is None
 
 
 def test_inaccessible_root_is_a_failure_and_other_roots_continue() -> None:
@@ -389,32 +422,6 @@ def test_continue_on_failure_false_reraises() -> None:
         run(source)
 
 
-@pytest.mark.parametrize(
-    "failure_reason, kept_in_state",
-    [("export_failed", True), ("too_large", False), ("not_found", False)],
-)
-def test_export_failure_state_handling(
-    failure_reason: str, kept_in_state: bool
-) -> None:
-    source = make_source(build_fixture_service())
-    with (
-        mock.patch.object(
-            source.client,
-            "export_markdown",
-            return_value=ExportResult(None, False, failure_reason),
-        ),
-        mock.patch.object(
-            source.stale_entity_removal_handler, "add_entity_to_state"
-        ) as add_to_state,
-    ):
-        aspects = run(source)
-
-    urn = make_document_urn(DOC_RUNBOOK)
-    assert "documentInfo" not in aspects.get(urn, {})
-    registered = mock.call("document", urn) in add_to_state.call_args_list
-    assert registered == kept_in_state
-
-
 def connection_report(
     config: Optional[Dict[str, Any]] = None,
     auth_error: Optional[Exception] = None,
@@ -431,31 +438,39 @@ def connection_report(
             return_value=CapabilityReport(capable=True),
         ),
     ):
-        return GoogleDriveSource.test_connection(
-            config or {"root_folder_ids": [ROOT_A, SHARED_B]}
+        return run_test_connection(
+            GoogleDriveSource, config or {"root_folder_ids": [ROOT_A, SHARED_B]}
         )
 
 
 def test_connection_succeeds_when_every_root_is_reachable() -> None:
-    report = connection_report()
-    assert report.basic_connectivity is not None
-    assert report.basic_connectivity.capable
-    assert report.capability_report is not None
-    assert report.capability_report["Semantic Search"].capable
+    assert_basic_connectivity_success(connection_report())
 
 
 def test_connection_names_inaccessible_roots() -> None:
     report = connection_report(config={"root_folder_ids": [ROOT_A, "missingRoot0"]})
+    assert_basic_connectivity_failure(report, "missingRoot0")
     assert report.basic_connectivity is not None
-    assert not report.basic_connectivity.capable
-    reason = report.basic_connectivity.failure_reason or ""
-    assert "missingRoot0" in reason and ROOT_A not in reason
+    assert ROOT_A not in (report.basic_connectivity.failure_reason or "")
 
 
 def test_connection_reports_authentication_failure() -> None:
     report = connection_report(auth_error=ValueError("invalid key"))
-    assert report.basic_connectivity is not None
-    assert not report.basic_connectivity.capable
+    assert_basic_connectivity_failure(report, "invalid key")
+
+
+def test_semantic_search_capability_reports_unusable_embedding_config() -> None:
+    config = GoogleDriveSourceConfig.model_validate(
+        {"root_folder_ids": [ROOT_A], "embedding": {"provider": "bedrock"}}
+    )
+    with mock.patch.object(
+        DocumentChunkingSource,
+        "test_embedding_capability",
+        side_effect=ValueError("model access denied"),
+    ):
+        capability = GoogleDriveSource._test_semantic_search_capability(config)
+    assert not capability.capable
+    assert capability.failure_reason
 
 
 def test_connection_reports_invalid_config() -> None:

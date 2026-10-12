@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.google_drive.constants import (
     MIME_DOCUMENT,
     MIME_FOLDER,
@@ -87,9 +88,19 @@ class ExportResult:
     text: Optional[str]
     used_html_fallback: bool
     failure_reason: Optional[str]
+    # Short description of the last API error, surfaced in the run report.
+    error: Optional[str] = None
 
 
 @dataclass
 class UnchangedCheck:
     unchanged: bool
     soft_deleted: bool
+
+
+@dataclass
+class EmbedResult:
+    workunits: List[MetadataWorkUnit]
+    succeeded: bool
+    # The max_documents error, re-raised after the document itself is emitted.
+    limit_error: Optional[RuntimeError] = None

@@ -29,6 +29,8 @@ from tests.test_helpers.google_drive_fakes import (
     DOC_OLD,
     DOC_RUNBOOK,
     ENG,
+    MIME_DOC,
+    MIME_FOLDER,
     ROOT_A,
     SHARED_B,
     SPECS,
@@ -141,6 +143,22 @@ def test_shared_drive_not_addressable_by_files_get_falls_back_to_drives_get() ->
     assert root.title == "Team Drive"
     assert root.drive_id == "0AteamDriveOnly"
     assert svc.calls_for("drives.get") == ["0AteamDriveOnly"]
+
+
+def test_unparseable_folder_is_a_failure_but_unparseable_doc_is_a_warning() -> None:
+    svc = build_fixture_service()
+    svc.add({"id": "brokenFolder01", "mimeType": MIME_FOLDER, "parents": [ROOT_A]})
+    client = make_client(svc)
+    walk_all(client)
+    assert client.report.failures
+    assert not client.report.warnings
+
+    svc = build_fixture_service()
+    svc.add({"id": "brokenDocxxx01", "mimeType": MIME_DOC, "parents": [ROOT_A]})
+    client = make_client(svc)
+    walk_all(client)
+    assert client.report.warnings
+    assert not client.report.failures
 
 
 def test_root_that_is_not_a_folder_or_shared_drive_is_rejected() -> None:

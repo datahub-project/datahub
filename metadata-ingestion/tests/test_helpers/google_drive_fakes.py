@@ -20,6 +20,30 @@ EXPORT_MD = "text/markdown"
 EXPORT_HTML = "text/html"
 
 _PARENT_RE = re.compile(r"'([A-Za-z0-9_-]+)' in parents")
+_FILES_MASK_RE = re.compile(r"files\((.*)\)")
+
+
+def mask_fields(raw: Dict[str, Any], fields: str) -> Dict[str, Any]:
+    """Keep only the top-level keys a Drive `fields` mask asks for, as the real API
+    does, so a field dropped from the connector's mask is caught by tests."""
+    depth = 0
+    names: List[str] = []
+    current = ""
+    for char in fields:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            names.append(current)
+            current = ""
+            continue
+        if depth == 0 and char != ")":
+            current += char
+    names.append(current)
+    wanted = {name.strip() for name in names}
+    return {key: value for key, value in raw.items() if key in wanted}
+
 
 CREDENTIAL = {
     "project_id": "test-project",
@@ -29,7 +53,7 @@ CREDENTIAL = {
     "client_id": "123",
 }
 
-ExportValue = Union[bytes, HttpError]
+ExportValue = Union[bytes, Exception]
 
 
 def http_error(status: int, reason: str = "") -> HttpError:
@@ -116,10 +140,14 @@ class _FakeFiles:
     def __init__(self, svc: FakeDriveService) -> None:
         self._svc = svc
 
-    def list(self, q: str, pageToken: Optional[str] = None, **_: Any) -> _Request:
+    def list(
+        self, q: str, fields: str, pageToken: Optional[str] = None, **_: Any
+    ) -> _Request:
         match = _PARENT_RE.search(q)
         assert match, q
         folder_id = match.group(1)
+        files_mask = _FILES_MASK_RE.search(fields)
+        assert files_mask, fields
 
         def run() -> Dict[str, Any]:
             self._svc.calls.append(("files.list", folder_id))
@@ -128,7 +156,10 @@ class _FakeFiles:
             child_ids = self._svc.children.get(folder_id, [])
             start = int(pageToken or 0)
             end = start + self._svc.page_size
-            page = [self._svc.files_by_id[c] for c in child_ids[start:end]]
+            page = [
+                mask_fields(self._svc.files_by_id[c], files_mask.group(1))
+                for c in child_ids[start:end]
+            ]
             response: Dict[str, Any] = {"files": page}
             if end < len(child_ids):
                 response["nextPageToken"] = str(end)
@@ -136,12 +167,12 @@ class _FakeFiles:
 
         return _Request(run)
 
-    def get(self, fileId: str, **_: Any) -> _Request:
+    def get(self, fileId: str, fields: str, **_: Any) -> _Request:
         def run() -> Dict[str, Any]:
             self._svc.calls.append(("files.get", fileId))
             if fileId not in self._svc.files_by_id:
                 raise http_error(404, "notFound")
-            return self._svc.files_by_id[fileId]
+            return mask_fields(self._svc.files_by_id[fileId], fields)
 
         return _Request(run)
 
@@ -151,7 +182,7 @@ class _FakeFiles:
             value = self._svc.exports.get((fileId, mimeType))
             if value is None:
                 raise http_error(404, "notFound")
-            if isinstance(value, HttpError):
+            if isinstance(value, Exception):
                 raise value
             return value
 

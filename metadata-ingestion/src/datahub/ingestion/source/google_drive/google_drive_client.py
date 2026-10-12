@@ -7,6 +7,7 @@ import google.auth
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
+from markdownify import markdownify
 from pydantic import ValidationError
 
 from datahub.ingestion.source.google_drive.constants import (
@@ -18,6 +19,8 @@ from datahub.ingestion.source.google_drive.constants import (
     API_FILES_LIST,
     API_MAX_RETRIES,
     CHILDREN_QUERY_TEMPLATE,
+    DRIVE_API_NAME,
+    DRIVE_API_VERSION,
     DRIVE_FIELDS,
     DRIVE_ID_RE,
     DRIVE_SCOPES,
@@ -32,7 +35,10 @@ from datahub.ingestion.source.google_drive.constants import (
     HTTP_NOT_FOUND,
     LIST_FIELDS,
     LIST_PAGE_SIZE,
+    MARKDOWNIFY_HEADING_STYLE,
+    MIME_FOLDER,
     ORDER_BY,
+    SHARED_DRIVE_URL_TEMPLATE,
 )
 from datahub.ingestion.source.google_drive.google_drive_config import (
     GoogleDriveSourceConfig,
@@ -49,8 +55,6 @@ from datahub.ingestion.source.google_drive.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-SHARED_DRIVE_URL_TEMPLATE = "https://drive.google.com/drive/folders/{drive_id}"
 
 
 def http_error_reason(error: HttpError) -> str:
@@ -69,6 +73,12 @@ def http_error_status(error: HttpError) -> int:
     return int(getattr(error.resp, "status", 0) or 0)
 
 
+def describe_http_error(error: HttpError) -> str:
+    reason = http_error_reason(error)
+    status = f"HTTP {http_error_status(error)}"
+    return f"{status} {reason}" if reason else status
+
+
 def build_drive_service(config: GoogleDriveSourceConfig) -> Resource:
     # Credentials are injected programmatically; never via os.environ or a key file
     # on disk, so the key is not exposed to other code in the process.
@@ -80,7 +90,12 @@ def build_drive_service(config: GoogleDriveSourceConfig) -> Resource:
             credentials = credentials.with_subject(config.delegated_user)
     else:
         credentials, _ = google.auth.default(scopes=DRIVE_SCOPES)
-    return build("drive", "v3", credentials=credentials, cache_discovery=False)
+    return build(
+        DRIVE_API_NAME,
+        DRIVE_API_VERSION,
+        credentials=credentials,
+        cache_discovery=False,
+    )
 
 
 class GoogleDriveClient:
@@ -193,12 +208,24 @@ class GoogleDriveClient:
                 try:
                     yield DriveFile.model_validate(raw)
                 except ValidationError as e:
-                    self.report.warning(
-                        title="Unparseable Drive file",
-                        message="A Drive item could not be parsed and was skipped.",
-                        context=f"folder_id={folder_id}, file_id={raw.get('id')}",
-                        exc=e,
-                    )
+                    context = f"folder_id={folder_id}, file_id={raw.get('id')}"
+                    if raw.get("mimeType") in (MIME_FOLDER, None):
+                        # Skipping a folder skips its whole subtree, which stale
+                        # removal would then soft-delete; failing suppresses that.
+                        self.report.failure(
+                            title="Unparseable Drive folder",
+                            message="A Drive folder could not be parsed; its contents "
+                            "were not ingested and stale-entity removal is skipped.",
+                            context=context,
+                            exc=e,
+                        )
+                    else:
+                        self.report.warning(
+                            title="Unparseable Drive file",
+                            message="A Drive item could not be parsed and was skipped.",
+                            context=context,
+                            exc=e,
+                        )
             page_token = response.get("nextPageToken")
             if not page_token:
                 return
@@ -217,7 +244,7 @@ class GoogleDriveClient:
             folder = queue.popleft()
             try:
                 children = list(self.list_children(folder.id))
-            except (HttpError, ValueError) as e:
+            except Exception as e:
                 # A partial listing would make stale-entity removal soft-delete every
                 # document under this folder, so this is a failure (which suppresses
                 # stale removal for the run) rather than a warning.
@@ -236,9 +263,10 @@ class GoogleDriveClient:
                 elif child.is_folder:
                     self._visit_folder(child, folder, tree, queue, visited)
                 elif child.is_document:
-                    self.report.documents_discovered += 1
+                    # A document listed under several folders is counted once.
                     if child.id in seen_documents:
                         continue
+                    self.report.documents_discovered += 1
                     if not self.config.document_pattern.allowed(child.name):
                         self.report.documents_filtered += 1
                         continue
@@ -284,23 +312,34 @@ class GoogleDriveClient:
                 )
         except HttpError as e:
             if http_error_status(e) == HTTP_NOT_FOUND:
-                return ExportResult(None, False, FAILURE_NOT_FOUND)
+                return ExportResult(
+                    text=None,
+                    used_html_fallback=False,
+                    failure_reason=FAILURE_NOT_FOUND,
+                    error=describe_http_error(e),
+                )
             if http_error_reason(e) == EXPORT_TOO_LARGE_REASON:
                 # HTML is larger than markdown, so falling back cannot succeed.
-                return ExportResult(None, False, FAILURE_TOO_LARGE)
+                return ExportResult(
+                    text=None,
+                    used_html_fallback=False,
+                    failure_reason=FAILURE_TOO_LARGE,
+                    error=describe_http_error(e),
+                )
             logger.debug("Markdown export failed for %s: %s", file_id, e)
 
         try:
             html = self._export(file_id, EXPORT_HTML)
         except HttpError as e:
-            logger.debug("HTML export failed for %s: %s", file_id, e)
-            return ExportResult(None, True, FAILURE_EXPORT_FAILED)
-
-        # Only needed on the rare fallback path.
-        from markdownify import markdownify
+            return ExportResult(
+                text=None,
+                used_html_fallback=True,
+                failure_reason=FAILURE_EXPORT_FAILED,
+                error=describe_http_error(e),
+            )
 
         return ExportResult(
-            text=markdownify(html, heading_style="ATX"),
+            text=markdownify(html, heading_style=MARKDOWNIFY_HEADING_STYLE),
             used_html_fallback=True,
             failure_reason=None,
         )

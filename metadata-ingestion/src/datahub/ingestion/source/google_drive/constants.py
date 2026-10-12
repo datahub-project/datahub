@@ -10,6 +10,17 @@ MIME_DOCUMENT = "application/vnd.google-apps.document"
 MIME_SHORTCUT = "application/vnd.google-apps.shortcut"
 EXPORT_MARKDOWN = "text/markdown"
 EXPORT_HTML = "text/html"
+MARKDOWNIFY_HEADING_STYLE = "ATX"
+
+DRIVE_API_NAME = "drive"
+DRIVE_API_VERSION = "v3"
+SHARED_DRIVE_URL_TEMPLATE = "https://drive.google.com/drive/folders/{drive_id}"
+
+STAGE_DISCOVERY = "Discover Drive folders and Google Docs"
+STAGE_FOLDERS = "Emit folder documents"
+STAGE_DOCUMENTS = "Ingest Google Docs"
+PROGRESS_LOG_INTERVAL = 100
+CAPABILITY_SEMANTIC_SEARCH = "Semantic Search"
 
 FOLDER_SUBTYPE = "Folder"
 

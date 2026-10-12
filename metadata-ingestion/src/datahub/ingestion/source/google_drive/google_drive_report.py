@@ -14,6 +14,7 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     folders_discovered: int = 0
     folders_filtered: int = 0
     folders_emitted: int = 0
+    folders_failed: int = 0
     documents_discovered: int = 0
     documents_filtered: int = 0
     documents_emitted: int = 0
@@ -24,11 +25,17 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     documents_html_fallback: int = 0
     documents_resurrected: int = 0
     documents_failed: int = 0
+    documents_embedding_deferred: int = 0
+    # Stored documents that could not be read back from DataHub, so they were
+    # re-exported instead of being checked for changes.
+    change_detection_lookup_failures: int = 0
     shortcuts_skipped: int = 0
     failed_documents: LossyList[str] = field(default_factory=LossyList)
 
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
     num_documents_limit_reached: bool = False
 

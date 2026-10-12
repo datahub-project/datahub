@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 from googleapiclient.discovery import Resource
 
@@ -28,11 +28,14 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
     ASPECT_DOCUMENT_INFO,
     ASPECT_STATUS,
+    CAPABILITY_SEMANTIC_SEARCH,
     DOCUMENT_ENTITY_TYPE,
+    DRIVE_SCOPES,
     ELEMENT_TYPE_NARRATIVE_TEXT,
     EXCESS_BLANK_LINES_RE,
     EXTRACTION_ALGO_VERSION,
@@ -44,6 +47,7 @@ from datahub.ingestion.source.google_drive.constants import (
     INLINE_DATA_IMAGE_RE,
     MIME_FOLDER,
     PLATFORM,
+    PROGRESS_LOG_INTERVAL,
     PROP_CONTENT_HASH,
     PROP_DRIVE_ID,
     PROP_EXTRACTION_ALGO_VERSION,
@@ -57,6 +61,9 @@ from datahub.ingestion.source.google_drive.constants import (
     PROP_VERSION,
     REFERENCE_DATA_IMAGE_RE,
     REFERENCE_IMAGE_USE_RE,
+    STAGE_DISCOVERY,
+    STAGE_DOCUMENTS,
+    STAGE_FOLDERS,
 )
 from datahub.ingestion.source.google_drive.google_drive_client import (
     GoogleDriveClient,
@@ -77,6 +84,8 @@ from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
     DriveFile,
     DriveTree,
+    EmbedResult,
+    ExportResult,
     FolderNode,
     UnchangedCheck,
 )
@@ -142,10 +151,6 @@ def clean_markdown(text: str) -> str:
     return text.strip()
 
 
-def compute_content_hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
 @platform_name("Google Drive", id=PLATFORM)
 @config_class(GoogleDriveSourceConfig)
 @support_status(SupportStatus.ALPHA)
@@ -165,6 +170,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         ctx: PipelineContext,
         drive_service: Optional[Resource] = None,
     ):
+        # The base class is typed for StatefulIngestionConfigBase[StatefulIngestionConfig]
+        # and its generic parameter is invariant, so the more specific config is rejected.
         super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
         self.report: GoogleDriveSourceReport = GoogleDriveSourceReport()
@@ -196,7 +203,9 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         config = GoogleDriveSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_excluded_workunit_processors(self):
+    def get_excluded_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
         # The manual handler below lets unchanged documents that are skipped without
         # emitting be registered as still present, so they are not soft-deleted.
         return [AutoStaleEntityRemovalProcessor]
@@ -231,50 +240,83 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self._log_authenticated_user()
+        with self.report.new_stage(STAGE_DISCOVERY):
+            self._log_authenticated_user()
+            roots = self._resolve_roots()
+            if not roots:
+                return
+            tree = self.client.walk(roots)
+            logger.info(
+                "Discovered %d folders and %d Google Docs under %d root(s)",
+                len(tree.folders),
+                len(tree.documents),
+                len(roots),
+            )
 
-        roots = self._resolve_roots()
-        if not roots:
-            return
+        with self.report.new_stage(STAGE_FOLDERS):
+            for folder in tree.folders.values():
+                if folder.is_root and not self.config.create_root_documents:
+                    continue
+                yield from self._emit_folder_safely(folder, tree)
 
-        tree = self.client.walk(roots)
-        logger.info(
-            "Discovered %d folders and %d Google Docs under %d root(s)",
-            len(tree.folders),
-            len(tree.documents),
-            len(roots),
-        )
+        with self.report.new_stage(STAGE_DOCUMENTS):
+            total = len(tree.documents)
+            for index, ref in enumerate(tree.documents, start=1):
+                yield from self._process_document_safely(ref, tree)
+                if index % PROGRESS_LOG_INTERVAL == 0 or index == total:
+                    logger.info("Processed %d of %d Google Docs", index, total)
+            self._merge_chunking_logs()
 
-        for folder in tree.folders.values():
-            if folder.is_root and not self.config.create_root_documents:
-                continue
-            try:
-                yield from self._emit_folder(folder, tree)
-            except Exception as e:
-                self.report.warning(
-                    title="Failed to ingest Drive folder",
-                    message="A folder document could not be built; documents beneath "
-                    "it are still ingested.",
-                    context=f"folder_id={folder.id}, path={folder.path}",
+    def _emit_folder_safely(
+        self, folder: FolderNode, tree: DriveTree
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            yield from self._emit_folder(folder, tree)
+        except Exception as e:
+            self.report.folders_failed += 1
+            # Keep the folder in state: its documents still point to it as parent.
+            self.stale_entity_removal_handler.add_entity_to_state(
+                DOCUMENT_ENTITY_TYPE, make_document_urn(folder.id)
+            )
+            self.report.warning(
+                title="Failed to ingest Drive folder",
+                message="A folder document could not be built; documents beneath "
+                "it are still ingested.",
+                context=f"folder_id={folder.id}, path={folder.path}",
+                exc=e,
+            )
+
+    def _process_document_safely(
+        self, ref: DocumentRef, tree: DriveTree
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            yield from self._process_document(ref, tree)
+        except Exception as e:
+            if self.report.num_documents_limit_reached:
+                self.report.failure(
+                    title="Document limit reached",
+                    message="The run stopped after max_documents documents were "
+                    "embedded. Raise max_documents, or set it to 0, to ingest the rest.",
+                    context=f"max_documents={self.config.max_documents}",
                     exc=e,
                 )
-
-        for ref in tree.documents:
-            try:
-                yield from self._process_document(ref, tree)
-            except Exception as e:
-                if self.report.num_documents_limit_reached:
-                    raise
-                self.report.documents_failed += 1
-                self.report.failed_documents.append(ref.file.id)
-                self.report.warning(
-                    title="Failed to ingest Google Doc",
-                    message="A Google Doc could not be ingested.",
-                    context=f"file_id={ref.file.id}, title={ref.file.name}",
-                    exc=e,
-                )
-                if not self.config.continue_on_failure:
-                    raise
+                raise
+            self.report.documents_failed += 1
+            self.report.failed_documents.append(f"{ref.file.id} ({ref.file.name})")
+            # The failure may be transient; keep what DataHub already has rather than
+            # letting stale removal soft-delete the document.
+            self.stale_entity_removal_handler.add_entity_to_state(
+                DOCUMENT_ENTITY_TYPE, make_document_urn(ref.file.id)
+            )
+            self.report.warning(
+                title="Failed to ingest Google Doc",
+                message="A Google Doc could not be ingested; the copy already in "
+                "DataHub, if any, was kept.",
+                context=f"file_id={ref.file.id}, title={ref.file.name}",
+                exc=e,
+            )
+            if not self.config.continue_on_failure:
+                raise
 
     def _log_authenticated_user(self) -> None:
         try:
@@ -353,27 +395,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         if result.used_html_fallback:
             self.report.documents_html_fallback += 1
         if result.text is None:
-            self.report.documents_export_failed += 1
-            if result.failure_reason == FAILURE_TOO_LARGE:
-                self.report.warning(
-                    title="Google Doc too large to export",
-                    message="Google Drive refuses to export documents over 10 MB; "
-                    "the document was skipped.",
-                    context=f"file_id={file.id}, title={file.name}",
-                )
-            else:
-                self.report.warning(
-                    title="Google Doc export failed",
-                    message="The document could not be exported as markdown or HTML "
-                    "and was skipped.",
-                    context=f"file_id={file.id}, reason={result.failure_reason}",
-                )
-            # A document that vanished or outgrew the export limit is left to stale
-            # removal; any other (possibly transient) failure keeps what DataHub has.
-            if result.failure_reason not in (FAILURE_NOT_FOUND, FAILURE_TOO_LARGE):
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    DOCUMENT_ENTITY_TYPE, urn
-                )
+            self._handle_export_failure(urn, file, result)
             return
 
         text = clean_markdown(result.text)
@@ -393,10 +415,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        embedding_workunits, embedding_ok, limit_error = self._embed(urn, file, text)
+        text_sha256 = compute_source_text_sha256(text)
+        embedded = self._embed(urn, file, text, text_sha256)
 
         custom_properties = self._document_properties(
-            file, folder, text, embedding_ok=embedding_ok
+            file, folder, text_sha256, embedding_ok=embedded.succeeded
         )
         doc = self._build_document(
             file_id=file.id,
@@ -416,20 +439,44 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self._attach_common_aspects(doc, folder, tree)
         self.report.documents_emitted += 1
         yield from doc.as_workunits()
-        yield from embedding_workunits
-        if limit_error is not None:
+        yield from embedded.workunits
+        if embedded.limit_error is not None:
             self.report.num_documents_limit_reached = True
-            raise limit_error
+            raise embedded.limit_error
+
+    def _handle_export_failure(
+        self, urn: str, file: DriveFile, result: ExportResult
+    ) -> None:
+        self.report.documents_export_failed += 1
+        if result.failure_reason == FAILURE_TOO_LARGE:
+            self.report.warning(
+                title="Google Doc too large to export",
+                message="Google Drive refuses to export documents over 10 MB; "
+                "the document was skipped.",
+                context=f"file_id={file.id}, title={file.name}",
+            )
+        else:
+            self.report.warning(
+                title="Google Doc export failed",
+                message="The document could not be exported as markdown or HTML "
+                "and was skipped.",
+                context=f"file_id={file.id}, title={file.name}, "
+                f"reason={result.failure_reason}, error={result.error}",
+            )
+        # A document that vanished or outgrew the export limit is left to stale
+        # removal; any other (possibly transient) failure keeps what DataHub has.
+        if result.failure_reason not in (FAILURE_NOT_FOUND, FAILURE_TOO_LARGE):
+            self.stale_entity_removal_handler.add_entity_to_state(
+                DOCUMENT_ENTITY_TYPE, urn
+            )
 
     def _embed(
-        self, urn: str, file: DriveFile, text: str
-    ) -> Tuple[List[MetadataWorkUnit], bool, Optional[RuntimeError]]:
+        self, urn: str, file: DriveFile, text: str, text_sha256: str
+    ) -> EmbedResult:
         """Run chunking/embedding before the document is emitted.
 
-        Returns the embedding workunits, whether embedding succeeded, and the
-        max_documents error to re-raise after the document itself has been emitted.
-        Embedding outcome is recorded on the document (see _document_properties) so
-        that a failed embedding is retried on the next run instead of being skipped as
+        The outcome is recorded on the document (see _document_properties) so that a
+        failed embedding is retried on the next run instead of being skipped as
         unchanged.
         """
         workunits: List[MetadataWorkUnit] = []
@@ -448,23 +495,25 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             for wu in self.chunking_source.process_elements_inline(
                 document_urn=urn,
                 elements=elements,
-                source_text_sha256=compute_source_text_sha256(text),
+                source_text_sha256=text_sha256,
             ):
                 workunits.append(wu)
         except SkipMarkerReadError as e:
-            logger.warning("Skip marker deferred for %s: %s", urn, e)
-            return workunits, False, None
+            # The stored embedding state could not be read; retry next run.
+            self._report_embedding_deferred(file, e)
+            return EmbedResult(workunits=workunits, succeeded=False)
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
-                return workunits, True, e
+                return EmbedResult(workunits=workunits, succeeded=True, limit_error=e)
             self._report_embedding_deferred(file, e)
-            return workunits, False, None
+            return EmbedResult(workunits=workunits, succeeded=False)
         except Exception as e:
             self._report_embedding_deferred(file, e)
-            return workunits, False, None
-        return workunits, True, None
+            return EmbedResult(workunits=workunits, succeeded=False)
+        return EmbedResult(workunits=workunits, succeeded=True)
 
     def _report_embedding_deferred(self, file: DriveFile, exc: Exception) -> None:
+        self.report.documents_embedding_deferred += 1
         self.report.warning(
             title="Embedding generation deferred",
             message="The document was ingested without embeddings; they will be "
@@ -486,7 +535,14 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 urn, aspects=[ASPECT_DOCUMENT_INFO, ASPECT_STATUS]
             )
         except Exception as e:
-            logger.debug("Could not load %s for change detection: %s", urn, e)
+            self.report.change_detection_lookup_failures += 1
+            self.report.warning(
+                title="Change detection lookup failed",
+                message="The stored document could not be read from DataHub, so it "
+                "was exported again instead of being checked for changes.",
+                context=f"urn={urn}",
+                exc=e,
+            )
             return UnchangedCheck(unchanged=False, soft_deleted=False)
         info = stored.get(ASPECT_DOCUMENT_INFO)
         status = stored.get(ASPECT_STATUS)
@@ -511,7 +567,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _document_properties(
-        self, file: DriveFile, folder: FolderNode, text: str, embedding_ok: bool
+        self,
+        file: DriveFile,
+        folder: FolderNode,
+        text_sha256: str,
+        embedding_ok: bool,
     ) -> Dict[str, str]:
         properties = {
             PROP_FILE_ID: file.id,
@@ -522,7 +582,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             # retries embeddings that failed during this run.
             PROP_VERSION: (file.version or "") if embedding_ok else "",
             PROP_INGEST_FINGERPRINT: self._ingest_fingerprint,
-            PROP_CONTENT_HASH: compute_content_hash(text),
+            PROP_CONTENT_HASH: text_sha256,
             PROP_EXTRACTION_ALGO_VERSION: EXTRACTION_ALGO_VERSION,
         }
         if file.drive_id:
@@ -630,7 +690,37 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self.report.embedding_failures = LossyList()
         for failure in chunking_report.embedding_failures:
             self.report.embedding_failures.append(failure)
+        self.report.num_documents_truncated_oversized = (
+            chunking_report.num_documents_truncated_oversized
+        )
+        self.report.num_documents_dropped_oversized = (
+            chunking_report.num_documents_dropped_oversized
+        )
         return self.report
+
+    def _merge_chunking_logs(self) -> None:
+        """Copy warnings and failures raised while embedding into this report.
+
+        The chunking source logs to its own report, which the pipeline never prints;
+        without this, truncated or dropped embeddings would be invisible.
+        """
+        chunking_report = self.chunking_source.report
+        for entry in chunking_report.warnings:
+            for context in entry.context or [None]:
+                self.report.warning(
+                    title=entry.title,
+                    message=entry.message,
+                    context=context,
+                    log=False,
+                )
+        for entry in chunking_report.failures:
+            for context in entry.context or [None]:
+                self.report.failure(
+                    title=entry.title,
+                    message=entry.message,
+                    context=context,
+                    log=False,
+                )
 
     @staticmethod
     def _test_semantic_search_capability(
@@ -676,7 +766,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     mitigation_message="Verify the service account key, that the "
                     "Google Drive API is enabled in its GCP project, and (when using "
                     "delegated_user) that domain-wide delegation grants the "
-                    "https://www.googleapis.com/auth/drive.readonly scope.",
+                    f"{DRIVE_SCOPES[0]} scope.",
                 )
             )
 
@@ -688,7 +778,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 inaccessible.append(f"{root_id} ({e.__class__.__name__})")
 
         capability_report: Dict[Union[SourceCapability, str], CapabilityReport] = {
-            "Semantic Search": GoogleDriveSource._test_semantic_search_capability(
+            CAPABILITY_SEMANTIC_SEARCH: GoogleDriveSource._test_semantic_search_capability(
                 config
             )
         }

@@ -59,6 +59,21 @@ def test_delegated_user_requires_service_account_credential() -> None:
     assert config.delegated_user == "user@example.com"
 
 
+def test_inverted_text_length_range_rejected() -> None:
+    with pytest.raises(ValidationError):
+        GoogleDriveSourceConfig.model_validate(
+            {
+                "root_folder_ids": [FOLDER_ID],
+                "min_text_length": 500,
+                "max_text_length": 100,
+            }
+        )
+    # 0 disables the upper limit, so any minimum is allowed.
+    GoogleDriveSourceConfig.model_validate(
+        {"root_folder_ids": [FOLDER_ID], "min_text_length": 500, "max_text_length": 0}
+    )
+
+
 def test_platform_instance_rejects_unsafe_characters() -> None:
     with pytest.raises(ValidationError):
         GoogleDriveSourceConfig.model_validate(
