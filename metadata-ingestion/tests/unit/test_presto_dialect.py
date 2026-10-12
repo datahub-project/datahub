@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from typing import Iterator, cast
@@ -179,6 +180,40 @@ def test_kerberos_without_requests_kerberos_explains_install() -> None:
         build_presto_connect_args(
             {"host": "h", "http_scheme": "https", "KerberosRemoteServiceName": "presto"}
         )
+
+
+def test_kerberos_args_configure_the_http_session() -> None:
+    requests_kerberos = MagicMock(OPTIONAL=2)
+
+    # The keytab path is exported to the environment; patch.dict restores it.
+    with (
+        patch.dict(sys.modules, {"requests_kerberos": requests_kerberos}),
+        patch.dict(os.environ),
+    ):
+        kwargs = build_presto_connect_args(
+            {
+                "host": "presto.example.com",
+                "protocol": "https",
+                "KerberosRemoteServiceName": "presto",
+                "KerberosPrincipal": "svc@EXAMPLE.COM",
+                "KerberosKeytabPath": "/etc/security/svc.keytab",
+                "KerberosUseCanonicalHostname": "false",
+                "requests_kwargs": {"verify": "/etc/ssl/presto-ca.pem"},
+            }
+        )
+        session = requests.Session()
+        kwargs["auth"].set_http_session(session)
+        keytab = os.environ.get("KRB5_CLIENT_KTNAME")
+
+    requests_kerberos.HTTPKerberosAuth.assert_called_once()
+    call = requests_kerberos.HTTPKerberosAuth.call_args.kwargs
+    assert call["service"] == "presto"
+    assert call["principal"] == "svc@EXAMPLE.COM"
+    assert call["hostname_override"] == "presto.example.com"
+    assert call["mutual_authentication"] == 2
+    assert session.verify == "/etc/ssl/presto-ca.pem"
+    assert keytab == "/etc/security/svc.keytab"
+    assert kwargs["http_scheme"] == "https"
 
 
 @pytest.mark.parametrize(
