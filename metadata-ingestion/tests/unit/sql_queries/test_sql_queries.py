@@ -814,15 +814,13 @@ class TestErrorHandling:
     def test_mid_read_error_reports_and_propagates(self, pipeline_context):
         """_guarded_stream converts a mid-transfer read error into a failure."""
         source = _make_source(pipeline_context, "dummy.jsonl")
-        reader = source.reader
-        assert isinstance(reader, FileQueryLogReader)
 
         def failing_stream():
             yield _lineage_line(0) + "\n"
             raise OSError("connection reset")
 
         with pytest.raises(OSError):
-            list(reader._guarded_stream(failing_stream()))
+            list(source.reader._guarded_stream(failing_stream()))
 
         assert any(f.title == "Query file read error" for f in source.report.failures)
 
@@ -833,9 +831,7 @@ class TestErrorHandling:
         not be reported as a read failure.
         """
         source = _make_source(pipeline_context, "dummy.jsonl")
-        reader = source.reader
-        assert isinstance(reader, FileQueryLogReader)
-        gen = reader._guarded_stream(iter(["a\n", "b\n"]))
+        gen = source.reader._guarded_stream(iter(["a\n", "b\n"]))
         next(gen)
 
         with pytest.raises(ValueError):
