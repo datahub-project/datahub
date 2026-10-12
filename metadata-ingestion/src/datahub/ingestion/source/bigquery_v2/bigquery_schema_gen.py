@@ -667,24 +667,7 @@ class BigQuerySchemaGenerator:
                 max_calls=self.config.requests_per_min, period=60
             )
 
-        if self.config.include_schema_metadata:
-            columns = self.schema_api.get_columns_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                column_limit=self.config.column_limit,
-                run_optimized_column_query=self.config.run_optimized_column_query,
-                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
-                report=self.report,
-                rate_limiter=rate_limiter,
-            )
-            if (
-                self.config.include_table_constraints
-                and bigquery_dataset.supports_table_constraints()
-            ):
-                constraints = self.schema_api.get_table_constraints_for_dataset(
-                    project_id=project_id, dataset_name=dataset_name, report=self.report
-                )
-        elif self.store_table_refs:
+        if not self.config.include_schema_metadata and self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             logger.debug(
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
@@ -736,9 +719,30 @@ class BigQuerySchemaGenerator:
                 self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
-        # `columns` is a file-backed dict holding a temp sqlite file; close it
-        # deterministically once all consumers (tables/views/snapshots) are done.
+        # `columns` is a file-backed dict holding a temp sqlite file; acquire and
+        # consume it inside the try so any failure - fetching columns/constraints
+        # or downstream processing - still closes the temp file deterministically.
         try:
+            if self.config.include_schema_metadata:
+                columns = self.schema_api.get_columns_for_dataset(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    column_limit=self.config.column_limit,
+                    run_optimized_column_query=self.config.run_optimized_column_query,
+                    extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                    report=self.report,
+                    rate_limiter=rate_limiter,
+                )
+                if (
+                    self.config.include_table_constraints
+                    and bigquery_dataset.supports_table_constraints()
+                ):
+                    constraints = self.schema_api.get_table_constraints_for_dataset(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        report=self.report,
+                    )
+
             if self.config.include_tables:
                 db_tables[dataset_name] = list(
                     self.get_tables_for_dataset(project_id, bigquery_dataset)

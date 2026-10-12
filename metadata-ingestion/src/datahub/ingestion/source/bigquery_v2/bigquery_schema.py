@@ -930,9 +930,42 @@ class BigQuerySchemaApi:
         # keep every column resident in memory. The query orders rows by
         # table_name, so each table's columns arrive contiguously: we build one
         # table at a time and flush it, bounding peak memory to a single table.
+        # cache_max_size=1 keeps at most one prior table in the in-memory LRU;
+        # the default (900) would hold whole datasets resident and defeat the
+        # file-backed spill.
         columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
-            tablename="bigquery_columns"
+            tablename="bigquery_columns",
+            cache_max_size=1,
         )
+        # Close the file-backed dict on any failure after allocation (streaming,
+        # policy-tag resolution, etc). The caller only closes it on a successful
+        # return, so without this its temp sqlite file would leak until GC.
+        try:
+            return self._populate_columns_for_dataset(
+                columns=columns,
+                project_id=project_id,
+                dataset_name=dataset_name,
+                column_limit=column_limit,
+                report=report,
+                run_optimized_column_query=run_optimized_column_query,
+                extract_policy_tags_from_catalog=extract_policy_tags_from_catalog,
+                rate_limiter=rate_limiter,
+            )
+        except Exception:
+            columns.close()
+            raise
+
+    def _populate_columns_for_dataset(
+        self,
+        columns: "FileBackedDict[List[BigqueryColumn]]",
+        project_id: str,
+        dataset_name: str,
+        column_limit: int,
+        report: BigQueryV2Report,
+        run_optimized_column_query: bool,
+        extract_policy_tags_from_catalog: bool,
+        rate_limiter: Optional[RateLimiter],
+    ) -> Optional["FileBackedDict[List[BigqueryColumn]]"]:
         with PerfTimer() as timer:
             try:
                 cur = self.get_query_result(
