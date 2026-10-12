@@ -32,6 +32,15 @@ type SearchResponse = {
     searchAPIVariant?: SearchBarApi;
 };
 
+export type UseSearchBarDataOptions = {
+    /**
+     * When false, skip typeahead GraphQL fetches. Use when the bar is not focused and the
+     * dropdown is closed so mount-time URL query seeding / selectedView resolution do not
+     * compete with the main search request.
+     */
+    isActive: boolean;
+};
+
 const SEARCH_API_RESPONSE_MAX_ITEMS = 20;
 const DEBOUNCE_MS = 300;
 
@@ -127,7 +136,9 @@ const useSearchAPI = (): APIResponse => {
 export const useSearchBarData = (
     query: string,
     appliedFilters: FieldToAppliedFieldFiltersMap | undefined,
+    options: UseSearchBarDataOptions,
 ): SearchResponse => {
+    const { isActive } = options;
     const { selectedView } = useSelectedView();
     const appConfig = useAppConfig();
     const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
@@ -160,11 +171,21 @@ export const useSearchBarData = (
         [debouncedQuery, orFilters, selectedView],
     );
     const previousInputs = usePrevious(inputs);
+    const previousIsActive = usePrevious(isActive);
+
     useEffect(() => {
-        if (!isEqual(inputs, previousInputs)) {
+        if (!isActive) {
+            return;
+        }
+
+        // Fetch when the bar becomes active (focus / dropdown open), or when query / filters /
+        // view change while the user is using the bar. Skip mount-time seeding and inactive
+        // selectedView resolution so typeahead does not compete with the main search request.
+        const becameActive = previousIsActive !== true;
+        if (becameActive || !isEqual(inputs, previousInputs)) {
             updateData(debouncedQuery, orFilters, selectedView);
         }
-    }, [updateData, debouncedQuery, orFilters, selectedView, inputs, previousInputs]);
+    }, [isActive, previousIsActive, updateData, debouncedQuery, orFilters, selectedView, inputs, previousInputs]);
 
     return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };

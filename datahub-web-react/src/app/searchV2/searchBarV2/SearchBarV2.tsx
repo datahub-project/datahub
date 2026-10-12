@@ -7,6 +7,7 @@ import ViewSelectContextProvider from '@app/entityV2/view/select/ViewSelectConte
 import ViewsExternalDropdown from '@app/entityV2/view/select/ViewsExternalDropdown';
 import { SearchBarProps } from '@app/searchV2/SearchBar';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
+import { shouldFetchSearchBarTypeahead } from '@app/searchV2/searchBarV2/SearchBarV2.utils';
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
 import SearchBarDropdown from '@app/searchV2/searchBarV2/components/SearchBarDropdown';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
@@ -88,27 +89,43 @@ export const SearchBarV2 = ({
     // State for what is actually used to fetch search results. Updates only when stable.
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     const [isViewsDropdownOpened, setIsViewsDropdownOpened] = useState(false);
+    // URL / page-open query. Typeahead for this seeded value is skipped until the user types
+    // or changes the query while using the bar.
+    const pageOpenQueryRef = useRef(initialQuery || '');
+    const [hasUserTyped, setHasUserTyped] = useState(false);
     const filtersFromQueryParams = useFiltersMapFromQueryParams();
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
         useAppliedFilters(filtersFromQueryParams);
     const { hasSelectedView, clearSelectedView } = useSelectedView();
+    const isSearchBarActive = isFocused || isDropdownVisible;
+    const shouldFetchTypeahead = shouldFetchSearchBarTypeahead({
+        isSearchBarActive,
+        hasUserTyped,
+        searchQuery,
+        pageOpenQuery: pageOpenQueryRef.current,
+    });
     const {
         entitiesWithMatchedFields,
         facets,
         loading: isDataLoading,
         searchAPIVariant,
-    } = useSearchBarData(searchQuery, appliedFilters);
+    } = useSearchBarData(searchQuery, appliedFilters, { isActive: shouldFetchTypeahead });
 
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
 
     const isSearching = useMemo(() => {
+        // Avoid a false "no results" dropdown for the page-open query before typeahead runs.
+        if (!shouldFetchTypeahead) {
+            return false;
+        }
         const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
         const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
         const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
         return hasSearchQuery || hasAnyAppliedFilters;
-    }, [searchQuery, flatAppliedFilters, searchAPIVariant]);
+    }, [shouldFetchTypeahead, searchQuery, flatAppliedFilters, searchAPIVariant]);
 
     const options = useOptions(
         searchQuery,
@@ -124,6 +141,7 @@ export const SearchBarV2 = ({
     const clearQueryAndFilters = useCallback(() => {
         setInputValue('');
         setSearchQuery('');
+        setHasUserTyped(true);
         clear();
     }, [clear]);
 
@@ -162,6 +180,7 @@ export const SearchBarV2 = ({
             if (!isComposingRef.current) {
                 setSearchQuery(filteredQuery);
             }
+            setHasUserTyped(true);
             if (filteredQuery === '') {
                 clear();
             }
@@ -179,7 +198,18 @@ export const SearchBarV2 = ({
         const finalValue = event.currentTarget.value;
         const filteredQuery = filterSearchQuery(finalValue);
         setSearchQuery(filteredQuery);
+        setHasUserTyped(true);
     }, []);
+
+    const onFocusHandler = useCallback(() => {
+        setIsFocused(true);
+        onFocus?.();
+    }, [onFocus]);
+
+    const onBlurHandler = useCallback(() => {
+        setIsFocused(false);
+        onBlur?.();
+    }, [onBlur]);
 
     const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
 
@@ -258,8 +288,8 @@ export const SearchBarV2 = ({
                             defaultValue={initialQuery || undefined}
                             placeholder={resolvedPlaceholder}
                             onSearch={onSearchHandler}
-                            onFocus={onFocus}
-                            onBlur={onBlur}
+                            onFocus={onFocusHandler}
+                            onBlur={onBlurHandler}
                             onViewsClick={onViewsClickHandler}
                             onClear={clearQueryAndFilters}
                             ref={searchInputRef}
