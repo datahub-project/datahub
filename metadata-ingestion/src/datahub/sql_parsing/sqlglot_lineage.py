@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
 from datahub.sql_parsing.schema_resolver import (
@@ -615,6 +616,39 @@ def _clickhouse_extract_dictionary_tables(
     if result:
         logger.debug(f"Extracted ClickHouse dictionary references: {result}")
     return result
+
+
+def _clickhouse_bare_dictionary_tables(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+) -> Set[_TableName]:
+    """Dictionary names without a database part, which may refer to global XML dictionaries."""
+    return {
+        table
+        for table in _clickhouse_extract_dictionary_tables(statement, dialect)
+        if table.db_schema is None
+    }
+
+
+def _resolve_clickhouse_bare_dictionary_table(
+    schema_resolver: SchemaResolverInterface,
+    table: _TableName,
+    qualified_table: _TableName,
+    qualified_urn: str,
+    qualified_schema_info: Optional[SchemaInfo],
+    bare_dictionary_tables: Set[_TableName],
+) -> Tuple[str, Optional[SchemaInfo]]:
+    # ClickHouse checks global (XML) dictionaries before the current database.
+    # resolve_table also matches case-folded names, so require an exact-case
+    # global match before overriding a current-database hit.
+    if table in bare_dictionary_tables and table != qualified_table:
+        global_urn, global_schema_info = schema_resolver.resolve_table(table)
+        if global_schema_info is not None and (
+            qualified_schema_info is None
+            or DatasetUrn.from_string(global_urn).name.split(".")[-1] == table.table
+        ):
+            return global_urn, global_schema_info
+    return qualified_urn, qualified_schema_info
 
 
 def _clickhouse_extract_to_tables(
@@ -2248,6 +2282,8 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+    bare_dictionary_tables = _clickhouse_bare_dictionary_tables(statement, dialect)
+    total_schemas_resolved = 0
 
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
@@ -2256,17 +2292,31 @@ def _sqlglot_lineage_inner(
             default_db=default_db, default_schema=default_schema
         )
 
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
+        qualified_urn, qualified_schema_info = schema_resolver.resolve_table(
+            qualified_table
+        )
+        lineage_urn, lineage_schema_info = _resolve_clickhouse_bare_dictionary_table(
+            schema_resolver,
+            table=table,
+            qualified_table=qualified_table,
+            qualified_urn=qualified_urn,
+            qualified_schema_info=qualified_schema_info,
+            bare_dictionary_tables=bare_dictionary_tables,
+        )
 
-        table_name_urn_mapping[qualified_table] = urn
-        if schema_info:
-            table_name_schema_mapping[qualified_table] = schema_info
+        # A bare dictionary and a qualified table can share the same qualified
+        # name, so the qualified mapping must always retain the table resolution.
+        table_name_urn_mapping[qualified_table] = qualified_urn
+        if qualified_schema_info:
+            table_name_schema_mapping[qualified_table] = qualified_schema_info
 
-        # Also include the original, non-qualified table name in the urn mapping.
-        table_name_urn_mapping[table] = urn
+        # Differs from the qualified URN when a bare name is a global dictionary.
+        table_name_urn_mapping[table] = lineage_urn
+        # Not added to table_name_schema_mapping: an unqualified key breaks CLL.
+        if lineage_schema_info:
+            total_schemas_resolved += 1
 
     total_tables_discovered = len(tables | modified)
-    total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
         confidence=(
             0.9
