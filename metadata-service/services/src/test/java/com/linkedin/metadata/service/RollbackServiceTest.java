@@ -678,6 +678,9 @@ public class RollbackServiceTest {
     assertTrue(writtenExecutionStatuses().isEmpty());
     assertEquals(response.getEntitiesAffected(), 0);
     assertEquals(response.getAspectsAffected(), 0);
+    assertEquals(response.getEntitiesDeleted(), 0);
+    assertEquals(response.getAspectsReverted(), 0);
+    assertEquals(response.getUnsafeEntitiesCount(), 0);
     assertTrue(response.getAspectRowSummaries().isEmpty());
     assertTrue(response.getUnsafeEntities().isEmpty());
   }

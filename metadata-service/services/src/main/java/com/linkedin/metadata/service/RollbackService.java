@@ -405,6 +405,9 @@ public class RollbackService {
         .setAspectRowSummaries(new AspectRowSummaryArray())
         .setEntitiesAffected(0)
         .setAspectsAffected(0)
+        .setEntitiesDeleted(0)
+        .setAspectsReverted(0)
+        .setUnsafeEntitiesCount(0)
         .setUnsafeEntities(new UnsafeEntityInfoArray());
   }
 

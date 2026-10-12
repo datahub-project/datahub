@@ -13,6 +13,8 @@ public interface IngestionRollbackDispatcher {
 
   /**
    * Hands a rollback of {@code runId} to another process; the caller has already authorized it.
+   * That process must run it with a {@link RollbackService} that has no dispatcher, or it would
+   * hand it off again and nothing would be rolled back.
    *
    * @return true when it was taken, false to run it here
    * @throws RollbackNotHandedOffException when it was not taken and must not run here either
