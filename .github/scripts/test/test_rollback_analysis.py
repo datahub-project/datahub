@@ -1851,7 +1851,7 @@ class TestNewEntityTypes:
     def test_new_aspect_of_an_existing_entity_keeps_aspect_wording(self):
         f = self._new_aspect("newDatasetAspect")
         assert "entity type new in N" not in f.summary and "reads these entities without this aspect" in f.detail
-        assert "skips these rows one by one" in f.detail and f.read_impact == model.OK
+        assert "fails every batch that contains one of these rows" in f.detail and f.read_impact == model.OK
         assert "only requests that name this aspect" in f.detail
 
     def test_aspect_on_new_and_existing_entities_says_both(self):

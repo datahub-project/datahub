@@ -663,7 +663,12 @@ def classify_pdl_for_rollback(
 
     if current_content and not target_content:
         owners = entity_owners(aspect_name, current, target, read)
-        restore = "The rollback's restore-indices skips these rows one by one (counted as ignored) and restores everything else; N's rows stay in the database untouched. Restoring specific URNs that include these entities fails for that group of URNs."
+        restore = (
+            "The rollback's restore-indices fails every batch that contains one "
+            "of these rows, so the other records in that batch aren't re-indexed "
+            "and keep the search and graph entries N wrote. N's rows stay in the "
+            "database untouched."
+        )
         names = ", ".join(f"`{e}`" for e in owners.new)
         if owners.new and not owners.existing:
             note = f"part of {names}, an entity type new in N"
