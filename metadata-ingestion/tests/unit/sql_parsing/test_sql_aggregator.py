@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     QueryPropertiesClass,
     QueryUsageStatisticsClass,
+    StatusClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
@@ -2655,9 +2656,12 @@ def test_query_platform_instance_emitted_first_when_enabled() -> None:
     on = _gen_query_mcps(emit_query_platform_instance=True)
 
     # The instance must be stored before any other write to the query entity,
-    # so it is the first aspect emitted for that query.
+    # so it is the first aspect emitted for that query. Status is upserted right
+    # after it: otherwise the end-of-stream auto-status PATCH (which always needs
+    # EDIT) can be authorized before the asynchronously written instance is stored.
     assert [mcp.aspectName for mcp in on] == [
         "dataPlatformInstance",
+        "status",
         "queryProperties",
         "querySubjects",
         "queryUsageStatistics",
@@ -2669,6 +2673,8 @@ def test_query_platform_instance_emitted_first_when_enabled() -> None:
         dpi.instance
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:redshift,my_instance)"
     )
+    assert on[1].changeType == "UPSERT"
+    assert on[1].aspect == StatusClass(removed=False)
 
     # Query ids are unchanged by the flag.
     assert {mcp.entityUrn for mcp in on} == {mcp.entityUrn for mcp in off}
