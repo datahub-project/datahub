@@ -561,6 +561,10 @@ def _clickhouse_table_name_from_arg(
     arg: sqlglot.exp.Expression, function_name: str
 ) -> Optional[_TableName]:
     if isinstance(arg, sqlglot.exp.Column):
+        if arg.db:
+            # ClickHouse has no catalog level; mirror the literal branch below.
+            logger.warning(f"Unexpected {function_name} table name: {arg.sql()}")
+            return None
         return _TableName(
             database=None,
             db_schema=arg.table if arg.table else None,
@@ -602,7 +606,7 @@ def _clickhouse_extract_dictionary_tables(
 
     result: OrderedSet[_TableName] = OrderedSet()
     for func in statement.find_all(sqlglot.exp.Anonymous):
-        function_name = func.this.lower() if isinstance(func.this, str) else ""
+        function_name = func.name.lower()
         if (
             function_name not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
             or not func.expressions
@@ -610,7 +614,7 @@ def _clickhouse_extract_dictionary_tables(
             continue
 
         table_name = _clickhouse_table_name_from_arg(func.expressions[0], function_name)
-        if table_name:
+        if table_name is not None:
             result.add(table_name)
 
     if result:

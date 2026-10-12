@@ -3,7 +3,10 @@ import pathlib
 import pytest
 
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _CLICKHOUSE_DICTIONARY_FUNCTIONS,
+    sqlglot_lineage,
+)
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -2182,6 +2185,24 @@ FROM db.src
         dialect="clickhouse",
         default_schema="db",
         expected_file=RESOURCE_DIR / "test_clickhouse_typed_dictget.json",
+    )
+
+
+@pytest.mark.parametrize("function_name", sorted(_CLICKHOUSE_DICTIONARY_FUNCTIONS))
+@pytest.mark.parametrize("dictionary_arg", ["'db.my_dict'", "my_dict"])
+def test_clickhouse_dictionary_function_adds_dictionary_upstream(
+    function_name: str, dictionary_arg: str
+) -> None:
+    # Guards against a sqlglot upgrade parsing a dict* function into a typed node
+    # instead of exp.Anonymous, which would silently drop the dictionary upstream.
+    result = sqlglot_lineage(
+        f"SELECT {function_name}({dictionary_arg}, 'value', id) AS v FROM db.src",
+        schema_resolver=SchemaResolver(platform="clickhouse"),
+        default_schema="db",
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.my_dict,PROD)"
+        in result.in_tables
     )
 
 
