@@ -120,6 +120,20 @@ class TestSqlTableQueryLogReaderMapping:
         assert _reader()._to_entry(row).query == "select \\'x\\'"
         assert _reader(unescape_sql=True)._to_entry(row).query == "select 'x'"
 
+    def test_decodes_bytes_columns(self):
+        # MySQL/MariaDB return BLOB/VARBINARY audit text as bytes; it must be
+        # decoded, not str()-reprd into a b'...' literal.
+        entry = _reader()._to_entry(
+            {"sql_text": b"select 1", "usr": b"svc_user", "db": b"sales"}
+        )
+        assert entry is not None
+        assert entry.query == "select 1"
+        assert entry.user == CorpUserUrn("svc_user")
+        assert entry.default_schema == "sales"
+
+    def test_empty_bytes_sql_skipped(self):
+        assert _reader()._to_entry({"sql_text": b""}) is None
+
 
 class TestSqlTableQueryLogReaderExecute:
     def test_get_query_entries_skips_non_sql_and_disposes(self):

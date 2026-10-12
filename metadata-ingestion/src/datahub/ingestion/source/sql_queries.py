@@ -468,6 +468,19 @@ def _query_source_label(source: Optional["QuerySourceConfig"]) -> str:
     return "unknown"
 
 
+def _coerce_text(value: Any) -> Any:
+    """Decode bytes-valued columns to text, leaving other types untouched.
+
+    SQLAlchemy returns bytes for BLOB/VARBINARY columns, which is the usual type
+    for MySQL/MariaDB general_log / audit SQL text. A bare str() on bytes yields a
+    "b'...'" repr rather than the statement (and makes an empty b"" look non-empty),
+    so decode first; ES documents are already JSON text and pass through unchanged.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8", errors="replace")
+    return value
+
+
 def _build_query_entry(
     *,
     raw_sql: Any,
@@ -485,6 +498,12 @@ def _build_query_entry(
     Shared by the dict-based readers (Elasticsearch documents, SQL table rows); the
     file reader builds QueryEntry directly from parsed JSON.
     """
+    raw_sql = _coerce_text(raw_sql)
+    user = _coerce_text(user)
+    session_id = _coerce_text(session_id)
+    default_db = _coerce_text(default_db)
+    default_schema = _coerce_text(default_schema)
+
     if raw_sql is None or not str(raw_sql).strip():
         return None
 
