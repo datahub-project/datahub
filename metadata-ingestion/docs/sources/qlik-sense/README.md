@@ -8,7 +8,7 @@ The DataHub integration for Qlik Sense covers BI entities such as dashboards, ch
 
 | Qlik Sense | Datahub                                                     | Notes                    |
 | ---------- | ----------------------------------------------------------- | ------------------------ |
-| `Space`    | [Container](../../metamodel/entities/container.md)          | SubType `"Qlik Space"`   |
+| `Space`    | [Container](../../metamodel/entities/container.md)          | SubType `"Qlik Space"`. On-prem streams too. |
 | `App`      | [Container](../../metamodel/entities/container.md)          | SubType `"Qlik App"`     |
 | `Sheet`    | [Dashboard](../../metamodel/entities/dashboard.md)          |                          |
 | `Chart`    | [Chart](../../metamodel/entities/chart.md)                  |                          |
