@@ -240,10 +240,6 @@ function fileCardProps(node: HTMLElement) {
     };
 }
 
-function isFileNode(node: ChildNode): node is HTMLElement {
-    return node instanceof HTMLElement && node.classList.contains('file-node');
-}
-
 const BLOCK_TAGS_WITH_PHRASING = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
 // Inline wrappers. A div card cannot sit inside these, or inside a paragraph that contains them.
@@ -285,9 +281,10 @@ function meaningfulChildren(element: HTMLElement): ChildNode[] {
 // The file span may be wrapped in emphasis (`**[file](url)**`) and still be the only content.
 function soleFileNode(element: HTMLElement): HTMLElement | null {
     const children = meaningfulChildren(element);
-    if (children.length !== 1 || !(children[0] instanceof HTMLElement)) return null;
-    const only = children[0];
-    if (isFileNode(only)) return only;
+    const only = children.length === 1 ? children[0] : undefined;
+    // A failing `is HTMLElement` predicate would narrow the remaining element to `never`.
+    if (!(only instanceof HTMLElement)) return null;
+    if (only.classList.contains('file-node')) return only;
     if (PHRASING_TAGS.has(only.tagName.toLowerCase())) return soleFileNode(only);
     return null;
 }
