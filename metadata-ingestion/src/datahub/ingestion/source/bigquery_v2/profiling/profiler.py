@@ -39,6 +39,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_LE_BOUND_RE,
     PARTITION_RANGE_COLUMN_RE,
     PARTITION_RANGE_OPERATOR_RE,
+    PARTITION_UPPER_BOUND_RE,
     PARTITIONING_COLUMN_FLAG,
     STRFTIME_FORMATS,
 )
@@ -1072,15 +1073,24 @@ class BigqueryProfiler(GenericProfiler):
         # must not be compared against an unquoted integer, which BigQuery
         # rejects with "No matching signature for operator >=".
         ranges: Dict[str, str] = {}
+        range_rewrites: Dict[str, str] = {}
         for col_name in date_columns:
             literal = self._find_equality_literal(partition_filters, col_name)
             if literal is None:
                 if self._column_has_range_predicate(partition_filters, col_name):
                     # Discovery already produced a bounded range for this column (a
                     # half-open month/year DATE range, or a TIMESTAMP/DATETIME range).
-                    # A today-based window would be ANDed onto that range and, for any
-                    # partition older than the window, match nothing — emptying the
-                    # profile. Leave the discovered range untouched.
+                    # Narrow it to its last `window_days`, anchored on the discovered
+                    # upper bound rather than today — this focuses a wide (month/year)
+                    # partition on recent data while a today-based window could fall
+                    # outside an older partition and empty the profile. If the bounds
+                    # can't be parsed, or the window already spans the whole range, the
+                    # discovered range is left untouched.
+                    narrowed = self._window_existing_range(
+                        partition_filters, col_name, window_days
+                    )
+                    if narrowed is not None:
+                        range_rewrites[col_name] = narrowed
                     continue
                 # No pinned date and no range (e.g. an IS NOT NULL fallback): window from
                 # today using a quoted ISO literal, which BigQuery coerces for
@@ -1110,21 +1120,25 @@ class BigqueryProfiler(GenericProfiler):
                 f"`{col_name}` >= {start_str} AND `{col_name}` <= {end_str}"
             )
 
-        if not ranges:
+        if not ranges and not range_rewrites:
             return partition_filters
 
-        # Drop each windowed column's single-date equality; the range replaces it.
-        # Keeping `col = X` would AND-collapse the range back to `col = X`.
+        # Drop each windowed column's old predicate; the new range replaces it. For an
+        # equality column, drop `col = X` (keeping it would AND-collapse the range back to
+        # the single date). For a narrowed range column, drop its existing `col >= ...`
+        # range (every discovered temporal range starts with a >= lower bound).
         windowed_filters = [
             f
             for f in partition_filters
             if not any(f"`{col}` = " in f for col in ranges)
+            and not any(f"`{col}` >=" in f for col in range_rewrites)
         ]
         windowed_filters.extend(ranges.values())
+        windowed_filters.extend(range_rewrites.values())
 
         logger.debug(
             f"Applied {window_days}-day partition window for {table.name}: "
-            f"windowed columns {sorted(ranges)}"
+            f"windowed columns {sorted({*ranges, *range_rewrites})}"
         )
 
         return windowed_filters
@@ -1140,6 +1154,43 @@ class BigqueryProfiler(GenericProfiler):
                 if match.group(1) == col_name:
                     return True
         return False
+
+    def _window_existing_range(
+        self, partition_filters: List[str], col_name: str, window_days: int
+    ) -> Optional[str]:
+        # Narrow a discovered half-open temporal range (`col >= L AND col < U`) to its
+        # last `window_days`, anchored on the discovered upper bound U. Returns the
+        # rewritten predicate, or None when either bound can't be parsed as a date literal
+        # (e.g. a full TIMESTAMP with a time component) or the window does not strictly
+        # fall inside (L, U) — i.e. it already spans the whole range (window_days wider
+        # than the partition) or collapses to an empty range (window_days == 0). In those
+        # cases the caller leaves the discovered range untouched.
+        lower_spec: Optional[DateLiteralSpec] = None
+        upper_spec: Optional[DateLiteralSpec] = None
+        upper_op = "<"
+        for filter_expr in partition_filters:
+            ge_match = PARTITION_GE_BOUND_RE.search(filter_expr)
+            if lower_spec is None and ge_match and ge_match.group(1) == col_name:
+                lower_spec = self._parse_date_literal(ge_match.group(2).strip())
+            up_match = PARTITION_UPPER_BOUND_RE.search(filter_expr)
+            if upper_spec is None and up_match and up_match.group(1) == col_name:
+                upper_op = up_match.group(2)
+                upper_spec = self._parse_date_literal(up_match.group(3).strip())
+
+        if lower_spec is None or upper_spec is None:
+            return None
+
+        new_lower_moment = upper_spec.moment - timedelta(days=window_days)
+        if not (lower_spec.moment < new_lower_moment < upper_spec.moment):
+            return None
+
+        new_lower = self._render_date_bound(
+            new_lower_moment, lower_spec.fmt, lower_spec.quoted, lower_spec.wrapper
+        )
+        upper = self._render_date_bound(
+            upper_spec.moment, upper_spec.fmt, upper_spec.quoted, upper_spec.wrapper
+        )
+        return f"`{col_name}` >= {new_lower} AND `{col_name}` {upper_op} {upper}"
 
     def _find_equality_literal(
         self, partition_filters: List[str], col_name: str

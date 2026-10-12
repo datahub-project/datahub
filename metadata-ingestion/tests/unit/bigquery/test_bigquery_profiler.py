@@ -1929,24 +1929,46 @@ def test_partition_datetime_window_days_zero_is_same_day_range():
     )
 
 
-def test_partition_datetime_window_leaves_discovered_range_untouched():
-    """A discovered range predicate (half-open month/timestamp partition) has no `col =`
-    literal. Windowing must NOT inject a today-based range on top of it — that would AND
-    two ranges and, for a partition older than the window, select nothing. The discovered
-    range is left exactly as-is."""
+def test_partition_datetime_window_narrows_discovered_range():
+    """A discovered half-open range (month/timestamp partition) is narrowed to its last
+    `window_days`, anchored on the discovered upper bound — NOT today. This focuses a wide
+    partition on recent data without a today-based window falling outside an older
+    partition and emptying it. The exclusive `<` upper bound and the DATE() wrapper are
+    preserved."""
     config = create_test_config(partition_datetime_window_days=7)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = create_test_table()
 
-    # event_date is a recognised date-like column, so it enters the windowing loop; the
-    # half-open range (no `event_date = X` literal) must survive untouched.
     discovered = [
         "`event_date` >= DATE('2024-01-01') AND `event_date` < DATE('2024-02-01')"
     ]
 
     windowed = profiler._apply_partition_date_windowing(discovered, table)
 
-    assert windowed == discovered
+    # Last 7 days of the discovered month: [2024-02-01 - 7d, 2024-02-01) = [01-25, 02-01).
+    assert windowed == [
+        "`event_date` >= DATE('2024-01-25') AND `event_date` < DATE('2024-02-01')"
+    ]
+
+
+def test_partition_datetime_window_leaves_narrow_range_untouched():
+    """When the window is at least as wide as the discovered range, there is nothing to
+    narrow (narrowing would widen the lower bound below the partition), so the range is
+    left exactly as-is. A single-day discovered range is the common case."""
+    config = create_test_config(partition_datetime_window_days=7)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table()
+
+    # A single-day partition is narrower than the 7-day window -> untouched.
+    single_day = [
+        "`event_date` >= DATE('2024-01-15') AND `event_date` < DATE('2024-01-16')"
+    ]
+    assert profiler._apply_partition_date_windowing(single_day, table) == single_day
+
+    # A window wider than the whole month range -> untouched.
+    config.profiling.partition_datetime_window_days = 60
+    month = ["`event_date` >= DATE('2024-01-01') AND `event_date` < DATE('2024-02-01')"]
+    assert profiler._apply_partition_date_windowing(month, table) == month
 
 
 def test_internal_table_finds_actual_latest_date_comprehensive():
