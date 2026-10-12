@@ -199,7 +199,6 @@ class FileQueryLogReader(QueryLogReader):
     def _parse_s3_query_file(
         self, aws_config: AwsConnectionConfig
     ) -> Iterable["QueryEntry"]:
-        """Parse query file from S3 using smart_open."""
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
         try:
@@ -243,7 +242,6 @@ class FileQueryLogReader(QueryLogReader):
             yield line
 
     def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse local query file."""
         try:
             f = open(self.config.query_file)
         except OSError as e:
@@ -261,7 +259,6 @@ class FileQueryLogReader(QueryLogReader):
             yield from self._parse_lines(self._guarded_stream(f))
 
     def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
-        """Parse lines from a file stream, yielding QueryEntry objects."""
         for line in stream:
             stripped = line.strip()
             if not stripped:
