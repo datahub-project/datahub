@@ -30,9 +30,11 @@ import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.semantic.SemanticNoOpComparator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.sql.Timestamp;
 import java.util.List;
 import org.mockito.ArgumentCaptor;
@@ -64,11 +66,11 @@ public class SemanticNoOpEntityServiceTest {
   @Test
   public void timestampOnlyChangeVersionsWhenComparisonIsOff() throws Exception {
     SemanticNoOpComparator comparator = SemanticNoOpComparator.disabled();
-    SystemAspect result = apply(lineage(10L), lineage(99L), comparator, "run-1", "run-2", 2_000L);
-    assertEquals(result.getSystemMetadata().getVersion(), "2");
-    assertFalse(result.isSemanticNoOp());
+    AppliedWrite result = apply(lineage(10L), lineage(99L), comparator, "run-1", "run-2", 2_000L);
+    assertEquals(result.aspect().getSystemMetadata().getVersion(), "2");
+    assertFalse(result.change().isSemanticNoOp());
     assertEquals(comparator.walkCount(), 0);
-    assertTrue(DataTemplateUtil.areEqual(result.getRecordTemplate(), lineage(99L)));
+    assertTrue(DataTemplateUtil.areEqual(result.aspect().getRecordTemplate(), lineage(99L)));
   }
 
   @Test
@@ -76,34 +78,127 @@ public class SemanticNoOpEntityServiceTest {
     SemanticNoOpComparator comparator = compile(IGNORE_STAMP);
     UpstreamLineage stored = lineage(10L);
     UpstreamLineage incoming = lineage(99L);
-    SystemAspect result = apply(stored, incoming, comparator, "run-1", "run-2", 2_000L);
+    AppliedWrite result = apply(stored, incoming, comparator, "run-1", "run-2", 2_000L);
 
-    assertEquals(result.getSystemMetadata().getVersion(), "1");
-    assertEquals(result.getSystemMetadata().getRunId(), "run-2");
-    assertEquals(result.getSystemMetadata().getLastRunId(), "run-1");
-    assertEquals(result.getSystemMetadata().getLastObserved().longValue(), 2_000L);
-    assertTrue(result.isSemanticNoOp());
-    assertTrue(DataTemplateUtil.areEqual(result.getRecordTemplate(), stored));
+    assertEquals(result.aspect().getSystemMetadata().getVersion(), "1");
+    assertEquals(result.aspect().getSystemMetadata().getRunId(), "run-2");
+    assertEquals(result.aspect().getSystemMetadata().getLastRunId(), "run-1");
+    assertEquals(result.aspect().getSystemMetadata().getLastObserved().longValue(), 2_000L);
+    assertTrue(result.change().isSemanticNoOp());
+    assertTrue(DataTemplateUtil.areEqual(result.aspect().getRecordTemplate(), stored));
     assertEquals(incoming.getUpstreams().get(0).getAuditStamp().getTime().longValue(), 99L);
     assertEquals(comparator.walkCount(), 1);
 
-    SystemAspect changedGraph =
+    AppliedWrite changedGraph =
         apply(stored, lineage(10L, upstreamUrn("db.other")), comparator, "run-1", "run-3", 3_000L);
-    assertEquals(changedGraph.getSystemMetadata().getVersion(), "2");
-    assertFalse(changedGraph.isSemanticNoOp());
+    assertEquals(changedGraph.aspect().getSystemMetadata().getVersion(), "2");
+    assertFalse(changedGraph.change().isSemanticNoOp());
   }
 
   @Test
   public void timestampWindowCoalescesOnlyInsideTheThreshold() throws Exception {
     SemanticNoOpComparator comparator = compile(WINDOW_TIME);
-    SystemAspect inside = apply(lineage(1_000L), lineage(2_000L), comparator, "run-1", "run-2", 2L);
-    assertEquals(inside.getSystemMetadata().getVersion(), "1");
-    assertTrue(DataTemplateUtil.areEqual(inside.getRecordTemplate(), lineage(1_000L)));
+    AppliedWrite inside = apply(lineage(1_000L), lineage(2_000L), comparator, "run-1", "run-2", 2L);
+    assertEquals(inside.aspect().getSystemMetadata().getVersion(), "1");
+    assertTrue(DataTemplateUtil.areEqual(inside.aspect().getRecordTemplate(), lineage(1_000L)));
 
-    SystemAspect outside =
+    AppliedWrite outside =
         apply(lineage(1_000L), lineage(2_001L), comparator, "run-1", "run-2", 2L);
-    assertEquals(outside.getSystemMetadata().getVersion(), "2");
-    assertTrue(DataTemplateUtil.areEqual(outside.getRecordTemplate(), lineage(2_001L)));
+    assertEquals(outside.aspect().getSystemMetadata().getVersion(), "2");
+    assertTrue(DataTemplateUtil.areEqual(outside.aspect().getRecordTemplate(), lineage(2_001L)));
+  }
+
+  @Test
+  public void persistTimeRematchDoesNotMarkARealUpdateAsSemanticNoOp() throws Exception {
+    SemanticNoOpComparator comparator = compile(IGNORE_STAMP);
+    WriteAttempt write =
+        write(lineage(10L), lineage(10L, upstreamUrn("db.other")), "run-1", "run-2", 2_000L);
+
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+    assertFalse(write.change.isSemanticNoOp());
+    assertEquals(comparator.walkCount(), 1);
+
+    // Production rematches the same mutable aspect while persisting. Its body now strictly equals
+    // the MCP body, so this must stay a real version bump and must not increment suppression again.
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+    assertFalse(write.change.isSemanticNoOp());
+    assertEquals(comparator.walkCount(), 1);
+
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mock(AspectDao.class),
+            mock(com.linkedin.metadata.event.EventProducer.class),
+            mock(PreProcessHooks.class),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
+            null);
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
+    service.setRetentionService(retention);
+    service.applyRetentionPostCommit(
+        opContext,
+        List.of(
+            upsertResult(
+                lineage(10L),
+                lineage(10L, upstreamUrn("db.other")),
+                write.change.isSemanticNoOp(),
+                3L)));
+    verify(retention).applyRetentionWithPolicyDefaults(any(), anyList());
+  }
+
+  @Test
+  public void semanticNoOpDecisionSurvivesThePersistTimeRematch() throws Exception {
+    SemanticNoOpComparator comparator = compile(IGNORE_STAMP);
+    WriteAttempt write = write(lineage(10L), lineage(99L), "run-1", "run-2", 2_000L);
+
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+
+    assertTrue(write.change.isSemanticNoOp());
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+    assertTrue(write.change.isSemanticNoOp());
+    assertEquals(comparator.walkCount(), 1);
+  }
+
+  @Test
+  public void mutatedProposalAfterSemanticNoOpIsComparedAgain() throws Exception {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metrics = MetricUtils.builder().registry(meterRegistry).build();
+    SemanticNoOpComparator comparator =
+        SemanticNoOpComparator.compile(true, IGNORE_STAMP, registry, metrics);
+    WriteAttempt write = write(lineage(10L), lineage(99L), "run-1", "run-2", 2_000L);
+
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+    assertTrue(write.change.isSemanticNoOp());
+    assertEquals(suppressedCount(meterRegistry, "IGNORE"), 1d);
+
+    ((UpstreamLineage) write.change.getRecordTemplate())
+        .getUpstreams()
+        .get(0)
+        .setDataset(DatasetUrn.createFromUrn(upstreamUrn("db.other")));
+    write.change.invalidateSemanticNoOp();
+
+    EntityServiceImpl.applyUpsert(
+        write.change, write.latest, List.of(), null, opContext, comparator);
+    assertFalse(write.change.isSemanticNoOp());
+    assertEquals(write.latest.getSystemMetadata().getVersion(), "2");
+    assertEquals(comparator.walkCount(), 2);
+    assertEquals(suppressedCount(meterRegistry, "IGNORE"), 0d);
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            write.latest.getRecordTemplate(), write.change.getRecordTemplate()));
+  }
+
+  private static double suppressedCount(SimpleMeterRegistry meterRegistry, String strategy) {
+    return meterRegistry
+        .get(SemanticNoOpComparator.SUPPRESSED_COUNTER)
+        .tag("aspect", "upstreamLineage")
+        .tag("strategy", strategy)
+        .counter()
+        .count();
   }
 
   @Test
@@ -141,10 +236,24 @@ public class SemanticNoOpEntityServiceTest {
     return SemanticNoOpComparator.compile(true, rules, registry, null);
   }
 
-  private SystemAspect apply(
+  private AppliedWrite apply(
       UpstreamLineage stored,
       UpstreamLineage incoming,
       SemanticNoOpComparator comparator,
+      String previousRun,
+      String nextRun,
+      long observed)
+      throws Exception {
+    WriteAttempt write = write(stored, incoming, previousRun, nextRun, observed);
+    SystemAspect aspect =
+        EntityServiceImpl.applyUpsert(
+            write.change, write.latest, List.of(), null, opContext, comparator);
+    return new AppliedWrite(aspect, write.change);
+  }
+
+  private WriteAttempt write(
+      UpstreamLineage stored,
+      UpstreamLineage incoming,
       String previousRun,
       String nextRun,
       long observed)
@@ -176,8 +285,12 @@ public class SemanticNoOpEntityServiceTest {
             .auditStamp(auditStamp)
             .nextAspectVersion(2L)
             .build(opContext.getAspectRetriever());
-    return EntityServiceImpl.applyUpsert(change, latest, List.of(), null, opContext, comparator);
+    return new WriteAttempt(latest, change);
   }
+
+  private record WriteAttempt(SystemAspect latest, ChangeMCP change) {}
+
+  private record AppliedWrite(SystemAspect aspect, ChangeMCP change) {}
 
   private UpdateAspectResult upsertResult(
       UpstreamLineage oldValue, UpstreamLineage newValue, boolean semanticNoOp, long maxVersion) {

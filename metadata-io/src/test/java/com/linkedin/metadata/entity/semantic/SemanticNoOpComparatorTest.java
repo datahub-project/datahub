@@ -33,6 +33,10 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.Arrays;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.ClassPathResource;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -45,6 +49,11 @@ public class SemanticNoOpComparatorTest {
   private static final String WINDOW_TIME =
       "[{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/auditStamp/time\","
           + "\"strategy\":\"TIMESTAMP_WINDOW\",\"maxDeltaMs\":1000}]";
+  private static final String MIXED_STRATEGIES =
+      "[{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/auditStamp/time\","
+          + "\"strategy\":\"TIMESTAMP_WINDOW\",\"maxDeltaMs\":1000},"
+          + "{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/auditStamp/actor\","
+          + "\"strategy\":\"IGNORE\"}]";
   private static final String IGNORE_CREATED =
       "[{\"aspect\":\"assertionInfo\",\"path\":\"/source/created\",\"strategy\":\"IGNORE\"}]";
 
@@ -238,6 +247,34 @@ public class SemanticNoOpComparatorTest {
   }
 
   @Test
+  public void suppressionMetricsCountOnlyStrategiesThatHideADifference() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricUtils metrics = MetricUtils.builder().registry(registry).build();
+    SemanticNoOpComparator comparator =
+        SemanticNoOpComparator.compile(true, MIXED_STRATEGIES, this.registry, metrics);
+    String metric = SemanticNoOpComparator.SUPPRESSED_COUNTER;
+
+    UpstreamLineage baseline = lineage(1_000L, "unknown", upstreamA);
+    assertTrue(
+        comparator.equivalent(
+            "upstreamLineage", baseline.data(), lineage(1_000L, "unknown", upstreamA).data()));
+    assertEquals(registry.get(metric).tag("strategy", "IGNORE").counter().count(), 0d);
+    assertEquals(registry.get(metric).tag("strategy", "TIMESTAMP_WINDOW").counter().count(), 0d);
+
+    assertTrue(
+        comparator.equivalent(
+            "upstreamLineage", baseline.data(), lineage(1_000L, "other", upstreamA).data()));
+    assertEquals(registry.get(metric).tag("strategy", "IGNORE").counter().count(), 1d);
+    assertEquals(registry.get(metric).tag("strategy", "TIMESTAMP_WINDOW").counter().count(), 0d);
+
+    assertTrue(
+        comparator.equivalent(
+            "upstreamLineage", baseline.data(), lineage(1_500L, "unknown", upstreamA).data()));
+    assertEquals(registry.get(metric).tag("strategy", "IGNORE").counter().count(), 1d);
+    assertEquals(registry.get(metric).tag("strategy", "TIMESTAMP_WINDOW").counter().count(), 1d);
+  }
+
+  @Test
   public void startupRejectsInvalidRules() {
     expectThrows(
         IllegalArgumentException.class,
@@ -314,6 +351,119 @@ public class SemanticNoOpComparatorTest {
                 "[{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/auditStamp\",\"strategy\":\"IGNORE\",\"maxDeltaMs\":1}]",
                 registry,
                 null));
+    expectThrows(
+        IllegalArgumentException.class,
+        () ->
+            SemanticNoOpComparator.compile(
+                true,
+                "[{\"aspect\":\"upstreamLineage\",\"path\":\"/upstreams/*/dataset\",\"strategy\":\"UNORDERED\"}]",
+                registry,
+                null));
+  }
+
+  @Test
+  public void defaultRulesKeepADayOfTimestampDrift() throws Exception {
+    SemanticNoOpComparator comparator = defaultComparator();
+    long day = 86_400_000L;
+
+    UpstreamLineage storedLineage = lineage(1_000L, "unknown", upstreamA);
+    assertTrue(
+        comparator.equivalent(
+            "upstreamLineage",
+            storedLineage.data(),
+            lineage(1_000L + day, "unknown", upstreamA).data()));
+    assertFalse(
+        comparator.equivalent(
+            "upstreamLineage",
+            storedLineage.data(),
+            lineage(1_000L + day + 1, "unknown", upstreamA).data()));
+
+    AssertionInfo storedAssertion = assertion(1_000L, "id");
+    assertTrue(
+        comparator.equivalent(
+            "assertionInfo", storedAssertion.data(), assertion(1_000L + day, "id").data()));
+    assertFalse(
+        comparator.equivalent(
+            "assertionInfo", storedAssertion.data(), assertion(1_000L + day + 1, "id").data()));
+
+    AuditStamp sameDay =
+        new AuditStamp().setTime(1_000L + day).setActor(new CorpuserUrn("unknown"));
+    AuditStamp nextDay =
+        new AuditStamp().setTime(1_000L + day + 1).setActor(new CorpuserUrn("unknown"));
+    AssertionInfo updated =
+        assertion(1_000L, "id")
+            .setLastUpdated(new AuditStamp().setTime(1_000L).setActor(new CorpuserUrn("unknown")));
+    assertTrue(
+        comparator.equivalent(
+            "assertionInfo",
+            updated.data(),
+            assertion(1_000L, "id").setLastUpdated(sameDay).data()));
+    assertFalse(
+        comparator.equivalent(
+            "assertionInfo",
+            updated.data(),
+            assertion(1_000L, "id").setLastUpdated(nextDay).data()));
+  }
+
+  @Test
+  public void defaultRulesCoalesceLineageOrderAndCreatedTimeWithinADay() throws Exception {
+    SemanticNoOpComparator comparator = defaultComparator();
+    long day = 86_400_000L;
+    UpstreamLineage stored =
+        lineageOf(
+            upstreamWithCreated(upstreamA, 1_000L, 1_000L),
+            upstreamWithCreated(upstreamB, 2_000L, 2_000L));
+    stored.setFineGrainedLineages(
+        new FineGrainedLineageArray(
+            fieldEdge("amount", "src_amount", "other_amount"), fieldEdge("id", "src_id")));
+
+    UpstreamLineage reordered =
+        lineageOf(
+            upstreamWithCreated(upstreamB, 2_000L + day, 2_000L + day),
+            upstreamWithCreated(upstreamA, 1_000L + day, 1_000L + day));
+    reordered.setFineGrainedLineages(
+        new FineGrainedLineageArray(
+            fieldEdge("id", "src_id"), reversedFieldEdge("amount", "src_amount", "other_amount")));
+    assertTrue(comparator.equivalent("upstreamLineage", stored.data(), reordered.data()));
+
+    UpstreamLineage createdTooLate =
+        lineageOf(
+            upstreamWithCreated(upstreamA, 1_000L + day + 1, 1_000L),
+            upstreamWithCreated(upstreamB, 2_000L, 2_000L));
+    assertFalse(
+        comparator.equivalent(
+            "upstreamLineage",
+            lineageOf(
+                    upstreamWithCreated(upstreamA, 1_000L, 1_000L),
+                    upstreamWithCreated(upstreamB, 2_000L, 2_000L))
+                .data(),
+            createdTooLate.data()));
+
+    Urn other = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.other,PROD)");
+    assertFalse(
+        comparator.equivalent(
+            "upstreamLineage",
+            lineageOf(
+                    upstreamWithCreated(upstreamA, 1_000L, 1_000L),
+                    upstreamWithCreated(upstreamB, 2_000L, 2_000L))
+                .data(),
+            lineageOf(
+                    upstreamWithCreated(upstreamA, 1_000L, 1_000L),
+                    upstreamWithCreated(other, 2_000L, 2_000L))
+                .data()));
+  }
+
+  private SemanticNoOpComparator defaultComparator() throws Exception {
+    StandardEnvironment environment = new StandardEnvironment();
+    new YamlPropertySourceLoader()
+        .load("application", new ClassPathResource("application.yaml"))
+        .forEach(environment.getPropertySources()::addLast);
+    String rulesJson =
+        environment
+            .resolveRequiredPlaceholders(
+                environment.getRequiredProperty("entityService.semanticNoOp.rulesJson"))
+            .trim();
+    return SemanticNoOpComparator.compile(true, rulesJson, registry, null);
   }
 
   private SemanticNoOpComparator compile(String rulesJson) {
@@ -332,6 +482,41 @@ public class SemanticNoOpComparatorTest {
     upstreams.add(upstream);
     lineage.setUpstreams(upstreams);
     return lineage;
+  }
+
+  private UpstreamLineage lineageOf(Upstream... upstreams) {
+    UpstreamArray array = new UpstreamArray();
+    array.addAll(Arrays.asList(upstreams));
+    return new UpstreamLineage().setUpstreams(array);
+  }
+
+  private Upstream upstreamWithCreated(Urn dataset, long created, long observed) {
+    Upstream upstream = upstream(dataset, observed, "unknown");
+    upstream.setCreated(new AuditStamp().setTime(created).setActor(new CorpuserUrn("unknown")));
+    return upstream;
+  }
+
+  private FineGrainedLineage fieldEdge(String downstream, String... upstreams) {
+    FineGrainedLineage edge = edge(downstream);
+    UrnArray fields = new UrnArray();
+    for (String upstream : upstreams) {
+      fields.add(fieldUrn(upstream));
+    }
+    return edge.setUpstreams(fields);
+  }
+
+  private FineGrainedLineage reversedFieldEdge(String downstream, String... upstreams) {
+    FineGrainedLineage edge = fieldEdge(downstream, upstreams);
+    UrnArray fields = new UrnArray();
+    for (int i = edge.getUpstreams().size() - 1; i >= 0; i--) {
+      fields.add(edge.getUpstreams().get(i));
+    }
+    return edge.setUpstreams(fields);
+  }
+
+  private Urn fieldUrn(String column) {
+    return UrnUtils.getUrn(
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.a,PROD)," + column + ")");
   }
 
   private Upstream upstream(Urn dataset, long time, String actor) {

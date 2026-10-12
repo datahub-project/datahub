@@ -17,10 +17,16 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.Counter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
@@ -78,21 +84,58 @@ public final class SemanticNoOpComparator {
    * {@code DataTemplateUtil.areEqual}.
    */
   public boolean equivalent(String aspectName, DataMap stored, DataMap incoming) {
+    return decide(aspectName, stored, incoming) >= 0;
+  }
+
+  /**
+   * Same walk as {@link #equivalent}. Returns the mask of strategies that hid a difference, or
+   * {@code -1} when the documents are not equivalent. A mask of {@code 0} is equivalent and hid
+   * nothing.
+   */
+  public int decide(String aspectName, DataMap stored, DataMap incoming) {
     CompiledAspect compiled = byAspect.get(aspectName);
     if (compiled == null) {
-      return false;
+      return -1;
     }
     walks.incrementAndGet();
-    boolean equal = compareValues(stored, incoming, compiled.root);
-    if (equal) {
-      compiled.incrementSuppressed();
+    EnumSet<Strategy> suppressingStrategies = EnumSet.noneOf(Strategy.class);
+    boolean equal = compareValues(stored, incoming, compiled.root, suppressingStrategies);
+    if (!equal) {
+      return -1;
     }
-    return equal;
+    int mask = strategyMask(suppressingStrategies);
+    compiled.incrementSuppressed(suppressingStrategies);
+    return mask;
+  }
+
+  /** Reverses one {@link #decide} increment. Used when a later mutation discards the decision. */
+  public void rewindSuppression(String aspectName, int strategyMask) {
+    if (strategyMask == 0) {
+      return;
+    }
+    CompiledAspect compiled = byAspect.get(aspectName);
+    if (compiled != null) {
+      compiled.rewindSuppressed(strategyMask);
+    }
+  }
+
+  private static int strategyMask(Set<Strategy> strategies) {
+    int mask = 0;
+    for (Strategy strategy : strategies) {
+      mask |= 1 << strategy.ordinal();
+    }
+    return mask;
   }
 
   private static boolean compareValues(
-      @Nullable Object stored, @Nullable Object incoming, @Nullable TrieNode node) {
+      @Nullable Object stored,
+      @Nullable Object incoming,
+      @Nullable TrieNode node,
+      Set<Strategy> suppressingStrategies) {
     if (node != null && node.strategy == Strategy.IGNORE) {
+      if (!Objects.equals(stored, incoming)) {
+        suppressingStrategies.add(Strategy.IGNORE);
+      }
       return true;
     }
     if (stored == incoming) {
@@ -102,41 +145,50 @@ public final class SemanticNoOpComparator {
       return false;
     }
     if (node != null && node.strategy == Strategy.TIMESTAMP_WINDOW) {
-      return withinWindow(stored, incoming, node.maxDeltaMs);
+      boolean withinWindow = withinWindow(stored, incoming, node.maxDeltaMs);
+      if (withinWindow && !stored.equals(incoming)) {
+        suppressingStrategies.add(Strategy.TIMESTAMP_WINDOW);
+      }
+      return withinWindow;
     }
     if (stored instanceof DataMap && incoming instanceof DataMap) {
       if (node == null || node.fields.isEmpty() && node.wildcard == null) {
         return stored.equals(incoming);
       }
-      return compareMaps((DataMap) stored, (DataMap) incoming, node);
+      return compareMaps((DataMap) stored, (DataMap) incoming, node, suppressingStrategies);
     }
     if (stored instanceof DataList && incoming instanceof DataList) {
-      if (node == null || node.wildcard == null) {
+      if (node == null || (node.wildcard == null && node.strategy != Strategy.UNORDERED)) {
         return stored.equals(incoming);
       }
-      return compareLists((DataList) stored, (DataList) incoming, node);
+      return compareLists((DataList) stored, (DataList) incoming, node, suppressingStrategies);
     }
     return stored.equals(incoming);
   }
 
-  private static boolean compareMaps(DataMap stored, DataMap incoming, TrieNode node) {
+  private static boolean compareMaps(
+      DataMap stored, DataMap incoming, TrieNode node, Set<Strategy> suppressingStrategies) {
     if (!node.ignoreChild) {
       if (stored.size() != incoming.size() || !stored.keySet().equals(incoming.keySet())) {
         return false;
       }
-    } else if (!ignoredKeysOnly(stored, incoming, node)
-        || !ignoredKeysOnly(incoming, stored, node)) {
+    } else if (!ignoredKeysOnly(stored, incoming, node, suppressingStrategies)
+        || !ignoredKeysOnly(incoming, stored, node, suppressingStrategies)) {
       return false;
     }
     for (Map.Entry<String, Object> entry : stored.entrySet()) {
       TrieNode child = node.fields.get(entry.getKey());
       if (child != null && child.strategy == Strategy.IGNORE) {
+        if (!Objects.equals(entry.getValue(), incoming.get(entry.getKey()))) {
+          suppressingStrategies.add(Strategy.IGNORE);
+        }
         continue;
       }
       if (!incoming.containsKey(entry.getKey())) {
         return false;
       }
-      if (!compareValues(entry.getValue(), incoming.get(entry.getKey()), child)) {
+      if (!compareValues(
+          entry.getValue(), incoming.get(entry.getKey()), child, suppressingStrategies)) {
         return false;
       }
     }
@@ -144,7 +196,8 @@ public final class SemanticNoOpComparator {
   }
 
   /** Keys present on {@code left} and missing on {@code right} must be ignored fields. */
-  private static boolean ignoredKeysOnly(DataMap left, DataMap right, TrieNode node) {
+  private static boolean ignoredKeysOnly(
+      DataMap left, DataMap right, TrieNode node, Set<Strategy> suppressingStrategies) {
     for (String key : left.keySet()) {
       if (right.containsKey(key)) {
         continue;
@@ -153,22 +206,142 @@ public final class SemanticNoOpComparator {
       if (child == null || child.strategy != Strategy.IGNORE) {
         return false;
       }
+      suppressingStrategies.add(Strategy.IGNORE);
     }
     return true;
   }
 
-  private static boolean compareLists(DataList stored, DataList incoming, TrieNode node) {
+  private static boolean compareLists(
+      DataList stored, DataList incoming, TrieNode node, Set<Strategy> suppressingStrategies) {
+    if (node.strategy != Strategy.UNORDERED) {
+      return compareListElements(stored, incoming, node.wildcard, suppressingStrategies, false);
+    }
+    // Positional success must not share its strategy set with the reorder fallback. A failed
+    // index pairing can record a strategy for the wrong element.
+    Set<Strategy> positional = EnumSet.noneOf(Strategy.class);
+    if (compareListElements(stored, incoming, node.wildcard, positional, false)) {
+      suppressingStrategies.addAll(positional);
+      return true;
+    }
+    if (compareListElements(stored, incoming, node.wildcard, suppressingStrategies, true)) {
+      suppressingStrategies.add(Strategy.UNORDERED);
+      return true;
+    }
+    return false;
+  }
+
+  private static boolean compareListElements(
+      DataList stored,
+      DataList incoming,
+      @Nullable TrieNode element,
+      Set<Strategy> suppressingStrategies,
+      boolean unordered) {
     int size = stored.size();
     if (size != incoming.size()) {
       return false;
     }
-    TrieNode element = node.wildcard;
+    if (!unordered) {
+      for (int i = 0; i < size; i++) {
+        if (!compareValues(stored.get(i), incoming.get(i), element, suppressingStrategies)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    String[] storedKeys = new String[size];
+    String[] incomingKeys = new String[size];
+    Integer[] storedOrder = new Integer[size];
+    Integer[] incomingOrder = new Integer[size];
     for (int i = 0; i < size; i++) {
-      if (!compareValues(stored.get(i), incoming.get(i), element)) {
+      storedKeys[i] = matchKey(stored.get(i), element);
+      incomingKeys[i] = matchKey(incoming.get(i), element);
+      storedOrder[i] = i;
+      incomingOrder[i] = i;
+    }
+    Arrays.sort(storedOrder, Comparator.comparing(index -> storedKeys[index]));
+    Arrays.sort(incomingOrder, Comparator.comparing(index -> incomingKeys[index]));
+    for (int i = 0; i < size; i++) {
+      if (!compareValues(
+          stored.get(storedOrder[i]),
+          incoming.get(incomingOrder[i]),
+          element,
+          suppressingStrategies)) {
         return false;
       }
     }
     return true;
+  }
+
+  /**
+   * Sort key that ignores fields a rule already treats as non-identifying, so two array elements
+   * that differ only by a windowed timestamp still pair.
+   */
+  private static String matchKey(@Nullable Object value, @Nullable TrieNode node) {
+    StringBuilder key = new StringBuilder();
+    appendMatchKey(key, value, node);
+    return key.toString();
+  }
+
+  private static void appendMatchKey(
+      StringBuilder key, @Nullable Object value, @Nullable TrieNode node) {
+    if (node != null
+        && (node.strategy == Strategy.IGNORE || node.strategy == Strategy.TIMESTAMP_WINDOW)) {
+      key.append('*');
+      return;
+    }
+    if (value == null) {
+      key.append("null");
+      return;
+    }
+    if (value instanceof DataMap) {
+      DataMap map = (DataMap) value;
+      key.append('{');
+      List<String> names = new ArrayList<>(map.keySet());
+      Collections.sort(names);
+      for (String name : names) {
+        key.append(name).append(':');
+        TrieNode child = node == null ? null : node.fields.get(name);
+        appendMatchKey(key, map.get(name), child);
+        key.append(',');
+      }
+      key.append('}');
+      return;
+    }
+    if (value instanceof DataList) {
+      DataList list = (DataList) value;
+      TrieNode element = node == null ? null : node.wildcard;
+      boolean unordered = node != null && node.strategy == Strategy.UNORDERED;
+      if (!unordered) {
+        key.append('[');
+        for (Object item : list) {
+          appendMatchKey(key, item, element);
+          key.append(',');
+        }
+        key.append(']');
+        return;
+      }
+      List<String> parts = new ArrayList<>(list.size());
+      for (Object item : list) {
+        parts.add(matchKey(item, element));
+      }
+      Collections.sort(parts);
+      key.append('[');
+      for (String part : parts) {
+        key.append(part).append(',');
+      }
+      key.append(']');
+      return;
+    }
+    key.append('"');
+    String text = String.valueOf(value);
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c == '\\' || c == '"') {
+        key.append('\\');
+      }
+      key.append(c);
+    }
+    key.append('"');
   }
 
   static boolean withinWindow(Object stored, Object incoming, long maxDeltaMs) {
@@ -218,16 +391,13 @@ public final class SemanticNoOpComparator {
           strategies.add(rule.strategy);
         }
       }
-      Counter[] counters = new Counter[strategies.size()];
+      Map<Strategy, Counter> counters = new EnumMap<>(Strategy.class);
       if (metricUtils != null) {
-        for (int i = 0; i < strategies.size(); i++) {
-          counters[i] =
+        for (Strategy strategy : strategies) {
+          counters.put(
+              strategy,
               metricUtils.registerCounter(
-                  SUPPRESSED_COUNTER,
-                  "aspect",
-                  entry.getKey(),
-                  "strategy",
-                  strategies.get(i).name());
+                  SUPPRESSED_COUNTER, "aspect", entry.getKey(), "strategy", strategy.name()));
         }
       }
       compiled.put(entry.getKey(), new CompiledAspect(freeze(root), counters));
@@ -312,7 +482,7 @@ public final class SemanticNoOpComparator {
               "TIMESTAMP_WINDOW requires a non-negative maxDeltaMs for " + raw.path);
         }
       } else if (raw.maxDeltaMs != null) {
-        throw new IllegalArgumentException("IGNORE does not take maxDeltaMs for " + raw.path);
+        throw new IllegalArgumentException(strategy + " does not take maxDeltaMs for " + raw.path);
       }
       if (entityRegistry == null) {
         throw new IllegalArgumentException(
@@ -326,6 +496,10 @@ public final class SemanticNoOpComparator {
       if (strategy == Strategy.TIMESTAMP_WINDOW && !isIntegral(terminal)) {
         throw new IllegalArgumentException(
             "TIMESTAMP_WINDOW requires a numeric field, but " + raw.path + " is not integral");
+      }
+      if (strategy == Strategy.UNORDERED && !(dereference(terminal) instanceof ArrayDataSchema)) {
+        throw new IllegalArgumentException(
+            "UNORDERED requires an array, but " + raw.path + " is not");
       }
       rules.add(
           new Rule(
@@ -344,7 +518,7 @@ public final class SemanticNoOpComparator {
       for (int j = i + 1; j < rules.size(); j++) {
         Rule left = rules.get(i);
         Rule right = rules.get(j);
-        if (left.aspect.equals(right.aspect) && overlaps(left.segments, right.segments)) {
+        if (left.aspect.equals(right.aspect) && rulesOverlap(left, right)) {
           throw new IllegalArgumentException(
               "Overlapping semantic no-op rules for "
                   + left.aspect
@@ -355,6 +529,32 @@ public final class SemanticNoOpComparator {
         }
       }
     }
+  }
+
+  /**
+   * {@link Strategy#UNORDERED} on an array describes how elements pair. Rules on fields inside
+   * those elements are not a second treatment of the array itself.
+   */
+  private static boolean rulesOverlap(Rule left, Rule right) {
+    if (!overlaps(left.segments, right.segments)) {
+      return false;
+    }
+    if (left.strategy == Strategy.UNORDERED && isStrictPrefix(left.segments, right.segments)) {
+      return false;
+    }
+    return right.strategy != Strategy.UNORDERED || !isStrictPrefix(right.segments, left.segments);
+  }
+
+  private static boolean isStrictPrefix(List<String> prefix, List<String> longer) {
+    if (prefix.size() >= longer.size()) {
+      return false;
+    }
+    for (int i = 0; i < prefix.size(); i++) {
+      if (!prefix.get(i).equals(longer.get(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   static boolean overlaps(List<String> left, List<String> right) {
@@ -444,7 +644,8 @@ public final class SemanticNoOpComparator {
 
   private enum Strategy {
     IGNORE,
-    TIMESTAMP_WINDOW
+    TIMESTAMP_WINDOW,
+    UNORDERED
   }
 
   private static final class RuleJson {
@@ -500,17 +701,32 @@ public final class SemanticNoOpComparator {
 
   private static final class CompiledAspect {
     final TrieNode root;
-    final Counter[] counters;
+    final Map<Strategy, Counter> counters;
 
-    CompiledAspect(TrieNode root, Counter[] counters) {
+    CompiledAspect(TrieNode root, Map<Strategy, Counter> counters) {
       this.root = root;
       this.counters = counters;
     }
 
-    void incrementSuppressed() {
-      for (Counter counter : counters) {
+    void incrementSuppressed(Set<Strategy> suppressingStrategies) {
+      addSuppressed(suppressingStrategies, 1.0d);
+    }
+
+    void rewindSuppressed(int strategyMask) {
+      EnumSet<Strategy> strategies = EnumSet.noneOf(Strategy.class);
+      for (Strategy strategy : Strategy.values()) {
+        if ((strategyMask & (1 << strategy.ordinal())) != 0) {
+          strategies.add(strategy);
+        }
+      }
+      addSuppressed(strategies, -1.0d);
+    }
+
+    private void addSuppressed(Set<Strategy> strategies, double amount) {
+      for (Strategy strategy : strategies) {
+        Counter counter = counters.get(strategy);
         if (counter != null) {
-          counter.increment();
+          counter.increment(amount);
         }
       }
     }

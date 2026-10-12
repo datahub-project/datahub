@@ -389,23 +389,39 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setSchemaVersion(
             changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
-        // Ruled aspects are compared once, in place. Unruled aspects stay on strict equality and
-        // do not enter the walker. A semantic match keeps the stored body so later windows are
-        // measured against the last persisted value.
-        boolean keepStoredVersion;
-        if (semanticNoOpComparator.hasRules(changeMCP.getAspectName())) {
-          keepStoredVersion =
-              semanticNoOpComparator.equivalent(
+        // A write hook can change the proposal after the pre-merge comparison. That decision is
+        // marked stale, including the version it collapsed and the metrics it counted.
+        int rememberedMask = changeMCP.getSemanticNoOpStrategyMask();
+        if ((rememberedMask & ChangeMCP.SEMANTIC_NO_OP_REWIND) != 0) {
+          semanticNoOpComparator.rewindSuppression(
+              changeMCP.getAspectName(), rememberedMask & ~ChangeMCP.SEMANTIC_NO_OP_REWIND);
+          changeMCP.setSemanticNoOpStrategyMask(0);
+        }
+
+        // Check strict equality first. Besides avoiding a needless walk, this distinguishes a
+        // semantic suppression from the persist-time rematch after a real update has already
+        // copied the incoming body onto latestAspect.
+        boolean bodiesEqual =
+            DataTemplateUtil.areEqual(
+                latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate());
+        boolean keepStoredVersion = bodiesEqual || changeMCP.isSemanticNoOp();
+        if (!keepStoredVersion && semanticNoOpComparator.hasRules(changeMCP.getAspectName())) {
+          int decision =
+              semanticNoOpComparator.decide(
                   changeMCP.getAspectName(),
                   latestAspect.getRecordTemplate().data(),
                   changeMCP.getRecordTemplate().data());
+          keepStoredVersion = decision >= 0;
+          changeMCP.setSemanticNoOp(keepStoredVersion);
           if (keepStoredVersion) {
-            latestAspect.setSemanticNoOp(true);
+            changeMCP.setSemanticNoOpStrategyMask(decision);
+            if (changeMCP.getSemanticNoOpProposedVersion() == 0) {
+              changeMCP.setSemanticNoOpProposedVersion(rowNextVersion);
+            }
+          } else {
+            changeMCP.setSemanticNoOpStrategyMask(0);
+            changeMCP.setSemanticNoOpProposedVersion(0);
           }
-        } else {
-          keepStoredVersion =
-              DataTemplateUtil.areEqual(
-                  latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate());
         }
 
         if (!keepStoredVersion) {
@@ -5211,7 +5227,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       .urn(writeItem.getUrn())
                       .oldValue(writeItem.getPreviousRecordTemplate())
                       .newValue(persistedAspectValue(writeItem, upsertAspect))
-                      .semanticNoOp(upsertAspect.isSemanticNoOp())
+                      .semanticNoOp(writeItem.isSemanticNoOp())
                       .oldSystemMetadata(
                           writeItem.getPreviousSystemAspect() == null
                               ? null
@@ -5339,7 +5355,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .urn(writeItem.getUrn())
                   .oldValue(writeItem.getPreviousRecordTemplate())
                   .newValue(persistedAspectValue(writeItem, upsertAspect))
-                  .semanticNoOp(upsertAspect.isSemanticNoOp())
+                  .semanticNoOp(writeItem.isSemanticNoOp())
                   .oldSystemMetadata(
                       writeItem.getPreviousSystemAspect() == null
                           ? null
@@ -5361,7 +5377,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Nonnull
   private static RecordTemplate persistedAspectValue(
       @Nonnull ChangeMCP writeItem, @Nonnull SystemAspect upsertAspect) {
-    if (upsertAspect.isSemanticNoOp() && upsertAspect.getRecordTemplate() != null) {
+    if (writeItem.isSemanticNoOp() && upsertAspect.getRecordTemplate() != null) {
       return upsertAspect.getRecordTemplate();
     }
     return writeItem.getRecordTemplate();

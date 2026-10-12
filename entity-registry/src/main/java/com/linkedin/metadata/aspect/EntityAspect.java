@@ -104,9 +104,6 @@ public class EntityAspect {
 
     @Nullable private Object operationContext;
 
-    /** Set when semantic comparison kept this stored body. Not part of the persisted aspect. */
-    @EqualsAndHashCode.Exclude @Setter private boolean semanticNoOp;
-
     @Nonnull
     public String getUrnRaw() {
       return urn.toString();
@@ -200,8 +197,7 @@ public class EntityAspect {
             this.entitySpec,
             this.aspectSpec,
             this.systemAspectValidators,
-            this.operationContext,
-            this.semanticNoOp);
+            this.operationContext);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(

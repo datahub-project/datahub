@@ -847,6 +847,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "entityService.retention.enabled",
           "entityService.retention.overwriteNonSystemPolicies",
           "entityService.syncIngestStamping",
+          "entityService.semanticNoOp.defaultRulesJson",
           "entityService.semanticNoOp.enabled",
           "entityService.semanticNoOp.rulesJson",
           "eventsApi.enabled",

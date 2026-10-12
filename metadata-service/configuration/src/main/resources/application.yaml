@@ -431,10 +431,21 @@ entityService:
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
   syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
   semanticNoOp:
-    enabled: ${ENTITY_SERVICE_SEMANTIC_NO_OP_ENABLED:false}
-    # JSON array. Empty disables every rule. Example element:
-    # {"aspect":"upstreamLineage","path":"/upstreams/*/auditStamp","strategy":"IGNORE"}
-    rulesJson: ${ENTITY_SERVICE_SEMANTIC_NO_OP_RULES_JSON:[]}
+    # upstreamLineage and assertionInfo version at most once a day when the only differences are
+    # timestamps or the order of lineage edges.
+    enabled: ${ENTITY_SERVICE_SEMANTIC_NO_OP_ENABLED:true}
+    # A placeholder default cannot hold this JSON: the first } would end it. The env var replaces
+    # the whole list; [] compares strictly.
+    rulesJson: ${ENTITY_SERVICE_SEMANTIC_NO_OP_RULES_JSON:${entityService.semanticNoOp.defaultRulesJson}}
+    defaultRulesJson: >-
+      [{"aspect":"upstreamLineage","path":"/upstreams","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/upstreams/*/auditStamp/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000},
+      {"aspect":"upstreamLineage","path":"/upstreams/*/created/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages/*/upstreams","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages/*/downstreams","strategy":"UNORDERED"},
+      {"aspect":"assertionInfo","path":"/source/created/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000},
+      {"aspect":"assertionInfo","path":"/lastUpdated/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000}]
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

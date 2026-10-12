@@ -249,18 +249,6 @@ public class EbeanSystemAspect implements SystemAspect {
     return auditStamp == null ? null : auditStamp.getActor().toString();
   }
 
-  @Override
-  public boolean isSemanticNoOp() {
-    return SemanticNoOpMarks.isSet(this);
-  }
-
-  @Nonnull
-  @Override
-  public SystemAspect setSemanticNoOp(boolean semanticNoOp) {
-    SemanticNoOpMarks.set(this, semanticNoOp);
-    return this;
-  }
-
   @Nonnull
   @Override
   public SystemAspect setDatabaseAspect(@Nonnull SystemAspect databaseAspect) {
@@ -303,23 +291,18 @@ public class EbeanSystemAspect implements SystemAspect {
                 ebeanAspectV2.getCreatedFor());
       }
 
-      EbeanSystemAspect copy =
-          new EbeanSystemAspect(
-              null, // do not copy the db object
-              this.urn,
-              this.aspectName,
-              this.entitySpec,
-              this.aspectSpec,
-              recordTemplateCopy,
-              systemMetadataCopy,
-              auditStampCopy,
-              this.systemAspectValidators,
-              this.validationConfig,
-              this.operationContext);
-      if (isSemanticNoOp()) {
-        copy.setSemanticNoOp(true);
-      }
-      return copy;
+      return new EbeanSystemAspect(
+          null, // do not copy the db object
+          this.urn,
+          this.aspectName,
+          this.entitySpec,
+          this.aspectSpec,
+          recordTemplateCopy,
+          systemMetadataCopy,
+          auditStampCopy,
+          this.systemAspectValidators,
+          this.validationConfig,
+          this.operationContext);
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }

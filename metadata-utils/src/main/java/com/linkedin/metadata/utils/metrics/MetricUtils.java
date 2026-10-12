@@ -78,7 +78,9 @@ public class MetricUtils {
   private static final Map<String, DistributionSummary> legacyHistogramCache =
       new ConcurrentHashMap<>();
   private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
-  private static final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
+  // A Counter belongs to one MeterRegistry. Keep this cache instance-scoped so two MetricUtils
+  // objects with the same meter name cannot return a counter from the other's registry.
+  private final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
   private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
   private static final Map<String, DistributionSummary> micrometerDistributionCache =
       new ConcurrentHashMap<>();

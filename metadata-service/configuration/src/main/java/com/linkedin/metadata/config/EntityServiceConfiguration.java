@@ -20,6 +20,6 @@ public class EntityServiceConfiguration {
   // QoS of derived writes. Gated by DATAHUB_HONOR_SYNC_INGEST_FLAG.
   private boolean syncIngestStamping = false;
 
-  /** Startup-bound aspect/path comparison. Disabled, with no rules, unless a deployment opts in. */
+  /** Startup-bound aspect/path comparison. Stock rules live in application.yaml. */
   private SemanticNoOpConfiguration semanticNoOp = new SemanticNoOpConfiguration();
 }
