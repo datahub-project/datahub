@@ -8,8 +8,10 @@ rather than a path string.
 """
 
 import base64
+import re
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 # fabricGitSource content files, by language. The .platform part is metadata
 # and is not the notebook source.
@@ -19,6 +21,27 @@ _LANGUAGE_BY_SUFFIX = {
     ".scala": "scala",
     ".r": "r",
 }
+
+# A section delimiter in an exported fabricGitSource file, e.g.
+# "# CELL ********************". The keyword decides the cell kind; the
+# "# META {...}" lines inside a METADATA block are not delimiters (no word
+# boundary after "META" in "METADATA"), so they stay inside the skipped block.
+_SECTION_RE = re.compile(r"^#\s*(CELL|MARKDOWN|METADATA)\b.*$", re.MULTILINE)
+# The "# MAGIC " line prefix some exports put on markdown and magic cells.
+_MAGIC_PREFIX_RE = re.compile(r"^#\s?MAGIC\s?", re.MULTILINE)
+# A leading cell magic selecting the cell language (%md, %%sql, %%pyspark, ...).
+_LEADING_MAGIC_RE = re.compile(r"\A\s*%{1,2}\w+[^\n]*\n?")
+
+
+class _CellKind(str, Enum):
+    CODE = "code"
+    MARKDOWN = "markdown"
+
+
+@dataclass
+class ParsedCell:
+    kind: _CellKind
+    source: str
 
 
 @dataclass
@@ -95,3 +118,81 @@ def decode_notebook_definition(
         source = base64.b64decode(encoded).decode("utf-8", errors="replace")
         return source, language_from_part_path(path)
     return None, None
+
+
+def _clean_cell_block(block: str) -> str:
+    text = _MAGIC_PREFIX_RE.sub("", block)
+    # Drop the language-selector magic line so a %%sql cell is the SQL itself
+    # and a %md cell is the markdown itself.
+    text = _LEADING_MAGIC_RE.sub("", text, count=1)
+    return text.strip()
+
+
+def parse_notebook_cells(content: Optional[str]) -> List[ParsedCell]:
+    """Split a decoded notebook source file into ordered cells.
+
+    The ``# METADATA`` blocks (the ``# META {...}`` kernel/cell JSON Fabric
+    writes) are dropped: they are scaffolding, not user content. A source file
+    with no cell delimiters (a bare ``.sql``/``.py`` export) is returned as a
+    single code cell.
+    """
+    if not content or not content.strip():
+        return []
+
+    matches = list(_SECTION_RE.finditer(content))
+    if not matches:
+        return [ParsedCell(_CellKind.CODE, content.strip())]
+
+    cells: List[ParsedCell] = []
+    for i, match in enumerate(matches):
+        keyword = match.group(1).upper()
+        if keyword == "METADATA":
+            continue
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        kind = _CellKind.MARKDOWN if keyword == "MARKDOWN" else _CellKind.CODE
+        source = _clean_cell_block(content[start:end])
+        if source:
+            cells.append(ParsedCell(kind, source))
+    return cells
+
+
+def _comment_prefix(language: Optional[str]) -> str:
+    return "--" if (language or "").lower() == "sql" else "#"
+
+
+def notebook_view_logic(
+    content: Optional[str], language: Optional[str]
+) -> Optional[str]:
+    """Build the dataset view definition from a notebook's cells.
+
+    Returns the code cells joined with a per-cell delimiter, keeping the user's
+    own in-code comments but dropping all Fabric scaffolding (the ``# META``
+    metadata and ``# CELL``/``# MARKDOWN`` markers). Markdown cells are kept as
+    a labelled comment block so no user-authored content is lost. Returns None
+    when the notebook has no usable source, so the caller can skip the View
+    subtype.
+    """
+    cells = parse_notebook_cells(content)
+    if not cells:
+        return None
+
+    # A bare single-cell export carries no cell structure worth annotating.
+    if len(cells) == 1 and cells[0].kind is _CellKind.CODE:
+        return cells[0].source
+
+    prefix = _comment_prefix(language)
+    blocks: List[str] = []
+    code_index = 0
+    for cell in cells:
+        if cell.kind is _CellKind.MARKDOWN:
+            body = "\n".join(
+                f"{prefix} {line}".rstrip() for line in cell.source.splitlines()
+            )
+            blocks.append(f"{prefix} \u2500\u2500 Markdown \u2500\u2500\n{body}")
+        else:
+            code_index += 1
+            blocks.append(
+                f"{prefix} \u2500\u2500 Cell {code_index} \u2500\u2500\n{cell.source}"
+            )
+    return "\n\n".join(blocks) or None

@@ -12,6 +12,7 @@ from datahub.ingestion.source.fabric.onelake.notebooks import (
     FabricNotebook,
     decode_notebook_definition,
     notebook_path,
+    notebook_view_logic,
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
@@ -19,6 +20,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataJobInputOutputClass,
     SubTypesClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 
@@ -67,6 +69,69 @@ def test_decode_sql_notebook_language() -> None:
     )
     assert content == "SELECT 1"
     assert language == "sql"
+
+
+_FABRIC_SOURCE = """# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "language_info": { "name": "python" }
+# META }
+
+# CELL ********************
+
+# load the source  # noqa: E501
+df = spark.read.table("bronze.events")
+
+# MARKDOWN ********************
+
+# MAGIC %md
+# MAGIC ## Write results
+
+# CELL ********************
+
+df.write.saveAsTable("silver.events")
+"""
+
+
+def test_notebook_view_logic_strips_meta_and_splits_cells() -> None:
+    logic = notebook_view_logic(_FABRIC_SOURCE, "python")
+    assert logic is not None
+    # No Fabric scaffolding survives.
+    assert "META" not in logic
+    assert "********" not in logic
+    # Code cells are delimited and the user's in-code comment is kept.
+    assert "# \u2500\u2500 Cell 1 \u2500\u2500" in logic
+    assert (
+        '# load the source  # noqa: E501\ndf = spark.read.table("bronze.events")'
+        in logic
+    )
+    assert "# \u2500\u2500 Cell 2 \u2500\u2500" in logic
+    assert 'df.write.saveAsTable("silver.events")' in logic
+    # Markdown is preserved as a labelled comment block.
+    assert "# \u2500\u2500 Markdown \u2500\u2500" in logic
+    assert "# ## Write results" in logic
+
+
+def test_notebook_view_logic_sql_uses_sql_comment_prefix() -> None:
+    source = """# CELL ********************
+
+SELECT 1
+
+# CELL ********************
+
+SELECT 2
+"""
+    logic = notebook_view_logic(source, "sql")
+    assert logic is not None
+    assert "-- \u2500\u2500 Cell 1 \u2500\u2500" in logic
+    assert "-- \u2500\u2500 Cell 2 \u2500\u2500" in logic
+
+
+def test_notebook_view_logic_empty_is_none() -> None:
+    assert notebook_view_logic(None, "python") is None
+    assert notebook_view_logic("   ", "python") is None
 
 
 def test_get_notebook_definition_polls_long_running_operation() -> None:
@@ -147,14 +212,20 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
     assert dataset.external_url == (
         "https://app.fabric.microsoft.com/groups/ws-1/synapsenotebooks/nb-1"
     )
+    # The decoded source is carried as the view definition, not a custom property.
     assert dataset.custom_properties == {
         "path": "/Shared/analysis",
         "language": "python",
-        "content": "print('hello')\n",
     }
     subtypes = dataset._get_aspect(SubTypesClass)
     assert subtypes is not None
-    assert subtypes.typeNames == ["Notebook"]
+    assert subtypes.typeNames == ["View", "Notebook"]
+    view_properties = dataset._get_aspect(ViewPropertiesClass)
+    assert view_properties is not None
+    # A bare single-cell export has no cell structure to annotate.
+    assert view_properties.viewLogic == "print('hello')"
+    assert view_properties.viewLanguage == "PYTHON"
+    assert view_properties.materialized is False
     assert source.report.notebooks_scanned == 1
     assert "ws-1.nb-1" in str(dataset.urn)
 
