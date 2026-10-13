@@ -30,7 +30,8 @@ const StyledEditor = styled(Editor)`
             padding: 0px 0;
             min-height: 400px;
         }
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             font-size: 15px;
             line-height: 1.7;
             color: ${(props) => props.theme.colors.textSecondary};
