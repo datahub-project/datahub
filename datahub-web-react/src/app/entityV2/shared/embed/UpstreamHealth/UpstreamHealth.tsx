@@ -11,7 +11,7 @@ import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLi
 import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, IS_DEPRECATED_FILTER_NAME } from '@app/search/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { isDeprecated, isUnhealthy } from '@src/app/sharedV2/health/healthUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';

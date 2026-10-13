@@ -13,9 +13,9 @@ import {
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-import { formatNumber } from '@app/shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { Message } from '@app/sharedV2/Message';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Card, Heading, Pill, Text } from '@src/alchemy-components';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';

@@ -69,7 +69,7 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows', () =>
     }),
 }));
 
-vi.mock('@app/shared/SchemaEditableContext', () => ({
+vi.mock('@app/sharedV2/SchemaEditableContext', () => ({
     default: React.createContext({}),
 }));
 

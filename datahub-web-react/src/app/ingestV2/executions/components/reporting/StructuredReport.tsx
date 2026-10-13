@@ -14,7 +14,7 @@ import {
     StructuredReportLogEntry,
     StructuredReport as StructuredReportType,
 } from '@app/ingestV2/executions/components/reporting/types';
-import { ShowMoreSection } from '@app/shared/ShowMoreSection';
+import { ShowMoreSection } from '@app/sharedV2/ShowMoreSection';
 
 const Container = styled(Card)`
     display: flex;

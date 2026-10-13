@@ -9,7 +9,7 @@ import { SearchResultInterface } from '@app/entityV2/shared/components/styled/se
 import { EntityType } from '@types';
 
 // Mock external dependencies
-vi.mock('@app/shared/textUtil', () => ({
+vi.mock('@app/sharedV2/textUtil', () => ({
     capitalizeFirstLetterOnly: vi.fn((str: string) => str?.charAt(0)?.toUpperCase() + str?.slice(1).toLowerCase()),
 }));
 

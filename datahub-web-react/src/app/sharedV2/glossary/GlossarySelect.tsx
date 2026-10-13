@@ -10,10 +10,10 @@ import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { deriveGlossaryLabelFromUrn } from '@app/glossaryV2/utils';
-import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
-import { useEntityPickerState } from '@app/shared/tags/useEntityPickerState';
-import { useGlossaryTreeEntities } from '@app/shared/tags/useGlossaryTreeEntities';
-import { TermTreeOption, useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
+import { TagTermLabel } from '@app/sharedV2/tags/TagTermLabel';
+import { useEntityPickerState } from '@app/sharedV2/tags/useEntityPickerState';
+import { useGlossaryTreeEntities } from '@app/sharedV2/tags/useGlossaryTreeEntities';
+import { TermTreeOption, useTermTreeOptions } from '@app/sharedV2/tags/useTermTreeOptions';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, GlossaryTerm } from '@types';

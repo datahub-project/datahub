@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
-import { useIsEmbeddedProfile } from '@app/shared/useEmbeddedProfileLinkProps';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useIsEmbeddedProfile } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 

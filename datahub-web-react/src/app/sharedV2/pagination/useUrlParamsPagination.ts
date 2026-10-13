@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
-import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import usePagination, { Pagination } from '@app/sharedV2/pagination/usePagination';
+import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 
 export default function useUrlParamsPagination(defaultPageSize?: number) {
     const { value: urlParamPage, setValue: setUrlParamPage } = useUrlQueryParam('page', '1');

@@ -10,7 +10,7 @@ import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/
 import BrowsePaths from '@app/previewV2/BrowsePaths';
 import { isDefaultBrowsePath } from '@app/previewV2/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { BrowsePathV2, Entity, EntityType } from '@types';

@@ -16,7 +16,7 @@ import {
     PARENT_DOCUMENT_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
 import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';

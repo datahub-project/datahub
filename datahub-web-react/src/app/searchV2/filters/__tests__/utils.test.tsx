@@ -32,7 +32,7 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
+} from '@src/app/sharedV2/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { AggregationMetadata, EntityType, FilterOperator } from '@types';

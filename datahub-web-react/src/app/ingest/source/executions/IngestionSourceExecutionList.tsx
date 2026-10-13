@@ -6,7 +6,7 @@ import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRe
 import IngestionExecutionTable from '@app/ingest/source/executions/IngestionExecutionTable';
 import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
 import { ROLLING_BACK, RUNNING } from '@app/ingest/source/utils';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { SearchCfg } from '@src/conf';
 
 import {

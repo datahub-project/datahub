@@ -8,7 +8,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import OwnerContent from '@app/entity/shared/components/styled/ExpandedOwner/OwnerContent';
 import { getNameFromType } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';

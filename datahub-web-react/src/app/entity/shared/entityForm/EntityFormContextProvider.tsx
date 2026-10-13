@@ -8,7 +8,7 @@ import {
 import { EntityFormContext, FormView } from '@app/entity/shared/entityForm/EntityFormContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
 import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetDatasetQuery } from '@graphql/dataset.generated';

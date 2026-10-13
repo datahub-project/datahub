@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';

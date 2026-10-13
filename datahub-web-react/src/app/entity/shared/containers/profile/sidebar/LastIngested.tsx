@@ -9,7 +9,7 @@ import styled from 'styled-components/macro';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
-import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
 

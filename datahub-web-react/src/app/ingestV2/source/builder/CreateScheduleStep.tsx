@@ -10,8 +10,8 @@ import styled from 'styled-components';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
+import { lowerFirstLetter } from '@app/sharedV2/textUtil';
 import { Button, Text } from '@src/alchemy-components';
 import { cronToString } from '@utils/cronstrue';
 

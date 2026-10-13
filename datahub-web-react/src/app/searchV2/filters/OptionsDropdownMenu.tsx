@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { SearchBar } from '@app/searchV2/SearchBar';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };

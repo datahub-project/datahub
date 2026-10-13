@@ -14,9 +14,9 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
-import { formatDuration } from '@app/shared/formatDuration';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { safeUrl } from '@app/shared/urlUtils';
+import { formatDuration } from '@app/sharedV2/formatDuration';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '@graphql/dataset.generated';
 import {

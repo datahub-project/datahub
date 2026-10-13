@@ -8,7 +8,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {

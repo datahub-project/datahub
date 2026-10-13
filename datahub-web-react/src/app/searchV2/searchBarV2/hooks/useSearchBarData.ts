@@ -8,7 +8,7 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,

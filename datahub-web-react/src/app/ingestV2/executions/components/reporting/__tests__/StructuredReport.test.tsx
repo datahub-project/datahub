@@ -18,7 +18,7 @@ import lightTheme from '@conf/theme/colorThemes/light';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Mock the ShowMoreSection component
-vi.mock('@app/shared/ShowMoreSection', () => ({
+vi.mock('@app/sharedV2/ShowMoreSection', () => ({
     ShowMoreSection: ({ totalCount, visibleCount, setVisibleCount }: any) => (
         <button type="button" onClick={() => setVisibleCount(visibleCount + 3)} data-testid="show-more-button">
             Show {totalCount - visibleCount} more

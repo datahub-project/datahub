@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { handleBatchError } from '@app/entity/shared/utils';
-import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
+import { decommissionTimeToSeconds } from '@app/sharedV2/time/timeUtils';
 import type { Dayjs } from '@utils/dayjs';
 import dayjs from '@utils/dayjs';
 

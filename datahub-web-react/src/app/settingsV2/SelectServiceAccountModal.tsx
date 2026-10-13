@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Button, EmptyState, Modal, SimpleSelect, Text } from '@src/alchemy-components';
 import { spacing } from '@src/alchemy-components/theme';
 

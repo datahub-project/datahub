@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
-import CompactContext from '@app/shared/CompactContext';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';

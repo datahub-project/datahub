@@ -2,8 +2,8 @@ import { Divider, Space, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AvatarsGroup } from '@app/shared/avatar';
-import { safeUrl } from '@app/shared/urlUtils';
+import { AvatarsGroup } from '@app/sharedV2/avatar';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 type Props = {

@@ -11,7 +11,7 @@ import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
-import ProductUpdates from '@app/shared/product/update/ProductUpdates';
+import ProductUpdates from '@app/sharedV2/product/update/ProductUpdates';
 import { HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';

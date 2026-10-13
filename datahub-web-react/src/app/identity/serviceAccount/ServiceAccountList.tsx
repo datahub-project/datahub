@@ -12,7 +12,7 @@ import {
     useServiceAccountRoleAssignment,
     useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
 
 const PageContainer = styled.div`

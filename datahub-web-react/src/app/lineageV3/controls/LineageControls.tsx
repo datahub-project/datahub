@@ -19,7 +19,7 @@ import LineageSearchFilters from '@app/lineageV3/controls/LineageSearchFilters';
 import LineageTimeRangeControls from '@app/lineageV3/controls/LineageTimeRangeControls';
 import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
 import { ControlPanel } from '@app/lineageV3/controls/common';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import TabFullsizedContext from '@app/sharedV2/TabFullsizedContext';
 
 const StyledPanel = styled(Panel)`
     margin-top: 80px;

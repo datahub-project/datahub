@@ -9,8 +9,8 @@ import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNav
 import { getParentDomains } from '@app/domain/utils';
 import useParentSelector from '@app/entity/shared/EntityDropdown/useParentSelector';
 import ParentEntities from '@app/search/filters/ParentEntities';
-import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
+import ClickOutside from '@app/sharedV2/ClickOutside';
+import { BrowserWrapper } from '@app/sharedV2/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain, EntityType } from '@types';

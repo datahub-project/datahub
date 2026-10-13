@@ -14,11 +14,11 @@ import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
-import { validateCustomUrnId } from '@app/shared/textUtil';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { ColorPicker, Input, Modal, TextArea } from '@src/alchemy-components';
 

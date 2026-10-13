@@ -9,10 +9,10 @@ import { getParentDomains } from '@app/domain/utils';
 import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
 import { handleBatchError } from '@app/entity/shared/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
-import ClickOutside from '@app/shared/ClickOutside';
-import { DomainLabel } from '@app/shared/DomainLabel';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import ClickOutside from '@app/sharedV2/ClickOutside';
+import { DomainLabel } from '@app/sharedV2/DomainLabel';
+import { BrowserWrapper } from '@app/sharedV2/tags/BrowserWrapper';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
 

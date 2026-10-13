@@ -17,7 +17,7 @@ import {
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
 import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';

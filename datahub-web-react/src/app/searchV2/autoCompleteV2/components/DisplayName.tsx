@@ -11,7 +11,7 @@ import {
 } from '@components/theme/config';
 import { getColor } from '@components/theme/utils';
 
-import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
+import useMeasureIfTrancated from '@app/sharedV2/useMeasureIfTruncated';
 
 const EntityTitleContainer = styled.div<{ $color?: FontColorOptions; $colorLevel?: FontColorLevelOptions }>`
     text-overflow: ellipsis;

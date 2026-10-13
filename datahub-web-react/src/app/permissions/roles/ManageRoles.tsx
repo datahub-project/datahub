@@ -15,7 +15,7 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
 import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

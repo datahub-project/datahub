@@ -21,7 +21,7 @@ import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
 import { SettingsPage as SettingsPageV2 } from '@app/settingsV2/SettingsPage';
-import { NoPageFound } from '@app/shared/NoPageFound';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
 import { ManageTags } from '@app/tags/ManageTags';
 import {
     useAppConfig,

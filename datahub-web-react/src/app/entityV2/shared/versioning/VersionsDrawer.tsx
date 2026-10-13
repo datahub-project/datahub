@@ -14,7 +14,7 @@ import { StructuredPopover } from '@components/components/StructuredPopover';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
-import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
+import { SimpleCopyLinkMenuItem } from '@app/sharedV2/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
 

@@ -10,8 +10,8 @@ import {
     getTotalEntitiesIngested,
 } from '@app/ingest/source/utils';
 import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-import { formatNumber } from '@app/shared/formatNumber';
+import { Message } from '@app/sharedV2/Message';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 

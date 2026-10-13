@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { pickTreeIcon } from '@app/document/utils/documentUtils';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import {

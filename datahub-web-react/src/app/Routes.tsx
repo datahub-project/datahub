@@ -9,7 +9,7 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import LoginV2 from '@app/auth/loginV2/LoginV2';
 import ResetCredentialsV2 from '@app/auth/resetCredentialsV2/ResetCredentialsV2';
 import SignUpV2 from '@app/auth/signupV2/SignUpV2';
-import { NoPageFound } from '@app/shared/NoPageFound';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 

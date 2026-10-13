@@ -1,11 +1,11 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import useUrlParamsPagination from '@app/sharedV2/pagination/useUrlParamsPagination';
+import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 
 // Mock useUrlQueryParam
-vi.mock('@app/shared/useUrlQueryParam', () => ({
+vi.mock('@app/sharedV2/useUrlQueryParam', () => ({
     useUrlQueryParam: vi.fn(),
 }));
 

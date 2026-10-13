@@ -1,6 +1,6 @@
 import React from 'react';
 
-import TagTermGroup from '@app/shared/tags/TagTermGroup';
+import TagTermGroup from '@app/businessAttribute/tags/TagTermGroup';
 
 import { BusinessAttribute, EntityType, GlobalTags } from '@types';
 

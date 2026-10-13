@@ -2,9 +2,9 @@ import { Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import { SecretBuilderState } from '@app/ingest/secret/types';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Button, Modal } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { ModalButtonContainer } from '@src/app/sharedV2/button/styledComponents';
 
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';

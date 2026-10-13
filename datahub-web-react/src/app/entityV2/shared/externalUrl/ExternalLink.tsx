@@ -3,8 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Popover } from '@src/alchemy-components';
-import { safeUrl } from '@src/app/shared/urlUtils';
-import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
+import { safeUrl } from '@src/app/sharedV2/urlUtils';
+import useMeasureIfTrancated from '@src/app/sharedV2/useMeasureIfTruncated';
 
 const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     display: flex;

@@ -1,7 +1,7 @@
 import React from 'react';
 
-import AddTagsModal from '@app/shared/tags/AddTagsModal';
-import AddTermsModal from '@app/shared/tags/AddTermsModal';
+import AddTagsModal from '@app/sharedV2/tags/AddTagsModal';
+import AddTermsModal from '@app/sharedV2/tags/AddTermsModal';
 
 import { EntityType, SubResourceType } from '@types';
 

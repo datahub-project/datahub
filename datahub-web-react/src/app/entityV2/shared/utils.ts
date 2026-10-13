@@ -4,8 +4,8 @@ import i18next from 'i18next';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { TimeWindowSize } from '@app/shared/time/timeUtils';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { TimeWindowSize } from '@app/sharedV2/time/timeUtils';
 
 import {
     ChartProperties,
