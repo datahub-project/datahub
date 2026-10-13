@@ -79,7 +79,9 @@ For cross-account S3 access, refer to the [S3 connector's cross-account document
 
 #### Compatibility
 
-To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
+DataHub retrieves Glue job lineage directly from the AWS Glue API — it does not parse job scripts itself. AWS Glue only reports lineage for jobs that were built using Glue Studio's visual editor with the **"Generate classic script"** option enabled (found in the job's **Script** tab). This option embeds annotations in the generated script that the Glue API uses to compute lineage.
+
+If a job uses a custom script — hand-written, or a generated script edited beyond what Glue Studio produces — it will not have these annotations, and the AWS Glue API will not report any lineage for it, regardless of DataHub configuration.
 
 #### JDBC Upstream Lineage
 
