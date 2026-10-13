@@ -698,9 +698,8 @@ public class SiblingAssociationHookTest {
   }
 
   @Test
-  public void
-      testInvokeWhenThereIsAPairWithBigqueryDownstreamNodeButSourceAlreadyHasARealSibling()
-          throws Exception {
+  public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNodeButSourceAlreadyHasARealSibling()
+      throws Exception {
     when(_mockEntityClient.exists(any(OperationContext.class), Mockito.any())).thenReturn(true);
 
     // dbt entity has no existing siblings aspect at all (left side of OR is false)
