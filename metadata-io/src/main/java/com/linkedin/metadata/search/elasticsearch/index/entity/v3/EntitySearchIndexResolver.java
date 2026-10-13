@@ -68,8 +68,9 @@ public final class EntitySearchIndexResolver {
   }
 
   /**
-   * Cross-entity wildcard used by analytics charts that scan every entity index at once. V2 is
-   * {@code *index_v2}; V3 is {@code *index_v3}.
+   * Cross-entity wildcard for reads that scan every entity index at once: analytics charts and
+   * aggregations without an entity list. V2 is {@code *index_v2}; V3 is {@code *index_v3}. Only the
+   * family being read is matched, so entities written to both V2 and V3 are counted once.
    */
   @Nonnull
   public static String allEntityIndexPattern(

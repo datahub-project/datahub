@@ -38,13 +38,13 @@ classifiers = [
 
 dependencies = [
     "aiohttp<4",
-    "anyio>=4.10.0,<5.0.0",
+    "anyio>=4.14.2,<5.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "cached_property<3.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    "click>=8.3.3,<9.0.0",
     "cramjam>=2.8.0,<3.0.0",
     "Deprecated<2.0.0",
     "docker<8.0.0",
@@ -279,7 +279,7 @@ datahub = [
     "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
     "greenlet<4.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -398,7 +398,7 @@ doris = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -474,7 +474,7 @@ fabric-onelake = [
 
 feast = [
     "dask[dataframe]<2024.7.0",
-    "feast>=0.34.0,<1",
+    "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
     "starlette>=1.3.1,<2.0.0",
@@ -552,6 +552,19 @@ glue = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
+google-drive = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "google-api-python-client>=2.0.0,<3.0.0",
+    "google-auth>=2.0.0,<3.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
+    "jsonpath-ng==1.7.0",
+    "markdownify>=0.14.1,<2.0.0",
+    "nltk!=3.10.1",
+    "unstructured-ingest==1.4.28",
+    "unstructured[md]==0.24.1",
+]
+
 grafana = [
     "requests<3.0.0",
     "sqlglot[c]==30.12.0",
@@ -574,27 +587,29 @@ hex = [
 ]
 
 hive = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
-    "databricks-dbapi<0.7.0",
     "greenlet<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 hive-metastore = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pymetastore>=0.4.2,<1.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 iceberg = [
@@ -677,7 +692,7 @@ mariadb = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -747,7 +762,7 @@ mysql = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -844,9 +859,9 @@ preset = [
 ]
 
 presto = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
+    "presto-python-client>=0.8.4,<1.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -854,17 +869,18 @@ presto = [
 ]
 
 presto-on-hive = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pymetastore>=0.4.2,<1.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 pulsar = [
@@ -1111,7 +1127,7 @@ tidb = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -1173,9 +1189,8 @@ vertica = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
-# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
+# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, google-drive, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "Authlib>=1.6.11,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
@@ -1190,7 +1205,6 @@ all = [
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "confluent_kafka[avro,schemaregistry]>=2.15.1,!=2.8.1,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=4.1.2,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
@@ -1223,6 +1237,7 @@ all = [
     "grpcio>=1.84.0,<2.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "kerberos>=1.3.0,<2.0.0",
@@ -1245,8 +1260,10 @@ all = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
+    "presto-python-client>=0.8.4,<1.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pycarlo>=0.15.262,<1.0.0",
@@ -1254,7 +1271,7 @@ all = [
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL>=26.4.0,<27.0.0",
     "python-ldap>=2.4,<4.0.0",
@@ -1287,6 +1304,7 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch<11.0.0",
@@ -1294,13 +1312,10 @@ all = [
     "zstd<1.5.6.8",
 ]
 
-cloud = ["acryl-datahub-cloud"]
-
 dev = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
-    "anyio>=4.10.0,<5.0.0",
+    "anyio>=4.14.2,<5.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.11,<2.0.0",
     "avro-gen3==0.7.16",
@@ -1318,14 +1333,13 @@ dev = [
     "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    "click>=8.3.3,<9.0.0",
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=4.1.2,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
@@ -1344,11 +1358,12 @@ dev = [
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
-    "feast>=0.34.0,<1",
+    "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
+    "google-api-python-client>=2.0.0,<3.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
@@ -1367,6 +1382,7 @@ dev = [
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
     "ijson>=3.2.0,<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1399,10 +1415,12 @@ dev = [
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
     "pip",
+    "presto-python-client>=0.8.4,<1.0.0",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -1410,7 +1428,7 @@ dev = [
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.4.0,<27.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
@@ -1458,6 +1476,7 @@ dev = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1491,10 +1510,9 @@ dev = [
 ]
 
 docs = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
-    "anyio>=4.10.0,<5.0.0",
+    "anyio>=4.14.2,<5.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.11,<2.0.0",
     "avro-gen3==0.7.16",
@@ -1512,14 +1530,13 @@ docs = [
     "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    "click>=8.3.3,<9.0.0",
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=4.1.2,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
@@ -1538,11 +1555,12 @@ docs = [
     "faker>=18.4.0,<41.0.0",
     "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
-    "feast>=0.34.0,<1",
+    "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
+    "google-api-python-client>=2.0.0,<3.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
@@ -1561,6 +1579,7 @@ docs = [
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
     "ijson>=3.2.0,<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1593,10 +1612,12 @@ docs = [
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
     "pip",
+    "presto-python-client>=0.8.4,<1.0.0",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -1604,7 +1625,7 @@ docs = [
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.4.0,<27.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
@@ -1652,6 +1673,7 @@ docs = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1699,7 +1721,6 @@ testing-utils = [
 ]
 
 integration-tests = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1710,16 +1731,16 @@ integration-tests = [
     "cachetools<6.0.0",
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
-    "feast>=0.34.0,<1",
+    "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "greenlet<4.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "kerberos>=1.3.0,<2.0.0",
@@ -1730,13 +1751,14 @@ integration-tests = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pycarlo>=0.15.262,<1.0.0",
     "pydruid>=0.6.2,<=0.6.9",
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
-    "pymysql>=1.0.2,<2.0.0",
+    "pymysql[rsa]>=1.0.2,<2.0.0",
     "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL>=26.4.0,<27.0.0",
     "python-ldap>=2.4,<4.0.0",
@@ -1760,6 +1782,7 @@ integration-tests = [
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "ujson>=5.12.1,<6.0.0",
     "vcrpy>=8.2.0,<9.0",
     "wcmatch<11.0.0",
@@ -1803,6 +1826,7 @@ clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"
 clickhouse-usage = "datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource"
 cockroachdb = "datahub.ingestion.source.sql.cockroachdb:CockroachDBSource"
 confluence = "datahub.ingestion.source.confluence.confluence_source:ConfluenceSource"
+google-drive = "datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource"
 delta-lake = "datahub.ingestion.source.delta_lake:DeltaLakeSource"
 s3 = "datahub.ingestion.source.s3:S3Source"
 db2 = "datahub.ingestion.source.sql.db2:Db2Source"
@@ -1999,7 +2023,7 @@ environments = [
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
-    "pypdf>=6.10.2",  # GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS)
+    "pypdf>=6.19.0,<7.0.0",  # GHSA-4pxv-j86v-mhcw; CVE-2026-103000 / GHSA-w23x-9jrw-r45c (page-label DoS). Cap major until reviewed.
     "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).

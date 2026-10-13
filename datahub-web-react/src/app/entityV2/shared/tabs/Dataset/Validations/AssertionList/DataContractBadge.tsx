@@ -1,11 +1,11 @@
-import { AuditOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ClipboardText } from '@phosphor-icons/react/dist/csr/ClipboardText';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
-const DataContractLogo = styled(AuditOutlined)`
+const DataContractLogo = styled(ClipboardText)`
     margin-left: 8px;
     font-size: 16px;
     color: ${(props) => props.theme.colors.iconBrand};

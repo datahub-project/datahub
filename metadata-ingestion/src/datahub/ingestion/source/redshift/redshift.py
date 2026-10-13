@@ -60,6 +60,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
+    is_shared_database,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
@@ -425,9 +426,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Processing db {database}")
 
         self.db = self.data_dictionary.get_database_details(connection, database)
-        self.report.is_shared_database = (
-            self.db is not None and self.db.is_shared_database()
-        )
+        self.report.is_shared_database = is_shared_database(self.db)
         with self.report.new_stage(METADATA_EXTRACTION):
             self.db_tables[database] = defaultdict()
             self.db_views[database] = defaultdict()
@@ -704,7 +703,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
-        if not self.config.table_pattern.allowed(datahub_dataset_name):
+        # cache_tables_and_views kept only views view_pattern allows, so this
+        # drops the ones table_pattern refuses.
+        if not self.config.view_allowed(datahub_dataset_name):
             self.report.report_dropped(datahub_dataset_name)
             return
 

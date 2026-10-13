@@ -22,7 +22,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
-from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.agent.verdicts import ClassifyContext, ancestors_in
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
@@ -670,47 +670,42 @@ class UnityCatalogSourceConfig(
         )
         return None
 
-    def probe_container_match_target(
-        self,
-        kind: str,
-        name: str,
-        parent_path: Sequence[str],
-        warn: Callable[[str], None],
-    ) -> Optional[str]:
-        """The id catalog_pattern and schema_pattern are matched against.
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """For a catalog or schema, the id catalog_pattern and schema_pattern
+        are matched against; the SQL family's identifier for anything else.
 
         Not the bare name: UnityCatalogApiProxy builds Catalog.id and Schema.id
         from the escaped names joined with ".", prefixed by the metastore's
         when include_metastore is set, and process_catalogs / process_schemas
-        filter on those ids. None for any other kind.
+        filter on those ids.
         """
-        if kind == DatasetContainerSubTypes.CATALOG:
+        if ctx.kind == DatasetContainerSubTypes.CATALOG:
             depth = 0
-        elif kind == DatasetContainerSubTypes.SCHEMA:
+        elif ctx.kind == DatasetContainerSubTypes.SCHEMA:
             depth = 1
         else:
-            return None
+            return super().probe_match_target(ctx)
         if self.include_metastore:
             depth += 1
 
-        containers = list(parent_path[-depth:]) if depth else []
+        containers = list(ctx.parent_path[-depth:]) if depth else []
         if (
             len(containers) < depth
-            and kind == DatasetContainerSubTypes.SCHEMA
+            and ctx.kind == DatasetContainerSubTypes.SCHEMA
             and not self.include_metastore
             and self.catalogs is not None
             and len(self.catalogs) == 1
         ):
             containers = [self.catalogs[0]]
         if len(containers) < depth:
-            warn(
+            ctx.warn(
                 "unity-catalog matches catalog_pattern and schema_pattern "
                 "against the full id (`[metastore.]catalog[.schema]`); pass the "
                 "containing names with --parent, outermost first, for exact "
                 "verdicts. Judged on the bare name instead."
             )
-            return name
-        return ".".join(escape_unity_name(part) for part in [*containers, name])
+            return ctx.name
+        return ".".join(escape_unity_name(part) for part in [*containers, ctx.name])
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         # The metastore has no pattern, so it is left out of the chain; a

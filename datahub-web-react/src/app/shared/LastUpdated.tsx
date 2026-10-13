@@ -1,6 +1,6 @@
 import { green, orange, red } from '@ant-design/colors';
-import { ClockCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Image } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -109,7 +109,7 @@ export default function LastUpdated({ time, typeName, platformName, platformLogo
                 <StyledDot color={getLastIngestedColor(time)} />
                 {!noLabel && (
                     <>
-                        <ClockCircleOutlined />
+                        <Clock />
                         {t('lastUpdated.updatedRelative', { relativeTime: toRelativeTimeString(time) })}
                     </>
                 )}

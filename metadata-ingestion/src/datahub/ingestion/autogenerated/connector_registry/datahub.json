@@ -1710,6 +1710,38 @@
       "platform_name": "Glue",
       "support_status": "GA"
     },
+    "google-drive": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.google_drive.google_drive_source.GoogleDriveSource",
+      "platform_id": "google_drive",
+      "platform_name": "Google Drive",
+      "support_status": "ALPHA"
+    },
     "grafana": {
       "capabilities": [
         {
@@ -4245,7 +4277,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Columns from OData EDMX",
+          "description": "Columns from OData EDMX; CSN elements when an asset has no consumption URL",
           "subtype_modifier": null,
           "supported": true
         },

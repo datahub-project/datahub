@@ -1,4 +1,5 @@
-import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { AutoComplete, Button, Input } from 'antd';
 import React, {
     EventHandler,
@@ -19,7 +20,6 @@ import { useUserContext } from '@app/context/useUserContext';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { ViewSelect } from '@app/entity/view/select/ViewSelect';
-import { CommandK } from '@app/search/CommandK';
 import ViewAllSearchItem from '@app/search/ViewAllSearchItem';
 import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/search/autoComplete/RecommendedOption';
@@ -32,6 +32,7 @@ import { getFiltersWithQuickFilter } from '@app/search/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
 import usePrevious from '@app/shared/usePrevious';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { getCommandKShortcutLabel } from '@app/utils/checkIfMac';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
@@ -69,12 +70,7 @@ const StyledSearchBar = styled(Input)`
     }
 `;
 
-const ClearIcon = styled(CloseCircleFilled)`
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
+const ClearIcon = styled(XCircle).attrs({ weight: 'fill', size: 15 })``;
 
 const ViewSelectContainer = styled.div`
     &&& {
@@ -82,7 +78,7 @@ const ViewSelectContainer = styled.div`
     }
 `;
 
-const SearchIcon = styled(SearchOutlined)`
+const SearchIcon = styled(MagnifyingGlass)`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
@@ -163,6 +159,12 @@ export const SearchBar = ({
     const [isFocused, setIsFocused] = useState(false);
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
+    const resolvedPlaceholder = showCommandK
+        ? t('searchBar.placeholderWithShortcut', {
+              message: placeholderText,
+              shortcut: getCommandKShortcutLabel(),
+          })
+        : placeholderText;
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -404,7 +406,7 @@ export const SearchBar = ({
                 <StyledSearchBar
                     ref={searchInputRef}
                     bordered={false}
-                    placeholder={placeholderText}
+                    placeholder={resolvedPlaceholder}
                     onPressEnter={() => {
                         handleSearch(
                             filterSearchQuery(searchQuery || ''),
@@ -451,7 +453,7 @@ export const SearchBar = ({
                             />
                         </>
                     }
-                    suffix={(showCommandK && !isFocused && <CommandK />) || null}
+                    suffix={null}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>

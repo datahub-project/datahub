@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useAppConfig } from '@src/app/useAppConfig';

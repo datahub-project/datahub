@@ -488,6 +488,7 @@ class SQLAlchemyProfiler:
         column_profile: DatasetFieldProfileClass,
         col_type: "ProfilerDataType",
         cardinality: Optional["Cardinality"],
+        non_null_count: Optional[int],
         numeric_stats_futures: Dict[str, Dict[str, "FutureResult"]],
         pretty_name: str,
     ) -> None:
@@ -552,6 +553,10 @@ class SQLAlchemyProfiler:
             if "stdev" in futures:
                 try:
                     stdev_val = futures["stdev"].result()
+                    if stdev_val is None:
+                        # NULL is ambiguous; the non-null count we already have
+                        # settles it without a second query.
+                        stdev_val = runner.adapter.resolve_stdev_null(non_null_count)
                     column_profile.stdev = format_profile_value(
                         stdev_val, col_type, as_stat=True
                     )
@@ -981,7 +986,9 @@ class SQLAlchemyProfiler:
             profile.rowCount = None
             row_count = None
 
-        # Update partition spec if sampling was applied by adapter
+        # Record that sampling happened, never the sample's size: a BERNOULLI
+        # sample lands on a different row count every run, and partitionSpec is
+        # emitted, so a size would change the profile for an unchanged table.
         if context.is_sampled:
             if (
                 profile.partitionSpec
@@ -995,9 +1002,6 @@ class SQLAlchemyProfiler:
                 and profile.partitionSpec.type == PartitionTypeClass.PARTITION
             ):
                 profile.partitionSpec.partition += " SAMPLE"
-
-            if profile.partitionSpec and row_count is not None:
-                profile.partitionSpec.partition += f" (sample rows {row_count})"
 
         return row_count
 
@@ -1416,6 +1420,7 @@ class SQLAlchemyProfiler:
                     column_profile=column_profile,
                     col_type=col_type,
                     cardinality=cardinality,
+                    non_null_count=non_null_count,
                     numeric_stats_futures=numeric_stats_futures,
                     pretty_name=pretty_name,
                 )

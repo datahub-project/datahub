@@ -152,7 +152,9 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^README\.md$/, // The root README is GitHub-only; /docs/introduction redirects to /docs/features.
     /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
+    /^docs\/_archive\//, // Unpublished backup content, intentionally kept out of the docs site.
     /^\s*$/, //Empty string
   ];
 
@@ -174,18 +176,10 @@ function get_id(filepath: string): string {
   return id;
 }
 
-const hardcoded_slugs = {
-  "README.md": "/introduction",
-};
-
 function get_slug(filepath: string): string {
   // The slug is the URL path to the page.
   // In the actual site, all slugs are prefixed with /docs.
   // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
-
-  if (filepath in hardcoded_slugs) {
-    return hardcoded_slugs[filepath as keyof typeof hardcoded_slugs];
-  }
 
   let slug = get_id(filepath);
   if (slug.startsWith("docs/")) {
@@ -200,7 +194,6 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "DataHub Docs Overview",
   "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
@@ -213,13 +206,6 @@ const sidebarsjs_hardcoded_titles = [
   "metadata-ingestion/source_docs/s3.md",
   "docs/api/graphql/overview.md",
 ];
-const hardcoded_hide_title = ["README.md"];
-
-const hardcoded_descriptions = {
-  // Only applied if title is also overridden.
-  "README.md":
-    "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
-};
 
 // FIXME: Eventually, we'd like to fix all of the broken links within these files.
 const allowed_broken_links = [
@@ -246,13 +232,6 @@ function markdown_guess_title(
   let title: string;
   if (filepath in hardcoded_titles) {
     title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
-    if (filepath in hardcoded_descriptions) {
-      contents.data.description =
-        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
-    }
-    if (hardcoded_hide_title.includes(filepath)) {
-      contents.data.hide_title = true;
-    }
   } else {
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);

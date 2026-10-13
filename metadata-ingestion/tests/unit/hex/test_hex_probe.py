@@ -300,6 +300,13 @@ def test_the_provider_closes_the_session_it_opened():
     assert closed == [True]
 
 
+def test_the_provider_closes_what_it_opened_once():
+    closed: List[str] = []
+    with _probe_for(_FakeApi()) as probe:
+        probe._open_once("client", object, close=lambda _c: closed.append("client"))
+    assert closed == ["client"]
+
+
 def test_queried_tables_delegates_to_hexs_own_fetcher():
     # Reaching /queriedTables as a raw path would work and would lose the tier
     # handling below, which is the reason this command exists at all.

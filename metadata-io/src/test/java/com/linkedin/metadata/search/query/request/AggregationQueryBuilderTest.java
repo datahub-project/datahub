@@ -659,9 +659,9 @@ public class AggregationQueryBuilderTest {
             DEFAULT_FILTER));
   }
 
-  /** V3 entity indices keep keyword fields at the root, so facets skip the .keyword subfield. */
+  /** V3 root fields keep the V2 .keyword subfield, so facets aggregate on it as on V2. */
   @Test
-  public void testV3KeywordReadFacetsUseRootFields() {
+  public void testV3KeywordReadFacetsUseKeywordSubfields() {
     SearchableAnnotation annotation =
         new SearchableAnnotation(
             "test1",
@@ -706,7 +706,11 @@ public class AggregationQueryBuilderTest {
     // V3 documents store their entity type, so the type facet does not read _index
     Assert.assertEquals(
         aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
-        ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", INDEX_VIRTUAL_FIELD));
+        ImmutableSet.of(
+            "test1.keyword",
+            "hasTest1",
+            "structuredProperties.hello.keyword",
+            INDEX_VIRTUAL_FIELD));
     // A V3 index can hold other entity types; only the requested ones are reported
     TermsAggregationBuilder entityTypeAgg =
         aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();

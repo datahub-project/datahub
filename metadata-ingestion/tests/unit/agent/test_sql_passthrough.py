@@ -15,9 +15,11 @@ from datahub.ingestion.agent.probe_methods import (
 from datahub.ingestion.agent.sql_gate import SqlScopeError
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
+    QueryBudget,
     SqlCatalogPassthrough,
     rows_from_mappings,
 )
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 CATALOG_QUERY = "SELECT table_name FROM information_schema.tables"
 
@@ -87,11 +89,26 @@ def test_the_inherited_command_is_discovered_and_gated():
     _enforce_gates(_sql_spec(_Provider), provider, {"query": CATALOG_QUERY})
 
 
+def test_a_query_with_no_ceiling_on_this_connection_says_so():
+    provider = _Provider()
+    provider.query_budget = QueryBudget(timeout_seconds=None)
+    provider.sql(CATALOG_QUERY)
+    assert len(provider.warnings) == 1
+    assert "no time limit is guaranteed" in provider.warnings[0]
+
+
+def test_a_bounded_query_adds_no_warning():
+    provider = _Provider()
+    provider.sql(CATALOG_QUERY)
+    assert provider.warnings == []
+
+
 def test_a_provider_that_forgets_the_adapter_says_so():
     class Forgetful(SqlCatalogPassthrough):
         sql_dialect = "postgres"
 
-    with pytest.raises(NotImplementedError, match="execute_catalog_query"):
+    # A provider defect (exit 1), not a command the source lacks (exit 2).
+    with pytest.raises(ProbeInternalError, match="execute_catalog_query"):
         Forgetful().sql(CATALOG_QUERY)
 
 
@@ -126,6 +143,14 @@ def test_a_missing_key_in_a_later_record_reads_as_null_not_a_shift():
             "BigQueryMetadataProbe",
         ),
         ("datahub.ingestion.source.sql.sqlalchemy_probe", "SqlAlchemyMetadataProbe"),
+        (
+            "datahub.ingestion.source.redshift.redshift_probe",
+            "RedshiftMetadataProbe",
+        ),
+        (
+            "datahub.ingestion.source.sql.mssql.mssql_probe",
+            "SqlServerMetadataProbe",
+        ),
     ],
 )
 def test_every_warehouse_probe_supplies_only_its_driver_adapter(

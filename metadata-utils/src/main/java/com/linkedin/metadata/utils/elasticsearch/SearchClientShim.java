@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -552,4 +553,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @OperationContextExempt(reason = "Escape-hatch accessor, no I/O.")
   @Nonnull
   T getNativeClient();
+
+  /**
+   * Register gauges for this client's HTTP connection pool (leased, waiting), tagged with {@code
+   * clusterName}. No-op for implementations without a pool.
+   */
+  @OperationContextExempt(reason = "Metrics registration at startup, no I/O.")
+  default void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {}
 }
