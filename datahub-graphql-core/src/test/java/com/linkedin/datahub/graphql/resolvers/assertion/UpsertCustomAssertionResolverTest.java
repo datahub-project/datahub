@@ -24,6 +24,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
@@ -563,7 +564,9 @@ public class UpsertCustomAssertionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(e.getCause() instanceof AuthorizationException);
     Mockito.verify(mockedService, Mockito.never())
         .upsertCustomAssertion(
             any(OperationContext.class),
@@ -591,7 +594,9 @@ public class UpsertCustomAssertionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(e.getCause() instanceof AuthorizationException);
     Mockito.verify(mockedService, Mockito.never())
         .upsertCustomAssertion(
             any(OperationContext.class),
