@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionInput;
@@ -14,14 +18,110 @@ import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.generated.ResourceFilterInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValueInput;
+import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.PolicyMatchCriterion;
 import java.util.Arrays;
+import java.util.List;
 import org.testng.annotations.Test;
 
+/**
+ * Covers https://github.com/datahub-project/datahub/issues/19909: {@link
+ * PolicyUpdateInputInfoMapper#mapToExisting} must mutate the persisted aspect in place rather than
+ * rebuild it from {@link PolicyUpdateInput} alone, so any field with no representation in the
+ * GraphQL input (today: {@code actors.roles}, {@code editable}) survives an edit instead of being
+ * silently reset.
+ *
+ * <p>Also covers mapping of resource-filter criteria, including structured property criteria.
+ */
 public class PolicyUpdateInputInfoMapperTest {
 
   private static final PolicyUpdateInputInfoMapper mapper = PolicyUpdateInputInfoMapper.INSTANCE;
+
+  private static PolicyUpdateInput updateInput(final ActorFilterInput actors) {
+    final PolicyUpdateInput input = new PolicyUpdateInput();
+    input.setType(PolicyType.METADATA);
+    input.setName("Editors - Edit Metadata Entities");
+    input.setState(PolicyState.ACTIVE);
+    input.setDescription("desc");
+    input.setPrivileges(List.of("EDIT_ENTITY_TAGS"));
+    input.setActors(actors);
+    return input;
+  }
+
+  private static ActorFilterInput actorInput() {
+    final ActorFilterInput actors = new ActorFilterInput();
+    actors.setAllUsers(false);
+    actors.setAllGroups(false);
+    actors.setResourceOwners(false);
+    return actors;
+  }
+
+  @Test
+  public void testMapToExistingPreservesRolesAndEditable() {
+    final DataHubPolicyInfo existing = new DataHubPolicyInfo();
+    existing.setDisplayName("Editors - Edit Metadata Entities");
+    existing.setDescription("original desc");
+    existing.setType("METADATA");
+    existing.setState("ACTIVE");
+    existing.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    existing.setEditable(true);
+    existing.setActors(
+        new DataHubActorFilter()
+            .setAllUsers(false)
+            .setAllGroups(false)
+            .setResourceOwners(false)
+            .setRoles(new UrnArray(UrnUtils.getUrn("urn:li:dataHubRole:Editor"))));
+
+    final DataHubPolicyInfo result =
+        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing);
+
+    // Fields absent from PolicyUpdateInput/ActorFilterInput survive the edit.
+    assertTrue(result.getActors().hasRoles());
+    assertEquals(
+        result.getActors().getRoles(), new UrnArray(UrnUtils.getUrn("urn:li:dataHubRole:Editor")));
+    assertTrue(result.isEditable());
+    // Same object instance is mutated and returned.
+    assertEquals(result, existing);
+    // Fields present on the input are still applied.
+    assertEquals(result.getDescription(), "desc");
+  }
+
+  @Test
+  public void testMapToExistingClearsGroupsAndUsersWhenInputOmitsThem() {
+    final DataHubPolicyInfo existing = new DataHubPolicyInfo();
+    existing.setDisplayName("Some Policy");
+    existing.setDescription("desc");
+    existing.setType("METADATA");
+    existing.setState("ACTIVE");
+    existing.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    existing.setEditable(false);
+    existing.setActors(
+        new DataHubActorFilter()
+            .setAllUsers(false)
+            .setAllGroups(false)
+            .setResourceOwners(false)
+            .setGroups(new UrnArray(UrnUtils.getUrn("urn:li:corpGroup:eng")))
+            .setUsers(new UrnArray(UrnUtils.getUrn("urn:li:corpuser:jdoe"))));
+
+    // The edit form's actor input has no groups/users selected this time.
+    final DataHubPolicyInfo result =
+        PolicyUpdateInputInfoMapper.mapToExisting(null, updateInput(actorInput()), existing);
+
+    assertFalse(result.getActors().hasGroups());
+    assertFalse(result.getActors().hasUsers());
+    // Non-editable stays non-editable - not silently flipped by the update path.
+    assertFalse(result.isEditable());
+  }
+
+  @Test
+  public void testMapCreatesFreshInfoWithoutRolesOrExistingState() {
+    final DataHubPolicyInfo result =
+        PolicyUpdateInputInfoMapper.map(null, updateInput(actorInput()));
+
+    assertFalse(result.getActors().hasRoles());
+    assertTrue(result.isEditable()); // PDL default
+  }
 
   private static PolicyUpdateInput createBasicPolicyInput(String policyName) {
     PolicyUpdateInput input = new PolicyUpdateInput();
