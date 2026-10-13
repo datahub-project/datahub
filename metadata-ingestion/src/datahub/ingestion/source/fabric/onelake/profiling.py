@@ -93,27 +93,41 @@ def emit_dataset_profiles(
     logger.info(
         f"Profiling {len(requests)} table(s) through the SQL Analytics Endpoint"
     )
-    for request, profile in profiler.generate_profiles(
-        requests,
-        profiling.max_workers,
-        platform=PROFILING_SQL_PLATFORM,
-    ):
-        if profile is None:
-            continue
-        dataset_name = dataset_names_by_pretty_name.get(request.pretty_name)
-        if dataset_name is None:
-            logger.warning(
-                f"No Fabric dataset name for profile of {request.pretty_name}"
+    try:
+        for request, profile in profiler.generate_profiles(
+            requests,
+            profiling.max_workers,
+            platform=PROFILING_SQL_PLATFORM,
+        ):
+            if profile is None:
+                continue
+            dataset_name = dataset_names_by_pretty_name.get(request.pretty_name)
+            if dataset_name is None:
+                logger.warning(
+                    f"No Fabric dataset name for profile of {request.pretty_name}"
+                )
+                continue
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                platform,
+                dataset_name,
+                platform_instance,
+                env,
             )
-            continue
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform,
-            dataset_name,
-            platform_instance,
-            env,
+            report.report_entity_profiled(dataset_name)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=profile,
+            ).as_workunit()
+    except Exception as e:
+        # A failure in the profiler's thread pool or query combiner surfaces here.
+        # Stop profiling this item instead of failing the lakehouse or warehouse.
+        report.warning(
+            title="Profiling Failed",
+            message=(
+                "Table and column profiling stopped for this item. "
+                "Profiles already emitted are kept."
+            ),
+            context=f"tables={len(requests)}",
+            exc=e,
         )
-        report.report_entity_profiled(dataset_name)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=profile,
-        ).as_workunit()
+        return
