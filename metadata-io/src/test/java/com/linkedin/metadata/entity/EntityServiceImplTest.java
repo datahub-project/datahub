@@ -2056,6 +2056,21 @@ public class EntityServiceImplTest {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
     stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-1");
+    // A hard rollback deletes the entity only when the locked read shows the run owns it.
+    SystemMetadata runMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    runMetadata.setRunId("rollback-run-1");
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(
+            Map.of(
+                GUARDED_PROPERTY_URN.toString(),
+                Map.of(
+                    STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                    guardTestAspectRow(
+                        GUARDED_PROPERTY_URN,
+                        STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                        RecordUtils.toJsonString(
+                            new StructuredPropertyKey().setId(GUARDED_PROPERTY_URN.getId())),
+                        runMetadata))));
 
     AspectRowSummary row =
         new AspectRowSummary()
@@ -2097,6 +2112,79 @@ public class EntityServiceImplTest {
             eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
             anyLong());
     verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  private static final String OWNED_ROLLBACK_RUN_ID = "rollback-ownership-run";
+
+  /**
+   * A corpuser whose latest key row was written by {@code OWNED_ROLLBACK_RUN_ID}, so the rollback
+   * reaches the entity-wide hard delete. Which rows the locked ownership read returns is left to
+   * each test.
+   */
+  private AspectRowSummary stubKeyRowWrittenByRollbackRun(
+      AspectDao dao, Urn urn, String keyAspectName) {
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(ownedKeyRow(urn, keyAspectName));
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    when(dao.deleteUrn(any(OperationContext.class), any(), eq(urn.toString()))).thenReturn(1);
+    stubGuardTestTransaction(dao);
+    return new AspectRowSummary()
+        .setUrn(urn.toString())
+        .setAspectName(keyAspectName)
+        .setKeyAspect(true)
+        .setVersion(0)
+        .setTimestamp(0L);
+  }
+
+  private SystemAspect ownedKeyRow(Urn urn, String keyAspectName) {
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setRunId(OWNED_ROLLBACK_RUN_ID);
+    return guardTestAspectRow(
+        urn,
+        keyAspectName,
+        RecordUtils.toJsonString(new CorpUserKey().setUsername(urn.getId())),
+        systemMetadata);
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenTheLockedReadReturnsNothing() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadEmpty");
+    OperationContext userContext = newUserContext();
+    AspectRowSummary keyRow =
+        stubKeyRowWrittenByRollbackRun(dao, urn, userContext.getKeyAspectName(urn));
+    // Nothing comes back from the locked read: ownership cannot be shown, so the entity must stay.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of()));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertTrue(result.getRowsRolledBack().isEmpty());
+    assertTrue(result.getRollbackResults().isEmpty());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenTheLockedReadShowsOnlyTheRunsRows() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadOwned");
+    OperationContext userContext = newUserContext();
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    AspectRowSummary keyRow = stubKeyRowWrittenByRollbackRun(dao, urn, keyAspectName);
+    // Control for the test above: the same entity, but the locked read shows the run's key row.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of(keyAspectName, ownedKeyRow(urn, keyAspectName))));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertEquals(result.getRowsRolledBack().size(), 1);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(urn.toString()));
   }
 
   // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the
