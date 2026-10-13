@@ -507,6 +507,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_dataset_invalid_delta_schema: int = 0
     num_dataset_valid_delta_schema: int = 0
     num_resource_link_database_tables: int = 0
+    num_resource_link_database_missing_catalog_id: int = 0
     num_resource_link_missing_target: int = 0
     num_resource_link_self_referential: int = 0
     num_resource_link_schema_from_datahub: int = 0
@@ -1728,6 +1729,23 @@ class GlueSource(StatefulIngestionSourceBase):
             # as table-level links.
             target_database = database.get("TargetDatabase")
             if not self.source_config.ignore_resource_links and target_database:
+                link_catalog_id = (
+                    database.get("CatalogId") or self.source_config.catalog_id
+                )
+                if not link_catalog_id:
+                    # Keeping the table's own CatalogId would stamp the link with the owner's
+                    # mapped instance under the owner's names, i.e. the owner's own URN, so the
+                    # link would overwrite the owner's dataset. Skip it instead.
+                    self.report.num_resource_link_database_missing_catalog_id += 1
+                    self.report.warning(
+                        title="Resource link database missing catalog ID",
+                        message="Glue returned a database-level Lake Formation resource link "
+                        "without a CatalogId, so its tables cannot be attributed to the "
+                        "ingesting catalog and were skipped. Set catalog_id in the recipe to "
+                        "the ingesting AWS account ID.",
+                        context=f"{database_name}.{table.get('Name')}",
+                    )
+                    continue
                 if "TargetTable" not in table:
                     table["TargetTable"] = {
                         "CatalogId": target_database.get("CatalogId")
@@ -1737,11 +1755,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         "Name": table["Name"],
                     }
                 table["DatabaseName"] = database["Name"]
-                link_catalog_id = (
-                    database.get("CatalogId") or self.source_config.catalog_id
-                )
-                if link_catalog_id:
-                    table["CatalogId"] = link_catalog_id
+                table["CatalogId"] = link_catalog_id
                 self.report.num_resource_link_database_tables += 1
             yield table
 
