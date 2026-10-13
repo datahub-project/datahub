@@ -38,6 +38,7 @@ _CREDENTIAL_KEYS = [
     "secret-access-key",
     "session-token",
     "s3.endpoint",
+    "password",
 ]
 
 

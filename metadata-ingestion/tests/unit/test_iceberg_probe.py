@@ -277,13 +277,15 @@ def test_a_file_io_that_cannot_start_is_a_connection_failure(
     monkeypatch.setattr(catalog, "load_table", _failing_load_table)
     _patch_catalog(monkeypatch, catalog)
 
-    with pytest.raises(ProbeConnectionError, match="FileIO implementation"):
+    with pytest.raises(ProbeConnectionError) as raised:
         run_probe_method(
             "iceberg",
             _config_dict(),
             "table_metadata",
             {"namespace": "sales", "table": "orders"},
         )
+    # The class path is what tells the operator which package is missing.
+    assert "no_such_module.NoSuchFileIO" in str(raised.value)
 
 
 def test_table_metadata_never_exposes_file_io_properties(

@@ -11,12 +11,17 @@ from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import echoed
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
+
+# pyiceberg's load_file_io raises a bare ValueError with this prefix followed by
+# the py-io-impl class path; iceberg.py matches the same text to skip a table.
+_FILE_IO_FAILURE = "Could not initialize FileIO"
 
 
 def _dotted(identifier: Identifier) -> str:
@@ -96,16 +101,21 @@ class IcebergMetadataProbe:
                 f"no table '{table}' in namespace '{namespace}'"
             ) from exc
         except ValueError as exc:
-            if "Could not initialize FileIO" not in str(exc):
+            message = str(exc)
+            if _FILE_IO_FAILURE not in message:
                 raise
             # The same message ingestion matches on to skip the table. The
             # py-io-impl it names comes from the catalog's merged properties
             # (often the server's), and pyiceberg raises this only when that
             # FileIO implementation module is missing from this environment:
             # an environment problem, not caller input, so exit 3 rather than 2.
+            # The class path tells the operator what to install; echoed because
+            # the catalog server can supply it.
+            io_impl = message.split(_FILE_IO_FAILURE, 1)[1].lstrip(": ").strip()
             raise ProbeConnectionError(
-                f"could not load the FileIO implementation for "
-                f"'{namespace}.{table}' ({type(exc).__name__} from load_table)"
+                f"could not load the FileIO implementation {echoed(io_impl)} "
+                f"for '{namespace}.{table}'; install the package that provides "
+                f"it, or set py-io-impl on the catalog"
             ) from exc
 
     @probe_method()
