@@ -1710,6 +1710,33 @@ class GlueSource(StatefulIngestionSourceBase):
         else:
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
+        # Tables reached through a database-level resource link carry no TargetTable; Glue
+        # returns them with the owning catalog's CatalogId and DatabaseName. Re-key them to
+        # the local link (so the URN, ARN and container use the ingesting catalog) and
+        # synthesize a TargetTable so they get the same owner lineage and schema handling
+        # as table-level links.
+        target_database = (
+            None
+            if self.source_config.ignore_resource_links
+            else database.get("TargetDatabase")
+        )
+        link_catalog_id = database.get("CatalogId") or self.source_config.catalog_id
+        if target_database and not link_catalog_id:
+            # The tables keep the owner's CatalogId, so if the owner is mapped in
+            # catalog_to_platform_instance the links are named with the owner's instance
+            # (and can collide with the owner's datasets when the database names match).
+            self.report.num_resource_link_database_missing_catalog_id += 1
+            self.report.warning(
+                title="Resource link database missing catalog ID",
+                message="Glue returned a database-level Lake Formation resource link "
+                "without a CatalogId, so its tables keep the owning catalog's ID. If "
+                "the owning account is mapped in catalog_to_platform_instance, they are "
+                "named with the owner's platform_instance and can collide with the "
+                "owner's own datasets. Set catalog_id in the recipe to the ingesting AWS "
+                "account ID.",
+                context=database_name,
+            )
+
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
             # resource links (table has a TargetTable pointing at the shared table).
@@ -1722,31 +1749,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            # Tables reached through a database-level resource link carry no TargetTable; Glue
-            # returns them with the owning catalog's CatalogId and DatabaseName. Re-key them to
-            # the local link (so the URN, ARN and container use the ingesting catalog) and
-            # synthesize a TargetTable so they get the same owner lineage and schema handling
-            # as table-level links.
-            target_database = database.get("TargetDatabase")
-            if not self.source_config.ignore_resource_links and target_database:
-                link_catalog_id = (
-                    database.get("CatalogId") or self.source_config.catalog_id
-                )
-                if not link_catalog_id:
-                    # The table keeps the owner's CatalogId, so if the owner is mapped in
-                    # catalog_to_platform_instance the link is named with the owner's instance
-                    # (and can collide with the owner's dataset when the database names match).
-                    self.report.num_resource_link_database_missing_catalog_id += 1
-                    self.report.warning(
-                        title="Resource link database missing catalog ID",
-                        message="Glue returned a database-level Lake Formation resource link "
-                        "without a CatalogId, so its tables keep the owning catalog's ID. If "
-                        "the owning account is mapped in catalog_to_platform_instance, they are "
-                        "named with the owner's platform_instance and can collide with the "
-                        "owner's own datasets. Set catalog_id in the recipe to the ingesting AWS "
-                        "account ID.",
-                        context=f"{database_name}.{table.get('Name')}",
-                    )
+            if target_database:
                 # Capture the owner identity before the table is re-keyed below: the table's own
                 # CatalogId/DatabaseName are the owner's and are the fallback when TargetDatabase
                 # omits them.

@@ -1600,23 +1600,31 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
 def test_database_resource_link_without_link_catalog_id_is_kept_and_reported():
     # With no CatalogId on the link database and no catalog_id in the config, the table keeps
     # the owner's CatalogId (as before database-level link support) and is still ingested. That
-    # is only safe while the owner is unmapped, so the run report must flag it.
+    # is only safe while the owner is unmapped, so the run report must flag it, once for the
+    # database rather than once per table.
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
     del databases_response["DatabaseList"][0]["CatalogId"]
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    second_table = copy.deepcopy(tables_response["TableList"][0])
+    second_table["Name"] = "orders"
+    tables_response["TableList"].append(second_table)
 
     source, tables, wus = _ingest_database_resource_link(
-        {}, databases_response=databases_response
+        {}, tables_response=tables_response, databases_response=databases_response
     )
 
-    assert len(tables) == 1
-    assert tables[0]["CatalogId"] == "432143214321"
-    assert tables[0]["DatabaseName"] == "resource-link-test-database"
+    assert [t["CatalogId"] for t in tables] == ["432143214321", "432143214321"]
+    assert {t["DatabaseName"] for t in tables} == {"resource-link-test-database"}
     assert DB_LINK_URN in {wu.get_urn() for wu in wus}
     assert source.report.num_resource_link_database_missing_catalog_id == 1
-    assert source.report.num_resource_link_database_tables == 1
-    assert "Resource link database missing catalog ID" in [
-        w.title for w in source.report.warnings
+    assert source.report.num_resource_link_database_tables == 2
+    missing = [
+        w
+        for w in source.report.warnings
+        if w.title == "Resource link database missing catalog ID"
     ]
+    assert len(missing) == 1
+    assert list(missing[0].context) == ["resource-link-test-database"]
 
 
 @pytest.mark.parametrize("missing_key", ["CatalogId", "DatabaseName"])
