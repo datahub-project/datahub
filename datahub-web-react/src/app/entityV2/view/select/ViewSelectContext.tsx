@@ -262,7 +262,9 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         setSelectedView('');
         userContext.updateLocalState({
             ...userContext.localState,
-            selectedViewUrn: undefined,
+            // null is an explicit clear. undefined means nothing is stored yet, so the
+            // search view gate would wait again and the default view would be reapplied.
+            selectedViewUrn: null,
         });
         updateOpenState(false);
     };
