@@ -51,6 +51,7 @@ public class RelatedDocumentsResolver
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 100; // Limit to 100 most recently updated documents
   private static final String DEFAULT_QUERY = "*";
+  private static final String SUB_TYPES_FIELD = "typeNames";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
@@ -216,9 +217,10 @@ public class RelatedDocumentsResolver
       criteria.add(noParentCriterion);
     }
 
-    // Add types filter if provided (now using subTypes aspect)
+    // "typeNames" is the indexed ES field. "subTypes" is the aspect name and matches nothing.
     if (input.getTypes() != null && !input.getTypes().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("subTypes", Condition.EQUAL, input.getTypes()));
+      criteria.add(
+          CriterionUtils.buildCriterion(SUB_TYPES_FIELD, Condition.EQUAL, input.getTypes()));
     }
 
     // Add domains filter if provided
