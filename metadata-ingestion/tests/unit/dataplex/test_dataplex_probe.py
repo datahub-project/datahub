@@ -13,7 +13,11 @@ from google.cloud import dataplex_v1, resourcemanager_v3
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
@@ -43,7 +47,8 @@ SERVER_DETAIL = "caller sa-name@proj-a.iam lacks dataplex.entryGroups.list"
 
 def _catalog(groups: Dict[str, List[str]]) -> Mock:
     """A CatalogServiceClient whose list_entry_groups answers per parent, and
-    raises PermissionDenied for a parent mapped to ['forbidden']."""
+    raises PermissionDenied for a parent mapped to ['forbidden'] and NotFound
+    for one mapped to ['missing']."""
     client = Mock(spec=dataplex_v1.CatalogServiceClient)
 
     def list_entry_groups(
@@ -52,6 +57,8 @@ def _catalog(groups: Dict[str, List[str]]) -> Mock:
         names = groups.get(request.parent, [])
         if names == ["forbidden"]:
             raise exceptions.PermissionDenied(SERVER_DETAIL)
+        if names == ["missing"]:
+            raise exceptions.NotFound(SERVER_DETAIL)
         return [
             dataplex_v1.EntryGroup(name=n, display_name=n.rsplit("/", 1)[-1])
             for n in names
@@ -278,10 +285,24 @@ def test_every_location_failing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
             "projects/proj-a/locations/eu": ["forbidden"],
         }
     )
-    with pytest.raises(ProbeConnectionError) as info:
+    with pytest.raises(ProbeReadFailed) as info:
         _run(monkeypatch, "entry_groups", {"project": "proj-a"}, catalog=catalog)
-    assert "list_entry_groups" in str(info.value)
     assert SERVER_DETAIL not in str(info.value)
+
+
+def test_every_location_not_found_is_a_read_failure_not_a_bad_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # NotFound in every location also means the API is off or no location
+    # holds a catalog, so it must not reach not_found and exit 2.
+    catalog = _catalog(
+        {
+            "projects/proj-a/locations/us": ["missing"],
+            "projects/proj-a/locations/eu": ["missing"],
+        }
+    )
+    with pytest.raises(ProbeReadFailed):
+        _run(monkeypatch, "entry_groups", {"project": "proj-a"}, catalog=catalog)
 
 
 def test_a_named_location_that_is_forbidden_raises(

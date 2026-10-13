@@ -28,8 +28,12 @@ from google.cloud import dataplex_v1, resourcemanager_v3
 from google.oauth2 import service_account
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProject,
     _iter_all_projects,
@@ -192,8 +196,11 @@ class DataplexMetadataProbe(ProbeProviderBase):
         """(location, item) across one named location, or every entries_location.
 
         A forbidden/missing location in a sweep is skipped with a warning, as
-        ingestion skips it. If every location fails the last error is raised:
-        an unusable credential must not read as an empty catalog.
+        ingestion skips it. If every location fails the sweep fails (exit 3):
+        an unusable credential must not read as an empty catalog. Not as the
+        last GCP error: a NotFound there would reach the caller's not_found
+        and blame the project, when it equally means the API is disabled or
+        the location holds no catalog.
         """
         if location is not None:
             for item in list_one(location):
@@ -212,7 +219,13 @@ class DataplexMetadataProbe(ProbeProviderBase):
                     f"not be read ({_status(exc)}); skipped, as ingestion skips it"
                 )
         if failed and len(failed) == len(locations):
-            raise failed[-1]
+            statuses = ", ".join(sorted({_status(exc) for exc in failed}))
+            raise ProbeReadFailed(
+                f"{what} for project {echoed(project)} could not be read in any "
+                f"of entries_locations ({statuses}); a NotFound means the "
+                f"Dataplex API is not enabled, no location there holds a "
+                f"catalog, or the project id is wrong"
+            )
 
     @probe_method(kind=DATAPLEX_PROJECT_KIND, row_limit_param="limit")
     def projects(self, limit: int = 200) -> List[Dict[str, str]]:
