@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
+from datahub.ingestion.source.fabric.common.auth import ONELAKE_STORAGE_SCOPE
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 
 
@@ -74,6 +75,10 @@ def _page(payload: dict) -> MagicMock:
 
 def test_unity_catalog_listing_follows_next_page_token() -> None:
     client = _client()
+    tokens = (f"Bearer token-{i}" for i in range(6))
+    client.auth_helper.get_authorization_header.side_effect = lambda scope=None: next(
+        tokens
+    )
 
     schema_pages = [
         _page({"schemas": [{"name": "dbo"}], "next_page_token": "s2"}),
@@ -88,9 +93,11 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
         "sales": [_page({"tables": [{"name": "t4"}]})],
     }
     requests_seen: list[dict] = []
+    headers_seen: list[str] = []
 
     def get(url: str, headers=None, params=None, timeout=None):
         requests_seen.append(dict(params))
+        headers_seen.append(headers["Authorization"])
         if url.endswith("/schemas"):
             return schema_pages.pop(0)
         return table_pages[params["schema_name"]].pop(0)
@@ -110,6 +117,12 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
     dbo_requests = [p for p in requests_seen if p.get("schema_name") == "dbo"]
     assert [p.get("page_token") for p in dbo_requests] == [None, "p2", "p3"]
     assert all("max_results" in p for p in requests_seen)
+    assert headers_seen == [f"Bearer token-{i}" for i in range(6)]
+    assert client.auth_helper.get_authorization_header.call_count == 6
+    assert all(
+        call.kwargs["scope"] == ONELAKE_STORAGE_SCOPE
+        for call in client.auth_helper.get_authorization_header.call_args_list
+    )
 
 
 def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
