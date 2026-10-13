@@ -21,6 +21,7 @@ from datahub.ingestion.agent.verdicts import (
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
 from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
 from datahub.ingestion.source.fivetran.fivetran_probe import FivetranMetadataProbe
+from tests.unit.fivetran import fivetran_probe_fixtures as fixtures
 from tests.unit.fivetran.fivetran_probe_fixtures import db_recipe, mocked_log_db
 
 
@@ -586,3 +587,31 @@ def test_a_destination_the_caller_named_that_is_gone_is_bad_input() -> None:
         run_probe_method(
             "fivetran", {"api_config": _API}, "connectors", {"destination": "dest_x"}
         )
+
+
+def test_a_connector_with_no_destination_is_reported_not_a_crash(
+    engine: MagicMock,
+) -> None:
+    unplaced = {
+        "connection_id": "conn_orphan",
+        "connecting_user_id": "user_x",
+        "connector_type_id": "postgres",
+        "connection_name": "orphan_pg",
+        "paused": False,
+        "sync_frequency": 1440,
+        "destination_id": None,
+    }
+    with (
+        mock.patch(
+            "tests.unit.fivetran.fivetran_probe_fixtures._CONNECTOR_ROWS",
+            [*fixtures._CONNECTOR_ROWS, unplaced],
+        ),
+        _probe(db_recipe()) as probe,
+    ):
+        names = [d["name"] for d in probe.destinations()]
+        records = probe.connectors()
+    assert names == ["dest_a", "dest_b"]
+    assert "orphan_pg" in [r["name"] for r in records]
+    # Ingestion raises on this connector, and a --from-run filter drops the
+    # null destination_id, so the warning is the only place it shows.
+    assert any("conn_orphan" in w for w in probe.warnings)

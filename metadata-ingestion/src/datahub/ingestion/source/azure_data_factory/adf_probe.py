@@ -4,7 +4,11 @@ from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.mgmt.datafactory.models import Activity, PipelineResource
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, soft_listing
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    echoed,
+    soft_listing,
+)
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
@@ -194,17 +198,19 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         ]
         if not matches:
             where = (
-                f"resource group '{rg}' (the recipe's resource_group)"
+                f"resource group {echoed(rg)} (the recipe's resource_group)"
                 if rg
-                else f"subscription '{self._config.subscription_id}'"
+                else f"subscription {echoed(self._config.subscription_id)}"
             )
-            raise ProbeArgumentError(f"no data factory named '{factory}' in {where}")
+            raise ProbeArgumentError(
+                f"no data factory named {echoed(factory)} in {where}"
+            )
         groups = sorted(
             {self._source._extract_resource_group(f.id or "") for f in matches}
         )
         if len(groups) > 1:
             raise ProbeArgumentError(
-                f"data factory name '{factory}' is in several resource groups "
+                f"data factory name {echoed(factory)} is in several resource groups "
                 f"({', '.join(groups)}); set resource_group in the recipe"
             )
         return groups[0]
@@ -315,12 +321,14 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         rg = self._resource_group_of(factory)
         try:
             with soft_listing(
-                self._warn, 403, context=f"pipeline '{pipeline}' in factory '{factory}'"
+                self._warn,
+                403,
+                context=f"pipeline {echoed(pipeline)} in factory {echoed(factory)}",
             ):
                 return self._client.get_pipeline(rg, factory, pipeline)
         except ResourceNotFoundError as exc:
             raise ProbeArgumentError(
-                f"no pipeline named '{pipeline}' in data factory '{factory}'"
+                f"no pipeline named {echoed(pipeline)} in data factory {echoed(factory)}"
             ) from exc
         return None
 

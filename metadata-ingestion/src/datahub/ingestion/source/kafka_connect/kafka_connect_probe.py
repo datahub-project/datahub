@@ -18,7 +18,7 @@ from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -344,7 +344,7 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
     @contextmanager
     def _ingestion_step(self, connector: str) -> Iterator[None]:
         with self._error_text_withheld(
-            f"ingestion's lineage step failed for connector '{connector}'"
+            f"ingestion's lineage step failed for connector {echoed(connector)}"
         ):
             yield
 
@@ -391,13 +391,13 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         first so a crafted name costs no request at all."""
         if any(ch in connector for ch in _URL_SIGNIFICANT):
             raise ProbeArgumentError(
-                f"connector name '{connector}' contains URL syntax "
+                f"connector name {echoed(connector)} contains URL syntax "
                 f"({' '.join(_URL_SIGNIFICANT)}); ingestion addresses connectors "
                 f"by unencoded name, so it could not read this one either"
             )
         if connector not in self._listed_names():
             raise ProbeArgumentError(
-                f"no connector named '{connector}' on this Connect cluster; "
+                f"no connector named {echoed(connector)} on this Connect cluster; "
                 f"`probe run connectors` lists them"
             )
 
@@ -415,7 +415,7 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
             response = source.session.get(url)
             if response.status_code == 404:
                 raise ProbeArgumentError(
-                    f"connector '{connector}' was listed but no longer exists"
+                    f"connector {echoed(connector)} was listed but no longer exists"
                 )
             response.raise_for_status()
         with self._ingestion_step(connector):

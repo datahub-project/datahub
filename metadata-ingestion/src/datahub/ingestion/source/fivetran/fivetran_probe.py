@@ -7,7 +7,11 @@ import requests
 import sqlalchemy.exc
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, soft_listing
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    echoed,
+    soft_listing,
+)
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -164,7 +168,7 @@ class FivetranMetadataProbe(ProbeProviderBase):
         # Field mapping mirrors FivetranLogDbReader.get_allowed_connectors_list,
         # minus its two pattern checks and minus connecting_user_id, which the
         # probe never reports.
-        return [
+        found = [
             Connector(
                 connector_id=row[Constant.CONNECTOR_ID],
                 connector_name=row[Constant.CONNECTOR_NAME],
@@ -179,6 +183,26 @@ class FivetranMetadataProbe(ProbeProviderBase):
             for row in rows
             if destination is None or row[Constant.DESTINATION_ID] == destination
         ]
+        self._warn_null_destinations(found)
+        return found
+
+    def _warn_null_destinations(self, connectors: List[Connector]) -> None:
+        # A NULL destination_id never reaches a `probe filter --from-run`
+        # verdict (null attributes are dropped), so say it at listing time;
+        # the warning travels with the run into the filter. Ingestion has no
+        # verdict to mirror here: get_allowed_connectors_list matches
+        # destination_patterns against the NULL and raises TypeError.
+        unplaced = sorted(
+            c.connector_id for c in connectors if c.destination_id is None
+        )
+        if unplaced:
+            self._warn(
+                f"{len(unplaced)} connector(s) in the log have no destination_id "
+                f"({', '.join(echoed(c) for c in unplaced[:10])}); ingestion stops "
+                f"with an error on such a connector unless connector_patterns "
+                f"drops it first, because destination_patterns cannot be matched "
+                f"against a missing destination"
+            )
 
     def _api(self) -> FivetranAPIClient:
         # validate_log_source_credentials guarantees api_config in rest_api mode.
@@ -250,7 +274,7 @@ class FivetranMetadataProbe(ProbeProviderBase):
             except ProbeSoftError as exc:
                 if destination is not None:
                     raise ProbeArgumentError(
-                        f"no Fivetran destination with id '{destination}'; list "
+                        f"no Fivetran destination with id {echoed(destination)}; list "
                         f"them with `probe run destinations`"
                     ) from exc
                 # A destination deleted between the groups listing and this
@@ -300,19 +324,19 @@ class FivetranMetadataProbe(ProbeProviderBase):
             # Not ProbeArgumentError (exit 2): the name may be right and on a
             # destination this key could not read.
             raise ProbeReadFailed(
-                f"no connector with id or name '{connector}' on the destinations "
+                f"no connector with id or name {echoed(connector)} on the destinations "
                 f"that could be read; it may be on one that could not be listed "
                 f"({', '.join(self._unlisted_groups)})"
             )
         if not matches:
             raise ProbeArgumentError(
-                f"no connector with id or name '{connector}'; list them with "
+                f"no connector with id or name {echoed(connector)}; list them with "
                 f"`probe run connectors`"
             )
         if len(matches) > 1:
             ids = ", ".join(sorted(c.connector_id for c in matches))
             raise ProbeArgumentError(
-                f"'{connector}' names {len(matches)} connectors ({ids}); pass "
+                f"{echoed(connector)} names {len(matches)} connectors ({ids}); pass "
                 f"the connector_id instead"
             )
         return matches[0]
@@ -428,8 +452,14 @@ class FivetranMetadataProbe(ProbeProviderBase):
                 {**self._destination_record(group.id), "group_name": group.name}
                 for group in groups
             ]
+        # A connector with no destination_id names no destination; it is
+        # reported by _warn_null_destinations instead.
         ids = sorted(
-            {c.destination_id for c in self._list_connectors(destination=None)}
+            {
+                c.destination_id
+                for c in self._list_connectors(destination=None)
+                if c.destination_id is not None
+            }
         )
         return [self._destination_record(d) for d in ids[:limit]]
 
@@ -455,7 +485,7 @@ class FivetranMetadataProbe(ProbeProviderBase):
             self._warn(REST_CONNECTOR_MATCH_NOTE)
         if destination is not None and not found:
             self._warn(
-                f"no connector on destination '{destination}' was found; check "
+                f"no connector on destination {echoed(destination)} was found; check "
                 f"the id against `probe run destinations`"
             )
         return [self._connector_record(c) for c in found]
