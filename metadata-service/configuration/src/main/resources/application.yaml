@@ -2234,6 +2234,8 @@ metadataChangeProposal:
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     aspectAuthorization:
+      corpUserCredentials:
+        enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
       domainWrite:
         enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
       privilegeGrant:

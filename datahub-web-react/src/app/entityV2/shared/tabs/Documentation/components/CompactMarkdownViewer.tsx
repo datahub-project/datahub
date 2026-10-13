@@ -48,7 +48,8 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
         max-width: 100%;
     }
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
             font-size: 1.4em;
@@ -81,7 +82,8 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
 `;
 
 const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSProperties }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         * {
             line-height: ${LINE_HEIGHT};
             font-size: 1em !important;

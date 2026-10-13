@@ -3942,6 +3942,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       return TransactionResult.rollback();
                     }
 
+                    // 3.2 Rolling back a run deletes an entity only while the run still owns all
+                    // of it. If anything else was written to it since, keep it and what was
+                    // written; the run's other rows are rolled back one by one, each only while
+                    // it is still the run's. Checked before any row is touched.
+                    if (isKeyAspect
+                        && hardDelete
+                        && deletePurpose == DeletePurpose.ROLLBACK
+                        && conditions.containsKey("runId")
+                        && !ownedOnlyByRun(opContext, entityUrn, conditions.get("runId"))) {
+                      log.debug(
+                          "Rollback of run {} keeps {}: it has aspects written by others",
+                          conditions.get("runId"),
+                          urn);
+                      return TransactionResult.rollback();
+                    }
+
                     // 4. Fetch all preceding aspects, that match
                     List<SystemAspect> aspectsToDelete = new ArrayList<>();
                     Pair<Long, Long> versionRange =
@@ -4317,6 +4333,31 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return bound != null
                   && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
             });
+  }
+
+  /**
+   * Whether every latest aspect of the entity, other than its status, was last written by {@code
+   * runId}. A write by anyone else, another run or a write with no run id such as a UI edit, means
+   * rolling back the run must not delete the entity. Locks the rows, like {@link #withinCeiling}.
+   */
+  private boolean ownedOnlyByRun(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String runId) {
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // The key being rolled back must be among the rows read; reading nothing proves nothing, so
+    // keep the entity (as withinCeiling does) rather than delete it on an empty match.
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
+      return false;
+    }
+    return latest.entrySet().stream()
+        .filter(row -> !STATUS_ASPECT_NAME.equals(row.getKey()))
+        .allMatch(
+            row ->
+                row.getValue().getSystemMetadata() != null
+                    && runId.equals(row.getValue().getSystemMetadata().getRunId(GetMode.NULL)));
   }
 
   private static long createdOnMillis(@Nonnull SystemAspect row) {
