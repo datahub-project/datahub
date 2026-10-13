@@ -80,6 +80,7 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperate,
     cooperative_timeout,
+    interrupt_on_cooperative_deadline,
 )
 from datahub.utilities.ordered_set import OrderedSet
 
@@ -1089,19 +1090,22 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-            optimized = sqlglot.optimizer.optimizer.optimize(
-                statement,
-                dialect=dialect,
-                schema=sqlglot_db_schema,
-                qualify_columns=True,
-                validate_qualify_columns=False,
-                allow_partial_qualification=True,
-                identify=True,
-                # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
-                catalog=default_db,
-                db=default_schema,
-                rules=_OPTIMIZE_RULES,
-            )
+            # optimize() does not call cooperate(), so the surrounding
+            # cooperative_timeout cannot stop it. Interrupt on the same deadline.
+            with interrupt_on_cooperative_deadline():
+                optimized = sqlglot.optimizer.optimizer.optimize(
+                    statement,
+                    dialect=dialect,
+                    schema=sqlglot_db_schema,
+                    qualify_columns=True,
+                    validate_qualify_columns=False,
+                    allow_partial_qualification=True,
+                    identify=True,
+                    # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
+                    catalog=default_db,
+                    db=default_schema,
+                    rules=_OPTIMIZE_RULES,
+                )
             if not isinstance(optimized, sqlglot.exp.Expression):
                 raise SqlUnderstandingError(
                     f"Expected Expression from optimizer, got {type(optimized)}"

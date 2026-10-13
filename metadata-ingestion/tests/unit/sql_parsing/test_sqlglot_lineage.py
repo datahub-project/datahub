@@ -1,4 +1,5 @@
 import pathlib
+import time
 
 import pytest
 
@@ -8,6 +9,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.testing.check_sql_parser_result import assert_sql_result
+from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -18,6 +20,32 @@ def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
     )
+
+
+def test_optimize_timeout_skips_column_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", True
+    )
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 1
+    )
+
+    def _hang(*_args: object, **_kwargs: object) -> None:
+        time.sleep(30)
+
+    monkeypatch.setattr("sqlglot.optimizer.optimizer.optimize", _hang)
+
+    started = time.perf_counter()
+    result = sqlglot_lineage(
+        "SELECT a FROM t",
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        override_dialect="bigquery",
+    )
+
+    assert time.perf_counter() - started < 5
+    assert isinstance(result.debug_info.column_error, CooperativeTimeoutError)
 
 
 def test_invalid_sql() -> None:
