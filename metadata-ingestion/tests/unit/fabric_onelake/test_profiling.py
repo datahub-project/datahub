@@ -5,6 +5,7 @@ import types
 from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.fabric.onelake.profiling import (
     PROFILING_SQL_PLATFORM,
     FabricProfileTarget,
@@ -69,8 +70,11 @@ def test_emit_dataset_profiles_uses_mssql_profiler_and_fabric_urn() -> None:
         "customerid"
     )
     assert len(workunits) == 1
-    assert workunits[0].metadata.aspect.rowCount == 4
-    assert workunits[0].metadata.entityUrn == (
+    metadata = workunits[0].metadata
+    assert isinstance(metadata, MetadataChangeProposalWrapper)
+    assert isinstance(metadata.aspect, DatasetProfileClass)
+    assert metadata.aspect.rowCount == 4
+    assert metadata.entityUrn == (
         "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.wh-1.dbo.orders,PROD)"
     )
     assert report.entities_profiled == 1
