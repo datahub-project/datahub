@@ -32,6 +32,7 @@ from datahub.ingestion.source.fabric.common.models import (
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
+    DEFAULT_SCHEMA_FOR_SCHEMALESS,
     make_notebook_flow_id,
 )
 from datahub.ingestion.source.fabric.common.utils import (
@@ -227,13 +228,19 @@ class NotebookProcessEmitter:
     def _job_id(self, output: SparkTableRef) -> str:
         """A per-output job id, unique within the notebook's DataFlow.
 
-        Normalized the same way the output URN is, so the id is stable across
-        runs regardless of the case a given plan reported.
+        Built the same way the output URN is, so the id is stable across runs
+        regardless of the case a given plan reported and regardless of whether
+        the Spark path carried the schema: a schemaless table defaults to the
+        same ``dbo`` schema ``make_onelake_urn`` uses, so ``Tables/orders`` and
+        ``Tables/dbo/orders`` map to one job (and one run history), not two.
         """
         table = self._normalize_name(output.table)
-        if output.schema:
-            return f"{output.item_id}.{self._normalize_name(output.schema)}.{table}"
-        return f"{output.item_id}.{table}"
+        schema = (
+            self._normalize_name(output.schema)
+            if output.schema
+            else DEFAULT_SCHEMA_FOR_SCHEMALESS
+        )
+        return f"{output.item_id}.{schema}.{table}"
 
     def _spark_lineage(self, nb: PendingNotebook) -> Dict[SparkTableRef, List[str]]:
         """Resolve per-output-table lineage from the executed Spark plans.
@@ -340,7 +347,29 @@ class NotebookProcessEmitter:
             for job_urn in sorted(set(output_job_urns.values()))
         ] or [dataflow.urn]
         for run in runs:
-            yield from self._emit_run(run, targets)
+            if run.status == ItemJobStatus.NOT_STARTED:
+                # Queued runs have no timestamps and no result mapping, so a DPI
+                # would be an empty shell. Mirror the Fabric Data Factory source
+                # and skip them.
+                continue
+            try:
+                # Materialize before yielding so a malformed run (e.g. a bad
+                # timestamp) is skipped whole, and one bad run never aborts the
+                # remaining runs or notebooks.
+                run_wus = list(self._emit_run(run, targets))
+            except Exception as e:
+                self._report.warning(
+                    title="Failed to Emit Notebook Run",
+                    message="Could not emit a notebook run instance. Skipping.",
+                    context=(
+                        f"workspace={nb.workspace_name}, "
+                        f"notebook={nb.display_name}, run={run.id}"
+                    ),
+                    exc=e,
+                    log=False,
+                )
+                continue
+            yield from run_wus
             self._report.report_notebook_run_scanned()
 
     def _emit_run(

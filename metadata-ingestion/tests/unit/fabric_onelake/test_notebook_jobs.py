@@ -1,5 +1,6 @@
 """Notebook process emission: per-table jobs, job->job chaining, run DPIs."""
 
+from typing import Optional, Set
 from unittest.mock import MagicMock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -197,9 +198,12 @@ def test_run_attaches_as_dpi_to_every_job_not_the_flow() -> None:
     assert str(flow.urn) not in templates
 
 
-def _emit_with(client: MagicMock) -> tuple:
+def _emit_with(client: MagicMock, known: Optional[Set[str]] = None) -> tuple:
     report = FabricOneLakeSourceReport()
-    known = {_ref(t, "gold").to_urn("PROD", None) for t in ("gold_mid", "gold_final")}
+    if known is None:
+        known = {
+            _ref(t, "gold").to_urn("PROD", None) for t in ("gold_mid", "gold_final")
+        }
     emitter = NotebookProcessEmitter(
         platform_instance=None,
         env="PROD",
@@ -242,6 +246,80 @@ Location: InMemoryFileIndex[{_onelake("Tables/gold/gold_mid/_delta_log/0.json")}
 
     emitted, _report = _emit_with(client)
     assert not [e for e in emitted if isinstance(e, DataJob)]
+
+
+_PLAN_SCHEMALESS = f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake("Tables/orders")}], Overwrite
+(2) Scan json
+Location: InMemoryFileIndex[{_onelake("Tables/silver/src/_delta_log/0.json")}]
+"""
+
+
+def test_schemaless_output_job_id_matches_the_dbo_dataset_urn() -> None:
+    # A schemaless table (Tables/orders) resolves to the dbo-defaulted dataset
+    # URN, so its job id must carry dbo too. Otherwise the same table seen as
+    # Tables/orders vs Tables/dbo/orders would split into two jobs with separate
+    # run histories.
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema=None)
+    src = _ref("src", "silver")
+    known = {ref.to_urn("PROD", None) for ref in (orders, src)}
+
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.return_value = [_PLAN_SCHEMALESS]
+    client.get_notebook_runs.return_value = []
+
+    emitted, _report = _emit_with(client, known=known)
+    jobs = [dj for dj in emitted if isinstance(dj, DataJob)]
+    assert len(jobs) == 1
+    assert jobs[0].urn.job_id == f"{LH}.dbo.orders"
+
+
+def test_queued_and_malformed_runs_are_skipped_without_aborting() -> None:
+    # NotStarted runs have no timestamps/result (empty shells) and a malformed
+    # timestamp must not abort the remaining runs. Only the good run emits.
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = []
+    client.get_notebook_runs.return_value = [
+        FabricJobInstance(
+            id="queued",
+            item_id=NB,
+            workspace_id=WS,
+            status=ItemJobStatus.NOT_STARTED,
+        ),
+        FabricJobInstance(
+            id="bad",
+            item_id=NB,
+            workspace_id=WS,
+            status=ItemJobStatus.COMPLETED,
+            start_time_utc="not-a-timestamp",
+            end_time_utc="also-bad",
+        ),
+        FabricJobInstance(
+            id="good",
+            item_id=NB,
+            workspace_id=WS,
+            status=ItemJobStatus.COMPLETED,
+            start_time_utc="2026-10-12T07:00:00Z",
+            end_time_utc="2026-10-12T07:05:00Z",
+        ),
+    ]
+
+    emitted, report = _emit_with(client)
+    rel_mcps = [
+        wu
+        for wu in emitted
+        if isinstance(wu, MetadataWorkUnit)
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DataProcessInstanceRelationshipsClass)
+    ]
+    # Only the good run produced a DPI (one target: the DataFlow).
+    assert len(rel_mcps) == 1
+    # The malformed run was reported, not raised.
+    assert len(report.warnings) >= 1
 
 
 def test_spark_api_failure_still_emits_the_dataflow() -> None:
