@@ -13631,6 +13631,11 @@ type QueryEntity implements Entity {
   Platform from which the Query was detected
   """
   platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges @noAspects
 }
 
 """

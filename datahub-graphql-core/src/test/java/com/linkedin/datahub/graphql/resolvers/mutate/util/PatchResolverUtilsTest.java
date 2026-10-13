@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.PatchOperationInput;
 import com.linkedin.datahub.graphql.generated.PatchOperationType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -580,7 +582,7 @@ public class PatchResolverUtilsTest {
 
     List<PatchEntityInput> inputs = Arrays.asList(input1, input2);
 
-    PatchResolverUtils.checkBatchAuthorization(inputs, _context);
+    PatchResolverUtils.checkBatchAuthorization(inputs, _context, existingEntities());
   }
 
   @Test(expectedExceptions = com.linkedin.datahub.graphql.exception.AuthorizationException.class)
@@ -590,7 +592,7 @@ public class PatchResolverUtilsTest {
     QueryContext denyContext = TestUtils.getMockDenyContext("urn:li:corpuser:test-user");
     List<PatchEntityInput> inputs = Arrays.asList(input);
 
-    PatchResolverUtils.checkBatchAuthorization(inputs, denyContext);
+    PatchResolverUtils.checkBatchAuthorization(inputs, denyContext, existingEntities());
   }
 
   @Test(expectedExceptions = com.linkedin.datahub.graphql.exception.AuthorizationException.class)
@@ -601,12 +603,30 @@ public class PatchResolverUtilsTest {
     QueryContext denyContext = TestUtils.getMockDenyContext("urn:li:corpuser:test-user");
     List<PatchEntityInput> inputs = Arrays.asList(input1, input2);
 
-    PatchResolverUtils.checkBatchAuthorization(inputs, denyContext);
+    PatchResolverUtils.checkBatchAuthorization(inputs, denyContext, existingEntities());
   }
 
   @Test
   public void testCheckBatchAuthorizationEmptyList() {
-    PatchResolverUtils.checkBatchAuthorization(new ArrayList<>(), _context);
+    PatchResolverUtils.checkBatchAuthorization(new ArrayList<>(), _context, existingEntities());
+  }
+
+  /** An allow-all actor still must not proceed when existence cannot be read. */
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testCheckBatchAuthorizationFailsClosedWhenExistsThrows() {
+    PatchEntityInput input = createGlossaryTermInput("urn:li:glossaryTerm:test", "Term");
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.exists(any(), any(Urn.class), eq(true)))
+        .thenThrow(new RuntimeException("metadata store unavailable"));
+
+    PatchResolverUtils.checkBatchAuthorization(List.of(input), _context, entityService);
+  }
+
+  @SuppressWarnings("unchecked")
+  private EntityService<?> existingEntities() {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.exists(any(), any(Urn.class), eq(true))).thenReturn(true);
+    return entityService;
   }
 
   // ==================== Helper Methods ====================

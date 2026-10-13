@@ -53,10 +53,10 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
-    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
-    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
-    # pyproject [tool.uv] constraint-dependencies.
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    # CVE-2026-7246 is fixed in 8.3.3. Airflow constraint files pin older click.
+    # Installs that pass those files must relax the pin first. See
+    # docs/lineage/airflow.md#installing-with-airflow-constraints.
+    "click>=8.3.3,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
@@ -112,11 +112,10 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
-    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
-    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
-    # [tool.uv] constraint-dependencies.
-    "anyio>=4.10.0,<5.0.0",
+    # CVE-2026-64847 is fixed in 4.14.2. Airflow constraint files pin older anyio.
+    # Installs that pass those files must relax the pin first. See
+    # docs/lineage/airflow.md#installing-with-airflow-constraints.
+    "anyio>=4.14.2,<5.0.0",
 }
 
 rest_common = {
@@ -709,8 +708,10 @@ plugins: Dict[str, Set[str]] = {
         *cachetools_lib,
     },
     "feast": {
-        # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
-        "feast>=0.34.0,<1",
+        # 0.47 declares fastapi>=0.68 with no upper bound, so starlette>=1.3.1
+        # can resolve. 0.34–0.46 pin a FastAPI that cannot take Starlette 1.3.
+        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47.
+        "feast>=0.47.0,<1",
         # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
         "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",

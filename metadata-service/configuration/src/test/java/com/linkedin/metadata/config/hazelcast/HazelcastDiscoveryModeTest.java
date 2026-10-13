@@ -83,4 +83,18 @@ public class HazelcastDiscoveryModeTest {
             () -> {}),
         Join.KUBERNETES);
   }
+
+  @Test
+  public void serviceAccountTokenKeepsKubernetesJoinWithoutServiceHost() {
+    assertEquals(
+        HazelcastDiscoveryMode.decide(
+            "hazelcast-service",
+            name -> {
+              throw new UnknownHostException(name);
+            },
+            null,
+            true,
+            () -> {}),
+        Join.KUBERNETES);
+  }
 }
