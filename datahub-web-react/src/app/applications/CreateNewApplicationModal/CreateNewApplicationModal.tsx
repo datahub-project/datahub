@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -49,7 +48,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
 
     const onOk = async () => {
         if (!applicationName) {
-            message.error(t('applications.nameRequiredError'));
+            toast.error(t('applications.nameRequiredError'));
             return;
         }
 
@@ -71,7 +70,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             const newApplicationUrn = createApplicationResult.data?.createApplication?.urn;
 
             if (!newApplicationUrn) {
-                message.error(t('applications.createError'));
+                toast.error(t('applications.createError'));
                 setIsLoading(false);
                 return;
             }
@@ -88,12 +87,12 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
                 });
             }
 
-            message.success(t('applications.createSuccess', { name: applicationName }));
+            toast.success(t('applications.createSuccess', { name: applicationName }));
             clearFields();
             onCreate();
         } catch (e: any) {
-            message.destroy();
-            message.error(t('applications.createErrorDetail', { error: e.message }));
+            toast.destroy();
+            toast.error(t('applications.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }
