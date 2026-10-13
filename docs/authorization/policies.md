@@ -484,6 +484,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                                                                                                                                      |
 | Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                                                                                                                              |
 | Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                                                                                                                                    |
+| Manage Documents                | Allow actor to view, create, edit, move, delete, and import any document.                                                                                                                                                             |
 | Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators. See [Ingestion executor security](../docker/ingestion-executor-security.md). |
 | Manage Features                 | Umbrella privilege to manage all features.                                                                                                                                                                                            |
 | View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                                                                                                                                  |
@@ -593,6 +594,18 @@ These privileges are to view & modify any entity within DataHub.
 ### Derived authorization rules
 
 Some APIs authorize against **related** entities rather than only the URN in the request. These rules apply across GraphQL, Rest.li, and MCP ingestion (unless the change uses a system ingestion source).
+
+#### Documents
+
+| To...                   | You need                                                                   | Granted by default to           |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------- |
+| Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | Admins and Editors              |
+| Edit or move a document | **Edit Entity** on the document, or **Manage Documents**                   | Admins, Editors, and its owners |
+| Delete a document       | **Delete** on the document, or **Manage Documents**                        | Admins and its owners           |
+| Manage any document     | **Manage Documents**                                                       | Admins                          |
+
+Editors can create and edit documents but cannot delete documents they don't own. Document owners
+can always delete their own documents.
 
 #### Data Products
 

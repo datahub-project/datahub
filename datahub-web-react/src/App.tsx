@@ -89,6 +89,14 @@ const client = new ApolloClient({
                             return { ...oldObj, ...newObj };
                         },
                     },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
                 },
             },
             // ProductUpdate.id is a release version, not a unique cache identity across locales.
