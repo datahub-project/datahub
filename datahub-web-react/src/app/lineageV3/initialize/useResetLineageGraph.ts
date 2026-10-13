@@ -53,9 +53,15 @@ export default function useResetLineageGraph(
         setDisplayVersion,
     ]);
 
+    // Only a schema-field page cares about ignoreSchemaFieldStatus. Folding the type check into the
+    // dependency keeps the flag out of this effect's deps for every other page: the flag flips when
+    // appConfig finishes loading, and that must not clear a DataFlow's or Dataset's freshly-fetched
+    // edges the way a real showGhostEntities change does.
+    const skipForSchemaField = type === EntityType.SchemaField && ignoreSchemaFieldStatus;
+
     useEffect(() => {
         // Not necessary if on schema field page and ignoring status
-        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
+        if (!skipForSchemaField) {
             adjacencyList[LineageDirection.Upstream].clear();
             adjacencyList[LineageDirection.Downstream].clear();
             edges.clear();
@@ -65,5 +71,5 @@ export default function useResetLineageGraph(
             });
             setDisplayVersion([0, []]);
         }
-    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
+    }, [showGhostEntities, skipForSchemaField, nodes, adjacencyList, edges, setDisplayVersion]);
 }

@@ -132,6 +132,26 @@ describe('useResetLineageGraph', () => {
         expect(homeNode.entity).toBeUndefined();
     });
 
+    it('leaves fetched state intact when ignoreSchemaFieldStatus flips on a non-schema-field page', () => {
+        // appConfig resolving on load flips this flag; for a DataFlow that must not count as a reset.
+        mocks.ignoreSchemaFieldStatus = false;
+        const context = makeContext();
+        const { rerender } = renderHook(
+            ({ ctx }) => useResetLineageGraph(ctx, URN, EntityType.DataFlow, makeInitialNode, false),
+            { initialProps: { ctx: context } },
+        );
+
+        const homeNode = context.nodes.get(URN) as LineageEntity;
+        homeNode.entity = {} as never;
+        context.edges.set('e', {} as never);
+
+        mocks.ignoreSchemaFieldStatus = true;
+        rerender({ ctx: context });
+
+        expect(context.edges.size).toBe(1);
+        expect(homeNode.entity).not.toBeUndefined();
+    });
+
     it('leaves fetched state intact on showGhostEntities change for schema fields when ignoring status', () => {
         mocks.ignoreSchemaFieldStatus = true;
         const context = makeContext();
