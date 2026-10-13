@@ -39,6 +39,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
@@ -233,6 +234,15 @@ public class UpsertCustomAssertionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
+    // Session reads are replica-routed; the existing-assertee lookup must still hit primary.
+    OperationContext sessionContext =
+        mockContext.getOperationContext().withReadPreference(ReadPreference.READ);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(sessionContext);
+    ArgumentCaptor<OperationContext> lookupContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    Mockito.when(
+            mockedService.getAssertionInfo(lookupContext.capture(), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_ASSERTION_INFO);
     Mockito.when(
             mockedService.getAssertionEntityResponse(
                 any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
@@ -254,6 +264,9 @@ public class UpsertCustomAssertionResolverTest {
     // Don't validate each field since we have mapper tests already.
     assertNotNull(assertion);
     assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
+    assertEquals(
+        lookupContext.getValue().getPrimaryStorageContext().getReadPreference(),
+        ReadPreference.PRIMARY);
 
     // Validate that we created the assertion
     Mockito.verify(mockedService, Mockito.times(1))
@@ -535,9 +548,9 @@ public class UpsertCustomAssertionResolverTest {
     Urn otherDatasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other,PROD)");
     AssertionService mockedService = Mockito.mock(AssertionService.class);
     Mockito.when(
-            mockedService.getEntityUrnForAssertion(
+            mockedService.getAssertionInfo(
                 any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
-        .thenReturn(otherDatasetUrn);
+        .thenReturn(TEST_ASSERTION_INFO.copy().setEntityUrn(otherDatasetUrn));
     UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
 
     QueryContext mockContext =
@@ -546,6 +559,34 @@ public class UpsertCustomAssertionResolverTest {
             PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType(),
             TEST_DATASET_URN);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockedService, Mockito.never())
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  @Test
+  public void testUpdateExistingAssertionWithUnknownAsserteeIsDenied() throws Exception {
+    // The assertion exists but its assertee cannot be derived; it must not be treated as new.
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    Mockito.when(
+            mockedService.getAssertionInfo(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(new AssertionInfo().setType(AssertionType.CUSTOM));
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
