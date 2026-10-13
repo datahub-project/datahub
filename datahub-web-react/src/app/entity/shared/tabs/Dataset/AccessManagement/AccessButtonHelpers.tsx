@@ -4,7 +4,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { safeUrl } from '@app/shared/urlUtils';
 
 /**
  * Styled button component for access management actions.
@@ -56,7 +55,7 @@ export interface RoleAccessData {
 const handleAccessButtonClick = (hasAccess: boolean, url?: string) => (e: React.MouseEvent) => {
     if (!hasAccess && url) {
         e.preventDefault();
-        window.open(safeUrl(url));
+        window.open(url);
     }
 };
 
