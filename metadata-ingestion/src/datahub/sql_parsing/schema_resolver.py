@@ -158,6 +158,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         return urn
 
+    def get_urn_for_unresolved_table(self, table: _TableName) -> str:
+        """The URN resolve_table returns for a table it has no schema for."""
+        lower = self._prefers_urn_lower()
+        return self.get_urn_for_table(
+            table, lower=lower, mixed=lower and self._keep_platform_instance_case
+        )
+
     def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
@@ -257,9 +264,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        if not self._prefers_urn_lower():
-            return urn, None
-        return (urn_mixed if self._keep_platform_instance_case else urn_lower), None
+        return self.get_urn_for_unresolved_table(table), None
 
     def resolve_table_parts(
         self,
@@ -401,9 +406,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         return True
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        urn = self._base_resolver.get_urn_for_table(
-            table, lower=self._base_resolver._prefers_urn_lower()
-        )
+        urn = self._base_resolver.get_urn_for_unresolved_table(table)
         if urn in self._extra_schemas:
             # Track cache hit for extra schemas
             self._base_resolver._track_cache_hit()

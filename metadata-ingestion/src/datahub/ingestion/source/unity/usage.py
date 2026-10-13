@@ -33,6 +33,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     strip_platform_instance,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from datahub.utilities.urns.urn import guess_entity_type
@@ -249,19 +250,32 @@ class UnityCatalogUsageExtractor:
                 for urn in ingested_urns
             }
             return lambda name: name.lower() in ingested
-        # Like the source's catalog listing, an empty catalogs list is unrestricted.
-        catalogs = {c.lower() for c in self.config.catalogs or []}
         # The aggregator asks once per table per query; distinct names are bounded.
         allowed: Dict[str, bool] = {}
 
         def is_allowed_by_patterns(name: str) -> bool:
             if name not in allowed:
-                allowed[name] = self._is_allowed_by_patterns(name, catalogs)
+                allowed[name] = self._is_allowed_by_patterns(name)
             return allowed[name]
 
         return is_allowed_by_patterns
 
-    def _is_allowed_by_patterns(self, name: str, catalogs: Set[str]) -> bool:
+    def _is_catalog_in_scope(self, catalog: str) -> bool:
+        # Like the source's catalog listing: hive_metastore is listed only with
+        # include_hive_metastore, and an empty catalogs list is unrestricted.
+        if catalog.lower() == HIVE_METASTORE and not self.config.include_hive_metastore:
+            return False
+        catalogs = self.config.catalogs
+        return (
+            not catalogs or catalog.lower() in {c.lower() for c in catalogs}
+        ) and self.config.catalog_pattern.allowed(escape_unity_name(catalog))
+
+    def _covers_hive_metastore(self, table_refs: Set[TableReference]) -> bool:
+        if self._is_usage_only_recipe():
+            return self._is_catalog_in_scope(HIVE_METASTORE)
+        return any(ref.catalog == HIVE_METASTORE for ref in table_refs)
+
+    def _is_allowed_by_patterns(self, name: str) -> bool:
         # Applies the catalogs / catalog_pattern / schema_pattern / table_pattern checks
         # the source uses when listing tables, against the escaped ids it builds (the
         # deprecated include_metastore prefix is not known here). The name comes from
@@ -275,12 +289,10 @@ class UnityCatalogUsageExtractor:
         # including sqlglot, where lineage names are not classified first.
         if len(parts) < 3 or _is_system_table(parts[0], parts[1]):
             return False
-        catalog_id = escape_unity_name(parts[0])
         return (
-            (not catalogs or parts[0].lower() in catalogs)
-            and self.config.catalog_pattern.allowed(catalog_id)
+            self._is_catalog_in_scope(parts[0])
             and self.config.schema_pattern.allowed(
-                f"{catalog_id}.{escape_unity_name(parts[1])}"
+                f"{escape_unity_name(parts[0])}.{escape_unity_name(parts[1])}"
             )
             and self.config.table_pattern.allowed(name)
         )
@@ -411,6 +423,40 @@ class UnityCatalogUsageExtractor:
             upstreams=resolve(query.source_table_full_names),
             targets=resolve(query.target_table_full_names),
             kinds=kinds,
+        )
+
+    def _is_hive_metastore_urn(self, urn: UrnStr) -> bool:
+        name = strip_platform_instance(
+            DatasetUrn.from_string(urn).name, self.schema_resolver.platform_instance
+        )
+        return name.lower().startswith(f"{HIVE_METASTORE}.")
+
+    def _with_hive_metastore_tables(
+        self, query: Query, lineage: _ResolvedLineage
+    ) -> Optional[_ResolvedLineage]:
+        """Adds the hive_metastore tables the SQL text names, which table_lineage omits.
+
+        Only names qualified with hive_metastore count: the lineage names Unity
+        Catalog tables, so a two-part name may resolve to a Unity Catalog catalog.
+        """
+        if HIVE_METASTORE not in query.query_text.lower():
+            return None
+        self.report.num_queries_hive_metastore_fallback_to_sqlglot += 1
+        parsed = sqlglot_lineage(
+            query.query_text,
+            schema_resolver=self.schema_resolver,
+            generate_column_lineage=False,
+        )
+        upstreams = [
+            urn for urn in parsed.in_tables if self._is_hive_metastore_urn(urn)
+        ]
+        targets = [urn for urn in parsed.out_tables if self._is_hive_metastore_urn(urn)]
+        if not upstreams and not targets:
+            return None
+        return _ResolvedLineage(
+            upstreams=list(dict.fromkeys(lineage.upstreams + upstreams)),
+            targets=list(dict.fromkeys(lineage.targets + targets)),
+            kinds=lineage.kinds,
         )
 
     def _to_preparsed_queries(
@@ -544,25 +590,32 @@ class UnityCatalogUsageExtractor:
             lineage = self._resolve_lineage(query)
             names_other_tables = _LineageNameKind.NOT_INGESTED in lineage.kinds
             if _LineageNameKind.INGESTED in lineage.kinds or (
-                names_other_tables and self._is_usage_only_recipe()
+                names_other_tables
+                and self._is_usage_only_recipe()
+                and any(
+                    aggregator.is_allowed_table(urn)
+                    for urn in lineage.upstreams + lineage.targets
+                )
             ):
                 self._add_preparsed_queries(aggregator, query, lineage)
                 return
 
-            if covers_hive_metastore:
-                # system.access.table_lineage does not record hive_metastore tables,
-                # so the statement may read one this recipe ingested even though its
-                # lineage names none of them; parse the SQL text instead.
-                if query.is_query_text_redacted:
+            if covers_hive_metastore and not query.is_query_text_redacted:
+                hive_metastore_lineage = self._with_hive_metastore_tables(
+                    query, lineage
+                )
+                if hive_metastore_lineage is not None:
+                    self._log_route(
+                        "parsed with sqlglot for hive_metastore tables", query
+                    )
+                    self._add_preparsed_queries(
+                        aggregator, query, hive_metastore_lineage
+                    )
                     return
-                self.report.num_queries_hive_metastore_fallback_to_sqlglot += 1
-                self._log_route("parsed with sqlglot for hive_metastore tables", query)
-                self._add_observed_query(aggregator, query, default_db)
-                return
 
             if names_other_tables:
-                # Every table the lineage names belongs to another recipe, so nothing
-                # would be emitted; skip it before fingerprinting and storing it.
+                # Every table the lineage names is outside this recipe's scope, so
+                # nothing would be emitted; skip it before fingerprinting and storing it.
                 self.report.num_queries_skipped_no_ingested_tables += 1
                 self._log_route("skipped: lineage names no ingested table", query)
                 return
@@ -850,7 +903,7 @@ class UnityCatalogUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         ingested_urns = {self.table_urn_builder(ref) for ref in table_refs}
         is_allowed_table = self._make_allowed_table_predicate(ingested_urns)
-        covers_hive_metastore = any(ref.catalog == HIVE_METASTORE for ref in table_refs)
+        covers_hive_metastore = self._covers_hive_metastore(table_refs)
         self._report_usage_scope_warnings(table_refs)
 
         # Databricks query history has no per-query session catalog/schema (unlike
@@ -982,7 +1035,7 @@ class UnityCatalogUsageExtractor:
                 self._mark_tables_not_ingested_non_primary(
                     auto_workunit(aggregator.gen_metadata()), ingested_urns
                 ),
-                dataset_urns=ingested_urns,
+                dataset_urns=set(ingested_urns),
                 config=self.config,
             )
         finally:

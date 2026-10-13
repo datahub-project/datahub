@@ -1323,8 +1323,6 @@ class TestUnityCatalogMetricViews:
         assert source.report.num_metric_views_yaml_parse_failures == 0
 
     def test_metric_view_skips_sql_parsing_aggregator(self):
-        from unittest.mock import MagicMock
-
         source = self._build_source(include_metric_views=True)
         # Force the Hive-metastore-only branch to fire so we can observe whether
         # the SQL aggregator gets called for a metric view.
