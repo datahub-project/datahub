@@ -55,7 +55,7 @@
     "pageTitle": "Gestionar permisos",
     "policiesTab": "Políticas",
     "policyForm.condition.equals": "Igual a",
-    "policyForm.condition.notEquals": "No igual a",
+    "policyForm.condition.notEquals": "No es igual a",
     "policyForm.condition.startsWith": "Comienza con",
     "privilegeForm.allPrivileges": "Todos los privilegios",
     "privilegeForm.containerPlaceholder": "Se aplica a TODOS los contenedores de forma predeterminada. Seleccione contenedores para aplicar a contenedores específicos.",

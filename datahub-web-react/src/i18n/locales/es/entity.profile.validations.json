@@ -63,7 +63,7 @@
     "assertionType.unknown": "Desconocido",
     "assertionType.volume": "Volumen",
     "assertionTypeDescription.column": "Defina y supervise sus expectativas sobre los valores de una columna",
-    "assertionTypeDescription.custom": "Assertions definidas y notificadas por herramientas externas o integraciones personalizadas",
+    "assertionTypeDescription.custom": "Assertions definidas y reportadas por herramientas externas o integraciones personalizadas",
     "assertionTypeDescription.freshness": "Defina y supervise sus expectativas sobre cuándo debe actualizarse este Dataset",
     "assertionTypeDescription.other": "Otras Assertions que se definen y mantienen fuera de DataHub.",
     "assertionTypeDescription.schema": "Defina y supervise sus expectativas sobre las columnas de la tabla y sus tipos",

@@ -206,7 +206,7 @@
     "marketplace.filterApplication": "Aplicación",
     "marketplace.filterDomain": "Dominio",
     "marketplace.homeBlurb": "Navegue por los productos de datos de toda su organización y explórelos.",
-    "marketplace.homeEmptyAction": "Crear producto",
+    "marketplace.homeEmptyAction": "Crear producto de datos",
     "marketplace.homeEmptyDescription": "Una vez que se creen productos de datos, aparecerán aquí.",
     "marketplace.homeEmptyTitle": "Aún no hay productos de datos",
     "marketplace.homeLoadErrorDescription": "Se produjo un error al cargar los productos de datos. Inténtelo de nuevo.",
