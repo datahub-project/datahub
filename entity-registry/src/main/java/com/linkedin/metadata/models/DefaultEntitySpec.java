@@ -110,7 +110,7 @@ public class DefaultEntitySpec implements EntitySpec {
   @Override
   public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
     if (_relationshipFieldSpecs == null) {
-      _relationshipFieldSpecs = EntitySpec.super.getRelationshipFieldSpecs();
+      _relationshipFieldSpecs = List.copyOf(EntitySpec.super.getRelationshipFieldSpecs());
     }
 
     return _relationshipFieldSpecs;

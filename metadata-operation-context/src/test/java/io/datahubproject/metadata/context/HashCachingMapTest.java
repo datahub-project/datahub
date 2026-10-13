@@ -43,6 +43,16 @@ public class HashCachingMapTest {
   }
 
   @Test
+  public void testFollowsMapContract() {
+    Map<String, Integer> plain = Map.of("k", 1, "j", 2);
+    HashCachingMap<String, Integer> wrapped = new HashCachingMap<>(new HashMap<>(plain));
+
+    assertEquals(wrapped, plain);
+    assertEquals(plain, wrapped);
+    assertEquals(wrapped.hashCode(), plain.hashCode());
+  }
+
+  @Test
   public void testDelegatesMapOperations() {
     HashCachingMap<String, Integer> map = new HashCachingMap<>(Map.of("k", 1));
 

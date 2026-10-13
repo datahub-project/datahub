@@ -124,6 +124,7 @@ public class ActorContext implements ContextInterface {
         byPrivilege.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
       }
     }
+    byPrivilege.replaceAll((privilege, policies) -> List.copyOf(policies));
     return new HashCachingMap<>(Collections.unmodifiableMap(byPrivilege));
   }
 
