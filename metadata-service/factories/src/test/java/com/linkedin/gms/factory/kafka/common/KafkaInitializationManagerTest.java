@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.boot.availability.ReadinessState;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.SmartLifecycle;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
@@ -155,6 +158,32 @@ public class KafkaInitializationManagerTest extends AbstractTestNGSpringContextT
     // Assert
     assertFalse(manager.isInitialized());
     verify(registry, never()).getAllListenerContainers();
+  }
+
+  @Test
+  public void testOnContextClosed_pausesRunningContainers() {
+    // Arrange
+    when(registry.getAllListenerContainers()).thenReturn(containers);
+    when(container1.isRunning()).thenReturn(true);
+    when(container2.isRunning()).thenReturn(false);
+    ContextClosedEvent event = new ContextClosedEvent(mock(ApplicationContext.class));
+
+    // Act
+    manager.onContextClosed(event);
+
+    // Assert
+    verify(container1, times(1)).pause();
+    verify(container2, never()).pause();
+    verify(container1, never()).start();
+    verify(container2, never()).start();
+  }
+
+  @Test
+  public void testShutdownPhaseIsAfterJettyGraceful() {
+    KafkaListenerEndpointRegistry real = new KafkaListenerEndpointRegistry();
+    KafkaInitializationManager.movePhaseAfterJetty(real);
+    assertEquals(real.getPhase(), KafkaInitializationManager.SHUTDOWN_PHASE);
+    assertTrue(real.getPhase() < SmartLifecycle.DEFAULT_PHASE - 1024);
   }
 
   @Test

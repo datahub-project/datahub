@@ -8,8 +8,10 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * When SIGTERM is received, Kubernetes triggers ContextClosedEvent. This handler: 1. Sets shutdown
- * flag so health checks can return 503 2. Proceeds with normal Spring shutdown
+ * When the kubelet sends SIGTERM, Spring's shutdown hook closes the context and publishes
+ * ContextClosedEvent. This handler sets the shutdown flag so health checks return 503. Jetty
+ * refuses new HTTP when server.shutdown=graceful. The task scheduler stops in an earlier lifecycle
+ * phase than Jetty, so @Scheduled ticks are not cancelled here.
  *
  * <p>Only registered when server.shutdown=graceful (or SERVER_SHUTDOWN_MODE=graceful env var).
  */
