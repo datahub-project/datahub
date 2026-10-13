@@ -1,6 +1,7 @@
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { MAX_AGGREGATION_VALUES } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
+import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -16,6 +17,7 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const isViewReady = useIsSearchViewReady();
 
     const {
         data: newData,
@@ -24,7 +26,9 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         error,
         refetch,
     } = useAggregateAcrossEntitiesQuery({
-        skip,
+        // Caller skip still wins. Also hold the query until the default view is known so
+        // sidebar aggregations are not fetched unfiltered and then again with the view.
+        skip: skip || !isViewReady,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
