@@ -435,6 +435,53 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testGetQueryBuilderFromCriterionIn() {
+    final Criterion inCriterion =
+        buildCriterion("myTestField", Condition.IN, "value1", "value2", "value3");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            inCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(result instanceof TermsQueryBuilder, result.toString());
+    TermsQueryBuilder termsQuery = (TermsQueryBuilder) result;
+    assertEquals(termsQuery.fieldName(), "myTestField.keyword");
+    assertEquals(termsQuery.values(), List.of("value1", "value2", "value3"));
+    assertEquals(termsQuery.queryName(), "myTestField");
+  }
+
+  /** A saved View or search filter using IN goes through buildFilterQuery and must not throw. */
+  @Test
+  public void testBuildFilterQueryWithInCondition() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.IN,
+                                    "urn:li:dataPlatform:hive",
+                                    "urn:li:dataPlatform:snowflake")))));
+
+    String result =
+        ESUtils.buildFilterQuery(
+                filter, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(result.contains("\"terms\""), result);
+    assertTrue(result.contains("urn:li:dataPlatform:hive"), result);
+    assertTrue(result.contains("urn:li:dataPlatform:snowflake"), result);
+  }
+
+  @Test
   public void testGetQueryBuilderFromCriterionContain() {
     final Criterion singleValueCriterion =
         buildCriterion("myTestField", Condition.CONTAIN, "value1");

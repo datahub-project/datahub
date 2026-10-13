@@ -1220,6 +1220,11 @@ public class ESUtils {
                     enableCaseInsensitiveSearch,
                     resolvedForV3))
             .queryName(queryName != null ? queryName : fieldName);
+      } else if (condition == Condition.IN) {
+        return QueryBuilders.termsQuery(
+                toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                criterion.getValues())
+            .queryName(queryName != null ? queryName : fieldName);
       }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);
