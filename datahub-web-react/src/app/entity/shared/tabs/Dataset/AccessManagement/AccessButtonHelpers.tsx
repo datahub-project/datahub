@@ -4,7 +4,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-
 /**
  * Styled button component for access management actions.
  * Supports both enabled (request) and disabled (granted) states.
