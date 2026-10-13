@@ -155,6 +155,8 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 
 `parent` is searchable with `queryByDefault` false. `searchTemplate` stays out of the default search, browse, and autocomplete entity-type lists. The validator queries that field by entity type. A child write that fills a hole the inherited query does not contain is rejected. A parent `query` write loads direct children whose `parent` is this URN and walks. A child that does not set `query` inherits this body, so every hole it fills must still appear in the new text, and the walk continues to its children. A child that sets `query` stops the walk. Where a remaining hole sits is not checked. The search index can lag a write. Rendering fails when the merged template fills a hole the merged query text does not contain, so the search does not run with the extension left out.
 
+`fields.add` still only changes the weighted field list and the whole-value term. `clauses` still merge outside that `dis_max`, so those scores add. A field does not declare `exact` or `prefix` for the builder to emit. There is no separate append combiner. Setting `query` remains the way to replace the body when the parent has not opened a hole.
+
 ### Dialect
 
 `ELASTICSEARCH` is rendered as query DSL and parsed before the search runs. Elasticsearch and OpenSearch share that dialect. An engine that needs a different clause points its slot at a child template. `POSTGRES` stores Mustache text for a future SQL compiler. Search V3 does not execute it. A `next` URN or an explicit `SearchFlags.searchTemplate` of a different dialect fails the search.
