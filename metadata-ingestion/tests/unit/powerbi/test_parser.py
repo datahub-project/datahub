@@ -101,6 +101,187 @@ def test_parse_one_part_table_reference(creator):
     )
 
 
+_FABRIC_HOST = "abc.datawarehouse.fabric.microsoft.com"
+_FABRIC_WORKSPACE = "ff23fbe3-7418-42f8-a675-9f10eb2b78cb"
+_FABRIC_ITEM = "2afa2dbd-555b-48c8-b082-35d94f4b7836"
+
+
+def _fabric_sql_config(**overrides):
+    values = dict(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        fabric_sql_endpoint_to_fabric_onelake={
+            _FABRIC_HOST: {
+                "workspace_id": _FABRIC_WORKSPACE,
+                "item_id": _FABRIC_ITEM,
+            }
+        },
+    )
+    values.update(overrides)
+    return PowerBiDashboardSourceConfig(**values)
+
+
+def _mssql_lineage(config, columns=None):
+    table = Table(
+        name="green_tripdata",
+        full_name="db.green_tripdata",
+        columns=columns,
+    )
+    return MSSqlLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+
+def _sql_database_invoke(server, database, query=None):
+    elements = [
+        {
+            "kind": "LiteralExpression",
+            "literalKind": "Text",
+            "literal": f'"{server}"',
+        },
+        {
+            "kind": "LiteralExpression",
+            "literalKind": "Text",
+            "literal": f'"{database}"',
+        },
+    ]
+    if query is not None:
+        elements.append(
+            {
+                "kind": "RecordExpression",
+                "content": {
+                    "kind": "ArrayWrapper",
+                    "elements": [
+                        {
+                            "kind": "GeneralizedIdentifierPairedExpression",
+                            "key": {"literal": "Query"},
+                            "value": {
+                                "kind": "LiteralExpression",
+                                "literalKind": "Text",
+                                "literal": f'"{query}"',
+                            },
+                        }
+                    ],
+                },
+            }
+        )
+    return {
+        "kind": "InvokeExpression",
+        "content": {"kind": "ArrayWrapper", "elements": elements},
+    }
+
+
+def _navigator_detail(server, database):
+    return DataAccessFunctionDetail(
+        arg_list=_sql_database_invoke(server, database),
+        data_access_function_name="Sql.Database",
+        identifier_accessor=IdentifierAccessor(
+            identifier="Source",
+            items={"Schema": "dbo", "Item": "green_tripdata"},
+            next=None,
+        ),
+        node_map={},
+    )
+
+
+def test_fabric_sql_endpoint_navigator_uses_onelake_urn():
+    lineage = _mssql_lineage(
+        _fabric_sql_config(),
+        columns=[
+            Column(
+                name="trip_id",
+                dataType="string",
+                isHidden=False,
+                datahubDataType=StringTypeClass(),
+            )
+        ],
+    ).create_lineage(_navigator_detail(_FABRIC_HOST, "mylakehouse"))
+
+    expected = (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+        f"{_FABRIC_WORKSPACE}.{_FABRIC_ITEM}.dbo.green_tripdata,PROD)"
+    )
+    assert len(lineage.upstreams) == 1
+    assert lineage.upstreams[0].data_platform_pair.datahub_data_platform_name == (
+        "fabric-onelake"
+    )
+    assert lineage.upstreams[0].urn == expected
+    assert lineage.column_lineage[0].upstreams[0].table == expected
+    assert "mylakehouse" not in lineage.upstreams[0].urn
+
+
+def test_unmapped_sql_server_stays_mssql():
+    lineage = _mssql_lineage(_fabric_sql_config()).create_lineage(
+        _navigator_detail("sql-prod.example.com", "orders")
+    )
+
+    assert lineage.upstreams[0].data_platform_pair.datahub_data_platform_name == "mssql"
+    assert (
+        lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,orders.dbo.green_tripdata,PROD)"
+    )
+
+
+def test_fabric_sql_endpoint_host_match_ignores_case_and_port():
+    lineage = _mssql_lineage(_fabric_sql_config()).create_lineage(
+        _navigator_detail(f"TCP:{_FABRIC_HOST.upper()},1433", "mylakehouse")
+    )
+
+    assert "fabric-onelake" in lineage.upstreams[0].urn
+    assert f"{_FABRIC_WORKSPACE}.{_FABRIC_ITEM}.dbo.green_tripdata" in (
+        lineage.upstreams[0].urn
+    )
+
+
+def test_fabric_sql_endpoint_platform_instance_and_env():
+    config = _fabric_sql_config(
+        fabric_sql_endpoint_to_fabric_onelake={
+            _FABRIC_HOST: {
+                "workspace_id": f"{{{_FABRIC_WORKSPACE}}}",
+                "item_id": _FABRIC_ITEM,
+                "platform_instance": "contoso",
+                "env": "DEV",
+            }
+        }
+    )
+    lineage = _mssql_lineage(config).create_lineage(
+        _navigator_detail(_FABRIC_HOST, "mylakehouse")
+    )
+
+    assert lineage.upstreams[0].urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+        f"contoso.{_FABRIC_WORKSPACE}.{_FABRIC_ITEM}.dbo.green_tripdata,DEV)"
+    )
+
+
+def test_fabric_sql_endpoint_native_query_uses_onelake_urn():
+    detail = DataAccessFunctionDetail(
+        arg_list=_sql_database_invoke(
+            _FABRIC_HOST, "mylakehouse", "SELECT * FROM dbo.green_tripdata"
+        ),
+        data_access_function_name="Sql.Database",
+        identifier_accessor=None,
+        node_map={},
+    )
+    lineage = _mssql_lineage(_fabric_sql_config()).create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert lineage.upstreams[0].data_platform_pair.datahub_data_platform_name == (
+        "fabric-onelake"
+    )
+    assert lineage.upstreams[0].urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+        f"{_FABRIC_WORKSPACE}.{_FABRIC_ITEM}.dbo.green_tripdata,PROD)"
+    )
+
+
 # Amazon Athena Tests
 
 

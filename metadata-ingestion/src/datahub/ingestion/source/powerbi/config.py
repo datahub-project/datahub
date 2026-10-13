@@ -323,6 +323,26 @@ def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
     return stripped
 
 
+def _strip_guid(value: str) -> str:
+    stripped = value.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        stripped = stripped[1:-1].strip()
+    if not stripped:
+        raise ValueError("must not be empty or whitespace")
+    return stripped
+
+
+def normalize_fabric_sql_endpoint_host(server: str) -> str:
+    # TDS hosts are case-insensitive and may be "tcp:host,1433".
+    host = server.strip().lower()
+    if host.startswith("tcp:"):
+        host = host[4:].strip()
+    comma = host.find(",")
+    if comma != -1:
+        host = host[:comma].strip()
+    return host
+
+
 class OraclePlatformDetail(PlatformDetail):
     default_schema: Optional[str] = pydantic.Field(
         default=None,
@@ -480,6 +500,37 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
         return _strip_and_reject_blank(value)
 
 
+class FabricSqlEndpointDetail(PlatformDetail):
+    workspace_id: str = pydantic.Field(
+        min_length=1,
+        description="Fabric workspace GUID. First segment of the fabric-onelake dataset name.",
+    )
+    item_id: str = pydantic.Field(
+        min_length=1,
+        description="Lakehouse or warehouse GUID. Second segment of the fabric-onelake "
+        "dataset name. Not the SQL analytics endpoint id.",
+    )
+
+    @field_validator("workspace_id", "item_id")
+    @classmethod
+    def _validate_id(cls, value: str) -> str:
+        return _strip_guid(value)
+
+
+def lookup_fabric_sql_endpoint(
+    mapping: Dict[str, FabricSqlEndpointDetail], server: str
+) -> Optional[FabricSqlEndpointDetail]:
+    if not server or not mapping:
+        return None
+    normalized = normalize_fabric_sql_endpoint_host(server)
+    if not normalized:
+        return None
+    for key, detail in mapping.items():
+        if normalize_fabric_sql_endpoint_host(key) == normalized:
+            return detail
+    return None
+
+
 # Workspace ``type`` values returned by the PowerBI admin API for personal
 # workspaces. These are not addressable by id in the PowerBI UI - they are
 # reachable only via the ``/groups/me`` alias and only by their owner, so
@@ -578,6 +629,20 @@ class PowerBiDashboardSourceConfig(
         "Catalog the workspace FQDN, and for Oracle the EZ-Connect host, bare TNS alias, or "
         "descriptor SERVICE_NAME (case-insensitive). The value is a platform-detail object; Oracle "
         "servers may add `default_schema`/`default_database` and Databricks servers `metastore`.",
+    )
+    fabric_sql_endpoint_to_fabric_onelake: Dict[str, FabricSqlEndpointDetail] = pydantic.Field(
+        default={},
+        description="Mapping from a Fabric SQL analytics endpoint host to the "
+        "fabric-onelake workspace and lakehouse or warehouse it serves. "
+        "Power BI connects to that endpoint with `Sql.Database` or an ODBC SQL Server "
+        "driver, which otherwise lineage to `mssql`. When the host matches, upstream "
+        "datasets are emitted on `fabric-onelake` as "
+        "`{workspace_id}.{item_id}.{schema}.{table}`, the same name the fabric-onelake "
+        "source uses. The key is the host from the M-query (case-insensitive; a trailing "
+        "`,1433` port and a `tcp:` prefix are ignored). `item_id` is the lakehouse or "
+        "warehouse GUID, not the SQL analytics endpoint id. Set `platform_instance` and "
+        "`env` to the values used by the fabric-onelake recipe. SQL Server hosts that "
+        "are absent from this map stay on `mssql`.",
     )
     # ODBC DSN to platform mapping
     dsn_to_platform_name: Dict[str, str] = pydantic.Field(
@@ -889,6 +954,33 @@ class PowerBiDashboardSourceConfig(
                 )
             seen[lower] = key
         return value
+
+    @model_validator(mode="after")
+    def validate_fabric_sql_endpoint_to_fabric_onelake(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        mapping = self.fabric_sql_endpoint_to_fabric_onelake
+        if not mapping:
+            return self
+        seen: Dict[str, str] = {}
+        for key in mapping:
+            normalized = normalize_fabric_sql_endpoint_host(key)
+            if not normalized:
+                raise ValueError(
+                    f"fabric_sql_endpoint_to_fabric_onelake key {key!r} is not a SQL endpoint host"
+                )
+            if normalized in seen:
+                raise ValueError(
+                    "fabric_sql_endpoint_to_fabric_onelake has duplicate hosts after "
+                    f"normalization: {seen[normalized]!r} and {key!r}"
+                )
+            seen[normalized] = key
+        if not self.is_platform_in_dataset_type_mapping("FabricOneLake"):
+            raise ValueError(
+                "fabric_sql_endpoint_to_fabric_onelake requires 'FabricOneLake' in "
+                "dataset_type_mapping so the retargeted lineage is kept"
+            )
+        return self
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod
