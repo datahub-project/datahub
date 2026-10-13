@@ -229,6 +229,25 @@ SELECT 1
     assert "SELECT 1" in logic
 
 
+def test_inline_content_after_language_selector_is_kept() -> None:
+    # A selector with content on the same line keeps the content; only the
+    # selector token is dropped (not the rest of the line).
+    source = """# MARKDOWN ********************
+
+# MAGIC %md # Dashboard overview
+
+# CELL ********************
+
+%%sql SELECT 1
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    assert "# Dashboard overview" in logic
+    assert "%md" not in logic
+    assert "SELECT 1" in logic
+    assert "%%sql" not in logic
+
+
 def test_notebook_view_logic_empty_is_none() -> None:
     assert notebook_view_logic(None, "python") is None
     assert notebook_view_logic("   ", "python") is None

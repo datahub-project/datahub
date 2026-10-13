@@ -36,9 +36,12 @@ _MAGIC_PREFIX_RE = re.compile(r"^#\s?MAGIC\s?", re.MULTILINE)
 # A leading cell magic that only *selects the cell language* (%%sql, %md, ...).
 # Restricted to known language/display selectors so executable magics the user
 # wrote - %pip, %run, %%configure, %sh, ... - are kept in the view definition.
+# Only the selector token is dropped: inline content on the same line (e.g.
+# "%md # Heading") is kept, and a selector that is alone on its line takes the
+# newline with it so the cell body is not left with a blank first line.
 _LEADING_MAGIC_RE = re.compile(
     r"\A\s*%{1,2}(?:markdown|md|sparksql|sparkr|pyspark|spark|scala|sql|html)\b"
-    r"[^\n]*\n?",
+    r"[ \t]*(?:\r?\n|(?=\S)|\Z)",
     re.IGNORECASE,
 )
 
