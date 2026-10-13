@@ -116,6 +116,22 @@ class SchemaExtractionClient(Protocol):
         """
         ...
 
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the SQLAlchemy engine for an item's SQL Analytics Endpoint.
+
+        The engine is bound to the item's database and is reused for profiling,
+        which reflects tables/views over the same connection used for schema
+        extraction.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            SQLAlchemy Engine bound to the item's SQL Analytics Endpoint
+        """
+        ...
+
     def stream_usage_history(
         self,
         workspace_id: str,
@@ -619,6 +635,14 @@ class SqlAnalyticsEndpointClient:
                 exc_info=True,
             )
             raise
+
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the cached engine for an item, bound to its endpoint database."""
+        if not self.endpoint_url:
+            raise ValueError(
+                f"SQL Analytics Endpoint URL is required for item {item_id}."
+            )
+        return self._get_engine(workspace_id, item_id, self.endpoint_url)
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.

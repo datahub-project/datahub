@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -79,6 +80,13 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     usage_run_skipped: bool = False
+
+    # Profiling metrics. Nested so the shared SQLAlchemyProfiler can record
+    # skip reasons, per-table timings, and query-combiner stats against the
+    # interface it expects (SQLSourceReport).
+    profiling: SQLSourceReport = field(default_factory=SQLSourceReport)
+    tables_profiled: int = 0
+    profiling_skipped_profile_pattern: int = 0
 
     def report_usage_query_skipped(self, reason: str) -> None:
         """Record a queryinsights row that was skipped before reaching the aggregator."""

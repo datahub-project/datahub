@@ -11,7 +11,8 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Iterable, List, Literal, Optional, Union
 
 from typing_extensions import assert_never
 
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
         SchemaExtractionClient,
     )
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -61,6 +64,8 @@ from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeSourceReport,
 )
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
+from datahub.ingestion.source.profiling.common import ProfilerRequest
+from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
@@ -76,6 +81,24 @@ logger = logging.getLogger(__name__)
 
 # Platform identifier
 PLATFORM = "fabric-onelake"
+
+# The Fabric SQL Analytics Endpoint speaks T-SQL, so profiling reuses the shared
+# SQL Server profiling adapter for identical metric coverage to the mssql source.
+PROFILING_PLATFORM = "mssql"
+
+
+@dataclass
+class _ProfileCandidate:
+    """A table queued for profiling over the SQL Analytics Endpoint.
+
+    schema_name / table_name are the source-case identifiers used to reflect the
+    table; dataset_urn is the already-normalized URN the profile is emitted against.
+    """
+
+    pretty_name: str
+    dataset_urn: str
+    schema_name: str
+    table_name: str
 
 
 class LakehouseKey(WorkspaceKey):
@@ -152,6 +175,11 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
+)
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via `profiling.enabled`. Runs over the SQL Analytics "
+    "Endpoint using the shared MSSQL profiler.",
 )
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
@@ -343,7 +371,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process lakehouses and warehouses within a workspace."""
         # Process lakehouses
         if self.config.extract_lakehouses:
@@ -393,7 +421,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process a lakehouse and its tables and views."""
         # Create lakehouse container
         lakehouse_key = LakehouseKey(
@@ -425,6 +453,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
+        # Tables eligible for profiling, collected while emitting datasets.
+        profile_candidates: List[_ProfileCandidate] = []
+
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -434,6 +465,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=lakehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            profile_candidates=profile_candidates,
         )
 
         # Process views (requires SQL endpoint)
@@ -448,13 +480,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 emitted_schemas=emitted_schemas,
             )
 
+        yield from self._profile_item(
+            workspace, lakehouse.id, schema_client, profile_candidates
+        )
+
         self._extract_item_usage(
             workspace.id, lakehouse.id, lakehouse.name, schema_client
         )
 
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process a warehouse and its tables and views."""
         # Create warehouse container
         warehouse_key = WarehouseKey(
@@ -486,6 +522,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
+        # Tables eligible for profiling, collected while emitting datasets.
+        profile_candidates: List[_ProfileCandidate] = []
+
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -495,6 +534,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=warehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            profile_candidates=profile_candidates,
         )
 
         # Process views (requires SQL endpoint)
@@ -508,6 +548,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 schema_map=schema_map,
                 emitted_schemas=emitted_schemas,
             )
+
+        yield from self._profile_item(
+            workspace, warehouse.id, schema_client, profile_candidates
+        )
 
         self._extract_item_usage(
             workspace.id, warehouse.id, warehouse.name, schema_client
@@ -554,6 +598,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
+        profile_candidates: List[_ProfileCandidate],
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -624,6 +669,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         table,
                         parent_container_key,
                         columns,
+                    )
+                    self._maybe_queue_profiling(
+                        workspace,
+                        item_id,
+                        schema_name,
+                        table,
+                        columns,
+                        profile_candidates,
                     )
 
         except Exception as e:
@@ -717,6 +770,129 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield dataset
 
+    def _maybe_queue_profiling(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        schema_name: str,
+        table: FabricTable,
+        columns: list[FabricColumn],
+        profile_candidates: List[_ProfileCandidate],
+    ) -> None:
+        """Queue a table for profiling if profiling is enabled and eligible.
+
+        Only tables are profiled (views are excluded, matching the mssql source).
+        A table with no known columns cannot yield field-level stats and is
+        skipped. The `profile_pattern` is applied here at the table level; the
+        profiler applies it again per-column.
+        """
+        if not self.config.is_profiling_enabled():
+            return
+        if not columns:
+            return
+
+        full_name = f"{schema_name}.{table.name}"
+        if not check_table_with_profile_pattern(self.config.profile_pattern, full_name):
+            self.report.profiling_skipped_profile_pattern += 1
+            return
+
+        table_name = make_table_name(
+            workspace.id, item_id, self._norm(schema_name), self._norm(table.name)
+        )
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            PLATFORM,
+            table_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        profile_candidates.append(
+            _ProfileCandidate(
+                pretty_name=full_name,
+                dataset_urn=dataset_urn,
+                schema_name=schema_name,
+                table_name=table.name,
+            )
+        )
+
+    def _profile_item(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        schema_client: Optional["SchemaExtractionClient"],
+        profile_candidates: List[_ProfileCandidate],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Profile queued tables over the item's SQL Analytics Endpoint.
+
+        Reuses the schema client's engine (bound to the item's database) and the
+        shared MSSQL profiling adapter, so metric coverage matches the mssql
+        source. No-op when profiling is disabled or no eligible tables were found.
+        """
+        if not self.config.is_profiling_enabled() or not profile_candidates:
+            return
+        if schema_client is None:
+            logger.info(
+                f"Skipping profiling for item {item_id}: SQL Analytics Endpoint "
+                "unavailable."
+            )
+            return
+
+        try:
+            engine = schema_client.get_engine(workspace.id, item_id)
+        except Exception as e:
+            self.report.warning(
+                title="Profiling Skipped",
+                message="Could not obtain a SQL Analytics Endpoint engine for profiling.",
+                context=f"item_id={item_id}",
+                exc=e,
+                log=False,
+            )
+            return
+
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        profiler = SQLAlchemyProfiler(
+            conn=engine,
+            report=self.report.profiling,
+            config=self.config.profiling,
+            platform=PROFILING_PLATFORM,
+            env=self.config.env,
+        )
+
+        urn_by_name = {c.pretty_name: c.dataset_urn for c in profile_candidates}
+        requests = [
+            ProfilerRequest(
+                pretty_name=c.pretty_name,
+                batch_kwargs={"schema": c.schema_name, "table": c.table_name},
+            )
+            for c in profile_candidates
+        ]
+
+        try:
+            for request, profile in profiler.generate_profiles(
+                requests,
+                self.config.profiling.max_workers,
+                platform=PROFILING_PLATFORM,
+            ):
+                if profile is None:
+                    continue
+                dataset_urn = urn_by_name.get(request.pretty_name)
+                if dataset_urn is None:
+                    continue
+                self.report.tables_profiled += 1
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=profile
+                ).as_workunit()
+        except Exception as e:
+            self.report.warning(
+                title="Profiling Failed",
+                message="Error while profiling tables for this item.",
+                context=f"item_id={item_id}",
+                exc=e,
+                log=False,
+            )
+
     def _create_schema_client(
         self,
         workspace: FabricWorkspace,
@@ -732,6 +908,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             self.config.extract_schema.enabled
             or self.config.extract_views
             or self.config.usage.include_usage_statistics
+            or self.config.is_profiling_enabled()
         )
         if not (needs_endpoint and self.config.sql_endpoint):
             return None

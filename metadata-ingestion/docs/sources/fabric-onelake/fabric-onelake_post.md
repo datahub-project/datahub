@@ -315,6 +315,46 @@ All standard `BaseUsageConfig` fields (`bucket_duration`, `start_time`, `end_tim
 
 When stateful ingestion is enabled, the usage time window is checkpointed only after a successful run, so a partial or failed run won't silently skip the next window.
 
+#### Profiling
+
+The connector can profile tables over the SQL Analytics Endpoint. Because that endpoint is SQL Server-compatible, profiling reuses the same profiler and MSSQL adapter as the `mssql` source, so the metric coverage is identical: row counts plus per-column null counts, distinct counts, min/max, mean, median, standard deviation, sample values, and (when enabled) quantiles, distinct-value frequencies, and histograms.
+
+Profiling is **disabled by default** and requires the SQL Analytics Endpoint (`sql_endpoint.enabled: true`). Only tables are profiled — views are not. Profiling runs read-only `SELECT` queries against the endpoint, which consume Fabric capacity, so scope it with `profile_pattern` where appropriate.
+
+##### Configuration
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    profiling:
+      enabled: true
+      # Table-level only (row/column counts, no per-column stats)
+      profile_table_level_only: false
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_sample_values: true
+      # Parallel profiling workers (set to 1 to disable concurrency)
+      max_workers: 1
+
+    # Restrict which tables (or columns) are profiled.
+    profile_pattern:
+      allow:
+        - ".*"
+      deny: []
+
+    # Profiling depends on the SQL Analytics Endpoint.
+    sql_endpoint:
+      enabled: true
+```
+
+All standard `profiling.*` options are supported; platform-specific options that only apply to other sources (e.g. BigQuery/Snowflake sampling) have no effect here.
+
 #### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
@@ -355,6 +395,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
+- **Profiling Requires SQL Endpoint**: Profiling runs over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped without failing the run. Only tables are profiled; views are not.
 
 ### Troubleshooting
 

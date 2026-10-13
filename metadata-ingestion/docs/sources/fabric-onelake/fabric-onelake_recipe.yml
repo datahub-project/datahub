@@ -89,6 +89,28 @@ source:
     #   # start_time: "2026-04-01T00:00:00Z"
     #   # end_time:   "2026-05-01T00:00:00Z"
 
+    # Optional: Table/column statistics profiling. Runs over the SQL Analytics
+    # Endpoint (SQL Server-compatible) using the same MSSQL profiler as the
+    # `mssql` source, so metric coverage is identical. Requires
+    # sql_endpoint.enabled=true. Disabled by default.
+    # profiling:
+    #   enabled: true
+    #   profile_table_level_only: false
+    #   include_field_null_count: true
+    #   include_field_distinct_count: true
+    #   include_field_min_value: true
+    #   include_field_max_value: true
+    #   include_field_mean_value: true
+    #   include_field_median_value: true
+    #   include_field_stddev_value: true
+    #   include_field_sample_values: true
+    #   max_workers: 1
+    # Optional: restrict which tables (or columns) are profiled.
+    # profile_pattern:
+    #   allow:
+    #     - ".*"
+    #   deny: []
+
 sink:
   type: datahub-rest
   config:

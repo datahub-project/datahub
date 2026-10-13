@@ -11,6 +11,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -18,6 +19,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -195,6 +197,16 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter tables (or specific columns) for profiling "
+            "during ingestion. Note that only tables and views allowed by "
+            "`table_pattern` / `view_pattern` will be considered. "
+            "Format: 'schema.table' or just 'table' for default schema."
+        ),
+    )
+
     # Feature flags
     extract_lakehouses: bool = Field(
         default=True,
@@ -263,14 +275,38 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # Profiling
+    profiling: ProfilingConfig = Field(
+        default_factory=ProfilingConfig,
+        description=(
+            "Table/column statistics profiling. Runs over the SQL Analytics Endpoint "
+            "(SQL Server-compatible), the same connection used for schema extraction, "
+            "so it requires a configured and enabled `sql_endpoint`. Disabled by "
+            "default."
+        ),
+    )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    @model_validator(mode="after")
+    def ensure_profile_pattern_is_passed_to_profiling(self):
+        # The profiler filters columns against this pattern internally; table-level
+        # filtering is applied in the source before building profile requests.
+        if self.profiling is not None and self.profiling.enabled:
+            self.profiling._allow_deny_patterns = self.profile_pattern
+        return self
+
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):
         """sql_endpoint must be configured when any feature that uses it is enabled.
 
         View discovery (INFORMATION_SCHEMA.VIEWS), column-level schema extraction
-        (INFORMATION_SCHEMA.COLUMNS), and usage statistics
-        (queryinsights.exec_requests_history) all go through the SQL Analytics
-        Endpoint but are otherwise independent.
+        (INFORMATION_SCHEMA.COLUMNS), usage statistics
+        (queryinsights.exec_requests_history), and profiling all go through the
+        SQL Analytics Endpoint but are otherwise independent.
         """
         sql_endpoint_enabled = (
             self.sql_endpoint is not None and self.sql_endpoint.enabled
@@ -290,6 +326,8 @@ class FabricOneLakeSourceConfig(
             )
         if self.usage.include_usage_statistics:
             requiring_features.append("usage.include_usage_statistics=True")
+        if self.profiling.enabled:
+            requiring_features.append("profiling.enabled=True")
 
         if requiring_features:
             raise ValueError(

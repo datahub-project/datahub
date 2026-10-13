@@ -211,3 +211,50 @@ class TestSqlEndpointDependencyValidator:
                 usage=FabricUsageConfig(include_usage_statistics=True),
                 sql_endpoint=SqlEndpointConfig(enabled=False),
             )
+
+    def test_profiling_requires_enabled_sql_endpoint(self) -> None:
+        with pytest.raises(ValidationError, match="profiling.enabled"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                extract_views=False,
+                extract_schema=ExtractSchemaConfig(enabled=False),
+                usage=FabricUsageConfig(include_usage_statistics=False),
+                profiling={"enabled": True},
+                sql_endpoint=SqlEndpointConfig(enabled=False),
+            )
+
+
+class TestProfilingConfig:
+    """Tests for profiling configuration."""
+
+    def test_profiling_disabled_by_default(self) -> None:
+        config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())
+        assert config.profiling.enabled is False
+        assert config.is_profiling_enabled() is False
+
+    def test_is_profiling_enabled_when_enabled(self) -> None:
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            profiling={"enabled": True},
+        )
+        assert config.is_profiling_enabled() is True
+
+    def test_profile_pattern_passed_to_profiling(self) -> None:
+        """profile_pattern must be wired into the profiler's column filter."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            profiling={"enabled": True},
+            profile_pattern={"allow": ["^dbo\\..*"]},
+        )
+        assert config.profiling._allow_deny_patterns.allowed("dbo.customers")
+        assert not config.profiling._allow_deny_patterns.allowed("sales.orders")
+
+    def test_profiling_field_flags_default_on(self) -> None:
+        """Column-level metrics match the shared ProfilingConfig defaults."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            profiling={"enabled": True},
+        )
+        assert config.profiling.include_field_null_count is True
+        assert config.profiling.include_field_min_value is True
+        assert config.profiling.include_field_max_value is True
