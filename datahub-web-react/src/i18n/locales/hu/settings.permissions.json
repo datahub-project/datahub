@@ -91,7 +91,7 @@
     "privilegeForm.valuePlaceholder": "Adja meg az értékeket",
     "privilegeForm.numberPlaceholder": "Adja meg a számértékeket",
     "privilegeForm.datePlaceholder": "Válasszon dátumot",
-    "privilegeForm.addProperty": "Új tulajdonság",
+    "privilegeForm.addProperty": "Tulajdonság hozzáadása",
     "privilegeForm.incompleteStructuredPropertiesMessage": "Minden kiválasztott strukturált tulajdonsághoz meg kell adni értéket.",
     "privilegesLabel": "Jogosultságok",
     "removePolicySuccess": "A szabályzat sikeresen eltávolítva.",

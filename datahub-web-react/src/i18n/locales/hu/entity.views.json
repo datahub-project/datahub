@@ -111,7 +111,7 @@
     "viewSelect.searchPlaceholderLegacy": "Keresés",
     "viewSelect.selectYourView": "Válassza ki a Nézetét",
     "viewSelect.buttonLabel": "Nézetek",
-    "viewSelect.clearView": "Nézet törlése",
+    "viewSelect.clearView": "Kiválasztott nézet eltávolítása",
     "viewType.privateDescription": "<bold>Privát</bold> – csak Ön számára látható.",
     "viewType.publicDescription": "<bold>Nyilvános</bold> – mindenki számára látható."
 }
