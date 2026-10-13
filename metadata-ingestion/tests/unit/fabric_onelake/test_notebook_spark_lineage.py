@@ -63,6 +63,30 @@ def test_extract_spark_lineage_ignores_non_onelake_paths() -> None:
     assert "DummyDeltaTable" not in all_tables
 
 
+def test_files_path_reads_are_not_modelled_as_inputs() -> None:
+    # /Files/ is unstructured OneLake storage, not a table, so a read from it
+    # is not lineage even though it lives on the OneLake host.
+    plan = f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake("Tables/gold/gold_dim")}], Overwrite
+(2) Scan csv
+Location: InMemoryFileIndex[{_onelake("Files/raw/dropzone/orders.csv")}]
+"""
+    assert extract_spark_lineage([plan]) == {_GOLD_DIM: set()}
+
+
+def test_write_to_non_onelake_host_is_not_an_output() -> None:
+    # The only write sink is on scratch storage, so the execution has no
+    # OneLake output and contributes no lineage.
+    plan = f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path=abfss://cap@scratch.dfs.core.windows.net/tmp/staging], Overwrite
+(2) Scan json
+Location: InMemoryFileIndex[{_onelake("Tables/silver/silver_a/_delta_log/0.json")}]
+"""
+    assert extract_spark_lineage([plan]) == {}
+
+
 def test_sequential_pipelines_do_not_cross_contaminate() -> None:
     # Two self-contained executions: X<-A then Y<-B. The result must be precise,
     # not the cross-product {A,B} -> {X,Y} a whole-run union would produce. The

@@ -195,3 +195,97 @@ def test_run_attaches_as_dpi_to_every_job_not_the_flow() -> None:
 
     assert templates == job_urns
     assert str(flow.urn) not in templates
+
+
+def _emit_with(client: MagicMock) -> tuple:
+    report = FabricOneLakeSourceReport()
+    known = {_ref(t, "gold").to_urn("PROD", None) for t in ("gold_mid", "gold_final")}
+    emitter = NotebookProcessEmitter(
+        platform_instance=None,
+        env="PROD",
+        execution_history_days=30,
+        report=report,
+        client=client,
+        known_table_urns=known,
+        normalize_name=lambda name: name,
+        owners_fn=lambda _upn: None,
+    )
+    nb = PendingNotebook(
+        workspace_id=WS,
+        workspace_name="analytics",
+        notebook_id=NB,
+        display_name="pipeline",
+        description=None,
+        owner_user_principal_name=None,
+        content=None,
+        language="python",
+    )
+    return list(emitter.emit([nb])), report
+
+
+def test_output_not_in_catalog_produces_no_job() -> None:
+    # The notebook writes a table that was never ingested (e.g. filtered out by
+    # patterns), so no job/dataset is fabricated for it.
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.return_value = [
+        f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake("Tables/gold/orphan")}], Overwrite
+(2) Scan json
+Location: InMemoryFileIndex[{_onelake("Tables/gold/gold_mid/_delta_log/0.json")}]
+"""
+    ]
+    client.get_notebook_runs.return_value = []
+
+    emitted, _report = _emit_with(client)
+    assert not [e for e in emitted if isinstance(e, DataJob)]
+
+
+def test_spark_api_failure_still_emits_the_dataflow() -> None:
+    # The Spark monitoring API is best-effort: when it is unavailable the
+    # notebook must still surface as a DataFlow rather than crash ingestion.
+    client = MagicMock()
+    client.list_notebook_spark_sessions.side_effect = RuntimeError("spark down")
+    client.get_notebook_runs.side_effect = RuntimeError("scheduler down")
+
+    emitted, report = _emit_with(client)
+
+    assert [e for e in emitted if isinstance(e, DataFlow)]
+    assert not [e for e in emitted if isinstance(e, DataJob)]
+    assert len(report.warnings) >= 1
+
+
+def test_runs_fall_back_to_the_dataflow_when_no_lineage_resolves() -> None:
+    # A session exists but its plans are gone, so no per-table jobs resolve;
+    # the run history then attaches to the DataFlow instead of to jobs.
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.side_effect = RuntimeError("history expired")
+    client.get_notebook_runs.return_value = [
+        FabricJobInstance(
+            id="run-1",
+            item_id=NB,
+            workspace_id=WS,
+            status=ItemJobStatus.COMPLETED,
+            start_time_utc="2026-10-12T07:00:00Z",
+            end_time_utc="2026-10-12T07:05:00Z",
+        )
+    ]
+
+    emitted, _report = _emit_with(client)
+    flow = next(e for e in emitted if isinstance(e, DataFlow))
+
+    assert not [e for e in emitted if isinstance(e, DataJob)]
+    templates = {
+        wu.metadata.aspect.parentTemplate
+        for wu in emitted
+        if isinstance(wu, MetadataWorkUnit)
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DataProcessInstanceRelationshipsClass)
+    }
+    assert templates == {str(flow.urn)}
