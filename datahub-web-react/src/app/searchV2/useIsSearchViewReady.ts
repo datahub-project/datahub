@@ -21,12 +21,19 @@ export function useIsSearchViewReady(): boolean {
     const { localState, state } = useUserContext();
     const ready = isSearchViewReady(state.views.hasSetDefaultView, localState.selectedViewUrn);
     const [timedOut, setTimedOut] = useState(false);
+    // Stay ready for this mount. Clearing a view writes `undefined`, which means
+    // nothing is stored yet, but search must not go back to waiting.
+    const [seenReady, setSeenReady] = useState(ready);
 
     useEffect(() => {
-        if (ready || timedOut) return undefined;
-        const timeoutId = window.setTimeout(() => setTimedOut(true), SEARCH_VIEW_READY_TIMEOUT_MS);
-        return () => window.clearTimeout(timeoutId);
+        if (ready || timedOut) setSeenReady(true);
     }, [ready, timedOut]);
 
-    return ready || timedOut;
+    useEffect(() => {
+        if (ready || timedOut || seenReady) return undefined;
+        const timeoutId = window.setTimeout(() => setTimedOut(true), SEARCH_VIEW_READY_TIMEOUT_MS);
+        return () => window.clearTimeout(timeoutId);
+    }, [ready, timedOut, seenReady]);
+
+    return ready || timedOut || seenReady;
 }

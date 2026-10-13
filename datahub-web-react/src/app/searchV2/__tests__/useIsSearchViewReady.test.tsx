@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import React from 'react';
+import React, { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_STATE, UserContext, UserContextType } from '@app/context/userContext';
@@ -82,6 +82,68 @@ describe('useIsSearchViewReady', () => {
 
     it('is true immediately when a view is already stored', () => {
         const { result } = renderViewReady(false, STORED_VIEW_URN);
+        expect(result.current).toBe(true);
+    });
+
+    it('stays ready when the stored view is cleared before defaults settle', () => {
+        const controls: { setViewUrn?: (viewUrn: string | undefined) => void } = {};
+
+        function ViewHarness({ children }: { children: React.ReactNode }) {
+            const [selectedViewUrn, setViewUrn] = useState<string | undefined>(STORED_VIEW_URN);
+            controls.setViewUrn = setViewUrn;
+            const value: UserContextType = {
+                loaded: true,
+                state: DEFAULT_STATE,
+                localState: { selectedViewUrn },
+                updateLocalState: () => null,
+                updateState: () => null,
+                refetchUser: () => null,
+            };
+            return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+        }
+
+        const { result } = renderHook(() => useIsSearchViewReady(), { wrapper: ViewHarness });
+        expect(result.current).toBe(true);
+
+        act(() => {
+            controls.setViewUrn?.(undefined);
+        });
+        expect(result.current).toBe(true);
+
+        act(() => {
+            vi.advanceTimersByTime(SEARCH_VIEW_READY_TIMEOUT_MS);
+        });
+        expect(result.current).toBe(true);
+    });
+
+    it('stays ready when a view arrives and is then cleared before defaults settle', () => {
+        const controls: { setViewUrn?: (viewUrn: string | undefined) => void } = {};
+
+        function ViewHarness({ children }: { children: React.ReactNode }) {
+            const [selectedViewUrn, setViewUrn] = useState<string | undefined>(undefined);
+            controls.setViewUrn = setViewUrn;
+            const value: UserContextType = {
+                loaded: true,
+                state: DEFAULT_STATE,
+                localState: { selectedViewUrn },
+                updateLocalState: () => null,
+                updateState: () => null,
+                refetchUser: () => null,
+            };
+            return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+        }
+
+        const { result } = renderHook(() => useIsSearchViewReady(), { wrapper: ViewHarness });
+        expect(result.current).toBe(false);
+
+        act(() => {
+            controls.setViewUrn?.(STORED_VIEW_URN);
+        });
+        expect(result.current).toBe(true);
+
+        act(() => {
+            controls.setViewUrn?.(undefined);
+        });
         expect(result.current).toBe(true);
     });
 });

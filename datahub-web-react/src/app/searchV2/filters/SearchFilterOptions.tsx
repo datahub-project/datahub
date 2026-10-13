@@ -56,8 +56,7 @@ export default function SearchFilterOptions({
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
     const fieldsWithCustomRenderers = Array.from(filterRendererRegistry.fieldNameToRenderer.keys());
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
-    // null is an explicit clear and undefined is unset. Both mean no view is applied.
-    const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn == null;
+    const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
 
     let filterSet = availableFilters;
     if (filterSet.length) {

@@ -117,9 +117,8 @@ export const SearchFiltersSection = ({
 
     // Only show "Save As View" if there are selected Filters, and there is no
     // current View applied (creating a new Filter on top of an existing View is not currently supported).
-    // null is an explicit clear and undefined is unset. Both mean no view is applied.
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
-    const showSaveAsView = selectedFilters?.length > 0 && selectedViewUrn == null;
+    const showSaveAsView = selectedFilters?.length > 0 && selectedViewUrn === undefined;
 
     return (
         <FiltersContainer>
