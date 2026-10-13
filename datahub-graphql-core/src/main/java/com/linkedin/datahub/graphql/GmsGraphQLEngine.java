@@ -3764,7 +3764,8 @@ public class GmsGraphQLEngine {
                               return query.getPlatform() != null
                                   ? query.getPlatform().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient)))
         .type(
             "QueryProperties",
             typeWiring ->
