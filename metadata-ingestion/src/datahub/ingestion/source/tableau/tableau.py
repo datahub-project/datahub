@@ -788,6 +788,19 @@ class TableauConfig(
             return probe_project_verdict(self, ctx.name, ctx.parent_path, ctx.warn)
         if ctx.kind == BIContainerSubTypes.TABLEAU_SITE:
             return probe_site_verdict(self, ctx)
+        if (
+            ctx.kind == BIContainerSubTypes.TABLEAU_WORKBOOK
+            and not ctx.parent_path
+            and ctx.structural is None
+        ):
+            # No pattern names a workbook, so without its project the include
+            # the framework returns decides nothing.
+            ctx.warn(
+                "no --parent project given, so this workbook was judged without "
+                "its project: ingestion keeps a workbook exactly when its "
+                "project is kept. Pass --parent <project path>, or judge a "
+                "`probe run workbooks` listing with --from-run"
+            )
         return None
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values

@@ -335,5 +335,21 @@ def test_only_a_tsc_code_of_the_documented_shape_is_read() -> None:
 
 def test_an_unknown_project_path_reaches_the_caller_with_its_message() -> None:
     server = _server_with_workbooks([_project("1", "Sales")], [])
-    with pytest.raises(ProbeArgumentError, match="no project with path 'Nope'"):
+    with pytest.raises(ProbeArgumentError, match="'Nope'"):
         _run(server, "workbooks", project_path="Nope")
+
+
+def test_a_project_path_two_projects_share_is_refused() -> None:
+    # Both parents are invisible, so ingestion lifts both to the root as
+    # "EMEA"; picking one would list the other's workbooks as its own.
+    server = _server_with_workbooks(
+        [
+            _project("luid-a", "EMEA", "hidden-a"),
+            _project("luid-b", "EMEA", "hidden-b"),
+        ],
+        [_workbook("w1", "Revenue", "luid-b")],
+    )
+    with pytest.raises(ProbeArgumentError) as raised:
+        _run(server, "workbooks", project_path="EMEA")
+    # The ids are how the caller tells the two apart.
+    assert "luid-a" in str(raised.value) and "luid-b" in str(raised.value)

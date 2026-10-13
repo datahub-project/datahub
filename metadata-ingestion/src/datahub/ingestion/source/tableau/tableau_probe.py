@@ -16,10 +16,11 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
     echoed,
+    resolve_name,
     soft_listing,
     take,
 )
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.tableau import tableau_constant as c
@@ -240,13 +241,23 @@ class TableauMetadataProbe(ProbeProviderBase):
         return []
 
     def _project_or_raise(self, project_path: str) -> TableauProject:
-        for project in self._all_projects().values():
-            if self._path(project) == project_path:
-                return project
-        raise ProbeArgumentError(
-            f"no project with path {echoed(project_path)} on this site; "
-            f"`probe run projects` lists them"
-        )
+        # Paths can repeat: a name containing project_path_separator, or two
+        # projects _get_all_project lifts to the root because their parents
+        # are invisible. Refused rather than resolved to the first, which
+        # would list another project's workbooks.
+        return resolve_name(
+            project_path,
+            self._all_projects().values(),
+            key=self._path,
+            distinguish=lambda project: project.id,
+            kind="project",
+            where="on this site",
+            list_command="probe run projects",
+            on_ambiguous=(
+                "project_path_pattern judges them as one path, but the probe "
+                "cannot tell their workbooks apart, so rename one to probe it"
+            ),
+        ).record
 
     @probe_method(row_limit_param="limit")
     def database_servers(self, limit: int = 200) -> List[Dict[str, object]]:

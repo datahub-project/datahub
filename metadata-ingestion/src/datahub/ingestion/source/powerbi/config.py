@@ -894,6 +894,14 @@ class PowerBiDashboardSourceConfig(
         `reports`/`dashboards` run also stamps the workspace's id and type on
         each record, so the other two rules apply here."""
         if not ctx.parent_path:
+            # No pattern names a report or dashboard, so without its workspace
+            # the include the framework returns decides nothing.
+            ctx.warn(
+                f"no --parent workspace given, so this {ctx.kind} was judged "
+                f"without its workspace: ingestion keeps it exactly when its "
+                f"workspace is kept. Pass --parent <workspace>, or judge a "
+                f"`probe run` listing of them with --from-run"
+            )
             return None
         verdict = workspace_verdict(
             self,

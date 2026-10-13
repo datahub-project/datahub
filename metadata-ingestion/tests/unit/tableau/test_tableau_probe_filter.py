@@ -65,6 +65,14 @@ def test_a_workbook_follows_its_project() -> None:
     assert result.excluded_by_container
 
 
+def test_a_workbook_judged_without_its_project_says_the_verdict_is_partial() -> None:
+    result = _judge("Workbook", ["Revenue"], project_path_pattern={"deny": ["^S"]})
+    assert result.results[0].included
+    assert any("--parent" in w for w in result.warnings)
+    # With the project given there is nothing to warn about.
+    assert not _judge("Workbook", ["Revenue"], ["Sales"]).warnings
+
+
 def test_try_allow_is_judged_against_project_path_pattern() -> None:
     # The recipe allows Sales; the hypothetical allows only Marketing.
     result = check_filters(

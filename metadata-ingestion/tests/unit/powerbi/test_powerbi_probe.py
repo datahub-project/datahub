@@ -171,6 +171,14 @@ def test_reports_are_unfiltered_but_inherit_their_workspace_verdict() -> None:
     assert verdicts == {"Weekly": (False, "workspace_name_pattern")}
 
 
+def test_a_report_judged_without_its_workspace_says_the_verdict_is_partial() -> None:
+    result, verdicts = _judge(
+        "Report", ["Weekly"], [], workspace_name_pattern={"deny": ["^Scratch$"]}
+    )
+    assert verdicts == {"Weekly": (True, None)}
+    assert any("--parent" in w for w in result.warnings)
+
+
 @pytest.mark.parametrize(
     "kind, switch",
     [
