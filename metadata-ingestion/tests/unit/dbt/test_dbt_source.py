@@ -69,6 +69,7 @@ from datahub.testing.doctest import assert_doctest
 from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
+    make_freshness_info,
 )
 
 
@@ -2875,15 +2876,7 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
         node_type="source",
         owner="source_owner",
     )
-    source_node.freshness_info = DBTFreshnessInfo(
-        invocation_id="test-123",
-        status="pass",
-        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
-        max_loaded_at_time_ago_in_s=7200.0,
-        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
-        error_after=None,
-    )
+    source_node.freshness_info = make_freshness_info()
 
     mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
@@ -2904,17 +2897,9 @@ def test_create_freshness_assertion_mcps_asserts_on_target_platform_instance():
         database="my_db",
         schema="raw",
     )
-    source_node.freshness_info = DBTFreshnessInfo(
-        invocation_id="test-123",
-        status="pass",
-        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
-        max_loaded_at_time_ago_in_s=7200.0,
-        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
-        error_after=None,
-    )
+    source_node.freshness_info = make_freshness_info()
 
-    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
     expected = mce_builder.make_dataset_urn_with_platform_instance(
         platform="postgres",
