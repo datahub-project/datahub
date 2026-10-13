@@ -1,21 +1,14 @@
 """Emit Fabric notebooks as a data process (DataFlow + DataJob) with lineage.
 
-A Fabric notebook is executable code that reads and writes OneLake tables, so
-it is modelled as a process, not just a document: each notebook is its own
-pipeline (a DataFlow, subtype "Fabric Spark Pipeline"). Every OneLake table the
-notebook writes becomes its own Spark-job DataJob (subtype "Fabric Spark Job")
-under that pipeline, carrying that table's precise upstreams resolved from the
-executed Spark physical plans — so lineage is table->job->table, not one job
-with a cross-product of every table read and written. When one output table is
-itself an input to another output table's job within the same notebook, the two
-jobs are chained job->job (inputDatajobs). Edges accumulate across the
-notebook's runs, which may each execute different cells. Run history is a
-property of the whole-notebook run (the Job Scheduler reports one status per
-run), so each run becomes a DataProcessInstance of every per-table DataJob (or
-of the DataFlow when no per-table jobs were resolved).
-
-The notebook Dataset (subtypes View + Notebook, carrying the code as its view
-definition) the connector emits alongside is the human-facing document.
+A notebook reads and writes OneLake tables, so it is modelled as a pipeline
+(DataFlow, subtype "Fabric Spark Pipeline"). Every table it writes becomes its
+own DataJob (subtype "Fabric Spark Job") carrying that table's upstreams
+resolved from the executed Spark plans, so lineage is table->job->table rather
+than one job with a cross-product of every table read and written. A job whose
+input is another output of the same notebook chains job->job via inputDatajobs.
+The Job Scheduler reports one status per whole-notebook run, so each run becomes
+a DataProcessInstance of every per-table job (or of the DataFlow when no
+per-table lineage was resolved).
 """
 
 import logging
@@ -128,12 +121,6 @@ class NotebookProcessEmitter:
     def emit(
         self, pending: List[PendingNotebook]
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        # Each notebook is its own pipeline (DataFlow). Within it, every OneLake
-        # table the notebook writes becomes its own Spark-job DataJob carrying
-        # that table's precise upstreams, so lineage is table->job->table rather
-        # than one job with a cross-product of every table read and written.
-        # Jobs whose inputs are produced by sibling jobs chain job->job, and the
-        # whole-notebook run attaches as a DataProcessInstance to every job.
         for nb in pending:
             workspace_key = make_workspace_key(
                 nb.workspace_id, self._platform_instance, self._env
@@ -156,9 +143,8 @@ class NotebookProcessEmitter:
             lineage = self._spark_lineage(nb)
             if lineage:
                 self._report.report_notebook_spark_lineage_extracted()
-            # Map each notebook output-table URN to the DataJob that writes it,
-            # so a job that reads another job's output table within the same
-            # notebook can chain to it as an upstream DataJob (job -> job).
+            # Output-table URN -> the job that writes it, so a job can chain to
+            # the sibling job that produces one of its inputs (job -> job).
             output_job_urns = {
                 out.to_urn(
                     self._env, self._platform_instance, self._normalize_name
@@ -195,9 +181,8 @@ class NotebookProcessEmitter:
         output_urn = output.to_urn(
             self._env, self._platform_instance, self._normalize_name
         )
-        # Chain to sibling jobs that produce this job's inputs within the same
-        # notebook: an input table that is itself a notebook output is written
-        # by another DataJob, giving a job -> job dependency edge.
+        # An input that is itself a notebook output is written by a sibling job,
+        # giving a job -> job edge alongside the dataset edge.
         this_job_urn = output_job_urns.get(output_urn)
         input_datajobs = sorted(
             job_urn
@@ -348,11 +333,8 @@ class NotebookProcessEmitter:
             )
             return
 
-        # A Fabric run executes the whole notebook (the Job Scheduler reports one
-        # status per run), so the same run is recorded against each per-table
-        # DataJob the notebook produces. When no per-table jobs were resolved (no
-        # Spark lineage), it falls back to the pipeline DataFlow so run history is
-        # not lost.
+        # The run is recorded against every per-table job; fall back to the
+        # DataFlow when no per-table lineage was resolved.
         targets: List[Union[DataJobUrn, DataFlowUrn]] = [
             DataJobUrn.from_string(job_urn)
             for job_urn in sorted(set(output_job_urns.values()))
