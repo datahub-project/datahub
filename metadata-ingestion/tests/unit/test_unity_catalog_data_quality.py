@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Dict, List, Optional, cast
 
+import pytest
+
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -85,7 +87,7 @@ def _extractor(proxy: _FakeProxy) -> UnityCatalogDataQualityExtractor:
 def _scan_row(
     *,
     table_id: str = "table-uuid",
-    event_time: datetime = SCAN_TIME,
+    event_time: object = SCAN_TIME,
     commit_freshness_status: Optional[str] = "Healthy",
     daily_row_count_status: Optional[str] = "Unhealthy",
     total_row_count_status: Optional[str] = "Healthy",
@@ -299,20 +301,52 @@ def test_extractor_skips_rows_for_unknown_table() -> None:
     assert extractor.report.num_quality_scan_rows_read == 0
 
 
-def test_extractor_naive_event_time_is_interpreted_as_utc() -> None:
-    # The SQL connector can return a naive datetime denoting UTC; the extractor must
-    # anchor it to UTC rather than letting .timestamp() read it in the local zone.
-    naive = datetime(2026, 9, 11, 6, 0, 0)
-    extractor = _extractor(_FakeProxy(rows=[_scan_row(event_time=naive)]))
-    run_events = [
-        wu.metadata.aspect
+def _run_event_timestamps(extractor: UnityCatalogDataQualityExtractor) -> List[int]:
+    return [
+        wu.metadata.aspect.timestampMillis
         for wu in extractor.get_workunits([_table()])
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, AssertionRunEventClass)
     ]
+
+
+@pytest.mark.timezone("XXX-5:30")
+def test_extractor_naive_event_time_is_interpreted_as_utc() -> None:
+    # The SQL connector can return a naive datetime denoting UTC; the extractor must
+    # anchor it to UTC rather than letting .timestamp() read it in the local zone.
+    # The non-UTC marker makes the old naive-.timestamp() behavior diverge from the
+    # UTC expectation, so this test actually guards the regression in CI.
+    naive = datetime(2026, 9, 11, 6, 0, 0)
+    timestamps = _run_event_timestamps(
+        _extractor(_FakeProxy(rows=[_scan_row(event_time=naive)]))
+    )
     expected_millis = int(naive.replace(tzinfo=timezone.utc).timestamp() * 1000)
-    assert run_events
-    assert all(e.timestampMillis == expected_millis for e in run_events)
+    assert timestamps
+    assert all(ts == expected_millis for ts in timestamps)
+
+
+@pytest.mark.timezone("XXX-5:30")
+def test_extractor_string_event_time_parsed_as_utc() -> None:
+    # Defensive path: a string timestamp is parsed and anchored to UTC.
+    timestamps = _run_event_timestamps(
+        _extractor(
+            _FakeProxy(rows=[_scan_row(event_time="2026-09-11 06:00:00.000000")])
+        )
+    )
+    expected_millis = int(
+        datetime(2026, 9, 11, 6, tzinfo=timezone.utc).timestamp() * 1000
+    )
+    assert timestamps
+    assert all(ts == expected_millis for ts in timestamps)
+
+
+def test_extractor_unparseable_event_time_falls_back_to_end_time() -> None:
+    timestamps = _run_event_timestamps(
+        _extractor(_FakeProxy(rows=[_scan_row(event_time="not-a-timestamp")]))
+    )
+    expected_millis = int(FROZEN_END.timestamp() * 1000)
+    assert timestamps
+    assert all(ts == expected_millis for ts in timestamps)
 
 
 def test_extractor_no_tables_skips_query() -> None:

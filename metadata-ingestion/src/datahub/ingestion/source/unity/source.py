@@ -489,6 +489,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
+        if self.config._forced_disable_data_quality_extraction:
+            self.report.warning(
+                message="Data Quality assertion extraction is disabled due to missing warehouse_id in config",
+                context="configuration-conflicts",
+                log=False,
+            )
+
         # SDK lacks TableType.METRIC_VIEW; warn so the no-op flag isn't silent.
         if (
             self.config.include_metric_views

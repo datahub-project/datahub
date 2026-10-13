@@ -199,6 +199,9 @@ def test_data_quality_auto_disabled_without_warehouse():
     )
     assert config.data_quality.enabled is False
     assert config.warehouse_id is None
+    # The forced-disable flag drives the structured report warning so the skip is
+    # surfaced in UI / --report-to runs, not just the logs.
+    assert config._forced_disable_data_quality_extraction is True
 
 
 def test_warehouse_id_not_required_when_tags_disabled():

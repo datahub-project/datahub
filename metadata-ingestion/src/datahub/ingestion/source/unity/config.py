@@ -596,6 +596,7 @@ class UnityCatalogSourceConfig(
 
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
     _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
+    _forced_disable_data_quality_extraction = pydantic.PrivateAttr(default=False)
 
     include_hive_metastore: bool = pydantic.Field(
         default=INCLUDE_HIVE_METASTORE_DEFAULT,
@@ -641,19 +642,24 @@ class UnityCatalogSourceConfig(
                 "Set warehouse_id to enable hive metastore extraction."
             )
 
+        forced_disable_data_quality_extraction = False
         if self.data_quality.enabled and not self.warehouse_id:
+            forced_disable_data_quality_extraction = True
             self.data_quality.enabled = False
             logger.warning(
                 "warehouse_id is not set but data_quality.enabled=True. "
                 "Automatically disabling data-quality assertion extraction since it "
-                "requires SQL queries against the monitor metric tables. "
-                "Set warehouse_id to enable it."
+                "requires SQL queries against the anomaly-detection results system "
+                "table. Set warehouse_id to enable it."
             )
 
         # Set private attributes
         self._forced_disable_tag_extraction = forced_disable_tag_extraction
         self._forced_disable_hive_metastore_extraction = (
             forced_disable_hive_metastore_extraction
+        )
+        self._forced_disable_data_quality_extraction = (
+            forced_disable_data_quality_extraction
         )
 
     def usage_uses_system_tables(self, warehouse_id: Optional[str]) -> bool:
