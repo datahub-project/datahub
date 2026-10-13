@@ -174,21 +174,6 @@ public class JavaEntityClientTest {
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
   }
 
-  /** Declined: the reference cleanup runs here as today (a failure is run again), offered once. */
-  @Test
-  void testDeleteEntityReferencesDeclinedRunsTodaysCodeAfterOneOffer() throws Exception {
-    Urn urn = UrnUtils.getUrn("urn:li:tag:referencesDeclined");
-    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
-    when(_deleteEntityService.deleteReferencesTo(opContext, urn, false))
-        .thenThrow(new IllegalArgumentException("transient"))
-        .thenReturn(null);
-
-    getJavaEntityClient(hardDeleteService(true, dispatcher)).deleteEntityReferences(opContext, urn);
-
-    verify(dispatcher, times(1)).dispatch(opContext, HardDeleteRequest.references(urn));
-    verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, false);
-  }
-
   /**
    * Declined: the entity is deleted now and the references when the caller runs them, with today's
    * code; the combined delete is offered once and the references never on their own.

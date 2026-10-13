@@ -364,21 +364,11 @@ public class HardDeleteServiceTest {
   }
 
   @Test
-  public void deleteReferencesDeclinedRunsTodaysCodeThroughTheCallersRunnerAfterOneOffer() {
-    final List<String> ranBy = new ArrayList<>();
+  public void deleteReferencesDeclinedRunsTodaysCodeAfterOneOffer() {
+    assertSame(service(true, dispatcher).deleteReferences(opContext, URN), referencesDeleted);
 
-    service(true, dispatcher)
-        .deleteReferences(
-            opContext,
-            URN,
-            cleanup -> {
-              ranBy.add("caller");
-              return cleanup.get();
-            });
-
-    verify(dispatcher, times(1)).dispatch(any(), any());
+    verify(dispatcher, times(1)).dispatch(opContext, HardDeleteRequest.references(URN));
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
-    assertEquals(ranBy, List.of("caller"));
   }
 
   @Test

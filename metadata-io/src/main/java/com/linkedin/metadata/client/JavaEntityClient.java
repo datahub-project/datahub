@@ -675,10 +675,6 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntityReferences(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
-    if (hardDeleteService != null) {
-      hardDeleteService.deleteReferences(opContext, urn, this::referencesCleanupAsToday);
-      return;
-    }
     withRetry(
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, false),
         "deleteEntityReferences");

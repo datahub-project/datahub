@@ -174,29 +174,19 @@ public class HardDeleteService {
     return response.setTimeseriesRows(numTimeseriesDocsDeleted);
   }
 
-  /** Deletes the references other entities hold to the entity, as today's cleanup does. */
-  @Nonnull
-  public DeleteReferencesResponse deleteReferences(
-      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
-    return deleteReferences(opContext, urn, Supplier::get);
-  }
-
   /**
-   * {@link #deleteReferences(OperationContext, Urn)}, offered once either way.
+   * Deletes the references other entities hold to the entity, as today's cleanup does, offered
+   * once.
    *
-   * @param runHere runs the cleanup when it stays in this process, the way the caller runs it today
    * @return what the cleanup did; empty when it was taken elsewhere
    */
   @Nonnull
   public DeleteReferencesResponse deleteReferences(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull
-          final Function<Supplier<DeleteReferencesResponse>, DeleteReferencesResponse> runHere) {
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
     if (offered(opContext, HardDeleteRequest.references(urn))) {
       return new DeleteReferencesResponse().setTotal(0).setRelatedAspects(new RelatedAspectArray());
     }
-    return runHere.apply(() -> deleteEntityService.deleteReferencesTo(opContext, urn, false));
+    return deleteEntityService.deleteReferencesTo(opContext, urn, false);
   }
 
   /**
