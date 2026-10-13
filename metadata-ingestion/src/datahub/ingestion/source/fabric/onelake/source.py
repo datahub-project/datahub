@@ -83,18 +83,14 @@ logger = logging.getLogger(__name__)
 PLATFORM = "fabric-onelake"
 
 # The Fabric SQL Analytics Endpoint speaks T-SQL, so profiling reuses the shared
-# SQL Server profiling adapter for identical metric coverage to the mssql source.
+# SQL Server profiling adapter for metric coverage identical to the mssql source.
 PROFILING_PLATFORM = "mssql"
 
 
 @dataclass
 class _ProfileCandidate:
-    """A table queued for profiling over the SQL Analytics Endpoint.
-
-    schema_name / table_name are the source-case identifiers used to reflect the
-    table; dataset_urn is the already-normalized URN the profile is emitted against.
-    """
-
+    # schema_name / table_name are source-case identifiers used to reflect the
+    # table; dataset_urn is the already-normalized URN the profile is emitted against.
     pretty_name: str
     dataset_urn: str
     schema_name: str
@@ -453,7 +449,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        # Tables eligible for profiling, collected while emitting datasets.
         profile_candidates: List[_ProfileCandidate] = []
 
         # Process tables
@@ -522,7 +517,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        # Tables eligible for profiling, collected while emitting datasets.
         profile_candidates: List[_ProfileCandidate] = []
 
         # Process tables
@@ -779,15 +773,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         columns: list[FabricColumn],
         profile_candidates: List[_ProfileCandidate],
     ) -> None:
-        """Queue a table for profiling if profiling is enabled and eligible.
-
-        Only tables are profiled (views are excluded, matching the mssql source).
-        A table with no known columns cannot yield field-level stats and is
-        skipped. The `profile_pattern` is applied here at the table level; the
-        profiler applies it again per-column.
-        """
         if not self.config.is_profiling_enabled():
             return
+        # A table with no known columns cannot yield field-level stats.
         if not columns:
             return
 
@@ -821,12 +809,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_client: Optional["SchemaExtractionClient"],
         profile_candidates: List[_ProfileCandidate],
     ) -> Iterable[MetadataWorkUnit]:
-        """Profile queued tables over the item's SQL Analytics Endpoint.
-
-        Reuses the schema client's engine (bound to the item's database) and the
-        shared MSSQL profiling adapter, so metric coverage matches the mssql
-        source. No-op when profiling is disabled or no eligible tables were found.
-        """
         if not self.config.is_profiling_enabled() or not profile_candidates:
             return
         if schema_client is None:

@@ -275,7 +275,6 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    # Profiling
     profiling: ProfilingConfig = Field(
         default_factory=ProfilingConfig,
         description=(
@@ -293,8 +292,8 @@ class FabricOneLakeSourceConfig(
 
     @model_validator(mode="after")
     def ensure_profile_pattern_is_passed_to_profiling(self):
-        # The profiler filters columns against this pattern internally; table-level
-        # filtering is applied in the source before building profile requests.
+        # The profiler filters columns against this pattern internally; the source
+        # applies it at the table level before building profile requests.
         if self.profiling is not None and self.profiling.enabled:
             self.profiling._allow_deny_patterns = self.profile_pattern
         return self

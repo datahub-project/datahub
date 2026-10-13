@@ -81,9 +81,7 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     usage_end_time: Optional[datetime] = None
     usage_run_skipped: bool = False
 
-    # Profiling metrics. Nested so the shared SQLAlchemyProfiler can record
-    # skip reasons, per-table timings, and query-combiner stats against the
-    # interface it expects (SQLSourceReport).
+    # The shared SQLAlchemyProfiler records its stats against a SQLSourceReport.
     profiling: SQLSourceReport = field(default_factory=SQLSourceReport)
     tables_profiled: int = 0
     profiling_skipped_profile_pattern: int = 0
