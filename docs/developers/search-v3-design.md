@@ -41,7 +41,7 @@ A filter, a facet, a clause, a list boost, or a highlight names one field. A fil
 
 ### The query is a template
 
-A template is the `searchTemplateProperties` aspect, `urn:li:searchTemplate:<id>`. It holds the query body and the sections around it: clauses, scoring, field weights, a ladder, retrieval, and sort. Well-known intents resolve to configured URNs. A deployment customizes by writing a child that replaces the sections it sets, or by pointing a slot at a different URN.
+A template is the `searchTemplateProperties` aspect, `urn:li:searchTemplate:<id>`. It holds the query body and the sections around it: clauses, scoring, field weights, a ladder, retrieval, sort, and an ordered route list. A surface and an engine resolve to a seed URN. That seed's routes choose the template from the query text. A deployment customizes by writing a child that replaces the sections it sets, or by pointing a slot at a different URN.
 
 A child inherits a parent. A section left unset stays. An explicit empty section drops the inherited one, so a boost, an exclusion, a rescore, a ranking preset, or the document rerank weights is a small write against a bootstrapped default. The next search renders the new body. There is no redeploy. The sections are in [Customization](#customization).
 
@@ -53,7 +53,7 @@ A caller overrides the stored template for one request and does not write it. `S
 
 On a keyword rung, soft delete, hidden lifecycle stages, requested entity types, latest-version filtering, and view authorization wrap the rendered query. A template cannot widen what the caller is allowed to see. On a vector rung, soft delete and hidden lifecycle stages are inside the kNN request, and view authorization is applied after the top-k. See [Vector retrieval](#vector-retrieval). Paging and the result cache stay in the service. System templates are editable only by the system actor.
 
-The service classifies the query into one closed intent. That intent, the surface, and the engine select the template. The first match wins: identity, list, structured exact, structured, exact, fulltext. A classified list, an empty string or `*`, runs as scroll. A caller-supplied URN skips classification. Fully qualified name and deep path are shape flags on the exact or fulltext template. One spaceless dotted token is exact. Any other dotted name is fulltext. A quoted query is exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The table is in [Selection](#selection).
+The service does not classify the query in code. The surface, the engine, and the fulltext flag select a seed template. The seed's ordered routes then match the trimmed query, and the first match wins. A query that matches none stays on the seed. An empty query or `*`, with no caller URN, runs as scroll. A caller-supplied URN is the entry, and its merged routes still run. Fully qualified name and deep path are shape flags on the exact or fulltext template. One spaceless dotted token is exact. Any other dotted name is fulltext. A quoted query is exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The route tables are in [Selection](#selection).
 
 The template body chooses a placeholder. The service computes the variations. The template does not supply a rewrite. See [Query variations](#query-variations).
 
@@ -67,7 +67,7 @@ A process advertises the capabilities it can run. Selecting a template it cannot
 
 ### How a request runs
 
-Bind resolves the URN, merges parents, chooses the standard or component executor, and checks capabilities. On a search, the ladder tries rungs until one stops. The standard executor renders, scores, and slices a keyword rung. A named component returns the same rung result envelope through its own implementation. Scroll runs a standard template's composed keyword query and does not walk the ladder; a selected component rung fails on scroll. Scroll also drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served, or the explanation data a component supplied. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
+Bind resolves the seed or the caller URN, follows its routes, merges parents, chooses the standard or component executor, and checks capabilities. On a search, the ladder tries rungs until one stops. The standard executor renders, scores, and slices a keyword rung. A named component returns the same rung result envelope through its own implementation. Scroll runs a standard template's composed keyword query and does not walk the ladder; a selected component rung fails on scroll. Scroll also drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served, or the explanation data a component supplied. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
 
 The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the analyzed fields in the queried set. A property in that set joins the weighted field list that `simple_query_string` reads, and it gets a whole-value term at its field weight. It joins that `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. See [Query holes](#query-holes). Inside a clause that scores by field weight, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays that boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. Scroll runs this composed keyword query and still drops those three. See [Ranking](#ranking) and [Search and scroll](#search-and-scroll).
 
@@ -79,11 +79,11 @@ Hydration from `_source` is not implemented. Search responses still read aspects
 
 ## Customization
 
-A template is the `searchTemplateProperties` aspect, addressed as `urn:li:searchTemplate:<id>`. Well-known intents resolve to configured URNs. A deployment customizes by writing a child, or by pointing a slot at a different URN.
+A template is the `searchTemplateProperties` aspect, addressed as `urn:li:searchTemplate:<id>`. A surface and an engine resolve to a seed URN. A deployment customizes by writing a child, or by pointing a slot at a different URN.
 
 ### Runtime and query-time customization
 
-**Runtime** changes what every caller sees. Creating a template, editing a section, or pointing a child at a new parent is a write to `urn:li:searchTemplate:<id>` through the generic entity API, including JSON patch. After the write commits, the next search renders the new body. `application.yaml` only names which URN an intent, surface, or engine resolves to. The body behind that URN changes with no restart.
+**Runtime** changes what every caller sees. Creating a template, editing a section, or pointing a child at a new parent is a write to `urn:li:searchTemplate:<id>` through the generic entity API, including JSON patch. After the write commits, the next search renders the new body. `application.yaml` names which seed URN a surface and an engine resolve to. The fulltext flag chooses the search seed or the structured seed. The body and the route list behind that URN change with no restart. The seeds are system templates. An operator who wants a different route list writes a child that replaces `routes` and points the slot at that child.
 
 **Query time** changes one request and does not write the template:
 
@@ -113,6 +113,7 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `boosts`                  | List-membership weights. Each entry is a field, an injectable list, and a weight.                          | [List boosts](#list-boosts)                                                      |
 | `rescore`                 | An engine rescore window after that wrapper, on a from/size search. Scroll drops it.                       | [Query composition](#query-composition), [Search and scroll](#search-and-scroll) |
 | `ranking`                 | Preset that reorders the engine window after the query returns, on a from/size search. Scroll drops it.    | [Ranking](#ranking), [Search and scroll](#search-and-scroll)                     |
+| `routes`                  | Ordered query matchers that choose another template before this body runs. An empty list pins this template. | [Selection](#selection)                                                          |
 | `ladder`                  | On a search: when to run this rung, when to keep the result, and the next template URN. Scroll ignores it. | [Query ladder](#query-ladder), [Search and scroll](#search-and-scroll)           |
 | `retrieval`               | How this rung retrieves. Unset is keyword. `vector` retrieves by embedding.                                | [Vector retrieval](#vector-retrieval)                                            |
 | `knn`                     | Weights that reorder document rows already in the keyword window, on a from/size search. Scroll drops it.  | [Document rerank](#document-rerank), [Search and scroll](#search-and-scroll)     |
@@ -134,6 +135,8 @@ An explicit empty string drops that section, including an inherited `knn`, `rank
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
 
 `queryFragments` merges by hole name. Every level that sets a non-empty key adds a fragment, joined root-first with commas. An unset key adds nothing. An empty string drops inherited fragments for that key. See [Query holes](#query-holes).
+
+`routes` replaces the whole list. Unset keeps the parent's list. An explicit empty list drops it, which is how a route target stays on the body it was routed to. A non-empty child list replaces the parent's order. There is no per-route merge.
 
 A rung does not reuse the previous rung's `functionScore`, `boosts`, `fields`, `clauses`, or `structuredPropertyQuery`. Those travel only when the next template names this one as `parent`.
 
@@ -161,7 +164,7 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 
 ### Dialect
 
-`ELASTICSEARCH` is rendered as query DSL and parsed before the search runs. Elasticsearch and OpenSearch share that dialect. An engine that needs a different clause points its slot at a child template. `POSTGRES` stores Mustache text for a future SQL compiler. Search V3 does not execute it. A `next` URN or an explicit `SearchFlags.searchTemplate` of a different dialect fails the search.
+`ELASTICSEARCH` is rendered as query DSL and parsed before the search runs. Elasticsearch and OpenSearch share that dialect. An engine that needs a different clause points its slot at a child template. `POSTGRES` stores Mustache text for a future SQL compiler. Search V3 does not execute it. A `next` URN, a route target, or an explicit `SearchFlags.searchTemplate` of a different dialect fails the search.
 
 A component does not render the template body. Its registration declares the dialects and engines it accepts. Bind checks that declaration against the request. Naming a component is not a way to cross a dialect boundary.
 
@@ -392,7 +395,7 @@ A named component is an alternative executor, not an authorization escape. It re
 The template cannot express the following. A section that tries is rejected, or, when the process does not implement the named preset, fails the capability check:
 
 - Painless and `script_score` in any section. Numeric boosts are `field_value_factor` or a filter weight. Formulas that read several signals are a `ranking` preset.
-- Regex selection predicates. A query class is an intent or a shape flag.
+- A regex inside a query body, a ladder predicate, or a Mustache expression. Query routing is the ordered `routes` list in [Selection](#selection). A ladder predicate stays a closed name. A shape flag stays a value the service computed.
 - Word-gram fields, ngram fields, and the per-field analyzer chain. One weight per field, as [Field weights](#field-weights) specifies: text at that weight, stemmed at half except on the name fields, exact on the keyword.
 - `k` and `num_candidates` on document rerank.
 - Offset pagination of a vector rung.
@@ -421,21 +424,24 @@ The same standard-template URN serves both. On scroll the ladder section is left
 | `rescore`                                               | Runs on the top `window_size`                                     | Dropped. The engine rejects `rescore` with `search_after` |
 | `ranking`                                               | Reorders the fetched window                                       | Dropped                                                   |
 | `knn` document rerank                                   | Reorders inside the ranking window                                | Dropped                                                   |
+| `routes`                                              | Followed before the body runs                                    | Followed before the body runs                            |
 | `ladder`, including a parallel join and fusion          | Walks `select`, `stop`, and `next`                                | Left unread. `next` is not followed                       |
 | Vector retrieval, `bridge`, and hybrid retrieval        | A window sliced from offset 0                                     | Left unread                                               |
 | Named rung component                                    | Runs as the whole rung executor                                   | Unsupported. Selecting one fails the request              |
 
 `includeExplain` and `searchType` apply to the query that was served on either API. System filters and view authorization wrap the keyword query on either API. Scroll runs the composed keyword query, including whole-value terms and name-and-value clauses, and still drops rescore, ranking, and knn. See [Name and value](#name-and-value).
 
-A classified list uses this scroll path. An empty query or `*`, with no `SearchFlags.searchTemplate`, is the `list` intent. The service runs the list template as scroll: the composed keyword query, no ladder, and no `rescore`, `ranking`, or `knn`. The list template sets `ranking.preset: none` and has no `next`, which matches that path. A caller `sortCriteria` is the list order, and with none set the order is score, then URN. An explicit template URN skips that classification. See [Selection](#selection).
+An empty query or `*`, with no `SearchFlags.searchTemplate`, still uses this scroll path after routing selects the list template. The service runs that template as scroll: the composed keyword query, no ladder, and no `rescore`, `ranking`, or `knn`. The list template sets `ranking.preset: none`, has no `next`, and has an empty `routes` list. A caller `sortCriteria` is the list order, and with none set the order is score, then URN. An explicit template URN skips that force. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
 
 ### Query sequence
 
-1. **Bind.** The query is classified into an intent, a template URN is resolved from the caller's `SearchFlags.searchTemplate` or the configured slot, and the parent chain is merged. That URN is the first rung. After merge, `component` chooses the named component executor; otherwise the standard executor is used.
+1. **Bind.** A template URN is resolved from the caller's `SearchFlags.searchTemplate` or from the seed for the surface, engine, and fulltext flag. The parent chain is merged, and the merged `routes` are matched against the trimmed query. The first match loads that target and repeats. A query that matches none stays on the current template. That URN is the first rung. After the route walk, `component` chooses the named component executor; otherwise the standard executor is used.
+
+   Each merge keeps the parent cycle check and a parent depth of five. Route hops keep a separate visited set and hop budget. The set contains each URN whose routes are evaluated, not the parents loaded to merge it. A repeated route URN or a spent hop budget fails the search. A route target of another dialect fails the same way.
 
    After the merge, the template's required capabilities are checked against the sections this request will run. A missing capability fails the request the same way a dialect mismatch does. A component rung requires its exact `component:<name>:<version>` registration, valid config, supported request filters and sort, and a search request. The walk does not skip a rung it is going to run, and the service does not drop that section and return keyword order. On a search, a `next` URN the process cannot run fails the same way. On scroll, `next` is unread, so that check waits until a search follows it; a component on the selected template itself still fails.
 
-   The cache key combines the service discriminators for the request with the template discriminators for the walk: every rung consulted, each modification time, and whether a rerank is armed on the rung that was served. When the served query expanded `structuredPropertyQuery`, the key also includes the structured-property catalog stamp used for that expansion. `lastModified` already separates two templates whose composed queries differ. For a component rung it also includes component name, contract version, canonical config, and process build stamp.
+   The cache key combines the service discriminators for the request with the final template and the ladder rungs this request will run: every rung consulted, each modification time, and whether a rerank is armed on the rung that was served. A route change that selects a different template changes that identity. The matched route chain is returned with `includeExplain`. It is not a second cache key. When the served query expanded `structuredPropertyQuery`, the key also includes the structured-property catalog stamp used for that expansion. `lastModified` already separates two templates whose composed queries differ. For a component rung it also includes component name, contract version, canonical config, and process build stamp. `subIntents` are not a second routing mechanism.
 
 2. **Walk.** On a search, the ladder tries the rung. Selection failure skips it and follows `next` without running the query. A rung that runs and matches its stop is kept. A rung that runs and misses its stop follows `next`. The last rung, which has no `next`, is kept either way, including a total of zero. A template with no ladder section is a single rung: it always runs and its result is kept.
 
@@ -457,24 +463,55 @@ System filters, the caller's filter, and view authorization wrap every standard 
 
 ### Selection
 
-A caller-supplied template URN is the first rung. On a search, the walk follows its `next`. Scroll does not. Otherwise the query is classified into an intent and the configured slot for that intent, surface, and engine supplies the entry URN. Lineage search is its own surface, so the entity search after a lineage walk can use its own template. The intent set is closed. The first match wins, in this order: `identity`, `list`, `structuredExact`, `structured`, `exact`, `fulltext`. Each intent is a separate template. A shape that is not its own intent is a flag on the exact or fulltext template, or a later ladder rung. It is not a conditional inside one body.
+A caller-supplied template URN is the entry. Its merged `routes` still run, so naming a child of a seed follows the routes that child inherited. An explicit empty `routes` list is what pins one template. On a search, the ladder then follows `next`. Scroll does not. Otherwise the surface, the engine, and the fulltext flag select a seed, and that seed's routes choose the template. Lineage search is its own surface, so the entity search after a lineage walk can use its own seed. `fulltext=false` selects the structured seed, because that flag is not part of the query text. Both seeds carry the identity and list routes.
 
-| Intent            | Classified when                                                                              |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `identity`        | A URN, or an `s3://`, `gs://`, or `hdfs://` path.                                            |
-| `list`            | An empty query or `*`. Runs as scroll. See [Search and scroll](#search-and-scroll).          |
-| `structuredExact` | A `/q` query that asks for the exact clauses.                                                |
-| `structured`      | A `/q` query that does not ask for the exact clauses.                                        |
-| `exact`           | Quoted, or one spaceless token, and not an intent above.                                     |
-| `fulltext`        | Everything else. One spaceless dotted token is `exact`. Any other dotted name is `fulltext`. |
+Routes match the trimmed query in the escaped form the service already uses. Each pattern is a full-string match, so a prefix consumes the rest of the query. The first match wins. A query that matches none stays on the current template, so the search seed does not need a catch-all `.*` route. The structured prefix is the characters `\/q `, including the leading backslash. `*` is also one spaceless token, so the list routes precede the spaceless route. Identity and the structured routes precede it as well.
 
-Fully qualified name is not an intent. `fullyQualifiedName` and `deepPath` are flags on the `exact` or `fulltext` template. The old exploratory tier is a later ladder rung, not an intent. The default fulltext template has no `next`, which keeps the recall ladder closed for the product default. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. Identity and `list` templates set `ranking.preset: none`. The list template also has no `next`. A classified list runs as scroll, so that path does not walk. An explicit URN skips classification. On a search, the walk follows `next` when the named template has one. See [Search and scroll](#search-and-scroll).
+The search seed is `urn:li:searchTemplate:fulltext`. A miss stays there.
 
-A quoted query and one spaceless token are both the `exact` intent. The exact template reads the `quoted` flag from [Query variations](#query-variations). When the flag is set, the phrase clause is required and the similar clause does not run. When it is unset, the unsplit token and the clauses in [Ranking](#ranking) run. Whole-value identity stays the `identity` intent.
+| Order | Pattern                         | Template                                      |
+| ----- | ------------------------------- | --------------------------------------------- |
+| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`     |
+| 2     | `^$`                            | `urn:li:searchTemplate:list`                  |
+| 3     | `^\*$`                          | `urn:li:searchTemplate:list`                  |
+| 4     | `^\\/q ["'].+["']$`             | `urn:li:searchTemplate:structuredExact`       |
+| 5     | `^\\/q .*`                      | `urn:li:searchTemplate:structured`            |
+| 6     | `^["'].+["']$`                  | `urn:li:searchTemplate:exact`                 |
+| 7     | `^\S+$`                         | `urn:li:searchTemplate:exact`                 |
 
-Search V3 selects the template in this order: an explicit `SearchFlags.searchTemplate`, then the organization intent slot, then the system default. A View-associated template is a later Search V3 product input. It is not a Search V2 or Search V2.5 ranking method. Authorization stays outside the template. Result-card layout is a companion of the matched-field report, not a template section.
+The structured seed is `urn:li:searchTemplate:structured`. A miss stays there. It has no spaceless route: with `fulltext=false`, one token is still structured.
+
+| Order | Pattern                         | Template                                      |
+| ----- | ------------------------------- | --------------------------------------------- |
+| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`     |
+| 2     | `^$`                            | `urn:li:searchTemplate:list`                  |
+| 3     | `^\*$`                          | `urn:li:searchTemplate:list`                  |
+| 4     | `^\\/q ["'].+["']$`             | `urn:li:searchTemplate:structuredExact`       |
+| 5     | `^["'].+["']$`                  | `urn:li:searchTemplate:structuredExact`       |
+
+`identity`, `list`, `exact`, and `structuredExact` set `routes` to an empty list. A hop to one of them does not route again. `structuredExact` is a child of `structured`, so the empty list is what drops the inherited routes.
+
+```yaml
+routes:
+  - queryRegex: (?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)
+    template: urn:li:searchTemplate:identity
+  - queryRegex: ^$
+    template: urn:li:searchTemplate:list
+  - queryRegex: ^\*$
+    template: urn:li:searchTemplate:list
+```
+
+A route target may itself have routes, so an operator can insert another router without a client change. Patterns are RE2. Java-only lookarounds and backreferences from a legacy `queryRegex` are rejected. Write time compiles each pattern, checks its length, checks the list length, checks that the target exists and uses the same dialect, and rejects a route whose target is the template being written. Bind time fails the search when a hop repeats a URN or spends the hop budget. Two routers may point at each other when no one query can follow both patterns. Parent cycles stay on the parent chain and use the existing depth of five. They are not route hops.
+
+Fully qualified name is not a route. `fullyQualifiedName` and `deepPath` are flags on the exact or fulltext template. The old exploratory tier is a later ladder rung. The fulltext template has no `next`, which keeps the recall ladder closed for the product default. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. Identity and `list` templates set `ranking.preset: none`. The list template also has no `next`. An empty query or `*` runs as scroll when the caller did not name a template, so that path does not walk. On a search, after routing, the walk follows `next` when the chosen template has one. See [Search and scroll](#search-and-scroll).
+
+A quoted query and one spaceless token both select `exact` on the search seed. The exact template reads the `quoted` flag from [Query variations](#query-variations). When the flag is set, the phrase clause is required and the similar clause does not run. When it is unset, the unsplit token and the clauses in [Ranking](#ranking) run. Whole-value identity selects `identity`.
+
+Search V3 selects the template in this order: an explicit `SearchFlags.searchTemplate`, otherwise the seed for the surface, engine, and fulltext flag, then that template's ordered routes. A View-associated template is a later Search V3 product input. It is not a Search V2 or Search V2.5 ranking method. Authorization stays outside the template. Result-card layout is a companion of the matched-field report, not a template section.
 
 Selection has no entity type. A multi-index query can still name an aspect field that only one of the indices maps; the others match nothing for that clause. A template that should apply only to one entity type, because it names such a field, needs an entity scope on the slot or on the template. That scope is not part of selection yet.
+
+Routes are not a ladder. A route looks at the query text and runs before any search, on search and on scroll. A ladder `select` is a closed predicate on the request, checked before a rung runs. `stop` and `next` look at the result. A route does not see the result, and a ladder predicate is not a regex.
 
 ### Query ladder
 
@@ -530,11 +567,11 @@ A rung that requires `scoreSort`, `pageSize`, and `notColumnFilter` is attempted
 
 **Next** is a template URN. The walk merges that template on its own. A standard rung renders its fields, clauses, function score, aggregations, sort, rescore, ranking, retrieval, and `knn`. A component rung invokes its named executor and leaves those standard sections unread. Nothing is copied from the rung that just ran except through ordinary parent inheritance, when the next template declares that parent. A cycle, a missing URN, a different dialect, a capability the process does not advertise, an unavailable component registration, or a walk longer than the parent-chain limit fails the search. `next` set with an empty `stop` is rejected at write time on a sequential rung. An empty `stop` matches nothing, so that rung would never be kept. A parallel `any` or `allEmpty` group may set `next` without a group `stop`, because the join decides. A `merge` group that sets `next` requires a group `stop`. `next` of another dialect is rejected the same way an explicit template of another dialect is.
 
-The cache key includes every rung the walk consults, with that rung's modification time. A change to `select`, `stop`, or `next` on the entry template changes which URN is served without changing the winner's body, so the entry's stamp has to be in the key as well. A component rung also contributes its name, version, canonical config, and process build stamp. The kept rung is the served rung. A rerank is armed only when a standard rung has `knn`.
+The cache key includes every rung the walk consults, with that rung's modification time. A change to `select`, `stop`, or `next` on the entry template changes which URN is served without changing the winner's body, so the entry's stamp has to be in the key as well. A component rung also contributes its name, version, canonical config, and process build stamp. The kept rung is the served rung. A rerank is armed only when a standard rung has `knn`. The route chain is not part of this key. The final template's stamp is.
 
-An explicit `SearchFlags.searchTemplate` starts the search walk at that URN and follows its `next`. A caller who wants one executor names a template that has no `next`. Scroll starts at that same URN and does not follow `next`; it requires the standard executor.
+An explicit `SearchFlags.searchTemplate` starts routing at that URN and, on a search, follows `next` after routing finishes. A caller who wants one executor names a template whose merged `routes` are empty and which has no `next`. Scroll starts at that same URN, follows routes, and does not follow `next`; it requires the standard executor.
 
-Intent, surface, and engine still choose the entry URN. The ladder does not replace that classification. It decides which template under that entry actually searches. The default fulltext template has no `next`. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. Entity scope, still not part of selection, would be another selection predicate once a template can be limited to one entity type. A stage can run several templates together and then continue in sequence. [Parallel rungs](#parallel-rungs) describes when that group is warranted.
+Surface, engine, and the fulltext flag choose the seed. Routes choose the template under that seed. The ladder does not replace that routing. It decides which template under the chosen entry actually searches. The fulltext template has no `next`. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. Entity scope, still not part of selection, would be another ladder predicate once a template can be limited to one entity type. A stage can run several templates together and then continue in sequence. [Parallel rungs](#parallel-rungs) describes when that group is warranted.
 
 ### Named rung components
 
@@ -697,7 +734,7 @@ The ranking window is the set the service fetches from offset 0 and reorders bef
 
 Scroll drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. A caller `sortCriteria` on a search replaces all three. On scroll they are already dropped, and `sortCriteria` replaces the score, then URN sort. Identity and `list` templates set `ranking.preset: none`.
 
-The combined ranking multiplier does not become a preset. It is a numeric field read with a missing value of `1.0`, written as a `field_value_factor` on the shared parent `functionScore`. An empty query, a quoted query, and full text are the `list`, `exact`, and `fulltext` intents. Regex matching stays out of the template.
+The combined ranking multiplier does not become a preset. It is a numeric field read with a missing value of `1.0`, written as a `field_value_factor` on the shared parent `functionScore`. An empty query, a quoted query, and full text select the `list`, `exact`, and `fulltext` templates through [Selection](#selection). A regex stays out of the query body. It is legal only as a `routes` pattern.
 
 ### Document rerank
 
@@ -797,9 +834,9 @@ Shape flags are computed by the service and referenced from the body:
 | `flags.alphanumericSplit` | The `alphanumericSplit` text differs from `normalized`.                                       |
 | `quoted`                  | `raw` has one surrounding pair of quotes.                                                     |
 
-`multiWord`, `dotted`, and `spacelessIdentifier` are also ladder predicates. `spacelessIdentifier` replaces both skips in the cascade: the six-digit hash pattern and the four-part delimiter skip. The other flags are body and window-sizer inputs. `fullyQualifiedName` and `deepPath` are flags on the `exact` or `fulltext` template. `quoted` is a flag on the `exact` template, because a quoted query is classified as `exact` before `fulltext`. They are not intents. The placeholder `alphanumericSplit` is the rewritten text. The boolean is `flags.alphanumericSplit`, and it is true when that text differs from `normalized`.
+`multiWord`, `dotted`, and `spacelessIdentifier` are also ladder predicates. `spacelessIdentifier` replaces both skips in the cascade: the six-digit hash pattern and the four-part delimiter skip. The other flags are body and window-sizer inputs. `fullyQualifiedName` and `deepPath` are flags on the `exact` or `fulltext` template. `quoted` is a flag on the `exact` template, because a quoted query selects `exact` before `fulltext`. They are not routes. The placeholder `alphanumericSplit` is the rewritten text. The boolean is `flags.alphanumericSplit`, and it is true when that text differs from `normalized`.
 
-A quoted query is the `exact` intent. The exact template reads `quoted`. When the flag is set, the phrase clause is required: `unquoted` must appear as a case-insensitive substring, words in order, in a queried text field. A document that does not contain that phrase is not a hit. The similar clause does not run. When the flag is unset, the query is one spaceless token and the exact body uses the unsplit token, with the clauses in [Ranking](#ranking). Whole-value identity stays the `identity` intent, a URN or a storage path, and a keyword term.
+A quoted query selects the `exact` template on the search seed. The exact template reads `quoted`. When the flag is set, the phrase clause is required: `unquoted` must appear as a case-insensitive substring, words in order, in a queried text field. A document that does not contain that phrase is not a hit. The similar clause does not run. When the flag is unset, the query is one spaceless token and the exact body uses the unsplit token, with the clauses in [Ranking](#ranking). Whole-value identity selects the `identity` template, a URN or a storage path, and a keyword term.
 
 The same map receives values the service injects for the request. `viewerUrn` is the caller. `viewerGroupsJson` is a JSON array of that caller's groups. `viewerDomainsJson` is a JSON array of the domains listed on the caller. `domainsJson` is a JSON array of domain URNs: domains the caller owns, domains named by an active policy that grants the caller a privilege on that domain, and the child domains under either. A platform-wide policy leaves this list empty. A clause references one of these to narrow. View authorization stays outside the template. When a rung's clause or boost names an injected value, that value is a service discriminator on the result cache key, so two callers do not share those hits. A template that names none of them keeps a cache key with no caller in it. A structured boost uses the same four names. See [List boosts](#list-boosts).
 
@@ -807,7 +844,9 @@ The same map receives values the service injects for the request. `viewerUrn` is
 
 Creating or updating a template resolves structured-property URNs to field names, renders each `queryFragments` value and then `query`, `clauses`, `functionScore`, `rescore`, `aggregations`, and `sort` with a validation context, then parses the result. A child that fills a hole the inherited query does not contain is rejected. A `query` write queries templates whose indexed `parent` is this URN and walks inheriting children, and it is rejected when the new text drops a hole one of them still fills. Where a remaining hole sits is not checked. See [Query holes](#query-holes). See [Structured properties](#structured-properties). For the Elasticsearch dialect, each of those sections has to be valid JSON, and `query`, `clauses`, and `functionScore` have to be valid query syntax. `functionScore` is parsed as a `function_score` wrapper, so a filter snippet on a function is parsed with that function. A render failure or a parse failure rejects the write. The check runs on the section as written and again on the body after parent merge. The Postgres dialect is rendered only. `structuredPropertyQuery` is checked for shape only: a positive `nameAndValueWeight`, or an explicit empty section. That check does not expand the definition catalog. URN-to-field resolution still applies to `query`, `clauses`, `fields`, and the other sections that name a property.
 
-`ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `component`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, the injectable named by a boost, and the registered component name and contract version. A component registration validates its own `config`. A write that sets `component` together with a standard execution section is rejected. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `.keyword` or `.text` suffix is legal on string and rich text. Either suffix is rejected on a date, a number, or a URN. A query `_name` of `exact`, `prefix`, `contains`, or `nameAndValue` is not a closed write-time set. The result reports that mode only when the matching clause carries it and names one structured-property field.
+`ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `component`, `routes`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, the injectable named by a boost, and the registered component name and contract version. A component registration validates its own `config`. A write that sets `component` together with a standard execution section is rejected. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `.keyword` or `.text` suffix is legal on string and rich text. Either suffix is rejected on a date, a number, or a URN. A query `_name` of `exact`, `prefix`, `contains`, or `nameAndValue` is not a closed write-time set. The result reports that mode only when the matching clause carries it and names one structured-property field.
+
+Each `routes` entry is a RE2 pattern and a template URN. Write time compiles the pattern, rejects a pattern or a list over its length limit, rejects a missing target, rejects a target of another dialect, and rejects a target that is the template being written. A parent cycle is still rejected on the parent chain. A route cycle that depends on which pattern matches is left to bind, which fails the search when the walk repeats a URN.
 
 Capability is a search-time check. A stored template remains writable on a process that does not yet advertise the capability. Selecting it there fails closed. The same rule applies to a component template stored where its exact name and version are known to the registry but not executable by the serving process.
 
