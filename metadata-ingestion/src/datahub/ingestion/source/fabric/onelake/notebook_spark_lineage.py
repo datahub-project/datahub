@@ -156,15 +156,9 @@ def extract_spark_lineage(
     A table both read and written by the same write (a delta write reads its own
     transaction log) is treated as an output only, never its own input. Writes
     are identified by the ``path=<abfss...>`` argument that datasource write
-    commands emit; every other OneLake ``/Tables/`` path is a read.
-
-    ponytail: this is a plan-text heuristic, not a parse of the plan node tree.
-    Its ceilings are (1) write commands that do not expose the sink via
-    ``path=`` (e.g. catalog-table writes), and (2) a single run that writes
-    several tables after a shared read block - the first write consumes the
-    pending reads, so later writes in that block see fewer inputs. The upgrade
-    path for both is to walk the structured ``nodes``/``edges`` the SQL API
-    returns alongside ``planDescription``.
+    commands emit; every other OneLake ``/Tables/`` path is a read. Writes that
+    do not expose their sink via ``path=`` (e.g. catalog-table writes) are
+    therefore not detected as outputs.
     """
     lineage: Dict[SparkTableRef, Set[SparkTableRef]] = {}
     pending_reads: Set[SparkTableRef] = set()
@@ -179,7 +173,5 @@ def extract_spark_lineage(
         inputs = pending_reads | reads
         for output in outputs:
             lineage.setdefault(output, set()).update(inputs - {output})
-        # The user's choice: a write consumes the preceding reads, so sequential
-        # A -> X, B -> Y pipelines in one run stay separate.
         pending_reads = set()
     return lineage
