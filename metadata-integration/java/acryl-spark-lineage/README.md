@@ -509,6 +509,9 @@ _Unreleased. Currently published as `1.7.0.11rc*`._
 - _Changes_:
   - **OpenLineage upgrade to 1.53.0** ([#19573](https://github.com/datahub-project/datahub/pull/19573)): the vendored/shaded OpenLineage classes were refreshed onto the 1.53 upstream base. This adds forwarded parent/root facets, Spark 4.2 and ClickHouse V2 catalog support, and broader Spark 3/4 and SQL lineage extraction. The new explicit-lineage model facets are accepted without changing DataHub's existing facet conversion.
   - **Breaking — Databricks Unity Catalog dataset URNs**: with Unity Catalog enabled, table symlinks now resolve to the catalog-qualified `<catalog>.<schema>.<table>` name instead of `<schema>.<table>`. See [Updating DataHub](https://docs.datahub.com/docs/how/updating-datahub) for the migration steps.
+  - **Fewer vendored OpenLineage classes** ([#20420](https://github.com/datahub-project/datahub/pull/20420)): eight shadowed OpenLineage classes that upstream already covers, or that never ran, were removed along with one DataHub-only helper, so the agent now ships upstream's versions. Emitted lineage is unchanged, with two exceptions: the JDBC fix below, and connectors that implement the OpenLineage extension interfaces (for example BigQuery on Dataproc) now go through upstream's class-loader handling, which the agent previously skipped.
+- _Fixes_:
+  - **JDBC reads with an aliased or joined `dbtable` lost their inputs** ([#20420](https://github.com/datahub-project/datahub/pull/20420)): a `dbtable` such as `public.orders AS o` or `orders o JOIN customers c ON ...` was treated as one table name that could not be turned into a URN, so the job showed no upstream for that read. The tables it reads are now reported.
 - _Dependencies_:
   - Apache Parquet bumped to 1.18.1 in the shaded jar for CVE-2026-73334 ([#19743](https://github.com/datahub-project/datahub/pull/19743))
   - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)

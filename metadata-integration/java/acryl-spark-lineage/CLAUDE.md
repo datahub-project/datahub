@@ -81,25 +81,43 @@ These files are OpenLineage source files with DataHub-specific modifications app
 Tracked via patch files in `patches/datahub-customizations/v1.53.0/`:
 
 1. **`Vendors.patch`**: Adds `RedshiftVendor` to the vendors list
-2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling
+2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling. Upstream removed this symlink
+   on purpose (OpenLineage #2767), so without it Delta `LOCATION` tables outside the warehouse get
+   only path URNs when no metastore, Glue or Unity Catalog is configured
 3. **`PlanUtils.patch`**: Custom directory path handling with DataHub's HdfsPathDataset
-4. **`RemovePathPatternUtils.patch`**: DataHub-specific PathSpec transformations
-5. **`SaveIntoDataSourceCommandVisitor.patch`**: JDBC / Delta write output-dataset handling
-6. **`StreamingDataSourceV2RelationVisitor.patch`**: File-based streaming source support
-7. **`WriteToDataSourceV2Visitor.patch`**: ForeachBatch streaming write support
-8. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
-9. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
-10. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
-11. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
-    name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
-    "Shading vs. reflection by class name" below
+4. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
+5. **`MergeIntoCommandInputDatasetBuilder.patch`**: When the MERGE source is a join, filter or
+   aggregate, walks the source plan for its tables; upstream's builder only resolves a plain table
+   (OpenLineage #3942, #3183)
+6. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
+   name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
+   "Shading vs. reflection by class name" below
+
+**The rule for keeping a customization:** a shadowed copy stays only while it changes the lineage
+we emit, and a test shows that change. Every shadowed class is a standing runtime risk: upstream's
+precompiled classes keep calling into whatever class sits at that path, so a method upstream adds
+and our copy lacks becomes a `NoSuchMethodError` in production. Before carrying a patch through an
+upgrade, check that upstream still lacks the behaviour.
+
+**Removed customizations.** These were deleted in
+[#20420](https://github.com/datahub-project/datahub/pull/20420) because upstream OpenLineage already
+covers them, or they never ran. Do not re-vendor them on an upgrade:
+
+| Removed                                                                      | Why it was redundant                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SaveIntoDataSourceCommandVisitor`                                           | The Delta `saveAsTable` branches were unreachable (Spark never plans `saveAsTable` as `SaveIntoDataSourceCommand`; `QueryExecution.sqlText()` does not exist). The JDBC guard duplicated `PlanUtils.safeApply`.                    |
+| `WriteToDataSourceV2Visitor`                                                 | Its sink-name match never fired: file, `foreachBatch` and Delta sinks are V1 sinks, handled by upstream's `WriteToMicroBatchDataSourceV1DatasetBuilder`.                                                                           |
+| `StreamingDataSourceV2RelationVisitor`, `FileStreamMicroBatchStreamStrategy` | File stream sources are V1; each micro-batch is a `LogicalRelation` that upstream reports. Pinned by `SparkFileStreamSourceSmokeTest`.                                                                                             |
+| `RemovePathPatternUtils`                                                     | A no-op: OpenLineage dataset names carry no scheme, so its `HdfsPathDataset` call always fell back to the input. It also disabled upstream's `spark.openlineage.dataset.removePath.pattern`. PathSpec is applied by the converter. |
+| `VendorsContext`, `VendorsImpl`                                              | Byte-identical to upstream.                                                                                                                                                                                                        |
+| `JdbcSparkUtils`                                                             | A stale fork of upstream 1.39. Aliased and join `dbtable`s became table names the converter could not turn into URIs, so those reads lost their inputs. Pinned by `SparkJdbcDbtableNamingSmokeTest`.                               |
+| `SparkOpenLineageExtensionVisitorWrapper`                                    | Only changed logging, and in doing so disabled upstream's class-loader injection (OpenLineage #3407), losing connector extension lineage when the connector is loaded by another class loader.                                     |
 
 **DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
 
 - **`RddDatasetInfoExtractor`** (`spark/agent/util/`): a fork of upstream's former `RddPathUtils`,
   renamed and heavily rewritten; upstream no longer ships `RddPathUtils` at the tracked path, so it
   is maintained as a standalone DataHub file rather than a patch.
-- **`JdbcSparkUtils`**, **`FileStreamMicroBatchStreamStrategy`**: DataHub additions.
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
 
 ### Shading vs. reflection by class name (recurring hazard)
@@ -203,15 +221,17 @@ default). Override explicitly with `spark.datahub.metadata.dataset.openLineageTr
 (`true` forces them on, `false` forces them off); a directly-set
 `spark.openlineage.dataset.disabledTrimmers` always wins.
 
-**Known gap — column-level lineage (CLL) can point at untrimmed URNs.** DataHub's
-`RemovePathPatternUtils` rewrites dataset names on the `Input`/`OutputDataset`, but upstream builds
-CLL field references in `ColumnLevelLineageBuilder` _before_ that rewrite runs — so CLL
-`schemaField` URNs can reference the **untrimmed** dataset name and fail to match the emitted dataset
-entity (CLL looks broken in the UI). Upstream trimmers avoid this because they run inside
-`ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The strategic fix is to
-apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL consistency comes for
-free and the two hardest patches (`PlanUtils`, `RemovePathPatternUtils`) can eventually be dropped.
-See ING-2959 for the phased plan.
+**Known gap — column-level lineage (CLL) can point at untrimmed URNs.** The converter applies
+PathSpec to both dataset names and CLL input fields (`OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn`),
+so the two normally agree. They diverge where the `PlanUtils` patch has already rewritten a dataset
+path inside the agent while upstream builds CLL from the raw root paths: PathSpecs written with an
+`s3a`/`abfs`/`wasb` scheme, which match the raw Hadoop path before OpenLineage normalizes the scheme,
+and file-vs-directory differences. CLL `schemaField` URNs can then reference a name that doesn't
+match the emitted dataset entity (CLL looks broken in the UI). Upstream trimmers avoid this because
+they run inside `ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The
+strategic fix is to apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL
+consistency comes for free and the `PlanUtils` patch can eventually be dropped. See ING-2959 for
+the phased plan.
 
 ### Upgrade Process (3-way merge — the reliable path)
 
@@ -243,9 +263,9 @@ optional first pass only.
 
    Files upstream didn't touch merge cleanly (empty delta). Resolve any conflict markers by hand.
 
-3. **Port the DataHub-specific files by hand** — `RddDatasetInfoExtractor`, `JdbcSparkUtils`,
-   `FileStreamMicroBatchStreamStrategy`, and the redshift vendor have **no upstream** to merge
-   against, so adapt them directly to any changed OL/Spark APIs (see step 6).
+3. **Port the DataHub-specific files by hand** — `RddDatasetInfoExtractor` and the redshift vendor
+   have **no upstream** to merge against, so adapt them directly to any changed OL/Spark APIs (see
+   step 6).
 
 4. **Bump the version** in the root `build.gradle`:
 
@@ -351,7 +371,6 @@ If you need to customize additional files:
 
 **Files that are entirely DataHub-specific:**
 
-- `FileStreamMicroBatchStreamStrategy.java` - Custom file-based streaming
 - Redshift vendor files - Complete custom Redshift support
 - These have `.note` files instead of `.patch` files
 
