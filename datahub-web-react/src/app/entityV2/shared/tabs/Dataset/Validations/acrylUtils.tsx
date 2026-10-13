@@ -5,11 +5,21 @@ import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { getCustomAssertionFields } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
-import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
+import {
+    Assertion,
+    AssertionResultType,
+    AssertionStdAggregation,
+    AssertionType,
+    CustomAssertionInfo,
+    DatasetAssertionScope,
+    EntityType,
+    Maybe,
+} from '@types';
 
 const StyledApiOutlined = styled(Plugs)`
     && {
@@ -179,8 +189,52 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
+/**
+ * CUSTOM assertions come from external tools (dbt, Great Expectations, ...) and carry the tool's
+ * name in customAssertion.type. The platform avatar already shows the source, so categorize by
+ * what the assertion checks instead; otherwise every dbt test renders under the same "DBT" category.
+ */
+const getCustomAssertionCategory = (customAssertion?: Maybe<CustomAssertionInfo>): AssertionType => {
+    // Column: the assertion targets specific columns (e.g. dbt not_null, unique, accepted_values,
+    // relationships), which is what native FIELD assertions check. Grouping them as Column puts
+    // them next to native column checks and keeps them findable by the column they cover.
+    // Some emitters (Snowflake DMFs, ODCS fallback rules) name the column but never set scope,
+    // so a column reference without a scope counts as column-scoped too. An explicit scope wins.
+    if (
+        customAssertion?.scope === DatasetAssertionScope.DatasetColumn ||
+        (!customAssertion?.scope && getCustomAssertionFields(customAssertion).length > 0)
+    ) {
+        return AssertionType.Field;
+    }
+    // Schema: the assertion checks the table's structure (e.g. Great Expectations
+    // expect_table_columns_to_match_set, expect_column_to_exist), which is what native
+    // DATA_SCHEMA assertions check.
+    if (customAssertion?.scope === DatasetAssertionScope.DatasetSchema) {
+        return AssertionType.DataSchema;
+    }
+    // Volume: a row-scoped assertion that aggregates ROW_COUNT is checking how many rows the table
+    // has (e.g. Great Expectations expect_table_row_count_*, SQLMesh number_of_rows), the same
+    // question native VOLUME assertions answer. Row scope alone is not enough: most row-level
+    // tests are arbitrary SQL.
+    if (
+        customAssertion?.scope === DatasetAssertionScope.DatasetRows &&
+        customAssertion?.aggregation === AssertionStdAggregation.RowCount
+    ) {
+        return AssertionType.Volume;
+    }
+    // Custom: anything we can't classify confidently, such as singular SQL tests (_NATIVE_ logic),
+    // dbt source freshness, or assertions with neither a scope nor a column. Guessing would
+    // mislabel them, and falling back to customAssertion.type would bring back the per-tool
+    // "DBT" category.
+    return AssertionType.Custom;
+};
+
+// Native assertion types are already categories; only CUSTOM needs to be resolved.
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    if (assertion?.info?.type === AssertionType.Custom) {
+        return getCustomAssertionCategory(assertion.info.customAssertion);
+    }
+    return assertion?.info?.type?.toUpperCase();
 };
 
 /**

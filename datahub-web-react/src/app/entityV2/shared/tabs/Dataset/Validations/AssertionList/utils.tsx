@@ -319,9 +319,9 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
-        // getAssertionType prefers customAssertion.type (e.g. GREAT_EXPECTATIONS). When that
-        // differs from CUSTOM, also count the Custom ASSERTION_INFO bucket. Skip when type is
-        // already CUSTOM to avoid double-counting subtype-less customs.
+        // getAssertionType categorizes CUSTOM assertions by what they check (e.g. a column-scoped
+        // dbt test resolves to FIELD). When that differs from CUSTOM, also count the Custom
+        // ASSERTION_INFO bucket. Skip when type is already CUSTOM to avoid double-counting.
         if (assertion.info?.type === AssertionType.Custom) {
             if (type !== AssertionType.Custom) {
                 filterGroupCounts.type[AssertionType.Custom] = (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
@@ -526,8 +526,8 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
 };
 
 /**
- * Type filter matching. `getAssertionType` prefers `customAssertion.type` (provider key),
- * so selecting Custom must also match any assertion whose top-level type is CUSTOM.
+ * Type filter matching. `getAssertionType` may resolve a CUSTOM assertion to a structural
+ * category (e.g. FIELD), so selecting Custom must also match any assertion whose top-level type is CUSTOM.
  */
 export const assertionMatchesTypeFilter = (assertion: Assertion, selectedTypes: AssertionType[]): boolean => {
     if (selectedTypes.length === 0) {
