@@ -187,8 +187,9 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
-    // For vertical sidebar
-    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
+    // Stay closed until click or keyboard. Hover would reflow the list under the pointer
+    // and mount a profile for every row the pointer crosses.
+    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const {
