@@ -313,9 +313,6 @@ clickhouse-usage = [
     { name = "sqlparse" },
     { name = "zstd" },
 ]
-cloud = [
-    { name = "acryl-datahub-cloud" },
-]
 cockroachdb = [
     { name = "boto3" },
     { name = "botocore" },
@@ -505,6 +502,7 @@ dev = [
     { name = "flatdict" },
     { name = "geoalchemy2" },
     { name = "gitpython" },
+    { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
@@ -701,6 +699,7 @@ docs = [
     { name = "flatdict" },
     { name = "geoalchemy2" },
     { name = "gitpython" },
+    { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
@@ -982,6 +981,18 @@ glue = [
     { name = "cachetools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+]
+google-drive = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "google-api-python-client" },
+    { name = "google-auth" },
+    { name = "graphql-core" },
+    { name = "jsonpath-ng" },
+    { name = "markdownify" },
+    { name = "nltk" },
+    { name = "unstructured", extra = ["md"] },
+    { name = "unstructured-ingest" },
 ]
 grafana = [
     { name = "requests" },
@@ -1609,7 +1620,6 @@ vertica = [
 
 [package.metadata]
 requires-dist = [
-    { name = "acryl-datahub-cloud", marker = "extra == 'cloud'" },
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'all'", specifier = "==0.6.18" },
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'dev'", specifier = "==0.6.18" },
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'docs'", specifier = "==0.6.18" },
@@ -1625,9 +1635,9 @@ requires-dist = [
     { name = "aiohttp", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'dev'", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'docs'", specifier = "<4" },
-    { name = "anyio", specifier = ">=4.10.0,<5.0.0" },
-    { name = "anyio", marker = "extra == 'dev'", specifier = ">=4.10.0,<5.0.0" },
-    { name = "anyio", marker = "extra == 'docs'", specifier = ">=4.10.0,<5.0.0" },
+    { name = "anyio", specifier = ">=4.14.2,<5.0.0" },
+    { name = "anyio", marker = "extra == 'dev'", specifier = ">=4.14.2,<5.0.0" },
+    { name = "anyio", marker = "extra == 'docs'", specifier = ">=4.14.2,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'confluence'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'dev'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'docs'", specifier = ">=3.41.0,<5.0.0" },
@@ -1697,6 +1707,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'gcs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'gcs-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'glue'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'google-drive'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'iceberg-catalog'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'integration-tests'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'kinesis'", specifier = ">=1.35.0,<2.0.0" },
@@ -1731,6 +1742,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'gcs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'gcs-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'glue'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'google-drive'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'iceberg-catalog'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'integration-tests'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'kinesis'", specifier = "!=1.23.0,<2.0.0" },
@@ -1817,9 +1829,9 @@ requires-dist = [
     { name = "cassandra-driver", marker = "extra == 'cassandra'", specifier = ">=3.30.1,<4.0.0" },
     { name = "cassandra-driver", marker = "extra == 'dev'", specifier = ">=3.30.1,<4.0.0" },
     { name = "cassandra-driver", marker = "extra == 'docs'", specifier = ">=3.30.1,<4.0.0" },
-    { name = "click", specifier = ">=7.1.2,!=8.2.0,<9.0.0" },
-    { name = "click", marker = "extra == 'dev'", specifier = ">=7.1.2,!=8.2.0,<9.0.0" },
-    { name = "click", marker = "extra == 'docs'", specifier = ">=7.1.2,!=8.2.0,<9.0.0" },
+    { name = "click", specifier = ">=8.3.3,<9.0.0" },
+    { name = "click", marker = "extra == 'dev'", specifier = ">=8.3.3,<9.0.0" },
+    { name = "click", marker = "extra == 'docs'", specifier = ">=8.3.3,<9.0.0" },
     { name = "click-default-group", specifier = "<2.0.0" },
     { name = "click-default-group", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "click-default-group", marker = "extra == 'docs'", specifier = "<2.0.0" },
@@ -1948,10 +1960,10 @@ requires-dist = [
     { name = "fastavro", marker = "extra == 'dev'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'docs'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'kafka'", specifier = ">=1.2.0,<2.0.0" },
-    { name = "feast", marker = "extra == 'dev'", specifier = ">=0.34.0,<1" },
-    { name = "feast", marker = "extra == 'docs'", specifier = ">=0.34.0,<1" },
-    { name = "feast", marker = "extra == 'feast'", specifier = ">=0.34.0,<1" },
-    { name = "feast", marker = "extra == 'integration-tests'", specifier = ">=0.34.0,<1" },
+    { name = "feast", marker = "extra == 'dev'", specifier = ">=0.47.0,<1" },
+    { name = "feast", marker = "extra == 'docs'", specifier = ">=0.47.0,<1" },
+    { name = "feast", marker = "extra == 'feast'", specifier = ">=0.47.0,<1" },
+    { name = "feast", marker = "extra == 'integration-tests'", specifier = ">=0.47.0,<1" },
     { name = "filelock", marker = "extra == 'all'", specifier = ">=3.13.1,<4.0.0" },
     { name = "filelock", marker = "extra == 'sync-file-emitter'", specifier = ">=3.13.1,<4.0.0" },
     { name = "flask-openid", marker = "extra == 'dev'", specifier = ">=1.3.0,<2.0.0" },
@@ -1976,10 +1988,14 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'looker'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'lookml'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'odcs'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "google-api-python-client", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-api-python-client", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-api-python-client", marker = "extra == 'google-drive'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-auth", marker = "extra == 'google-drive'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'notion'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'unstructured'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-cloud-aiplatform", marker = "extra == 'all'", specifier = ">=1.80.0,<2.0.0" },
@@ -2042,6 +2058,7 @@ requires-dist = [
     { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'google-drive'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'sap-datasphere'", specifier = ">=3.0.0,<4.0.0" },
     { name = "greenlet", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'athena'", specifier = "<4.0.0" },
@@ -2125,6 +2142,7 @@ requires-dist = [
     { name = "jsonpath-ng", marker = "extra == 'datahub-documents'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'dev'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'docs'", specifier = "==1.7.0" },
+    { name = "jsonpath-ng", marker = "extra == 'google-drive'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'notion'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'unstructured'", specifier = "==1.7.0" },
     { name = "jsonpickle", marker = "extra == 'dev'", specifier = "<5.0.0" },
@@ -2160,6 +2178,7 @@ requires-dist = [
     { name = "markdownify", marker = "extra == 'confluence'", specifier = ">=0.14.1,<2.0.0" },
     { name = "markdownify", marker = "extra == 'dev'", specifier = ">=0.14.1,<2.0.0" },
     { name = "markdownify", marker = "extra == 'docs'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'google-drive'", specifier = ">=0.14.1,<2.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
     { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
@@ -2222,6 +2241,7 @@ requires-dist = [
     { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'dev'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'docs'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'google-drive'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'notion'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'unstructured'", specifier = "!=3.10.1" },
     { name = "numpy", marker = "extra == 'all'", specifier = "<2" },
@@ -2856,9 +2876,11 @@ requires-dist = [
     { name = "unstructured", extras = ["md"], marker = "extra == 'datahub-documents'", specifier = "==0.24.1" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'dev'", specifier = "==0.24.1" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'docs'", specifier = "==0.24.1" },
+    { name = "unstructured", extras = ["md"], marker = "extra == 'google-drive'", specifier = "==0.24.1" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'notion'", specifier = "==0.24.1" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'unstructured'", specifier = "==0.24.1" },
     { name = "unstructured-ingest", marker = "extra == 'datahub-documents'", specifier = "==1.4.28" },
+    { name = "unstructured-ingest", marker = "extra == 'google-drive'", specifier = "==1.4.28" },
     { name = "unstructured-ingest", marker = "extra == 'unstructured'", specifier = "==1.4.28" },
     { name = "unstructured-ingest", extras = ["confluence"], marker = "extra == 'confluence'", specifier = "==1.4.28" },
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'dev'", specifier = "==1.4.28" },
@@ -2901,24 +2923,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
-
-[[package]]
-name = "acryl-datahub-cloud"
-version = "0.3.14.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "acryl-datahub" },
-    { name = "avro-gen3" },
-    { name = "croniter" },
-    { name = "pytz" },
-    { name = "types-croniter" },
-    { name = "tzlocal" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/56/59/b4f6d0073453c1a71c8e9d2aa123efdbbc9e05a4567550bfe55e5276b7f0/acryl_datahub_cloud-0.3.14.1.tar.gz", hash = "sha256:961185d2f3dd0d06913adb87f9353bf194053042aba405216c48aee2019528ee", size = 863730, upload-time = "2025-10-08T18:52:32.06Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/9b/b98285e4afa9dc9096056c542820cf83d23e0f5ee97dd9a413b472e15ec9/acryl_datahub_cloud-0.3.14.1-py3-none-any.whl", hash = "sha256:be73a194325f12f0bed836dc21b9984d68d8c06793ec95a0455f2712dacc02d6", size = 1118204, upload-time = "2025-10-08T18:52:30.152Z" },
-]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "google-drive", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-pyhive"
@@ -4559,19 +4564,6 @@ wheels = [
 ]
 
 [[package]]
-name = "croniter"
-version = "6.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dateutil" },
-    { name = "pytz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/2f/44d1ae153a0e27be56be43465e5cb39b9650c781e001e7864389deb25090/croniter-6.0.0.tar.gz", hash = "sha256:37c504b313956114a983ece2c2b07790b1f1094fe9d81cc94739214748255577", size = 64481, upload-time = "2024-12-17T17:17:47.32Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/4b/290b4c3efd6417a8b0c284896de19b1d5855e6dbdb97d2a35e68fa42de85/croniter-6.0.0-py2.py3-none-any.whl", hash = "sha256:2f878c3856f17896979b2a4379ba1f09c83e374931ea15cc835c5dd2eee9b368", size = 25468, upload-time = "2024-12-17T17:17:45.359Z" },
-]
-
-[[package]]
 name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5537,6 +5529,22 @@ grpc = [
 ]
 
 [[package]]
+name = "google-api-python-client"
+version = "2.201.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core" },
+    { name = "google-auth" },
+    { name = "google-auth-httplib2" },
+    { name = "httplib2" },
+    { name = "uritemplate" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b6/47/077e889d3c618d971d3bce4ab198c645a607276b8d4bb151cfe78d2c92bb/google_api_python_client-2.201.0.tar.gz", hash = "sha256:d5691982abd7287f53cb0b0e0c6a9984d4103cf864ea0a88cb6e4347bbaf70de", size = 16211808, upload-time = "2026-09-30T22:06:21.223Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/c0/221313acdee33b8e5d3fe8a06ba398fc18cfd14627816764bb00318a6065/google_api_python_client-2.201.0-py3-none-any.whl", hash = "sha256:2d9bf1ba3f12eee8ed3d0f1791ce0605d163432f496baa72d3677faa2cf097d6", size = 16812656, upload-time = "2026-09-30T22:06:18.574Z" },
+]
+
+[[package]]
 name = "google-auth"
 version = "2.49.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5553,6 +5561,19 @@ wheels = [
 [package.optional-dependencies]
 requests = [
     { name = "requests" },
+]
+
+[[package]]
+name = "google-auth-httplib2"
+version = "0.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-auth" },
+    { name = "httplib2" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/6d/a511ca64d5412850e351bdec6bb224e5090749bd85c186135e8fdb4fd85a/google_auth_httplib2-0.4.4.tar.gz", hash = "sha256:b931de392c20cfaa351cd789274922bd8cdc001e0e9e96de31b39d71347f8e16", size = 11221, upload-time = "2026-10-01T18:14:25.38Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/ea/27cf5d623efdc1cdb2632b4c872ac5092cd3895671ba1d5004e73c3f1a7c/google_auth_httplib2-0.4.4-py3-none-any.whl", hash = "sha256:bbe5d7b2401bb3a4017f4720e1e91bd273ab9a2bb60b84e65edbc0de127852da", size = 9542, upload-time = "2026-10-01T18:07:31.699Z" },
 ]
 
 [[package]]
@@ -6199,6 +6220,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
+]
+
+[[package]]
+name = "httplib2"
+version = "0.32.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/84/f5/ccf58de92d61e3ad921119668f54ed36ca1d0cf5dcc5c1657dfb164fd78b/httplib2-0.32.0.tar.gz", hash = "sha256:48a0ef30a42db65d8f3399045e1d09ab0ba66e3b9efc360d07f80ea55d286025", size = 254283, upload-time = "2026-06-26T10:13:56.265Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl", hash = "sha256:dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816", size = 93148, upload-time = "2026-06-26T10:13:54.985Z" },
 ]
 
 [[package]]
@@ -12073,15 +12106,6 @@ wheels = [
 ]
 
 [[package]]
-name = "types-croniter"
-version = "6.0.0.20250809"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/35/ac/7b26a9b19cc2b137293b14af71402ba83d13674c208b141474b6887465ae/types_croniter-6.0.0.20250809.tar.gz", hash = "sha256:c829295d4d65eaddcfafec905b0fbab59e72c3c91ee934a4d504dcafad79ff95", size = 11745, upload-time = "2025-08-09T03:14:10.729Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/99/e8e40592fbecb6671b32e4dab4cca2a1d4fa7d5b2f54aece134ccb42e839/types_croniter-6.0.0.20250809-py3-none-any.whl", hash = "sha256:d9f53f3e837eb6af509e2090fd2f5bb29b38425dd78f77d7b3bf37ccd2b2bf93", size = 9712, upload-time = "2025-08-09T03:14:09.966Z" },
-]
-
-[[package]]
 name = "types-dataclasses"
 version = "0.6.6"
 source = { registry = "https://pypi.org/simple" }
@@ -12471,6 +12495,15 @@ notion = [
     { name = "htmlbuilder" },
     { name = "httpx" },
     { name = "notion-client" },
+]
+
+[[package]]
+name = "uritemplate"
+version = "4.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/98/60/f174043244c5306c9988380d2cb10009f91563fc4b31293d27e17201af56/uritemplate-4.2.0.tar.gz", hash = "sha256:480c2ed180878955863323eea31b0ede668795de182617fef9c6ca09e6ec9d0e", size = 33267, upload-time = "2025-06-02T15:12:06.318Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/99/3ae339466c9183ea5b8ae87b34c0b897eda475d2aec2307cae60e5cd4f29/uritemplate-4.2.0-py3-none-any.whl", hash = "sha256:962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21abd533879bdb8a686", size = 11488, upload-time = "2025-06-02T15:12:03.405Z" },
 ]
 
 [[package]]

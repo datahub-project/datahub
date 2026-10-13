@@ -218,6 +218,12 @@ class MLAssetSubTypes(StrEnum):
     FOLDER = "Folder"
 
 
+class DocumentSubTypes(StrEnum):
+    # Documents that stand for a folder in the source system, matching the value
+    # DataHub uses for natively-created folders.
+    FOLDER = "Folder"
+
+
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
