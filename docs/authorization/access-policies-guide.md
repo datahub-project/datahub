@@ -166,6 +166,21 @@ select it.
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
 </p>
 
+In the same way, you can limit the scope to assets in specific **Containers**, or assets annotated with specific
+**Tags** or **Glossary Terms**. If left blank, these filters do not restrict the scope.
+
+Each of these filters has a condition selector next to it, which defaults to **Equals**:
+
+- **Equals**: The Policy applies to assets that match any of the selected values.
+- **Not Equals**: The Policy applies to assets that match none of the selected values. For example, select `Datasets`
+  as the Resource Type and **Not Equals** `Finance` as the Domain to cover every dataset outside the Finance domain.
+- **Starts With**: Instead of selecting values, enter a prefix. The Policy applies to assets whose value starts with
+  that prefix, for example `urn:li:tag:pii_` for all tags whose URN starts with that prefix. This option is not
+  available for the Resource Type filter.
+
+Switching a filter to or from **Starts With** clears its current values. See
+[Match Conditions](./policies.md#match-conditions) for details on how each condition is evaluated.
+
 Finally, we will choose the Privileges to grant when the selected entities fall into the defined
 scope.
 
