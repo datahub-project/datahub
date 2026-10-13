@@ -50,7 +50,8 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
               // still attempts its own cleanup, and a member who is re-added later repairs their
               // own edge via GroupService's restoreIndices path.
               final List<Urn> capturedMembers = captureMembersBeforeDelete(context, urn);
-              _entityClient.deleteEntity(context.getOperationContext(), urn);
+              final var references =
+                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
@@ -62,7 +63,7 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
                     // membership sweep below works from the list captured before the delete, so
                     // no lag can hide a member from it and it loses nothing by going second.
                     try {
-                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(
