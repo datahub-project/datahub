@@ -222,11 +222,14 @@ def _standalone_look(
     ctx.warn(_CHART_PATTERN_NOT_APPLIED)
     if ATTR_ON_KEPT_DASHBOARD not in attributes:
         ctx.warn(_ON_A_DASHBOARD_NOT_JUDGED)
+    # Before the deleted check: an exclusion decided by a fact the listing
+    # did write (no query, on a kept dashboard, personal folder) stands
+    # whether or not `deleted` was written.
+    if not verdict.included:
+        return verdict
     if ATTR_DELETED not in attributes:
         ctx.warn(_NO_LOOK_FACTS)
         return Verdict.include()
-    if not verdict.included:
-        return verdict
     # `looks` writes has_query null (dropped from the attributes) when its
     # get_look read-back failed; ingestion's own get_look then `continue`s.
     if ATTR_HAS_QUERY not in attributes:

@@ -209,6 +209,25 @@ def test_a_look_whose_query_could_not_be_read_is_excluded_with_a_warning() -> No
     assert any("could not be read" in w for w in result.warnings)
 
 
+def test_a_look_without_deleted_keeps_the_exclusions_its_other_facts_decide() -> None:
+    result = _judge(
+        "Look",
+        ["101", "102", "103"],
+        attributes=[
+            {"has_query": "false"},
+            {"folder_personal": "true"},
+            {"has_query": "true"},
+        ],
+        skip_personal_folders=True,
+        **_LOOKS_ON,
+    )
+    assert _reasons(result) == {
+        "101": "look_has_no_query",
+        "102": "skip_personal_folders",
+        "103": None,
+    }
+
+
 def test_used_explores_only_reports_explores_and_models_by_rule_with_a_warning() -> (
     None
 ):
