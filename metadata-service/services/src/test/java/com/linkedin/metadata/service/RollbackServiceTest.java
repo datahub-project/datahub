@@ -727,6 +727,58 @@ public class RollbackServiceTest {
         .thenReturn(new ArrayList<>());
   }
 
+  @Test
+  public void testRollbackIngestion_HardDryRunDoesNotCountEntitiesItWouldKeep()
+      throws AuthenticationException {
+    String deletedUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    whenFirstPage(true)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(deletedUrn, "datasetKey", true),
+                    summaryRow(keptUrn, "datasetKey", true))));
+    // Only keptUrn has another run's aspect, so a hard rollback would keep it.
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            true, // dryRun
+            true, // hardDelete
+            null);
+
+    assertEquals(response.getEntitiesDeleted(), 1);
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testRollbackIngestion_SoftDryRunCountsEveryEntity() throws AuthenticationException {
+    String deletedUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    whenFirstPage(false)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(deletedUrn, "datasetKey", true),
+                    summaryRow(keptUrn, "datasetKey", true))));
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            true, // dryRun
+            false, // hardDelete
+            null);
+
+    // A soft rollback hides every entity, other runs' aspects or not.
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+  }
+
   private void stubOtherRunOnEntity(String urn) {
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), eq(urn), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))

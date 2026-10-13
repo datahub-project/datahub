@@ -163,6 +163,11 @@ public class RollbackService {
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                 .keySet()
                 .size();
+        // Same as the execute path: a hard rollback keeps an entity another run wrote to (the
+        // unsafe ones), so it would delete only the rest. A soft rollback hides them all.
+        if (hardDelete) {
+          entitiesDeleted -= unsafeEntitiesCount;
+        }
 
         final List<UnsafeEntityInfo> unsafeEntityInfos =
             affectedAspectsList.stream()
