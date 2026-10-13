@@ -2149,6 +2149,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     log=False,
                 )
         domain_urn = self._gen_domain_urn(database["Name"])
+        # Glue normally returns CatalogId, but a database-level resource link without one is
+        # still ingested (see get_tables_from_database), so don't let it abort the run here.
+        catalog_id = database.get("CatalogId") or self.source_config.catalog_id
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
         if database.get("LocationUri") is not None:
@@ -2162,8 +2165,10 @@ class GlueSource(StatefulIngestionSourceBase):
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
             description=database.get("Description"),
-            qualified_name=self.get_glue_arn(
-                account_id=database["CatalogId"], database=database["Name"]
+            qualified_name=(
+                self.get_glue_arn(account_id=catalog_id, database=database["Name"])
+                if catalog_id
+                else None
             ),
             tags=container_tags,
             extra_properties=parameters,

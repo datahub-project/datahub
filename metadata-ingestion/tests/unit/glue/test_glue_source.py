@@ -1773,6 +1773,48 @@ def test_database_resource_link_table_placed_in_link_database_container():
     assert containers == [link_container_urn]
 
 
+def test_database_resource_link_without_catalog_id_runs_full_pipeline():
+    # A link database with no CatalogId (and no catalog_id in the config) used to abort
+    # get_workunits() while building its container's ARN, before any table was emitted. The
+    # container must be emitted without an ARN and the link table still ingested.
+    databases_response: Dict[str, Any] = copy.deepcopy(
+        get_databases_response_with_resource_link
+    )
+    del databases_response["DatabaseList"][0]["CatalogId"]
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(get_tables_response_for_target_database),
+            {"DatabaseName": "resource-link-test-database"},
+        )
+        wus = list(source.get_workunits())
+        glue_stubber.assert_no_pending_responses()
+
+    link_container_urn = source.gen_database_key("resource-link-test-database").as_urn()
+    container_properties = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == link_container_urn
+        for aspect in [wu.get_aspect_of_type(models.ContainerPropertiesClass)]
+        if aspect is not None
+    ]
+    assert len(container_properties) == 1
+    assert container_properties[0].qualifiedName is None
+    assert DB_LINK_URN in {wu.get_urn() for wu in wus}
+    assert source.report.num_resource_link_database_missing_catalog_id == 1
+
+
 def test_database_resource_link_preserves_existing_target_table():
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     explicit_target = {
