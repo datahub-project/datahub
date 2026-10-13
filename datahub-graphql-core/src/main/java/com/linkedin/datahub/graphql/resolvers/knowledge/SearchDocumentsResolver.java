@@ -58,6 +58,7 @@ public class SearchDocumentsResolver
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "*";
+  private static final String SUB_TYPES_FIELD = "typeNames";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
@@ -211,7 +212,9 @@ public class SearchDocumentsResolver
     }
 
     if (input.getTypes() != null && !input.getTypes().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("subTypes", Condition.EQUAL, input.getTypes()));
+      // "typeNames" is the indexed ES field. "subTypes" is the aspect name and matches nothing.
+      criteria.add(
+          CriterionUtils.buildCriterion(SUB_TYPES_FIELD, Condition.EQUAL, input.getTypes()));
     }
 
     if (input.getDomains() != null && !input.getDomains().isEmpty()) {
