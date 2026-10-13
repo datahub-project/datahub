@@ -4,6 +4,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import EntityForm from '@app/entityV2/shared/entityForm/EntityForm';
+// eslint-disable-next-line no-restricted-imports -- no semantic token maps to gray[600] for this use case (see StyledClose below); direct color import is intentional here.
+import { colors } from '@src/alchemy-components';
 import EntityFormContextProvider from '@src/app/entity/shared/entityForm/EntityFormContextProvider';
 import FormPageHeader from '@src/app/entity/shared/entityForm/FormHeader/FormPageHeader';
 
@@ -27,9 +29,12 @@ const StyledModal = styled(Modal)`
     }
 `;
 
+// eslint-disable-next-line rulesdir/no-hardcoded-colors -- no inverse-surface token in design
+// system (see FormPageHeader's Header); this modal's header is plain white, not a colored fill,
+// so textOnFillDefault (near white) rendered invisibly here. Matches FormPageHeader's own title color.
 const StyledClose = styled(X)`
     && {
-        color: ${(props) => props.theme.colors.textOnFillDefault};
+        color: ${colors.gray[600]};
         font-size: 24px;
         margin: 18px 12px 0 0;
     }
