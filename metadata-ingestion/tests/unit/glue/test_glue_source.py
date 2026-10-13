@@ -482,7 +482,7 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
     assert source.report.num_resource_link_missing_target == 1
 
 
-def test_database_resource_link_without_owner_catalog_reports_missing_target():
+def test_database_resource_link_without_owner_catalog_reports_missing_target() -> None:
     # Neither TargetDatabase nor the table carries the owning CatalogId. The owner can't be
     # identified, so the table must be reported as a missing target rather than attempting a
     # cross-account glue:GetTable with CatalogId=None (which would surface as a misleading
@@ -1428,7 +1428,7 @@ def _ingest_database_resource_link(
     databases_response: Optional[Dict[str, Any]] = None,
     graph: Optional[DataHubGraph] = None,
     owner_get_table_response: Optional[Dict[str, Any]] = None,
-) -> Tuple[GlueSource, List[Dict], List[MetadataWorkUnit]]:
+) -> Tuple[GlueSource, List[Dict[str, Any]], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
     # DatabaseName and no TargetTable. owner_get_table_response, when given, is served only
@@ -1485,7 +1485,7 @@ def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
     ]
 
 
-def test_database_resource_link_tables_rekeyed_to_link():
+def test_database_resource_link_tables_rekeyed_to_link() -> None:
     source, tables, _ = _ingest_database_resource_link({})
 
     assert len(tables) == 1
@@ -1499,7 +1499,7 @@ def test_database_resource_link_tables_rekeyed_to_link():
     assert source.report.num_resource_link_database_tables == 1
 
 
-def test_database_resource_link_emits_owner_lineage_with_catalog_mapping():
+def test_database_resource_link_emits_owner_lineage_with_catalog_mapping() -> None:
     source, _, wus = _ingest_database_resource_link(
         {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}}
     )
@@ -1527,7 +1527,7 @@ def test_database_resource_link_emits_owner_lineage_with_catalog_mapping():
     assert source.report.num_resource_link_self_referential == 0
 
 
-def test_database_resource_link_without_catalog_mapping_keeps_link_urn():
+def test_database_resource_link_without_catalog_mapping_keeps_link_urn() -> None:
     _, _, wus = _ingest_database_resource_link({})
 
     link_urn = (
@@ -1543,7 +1543,7 @@ def test_database_resource_link_without_catalog_mapping_keeps_link_urn():
     ]
 
 
-def test_database_resource_link_same_name_unmapped_owner_warns_once():
+def test_database_resource_link_same_name_unmapped_owner_warns_once() -> None:
     # Common setup: the link database has the owner's name. Without the owner in
     # catalog_to_platform_instance every table resolves to its own URN, so no lineage is emitted;
     # the run report must say so, as one grouped entry rather than one per table.
@@ -1575,7 +1575,9 @@ def test_database_resource_link_same_name_unmapped_owner_warns_once():
     assert len(unmapped[0].context) == 2
 
 
-def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner():
+def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner() -> (
+    None
+):
     # The link database has the owner's name and the owner is mapped. The link must keep the
     # ingesting catalog's instance so its URN cannot collide with the owner's dataset.
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
@@ -1597,7 +1599,7 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
     assert source.report.num_resource_link_self_referential == 0
 
 
-def test_database_resource_link_without_link_catalog_id_is_kept_and_reported():
+def test_database_resource_link_without_link_catalog_id_is_kept_and_reported() -> None:
     # With no CatalogId on the link database and no catalog_id in the config, the table keeps
     # the owner's CatalogId (as before database-level link support) and is still ingested. That
     # is only safe while the owner is unmapped, so the run report must flag it, once for the
@@ -1683,7 +1685,7 @@ def _link_schema(
     return schemas[0] if schemas else None
 
 
-def test_database_resource_link_schema_resolved_from_datahub():
+def test_database_resource_link_schema_resolved_from_datahub() -> None:
     # The owner account is already ingested: the schemaless link copies the owner's schema from
     # DataHub, looked up by the owner's URN, with no cross-account Glue call.
     graph = MagicMock()
@@ -1703,7 +1705,7 @@ def test_database_resource_link_schema_resolved_from_datahub():
     assert source.report.num_resource_link_schema_from_datahub == 1
 
 
-def test_database_resource_link_schema_resolved_from_owner_glue_table():
+def test_database_resource_link_schema_resolved_from_owner_glue_table() -> None:
     # Without DataHub, the schema comes from a cross-account get_table. The stub only matches
     # the owner's catalog and database name, so this fails if the synthesized TargetTable
     # carried the link's database name instead.
@@ -1730,7 +1732,7 @@ def test_database_resource_link_schema_resolved_from_owner_glue_table():
     assert source.report.num_resource_link_schema_from_glue == 1
 
 
-def test_database_resource_link_table_placed_in_link_database_container():
+def test_database_resource_link_table_placed_in_link_database_container() -> None:
     # Through the full pipeline, the link table must sit in the container emitted for the local
     # link database, not in one keyed by the owner's database name.
     source = GlueSource(
@@ -1773,7 +1775,7 @@ def test_database_resource_link_table_placed_in_link_database_container():
     assert containers == [link_container_urn]
 
 
-def test_database_resource_link_without_catalog_id_runs_full_pipeline():
+def test_database_resource_link_without_catalog_id_runs_full_pipeline() -> None:
     # A link database with no CatalogId (and no catalog_id in the config) used to abort
     # get_workunits() while building its container's ARN, before any table was emitted. The
     # container must be emitted without an ARN and the link table still ingested.
@@ -1815,7 +1817,67 @@ def test_database_resource_link_without_catalog_id_runs_full_pipeline():
     assert source.report.num_resource_link_database_missing_catalog_id == 1
 
 
-def test_database_resource_link_preserves_existing_target_table():
+def test_database_resource_link_without_catalog_id_uses_recipe_catalog_id() -> None:
+    # The fix the missing-catalog-ID warning recommends: with catalog_id set in the recipe, a
+    # link database that Glue returns without a CatalogId is attributed to the ingesting
+    # catalog, so its tables keep the local instance even though the owner is mapped.
+    databases_response: Dict[str, Any] = copy.deepcopy(
+        get_databases_response_with_resource_link
+    )
+    del databases_response["DatabaseList"][0]["CatalogId"]
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            catalog_id="123412341234",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                }
+            },
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", databases_response, {"CatalogId": "123412341234"}
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(get_tables_response_for_target_database),
+            {
+                "DatabaseName": "resource-link-test-database",
+                "CatalogId": "123412341234",
+            },
+        )
+        wus = list(source.get_workunits())
+        glue_stubber.assert_no_pending_responses()
+
+    assert _upstream_urns(wus, DB_LINK_URN) == [OWNER_TABLE_URN]
+    qualified_names = {
+        wu.get_urn(): aspect.qualifiedName
+        for wu in wus
+        for aspect in [
+            wu.get_aspect_of_type(models.DatasetPropertiesClass)
+            or wu.get_aspect_of_type(models.ContainerPropertiesClass)
+        ]
+        if aspect is not None
+    }
+    link_container_urn = source.gen_database_key("resource-link-test-database").as_urn()
+    assert qualified_names == {
+        DB_LINK_URN: "arn:aws:glue:us-east-1:123412341234:table/resource-link-test-database/transactions",
+        link_container_urn: "arn:aws:glue:us-east-1:123412341234:database/resource-link-test-database",
+    }
+    assert source.report.num_resource_link_database_missing_catalog_id == 0
+    assert "Resource link database missing catalog ID" not in [
+        w.title for w in source.report.warnings
+    ]
+
+
+def test_database_resource_link_preserves_existing_target_table() -> None:
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     explicit_target = {
         "CatalogId": "999999999999",
