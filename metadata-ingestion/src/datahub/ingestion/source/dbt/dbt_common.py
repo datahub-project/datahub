@@ -2303,11 +2303,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             try:
-                upstream_urn = node.get_urn(
-                    target_platform=self.config.target_platform,
-                    data_platform_instance=self._dbt_platform_instance,
-                    env=self.config.env,
-                )
+                upstream_urn = self._target_platform_urn(node)
 
                 assertion_urn = mce_builder.make_assertion_urn(
                     mce_builder.datahub_guid(
@@ -2428,6 +2424,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _dbt_platform_instance(self) -> Optional[str]:
         return self._project.platform_instance
 
+    def _dbt_platform_urn(self, node: DBTNode) -> str:
+        """The node's dbt dataset urn, under the current project's dbt instance."""
+        return node.get_urn(DBT_PLATFORM, self.config.env, self._dbt_platform_instance)
+
+    def _target_platform_urn(self, node: DBTNode) -> str:
+        """The node's warehouse dataset urn, under the warehouse's own instance.
+
+        Never pair the target platform with the dbt instance: that names a
+        warehouse dataset that does not exist.
+        """
+        return node.get_urn(
+            self.config.target_platform,
+            self.config.env,
+            self.config.target_platform_instance,
+        )
+
     @abstractmethod
     def load_projects(self) -> Iterator[DBTProject]:
         """Yield each dbt project to emit, one at a time."""
@@ -2478,11 +2490,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for upstream_dbt_name in exposure.depends_on:
                     upstream_node = all_nodes_map.get(upstream_dbt_name)
                     if upstream_node:
-                        upstream_urn = upstream_node.get_urn(
-                            target_platform=DBT_PLATFORM,
-                            env=self.config.env,
-                            data_platform_instance=self._dbt_platform_instance,
-                        )
+                        upstream_urn = self._dbt_platform_urn(upstream_node)
                         upstream_urns.append(upstream_urn)
                     else:
                         logger.warning(
@@ -3089,11 +3097,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_node_urn = None
                 should_fetch_target_node_schema = False
                 if node.exists_in_target_platform:
-                    target_node_urn = node.get_urn(
-                        self.config.target_platform,
-                        self.config.env,
-                        self.config.target_platform_instance,
-                    )
+                    target_node_urn = self._target_platform_urn(node)
                     should_fetch_target_node_schema = True
                 elif node.is_ephemeral_model():
                     # For ephemeral nodes, we "pretend" that they exist in the target platform
@@ -3401,11 +3405,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
-                node_datahub_urn = node.get_urn(
-                    DBT_PLATFORM,
-                    self.config.env,
-                    self._dbt_platform_instance,
-                )
+                node_datahub_urn = self._dbt_platform_urn(node)
 
                 meta_aspects: Dict[str, Any] = {}
                 if self.config.enable_meta_mapping and node.meta:
@@ -3474,11 +3474,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                     if self._should_create_sibling_relationships(node):
                         # Get the target platform URN
-                        target_platform_urn = node.get_urn(
-                            self.config.target_platform,
-                            self.config.env,
-                            self.config.target_platform_instance,
-                        )
+                        target_platform_urn = self._target_platform_urn(node)
 
                         yield MetadataChangeProposalWrapper(
                             entityUrn=node_datahub_urn,
@@ -3567,11 +3563,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.model_performances:
             return
 
-        node_datahub_urn = node.get_urn(
-            DBT_PLATFORM,
-            self.config.env,
-            self._dbt_platform_instance,
-        )
+        node_datahub_urn = self._dbt_platform_urn(node)
 
         for model_performance in node.model_performances:
             data_process_instance = DataProcessInstance(
@@ -3771,18 +3763,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the target (e.g. Snowflake, BigQuery) platform."""
 
-        mce_platform = self.config.target_platform
-        mce_platform_instance = self.config.target_platform_instance
-
         prefetched_target_platform_aspects: Optional[
             Dict[str, _TargetPlatformAspects]
         ] = None
         sibling_containers: Dict[SiblingContainerKey, str] = {}
-        if mce_platform_instance and self.config.emit_target_platform_instance_aspects:
+        if (
+            self.config.target_platform_instance
+            and self.config.emit_target_platform_instance_aspects
+        ):
             target_nodes = [
                 (
                     node,
-                    node.get_urn(mce_platform, self.config.env, mce_platform_instance),
+                    self._target_platform_urn(node),
                 )
                 for node in dbt_nodes
                 if node.exists_in_target_platform
@@ -3798,11 +3790,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
-                node_datahub_urn = node.get_urn(
-                    mce_platform,
-                    self.config.env,
-                    mce_platform_instance,
-                )
+                node_datahub_urn = self._target_platform_urn(node)
 
                 # Check if node exists in target platform first - needed for all emissions
                 # (queries need a target dataset to link to, other aspects need the dataset to exist)
@@ -3828,11 +3816,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # This ensures the hook can detect explicit primary settings when processing later aspects.
                 if self._should_create_sibling_relationships(node):
                     # Get the dbt platform URN
-                    dbt_platform_urn = node.get_urn(
-                        DBT_PLATFORM,
-                        self.config.env,
-                        self._dbt_platform_instance,
-                    )
+                    dbt_platform_urn = self._dbt_platform_urn(node)
 
                     # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
                     target_patch = DatasetPatchBuilder(node_datahub_urn)
@@ -3864,11 +3848,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
                 if node.node_type != "source":
-                    upstream_dbt_urn = node.get_urn(
-                        DBT_PLATFORM,
-                        self.config.env,
-                        self._dbt_platform_instance,
-                    )
+                    upstream_dbt_urn = self._dbt_platform_urn(node)
 
                     upstreams_lineage_class = make_mapping_upstream_lineage(
                         upstream_urn=upstream_dbt_urn,
@@ -4653,21 +4633,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         This method creates lineage amongst dbt nodes. A dbt node can be linked to other dbt nodes or a platform node.
         """
 
-        node_urn = node.get_urn(
-            target_platform=DBT_PLATFORM,
-            env=self.config.env,
-            data_platform_instance=self._dbt_platform_instance,
-        )
+        node_urn = self._dbt_platform_urn(node)
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
         # from the platform. This code block is executed when we are generating entities of type "dbt".
         if node.node_type == "source":
             return make_mapping_upstream_lineage(
-                upstream_urn=node.get_urn(
-                    self.config.target_platform,
-                    self.config.env,
-                    self.config.target_platform_instance,
-                ),
+                upstream_urn=self._target_platform_urn(node),
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
@@ -4808,11 +4780,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 time=mce_builder.get_sys_time(),
                 actor=_DEFAULT_ACTOR,
             )
-            sibling_urn = node.get_urn(
-                self.config.target_platform,
-                self.config.env,
-                self.config.target_platform_instance,
-            )
+            sibling_urn = self._target_platform_urn(node)
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
