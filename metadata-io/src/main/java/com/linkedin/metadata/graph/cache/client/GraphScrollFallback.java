@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.graph.cache.FullWalkEdge;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
@@ -11,6 +12,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -67,25 +69,65 @@ public final class GraphScrollFallback {
     return descendants;
   }
 
+  /**
+   * Same level-batched scroll as {@link #allDescendants}, also returning the edges that scroll
+   * already produced in stored orientation (child source, parent destination).
+   */
+  @Nonnull
+  public static DescendantEdgeWalk allDescendantEdges(
+      @Nonnull OperationContext opContext, @Nonnull HierarchyReadSpec spec, @Nonnull Urn rootUrn) {
+    Set<Urn> descendants = new LinkedHashSet<>();
+    List<FullWalkEdge> edges = new ArrayList<>();
+    Set<Urn> frontier = new LinkedHashSet<>(Set.of(rootUrn));
+    while (!frontier.isEmpty()) {
+      LevelScroll level = scrollChildren(opContext, spec, frontier);
+      if (level.truncated) {
+        throw new IllegalStateException(
+            "Descendant expansion truncated for graph "
+                + spec.getBinding().getGraphId()
+                + "; refusing to return a partial hierarchy as complete");
+      }
+      edges.addAll(level.edges);
+      Set<Urn> nextFrontier = new LinkedHashSet<>();
+      for (Urn child : level.children) {
+        if (descendants.add(child)) {
+          nextFrontier.add(child);
+        }
+      }
+      frontier = nextFrontier;
+    }
+    return new DescendantEdgeWalk(descendants, List.copyOf(edges), false);
+  }
+
   @Nonnull
   private static DirectChildrenResult childrenOf(
       @Nonnull OperationContext opContext,
       @Nonnull HierarchyReadSpec spec,
       @Nonnull Collection<Urn> parentUrns) {
+    LevelScroll level = scrollChildren(opContext, spec, parentUrns);
+    return new DirectChildrenResult(level.children, level.truncated);
+  }
+
+  @Nonnull
+  private static LevelScroll scrollChildren(
+      @Nonnull OperationContext opContext,
+      @Nonnull HierarchyReadSpec spec,
+      @Nonnull Collection<Urn> parentUrns) {
     if (parentUrns.isEmpty()) {
-      return new DirectChildrenResult(Set.of(), false);
+      return new LevelScroll(Set.of(), List.of(), false);
     }
 
     GraphRetriever graphRetriever = opContext.getRetrieverContext().getGraphRetriever();
     if (graphRetriever == GraphRetriever.EMPTY
         || spec.getScrollSourceEntityTypes().isEmpty()
         || spec.getScrollDestinationEntityTypes().isEmpty()) {
-      return new DirectChildrenResult(Set.of(), false);
+      return new LevelScroll(Set.of(), List.of(), false);
     }
 
     try {
       Filter destinationFilter = urnEqualsFilter(parentUrns);
       Set<Urn> children = new LinkedHashSet<>();
+      List<FullWalkEdge> edges = new ArrayList<>();
       RelatedEntitiesScrollResult result = null;
       while (result == null || result.getScrollId() != null) {
         result =
@@ -107,18 +149,37 @@ public final class GraphScrollFallback {
             Urn child = EntityGraphEndpoints.toUrn(related.getSourceUrn());
             if (child != null) {
               children.add(child);
+              edges.add(
+                  FullWalkEdge.builder()
+                      .sourceUrn(related.getSourceUrn())
+                      .destinationUrn(related.getDestinationUrn())
+                      .relationshipType(related.getRelationshipType())
+                      .build());
             }
           }
         }
       }
-      return new DirectChildrenResult(children, false);
+      return new LevelScroll(children, edges, false);
     } catch (Exception e) {
       log.error(
           "Failed to scroll direct children for {} parent(s) on graph {}",
           parentUrns.size(),
           spec.getBinding().getGraphId(),
           e);
-      return new DirectChildrenResult(Set.of(), true);
+      return new LevelScroll(Set.of(), List.of(), true);
+    }
+  }
+
+  private static final class LevelScroll {
+    private final Set<Urn> children;
+    private final List<FullWalkEdge> edges;
+    private final boolean truncated;
+
+    private LevelScroll(
+        @Nonnull Set<Urn> children, @Nonnull List<FullWalkEdge> edges, boolean truncated) {
+      this.children = children;
+      this.edges = edges;
+      this.truncated = truncated;
     }
   }
 

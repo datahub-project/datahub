@@ -23,6 +23,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -210,6 +211,7 @@ public class SampleDataFixtureConfiguration {
                     .numReplicas(0)
                     .numRetries(1)
                     .refreshIntervalSeconds(1)
+                    .refreshIntervals(RefreshIntervals.allServices(1))
                     .build())
             .build();
 

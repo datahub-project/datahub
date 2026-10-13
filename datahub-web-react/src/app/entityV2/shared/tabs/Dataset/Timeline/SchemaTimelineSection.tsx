@@ -1,3 +1,4 @@
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,8 +10,6 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeCategoryType, ChangeOperationType } from '@types';
-
-import TimelineIcon from '@images/timeline-icon.svg?react';
 
 const PLACEHOLDER_SUBTITLE = 'subtitle';
 const PLACEHOLDER_DESC = 'description';
@@ -106,7 +105,7 @@ export const SchemaTimelineSection = () => {
                         key={entry.title}
                         contentStyle={CONTENT_STYLE}
                         date={entry.date}
-                        icon={<TimelineIcon />}
+                        icon={<ClockCounterClockwise size={10} />}
                         iconStyle={ICON_STYLE}
                     >
                         {entry.title && (

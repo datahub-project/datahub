@@ -209,7 +209,7 @@ export const ViewSelect = () => {
                     showArrow={false}
                     data-testid="view-select-popover-trigger"
                 >
-                    {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}
+                    {renderSelectedView({ selectedViewName, onClear })}
                 </Popover>
                 {viewBuilderDisplayState.visible && (
                     <ViewBuilder

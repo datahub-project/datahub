@@ -131,10 +131,14 @@ class StarRocksSource(SQLAlchemySource):
     """
 
     config: StarRocksConfig
+    # Declared on the class as well as set in __init__, so get_identifier
+    # also works on an instance built without __init__ (the probe's
+    # identifier shim): None names the built-in default_catalog there.
+    _current_catalog: Optional[StarRocksCatalog] = None
 
     def __init__(self, config: StarRocksConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "starrocks")
-        self._current_catalog: Optional[StarRocksCatalog] = None
+        self._current_catalog = None
         self._catalog_containers_emitted: set[str] = set()
 
     @classmethod
