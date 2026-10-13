@@ -366,7 +366,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace
-    ) -> Iterable[Union[Container, Dataset]]:
+    ) -> Iterable[Union[Container, Dataset, MetadataWorkUnit]]:
         """Process lakehouses and warehouses within a workspace."""
         # Process lakehouses
         if self.config.extract_lakehouses:
