@@ -129,6 +129,50 @@ SELECT 2
     assert "-- \u2500\u2500 Cell 2 \u2500\u2500" in logic
 
 
+def test_parameters_cell_is_kept_as_code() -> None:
+    # Fabric marks pipeline-input cells "# PARAMETERS CELL"; its assignments
+    # must reach the view, not be swallowed by the preceding block.
+    source = """# CELL ********************
+
+df = spark.read.table("bronze.events")
+
+# PARAMETERS CELL ********************
+
+catalog = "prod"
+
+# METADATA ********************
+
+# META { "language": "python" }
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    assert 'catalog = "prod"' in logic
+
+
+def test_executable_leading_magics_kept_language_selectors_dropped() -> None:
+    source = """# CELL ********************
+
+%pip install great_expectations -q
+
+# CELL ********************
+
+%run Shared/InitEnv
+
+# CELL ********************
+
+%%sql
+SELECT 1
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    # Executable magics the user wrote are preserved...
+    assert "%pip install great_expectations -q" in logic
+    assert "%run Shared/InitEnv" in logic
+    # ...but a pure language-selector magic is still dropped.
+    assert "%%sql" not in logic
+    assert "SELECT 1" in logic
+
+
 def test_notebook_view_logic_empty_is_none() -> None:
     assert notebook_view_logic(None, "python") is None
     assert notebook_view_logic("   ", "python") is None

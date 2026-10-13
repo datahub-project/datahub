@@ -26,11 +26,21 @@ _LANGUAGE_BY_SUFFIX = {
 # "# CELL ********************". The keyword decides the cell kind; the
 # "# META {...}" lines inside a METADATA block are not delimiters (no word
 # boundary after "META" in "METADATA"), so they stay inside the skipped block.
-_SECTION_RE = re.compile(r"^#\s*(CELL|MARKDOWN|METADATA)\b.*$", re.MULTILINE)
+# "# PARAMETERS CELL" is a parameterized code cell (pipeline inputs) and is
+# matched first so its content is not swallowed by the preceding block.
+_SECTION_RE = re.compile(
+    r"^#\s*(PARAMETERS\s+CELL|CELL|MARKDOWN|METADATA)\b.*$", re.MULTILINE
+)
 # The "# MAGIC " line prefix some exports put on markdown and magic cells.
 _MAGIC_PREFIX_RE = re.compile(r"^#\s?MAGIC\s?", re.MULTILINE)
-# A leading cell magic selecting the cell language (%md, %%sql, %%pyspark, ...).
-_LEADING_MAGIC_RE = re.compile(r"\A\s*%{1,2}\w+[^\n]*\n?")
+# A leading cell magic that only *selects the cell language* (%%sql, %md, ...).
+# Restricted to known language/display selectors so executable magics the user
+# wrote - %pip, %run, %%configure, %sh, ... - are kept in the view definition.
+_LEADING_MAGIC_RE = re.compile(
+    r"\A\s*%{1,2}(?:markdown|md|sparksql|sparkr|pyspark|spark|scala|sql|html)\b"
+    r"[^\n]*\n?",
+    re.IGNORECASE,
+)
 
 
 class _CellKind(str, Enum):
