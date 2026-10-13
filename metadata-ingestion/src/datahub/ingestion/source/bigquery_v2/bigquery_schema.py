@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import re
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -52,6 +53,56 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# While a caller walks query rows, say how far it has got. The page log already
+# records that BigQuery delivered the page; this one shows local consumption.
+_QUERY_RESULT_PROGRESS_SECONDS = 5
+
+
+def _iter_bigquery_results(rows: RowIterator, job_id: str) -> Iterator[Any]:
+    """Yield query rows, logging page delivery separately from local consumption.
+
+    ``QueryJob.result()`` only waits until the job is complete. The rows are
+    pulled afterwards, one page per request, as this iterator advances.
+    """
+    total_rows = getattr(rows, "total_rows", None)
+    read = 0
+    pages = 0
+    completed = False
+    last_progress = time.perf_counter()
+    try:
+        for page in rows.pages:
+            page_rows = list(page)
+            pages += 1
+            logger.debug(
+                "BigQuery job %s returned page %s to DataHub (%s rows on this page, %s rows in the job)",
+                job_id,
+                pages,
+                len(page_rows),
+                total_rows if total_rows is not None else "unknown",
+            )
+            for row in page_rows:
+                yield row
+                read += 1
+                now = time.perf_counter()
+                if now - last_progress >= _QUERY_RESULT_PROGRESS_SECONDS:
+                    logger.debug(
+                        "DataHub has read %s of %s rows from BigQuery job %s",
+                        read,
+                        total_rows if total_rows is not None else "unknown",
+                        job_id,
+                    )
+                    last_progress = now
+        completed = True
+    finally:
+        logger.debug(
+            "%s reading BigQuery job %s (%s rows, %s pages)",
+            "Finished" if completed else "Stopped",
+            job_id,
+            read,
+            pages,
+        )
+
 
 # Per-call timeout for materialized view stats fetched via tables.get. The fetch
 # runs with retry=None (see get_materialized_views_metadata), so this bounds
@@ -354,7 +405,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(
         self, query: str, location: Optional[str] = None
-    ) -> RowIterator:
+    ) -> Iterator[Any]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
@@ -373,7 +424,16 @@ class BigQuerySchemaApi:
                 deadline=bq_retry.DEFAULT_JOB_RETRY._deadline,
             ),
         )
-        return resp.result()
+        # query() returns once the job is submitted. result() blocks until
+        # BigQuery marks it complete; it does not download the rows.
+        logger.debug("Submitted BigQuery job %s; waiting for completion", resp.job_id)
+        rows = resp.result()
+        logger.debug(
+            "BigQuery job %s completed; results are ready to download (%s rows)",
+            resp.job_id,
+            getattr(rows, "total_rows", None),
+        )
+        return _iter_bigquery_results(rows, resp.job_id)
 
     @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
