@@ -534,6 +534,7 @@ public class EntityResourceTest {
     // AuthUtil reads this flag directly, so it must be set rather than stubbed.
     Field restApiAuthEnabled = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
     restApiAuthEnabled.setAccessible(true);
+    Object previousRestApiAuthEnabled = restApiAuthEnabled.get(null);
     restApiAuthEnabled.set(null, true);
     boolean allowed;
     try {
@@ -547,7 +548,7 @@ public class EntityResourceTest {
       assertEquals(e.getStatus().getCode(), 403);
       allowed = false;
     } finally {
-      restApiAuthEnabled.set(null, false);
+      restApiAuthEnabled.set(null, previousRestApiAuthEnabled);
     }
     assertEquals(allowed, expectAllowed);
   }

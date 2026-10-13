@@ -246,6 +246,9 @@ public final class EntityAuthorizationUtils {
    * Authorize whole-entity upserts (legacy Rest.li snapshot ingest) with the same existence-aware
    * CREATE vs EDIT selection as {@link #isAPIAuthorizedIngest}: CREATE privileges only suffice for
    * entities that do not exist yet.
+   *
+   * <p>Unlike the MCP paths this does not seed proposed domains: no snapshot aspect union includes
+   * {@code Domains}, so a snapshot can never propose one.
    */
   public static boolean isAPIAuthorizedUpsertUrns(
       @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
