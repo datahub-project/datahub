@@ -141,21 +141,7 @@ public class AuthorizationContextTest {
   @Test
   public void authorizeDoesNotServeCachedResultWhileResourceHasFieldOverride() {
     EntitySpec resource = new EntitySpec("dataset", "urn:li:dataset:test");
-    AuthorizationContext[] contextRef = new AuthorizationContext[1];
-    // Allows unless the request overrides the resource's domain.
-    Authorizer authorizer = mock(Authorizer.class);
-    when(authorizer.authorize(any()))
-        .thenAnswer(
-            invocation ->
-                new AuthorizationResult(
-                    invocation.getArgument(0),
-                    contextRef[0].getSessionResourceFieldOverrides().containsKey(resource)
-                        ? AuthorizationResult.Type.DENY
-                        : AuthorizationResult.Type.ALLOW,
-                    null));
-    AuthorizationContext authorizationContext =
-        AuthorizationContext.builder().authorizer(authorizer).build();
-    contextRef[0] = authorizationContext;
+    AuthorizationContext authorizationContext = overrideSensitiveAuthorizationContext();
     ActorContext actorContext = sessionActor(Map.of());
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
@@ -163,6 +149,76 @@ public class AuthorizationContextTest {
         authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
         AuthorizationResult.Type.ALLOW);
 
+    putDomainOverride(authorizationContext, resource);
+    assertEquals(
+        authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
+        AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void authorizeDoesNotCacheResultComputedUnderFieldOverride() {
+    EntitySpec resource = new EntitySpec("dataset", "urn:li:dataset:test");
+    AuthorizationContext authorizationContext = overrideSensitiveAuthorizationContext();
+    ActorContext actorContext = sessionActor(Map.of());
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+    // The first check for this resource runs under the override, so nothing is cached before it.
+    putDomainOverride(authorizationContext, resource);
+    assertEquals(
+        authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
+        AuthorizationResult.Type.DENY);
+
+    authorizationContext.getSessionResourceFieldOverrides().remove(resource);
+    assertEquals(
+        authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
+        AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void authorizeDoesNotServeCachedResultWhileSubResourceHasFieldOverride() {
+    EntitySpec resource = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec subResource = new EntitySpec("dataset", "urn:li:dataset:sub");
+    AuthorizationContext authorizationContext = overrideSensitiveAuthorizationContext();
+    ActorContext actorContext = sessionActor(Map.of());
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+    assertEquals(
+        authorizationContext
+            .authorize(opContext, actorContext, "EDIT", resource, List.of(subResource))
+            .getType(),
+        AuthorizationResult.Type.ALLOW);
+
+    putDomainOverride(authorizationContext, subResource);
+    assertEquals(
+        authorizationContext
+            .authorize(opContext, actorContext, "EDIT", resource, List.of(subResource))
+            .getType(),
+        AuthorizationResult.Type.DENY);
+  }
+
+  /** Denies when the request's resource or any subresource has a field override. */
+  private static AuthorizationContext overrideSensitiveAuthorizationContext() {
+    AuthorizationContext[] contextRef = new AuthorizationContext[1];
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any()))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              Map<EntitySpec, ?> overrides = contextRef[0].getSessionResourceFieldOverrides();
+              boolean overridden =
+                  request.getResourceSpec().map(overrides::containsKey).orElse(false)
+                      || request.getSubResources().stream().anyMatch(overrides::containsKey);
+              return new AuthorizationResult(
+                  request,
+                  overridden ? AuthorizationResult.Type.DENY : AuthorizationResult.Type.ALLOW,
+                  null);
+            });
+    contextRef[0] = AuthorizationContext.builder().authorizer(authorizer).build();
+    return contextRef[0];
+  }
+
+  private static void putDomainOverride(
+      AuthorizationContext authorizationContext, EntitySpec resource) {
     authorizationContext
         .getSessionResourceFieldOverrides()
         .put(
@@ -170,15 +226,6 @@ public class AuthorizationContextTest {
             Map.of(
                 EntityFieldType.DOMAIN,
                 FieldResolver.getResolverFromValues(Set.of("urn:li:domain:other"))));
-    assertEquals(
-        authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
-        AuthorizationResult.Type.DENY);
-
-    // The result computed under the override is not cached for later, override-free checks.
-    authorizationContext.getSessionResourceFieldOverrides().remove(resource);
-    assertEquals(
-        authorizationContext.authorize(opContext, actorContext, "EDIT", resource).getType(),
-        AuthorizationResult.Type.ALLOW);
   }
 
   @Test
