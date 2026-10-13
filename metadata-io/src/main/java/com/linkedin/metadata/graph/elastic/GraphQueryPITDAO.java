@@ -13,12 +13,14 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
+import com.linkedin.metadata.graph.elastic.utils.PreRenderedQueryBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -166,11 +168,20 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                   .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
       final String tempPitId = pitId;
 
+      // Every page of every slice sends the same query, so render it once for the hop.
+      final QueryBuilder pageQuery;
+      try {
+        pageQuery = PreRenderedQueryBuilder.of(query);
+      } catch (IOException e) {
+        throw new ESQueryException("Failed to render lineage query", e);
+      }
+
       // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
       final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
-      // Set by any slice that stops on a timeout in partial mode so the hop is marked partial
-      // (see stopSliceOnTimeout / markPartialIfSliceTimedOut).
-      final AtomicBoolean sliceTimedOut = new AtomicBoolean(false);
+      // Set by any slice that stops on a timeout or shard failure in partial mode so the hop is
+      // marked partial (see stopSliceOnTimeout / stopSliceOnShardFailure /
+      // markPartialIfSliceIncomplete).
+      final AtomicBoolean sliceIncomplete = new AtomicBoolean(false);
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -180,7 +191,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 () -> {
                   return searchSingleSliceWithPit(
                       opContext,
-                      query,
+                      pageQuery,
                       lineageGraphFilters,
                       visitedEntities,
                       viaEntities,
@@ -197,7 +208,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       allowPartialResults,
                       tempPitId,
                       keepAlive,
-                      sliceTimedOut);
+                      sliceIncomplete);
                 },
                 pitTaskExecutor); // Dedicated pool with CallerRunsPolicy for backpressure
         sliceFutures.add(sliceFuture);
@@ -207,12 +218,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
       // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
       // a slice stopped on a server-side timeout (its collected results are incomplete).
-      return markPartialIfSliceTimedOut(
+      return markPartialIfSliceIncomplete(
           markPartialIfSharedBudgetExhausted(
               processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
               sharedRemaining,
               allowPartialResults),
-          sliceTimedOut,
+          sliceIncomplete,
           allowPartialResults);
     } finally {
       // Cancel any still-running slice futures before deleting the shared PIT. Note this wait
@@ -251,7 +262,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       boolean allowPartialResults,
       String pitId,
       String keepAlive,
-      AtomicBoolean sliceTimedOut) {
+      AtomicBoolean sliceIncomplete) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     Object[] searchAfter = null;
@@ -273,7 +284,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
         // Hop deadline passed between pages: same policy as a server-side timed_out page.
         if (System.currentTimeMillis() >= deadline) {
-          stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);
+          stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceIncomplete);
           break;
         }
 
@@ -319,8 +330,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
                     return timedSearch(opContext, searchRequest, entityUrns.size());
                   } catch (Exception e) {
-                    log.error("Search query failed", e);
-                    throw new ESQueryException("Search query failed:", e);
+                    log.error("Search query failed for slice {}", sliceId, e);
+                    throw new ESQueryException("Search query failed for slice " + sliceId, e);
                   }
                 },
                 MetricUtils.DROPWIZARD_NAME,
@@ -336,7 +347,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
             || response.getHits().getHits().length == 0) {
           if (pageTimedOut) {
             stopSliceOnTimeout(
-                sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+                sliceId, "server-side timed_out", allowPartialResults, sliceIncomplete);
+          } else if (response != null && response.getFailedShards() > 0) {
+            // A failed shard can return no hits on a page that is not the slice's last.
+            stopSliceOnShardFailure(
+                sliceId,
+                response.getFailedShards(),
+                response.getTotalShards(),
+                allowPartialResults,
+                sliceIncomplete);
           } else {
             log.debug("Slice {} completed, no more results", sliceId);
           }
@@ -363,7 +382,19 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         // shared budget is classified as a timeout: strict mode throws here, partial mode flags the
         // hop and still truncates the retained hits below.
         if (pageTimedOut) {
-          stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+          stopSliceOnTimeout(
+              sliceId, "server-side timed_out", allowPartialResults, sliceIncomplete);
+        }
+        // With search_after, the next page starts after this page's last hit, so whatever the
+        // failed shards held before that point is never returned. Paging on cannot recover it.
+        boolean pageShardsFailed = !pageTimedOut && response.getFailedShards() > 0;
+        if (pageShardsFailed) {
+          stopSliceOnShardFailure(
+              sliceId,
+              response.getFailedShards(),
+              response.getTotalShards(),
+              allowPartialResults,
+              sliceIncomplete);
         }
 
         // Bound retained relationships to this slice's atomic share of the hop's shared budget.
@@ -375,23 +406,28 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 maxRelations,
                 sliceId,
                 allowPartialResults);
-        if (budgetExhausted || pageTimedOut) {
-          break; // shared budget exhausted or page timed out; partial results
+        if (budgetExhausted || pageTimedOut || pageShardsFailed) {
+          break; // shared budget exhausted, page timed out or shards failed; partial results
+        }
+
+        // With a PIT and search_after, a page shorter than the page size is the slice's last page.
+        // Asking again would only return an empty page, at the full cost of the query. Pages with
+        // failed shards already stopped the slice above.
+        SearchHit[] hits = response.getHits().getHits();
+        if (hits.length < pageSize) {
+          log.debug("Slice {} completed on a short page ({} hits)", sliceId, hits.length);
+          break;
         }
 
         // Get search_after for next page
-        SearchHit[] hits = response.getHits().getHits();
-        if (hits.length > 0) {
-          searchAfter = hits[hits.length - 1].getSortValues();
-        } else {
-          break;
-        }
+        searchAfter = hits[hits.length - 1].getSortValues();
       }
-    } catch (LineageTimeoutException e) {
+    } catch (LineageTimeoutException | ESQueryException e) {
       // Rethrow untouched: processSliceFutures rethrows a bare RuntimeException cause as-is, so the
       // distinct type reaches getImpactLineage's catch (which records the timeout on the cascade)
-      // and the GraphQL/Rest.li mappers without a wrapper. The generic catch below would also log
-      // an error-level stack trace for an expected outcome.
+      // and the GraphQL/Rest.li mappers without a wrapper. ESQueryException covers strict-mode
+      // shard failures and search failures; both messages name the slice, and search failures are
+      // logged where they are thrown. The generic catch below would log a second stack trace.
       throw e;
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);

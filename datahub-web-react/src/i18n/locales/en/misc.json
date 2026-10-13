@@ -190,6 +190,7 @@
     "marketplace.home": "Data Products Home",
     "marketplace.applicationFilter.placeholder": "Filter applications",
     "marketplace.createTooltip": "Create data product",
+    "marketplace.cardAssets_one": "{{count}} asset",
     "marketplace.cardAssets_other": "{{count}} assets",
     "marketplace.cardDeprecated": "Deprecated",
     "marketplace.cardMetaWithSubProducts": "{{assets}} · {{subProducts}}",
