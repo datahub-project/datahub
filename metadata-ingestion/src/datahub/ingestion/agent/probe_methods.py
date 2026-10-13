@@ -568,8 +568,8 @@ def provider_class_for_config(
     config_cls: Optional[type],
 ) -> Optional[Type[ProbeProvider]]:
     """The probe provider `config_cls` declares, or None. The one rule for
-    "this source can be probed": `probe methods`, `probe run` and the derived
-    Probe capability (api.decorators) all read it."""
+    "this source can be probed": `probe methods` and `probe run` read it, and
+    test_probe_contract checks each source's `@capability(PROBE)` against it."""
     getter = config_hook(config_cls, "probe_provider_class")
     provider_cls = getter() if getter else None
     if isinstance(provider_cls, type):

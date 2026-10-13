@@ -75,6 +75,10 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
     Generic source for databases with SQLAlchemy dialect support but no dedicated connector.

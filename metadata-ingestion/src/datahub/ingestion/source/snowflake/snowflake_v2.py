@@ -156,6 +156,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -361,7 +365,7 @@ class SnowflakeV2Source(
         privileges: List[SnowflakePrivilege] = []
         capabilities: List[SourceCapability] = [
             c.capability
-            for c in SnowflakeV2Source.get_capabilities()
+            for c in SnowflakeV2Source.get_capabilities()  # type: ignore
             if c.capability
             not in (
                 SourceCapability.PLATFORM_INSTANCE,

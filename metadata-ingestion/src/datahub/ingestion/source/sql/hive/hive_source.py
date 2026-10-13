@@ -179,6 +179,10 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class HiveSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

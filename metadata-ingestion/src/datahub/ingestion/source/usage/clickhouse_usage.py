@@ -70,6 +70,12 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
 
+    @classmethod
+    def probe_provider_class(cls) -> Optional[type]:
+        # A usage-only source: it ingests query history, which the inherited
+        # SQL provider doesn't list. Probe the `clickhouse` source instead.
+        return None
+
     @field_validator("query_log_table")
     @classmethod
     def validate_query_log_table(cls, v: str) -> str:
@@ -98,13 +104,6 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
-# A usage-only source: it inherits the SQL family's probe interface, but what it
-# ingests is query history, so it doesn't advertise the probe.
-@capability(
-    SourceCapability.PROBE,
-    "Not supported: a usage-only source. Probe the `clickhouse` source instead",
-    supported=False,
-)
 class ClickHouseUsageSource(Source):
     """
     Source that extracts usage statistics from ClickHouse by analyzing system.query_log.

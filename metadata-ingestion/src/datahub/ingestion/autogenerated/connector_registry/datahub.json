@@ -546,12 +546,6 @@
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
-        },
-        {
-          "capability": "PROBE",
-          "description": "Not supported: a usage-only source. Probe the `clickhouse` source instead",
-          "subtype_modifier": null,
-          "supported": false
         }
       ],
       "classname": "datahub.ingestion.source.usage.clickhouse_usage.ClickHouseUsageSource",
@@ -2077,12 +2071,6 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "PROBE",
-          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3800,12 +3788,6 @@
           "supported": true
         },
         {
-          "capability": "PROBE",
-          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4789,12 +4771,6 @@
           "description": "Enabled by default to get usage stats",
           "subtype_modifier": null,
           "supported": true
-        },
-        {
-          "capability": "PROBE",
-          "description": "Not supported: a usage-only source. Probe the `trino` source instead",
-          "subtype_modifier": null,
-          "supported": false
         }
       ],
       "classname": "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource",
@@ -5462,12 +5438,6 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "PROBE",
-          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
