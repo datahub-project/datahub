@@ -44,7 +44,7 @@
     "assets.moduleName": "Assets",
     "assets.relatedModuleName": "Relaterte ressurser",
     "assets.moduleDescription": "Relaterte assets tagget med den overordnede entiteten",
-    "assets.dashboardsModuleDescription": "Dashboard som inneholder denne charten",
+    "assets.dashboardsModuleDescription": "Dashboarder som inneholder denne charten",
     "assets.contentsModuleDescription": "Charter i dette dashboardet",
     "assets.dataSourcesModuleDescription": "Datasett som charterne i dette dashboardet leser fra",
     "assets.addTermError": "Kunne ikke legge til begrep: \n {{error}}",

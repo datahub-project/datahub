@@ -219,7 +219,7 @@
     "marketplace.sidebarTitle": "Markedsplass",
     "marketplace.sourceApplications": "Applikasjoner",
     "marketplace.totalDataProducts": "Dataprodukter",
-    "marketplace.totalOutputPorts": "Utgangsporter",
+    "marketplace.totalOutputPorts": "Utdataporter",
     "mfeframework.disabledError": "{{label}} er deaktivert.",
     "mfeframework.notAvailableError": "{{label}} er ikke tilgjengelig for øyeblikket",
     "tags.appliedToEntityCount_one": "{{count}} entitet",
