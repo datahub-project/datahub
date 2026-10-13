@@ -133,7 +133,7 @@ An explicit empty string drops that section, including an inherited `knn`, `rank
 
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
 
-`queryFragments` merges by hole name. A child key replaces that key. An unset key is inherited. An empty string drops that key, including an inherited one. See [Query holes](#query-holes).
+`queryFragments` merges by hole name. Every level that sets a non-empty key adds a fragment, joined root-first with commas. An unset key adds nothing. An empty string drops inherited fragments for that key. See [Query holes](#query-holes).
 
 A rung does not reuse the previous rung's `functionScore`, `boosts`, `fields`, `clauses`, or `structuredPropertyQuery`. Those travel only when the next template names this one as `parent`.
 
@@ -150,6 +150,8 @@ The shipped fulltext body opens `extraDisMaxQueries` inside the top-level `dis_m
 ,{{&extraDisMaxQueries}}
 {{/extraDisMaxQueries}}
 ```
+
+Parent and child templates extend the same hole name; they do not create `Next` or `Next2` holes. The loader walks root-first and joins each level's fragment with a comma. A fragment may itself contain several comma-separated query objects. Setting the key to an empty string at a level clears the pieces inherited above it, while descendants may add new pieces.
 
 Each fragment is rewritten for structured-property definition URNs, then rendered with the same Mustache context as the query, then spliced. It is not rendered again, and it does not see other fragments. `{{urn:li:structuredProperty:...}}` resolves to the current field. `{{unquoted}}` and the other query variables expand.
 
