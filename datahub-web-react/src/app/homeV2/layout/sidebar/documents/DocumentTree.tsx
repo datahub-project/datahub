@@ -1,3 +1,4 @@
+import { Button, Text } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -17,6 +18,7 @@ import {
 import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import Loading from '@app/shared/Loading';
 import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
@@ -36,10 +38,24 @@ const RootObserver = styled.div`
     margin-top: 1px;
 `;
 
+// Matches SidebarFilteredResults' empty-state layout so the view-aware empty
+// tree reads the same as the search-mode empty state.
+const EmptyStateWrap = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 16px;
+
+    p {
+        text-align: center;
+    }
+`;
+
 interface DocumentTreeProps {
     onCreateChild: (parentUrn: string | null) => void;
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
-    onSelectDocument?: (urn: string) => void; // Callback when document is selected
+    onSelectDocument?: (urn: string, title?: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
@@ -118,6 +134,9 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         loadMoreChildren,
     });
     const { getCurrentDocumentUrn, handleDocumentClick } = useDocumentNavigation(onSelectDocument);
+    // The document tree query is always View-scoped, so a restrictive View can
+    // filter out every root — surface that instead of rendering a blank sidebar.
+    const { hasSelectedView, clearSelectedView } = useSelectedView();
 
     // Deep-link / URL navigation: expand + load the ancestor path so the selected
     // row mounts. Skip in picker/selection mode (move dialog, etc.).
@@ -233,7 +252,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         isExternal={node.isExternal}
                         platform={node.platform}
                         onToggleExpand={() => handleToggleExpand(node.urn)}
-                        onClick={() => handleDocumentClick(node.urn)}
+                        onClick={() => handleDocumentClick(node.urn, node.title)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
                         hideActionsMenu={hideActionsMenu}
@@ -327,7 +346,25 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     );
 
     if (loading) {
-        return <Loading height={16} />;
+        // marginTop defaults to 25% of the container's *width* (a CSS percentage-margin quirk),
+        // which reads as an oddly low-positioned spinner in a narrow, short popover. Pin it near
+        // the top instead, matching how other compact/inline Loading usages in the app do this.
+        return <Loading height={16} marginTop={0} />;
+    }
+
+    const isTreeEmpty =
+        nativeRootNodes.length === 0 && sourcesByPlatform.length === 0 && !hasMoreRoots && !loadingMoreRoots;
+    if (isTreeEmpty && hasSelectedView) {
+        return (
+            <EmptyStateWrap data-testid="document-tree-view-empty">
+                <Text size="sm" color="gray">
+                    {t('context.viewHidingAllDocuments')}
+                </Text>
+                <Button variant="text" size="sm" onClick={clearSelectedView} data-testid="document-tree-clear-view">
+                    {t('context.clearSelectedView')}
+                </Button>
+            </EmptyStateWrap>
+        );
     }
 
     return (
@@ -354,7 +391,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             )}
             {sourcesByPlatform.map(renderPlatformGroup)}
             {hasMoreRoots && <RootObserver ref={rootObserverRef} />}
-            {loadingMoreRoots && <Loading height={12} />}
+            {loadingMoreRoots && <Loading height={12} marginTop={0} />}
         </TreeContainer>
     );
 };

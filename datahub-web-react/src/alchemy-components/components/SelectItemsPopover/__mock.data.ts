@@ -298,7 +298,7 @@ export const mockGlossaryTermSelectedEntities = [
     { urn: 'urn:li:glossaryTerm:Classification.Sensitive', name: 'Sensitive' },
 ];
 
-export const glossaryTermMocks = [
+const glossaryTermMocks = [
     {
         request: {
             query: GetAutoCompleteResultsDocument,

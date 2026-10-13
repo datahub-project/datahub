@@ -83,6 +83,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+    num_queries_with_redacted_text: int = 0
     num_metric_views_yaml_parse_failures: int = 0
     num_metric_views_yaml_shape_invalid: int = 0
     num_metric_views_no_parseable_sources: int = 0

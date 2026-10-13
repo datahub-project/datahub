@@ -102,7 +102,7 @@ class PulsarSchema:
 
 
 @platform_name("Pulsar")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

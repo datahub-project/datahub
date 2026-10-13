@@ -40,8 +40,21 @@ public class BuildIndicesConfiguration {
   /** Minutes without document-count progress before re-triggering reindex. Default 5. */
   private Integer reindexNoProgressRetryMinutes;
 
+  /**
+   * When true, do not submit another {@code _reindex} while the current ES task is still running or
+   * its status cannot be read. Stall detection would otherwise stack overlapping copies into the
+   * same destination. Default true.
+   */
+  @Builder.Default private boolean waitForUnresolvedReindexTask = true;
+
   // Parallel reindexing configuration
   @Builder.Default private boolean enableParallelReindex = false;
+
+  /**
+   * Concurrent non-reindex settings updates (including {@code refresh_interval}). No Java default:
+   * {@code application.yaml} sets this. A missing or non-positive value fails system-update.
+   */
+  private Integer maxConcurrentSettingsUpdates;
 
   @Builder.Default private int taskCheckIntervalSeconds = 15;
 

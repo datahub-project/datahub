@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -46,11 +46,6 @@ const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 9px;
-
-    svg {
-        height: 16px;
-        width: 16px;
-    }
 `;
 
 interface Props {
@@ -110,7 +105,7 @@ export default function OptionsDropdownMenu({
                 {React.cloneElement(menu as React.ReactElement, { style: STYLE_NO_SHADOW })}
                 {isLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
             </ScrollableContent>

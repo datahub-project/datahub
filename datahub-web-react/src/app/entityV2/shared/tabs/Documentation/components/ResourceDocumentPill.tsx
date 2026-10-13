@@ -1,16 +1,15 @@
-import { Icon, Tooltip } from '@components';
+import { Icon } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React from 'react';
-import { Trans, useTranslation } from 'react-i18next';
+import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { isDocumentUnpublished, isExternalDocument, pickTreeIcon } from '@app/document/utils/documentUtils';
-import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
-import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import ResourceDocumentPillPopover from '@app/entityV2/shared/tabs/Documentation/components/ResourceDocumentPillPopover';
 import { Pill, Popover } from '@src/alchemy-components';
 import { PillRightIcon } from '@src/alchemy-components/components/Pills/types';
 
+import { useGetDocumentLazyQuery } from '@graphql/document.generated';
 import { Document } from '@types';
 
 interface Props {
@@ -33,9 +32,18 @@ export function ResourceDocumentPill({ document, onClick, onRemove, canRemove = 
     const { t: ta } = useTranslation('common.actions');
 
     const title = document.info?.title || t('links.untitledDocument');
-    const lastModified = document.info?.lastModified;
-    const actor = lastModified?.actor;
-    const relativeTime = toRelativeTimeString(lastModified?.time) || t('links.recently');
+    const [isHoverRequested, setIsHoverRequested] = useState(false);
+    const [loadDocument, { called, data, loading }] = useGetDocumentLazyQuery();
+    const hoverDocument = (data?.document as Document | null | undefined) ?? document;
+    const handleOpenChange = useCallback(
+        (isOpen: boolean) => {
+            setIsHoverRequested(isOpen);
+            if (isOpen && !called) {
+                loadDocument({ variables: { urn: document.urn }, fetchPolicy: 'cache-first' });
+            }
+        },
+        [called, document.urn, loadDocument],
+    );
 
     const DocumentGlyph = pickTreeIcon({ hasChildren: false, isUnpublished: isDocumentUnpublished(document) });
     const isExternal = isExternalDocument(document) && document.platform;
@@ -59,27 +67,9 @@ export function ResourceDocumentPill({ document, onClick, onRemove, canRemove = 
     return (
         <Popover
             placement="top"
-            content={
-                <ResourcePillMeta
-                    content={
-                        <Trans
-                            t={t}
-                            i18nKey={actor ? 'links.editedBy' : 'links.edited'}
-                            values={{ relativeTime }}
-                            components={{
-                                time: lastModified?.time ? (
-                                    <Tooltip title={formatDateString(lastModified.time)}>
-                                        <span />
-                                    </Tooltip>
-                                ) : (
-                                    <span />
-                                ),
-                            }}
-                        />
-                    }
-                    actor={actor}
-                />
-            }
+            content={<ResourceDocumentPillPopover document={hoverDocument} fallbackTitle={title} />}
+            open={isHoverRequested && called && !loading}
+            onOpenChange={handleOpenChange}
             mouseEnterDelay={0.3}
         >
             <Pill

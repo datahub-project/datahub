@@ -12,6 +12,7 @@ import { ManageDomainsPage as ManageDomainsPageV2 } from '@app/domainV2/ManageDo
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
+import StructuredPropertyFormPage from '@app/govern/structuredProperties/StructuredPropertyFormPage';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
 import MarketplaceRoutes from '@app/marketplace/MarketplaceRoutes';
@@ -131,6 +132,15 @@ export const SearchRoutes = (): JSX.Element => {
 
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPageV2 />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutesV2 />} />
+                {showStructuredProperties && (
+                    <Route
+                        path={PageRoutes.STRUCTURED_PROPERTIES_CREATE}
+                        render={() => <StructuredPropertyFormPage />}
+                    />
+                )}
+                {showStructuredProperties && (
+                    <Route path={PageRoutes.STRUCTURED_PROPERTIES_EDIT} render={() => <StructuredPropertyFormPage />} />
+                )}
                 {showStructuredProperties && (
                     <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 )}

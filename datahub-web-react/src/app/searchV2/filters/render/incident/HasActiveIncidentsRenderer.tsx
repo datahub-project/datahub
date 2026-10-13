@@ -1,4 +1,4 @@
-import { WarningOutlined } from '@ant-design/icons';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -11,7 +11,7 @@ export class HasActiveIncidentsRenderer implements FilterRenderer {
 
     render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} icon={this.icon()} />;
 
-    icon = () => <WarningOutlined />;
+    icon = () => <Warning />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

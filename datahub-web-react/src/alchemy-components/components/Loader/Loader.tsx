@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { LoaderWrapper, StyledSpinner } from '@components/components/Loader/components';
 import { LoaderSizes } from '@components/components/Loader/constants';
@@ -19,6 +20,7 @@ export function Loader({
 }: LoaderProps) {
     const { t: tc } = useTranslation('common.feedback');
     const loaderSize = LoaderSizes[size || 'md'];
+    const theme = useTheme();
 
     return (
         <LoaderWrapper
@@ -26,7 +28,7 @@ export function Loader({
             $alignItems={alignItems || 'none'}
             $padding={padding}
         >
-            <StyledSpinner $height={loaderSize} aria-label={tc('loading')} />
+            <StyledSpinner $height={loaderSize} aria-label={tc('loading')} color={theme.colors.iconBrand} />
         </LoaderWrapper>
     );
 }

@@ -10,11 +10,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
     FabricTable,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientReport
 

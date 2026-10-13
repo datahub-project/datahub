@@ -29,7 +29,7 @@ export class NavbarPage extends BasePage {
   async navigateToHome(): Promise<void> {
     this.logger?.step('navigate to home', {});
     await this.navigate('/');
-    await this.waitForPageLoad();
+    await this.verifyNavbarLogoVisible();
   }
 
   async verifyNavbarSidebarVisible(): Promise<void> {

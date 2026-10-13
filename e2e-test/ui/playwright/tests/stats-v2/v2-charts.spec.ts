@@ -71,8 +71,19 @@ test.describe('Statistics Charts', () => {
     await statsPage.verifyTimeRangeSelectorDoesNotExist();
   });
 
-  test('should show time filter with all options when a year of data is available', async ({ apiMock }) => {
+  test('should widen the time filter when the only profile is older than 30 days', async ({ apiMock }) => {
     await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN);
+
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+
+    // The chart opens on the smallest window that still includes that profile
+    await statsPage.verifyTimeRangeSelectorExists();
+    await statsPage.verifyTimeRangeSelected(TIME_RANGES.YEAR);
+    await statsPage.verifyRowCountChartIsVisible();
+  });
+
+  test('should show time filter with all options when a year of data is available', async ({ apiMock }) => {
+    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_YEAR_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
@@ -95,7 +106,7 @@ test.describe('Statistics Charts', () => {
   test('should show time filter with expected options when more than 6 months of data is available', async ({
     apiMock,
   }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.SIX_MONTHS_AGO, TEST_DATASET_URN);
+    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.SIX_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
@@ -113,7 +124,7 @@ test.describe('Statistics Charts', () => {
   test('should show time filter with expected options when more than 3 months of data is available', async ({
     apiMock,
   }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.THREE_MONTHS_AGO, TEST_DATASET_URN);
+    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.THREE_MONTHS_AGO, TEST_DATASET_URN, getNormalizedTimestamp());
 
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
@@ -138,7 +149,12 @@ test.describe('Statistics Charts', () => {
   test('should show time filter with expected options when more than 1 month of data is available', async ({
     apiMock,
   }) => {
-    await setupChartsData(apiMock, TIMESTAMP_OFFSETS.ONE_MONTH_ONE_WEEK_AGO, TEST_DATASET_URN);
+    await setupChartsData(
+      apiMock,
+      TIMESTAMP_OFFSETS.ONE_MONTH_ONE_WEEK_AGO,
+      TEST_DATASET_URN,
+      getNormalizedTimestamp(),
+    );
 
     await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 

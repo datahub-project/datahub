@@ -414,7 +414,7 @@ def get_filter_name(filter_obj):
 
 @platform_name("Superset")
 @config_class(SupersetConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )

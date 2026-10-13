@@ -225,7 +225,7 @@ export function extractRelatedDocumentUrns(
  * @param urnArrays - Variable number of URN arrays to merge
  * @returns A new array with unique URNs
  */
-export function mergeUrns(...urnArrays: (string[] | undefined | null)[]): string[] {
+function mergeUrns(...urnArrays: (string[] | undefined | null)[]): string[] {
     return [...new Set(urnArrays.flat().filter((urn): urn is string => Boolean(urn)))];
 }
 

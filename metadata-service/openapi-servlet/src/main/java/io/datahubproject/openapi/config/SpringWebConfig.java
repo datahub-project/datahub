@@ -52,7 +52,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   public GroupedOpenApi v3OpenApiGroup(
       final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
     return GroupedOpenApi.builder()
-        .group("openapi-v3")
+        .group("10-openapi-v3")
         .displayName("1. DataHub v3 (OpenAPI)")
         .addOpenApiCustomizer(
             openApi ->
@@ -65,7 +65,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi openApiGroupV2() {
     return GroupedOpenApi.builder()
-        .group("openapi-v2")
+        .group("50-openapi-v2")
         .displayName("5. DataHub v2 (OpenAPI, deprecated)")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
@@ -77,7 +77,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi openApiGroupV1() {
     return GroupedOpenApi.builder()
-        .group("openapi-v1")
+        .group("60-openapi-v1")
         .displayName("6. DataHub v1 (OpenAPI)")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
@@ -89,7 +89,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi operationsOpenApiGroup() {
     return GroupedOpenApi.builder()
-        .group("operations")
+        .group("40-operations")
         .displayName("4. Operations")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
@@ -101,7 +101,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @Bean
   public GroupedOpenApi openlineageOpenApiGroup() {
     return GroupedOpenApi.builder()
-        .group("openlineage")
+        .group("30-openlineage")
         .displayName("3. OpenLineage")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
@@ -114,7 +114,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   @ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
   public GroupedOpenApi eventsOpenApiGroup() {
     return GroupedOpenApi.builder()
-        .group("events")
+        .group("20-events")
         .displayName("2. Events")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))

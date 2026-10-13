@@ -41,13 +41,10 @@ public class IndexConventionFactory {
         IndexConventionImpl.IndexConventionConfig.builder()
             .hashIdAlgo(elasticSearchConfiguration.getIdHashAlgo())
             .schemaFieldDocIdHashEnabled(
-                elasticSearchConfiguration
-                    .getIndex()
-                    .getDocIds()
-                    .getSchemaField()
-                    .isHashIdEnabled())
+                elasticSearchConfiguration.getEntityIndex().getV2().isSchemaFieldDocIdHashEnabled())
             .build(),
         indexPrefixResolver,
-        elasticSearchConfiguration.getEntityIndex());
+        elasticSearchConfiguration.getEntityIndex(),
+        IndexConventionImpl.explicitComponentPrefixOverlays(elasticSearchConfiguration));
   }
 }

@@ -5,7 +5,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
-import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
+import { DocumentTreeContext, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { DOCUMENT_PAGE_SIZE, useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 
 import * as documentGenerated from '@graphql/document.generated';
@@ -213,17 +213,18 @@ describe('useLoadDocumentTree', () => {
 
     it('should handle checkForChildren correctly', async () => {
         const urns = ['urn:li:document:1', 'urn:li:document:2'];
-        const mockChildDocs = [
-            { urn: 'urn:li:document:child1', info: { parentDocument: { document: { urn: 'urn:li:document:1' } } } },
-        ];
-
-        let callCount = 0;
-        mockSearchDocumentsLazyQuery.mockImplementation(() => {
-            callCount++;
-            if (callCount === 1) {
-                return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+        // checkForChildren queries each parent independently, so drive the mock
+        // off the requested parent: urn:1 has a child, urn:2 does not.
+        const child1 = {
+            urn: 'urn:li:document:child1',
+            info: { parentDocument: { document: { urn: 'urn:li:document:1' } } },
+        };
+        mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+            const parents = opts?.variables?.input?.parentDocuments ?? [];
+            if (parents.includes('urn:li:document:1')) {
+                return Promise.resolve({ data: { searchDocuments: { documents: [child1], total: 1 } } });
             }
-            return Promise.resolve({ data: { searchDocuments: { documents: mockChildDocs, total: 1 } } });
+            return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
         });
 
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
@@ -305,5 +306,137 @@ describe('useLoadDocumentTree', () => {
                 }),
             }),
         );
+    });
+
+    // Regression coverage for a bug where changing the active View left the sidebar tree
+    // stuck: fetchRootDocuments' "already populated" guard silently dropped the new View's
+    // results, and even when it didn't, nothing but a visible IntersectionObserver sentinel
+    // could ever re-trigger a load, so `loading` could get stuck `true` forever once the
+    // sentinel unmounted. These tests exercise the explicit clear-and-refetch fix directly.
+    describe('active View changes', () => {
+        const viewWrapper = ({ children, viewUrn }: any) => (
+            <ApolloProvider client={mockClient}>
+                <UserContext.Provider
+                    value={{
+                        loaded: true,
+                        urn: 'urn:li:corpuser:test',
+                        localState: { selectedViewUrn: viewUrn },
+                        state: DEFAULT_STATE,
+                        updateLocalState: () => null,
+                        updateState: () => null,
+                        refetchUser: () => null,
+                    }}
+                >
+                    <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
+                </UserContext.Provider>
+            </ApolloProvider>
+        );
+
+        it('clears cached tree state and refetches root documents for the new View', async () => {
+            mockSearchDocumentsLazyQuery.mockResolvedValue({
+                data: { searchDocuments: { documents: [], total: 0 } },
+            });
+
+            const { rerender } = renderHook(() => useLoadDocumentTree(), {
+                wrapper: viewWrapper,
+                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
+            });
+
+            await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
+            mockInitializeTree.mockClear();
+            mockSearchDocumentsLazyQuery.mockClear();
+
+            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+
+            // The clear happens synchronously in the same effect that kicks off the refetch.
+            expect(mockInitializeTree).toHaveBeenCalledWith([]);
+
+            await waitFor(() => {
+                expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        variables: expect.objectContaining({
+                            input: expect.objectContaining({ start: 0, viewUrn: 'urn:li:dataHubView:b' }),
+                        }),
+                    }),
+                );
+            });
+        });
+
+        it('does not clear or refetch when rerendering with the same View', async () => {
+            mockSearchDocumentsLazyQuery.mockResolvedValue({
+                data: { searchDocuments: { documents: [], total: 0 } },
+            });
+
+            const { rerender } = renderHook(() => useLoadDocumentTree(), {
+                wrapper: viewWrapper,
+                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
+            });
+
+            await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
+            mockInitializeTree.mockClear();
+            mockSearchDocumentsLazyQuery.mockClear();
+
+            rerender({ viewUrn: 'urn:li:dataHubView:a' });
+
+            expect(mockInitializeTree).not.toHaveBeenCalled();
+            expect(mockSearchDocumentsLazyQuery).not.toHaveBeenCalled();
+        });
+
+        it('replaces stale root documents from the previous View and never gets stuck loading', async () => {
+            const viewADoc = {
+                urn: 'urn:li:document:viewA-doc',
+                info: { title: 'View A Doc', created: { time: 1000 }, parentDocument: null },
+            };
+            const viewBDoc = {
+                urn: 'urn:li:document:viewB-doc',
+                info: { title: 'View B Doc', created: { time: 1000 }, parentDocument: null },
+            };
+
+            mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+                const requestedViewUrn = opts?.variables?.input?.viewUrn;
+                const doc = requestedViewUrn === 'urn:li:dataHubView:b' ? viewBDoc : viewADoc;
+                return Promise.resolve({ data: { searchDocuments: { documents: [doc], total: 1 } } });
+            });
+
+            // Use the real DocumentTreeProvider here (rather than the mocked context value used
+            // elsewhere in this file) so getRootNodes/initializeTree are actually wired together —
+            // that coupling is exactly what the original "already populated" guard bug hid.
+            const realWrapper = ({ children, viewUrn }: any) => (
+                <ApolloProvider client={mockClient}>
+                    <UserContext.Provider
+                        value={{
+                            loaded: true,
+                            urn: 'urn:li:corpuser:test',
+                            localState: { selectedViewUrn: viewUrn },
+                            state: DEFAULT_STATE,
+                            updateLocalState: () => null,
+                            updateState: () => null,
+                            refetchUser: () => null,
+                        }}
+                    >
+                        <DocumentTreeProvider>{children}</DocumentTreeProvider>
+                    </UserContext.Provider>
+                </ApolloProvider>
+            );
+
+            const { result, rerender } = renderHook(
+                () => {
+                    const tree = useLoadDocumentTree();
+                    const ctx = useDocumentTree();
+                    return { tree, ctx };
+                },
+                { wrapper: realWrapper, initialProps: { viewUrn: 'urn:li:dataHubView:a' } },
+            );
+
+            await waitFor(() => expect(result.current.tree.loading).toBe(false));
+            expect(result.current.ctx.getRootNodes().map((n) => n.urn)).toEqual(['urn:li:document:viewA-doc']);
+
+            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+
+            // Must resolve back to false — a regression here means the sidebar spinner
+            // never clears (see the bug description above).
+            await waitFor(() => expect(result.current.tree.loading).toBe(false));
+            expect(result.current.ctx.getRootNodes().map((n) => n.urn)).toEqual(['urn:li:document:viewB-doc']);
+        });
     });
 });

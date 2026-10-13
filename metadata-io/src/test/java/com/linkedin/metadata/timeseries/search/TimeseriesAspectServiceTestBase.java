@@ -137,9 +137,11 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            entityRegistry,
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                entityRegistry,
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            getSearchClient());
 
     elasticSearchTimeseriesAspectService = buildService();
     elasticSearchTimeseriesAspectService.reindexAll(opContext, Collections.emptySet());

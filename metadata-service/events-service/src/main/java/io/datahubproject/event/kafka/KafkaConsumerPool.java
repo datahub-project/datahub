@@ -193,6 +193,9 @@ public class KafkaConsumerPool {
   }
 
   private void closeAndRemoveConsumer(CheckedConsumer checkedConsumer) {
+    if (checkedConsumer.getState() == CheckedConsumer.ConsumerState.CLOSED) {
+      return;
+    }
     checkedConsumer.setState(CheckedConsumer.ConsumerState.CLOSED);
     checkedConsumer.close();
     allConsumers.remove(checkedConsumer);
@@ -217,15 +220,8 @@ public class KafkaConsumerPool {
     allConsumers.clear();
     consumerPool.clear();
 
-    poolManagementLock.lock();
-    try {
-      for (CheckedConsumer consumer : consumersToClose) {
-        consumer.setState(CheckedConsumer.ConsumerState.CLOSED);
-        consumer.close();
-        totalConsumersCreated.decrementAndGet();
-      }
-    } finally {
-      poolManagementLock.unlock();
+    for (CheckedConsumer consumer : consumersToClose) {
+      closeAndRemoveConsumer(consumer);
     }
   }
 }

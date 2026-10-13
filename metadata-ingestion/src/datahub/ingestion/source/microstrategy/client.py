@@ -22,6 +22,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
     MSTR_OBJECT_TYPE_DASHBOARD,
+    MSTR_OBJECT_TYPE_METRIC,
     MSTR_OBJECT_TYPE_REPORT,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -205,6 +206,12 @@ class MicroStrategyClient:
             project_id, MSTR_OBJECT_TYPE_REPORT, "report search"
         )
 
+    def search_metrics(self, project_id: str) -> Iterable[MicroStrategyObject]:
+        """Project-wide metric catalog, independent of any specific report/cube."""
+        yield from self._search_typed_objects(
+            project_id, MSTR_OBJECT_TYPE_METRIC, "metric search"
+        )
+
     def get_report_object(
         self,
         project_id: str,
@@ -286,6 +293,26 @@ class MicroStrategyClient:
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
+        )
+
+    def get_attribute_relationships(
+        self, project_id: str, attribute_id: str
+    ) -> Dict[str, object]:
+        """Raw parent/child hierarchy JSON for one attribute, including the logical
+        table implementing each relationship; parsed by lineage.parse_attribute_relationships."""
+        return self._get_json(
+            f"/api/model/systemHierarchy/attributes/{attribute_id}/relationships",
+            project_id=project_id,
+        )
+
+    def get_consolidation_model(
+        self, project_id: str, consolidation_id: str
+    ) -> Dict[str, object]:
+        """Raw consolidation definition JSON; parsed by lineage.consolidation_attribute_ids
+        to resolve the attributes a consolidated metric ultimately reads from."""
+        return self._get_json(
+            f"/api/model/consolidations/{consolidation_id}",
+            project_id=project_id,
         )
 
     def get_model_document(

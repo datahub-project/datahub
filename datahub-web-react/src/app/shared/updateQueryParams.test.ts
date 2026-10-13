@@ -20,17 +20,6 @@ describe('updateQueryParams', () => {
 
     const getReplaceArgs = () => (history.replace as any).mock.calls[0][0];
 
-    it('preserves plus-encoded values (3%2B) from existing params', () => {
-        const location = createLocation('/path', '?q=3%2B');
-
-        updateQueryParams({}, location, history as any);
-
-        expect(getReplaceArgs()).toEqual({
-            pathname: '/path',
-            search: 'q=3%2B',
-        });
-    });
-
     it('does not convert plus-encoded (3%2B) into space-encoded (3%20) when merging', () => {
         const location = createLocation('/search', '?q=3%2B');
 
@@ -41,5 +30,17 @@ describe('updateQueryParams', () => {
         expect(args.search).toContain('q=3%2B');
         expect(args.search).not.toContain('%20');
         expect(args.search).toContain('page=1');
+    });
+
+    it('does not call history.replace when search params are unchanged', () => {
+        const location = createLocation('/path', '?foo=bar');
+        updateQueryParams({ foo: 'bar' }, location, history as any);
+        expect(history.replace).not.toHaveBeenCalled();
+    });
+
+    it('does not call history.replace when both old and new search are empty', () => {
+        const location = createLocation('/path', '');
+        updateQueryParams({}, location, history as any);
+        expect(history.replace).not.toHaveBeenCalled();
     });
 });

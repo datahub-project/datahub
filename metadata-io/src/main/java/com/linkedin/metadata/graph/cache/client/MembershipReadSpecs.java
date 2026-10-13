@@ -20,17 +20,32 @@ public class MembershipReadSpecs {
   @Nonnull
   public static Optional<MembershipReadSpec> forKnownGraph(
       @Nonnull KnownEntityGraph known, @Nonnull EntityGraphBinding binding) {
+    return forKnownGraph(known, binding, MembershipReadSpec.DEFAULT_RELATED_TYPE_FILTER_FETCH_CAP);
+  }
+
+  @Nonnull
+  public static Optional<MembershipReadSpec> forKnownGraph(
+      @Nonnull KnownEntityGraph known,
+      @Nonnull EntityGraphBinding binding,
+      int relatedTypeFilterFetchCap) {
     if (known != KnownEntityGraph.MEMBERSHIP) {
       return Optional.empty();
     }
-    return Optional.of(membership(binding));
+    return Optional.of(membership(binding, relatedTypeFilterFetchCap));
   }
 
   @Nonnull
   public static MembershipReadSpec membership(@Nonnull EntityGraphBinding binding) {
+    return membership(binding, MembershipReadSpec.DEFAULT_RELATED_TYPE_FILTER_FETCH_CAP);
+  }
+
+  @Nonnull
+  public static MembershipReadSpec membership(
+      @Nonnull EntityGraphBinding binding, int relatedTypeFilterFetchCap) {
     return MembershipReadSpec.builder()
         .binding(binding)
         .groupRelationshipTypes(GROUP_RELATIONSHIP_TYPES)
+        .relatedTypeFilterFetchCap(relatedTypeFilterFetchCap)
         .build();
   }
 }

@@ -2,11 +2,10 @@ import logging
 from abc import abstractmethod
 from typing import Optional
 
-from gql import Client
-from gql.transport.requests import RequestsHTTPTransport
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
+from datahub.ingestion.auth.registry import AuthConfig
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,10 @@ class CircuitBreakerConfig(ConfigModel):
     datahub_token: Optional[TransparentSecretStr] = Field(
         default=None, description="The datahub token"
     )
+    datahub_auth: Optional[AuthConfig] = Field(
+        default=None,
+        description="Declarative auth (e.g. OAuth client credentials), as an alternative to a static token. Mutually exclusive with datahub_token. The Airflow operators build their config from the connection, which cannot express an AuthConfig — set the DATAHUB_AUTH_TYPE environment variables there instead.",
+    )
     timeout: Optional[int] = Field(
         default=None,
         description="The number of seconds to wait for your client to establish a connection to a remote machine",
@@ -23,32 +26,6 @@ class CircuitBreakerConfig(ConfigModel):
 
 
 class AbstractCircuitBreaker:
-    client: Client
-
-    def __init__(
-        self,
-        datahub_host: str,
-        datahub_token: Optional[str] = None,  # accepts raw str from callers
-        timeout: Optional[int] = None,
-    ):
-        # logging.basicConfig(level=logging.DEBUG)
-
-        # Select your transport with a defined url endpoint
-        self.transport = RequestsHTTPTransport(
-            url=datahub_host + "/api/graphql",
-            headers=(
-                {"Authorization": "Bearer " + datahub_token}
-                if datahub_token is not None
-                else None
-            ),
-            method="POST",
-            timeout=timeout,
-        )
-        self.client = Client(
-            transport=self.transport,
-            fetch_schema_from_transport=True,
-        )
-
     @abstractmethod
     def is_circuit_breaker_active(self, urn: str) -> bool:
         pass

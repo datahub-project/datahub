@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
 
@@ -66,40 +66,39 @@ export function useLoadDocumentTree(
         [childPaginationVersion],
     );
 
-    // Check if multiple documents have children (batch query). Returns a map of
-    // parent urn → discovered child count (best-effort; capped by the query page).
+    // Check whether each document has children, and how many. Query each parent
+    // independently (count: 1 — we only need the `total`, not the rows) rather
+    // than one batched search. A single batch capped at `urns.length * 100` could
+    // miss a parent entirely when sibling folders' combined children exceed the
+    // cap: the page is dominated by whichever parent's children sort first, so a
+    // starved parent gets marked childless and renders as a document.
     const checkForChildren = useCallback(
         async (urns: string[]): Promise<Record<string, number>> => {
             if (urns.length === 0) return {};
 
             try {
-                const result = await searchDocumentsQuery({
-                    variables: {
-                        input: {
-                            query: '*',
-                            parentDocuments: urns,
-                            start: 0,
-                            count: urns.length * 100,
-                            viewUrn,
-                        },
-                    },
-                    fetchPolicy: 'network-only',
-                });
-
                 const childrenMap: Record<string, number> = {};
-                urns.forEach((urn) => {
-                    childrenMap[urn] = 0;
+                const results = await Promise.all(
+                    urns.map(async (urn) => {
+                        const result = await searchDocumentsQuery({
+                            variables: {
+                                input: {
+                                    query: '*',
+                                    parentDocuments: [urn],
+                                    start: 0,
+                                    count: 1,
+                                    viewUrn,
+                                },
+                            },
+                            fetchPolicy: 'network-only',
+                        });
+                        const childCount = result.data?.searchDocuments?.total ?? 0;
+                        return { urn, childCount };
+                    }),
+                );
+                results.forEach(({ urn, childCount }) => {
+                    childrenMap[urn] = childCount;
                 });
-
-                const children = result.data?.searchDocuments?.documents || [];
-
-                children.forEach((child) => {
-                    const parentUrn = child.info?.parentDocument?.document?.urn;
-                    if (parentUrn && Object.prototype.hasOwnProperty.call(childrenMap, parentUrn)) {
-                        childrenMap[parentUrn] += 1;
-                    }
-                });
-
                 return childrenMap;
             } catch (error) {
                 console.error('Failed to check for children:', error);
@@ -109,9 +108,12 @@ export function useLoadDocumentTree(
         [searchDocumentsQuery, viewUrn],
     );
 
-    // fetchData for useInfiniteScroll — fetches root documents and pushes into tree context
-    const fetchRootDocuments = useCallback(
-        async (start: number, _count: number): Promise<DocumentTreeNode[]> => {
+    // Core root-document page loader, shared by useInfiniteScroll's pagination and the
+    // View-change reset effect below. Ordering comes from the searchDocuments sortInput —
+    // do not sort client-side.
+    const loadRootPage = useCallback(
+        async (start: number): Promise<DocumentTreeNode[]> => {
+            // ContextSidebar only needs loadChildren; skip root pagination when disabled.
             if (!paginateRoots) {
                 setIsInitializing(false);
                 return [];
@@ -143,8 +145,8 @@ export function useLoadDocumentTree(
                 });
 
                 if (start === 0) {
-                    // Always replace roots so sort changes (DocumentTree remount) take effect
-                    // even when the shared tree context still holds the previous page.
+                    // Always replace roots so sort and View changes take effect even when the
+                    // shared tree context still holds the previous page.
                     initializeTree(nodes);
                 } else {
                     appendRootNodes(nodes);
@@ -161,6 +163,27 @@ export function useLoadDocumentTree(
         [paginateRoots, searchDocumentsQuery, checkForChildren, initializeTree, appendRootNodes, viewUrn, sortInput],
     );
 
+    // fetchData for useInfiniteScroll — fetches root documents and pushes into tree context
+    const fetchRootDocuments = useCallback((start: number, _count: number) => loadRootPage(start), [loadRootPage]);
+
+    // Clear locally-cached tree state and force a fresh root-document fetch when the
+    // active View changes. `resetTrigger` below only resets useInfiniteScroll's own
+    // pagination bookkeeping — it does NOT itself refetch, so we can't rely on it (or
+    // on the IntersectionObserver, whose sentinel is unmounted while `loading` is true)
+    // to kick off the reload. We call loadRootPage directly instead, the same way the
+    // initial mount does, guaranteeing `isInitializing` always gets flipped back to false
+    // in its `finally` regardless of sentinel visibility.
+    const prevViewUrnRef = useRef(viewUrn);
+    useEffect(() => {
+        if (prevViewUrnRef.current === viewUrn) return;
+        prevViewUrnRef.current = viewUrn;
+        initializeTree([]);
+        childPaginationRef.current.clear();
+        setChildPaginationVersion((v) => v + 1);
+        setIsInitializing(true);
+        loadRootPage(0);
+    }, [viewUrn, initializeTree, loadRootPage]);
+
     const {
         loading: loadingRoots,
         observerRef: rootObserverRef,
@@ -169,6 +192,9 @@ export function useLoadDocumentTree(
         fetchData: fetchRootDocuments,
         pageSize: DOCUMENT_PAGE_SIZE,
         getKey: (node) => node.urn,
+        // Reset pagination when sort changes. View changes are handled separately via the effect above,
+        // which manually calls initializeTree and loadRootPage, so resetTrigger omits viewUrn to avoid
+        // duplicate fetches and state conflicts.
         resetTrigger: sort,
     });
 

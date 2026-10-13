@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
@@ -125,6 +126,9 @@ public class FixEntityConsistencyStepTest {
     consistencyService =
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+
+    // Soft-fail count for ETA (scan runner calls countMatching once per entity type)
+    when(mockEsSystemMetadataDAO.count(any(), any(), anyBoolean())).thenReturn(Optional.empty());
   }
 
   /** Helper method to create a mock ConsistencyCheck for testing. */
@@ -934,6 +938,81 @@ public class FixEntityConsistencyStepTest {
             any(Urn.class),
             any(EntityService.class),
             eq(DataHubUpgradeState.IN_PROGRESS),
+            any(Map.class));
+  }
+
+  /** Interrupt during inter-batch delay preserves IN_PROGRESS and does not mark SUCCEEDED. */
+  @Test
+  public void testInterruptDuringDelayPreservesInProgress() throws Exception {
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext,
+            mockEntityService,
+            consistencyService,
+            createTestConfig(false, 10, 60_000, 0, false, List.of(ASSERTION_ENTITY_NAME), null));
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    UpgradeReport mockReport = mock(UpgradeReport.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockContext.report()).thenReturn(mockReport);
+    when(mockContext.opContext()).thenReturn(mockOpContext);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenReturn(Optional.of(1L));
+
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-assertion");
+    Urn validEntityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    SearchResponse assertionSearchResponse = createSearchResponseWithUrns(assertionUrn.toString());
+    when(mockEsSystemMetadataDAO.scroll(
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
+        .thenReturn(assertionSearchResponse);
+
+    AssertionInfo assertionInfo = new AssertionInfo();
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        ASSERTION_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(assertionInfo.data())));
+    EntityResponse assertionResponse = new EntityResponse();
+    assertionResponse.setUrn(assertionUrn);
+    assertionResponse.setEntityName(ASSERTION_ENTITY_NAME);
+    assertionResponse.setAspects(aspects);
+
+    when(mockEntityService.getEntitiesV2(
+            any(OperationContext.class),
+            eq(ASSERTION_ENTITY_NAME),
+            any(Set.class),
+            any(Set.class),
+            anyBoolean()))
+        .thenReturn(Map.of(assertionUrn, assertionResponse));
+    when(mockEntityService.exists(any(OperationContext.class), any(Set.class), anyBoolean()))
+        .thenReturn(Set.of(validEntityUrn));
+    when(mockEntityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
+        .thenReturn(true);
+
+    AtomicReference<UpgradeStepResult> resultHolder = new AtomicReference<>();
+    Thread runnerThread = new Thread(() -> resultHolder.set(step.executable().apply(mockContext)));
+    runnerThread.start();
+    Thread.sleep(300);
+    runnerThread.interrupt();
+    runnerThread.join(10_000);
+
+    assertFalse(runnerThread.isAlive());
+    assertEquals(resultHolder.get().result(), DataHubUpgradeState.IN_PROGRESS);
+    assertEquals(resultHolder.get().action(), UpgradeStepResult.Action.ABORT);
+    verify(mockUpgrade, never())
+        .setUpgradeResult(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(EntityService.class),
+            eq(DataHubUpgradeState.SUCCEEDED),
             any(Map.class));
   }
 

@@ -17,7 +17,14 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "openai",
     "local",
     "vertex_ai",
+    "onnx",
+    "classical",
 )
+
+# Providers that embed in-process with no external API behind them ("local" is not one:
+# it calls an OpenAI-compatible server over HTTP). Callers use this to skip API
+# protections such as the documents-per-minute limiter.
+IN_PROCESS_PROVIDERS: frozenset[str] = frozenset({"classical", "onnx"})
 
 
 def resolve_local_base_url(endpoint: Optional[str]) -> str:
@@ -122,5 +129,34 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             location=config.vertex_location,
             timeout=timeout,
         )
+
+    if provider == "onnx":
+        from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
+            OnnxEmbeddingProvider,
+        )
+
+        # The server config names the model but not where its files live; the
+        # executor resolves that from the same env var GMS uses, so both sides
+        # load the identical model.onnx + tokenizer.json.
+        model_dir = config.onnx_model_dir or os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+        if not model_dir:
+            raise ValueError(
+                "onnx provider requires a model directory. Set embedding.onnx_model_dir "
+                "or the ONNX_EMBEDDING_MODEL_DIR environment variable to the directory "
+                "containing model.onnx and tokenizer.json."
+            )
+        return OnnxEmbeddingProvider(
+            model=model,
+            model_dir=model_dir,
+            pooling=config.onnx_pooling,
+        )
+
+    if provider == "classical":
+        from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+            ClassicalEmbeddingProvider,
+        )
+
+        # Stateless and stdlib-only: the model name alone fixes the algorithm.
+        return ClassicalEmbeddingProvider(model=model)
 
     raise ValueError(f"Unsupported embedding provider: {provider}")

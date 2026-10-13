@@ -10,6 +10,7 @@ import pytest
 
 from datahub.masking.bootstrap import (
     initialize_secret_masking,
+    is_bootstrapped,
     shutdown_secret_masking,
 )
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -195,46 +196,40 @@ class TestBootstrapEdgeCases:
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
-    def test_initialize_twice(self):
-        initialize_secret_masking()
-        initialize_secret_masking()  # Should be no-op
-
-        # Only one filter should be installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 1
-
-    def test_initialize_with_force(self):
-        initialize_secret_masking()
-        initialize_secret_masking(force=True)
-
-        # Should still work
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) >= 1
+    def test_initialize_twice_attaches_single_filter(self):
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+            initialize_secret_masking()
+            masking_filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(masking_filters) == 1
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
     def test_shutdown_when_not_initialized(self):
         shutdown_secret_masking()  # Should be safe
 
-    def test_shutdown_clears_filters(self):
-        initialize_secret_masking()
-        shutdown_secret_masking()
-
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 0
+    def test_shutdown_keeps_filters_installed(self):
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+            shutdown_secret_masking()
+            assert any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
     def test_is_bootstrapped(self):
-        from datahub.masking.bootstrap import is_bootstrapped
-
-        shutdown_secret_masking()
         assert not is_bootstrapped()
-
         initialize_secret_masking()
         assert is_bootstrapped()
-
         shutdown_secret_masking()
-        assert not is_bootstrapped()
+        assert is_bootstrapped()
 
     def test_get_bootstrap_error(self):
         from datahub.masking.bootstrap import get_bootstrap_error

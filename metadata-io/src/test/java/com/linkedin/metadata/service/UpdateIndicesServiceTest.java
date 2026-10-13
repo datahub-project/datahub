@@ -76,8 +76,6 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            true, // v2Enabled = true (both strategies active)
             null);
 
     Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);

@@ -5,7 +5,7 @@ source:
   config:
     username: sa
     password: test!Password
-    host_port: 127.0.0.1:21433
+    host_port: 127.0.0.1:${MSSQL_PORT}
     convert_urns_to_lowercase: true
     database_pattern:
       deny:
@@ -14,6 +14,7 @@ source:
     uri_args:
       driver: "ODBC Driver 18 for SQL Server"
       TrustServerCertificate: "yes"
+      Encrypt: "yes"
 
 sink:
   type: file

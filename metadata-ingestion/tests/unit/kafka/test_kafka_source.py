@@ -275,7 +275,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicNameStrategy is used for subject
         "topic1": (
             RegisteredSchema(
-                schema_id="schema_id_2",
+                schema_id=2,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
@@ -285,7 +285,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                schema_id="schema_id_1",
+                schema_id=1,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
@@ -298,7 +298,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # RecordNameStrategy is used for subject
         "topic2": (
             RegisteredSchema(
-                schema_id="schema_id_3",
+                schema_id=3,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
@@ -308,7 +308,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                schema_id="schema_id_4",
+                schema_id=4,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
@@ -321,7 +321,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicRecordNameStrategy is used for subject
         "topic3": (
             RegisteredSchema(
-                schema_id="schema_id_4",
+                schema_id=4,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
@@ -331,7 +331,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                schema_id="schema_id_5",
+                schema_id=5,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
@@ -456,7 +456,7 @@ def test_kafka_ignore_warnings_on_schema_type(
 ):
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
-        schema_id="schema_id_2",
+        schema_id=2,
         guid=None,
         schema=Schema(
             schema_str="{}",
@@ -466,7 +466,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         version=1,
     )
     topic1_value_schema = RegisteredSchema(
-        schema_id="schema_id_1",
+        schema_id=1,
         guid=None,
         schema=Schema(
             schema_str="{}",
@@ -592,7 +592,7 @@ def test_kafka_source_topic_meta_mappings(
     topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
         "topic1": (
             RegisteredSchema(
-                schema_id="schema_id_2",
+                schema_id=2,
                 guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
@@ -602,7 +602,7 @@ def test_kafka_source_topic_meta_mappings(
                 version=1,
             ),
             RegisteredSchema(
-                schema_id="schema_id_1",
+                schema_id=1,
                 guid=None,
                 schema=Schema(
                     schema_str=json.dumps(
@@ -797,7 +797,7 @@ def test_kafka_source_with_hyphenated_namespace_schema(
         "my-debezium-topic": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_key",
+                schema_id=10,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
@@ -814,7 +814,7 @@ def test_kafka_source_with_hyphenated_namespace_schema(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_value",
+                schema_id=11,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
@@ -1021,7 +1021,7 @@ def test_kafka_source_handles_non_iterable_schema_tags(
         "topic_with_bad_tags": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_key",
+                schema_id=10,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"TopicKey", "namespace": "test.acryl", "fields": [{"name":"key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -1031,7 +1031,7 @@ def test_kafka_source_handles_non_iterable_schema_tags(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_value",
+                schema_id=11,
                 schema=Schema(
                     # tags field is an integer (non-iterable) instead of an array
                     schema_str=json.dumps(
@@ -1145,7 +1145,7 @@ def test_kafka_source_handles_valid_schema_tags(
         "topic_with_good_tags": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_key",
+                schema_id=10,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"TopicKey", "namespace": "test.acryl", "fields": [{"name":"key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -1155,7 +1155,7 @@ def test_kafka_source_handles_valid_schema_tags(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_value",
+                schema_id=11,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
@@ -1241,7 +1241,7 @@ def test_kafka_source_extract_record_with_domain(
     """Test _extract_record_with_schemas with domain configuration."""
 
     topic_schema = RegisteredSchema(
-        schema_id="schema_id_1",
+        schema_id=1,
         guid=None,
         schema=Schema(
             schema_str='{"type":"record", "name":"TestRecord", "fields": [{"name":"id", "type": "long"}]}',

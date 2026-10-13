@@ -95,7 +95,7 @@ Run the following commands to install the relevant plugin(s):
 
 Use the following recipe(s) to get started with ingestion.
 
-_For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
+_For general pointers on writing and running a recipe, see our [main recipe guide](https://docs.datahub.com/docs/metadata-ingestion#pull-metadata-from-a-source-recipe)._
 
 #### `'acryl-datahub[source-name]'`
 

@@ -37,6 +37,7 @@ from sqlglot.optimizer.scope import find_all_in_scope
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
+    get_sql_lineage_timeout_seconds,
     get_sql_parse_cache_size,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -52,6 +53,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
 from datahub.sql_parsing.schema_resolver import (
@@ -121,6 +123,12 @@ def _restore_mssql_temp_table_prefix(
     if not hasattr(identifier, "args"):
         return table.name
 
+    # TODO: MSSQL table-valued functions still resolve to the function name
+    # here (ghost URNs). sqlglot's Table.name is "" when Table.this is a Func,
+    # but this reads the name off the function node. Once sqlglot parses bare
+    # hints like `dbo.t (NOLOCK)` as table hints
+    # (https://github.com/tobymao/sqlglot/issues/8468), return "" for a Func
+    # here and in the Dot branch of _table_name_from_sqlglot_table.
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
@@ -137,6 +145,16 @@ def _restore_mssql_temp_table_prefix(
     return table_name
 
 
+def _table_name_as_sqlglot_table(table: _TableName) -> sqlglot.exp.Table:
+    return sqlglot.exp.Table(
+        catalog=(
+            sqlglot.exp.Identifier(this=table.database) if table.database else None
+        ),
+        db=sqlglot.exp.Identifier(this=table.db_schema) if table.db_schema else None,
+        this=sqlglot.exp.Identifier(this=table.table),
+    )
+
+
 def _table_name_from_sqlglot_table(
     table: sqlglot.exp.Table,
     dialect: Optional[sqlglot.Dialect],
@@ -145,8 +163,7 @@ def _table_name_from_sqlglot_table(
 ) -> _TableName:
     """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
 
-    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
-    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
+    Restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
 
     Args:
         table: The SQLGlot Table expression
@@ -157,6 +174,26 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    # sqlglot wraps Snowflake's IDENTIFIER('db.schema.tbl') in a DynamicIdentifier without
+    # splitting it; parse the literal as a table so quoting and dotted names resolve.
+    if isinstance(table.this, sqlglot.exp.DynamicIdentifier):
+        literal = table.this.this
+        if not (isinstance(literal, sqlglot.exp.Literal) and literal.is_string):
+            raise SqlUnderstandingError(
+                f"Cannot statically resolve table name from IDENTIFIER(...) argument: {literal}"
+            )
+        try:
+            identifier_table = sqlglot.parse_one(
+                literal.this, into=sqlglot.exp.Table, dialect=dialect
+            )
+        except Exception as e:
+            raise SqlUnderstandingError(
+                f"Cannot parse IDENTIFIER(...) argument as a table name: {literal.this!r}"
+            ) from e
+        return _table_name_from_sqlglot_table(
+            identifier_table, dialect, default_db, default_schema
+        )
+
     # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
     # In this case, table.this is a SemanticView expression, and we need to
     # extract the actual table from within it.
@@ -179,8 +216,7 @@ def _table_name_from_sqlglot_table(
 
     # Handle Dot expressions (more than 3-part names).
     # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-    # identifiers while walking left, then reverse. Mirror of the traversal in
-    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
+    # identifiers while walking left, then reverse.
     if isinstance(table.this, sqlglot.exp.Dot):
         all_parts_exp: List[sqlglot.exp.Expression] = []
         exp: sqlglot.exp.Expression = table.this
@@ -230,7 +266,7 @@ SQL_PARSE_RESULT_CACHE_SIZE = get_sql_parse_cache_size()
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
-SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_LINEAGE_TIMEOUT_SECONDS = get_sql_lineage_timeout_seconds()
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
@@ -440,9 +476,23 @@ def _extract_table_names(
     iterable: Iterable[sqlglot.exp.Table],
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    return OrderedSet(
-        _table_name_from_sqlglot_table(table, dialect) for table in iterable
-    )
+    result: OrderedSet[_TableName] = OrderedSet()
+    for table in iterable:
+        try:
+            name = _table_name_from_sqlglot_table(table, dialect)
+        except SqlUnderstandingError as e:
+            # One unresolvable table ref must not drop the whole statement's lineage.
+            logger.debug(f"Skipping unresolvable table reference: {e}")
+            continue
+        # e.g. table functions like mysql() or generate_series(). Without a table
+        # name there is no valid dataset URN to build.
+        if not name.table:
+            logger.debug(
+                f"Skipping table reference with no name: {table.sql(dialect=dialect)}"
+            )
+            continue
+        result.add(name)
+    return result
 
 
 # ==============================================================================
@@ -453,32 +503,99 @@ def _extract_table_names(
 # 2. Materialized views with TO clause - output goes to target table, not the view
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
-# Dictionary functions that take a dictionary name as first argument.
-# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+
+# Built-in functions whose first argument is a dictionary name
+# (https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions).
+# Union of ClickHouse 25.3 and 26.9:
+# SELECT lower(name) FROM system.functions WHERE name ILIKE 'dict%' AND origin = 'System'
 _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
     {
         "dictget",
+        "dictgetall",
+        "dictgetchildren",
+        "dictgetdate",
+        "dictgetdateordefault",
+        "dictgetdatetime",
+        "dictgetdatetimeordefault",
+        "dictgetdescendants",
+        "dictgetfloat32",
+        "dictgetfloat32ordefault",
+        "dictgetfloat64",
+        "dictgetfloat64ordefault",
+        "dictgethierarchy",
+        "dictgetint16",
+        "dictgetint16ordefault",
+        "dictgetint32",
+        "dictgetint32ordefault",
+        "dictgetint64",
+        "dictgetint64ordefault",
+        "dictgetint8",
+        "dictgetint8ordefault",
+        "dictgetipv4",
+        "dictgetipv4ordefault",
+        "dictgetipv6",
+        "dictgetipv6ordefault",
+        "dictgetkeys",
         "dictgetordefault",
         "dictgetornull",
+        "dictgetroot",
+        "dictgetstring",
+        "dictgetstringordefault",
+        "dictgetuint16",
+        "dictgetuint16ordefault",
+        "dictgetuint32",
+        "dictgetuint32ordefault",
+        "dictgetuint64",
+        "dictgetuint64ordefault",
+        "dictgetuint8",
+        "dictgetuint8ordefault",
+        "dictgetuuid",
+        "dictgetuuidordefault",
         "dicthas",
-        "dictgethierarchy",
         "dictisin",
-        "dictgetchildren",
-        "dictgetdescendant",
-        "dictgetdescendants",
-        "dictgetall",
     }
 )
 
 
-def _clickhouse_extract_dictget_tables(
+def _clickhouse_table_name_from_arg(
+    arg: sqlglot.exp.Expression, function_name: str
+) -> Optional[_TableName]:
+    if isinstance(arg, sqlglot.exp.Column):
+        if arg.db:
+            # ClickHouse has no catalog level; mirror the literal branch below.
+            logger.warning(f"Unexpected {function_name} table name: {arg.sql()}")
+            return None
+        return _TableName(
+            database=None,
+            db_schema=arg.table if arg.table else None,
+            table=arg.name,
+        )
+
+    if isinstance(arg, sqlglot.exp.Literal) and arg.is_string:
+        name = arg.this
+    else:
+        logger.debug(f"Unexpected {function_name} first argument type: {type(arg)}")
+        return None
+
+    parts = [part for part in name.split(".") if part]
+    if len(parts) == 2:
+        return _TableName(database=None, db_schema=parts[0], table=parts[1])
+    if len(parts) == 1:
+        return _TableName(database=None, db_schema=None, table=parts[0])
+
+    logger.warning(
+        f"Unexpected {function_name} table name with {len(parts)} parts: {name}"
+    )
+    return None
+
+
+def _clickhouse_extract_dictionary_tables(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    """Extract dictionary references from ClickHouse dictGet() function calls.
+    """Extract dictionaries referenced by ClickHouse dictionary functions.
 
-    sqlglot parses dictGet(dict_name, ...) first arg as a Column node, not a
-    Table node. This extracts those references as _TableName for upstream lineage.
+    Function arguments are Column or Literal nodes rather than Table nodes.
 
     TODO: CLL currently points to dict_name as a column; should point to
     dict_name.attr_name. Needs post-processor to extract attr_name from second
@@ -489,44 +606,53 @@ def _clickhouse_extract_dictget_tables(
 
     result: OrderedSet[_TableName] = OrderedSet()
     for func in statement.find_all(sqlglot.exp.Anonymous):
+        function_name = func.name.lower()
         if (
-            not isinstance(func.this, str)
-            or func.this.lower() not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+            function_name not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
             or not func.expressions
         ):
             continue
 
-        first_arg = func.expressions[0]
-        if isinstance(first_arg, sqlglot.exp.Column):
-            # dictGet(dict_name, ...) → Column(name='dict_name')
-            # dictGet(db.dict_name, ...) → Column(table='db', name='dict_name')
-            result.add(
-                _TableName(
-                    database=None,
-                    db_schema=first_arg.table if first_arg.table else None,
-                    table=first_arg.name,
-                )
-            )
-        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
-            # dictGet('db.dict_name', ...) → Literal('db.dict_name')
-            parts = first_arg.this.split(".")
-            parts = [p for p in parts if p]
-            if len(parts) == 2:
-                result.add(
-                    _TableName(database=None, db_schema=parts[0], table=parts[1])
-                )
-            elif len(parts) == 1:
-                result.add(_TableName(database=None, db_schema=None, table=parts[0]))
-            else:
-                logger.warning(
-                    f"Unexpected dictGet literal with {len(parts)} parts: {first_arg.this}"
-                )
-        else:
-            logger.debug(f"Unexpected dictGet first argument type: {type(first_arg)}")
+        table_name = _clickhouse_table_name_from_arg(func.expressions[0], function_name)
+        if table_name is not None:
+            result.add(table_name)
 
     if result:
-        logger.debug(f"Extracted dictGet table references: {result}")
+        logger.debug(f"Extracted ClickHouse dictionary references: {result}")
     return result
+
+
+def _clickhouse_bare_dictionary_tables(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+) -> Set[_TableName]:
+    """Dictionary names without a database part, which may refer to global XML dictionaries."""
+    return {
+        table
+        for table in _clickhouse_extract_dictionary_tables(statement, dialect)
+        if table.db_schema is None
+    }
+
+
+def _resolve_clickhouse_bare_dictionary_table(
+    schema_resolver: SchemaResolverInterface,
+    table: _TableName,
+    qualified_table: _TableName,
+    qualified_urn: str,
+    qualified_schema_info: Optional[SchemaInfo],
+    bare_dictionary_tables: Set[_TableName],
+) -> Tuple[str, Optional[SchemaInfo]]:
+    # ClickHouse checks global (XML) dictionaries before the current database.
+    # resolve_table also matches case-folded names, so require an exact-case
+    # global match before overriding a current-database hit.
+    if table in bare_dictionary_tables and table != qualified_table:
+        global_urn, global_schema_info = schema_resolver.resolve_table(table)
+        if global_schema_info is not None and (
+            qualified_schema_info is None
+            or DatasetUrn.from_string(global_urn).name.split(".")[-1] == table.table
+        ):
+            return global_urn, global_schema_info
+    return qualified_urn, qualified_schema_info
 
 
 def _clickhouse_extract_to_tables(
@@ -808,7 +934,7 @@ def _table_level_lineage(
                 ),
                 dialect,
             )
-            | _clickhouse_extract_dictget_tables(statement, dialect)
+            | _clickhouse_extract_dictionary_tables(statement, dialect)
         )
         # ignore references created in this query
         - modified
@@ -923,7 +1049,7 @@ def _prepare_query_columns(
             normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
 
         sqlglot_db_schema.add_table(
-            table.as_sqlglot_table(),
+            _table_name_as_sqlglot_table(table),
             column_mapping=normalized_table_schema,
         )
 
@@ -1384,7 +1510,6 @@ def _get_direct_raw_col_upstreams(
                         and dialect is not None
                     ):
                         table_ref = table_ref.qualified(
-                            dialect=dialect,
                             default_db=default_db,
                             default_schema=default_schema,
                         )
@@ -1456,6 +1581,20 @@ def _get_column_transformation(
             dialect=dialect,
             parent=lineage_node,
         )
+
+
+def _is_unnamed_table(table: _TableName) -> bool:
+    # e.g. a table function such as generate_series(), which sqlglot parses as a
+    # table with an empty name.
+    return not table.table
+
+
+def _has_only_unnamed_tables(tables: OrderedSet[_TableName]) -> bool:
+    return bool(tables) and all(_is_unnamed_table(t) for t in tables)
+
+
+def _drop_unnamed_tables(tables: Iterable[_TableName]) -> OrderedSet[_TableName]:
+    return OrderedSet(t for t in tables if not _is_unnamed_table(t))
 
 
 def _collect_tables_from_scope(
@@ -1619,7 +1758,9 @@ def _list_joins(
                             join.sql(dialect=dialect),
                         )
                     continue
-                elif len(left_side_tables | right_side_tables) == 1:
+                elif (
+                    len(_drop_unnamed_tables(left_side_tables | right_side_tables)) == 1
+                ):
                     # When we don't have an ON clause, we're more strict about the
                     # minimum number of tables we need to resolve to avoid false positives.
                     # On the off chance someone is doing a self-cross-join, we'll miss it.
@@ -1629,6 +1770,19 @@ def _list_joins(
                             join.sql(dialect=dialect),
                         )
                     continue
+
+            # An unnamed table has no URN, so the URN lookup would discard the whole
+            # join. Drop unnamed tables here instead, and skip the join if nothing else
+            # is left on a side, e.g. `a JOIN generate_series(...)`.
+            if _has_only_unnamed_tables(left_side_tables) or _has_only_unnamed_tables(
+                right_side_tables
+            ):
+                continue
+            left_side_tables = _drop_unnamed_tables(left_side_tables)
+            right_side_tables = _drop_unnamed_tables(right_side_tables)
+            joined_columns = OrderedSet(
+                col for col in joined_columns if not _is_unnamed_table(col.table)
+            )
 
             joins.append(
                 _JoinInfo(
@@ -1653,10 +1807,17 @@ def _list_joins(
             # Get tables from lateral subquery
             qualified_right: OrderedSet[_TableName] = OrderedSet()
             if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
-                qualified_right.update(
+                lateral_tables: OrderedSet[_TableName] = OrderedSet(
                     _table_name_from_sqlglot_table(t, dialect)
                     for t in lateral.this.find_all(sqlglot.exp.Table)
                 )
+                # A body of only unnamed tables, e.g. `LATERAL (SELECT n FROM
+                # generate_series(...))`, would leave just the merged-in left side
+                # below and report a self-join.
+                if _has_only_unnamed_tables(lateral_tables):
+                    continue
+                qualified_right.update(_drop_unnamed_tables(lateral_tables))
+            qualified_left = _drop_unnamed_tables(qualified_left)
             qualified_right.update(qualified_left)
 
             if qualified_left and qualified_right:
@@ -2071,11 +2232,16 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
-    if isinstance(statement, sqlglot.exp.Command):
+    if isinstance(statement, (sqlglot.exp.Command, sqlglot.exp.Execute)):
         # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
         # This is effectively a parsing error, and we won't get any lineage from it.
         # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
         # and https://github.com/tobymao/sqlglot/pull/2874
+        #
+        # Execute is rejected for a different reason: it parses, but the callee is an
+        # `exp.Table`, so table-level lineage would report a procedure call as an
+        # upstream dataset that does not exist. Procedure-call lineage is built from
+        # the parsed call elsewhere and does not come through here.
         raise UnsupportedStatementTypeError(
             f"Got unsupported syntax for statement: {sql}"
         )
@@ -2120,25 +2286,41 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+    bare_dictionary_tables = _clickhouse_bare_dictionary_tables(statement, dialect)
+    total_schemas_resolved = 0
 
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
+            default_db=default_db, default_schema=default_schema
         )
 
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
+        qualified_urn, qualified_schema_info = schema_resolver.resolve_table(
+            qualified_table
+        )
+        lineage_urn, lineage_schema_info = _resolve_clickhouse_bare_dictionary_table(
+            schema_resolver,
+            table=table,
+            qualified_table=qualified_table,
+            qualified_urn=qualified_urn,
+            qualified_schema_info=qualified_schema_info,
+            bare_dictionary_tables=bare_dictionary_tables,
+        )
 
-        table_name_urn_mapping[qualified_table] = urn
-        if schema_info:
-            table_name_schema_mapping[qualified_table] = schema_info
+        # A bare dictionary and a qualified table can share the same qualified
+        # name, so the qualified mapping must always retain the table resolution.
+        table_name_urn_mapping[qualified_table] = qualified_urn
+        if qualified_schema_info:
+            table_name_schema_mapping[qualified_table] = qualified_schema_info
 
-        # Also include the original, non-qualified table name in the urn mapping.
-        table_name_urn_mapping[table] = urn
+        # Differs from the qualified URN when a bare name is a global dictionary.
+        table_name_urn_mapping[table] = lineage_urn
+        # Not added to table_name_schema_mapping: an unqualified key breaks CLL.
+        if lineage_schema_info:
+            total_schemas_resolved += 1
 
     total_tables_discovered = len(tables | modified)
-    total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
         confidence=(
             0.9

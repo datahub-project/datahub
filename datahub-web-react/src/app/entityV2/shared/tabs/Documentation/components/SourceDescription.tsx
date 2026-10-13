@@ -9,7 +9,7 @@ import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 const LINE_LIMIT = 10;
 
 const SourceDescriptionWrapper = styled.div`
-    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 0 16px 32px;
 `;
 

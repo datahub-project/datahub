@@ -1,8 +1,8 @@
-# Upgrading from DataHub Core to DataHub Cloud
+# Upgrading from DataHub Core (OSS) to DataHub Cloud
 
 Looking to upgrade to **DataHub Cloud**? [Try a Free Trial](https://datahub.com/free-trial/).
 
-Once you have a **DataHub Cloud** instance, you can seamlessly transfer all metadata from your self-hosted **DataHub Core** instance
+Once you have a **DataHub Cloud** instance, you can seamlessly transfer all metadata from your **DataHub Core (OSS)** instance
 to **DataHub Cloud** using the DataHub CLI. In this guide, we'll show you how.
 
 ## Prerequisites

@@ -28,9 +28,11 @@ import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { BrowseV2Page } from '../../pages/browse-v2.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 // Browse V2 test constants
 const BROWSE_V2_FEATURE_FLAGS = {
+  ...GLOBAL_FEATURE_FLAGS,
   showBrowseV2: true,
   showSearchFiltersV2: true,
 };

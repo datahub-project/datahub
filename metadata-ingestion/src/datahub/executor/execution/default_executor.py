@@ -211,19 +211,5 @@ class DefaultExecutor(Executor):
         return secret_stores
 
     def _create_secret_store(self, config: SecretStoreConfig) -> SecretStore:
-        # Create a secret store registry
-        secret_store_registry: SecretStoreRegistry = SecretStoreRegistry()
-
-        # Get the secret store configs
-        secret_store_type: str = config.type
-
-        # Fetch the correct secret store, or register a new one
-        if not secret_store_registry.is_enabled(secret_store_type):
-            # Custom Secret Store found. Register it.
-            secret_store_registry.register_lazy(secret_store_type, secret_store_type)
-
-        # Instantiate the secret store class
-        secret_store_class = secret_store_registry.get(secret_store_type)
-
-        # Create & return new instance of secret store
+        secret_store_class = SecretStoreRegistry().get(config.type)
         return secret_store_class.create(config.config)

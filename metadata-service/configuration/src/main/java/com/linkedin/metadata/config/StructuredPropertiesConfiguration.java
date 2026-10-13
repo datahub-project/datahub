@@ -29,16 +29,33 @@ public class StructuredPropertiesConfiguration {
   private boolean typeMismatchReindexEnabled;
 
   /**
+   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
+   * search indices whose structured-property {@code copy_to} targets differ from the
+   * definition-driven mapping. A put-mapping does not backfill already-indexed documents, so the
+   * difference requires a full reindex.
+   */
+  private boolean copyToMismatchReindexEnabled;
+
+  /**
    * When true, structured property writes drop assignments whose definition entity does not exist,
    * logging a warning per dropped value. The write fails if no valid assignments remain.
    */
   private boolean dropMissingPropertyValuesWithWarning;
 
   /**
-   * Max UTF-8 bytes for string-backed structured property values ({@code string}, {@code
-   * rich_text}, {@code date}, {@code urn}). Keyword mappings derive a byte-safe character {@code
-   * ignore_above} from this limit ({@code keywordMaxLength / 4}). Default is set in {@code
-   * application.yaml}.
+   * When true, string-backed structured property values that exceed {@link #keywordMaxLength} are
+   * still written to primary storage, but are omitted from Elasticsearch / OpenSearch documents.
+   * When false, those writes are rejected by {@code StructuredPropertiesValidator}.
+   */
+  private boolean dropOversizedKeywordValuesFromIndex;
+
+  /**
+   * UTF-8 byte threshold for string-backed structured property values ({@code string}, {@code
+   * rich_text}, {@code date}, {@code urn}) used for write validation and search-document emission.
+   * Yaml defaults this to Lucene's keyword term limit ({@code 32766} / {@code
+   * ESUtils.KEYWORD_MAXLENGTH}); it is not a hard cap on primary-store size when {@link
+   * #dropOversizedKeywordValuesFromIndex} is true. Keyword mappings derive a byte-safe character
+   * {@code ignore_above} from this value ({@code keywordMaxLength / 4}).
    */
   private int keywordMaxLength;
 }

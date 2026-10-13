@@ -39,6 +39,11 @@ type Props = {
     onClear: () => void;
     clearTestId?: string;
     dataTestId?: string;
+    /** A DataHub View is applied to the query and may be filtering out results. */
+    hasSelectedView?: boolean;
+    /** Clears the selected View (only rendered alongside `hasSelectedView`). */
+    onClearView?: () => void;
+    clearViewTestId?: string;
 };
 
 /**
@@ -56,6 +61,9 @@ export default function SidebarFilteredResults({
     onClear,
     clearTestId = 'sidebar-clear-filters',
     dataTestId = 'sidebar-filtered-results',
+    hasSelectedView = false,
+    onClearView,
+    clearViewTestId = 'sidebar-clear-view',
 }: Props) {
     const { t } = useTranslation('misc');
     const { t: tc } = useTranslation('common.actions');
@@ -74,9 +82,19 @@ export default function SidebarFilteredResults({
                 <Text size="sm" color="gray">
                     {tc('noResults')}
                 </Text>
+                {hasSelectedView && (
+                    <Text size="sm" color="gray">
+                        {t('context.viewMayBeHidingResults')}
+                    </Text>
+                )}
                 <Button variant="text" size="sm" onClick={onClear} data-testid={clearTestId}>
                     {t('context.clearSearch')}
                 </Button>
+                {hasSelectedView && onClearView && (
+                    <Button variant="text" size="sm" onClick={onClearView} data-testid={clearViewTestId}>
+                        {t('context.clearSelectedView')}
+                    </Button>
+                )}
             </StateWrap>
         );
     }

@@ -55,6 +55,18 @@ public class EntityConsistencyConfiguration {
   private int limit;
 
   /**
+   * Minimum interval between progress/ETA INFO log lines during a long entity-type scan (ms).
+   * Default 60000. Checkpoints remain silent every batch.
+   */
+  private long progressLogIntervalMs = 60_000L;
+
+  /**
+   * Warmup before the first time-based ETA is logged (ms). Default 30000 so early rate estimates
+   * are not noisy.
+   */
+  private long progressWarmupMs = 30_000L;
+
+  /**
    * Job-level entity types for default (non-orphan) checks. If empty or null, uses entity types
    * that have registered default checks.
    *

@@ -66,7 +66,7 @@ class HexReport(
 
 @platform_name("Hex")
 @config_class(HexSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -637,7 +637,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                                 sql_cells, upstream_urns
                             )
                         )
-                used_queried_tables = True
+                # Gate the SQL-cell fallback on tier-1 producing anything —
+                # a fully-skipped response shouldn't suppress a path that works.
+                used_queried_tables = bool(upstream_urns)
 
         if not used_queried_tables:
             sql_cells = self._apply_cell_based_lineage(

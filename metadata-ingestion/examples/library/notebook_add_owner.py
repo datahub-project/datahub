@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/notebook_add_owner.py
-import logging
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -9,9 +8,6 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 
@@ -32,4 +28,4 @@ event = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(event)
-log.info(f"Added owner {owner_to_add} to notebook {notebook_urn}")
+print(f"Added owner {owner_to_add} to notebook {notebook_urn}")

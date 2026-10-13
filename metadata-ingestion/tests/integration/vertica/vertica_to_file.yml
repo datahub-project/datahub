@@ -1,7 +1,7 @@
 source:
   type: "vertica"
   config:
-    host_port: 127.0.0.1:5433
+    host_port: "127.0.0.1:${VERTICA_PORT}"
     database: Vmart
     username: dbadmin
     password: abc123

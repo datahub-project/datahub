@@ -72,7 +72,7 @@ const TRANSFORMATIONAL_LEAF_OFFSET = 25;
  * Horizontal space reserved on each side of a transformational node when widening a column gap to
  * fit a transformational chain. Increase to spread chains, and the columns around them, further apart.
  */
-export const TRANSFORMATION_NODE_X_SPACING = TRANSFORMATION_NODE_SIZE * 1.25;
+const TRANSFORMATION_NODE_X_SPACING = TRANSFORMATION_NODE_SIZE * 1.25;
 
 /** Extra room bounding boxes keep from their neighbors, wider than a card-to-card gap since a box is
  * a large labeled container. */

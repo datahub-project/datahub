@@ -28,6 +28,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -38,6 +39,7 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -100,6 +102,35 @@ public class JavaEntityClient implements EntityClient {
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
   private final MetricUtils metricUtils;
+  // Null for the system client and where ReliableHardDeleteFactory is not scanned.
+  @Nullable private final HardDeleteService hardDeleteService;
+
+  public JavaEntityClient(
+      final EntityService<?> entityService,
+      final DeleteEntityService deleteEntityService,
+      final EntitySearchService entitySearchService,
+      final CachingEntitySearchService cachingEntitySearchService,
+      final SearchService searchService,
+      final LineageSearchService lineageSearchService,
+      final TimeseriesAspectService timeseriesAspectService,
+      final RollbackService rollbackService,
+      final EventProducer eventProducer,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
+    this(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        entityClientConfig,
+        metricUtils,
+        null);
+  }
 
   @Override
   @Nullable
@@ -634,6 +665,10 @@ public class JavaEntityClient implements EntityClient {
   @Override
   public void deleteEntity(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
+    if (hardDeleteService != null) {
+      hardDeleteService.deleteEntity(opContext, urn);
+      return;
+    }
     entityService.deleteUrn(opContext, urn);
   }
 
@@ -643,6 +678,25 @@ public class JavaEntityClient implements EntityClient {
     withRetry(
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, false),
         "deleteEntityReferences");
+  }
+
+  @Override
+  @Nonnull
+  public ReferencesCleanup deleteEntityThenReferences(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) throws RemoteInvocationException {
+    if (hardDeleteService == null) {
+      return EntityClient.super.deleteEntityThenReferences(opContext, urn);
+    }
+    final Runnable references =
+        hardDeleteService.deleteEntityThenReferences(
+            opContext, urn, this::referencesCleanupAsToday);
+    return references::run;
+  }
+
+  /** The reference cleanup run as {@link #deleteEntityReferences} runs it without the service. */
+  private DeleteReferencesResponse referencesCleanupAsToday(
+      @Nonnull final Supplier<DeleteReferencesResponse> cleanup) {
+    return withRetry(cleanup, "deleteEntityReferences");
   }
 
   @Override

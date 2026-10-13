@@ -151,7 +151,7 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
 
 @platform_name(platform_name="JSON Schemas", id="json-schema")
 @config_class(JsonSchemaSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     capability_name=SourceCapability.SCHEMA_METADATA,
     description="Extracts schemas, following references",

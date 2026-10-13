@@ -1,31 +1,30 @@
-import { Pill, Text, radius } from '@components';
+import { Pill } from '@components';
 import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
-import { ColorOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
+import {
+    getCardinalityLabelKey,
+    getCardinalityPillColor,
+    getRelationshipRowKey,
+    indexDatasetsByAliasOrName,
+} from '@app/entityV2/summary/modules/semanticModelRelationships/utils';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import ModuleEntityIconSlot from '@app/homeV3/module/components/ModuleEntityIconSlot';
+import ModuleEntityLink from '@app/homeV3/module/components/ModuleEntityLink';
+import ModuleEntityName from '@app/homeV3/module/components/ModuleEntityName';
+import ModuleSecondaryText from '@app/homeV3/module/components/ModuleSecondaryText';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { PlatformIcon } from '@app/searchV2/autoCompleteV2/components/icon/PlatformIcon';
+import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import {
-    DataPlatform,
-    Dataset,
-    Entity,
-    EntityType,
-    ErModelRelationshipCardinality,
-    SemanticModelRelationship,
-} from '@types';
+import { Entity, EntityType, SemanticModelRelationship } from '@types';
 
 type EntityDataWithRelationships = {
-    platform?: DataPlatform | null;
     info?: {
         relationships?: SemanticModelRelationship[] | null;
     } | null;
@@ -33,56 +32,35 @@ type EntityDataWithRelationships = {
 
 const RelationshipRow = styled.div`
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     gap: 12px;
-    padding: 10px 4px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
-
-    &:last-child {
-        border-bottom: none;
-    }
+    padding: 8px 13px 8px 8px;
 `;
 
 const Endpoint = styled.div<{ $align: 'left' | 'right' }>`
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 16px;
     min-width: 0;
     justify-content: ${(props) => (props.$align === 'right' ? 'flex-end' : 'flex-start')};
     text-align: ${(props) => props.$align};
 `;
 
-const IconContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: ${(props) => props.theme.colors.bgSurface};
-    height: 28px;
-    width: 28px;
-    border-radius: ${radius.full};
-    flex-shrink: 0;
-`;
-
 const EndpointText = styled.div<{ $align: 'left' | 'right' }>`
     display: flex;
     flex-direction: column;
+    gap: 0;
     min-width: 0;
     align-items: ${(props) => (props.$align === 'right' ? 'flex-end' : 'flex-start')};
 `;
 
-const DatasetName = styled(Text).attrs({ size: 'sm', weight: 'semiBold' })`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
-`;
+const LinkedEndpoint = styled(ModuleEntityLink)``;
 
-const ColumnName = styled(Text).attrs({ size: 'xs', color: 'gray' })`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
+const EndpointName = styled(ModuleEntityName)`
+    ${LinkedEndpoint}:hover & {
+        text-decoration: underline;
+    }
 `;
 
 const CardinalityCell = styled.div`
@@ -91,71 +69,44 @@ const CardinalityCell = styled.div`
     flex-shrink: 0;
 `;
 
-const StyledLink = styled(Link)`
-    display: block;
-    color: inherit;
-    text-decoration: none;
-    min-width: 0;
-
-    &:hover ${DatasetName} {
-        text-decoration: underline;
-    }
-`;
-
-const PLATFORM_ICON_SIZE = 16;
-
-const CARDINALITY_LABEL_KEYS: Record<ErModelRelationshipCardinality, string> = {
-    [ErModelRelationshipCardinality.OneOne]: 'semanticModelRelationships.cardinality.oneOne',
-    [ErModelRelationshipCardinality.NOne]: 'semanticModelRelationships.cardinality.manyOne',
-    [ErModelRelationshipCardinality.OneN]: 'semanticModelRelationships.cardinality.oneMany',
-    [ErModelRelationshipCardinality.NN]: 'semanticModelRelationships.cardinality.manyMany',
-};
-
-const CARDINALITY_LABELS_FALLBACK: Record<ErModelRelationshipCardinality, string> = {
-    [ErModelRelationshipCardinality.OneOne]: 'One → One',
-    [ErModelRelationshipCardinality.NOne]: 'Many → One',
-    [ErModelRelationshipCardinality.OneN]: 'One → Many',
-    [ErModelRelationshipCardinality.NN]: 'Many → Many',
-};
-
-const CARDINALITY_COLORS: Record<ErModelRelationshipCardinality, ColorOptions> = {
-    [ErModelRelationshipCardinality.OneOne]: 'blue',
-    [ErModelRelationshipCardinality.NOne]: 'violet',
-    [ErModelRelationshipCardinality.OneN]: 'green',
-    [ErModelRelationshipCardinality.NN]: 'yellow',
-};
-
-const DEFAULT_PILL_COLOR: ColorOptions = 'gray';
-
 type EndpointSideProps = {
     datasetName: string;
     columns: string[];
-    platform?: DataPlatform | null;
     source?: Entity | null;
     align: 'left' | 'right';
 };
 
-function RelationshipEndpoint({ datasetName, columns, platform, source, align }: EndpointSideProps) {
+function withStableKeys(values: string[]): Array<{ value: string; key: string }> {
+    const counts = new Map<string, number>();
+    return values.map((value) => {
+        const occurrence = counts.get(value) ?? 0;
+        counts.set(value, occurrence + 1);
+        return {
+            value,
+            key: occurrence === 0 ? value : `${value}-${occurrence}`,
+        };
+    });
+}
+
+function RelationshipEndpoint({ datasetName, columns, source, align }: EndpointSideProps) {
     const entityRegistry = useEntityRegistryV2();
 
     const content = (
         <Endpoint $align={align}>
-            {platform && (
-                <IconContainer>
-                    <PlatformIcon platform={platform} size={PLATFORM_ICON_SIZE} />
-                </IconContainer>
-            )}
+            <ModuleEntityIconSlot>{source ? <EntityIcon entity={source} /> : null}</ModuleEntityIconSlot>
             <EndpointText $align={align}>
-                <DatasetName>{datasetName}</DatasetName>
-                {columns.map((column) => (
-                    <ColumnName key={column}>{column}</ColumnName>
+                <EndpointName displayName={datasetName} showNameTooltipIfTruncated />
+                {withStableKeys(columns).map(({ value: column, key }) => (
+                    <ModuleSecondaryText key={key} ellipsis showTooltipIfTruncated>
+                        {column}
+                    </ModuleSecondaryText>
                 ))}
             </EndpointText>
         </Endpoint>
     );
 
     if (source?.urn && source.type === EntityType.Dataset) {
-        return <StyledLink to={entityRegistry.getEntityUrl(source.type, source.urn)}>{content}</StyledLink>;
+        return <LinkedEndpoint to={entityRegistry.getEntityUrl(source.type, source.urn)}>{content}</LinkedEndpoint>;
     }
 
     return content;
@@ -168,17 +119,10 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
 
     const typedData = entityData as EntityDataWithRelationships | null;
     const relationships = typedData?.info?.relationships ?? [];
-    const fallbackPlatform = typedData?.platform;
 
-    const datasetsByName = useMemo(() => {
-        const map = new Map<string, Dataset>();
-        datasets.forEach((dataset) => {
-            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset);
-        });
-        return map;
-    }, [datasets]);
+    const datasetsByName = useMemo(() => indexDatasetsByAliasOrName(datasets), [datasets]);
 
-    if (!relationships.length) {
+    if (!loading && !relationships.length) {
         return (
             <LargeModule {...props} loading={loading} dataTestId="semantic-model-relationships-module">
                 <EmptyContent
@@ -195,21 +139,14 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
             {relationships.map((rel, idx) => {
                 const fromDataset = datasetsByName.get(rel.from);
                 const toDataset = datasetsByName.get(rel.to);
-                const fromPlatform = fromDataset?.platform ?? fallbackPlatform;
-                const toPlatform = toDataset?.platform ?? fallbackPlatform;
-
-                const label = rel.cardinality
-                    ? t(CARDINALITY_LABEL_KEYS[rel.cardinality], CARDINALITY_LABELS_FALLBACK[rel.cardinality])
-                    : undefined;
-                const color = rel.cardinality ? CARDINALITY_COLORS[rel.cardinality] : DEFAULT_PILL_COLOR;
+                const label = rel.cardinality ? t(getCardinalityLabelKey(rel.cardinality)) : undefined;
+                const color = getCardinalityPillColor(rel.cardinality);
 
                 return (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <RelationshipRow key={rel.name ?? `${rel.from}-${rel.to}-${idx}`}>
+                    <RelationshipRow key={getRelationshipRowKey(rel, idx)}>
                         <RelationshipEndpoint
                             datasetName={rel.from}
                             columns={rel.fromColumns}
-                            platform={fromPlatform}
                             source={fromDataset}
                             align="left"
                         />
@@ -217,7 +154,6 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
                         <RelationshipEndpoint
                             datasetName={rel.to}
                             columns={rel.toColumns}
-                            platform={toPlatform}
                             source={toDataset}
                             align="right"
                         />

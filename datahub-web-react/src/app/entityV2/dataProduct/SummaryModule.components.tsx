@@ -6,7 +6,7 @@ import { ModuleHeader } from '@app/homeV3/module/components/LargeModule';
 export const SummaryModuleHeader = styled(ModuleHeader)`
     &:hover {
         background: transparent;
-        border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+        border-bottom: ${borders['1px']} transparent;
     }
 `;
 

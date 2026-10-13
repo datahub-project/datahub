@@ -69,7 +69,7 @@ class _JobProcessingResult:
 
 @platform_name("Flink", id="flink")
 @config_class(FlinkSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,

@@ -58,7 +58,7 @@ Connect to DataHub Cloud at <tenant>.acryl.io
 ```
 
 </TabItem>
-<TabItem value="oss" label="Self-Hosted">
+<TabItem value="oss" label="DataHub Core">
 
 You'll need your GMS URL (e.g., `http://localhost:8080`) and a personal access token:
 
@@ -155,7 +155,7 @@ Tag all columns containing email addresses with the PII glossary term across our
 
 | Skill       | Command                           | What it does                                                                               |
 | ----------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or self-hosted)                                    |
+| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or Core)                                           |
 | **Search**  | `/datahub-skills:datahub-search`  | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals |
 | **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers                          |
 | **Enrich**  | `/datahub-skills:datahub-enrich`  | Add descriptions, tags, glossary terms, owners, domains, and structured properties         |

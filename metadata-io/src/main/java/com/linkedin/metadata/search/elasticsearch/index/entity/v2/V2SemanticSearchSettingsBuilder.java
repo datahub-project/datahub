@@ -2,9 +2,9 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -16,8 +16,9 @@ import lombok.extern.slf4j.Slf4j;
  * vector similarity search.
  *
  * <p>Engine-aware: emits the OpenSearch-only {@code "knn": true} index setting only when the
- * configured search engine is OpenSearch 2. Elasticsearch 8 rejects this setting because k-NN is
- * built into the {@code dense_vector} field type and there is no index-level toggle.
+ * configured search engine is OpenSearch (including OS 3). Elasticsearch 8/9 reject this setting
+ * because k-NN is built into the {@code dense_vector} field type and there is no index-level
+ * toggle.
  *
  * <p>Index naming: This builder applies to indices with "_semantic" suffix (e.g.,
  * "datasetindex_v2_semantic").
@@ -91,11 +92,6 @@ public class V2SemanticSearchSettingsBuilder implements SettingsBuilder {
   }
 
   private boolean shouldEnableIndexLevelKnn() {
-    // ES 8 rejects "index.knn" as an unknown setting because dense_vector handles k-NN at the
-    // field level. Only OpenSearch 2 (and the legacy null-shim test path) want the toggle.
-    if (searchClientShim == null) {
-      return true;
-    }
-    return searchClientShim.getEngineType() != SearchEngineType.ELASTICSEARCH_8;
+    return SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim);
   }
 }

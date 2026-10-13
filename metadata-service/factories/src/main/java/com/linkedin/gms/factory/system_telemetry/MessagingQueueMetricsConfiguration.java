@@ -34,7 +34,6 @@ public class MessagingQueueMetricsConfiguration {
 
                     MetricsOptions metricOptions =
                         configurationProvider.getKafka().getConsumer().getMetrics();
-                    String percentilesConfig = metricOptions.getPercentiles();
 
                     double[] slosInSeconds = MetricUtils.parseSLOSeconds(metricOptions.getSlo());
                     double[] slosInNanos = new double[slosInSeconds.length];
@@ -44,7 +43,6 @@ public class MessagingQueueMetricsConfiguration {
 
                     return DistributionStatisticConfig.builder()
                         .percentilesHistogram(true)
-                        .percentiles(MetricUtils.parsePercentiles(percentilesConfig))
                         .serviceLevelObjectives(slosInNanos)
                         .minimumExpectedValue(1_000_000.0) // 1ms in nanoseconds
                         .maximumExpectedValue(

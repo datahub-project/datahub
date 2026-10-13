@@ -14,6 +14,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUserStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -52,7 +54,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final OperationContext opContext,
       final EntityService<?> entityService,
       final GitVersion gitVersion,
-      final String revision) {
+      final String revision,
+      @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     _indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
@@ -99,7 +102,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
             aspectDao,
             opContext,
             entityService,
-            String.format("%s-%s", gitVersion.getVersion(), revision));
+            String.format("%s-%s", gitVersion.getVersion(), revision),
+            searchClusterRegistry);
   }
 
   @Override
@@ -137,13 +141,17 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final AspectDao aspectDao,
       final OperationContext opContext,
       final EntityService<?> entityService,
-      final String upgradeVersion) {
+      final String upgradeVersion,
+      @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     final List<UpgradeStep> steps = new ArrayList<>();
     // Setup Elasticsearch users and roles (if enabled)
-    steps.add(new CreateUserStep(baseElasticSearchComponents, configurationProvider));
-    // Setup usage event indices and policies
-    steps.add(new CreateUsageEventIndicesStep(baseElasticSearchComponents, configurationProvider));
+    steps.add(
+        new CreateUserStep(
+            baseElasticSearchComponents, configurationProvider, searchClusterRegistry));
+    steps.add(
+        new CreateUsageEventIndicesStep(
+            baseElasticSearchComponents, configurationProvider, searchClusterRegistry));
 
     if (_incrementalReindexEnabled) {
       // Incremental path: create next indices + _reindex without blocking writes or swapping

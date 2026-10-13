@@ -7,6 +7,7 @@ import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {
@@ -59,7 +60,8 @@ export function useTemplateOperations(
     personalTemplate: PageTemplateFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
-    const { urn, refetch } = useEntityContext();
+    const { urn } = useEntityContext();
+    const { bypassCacheForUrn } = useReloadableContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [updateAssetSettings] = useUpdateAssetSettingsMutation();
@@ -239,10 +241,10 @@ export function useTemplateOperations(
                         setPersonalTemplate(data.upsertPageTemplate);
                         updateAssetSettings({
                             variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
-                        }).then(() => refetch?.());
+                        }).then(() => bypassCacheForUrn(urn));
                     }
                 } else {
-                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
+                    bypassCacheForUrn(urn);
                 }
             });
         },
@@ -255,7 +257,7 @@ export function useTemplateOperations(
             templateType,
             updateAssetSettings,
             urn,
-            refetch,
+            bypassCacheForUrn,
         ],
     );
 

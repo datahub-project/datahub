@@ -185,7 +185,7 @@ class DremioSourceMapEntry:
 
 @platform_name("Dremio")
 @config_class(DremioSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

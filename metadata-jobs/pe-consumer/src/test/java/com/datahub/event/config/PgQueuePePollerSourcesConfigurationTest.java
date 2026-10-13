@@ -42,6 +42,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
     configurationProvider = mock(ConfigurationProvider.class);
     PeConsumerConfiguration.PgQueuePoll poll = new PeConsumerConfiguration.PgQueuePoll();
     poll.setPlatformEventMaxBatch(50);
+    poll.setPlatformEventEmptyPollSleepMillis(5000L);
     PeConsumerConfiguration peConsumer = new PeConsumerConfiguration();
     peConsumer.setPgQueue(poll);
     when(configurationProvider.getPeConsumer()).thenReturn(peConsumer);
@@ -49,7 +50,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
     PostgresSqlSetupProperties postgresSqlSetupProperties = new PostgresSqlSetupProperties();
     PostgresSqlSetupProperties.PgQueue.ConsumerPoll consumerPoll =
         new PostgresSqlSetupProperties.PgQueue.ConsumerPoll();
-    consumerPoll.setEmptyPollSleepMillis(100L);
+    consumerPoll.setEmptyPollSleepMinMillis(1000L);
     consumerPoll.setMissingTopicSleepMillis(500L);
     consumerPoll.setErrorRecoverySleepMillis(1000L);
     postgresSqlSetupProperties.getPgQueue().setConsumerPoll(consumerPoll);

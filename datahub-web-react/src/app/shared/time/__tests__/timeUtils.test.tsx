@@ -1,4 +1,4 @@
-import { addInterval, getSupportedTimezones } from '@app/shared/time/timeUtils';
+import { addInterval, getSupportedTimezones, toCompactRelativeTimeString } from '@app/shared/time/timeUtils';
 
 import { DateInterval } from '@types';
 
@@ -9,6 +9,22 @@ describe('timeUtils', () => {
             const afterAdd = addInterval(1, input, DateInterval.Month);
             const expected = new Date(1679661504000);
             expect(afterAdd.getTime()).toEqual(expected.getTime());
+        });
+    });
+
+    describe('toCompactRelativeTimeString', () => {
+        it('returns null for missing timestamps', () => {
+            expect(toCompactRelativeTimeString(undefined)).toBeNull();
+            expect(toCompactRelativeTimeString(null)).toBeNull();
+            expect(toCompactRelativeTimeString(0)).toBeNull();
+        });
+
+        it('does not render 0y ago for timestamps just under one year', () => {
+            const now = Date.now();
+            const threeHundredSixtyDaysAgo = now - 360 * 24 * 60 * 60 * 1000;
+
+            expect(toCompactRelativeTimeString(threeHundredSixtyDaysAgo)).toMatch(/12/);
+            expect(toCompactRelativeTimeString(threeHundredSixtyDaysAgo)).not.toMatch(/^0/);
         });
     });
 

@@ -220,7 +220,7 @@ public class EntitySpecBuilder {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup) {
+      @Nullable final String searchGroup) {
     return buildConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, false);
   }
 
@@ -228,7 +228,7 @@ public class EntitySpecBuilder {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup,
+      @Nullable final String searchGroup,
       final boolean viewUnrestricted) {
     EntitySpec entitySpec =
         new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
