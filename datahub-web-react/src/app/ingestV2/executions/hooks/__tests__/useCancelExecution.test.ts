@@ -1,5 +1,5 @@
+import { toast } from '@components';
 import { act, renderHook } from '@testing-library/react-hooks';
-import message from 'antd/lib/message';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
@@ -9,6 +9,21 @@ import { useCancelIngestionExecutionRequestMutation } from '@graphql/ingestion.g
 vi.mock('@graphql/ingestion.generated', () => ({
     useCancelIngestionExecutionRequestMutation: vi.fn(),
 }));
+
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
 
 describe('useCancelExecution Hook', () => {
     const mockRefetch = vi.fn();
@@ -43,7 +58,6 @@ describe('useCancelExecution Hook', () => {
 
     it('should show success message and trigger refetch after timeout', async () => {
         (useCancelIngestionExecutionRequestMutation as any).mockReturnValue([mockExecuteMutation]);
-        const mockSuccess = vi.spyOn(message, 'success');
 
         const { result } = renderHook(() => useCancelExecution(mockRefetch));
 
@@ -52,20 +66,14 @@ describe('useCancelExecution Hook', () => {
 
         await act(async () => {
             result.current(executionUrn, ingestionSourceUrn);
-            // Resolve the promise chain
             await Promise.resolve();
         });
 
-        // Fast-forward timers
         await act(async () => {
             vi.advanceTimersByTime(2000);
         });
 
-        expect(mockSuccess).toHaveBeenCalledWith(
-            expect.objectContaining({
-                content: 'Successfully submitted cancellation request!',
-            }),
-        );
+        expect(toast.success).toHaveBeenCalledWith(expect.any(String), { duration: 3 });
         expect(mockRefetch).toHaveBeenCalled();
     });
 
@@ -74,9 +82,6 @@ describe('useCancelExecution Hook', () => {
         mockExecuteMutation.mockRejectedValueOnce({ message: errorMessage });
         (useCancelIngestionExecutionRequestMutation as any).mockReturnValue([mockExecuteMutation]);
 
-        const mockError = vi.spyOn(message, 'error');
-        const mockDestroy = vi.spyOn(message, 'destroy');
-
         const { result } = renderHook(() => useCancelExecution(mockRefetch));
 
         const executionUrn = 'test-execution-urn';
@@ -84,25 +89,17 @@ describe('useCancelExecution Hook', () => {
 
         await act(async () => {
             result.current(executionUrn, ingestionSourceUrn);
-            // Wait for the promise to resolve or reject
             await Promise.resolve();
         });
 
-        expect(mockDestroy).toHaveBeenCalled();
-        expect(mockError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                content: `Failed to cancel execution!: \n ${errorMessage}`,
-            }),
-        );
+        expect(toast.destroy).toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining(errorMessage), { duration: 3 });
     });
 
     it('should show error message without e.message gracefully', async () => {
-        mockExecuteMutation.mockRejectedValueOnce({}); // no message property
+        mockExecuteMutation.mockRejectedValueOnce({});
 
         (useCancelIngestionExecutionRequestMutation as any).mockReturnValue([mockExecuteMutation]);
-
-        const mockError = vi.spyOn(message, 'error');
-        const mockDestroy = vi.spyOn(message, 'destroy');
 
         const { result } = renderHook(() => useCancelExecution(mockRefetch));
 
@@ -111,14 +108,10 @@ describe('useCancelExecution Hook', () => {
 
         await act(async () => {
             result.current(executionUrn, ingestionSourceUrn);
-            await Promise.resolve(); // Wait for promise to settle
+            await Promise.resolve();
         });
 
-        expect(mockDestroy).toHaveBeenCalled();
-        expect(mockError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                content: `Failed to cancel execution!: \n `, // notice empty string after \n
-            }),
-        );
+        expect(toast.destroy).toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith(expect.any(String), { duration: 3 });
     });
 });

@@ -1,7 +1,7 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { toast } from '@components';
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,10 +21,15 @@ import {
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
         error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -80,7 +85,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateContents(input);
 
             expect(success).toBe(true);
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should successfully update document contents without contents field', async () => {
@@ -162,7 +167,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateContents(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to update document. An unexpected error occurred!');
+            expect(toast.error).toHaveBeenCalledWith('Failed to update document. An unexpected error occurred!');
         });
 
         it('should handle GraphQL errors', async () => {
@@ -199,7 +204,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateContents(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to update document. An unexpected error occurred!');
+            expect(toast.error).toHaveBeenCalledWith('Failed to update document. An unexpected error occurred!');
         });
     });
 
@@ -241,7 +246,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateStatus(input);
 
             expect(success).toBe(true);
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should handle failed status update', async () => {
@@ -281,9 +286,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateStatus(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith(
-                'Failed to update document status. An unexpected error occurred!',
-            );
+            expect(toast.error).toHaveBeenCalledWith('Failed to update document status. An unexpected error occurred!');
         });
     });
 
@@ -399,7 +402,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateSubType(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith(
+            expect(toast.error).toHaveBeenCalledWith(
                 'Failed to update document sub-type. An unexpected error occurred!',
             );
         });
@@ -485,9 +488,7 @@ describe('useUpdateDocument', () => {
             const success = await result.current.updateRelatedEntities(input);
 
             expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith(
-                'Failed to update related assets. An unexpected error occurred!',
-            );
+            expect(toast.error).toHaveBeenCalledWith('Failed to update related assets. An unexpected error occurred!');
         });
     });
 

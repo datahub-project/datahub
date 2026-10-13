@@ -1,14 +1,13 @@
-import { Tooltip } from '@components';
+import { Button, SimpleSelect, Tooltip, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
-import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
-import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
-import { Button, Select, message } from 'antd';
+import { GearSix } from '@phosphor-icons/react/dist/csr/GearSix';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import orderBy from 'lodash/orderBy';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -36,23 +35,6 @@ const Container = styled.div`
 const Content = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
     padding: 20px;
-
-    .ant-select-selection-item {
-        align-items: center;
-        gap: 4px;
-        height: 42px !important;
-    }
-
-    .ant-select-selection-overflow-item-rest {
-        .ant-select-selection-item {
-            background-color: ${(props) => props.theme.colors.bg} !important;
-            border: none !important;
-            padding: 0 0 0 5px !important;
-            height: auto !important;
-            font-size: 12px;
-            line-height: 20px;
-        }
-    }
 `;
 
 const Title = styled.div`
@@ -77,9 +59,120 @@ const DoneButton = styled(Button)`
     width: 290px;
     height: 45px;
     flex-shrink: 0;
-    background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-top: 12px;
+`;
+
+const SelectWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    width: 290px;
+
+    & + & {
+        margin-top: 12px;
+    }
+`;
+
+const LeadingIcon = styled.div`
+    position: absolute;
+    left: 10px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textTertiary};
+    pointer-events: none;
+`;
+
+const RoleSelect = styled(SimpleSelect)`
+    width: 290px;
+
+    & > div {
+        padding-left: 28px;
+    }
+`;
+
+const PlatformSelectTrigger = styled.button<{ $open?: boolean }>`
+    width: 290px;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px 6px 36px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 8px;
+    background: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textTertiary};
+    cursor: pointer;
+    text-align: left;
+`;
+
+const PlatformTags = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+`;
+
+const PlatformPlaceholder = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 14px;
+`;
+
+const OverflowTag = styled.span`
+    font-size: 12px;
+    line-height: 20px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    padding-left: 5px;
+`;
+
+const DropdownCaret = styled(CaretDown)<{ $open?: boolean }>`
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+    transform: ${(props) => (props.$open ? 'rotate(180deg)' : 'none')};
+`;
+
+const PlatformDropdown = styled.div<{ $maxHeight: number }>`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    width: 290px;
+    max-height: ${(props) => props.$maxHeight}px;
+    overflow: auto;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 8px;
+    background: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
+`;
+
+const SelectGrid = styled.div`
+    max-width: 290px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-gap: 10px;
+    padding: 10px;
+`;
+
+const SelectOption = styled.button`
+    display: flex;
+    position: relative;
+    overflow: hidden;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    background: ${(props) => props.theme.colors.bg};
+    cursor: pointer;
+`;
+
+const SelectTag = styled.div`
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
 `;
 
 const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
@@ -109,94 +202,6 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     }
 `;
 
-const SelectWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    position: relative;
-
-    & + & {
-        margin-top: 12px;
-    }
-
-    & svg {
-        position: absolute;
-        left: 10px;
-        z-index: 99;
-        color: ${(props) => props.theme.colors.textTertiary};
-    }
-
-    .ant-select-arrow {
-        & svg {
-            position: relative;
-            margin-right: 5px;
-        }
-    }
-
-    .ant-select-selection-item,
-    .ant-select-selection-placeholder,
-    .ant-select-selection-search {
-        padding-left: 30px !important;
-    }
-
-    .ant-select-selection-overflow {
-        padding-left: 30px !important;
-
-        .ant-select-selection-search {
-            padding-left: 0px !important;
-        }
-    }
-`;
-
-const SelectGrid = styled.div`
-    .rc-virtual-list-holder-inner {
-        max-width: 290px;
-        display: grid !important;
-        grid-template-columns: repeat(4, 1fr);
-        grid-gap: 10px;
-        padding: 10px;
-    }
-
-    .ant-select-item {
-        padding: 0;
-        margin: 0;
-
-        &:hover,
-        &:focus,
-        &:active {
-            background-color: ${(props) => props.theme.colors.bg} !important;
-        }
-    }
-
-    .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-        background-color: ${(props) => props.theme.colors.bg} !important;
-    }
-
-    .ant-select-item-option-content {
-        display: flex;
-        justify-content: center;
-        background-color: ${(props) => props.theme.colors.bg} !important;
-
-        &:hover,
-        &:focus,
-        &:active {
-            background-color: ${(props) => props.theme.colors.bg} !important;
-        }
-    }
-`;
-
-const SelectOption = styled.div`
-    display: flex;
-    position: relative;
-    overflow: hidden;
-    width: 40px;
-    height: 40px;
-`;
-
-const SelectTag = styled.div`
-    margin-right: 4px;
-`;
-
 const Footer = styled.div`
     margin-top: 16px;
     display: flex;
@@ -213,57 +218,12 @@ const SkipButton = styled.div`
 `;
 
 const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
-
-// const RoleCard = styled.div`
-//     border: 1px solid #828da7;
-//     border-radius: 7px;
-//     height: 144px;
-//     width: 112px;
-//     display: flex;
-//     flex-direction: column;
-//     align-items: center;
-// `;
-
-// // this styled div is a 14x14 circle
-// const RoleCardCircle = styled.div`
-//     border-radius: 50%;
-//     height: 14px;
-//     width: 14px;
-//     border: 1px solid #828da7;
-//     // margin-top: 12px;
-//     // margin-bottom: 12px;
-//     background-color: #fff;
-// `;
-
-// const RoleCardComponent = ({
-//     role,
-//     prompt,
-//     onSelect,
-//     isSelected,
-//     emoji,
-// }: {
-//     role: string;
-//     prompt: string;
-//     onSelect: (role: string) => void;
-//     isSelected: boolean;
-//     emoji: string;
-// }) => {
-//     return (
-//         <RoleCard onClick={() => onSelect(role)}>
-//             <div>
-//                 <RoleCardCircle />
-//             </div>
-//             <div>{emoji}</div>
-//             <div>{prompt}</div>
-//         </RoleCard>
-//     );
-// };
+const MAX_VISIBLE_PLATFORM_TAGS = 5;
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
     const { t } = useTranslation('home.v2');
     const { t: tc } = useTranslation('common.actions');
-    const themeConfig = useTheme();
     const userContext = useUserContext();
     const { refetchUser, user } = userContext;
     const defaultDataPlatforms = useGetDataPlatforms();
@@ -280,6 +240,8 @@ export const IntroduceYourselfMainContent = () => {
     const selectedPersona = PersonaType.TECHNICAL_USER;
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [selectedTitle, setSelectedTitle] = useState('');
+    const [isPlatformDropdownOpen, setIsPlatformDropdownOpen] = useState(false);
+    const platformSelectRef = useRef<HTMLDivElement | null>(null);
 
     const { loading: viewsLoading, data: globalViewsData } = useListGlobalViewsQuery({
         variables: {
@@ -323,9 +285,26 @@ export const IntroduceYourselfMainContent = () => {
 
     const platforms = getPlatformList();
 
-    const handleRoleChange = (value: string) => {
-        setSelectedTitle(value);
+    const handleRoleChange = (values: string[]) => {
+        setSelectedTitle(values[0] || '');
     };
+
+    const togglePlatform = (urn: string) => {
+        setSelectedPlatforms((prev) => (prev.includes(urn) ? prev.filter((value) => value !== urn) : [...prev, urn]));
+    };
+
+    useEffect(() => {
+        if (!isPlatformDropdownOpen) {
+            return undefined;
+        }
+        const handleClickOutside = (event: MouseEvent) => {
+            if (platformSelectRef.current && !platformSelectRef.current.contains(event.target as Node)) {
+                setIsPlatformDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isPlatformDropdownOpen]);
 
     const { setIsUserInitializing } = useContext(OnboardingContext);
 
@@ -363,11 +342,8 @@ export const IntroduceYourselfMainContent = () => {
                 }
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: t('introduceYourself.errorProvisionView'),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('introduceYourself.errorProvisionView'), { duration: 3 });
             });
     };
 
@@ -403,7 +379,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error(t('introduceYourself.errorSaveDetails'));
+                toast.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -428,32 +404,32 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error(t('introduceYourself.errorSaveDetails'));
+                toast.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
     const hasPersona = !!selectedPersona;
-    // Possibly needed in the future
-    // const hasPlatforms = selectedPlatforms.length > 0;
-    // const canSubmit = hasPersona && hasPlatforms;
 
-    const selectStyles = {
-        width: 290,
-        borderRadius: '8px',
-        borderColor: themeConfig.colors.border,
-        color: themeConfig.colors.textTertiary,
-    };
-
-    // Sort Roles Alphabetically
-    const sortedRoles = orderBy(Object.keys(ROLE_TO_PERSONA_TYPE), (role) => role);
-
-    // Move 'Other' to the end of the list
-    const updatedRoles = sortedRoles.filter((role) => role !== 'Other');
-    updatedRoles.push('Other');
+    // Sort Roles Alphabetically, then move 'Other' to the end
+    const roleOptions = useMemo(() => {
+        const sortedRoles = orderBy(Object.keys(ROLE_TO_PERSONA_TYPE), (role) => role);
+        const roles = sortedRoles.filter((role) => role !== 'Other');
+        roles.push('Other');
+        return roles.map((role) => ({
+            label: role,
+            value: role,
+        }));
+    }, []);
 
     // Get window height
     const windowHeight = window.innerHeight;
     const smallWindow = windowHeight <= 719;
+
+    const selectedPlatformEntities = selectedPlatforms
+        .map((urn) => platforms.find((platform) => platform.platform.urn === urn)?.platform)
+        .filter((platform): platform is DataPlatform => !!platform);
+    const visiblePlatformTags = selectedPlatformEntities.slice(0, MAX_VISIBLE_PLATFORM_TAGS);
+    const overflowPlatformCount = selectedPlatformEntities.length - visiblePlatformTags.length;
 
     // Show loading state
     const isLoading = loading && reccosLoading && viewsLoading;
@@ -465,86 +441,94 @@ export const IntroduceYourselfMainContent = () => {
                 <Title>{t('introduceYourself.mainTitle')}</Title>
                 <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
-                    <UserCircle />
-                    <Select
+                    <LeadingIcon>
+                        <User size={18} />
+                    </LeadingIcon>
+                    <RoleSelect
                         placeholder={t('introduceYourself.rolePlaceholder')}
-                        suffixIcon={<CaretDown />}
-                        data-testid="introduce-role-select"
-                        size="large"
-                        style={selectStyles}
-                        onChange={handleRoleChange}
+                        dataTestId="introduce-role-select"
+                        size="lg"
+                        width={290}
+                        values={selectedTitle ? [selectedTitle] : []}
+                        onUpdate={handleRoleChange}
                         showSearch
-                        autoFocus
-                    >
-                        {updatedRoles.map((role) => (
-                            <Select.Option key={role} value={role} data-testid={`role-option-${role}`}>
-                                {role}
-                            </Select.Option>
-                        ))}
-                    </Select>
-                </SelectWrapper>
-                <SelectWrapper>
-                    <Gear />
-                    <Select
-                        placeholder={t('introduceYourself.dataToolsPlaceholder')}
-                        size="large"
-                        style={selectStyles}
-                        onChange={(value) => setSelectedPlatforms(value)}
-                        data-testid="introduce-data-source-select"
-                        options={platforms.map((platform) => {
-                            const { urn } = platform.platform;
-                            const isChecked = !!selectedPlatforms.includes(urn);
-
-                            const displayName = entityRegistry.getDisplayName(
-                                EntityType.DataPlatform,
-                                platform.platform,
-                            );
-                            const platformNameForTestId =
-                                platform.platform.name?.toLowerCase().replace(/\s+/g, '-') || '';
-                            return {
-                                value: platform.platform.urn,
-                                label: (
-                                    <SelectOption data-testid={`platform-option-${platformNameForTestId}`}>
-                                        <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
-                                            <PsuedoCheckBox checked={isChecked}>
-                                                {isChecked && <Check />}
-                                            </PsuedoCheckBox>
-                                            <PlatformIcon
-                                                platform={platform.platform}
-                                                size={24}
-                                                styles={{ width: '40px', height: '40px' }}
-                                            />
-                                        </Tooltip>
-                                    </SelectOption>
-                                ),
-                            };
-                        })}
-                        dropdownRender={(menu) => <SelectGrid>{menu}</SelectGrid>}
-                        tagRender={(props: any) => {
-                            const { value } = props;
-                            const platform = platforms.find((p) => p.platform.urn === value);
-                            return (
-                                <SelectTag>
-                                    <PlatformIcon platform={platform?.platform as DataPlatform} size={14} />
-                                </SelectTag>
-                            );
-                        }}
-                        mode="multiple"
-                        maxTagCount={5}
-                        maxTagPlaceholder={(values) => `${values.length}+`}
-                        virtual={false}
-                        listHeight={smallWindow ? 100 : 300}
-                        placement="bottomLeft"
-                        menuItemSelectedIcon
+                        showClear={false}
+                        options={roleOptions}
+                        optionDataTestId={(option) => `role-option-${option.value}`}
                     />
+                </SelectWrapper>
+                <SelectWrapper ref={platformSelectRef}>
+                    <LeadingIcon>
+                        <GearSix size={18} />
+                    </LeadingIcon>
+                    <PlatformSelectTrigger
+                        type="button"
+                        data-testid="introduce-data-source-select"
+                        $open={isPlatformDropdownOpen}
+                        onClick={() => setIsPlatformDropdownOpen((open) => !open)}
+                        aria-expanded={isPlatformDropdownOpen}
+                    >
+                        <PlatformTags>
+                            {visiblePlatformTags.length === 0 ? (
+                                <PlatformPlaceholder>{t('introduceYourself.dataToolsPlaceholder')}</PlatformPlaceholder>
+                            ) : (
+                                visiblePlatformTags.map((platform) => (
+                                    <SelectTag key={platform.urn}>
+                                        <PlatformIcon platform={platform} size={14} />
+                                    </SelectTag>
+                                ))
+                            )}
+                            {overflowPlatformCount > 0 && (
+                                // eslint-disable-next-line i18next/no-literal-string -- visual truncation indicator, not translatable UI text
+                                <OverflowTag>{overflowPlatformCount}+</OverflowTag>
+                            )}
+                        </PlatformTags>
+                        <DropdownCaret size={16} $open={isPlatformDropdownOpen} />
+                    </PlatformSelectTrigger>
+                    {isPlatformDropdownOpen && (
+                        <PlatformDropdown $maxHeight={smallWindow ? 100 : 300}>
+                            <SelectGrid>
+                                {platforms.map((platform) => {
+                                    const { urn } = platform.platform;
+                                    const isChecked = selectedPlatforms.includes(urn);
+                                    const displayName = entityRegistry.getDisplayName(
+                                        EntityType.DataPlatform,
+                                        platform.platform,
+                                    );
+                                    const platformNameForTestId =
+                                        platform.platform.name?.toLowerCase().replace(/\s+/g, '-') || '';
+                                    return (
+                                        <SelectOption
+                                            key={urn}
+                                            type="button"
+                                            data-testid={`platform-option-${platformNameForTestId}`}
+                                            onClick={() => togglePlatform(urn)}
+                                            aria-pressed={isChecked}
+                                        >
+                                            <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
+                                                <PsuedoCheckBox checked={isChecked}>
+                                                    {isChecked && <Check size={10} weight="bold" />}
+                                                </PsuedoCheckBox>
+                                                <PlatformIcon
+                                                    platform={platform.platform}
+                                                    size={24}
+                                                    styles={{ width: '40px', height: '40px' }}
+                                                />
+                                            </Tooltip>
+                                        </SelectOption>
+                                    );
+                                })}
+                            </SelectGrid>
+                        </PlatformDropdown>
+                    )}
                 </SelectWrapper>
                 {/* Note: This is commented out for now, but may be brought back in the future. As of today, it causes more confusion than it helps */}
                 {/* <PersonaSelector selectedPersona={selectedPersona} onSelect={setSelectedPersona} /> */}
                 <DoneButton
-                    type="primary"
-                    size="large"
+                    variant="filled"
+                    size="lg"
                     onClick={onSubmitDetails}
-                    loading={loading}
+                    isLoading={loading}
                     disabled={!hasPersona}
                 >
                     {t('introduceYourself.getStarted')}

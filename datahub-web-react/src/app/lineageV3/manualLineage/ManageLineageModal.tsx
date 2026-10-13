@@ -1,4 +1,4 @@
-import { Modal as AntModal, message } from 'antd';
+import { toast } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,6 +11,7 @@ import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpd
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
@@ -87,6 +88,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [isExitConfirmationOpen, setIsExitConfirmationOpen] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
@@ -112,7 +114,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success(t('manualLineage.updateLineageSuccess'));
+                    toast.success(t('manualLineage.updateLineageSuccess'));
                     updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
                     refetch?.();
 
@@ -128,7 +130,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 }
             })
             .catch((error) => {
-                message.error(error.message || t('manualLineage.updateLineageError'));
+                toast.error(error.message || t('manualLineage.updateLineageError'));
                 setIsSaving(false);
             });
     }
@@ -138,22 +140,15 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            AntModal.confirm({
-                title: t('manualLineage.exitConfirmTitle'),
-                content: t('manualLineage.exitConfirmText', {
-                    count: entitiesToAdd.length + entitiesToRemove.length,
-                }),
-                onOk() {
-                    closeModal();
-                },
-                onCancel() {},
-                okText: tcAction('yes'),
-                maskClosable: true,
-                closable: true,
-            });
+            setIsExitConfirmationOpen(true);
         } else {
             closeModal();
         }
+    };
+
+    const confirmExit = () => {
+        setIsExitConfirmationOpen(false);
+        closeModal();
     };
 
     const modalButtons = useMemo(
@@ -222,6 +217,17 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     </CurrentSection>
                 </ModalContentContainer>
             </StyledModal>
+            <ConfirmationModal
+                isOpen={isExitConfirmationOpen}
+                handleClose={() => setIsExitConfirmationOpen(false)}
+                handleConfirm={confirmExit}
+                modalTitle={t('manualLineage.exitConfirmTitle')}
+                modalText={t('manualLineage.exitConfirmText', {
+                    count: entitiesToAdd.length + entitiesToRemove.length,
+                })}
+                confirmButtonText={tcAction('yes')}
+                zIndex={2100} // Above ManageLineageModal (zIndex 2000)
+            />
         </ClickOutside>
     );
 }

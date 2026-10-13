@@ -1,12 +1,11 @@
-import { Button, Pagination, SearchBar, Table } from '@components';
+import { Button, Pagination, SearchBar, Table, Text, Tooltip, toast } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import EmptySources from '@app/ingestV2/EmptySources';
@@ -64,8 +63,12 @@ const TableContainer = styled.div`
     overflow: auto;
 `;
 
-const TextContainer = styled(Typography.Text)`
+const TextContainer = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 type TableDataType = {
@@ -82,7 +85,6 @@ interface Props {
 export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateModal: setIsCreatingSecret }: Props) => {
     const { t } = useTranslation('ingestion');
     const { t: tl } = useTranslation('common.labels');
-    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -111,6 +113,15 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('secret.loadError', { errorMessage: error.message || '' }), {
+                duration: 3,
+                key: 'secrets-list-load-error',
+            });
+        }
+    }, [error, t]);
+
     const totalSecrets = data?.listSecrets?.total || 0;
     const secrets = data?.listSecrets?.secrets || [];
 
@@ -119,16 +130,13 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             variables: { urn },
         })
             .then(() => {
-                message.success({ content: t('secret.removeSuccess'), duration: 2 });
+                toast.success(t('secret.removeSuccess'), { duration: 2 });
                 removeSecretFromListSecretsCache(urn, client, page, pageSize);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: t('secret.removeError', { errorMessage: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.error(t('secret.removeError', { errorMessage: e.message || '' }), { duration: 3 });
                 }
             });
         setSecretUrnToDelete(null);
@@ -156,10 +164,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then((res) => {
-                message.success({
-                    content: t('secret.createSuccess'),
-                    duration: 3,
-                });
+                toast.success(t('secret.createSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 addSecretToListSecretsCache(
@@ -173,11 +178,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 );
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('secret.updateErrorLower', { errorMessage: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('secret.updateErrorLower', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
     const onUpdate = (state: SecretBuilderState, resetBuilderState: () => void) => {
@@ -192,10 +194,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then(() => {
-                message.success({
-                    content: t('secret.updateSuccess'),
-                    duration: 3,
-                });
+                toast.success(t('secret.updateSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 setEditSecret(undefined);
@@ -214,11 +213,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 }, 3000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('secret.updateError', { errorMessage: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('secret.updateError', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -241,17 +237,9 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             title: tl('name'),
             key: 'name',
             render: (record: TableDataType) => (
-                <TextContainer
-                    ellipsis={{
-                        tooltip: {
-                            title: record.name,
-                            overlayInnerStyle: { color: theme.colors.textSecondary },
-                            showArrow: false,
-                        },
-                    }}
-                >
-                    {record.name}
-                </TextContainer>
+                <Tooltip title={record.name} showArrow={false}>
+                    <TextContainer>{record.name}</TextContainer>
+                </Tooltip>
             ),
             sorter: (a: TableDataType, b: TableDataType) => a.name.localeCompare(b.name),
         },
@@ -259,18 +247,11 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             title: tl('description'),
             key: 'description',
             render: (record: TableDataType) => {
+                const description = record.description || t('secret.noDescription');
                 return (
-                    <TextContainer
-                        ellipsis={{
-                            tooltip: {
-                                title: record.description,
-                                overlayInnerStyle: { color: theme.colors.textSecondary },
-                                showArrow: false,
-                            },
-                        }}
-                    >
-                        {record.description || t('secret.noDescription')}
-                    </TextContainer>
+                    <Tooltip title={description} showArrow={false}>
+                        <TextContainer>{description}</TextContainer>
+                    </Tooltip>
                 );
             },
             width: '75%',
@@ -314,11 +295,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
 
     return (
         <>
-            {error &&
-                message.error({
-                    content: t('secret.loadError', { errorMessage: error.message || '' }),
-                    duration: 3,
-                })}
             <SecretsContainer>
                 <StyledTabToolbar>
                     <SearchContainer>
