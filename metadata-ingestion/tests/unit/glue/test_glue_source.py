@@ -1426,10 +1426,13 @@ def _ingest_database_resource_link(
     catalog_to_platform_instance: Dict[str, Dict[str, str]],
     tables_response: Optional[Dict[str, Any]] = None,
     databases_response: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    owner_get_table_response: Optional[Dict[str, Any]] = None,
 ) -> Tuple[GlueSource, List[Dict], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
-    # DatabaseName and no TargetTable.
+    # DatabaseName and no TargetTable. owner_get_table_response, when given, is served only
+    # for a cross-account get_table on that owner table.
     databases: Dict[str, Any] = copy.deepcopy(
         databases_response or get_databases_response_with_resource_link
     )
@@ -1445,6 +1448,7 @@ def _ingest_database_resource_link(
             catalog_to_platform_instance=catalog_to_platform_instance,
         ),
     )
+    source.ctx.graph = graph
     with Stubber(source.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", databases, {})
         glue_stubber.add_response(
@@ -1452,10 +1456,21 @@ def _ingest_database_resource_link(
             copy.deepcopy(tables_response or get_tables_response_for_target_database),
             {"DatabaseName": link_database_name},
         )
+        if owner_get_table_response is not None:
+            glue_stubber.add_response(
+                "get_table",
+                owner_get_table_response,
+                {
+                    "CatalogId": "432143214321",
+                    "DatabaseName": "test-database",
+                    "Name": "transactions",
+                },
+            )
         _, tables = source.get_all_databases_and_tables()
         # Generate inside the Stubber so any Glue call made while building workunits (e.g. a
         # cross-account get_table for a schemaless link) hits the stub, never real AWS.
         wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+        glue_stubber.assert_no_pending_responses()
     return source, tables, wus
 
 
@@ -1630,6 +1645,79 @@ def test_database_resource_link_target_falls_back_to_owner_table_identity(
     )
     assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
     assert source.report.num_resource_link_self_referential == 0
+
+
+DB_LINK_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:glue,"
+    "consumer_inst.resource-link-test-database.transactions,PROD)"
+)
+
+
+def _schemaless_database_link_tables() -> Dict[str, Any]:
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["StorageDescriptor"]
+    return tables_response
+
+
+def _link_schema(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> Optional[models.SchemaMetadataClass]:
+    schemas = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == dataset_urn
+        for aspect in [wu.get_aspect_of_type(models.SchemaMetadataClass)]
+        if aspect is not None
+    ]
+    assert len(schemas) <= 1
+    return schemas[0] if schemas else None
+
+
+def test_database_resource_link_schema_resolved_from_datahub():
+    # The owner account is already ingested: the schemaless link copies the owner's schema from
+    # DataHub, looked up by the owner's URN, with no cross-account Glue call.
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        tables_response=_schemaless_database_link_tables(),
+        graph=graph,
+    )
+
+    schema = _link_schema(wus, DB_LINK_URN)
+    assert schema is not None
+    assert [f.fieldPath for f in schema.fields] == ["txn_id"]
+    assert schema.schemaName == "resource-link-test-database.transactions"
+    graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
+    assert source.report.num_resource_link_schema_from_datahub == 1
+
+
+def test_database_resource_link_schema_resolved_from_owner_glue_table():
+    # Without DataHub, the schema comes from a cross-account get_table. The stub only matches
+    # the owner's catalog and database name, so this fails if the synthesized TargetTable
+    # carried the link's database name instead.
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        tables_response=_schemaless_database_link_tables(),
+        owner_get_table_response={
+            "Table": {
+                "Name": "transactions",
+                "DatabaseName": "test-database",
+                "StorageDescriptor": {
+                    "Columns": [
+                        {"Name": "txn_id", "Type": "bigint"},
+                        {"Name": "amount", "Type": "double"},
+                    ]
+                },
+            }
+        },
+    )
+
+    schema = _link_schema(wus, DB_LINK_URN)
+    assert schema is not None
+    assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
+    assert source.report.num_resource_link_schema_from_glue == 1
 
 
 def test_database_resource_link_preserves_existing_target_table():
