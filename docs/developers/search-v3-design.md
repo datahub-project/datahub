@@ -69,7 +69,7 @@ A process advertises the capabilities it can run. Selecting a template it cannot
 
 Bind resolves the URN, merges parents, chooses the standard or component executor, and checks capabilities. On a search, the ladder tries rungs until one stops. The standard executor renders, scores, and slices a keyword rung. A named component returns the same rung result envelope through its own implementation. Scroll runs a standard template's composed keyword query and does not walk the ladder; a selected component rung fails on scroll. Scroll also drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served, or the explanation data a component supplied. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
 
-The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the analyzed fields in the queried set. A property in that set joins the weighted field list that `simple_query_string` reads, and it gets a whole-value term at its field weight. It joins the name `constant_score` or `match_phrase_prefix` only when the author writes its path there. Inside a clause that scores by field weight, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays that boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. Scroll runs this composed keyword query and still drops those three. See [Ranking](#ranking) and [Search and scroll](#search-and-scroll).
+The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the analyzed fields in the queried set. A property in that set joins the weighted field list that `simple_query_string` reads, and it gets a whole-value term at its field weight. It joins that `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. See [Query holes](#query-holes). Inside a clause that scores by field weight, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays that boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. Scroll runs this composed keyword query and still drops those three. See [Ranking](#ranking) and [Search and scroll](#search-and-scroll).
 
 A vector participates in one of three ways, and each is a different template shape. `knn` on a keyword template reorders rows already in the keyword window and adds no hits. Corpus kNN is its own rung. A keyword rung and a vector rung can run together and add hits that only the vector leg found. In OSS the three shapes run for the Document entity only. Hybrid adds vector-only hits once a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
 
@@ -106,7 +106,8 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `editable`                | When false, only the system actor may change the template.                                                 | [What stays fixed](#what-stays-fixed)                                            |
 | `dialect`                 | Body language. The request has to match it.                                                                | [Dialect](#dialect)                                                              |
 | `component`               | A named, code-registered executor that replaces the standard executor for this whole rung.                 | [Named rung components](#named-rung-components)                                  |
-| `query`                   | Mustache body for this rung. Used when retrieval is keyword.                                               | [Query composition](#query-composition)                                          |
+| `query`                   | Mustache body for this rung. Used when retrieval is keyword. Setting it replaces the whole body.           | [Query composition](#query-composition)                                          |
+| `queryFragments`          | JSON spliced into a named hole the parent body has opened.                                                 | [Query holes](#query-holes)                                                      |
 | `clauses`                 | Extra bool clauses merged into that body.                                                                  | [Query composition](#query-composition)                                          |
 | `functionScore`           | Score functions wrapped around the body. A filter snippet is for a boost that is not list membership.      | [Query composition](#query-composition), [List boosts](#list-boosts)             |
 | `boosts`                  | List-membership weights. Each entry is a field, an injectable list, and a weight.                          | [List boosts](#list-boosts)                                                      |
@@ -132,9 +133,27 @@ An explicit empty string drops that section, including an inherited `knn`, `rank
 
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
 
+`queryFragments` merges by hole name. A child key replaces that key. An unset key is inherited. An empty string drops that key, including an inherited one. See [Query holes](#query-holes).
+
 A rung does not reuse the previous rung's `functionScore`, `boosts`, `fields`, `clauses`, or `structuredPropertyQuery`. Those travel only when the next template names this one as `parent`.
 
-`component` inherits like another structured section. When it is set after parent merge, it selects the component executor for the whole rung. Inherited `query`, `clauses`, `functionScore`, `boosts`, `rescore`, `ranking`, `retrieval`, `knn`, `aggregations`, `sort`, `fields`, and `structuredPropertyQuery` remain part of the stored template but are unread for that execution. Clearing `component` returns the rung to the standard executor and those merged sections apply again. A write that sets `component` and one of those standard execution sections together is rejected, because one write cannot configure two executors.
+`component` inherits like another structured section. When it is set after parent merge, it selects the component executor for the whole rung. Inherited `query`, `queryFragments`, `clauses`, `functionScore`, `boosts`, `rescore`, `ranking`, `retrieval`, `knn`, `aggregations`, `sort`, `fields`, and `structuredPropertyQuery` remain part of the stored template but are unread for that execution. Clearing `component` returns the rung to the standard executor and those merged sections apply again. A write that sets `component` and one of those standard execution sections together is rejected, because one write cannot configure two executors.
+
+### Query holes
+
+A child inserts query JSON into a named hole the parent has opened. Setting `query` still replaces the whole body. `queryFragments` maps a hole name to that JSON. `parameters` stays a separate map of named values.
+
+The shipped fulltext body opens `extraDisMaxQueries` inside the top-level `dis_max` `queries` array. The parent emits a comma and the fragment only when the fragment is set, so an empty hole leaves the JSON valid. The fragment does not start with a comma. Several query objects separated by commas become further branches of that `dis_max`.
+
+```json
+{{#extraDisMaxQueries}}
+,{{&extraDisMaxQueries}}
+{{/extraDisMaxQueries}}
+```
+
+Each fragment is rewritten for structured-property definition URNs, then rendered with the same Mustache context as the query, then spliced. It is not rendered again, and it does not see other fragments. `{{urn:li:structuredProperty:...}}` resolves to the current field. `{{unquoted}}` and the other query variables expand.
+
+`parent` is searchable with `queryByDefault` false. `searchTemplate` stays out of the default search, browse, and autocomplete entity-type lists. The validator queries that field by entity type. A child write that fills a hole the inherited query does not contain is rejected. A parent `query` write loads direct children whose `parent` is this URN and walks. A child that does not set `query` inherits this body, so every hole it fills must still appear in the new text, and the walk continues to its children. A child that sets `query` stops the walk. Where a remaining hole sits is not checked. The search index can lag a write. Rendering fails when the merged template fills a hole the merged query text does not contain, so the search does not run with the extension left out.
 
 ### Dialect
 
@@ -212,7 +231,7 @@ The composed keyword query is that rendered body, then one generated whole-value
 
 A structured property is named by its definition URN and changed with the same `add`, `remove`, and `override` operations. Those operations, and `replace`, decide which properties are queried and which join name-and-value expansion. `nameAndValueWeight` is not an override. Every included property gets a whole-value term at its field weight, including when the body also names that property. `fields.override` changes that term's boost and the property's `path^weight` in the weighted field list. It does not rewrite a numeric boost written in the body, and it does not change `nameAndValueWeight`. Removing the field drops it from the list, drops its whole-value term, and drops its name-and-value clause. After render, a clause that targets only the removed field is removed. A multi-field clause loses that field and is removed when no field remains. See [Structured properties](#structured-properties).
 
-The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. Inside that list, equal weights tie and a higher weight ranks above `name`. The `constant_score` boost of 1000 and `prefixFactor` stay the values written in the body. A property joins those two clauses only when the author writes its path there. See [Ranking](#ranking).
+The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. Inside that list, equal weights tie and a higher weight ranks above `name`. The `constant_score` boost of 1000 and `prefixFactor` stay the values written in the body. A property joins those two clauses when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path there. See [Query holes](#query-holes) and [Ranking](#ranking).
 
 ```yaml
 parent: urn:li:searchTemplate:fulltext
@@ -296,17 +315,26 @@ fields:
       boost: 4
 ```
 
-To rank Business Name in the same `constant_score` as `name`, replace `query` and write its keyword path in that clause's `should` array, beside `{{nameKeyword}}`. Replacing `query` replaces the whole section, so the child copies the rest of the parent body, including `match_phrase_prefix` and `simple_query_string`. The boost on that clause stays 1000, the boost written there. `fields.add` does not change it. The added term is:
+To rank Business Name in the same `constant_score` as `name`, fill the fulltext hole. The fragment is one more branch of that `dis_max`. The boost is the boost written in the fragment. `fields.add` does not change it. Setting `query` still replaces the whole body when the clause has no hole to fill. See [Query holes](#query-holes).
 
-```json
-{
-  "term": {
-    "{{urn:li:structuredProperty:businessName}}.keyword": {
-      "value": "{{query}}",
-      "_name": "exact"
+```yaml
+parent: urn:li:searchTemplate:fulltext
+queryFragments:
+  extraDisMaxQueries: |
+    {
+      "constant_score": {
+        "_name": "exact",
+        "boost": 1000,
+        "filter": {
+          "term": {
+            "{{urn:li:structuredProperty:businessName}}.keyword": {
+              "value": "{{unquoted}}",
+              "case_insensitive": true
+            }
+          }
+        }
+      }
     }
-  }
-}
 ```
 
 A child that enables name-and-value matching sets the weight and leaves value querying as it is. The expansion rules are in [Name and value](#name-and-value). For a string property whose display name is Certification Status, whose qualified name is `certification.status`, and whose assigned value is `gold`:
@@ -341,6 +369,7 @@ The same child shape covers the other common changes:
 - a `functionScore` boost for a tag, glossary term, platform, or `_entityType`
 - a list-membership boost
 - a `must_not` to exclude
+- a fragment in a hole the parent opened
 - a replaced `query`
 - a `rescore` window
 - a `ranking` preset
@@ -523,7 +552,7 @@ ladder:
 
 The component receives the normalized request, query variations, caller sort and filters, requested entity types, page window, operation context, and the mandatory system constraints. It returns the same rung result envelope as the standard executor: ordered hits and scores, authorized total, facets, matched fields, partial and shard status, and optional explanation data. That common envelope lets `stop`, `next`, a parallel join, result caching, and `includeExplain` treat the component as another rung.
 
-The component owns retrieval, ranking, and slicing for its rung. When `component` is selected, the standard execution sections are unread: `query`, `clauses`, `functionScore`, `boosts`, `rescore`, `ranking`, `retrieval`, `knn`, `aggregations`, `sort`, and `fields`. Ladder `select`, `stop`, `next`, and the parallel-group fields stay outside the component and still run. Request filters and sort are inputs to the component; the component registration states which it supports. Bind rejects a request whose required filter or sort semantics the component cannot preserve.
+The component owns retrieval, ranking, and slicing for its rung. When `component` is selected, the standard execution sections are unread: `query`, `queryFragments`, `clauses`, `functionScore`, `boosts`, `rescore`, `ranking`, `retrieval`, `knn`, `aggregations`, `sort`, and `fields`. Ladder `select`, `stop`, `next`, and the parallel-group fields stay outside the component and still run. Request filters and sort are inputs to the component; the component registration states which it supports. Bind rejects a request whose required filter or sort semantics the component cannot preserve.
 
 Soft delete, hidden lifecycle stages, requested entity types, latest-version filtering, and view authorization remain mandatory. Registration is accepted only for a component that consumes those constraints for hits, totals, and facets. The service authorizes returned hits again as defense in depth, but post-filtering hits cannot repair a leaked total or facet, so it is not a substitute for applying the constraints inside the component.
 
@@ -613,7 +642,7 @@ The service builds one request from them, in order. It renders `query`, substitu
 
 `sort` may name the numeric document fields `queryCountLast30Days` and `viewCountLast30Days`. Most Queried and Most Visited are those sorts, including when the caller sends them as `sortCriteria`. The `usage` ranking preset reorders the window by usage signals and does not replace either sort.
 
-The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. A property in the queried set joins that list and gets a whole-value term. It joins the name `constant_score` or `match_phrase_prefix` only when the author writes its path there. [Ranking](#ranking) states where that order survives the later window.
+The shipped fulltext body scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. A property in the queried set joins that list and gets a whole-value term. It joins that `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. [Ranking](#ranking) states where that order survives the later window. [Query holes](#query-holes) is the splice.
 
 ### Ranking
 
@@ -638,7 +667,7 @@ ranking:
 
 `fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
 
-The shipped fulltext body, and the exact body when the query is one spaceless token, scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. The author writes the boost and the `dis_max` around those clauses. Inside the weighted list, equal weights tie and a higher weight ranks a property above `name`. The name `constant_score` uses the boost written in the body. A property joins that clause only when the author writes its path there, and the boost on that clause stays the boost written there. Every included property also gets a whole-value term at its field weight. `functionScore` wraps the composed keyword query, and each structured boost is a weight function in that wrapper. A weight there can place another clause ahead in the engine score when the template applies it. `matchTierBand` is the `usageAndMatchTier` preset's own band inside the window. It is the boost the preset applies inside that window.
+The shipped fulltext body, and the exact body when the query is one spaceless token, scores `name` with a `constant_score` on the keyword form, a `match_phrase_prefix` on the analyzed form, and a `simple_query_string` over the weighted field list. The author writes the boost and the `dis_max` around those clauses. Inside the weighted list, equal weights tie and a higher weight ranks a property above `name`. The name `constant_score` uses the boost written in the body. A property joins that clause when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path there, and the boost on that clause stays the boost written there. Every included property also gets a whole-value term at its field weight. `functionScore` wraps the composed keyword query, and each structured boost is a weight function in that wrapper. A weight there can place another clause ahead in the engine score when the template applies it. `matchTierBand` is the `usageAndMatchTier` preset's own band inside the window. It is the boost the preset applies inside that window.
 
 Those clauses run in the composed keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. Downstream scoring crosses them only when the selected template applies `functionScore`, `rescore`, `ranking`, or `knn`.
 
@@ -772,7 +801,7 @@ The same map receives values the service injects for the request. `viewerUrn` is
 
 ### Write-time syntax
 
-Creating or updating a template resolves structured-property URNs to field names, renders `query`, `clauses`, `functionScore`, `rescore`, `aggregations`, and `sort` with a validation context, then parses the result. See [Structured properties](#structured-properties). For the Elasticsearch dialect, each of those sections has to be valid JSON, and `query`, `clauses`, and `functionScore` have to be valid query syntax. `functionScore` is parsed as a `function_score` wrapper, so a filter snippet on a function is parsed with that function. A render failure or a parse failure rejects the write. The check runs on the section as written and again on the body after parent merge. The Postgres dialect is rendered only. `structuredPropertyQuery` is checked for shape only: a positive `nameAndValueWeight`, or an explicit empty section. That check does not expand the definition catalog. URN-to-field resolution still applies to `query`, `clauses`, `fields`, and the other sections that name a property.
+Creating or updating a template resolves structured-property URNs to field names, renders each `queryFragments` value and then `query`, `clauses`, `functionScore`, `rescore`, `aggregations`, and `sort` with a validation context, then parses the result. A child that fills a hole the inherited query does not contain is rejected. A `query` write queries templates whose indexed `parent` is this URN and walks inheriting children, and it is rejected when the new text drops a hole one of them still fills. Where a remaining hole sits is not checked. See [Query holes](#query-holes). See [Structured properties](#structured-properties). For the Elasticsearch dialect, each of those sections has to be valid JSON, and `query`, `clauses`, and `functionScore` have to be valid query syntax. `functionScore` is parsed as a `function_score` wrapper, so a filter snippet on a function is parsed with that function. A render failure or a parse failure rejects the write. The check runs on the section as written and again on the body after parent merge. The Postgres dialect is rendered only. `structuredPropertyQuery` is checked for shape only: a positive `nameAndValueWeight`, or an explicit empty section. That check does not expand the definition catalog. URN-to-field resolution still applies to `query`, `clauses`, `fields`, and the other sections that name a property.
 
 `ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `component`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, the injectable named by a boost, and the registered component name and contract version. A component registration validates its own `config`. A write that sets `component` together with a standard execution section is rejected. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `.keyword` or `.text` suffix is legal on string and rich text. Either suffix is rejected on a date, a number, or a URN. A query `_name` of `exact`, `prefix`, `contains`, or `nameAndValue` is not a closed write-time set. The result reports that mode only when the matching clause carries it and names one structured-property field.
 
@@ -849,14 +878,14 @@ Write time checks the section shape: a positive `nameAndValueWeight`, or an expl
 
 Search V2 and Search V2.5 keep their current structured-property full-text behavior until those paths are deprecated. On V3 a string or rich-text value stays on the per-definition field the mapping already builds, with the analyzed `.text` form beside the keyword form. The definition does not set an analyzer. V3 does not copy the value into `_search.structuredProperties` or `customProperties`. An entity type the definition does not allow has no field. Changing the definition's version or value type is a mapping change and a rebuild.
 
-| Case                                                          | Result                                                                                                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fields.add`, left out of the name clauses                    | Whole-value term at that weight, and the analyzed path in the weighted field list. The name `constant_score` and `match_phrase_prefix` stay name-only. |
-| Placed in the same `constant_score` as `name`, otherwise cold | The author wrote that path in the clause. That clause admits the asset with `name`, at the boost written there.                                        |
-| Same weight as `name`, in the weighted field list             | Business Name and the entity name tie inside that list.                                                                                                |
-| Higher weight than `name`, in the weighted field list         | Business Name ranks above `name` inside that list. It does not outrank the name `constant_score` of 1000 unless the author wrote it into that clause.  |
-| `fields.override`                                             | Changes the whole-value boost and the weighted-list entry. A numeric boost in the body stays. `nameAndValueWeight` stays.                              |
-| Removed from the queried set                                  | The weighted-list entry, the whole-value term, a clause that targeted only that field, and the name-and-value clause are absent.                       |
+| Case                                                  | Result                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fields.add`, left out of the name clauses            | Whole-value term at that weight, and the analyzed path in the weighted field list. The name `constant_score` and `match_phrase_prefix` stay name-only. |
+| Filled into `extraDisMaxQueries`                      | A branch of the fulltext `dis_max`. A `constant_score` of 1000 ties an exact Business Name with an exact `name`.                                       |
+| Same weight as `name`, in the weighted field list     | Business Name and the entity name tie inside that list.                                                                                                |
+| Higher weight than `name`, in the weighted field list | Business Name ranks above `name` inside that list. It does not outrank the name `constant_score` of 1000 unless the author wrote it into that clause.  |
+| `fields.override`                                     | Changes the whole-value boost and the weighted-list entry. A numeric boost in the body stays. `nameAndValueWeight` stays.                              |
+| Removed from the queried set                          | The weighted-list entry, the whole-value term, a clause that targeted only that field, and the name-and-value clause are absent.                       |
 
 #### Structured property references
 
