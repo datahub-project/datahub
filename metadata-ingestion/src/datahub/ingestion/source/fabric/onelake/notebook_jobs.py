@@ -300,11 +300,20 @@ class NotebookProcessEmitter:
                 raw.setdefault(output, set()).update(inputs)
 
         known = self._known_table_urns
-        lineage: Dict[SparkTableRef, List[str]] = {}
+        # Case/space variants of one output table normalize to a single URN and
+        # job id, so merge their input sets by that URN. Otherwise each variant
+        # emits the same job and the later emission overwrites the earlier,
+        # dropping the inputs that were only seen under the other casing.
+        merged: Dict[str, Tuple[SparkTableRef, Set[SparkTableRef]]] = {}
         for output, inputs in raw.items():
             output_urn = output.to_urn(
                 self._env, self._platform_instance, self._normalize_name
             )
+            _, acc = merged.setdefault(output_urn, (output, set()))
+            acc.update(inputs)
+
+        lineage: Dict[SparkTableRef, List[str]] = {}
+        for output_urn, (output, inputs) in merged.items():
             if output_urn not in known:
                 continue
             input_urns = {

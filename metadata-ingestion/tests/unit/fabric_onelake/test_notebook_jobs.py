@@ -114,6 +114,72 @@ def test_sibling_job_producing_an_input_is_chained_as_input_datajob() -> None:
     assert final_io.inputDatajobs == [str(jobs[f"{LH}.gold.gold_mid"].urn)]
 
 
+# The same output table written under two different identifier casings across
+# executions, each crediting a different input. They normalize to one URN/job.
+_PLAN_UPPER = f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake("Tables/gold/Gold_Out")}], Overwrite
+(2) Scan json
+Location: InMemoryFileIndex[{_onelake("Tables/silver/in_a/_delta_log/0.json")}]
+"""
+_PLAN_LOWER = f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake("Tables/gold/gold_out")}], Overwrite
+(2) Scan json
+Location: InMemoryFileIndex[{_onelake("Tables/silver/in_b/_delta_log/0.json")}]
+"""
+
+
+def _emit_case_variants() -> list:
+    out = _ref("gold_out", "gold")
+    in_a = _ref("in_a", "silver")
+    in_b = _ref("in_b", "silver")
+    known = {ref.to_urn("PROD", None, str.lower) for ref in (out, in_a, in_b)}
+
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.return_value = [_PLAN_UPPER, _PLAN_LOWER]
+    client.get_notebook_runs.return_value = []
+
+    emitter = NotebookProcessEmitter(
+        platform_instance=None,
+        env="PROD",
+        execution_history_days=30,
+        report=FabricOneLakeSourceReport(),
+        client=client,
+        known_table_urns=known,
+        # Case-insensitive platform: the source lowercases table names.
+        normalize_name=str.lower,
+        owners_fn=lambda _upn: None,
+    )
+    nb = PendingNotebook(
+        workspace_id=WS,
+        workspace_name="analytics",
+        notebook_id=NB,
+        display_name="pipeline",
+        description=None,
+        owner_user_principal_name=None,
+        content=None,
+        language="python",
+    )
+    return list(emitter.emit([nb]))
+
+
+def test_case_variant_outputs_merge_into_one_job_unioning_inputs() -> None:
+    emitted = _emit_case_variants()
+    jobs = [dj for dj in emitted if isinstance(dj, DataJob)]
+    # The two casings of the same output table collapse to a single job...
+    assert len(jobs) == 1
+    io = jobs[0]._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    in_a = _ref("in_a", "silver").to_urn("PROD", None, str.lower)
+    in_b = _ref("in_b", "silver").to_urn("PROD", None, str.lower)
+    # ...and its inputs are the union of both plans, not overwritten.
+    assert set(io.inputDatasets) == {in_a, in_b}
+
+
 def test_run_attaches_as_dpi_to_every_job_not_the_flow() -> None:
     emitted = _emit()
     flow = next(e for e in emitted if isinstance(e, DataFlow))
