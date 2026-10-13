@@ -31,6 +31,8 @@ If you have configured permissions correctly the `Generate new token` should be 
 
 If you see `Token based authentication is currently disabled. Contact your DataHub administrator to enable this feature.` then you must enable authentication in the metadata service (step 1 of the prerequisites).
 
+Using the local Docker quickstart? See [Enabling on Local Docker Quickstart](introducing-metadata-service-authentication.md#enabling-on-local-docker-quickstart) for the exact steps.
+
 :::
 
 ## Creating Personal Access Tokens
