@@ -250,32 +250,35 @@ class UnityCatalogUsageExtractor:
                 for urn in ingested_urns
             }
             return lambda name: name.lower() in ingested
+        catalogs = self._recipe_catalogs()
         # The aggregator asks once per table per query; distinct names are bounded.
         allowed: Dict[str, bool] = {}
 
         def is_allowed_by_patterns(name: str) -> bool:
             if name not in allowed:
-                allowed[name] = self._is_allowed_by_patterns(name)
+                allowed[name] = self._is_allowed_by_patterns(name, catalogs)
             return allowed[name]
 
         return is_allowed_by_patterns
 
-    def _is_catalog_in_scope(self, catalog: str) -> bool:
+    def _recipe_catalogs(self) -> Set[str]:
+        return {c.lower() for c in self.config.catalogs or []}
+
+    def _is_catalog_in_scope(self, catalog: str, catalogs: Set[str]) -> bool:
         # Like the source's catalog listing: hive_metastore is listed only with
         # include_hive_metastore, and an empty catalogs list is unrestricted.
         if catalog.lower() == HIVE_METASTORE and not self.config.include_hive_metastore:
             return False
-        catalogs = self.config.catalogs
         return (
-            not catalogs or catalog.lower() in {c.lower() for c in catalogs}
+            not catalogs or catalog.lower() in catalogs
         ) and self.config.catalog_pattern.allowed(escape_unity_name(catalog))
 
     def _covers_hive_metastore(self, table_refs: Set[TableReference]) -> bool:
         if self._is_usage_only_recipe():
-            return self._is_catalog_in_scope(HIVE_METASTORE)
+            return self._is_catalog_in_scope(HIVE_METASTORE, self._recipe_catalogs())
         return any(ref.catalog == HIVE_METASTORE for ref in table_refs)
 
-    def _is_allowed_by_patterns(self, name: str) -> bool:
+    def _is_allowed_by_patterns(self, name: str, catalogs: Set[str]) -> bool:
         # Applies the catalogs / catalog_pattern / schema_pattern / table_pattern checks
         # the source uses when listing tables, against the escaped ids it builds (the
         # deprecated include_metastore prefix is not known here). The name comes from
@@ -290,7 +293,7 @@ class UnityCatalogUsageExtractor:
         if len(parts) < 3 or _is_system_table(parts[0], parts[1]):
             return False
         return (
-            self._is_catalog_in_scope(parts[0])
+            self._is_catalog_in_scope(parts[0], catalogs)
             and self.config.schema_pattern.allowed(
                 f"{escape_unity_name(parts[0])}.{escape_unity_name(parts[1])}"
             )
