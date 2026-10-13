@@ -1733,19 +1733,20 @@ class GlueSource(StatefulIngestionSourceBase):
                     database.get("CatalogId") or self.source_config.catalog_id
                 )
                 if not link_catalog_id:
-                    # Keeping the table's own CatalogId would stamp the link with the owner's
-                    # mapped instance under the owner's names, i.e. the owner's own URN, so the
-                    # link would overwrite the owner's dataset. Skip it instead.
+                    # The table keeps the owner's CatalogId, so if the owner is mapped in
+                    # catalog_to_platform_instance the link is named with the owner's instance
+                    # (and can collide with the owner's dataset when the database names match).
                     self.report.num_resource_link_database_missing_catalog_id += 1
                     self.report.warning(
                         title="Resource link database missing catalog ID",
                         message="Glue returned a database-level Lake Formation resource link "
-                        "without a CatalogId, so its tables cannot be attributed to the "
-                        "ingesting catalog and were skipped. Set catalog_id in the recipe to "
-                        "the ingesting AWS account ID.",
+                        "without a CatalogId, so its tables keep the owning catalog's ID. If "
+                        "the owning account is mapped in catalog_to_platform_instance, they are "
+                        "named with the owner's platform_instance and can collide with the "
+                        "owner's own datasets. Set catalog_id in the recipe to the ingesting AWS "
+                        "account ID.",
                         context=f"{database_name}.{table.get('Name')}",
                     )
-                    continue
                 # Capture the owner identity before the table is re-keyed below: the table's own
                 # CatalogId/DatabaseName are the owner's and are the fallback when TargetDatabase
                 # omits them.
@@ -1762,7 +1763,8 @@ class GlueSource(StatefulIngestionSourceBase):
                         "Name": table["Name"],
                     }
                 table["DatabaseName"] = database["Name"]
-                table["CatalogId"] = link_catalog_id
+                if link_catalog_id:
+                    table["CatalogId"] = link_catalog_id
                 self.report.num_resource_link_database_tables += 1
             yield table
 

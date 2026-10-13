@@ -1597,23 +1597,23 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
     assert source.report.num_resource_link_self_referential == 0
 
 
-def test_database_resource_link_without_link_catalog_id_is_skipped():
-    # With no CatalogId on the link database and no catalog_id in the config, the table would
-    # keep the owner's CatalogId. Same-named link + mapped owner would then resolve to the
-    # owner's own URN and overwrite it, so the table must be skipped and reported instead.
+def test_database_resource_link_without_link_catalog_id_is_kept_and_reported():
+    # With no CatalogId on the link database and no catalog_id in the config, the table keeps
+    # the owner's CatalogId (as before database-level link support) and is still ingested. That
+    # is only safe while the owner is unmapped, so the run report must flag it.
     databases_response = copy.deepcopy(get_databases_response_with_resource_link)
     del databases_response["DatabaseList"][0]["CatalogId"]
-    databases_response["DatabaseList"][0]["Name"] = "test-database"
 
     source, tables, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
-        databases_response=databases_response,
+        {}, databases_response=databases_response
     )
 
-    assert tables == []
-    assert wus == []
+    assert len(tables) == 1
+    assert tables[0]["CatalogId"] == "432143214321"
+    assert tables[0]["DatabaseName"] == "resource-link-test-database"
+    assert DB_LINK_URN in {wu.get_urn() for wu in wus}
     assert source.report.num_resource_link_database_missing_catalog_id == 1
-    assert source.report.num_resource_link_database_tables == 0
+    assert source.report.num_resource_link_database_tables == 1
     assert "Resource link database missing catalog ID" in [
         w.title for w in source.report.warnings
     ]
