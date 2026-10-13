@@ -162,6 +162,17 @@ def test_the_recipes_own_options_beat_the_probes_defaults() -> None:
     assert _FakeMongoClient.instances[0].options["serverSelectionTimeoutMS"] == 1234
 
 
+def test_a_timeout_in_the_uri_is_not_overridden_by_the_probes_default() -> None:
+    # pymongo lets a keyword argument beat the same URI option.
+    run_probe_method(
+        _SOURCE_TYPE,
+        _recipe(connect_uri="mongodb://localhost:27017/?serverselectiontimeoutms=1234"),
+        "databases",
+        {},
+    )
+    assert "serverSelectionTimeoutMS" not in _FakeMongoClient.instances[0].options
+
+
 def test_an_unknown_database_is_the_callers_mistake(tmp_path: Path) -> None:
     result = _probe_cli(tmp_path, _recipe(), "collections", "--database", "nope")
     assert result.exit_code == _EXIT_USER, result.output

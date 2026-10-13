@@ -2,9 +2,9 @@
 # folders and dashboards, which the test creates over the API. An ephemeral
 # host port and its own container name keep it clear of the ingestion suite.
 services:
-  grafana_probe:
+  test-grafana-probe:
     image: grafana/grafana:latest
-    container_name: grafana_probe
+    container_name: test-grafana-probe
     ports:
       - "3000"
     # The test signs in as Grafana's default first-run admin.

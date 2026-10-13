@@ -1,4 +1,5 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
+from urllib.parse import parse_qs
 
 from pymongo import MongoClient
 from pymongo.errors import OperationFailure
@@ -18,7 +19,19 @@ from datahub.ingestion.source.mongodb import (
 
 # pymongo's default server selection timeout is 30s; a probe against an
 # unreachable host should fail sooner. A recipe's own `options` still win.
-_PROBE_CLIENT_DEFAULTS = {"serverSelectionTimeoutMS": 10_000}
+_SERVER_SELECTION_TIMEOUT = "serverSelectionTimeoutMS"
+_PROBE_SERVER_SELECTION_TIMEOUT_MS = 10_000
+
+
+def _probe_client_defaults(connect_uri: str) -> Dict[str, object]:
+    """The probe's timeout, unless the URI sets its own: pymongo lets a
+    keyword argument override the same URI option, so passing it regardless
+    would replace the recipe's. URI option names are case-insensitive."""
+    query = connect_uri.split("?", 1)[1] if "?" in connect_uri else ""
+    names = {key.lower() for key in parse_qs(query, keep_blank_values=True)}
+    if _SERVER_SELECTION_TIMEOUT.lower() in names:
+        return {}
+    return {_SERVER_SELECTION_TIMEOUT: _PROBE_SERVER_SELECTION_TIMEOUT_MS}
 
 
 class MongoDBMetadataProbe(ProbeProviderBase):
@@ -45,7 +58,9 @@ class MongoDBMetadataProbe(ProbeProviderBase):
     def _client(self) -> MongoClient:
         return self._open_once(
             "client",
-            lambda: create_mongo_client(self._config, _PROBE_CLIENT_DEFAULTS),
+            lambda: create_mongo_client(
+                self._config, _probe_client_defaults(self._config.connect_uri)
+            ),
             close=lambda client: client.close(),
         )
 

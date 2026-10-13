@@ -20,8 +20,9 @@ against, and `label` is the display label, which the pattern does not see. `obje
 both kinds. `profile_pattern` only decides which ingested objects are profiled, so it is not a probe
 filter. The probe reads no records, record counts or field definitions.
 
-A failed sign-in or query exits 3 with Salesforce's error code, such as `INVALID_LOGIN`. A recipe
-missing a credential its `auth` type needs exits 2 before anything connects.
+A failed sign-in or query exits 3. A Salesforce API error carries Salesforce's error code, such as
+`INVALID_LOGIN`; a network failure is reported by its exception type instead. A recipe missing a
+credential its `auth` type needs exits 2 before anything connects.
 
 ### Limitations
 

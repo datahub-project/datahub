@@ -130,6 +130,33 @@ def test_data_models_need_no_files_row(requests_mock: Any) -> None:
     assert records["Shared Model"]["has_workspace"] is False
 
 
+def test_a_data_model_without_a_files_row_is_placed_by_its_own_payload(
+    requests_mock: Any,
+) -> None:
+    register_tenant(
+        requests_mock,
+        overrides={
+            f"{API}/files?permissionFilter=view&typeFilters=data-model": {
+                "json": {"entries": [], "total": 0, "nextPage": None}
+            }
+        },
+    )
+    records = {r["name"]: r for r in _run("data_models")}
+    assert records["Finance Model"]["workspace"] == "Finance"
+    assert records["Sales Model"]["workspace"] == "Sales"
+
+
+def test_a_scoped_listing_pages_workspaces_once(requests_mock: Any) -> None:
+    register_tenant(requests_mock)
+    _run("workbooks", workspace="Finance")
+    workspace_pages = [
+        r
+        for r in requests_mock.request_history
+        if r.path_url.endswith("/workspaces?limit=50")
+    ]
+    assert len(workspace_pages) == 1
+
+
 def test_a_personal_space_the_recipe_drops_is_withheld_with_a_count(
     requests_mock: Any,
 ) -> None:
@@ -182,6 +209,22 @@ def test_a_bare_name_is_judged_on_its_pattern_and_says_what_it_skipped() -> None
     )
     assert [r.included for r in result.results] == [False, True]
     assert any("no workspace for 'New Model'" in w for w in result.warnings)
+
+
+def test_a_bare_workbook_says_the_files_rule_was_skipped_unless_its_name_drops_it() -> (
+    None
+):
+    result = check_filters(
+        source_type="sigma",
+        config_dict=recipe(workbook_pattern={"deny": ["Old.*"]}),
+        kind=_WORKBOOK,
+        parent_path=[],
+        names=["Old Report", "New Report"],
+    )
+    assert [r.included for r in result.results] == [False, True]
+    assert any("no /files fact for 'New Report'" in w for w in result.warnings)
+    assert any("no workspace for 'New Report'" in w for w in result.warnings)
+    assert not any("Old Report" in w for w in result.warnings)
 
 
 def test_a_parent_workspace_excludes_what_is_in_it() -> None:

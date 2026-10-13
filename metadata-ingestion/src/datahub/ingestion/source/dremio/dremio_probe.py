@@ -110,14 +110,8 @@ class DremioMetadataProbe(ProbeProviderBase):
 
     def _get_json(self, path: str) -> Dict[str, object]:
         """GET on the connector's authenticated session, failing on an HTTP
-        error. DremioAPIOperations.get returns an error body as if it were the
-        answer, which would make a refused catalog read look empty."""
-        api = self._api()
-        response = api.session.get(
-            f"{api.base_url}{path}", verify=api._verify, timeout=api._timeout
-        )
-        response.raise_for_status()
-        body = response.json()
+        error, so a refused catalog read is not taken for an empty one."""
+        body = self._api().get_or_raise(path)
         if not isinstance(body, dict):
             raise ProbeReadFailed(f"Dremio answered {path} with a non-object body")
         return body
@@ -309,36 +303,46 @@ class DremioMetadataProbe(ProbeProviderBase):
             for root, path in kept
         ]
 
-    def _datasets(self, table_type: str, limit: int) -> List[Dict[str, object]]:
+    def _dataset_rows(self, table_type: str, page_size: int) -> Iterator[_Dataset]:
+        """Datasets in path order, one LIMIT/OFFSET page per SQL job. Paged
+        rather than one LIMIT so that withheld home-space rows, whose "@"
+        sorts them first, cannot use up the limit before any other dataset."""
         api = self._api()
-        edition = api.edition.value
-        # `table_type` and `limit` are this module's constant and the
-        # framework's clamped int, never caller text. System tables are left
-        # out as ingestion's dataset query leaves them out, and the column
-        # count is that query's COLUMNS join, as a fact rather than a filter.
-        rows = api.execute_query(
-            "SELECT T.TABLE_SCHEMA, T.TABLE_NAME, "
-            "COUNT(C.COLUMN_NAME) AS COLUMN_COUNT "
-            'FROM INFORMATION_SCHEMA."TABLES" T '
-            "LEFT JOIN INFORMATION_SCHEMA.COLUMNS C "
-            "ON C.TABLE_CATALOG = T.TABLE_CATALOG "
-            "AND C.TABLE_SCHEMA = T.TABLE_SCHEMA "
-            "AND C.TABLE_NAME = T.TABLE_NAME "
-            f"WHERE T.TABLE_TYPE = '{table_type}' "
-            "GROUP BY T.TABLE_SCHEMA, T.TABLE_NAME "
-            "ORDER BY T.TABLE_SCHEMA, T.TABLE_NAME "
-            f"LIMIT {int(limit)}",
-            timeout=_QUERY_TIMEOUT_SECONDS,
-        )
-        datasets = [
-            _Dataset(
-                schema=str(row.get("TABLE_SCHEMA") or ""),
-                table=str(name),
-                has_columns=_count(row.get("COLUMN_COUNT")) > 0,
+        offset = 0
+        while True:
+            # `table_type`, `page_size` and `offset` are this module's
+            # constant and ints it computes, never caller text. System tables
+            # are left out as ingestion's dataset query leaves them out, and
+            # the column count is that query's COLUMNS join, as a fact rather
+            # than a filter.
+            rows = api.execute_query(
+                "SELECT T.TABLE_SCHEMA, T.TABLE_NAME, "
+                "COUNT(C.COLUMN_NAME) AS COLUMN_COUNT "
+                'FROM INFORMATION_SCHEMA."TABLES" T '
+                "LEFT JOIN INFORMATION_SCHEMA.COLUMNS C "
+                "ON C.TABLE_CATALOG = T.TABLE_CATALOG "
+                "AND C.TABLE_SCHEMA = T.TABLE_SCHEMA "
+                "AND C.TABLE_NAME = T.TABLE_NAME "
+                f"WHERE T.TABLE_TYPE = '{table_type}' "
+                "GROUP BY T.TABLE_SCHEMA, T.TABLE_NAME "
+                "ORDER BY T.TABLE_SCHEMA, T.TABLE_NAME "
+                f"LIMIT {int(page_size)} OFFSET {int(offset)}",
+                timeout=_QUERY_TIMEOUT_SECONDS,
             )
-            for row in rows
-            if (name := row.get("TABLE_NAME"))
-        ]
+            for row in rows:
+                name = row.get("TABLE_NAME")
+                if name:
+                    yield _Dataset(
+                        schema=str(row.get("TABLE_SCHEMA") or ""),
+                        table=str(name),
+                        has_columns=_count(row.get("COLUMN_COUNT")) > 0,
+                    )
+            if len(rows) < page_size:
+                return
+            offset += page_size
+
+    def _datasets(self, table_type: str, limit: int) -> List[Dict[str, object]]:
+        edition = self._api().edition.value
         withholding = PersonalWithholding[_Dataset](
             is_personal=lambda d: d.schema.startswith(_HOME_PREFIX),
             would_ingest=lambda d: (
@@ -355,10 +359,14 @@ class DremioMetadataProbe(ProbeProviderBase):
                 ).included
             ),
         )
-        kept = [d for d in datasets if withholding.keep(d)]
+        kept = take(
+            self._dataset_rows(table_type, max(limit, 1)),
+            limit,
+            keep=withholding.keep,
+        )
         self._note_withheld(
             withholding.withheld,
-            withholding.count_text(stopped_early=len(rows) >= limit),
+            withholding.count_text(stopped_early=len(kept) >= limit),
             "dataset(s) in home spaces",
         )
         return [

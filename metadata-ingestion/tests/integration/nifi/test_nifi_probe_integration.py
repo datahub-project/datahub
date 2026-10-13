@@ -33,7 +33,7 @@ pytestmark = [
     pytest.mark.usefixtures("_isolate_secret_registry"),
 ]
 
-_CONTAINER = "nifi_probe"
+_CONTAINER = "test-nifi-probe"
 _PORT = 9443
 _REQUEST_TIMEOUT_SECONDS = 30
 _KIND = "Process Group"

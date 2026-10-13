@@ -74,7 +74,7 @@ With `--name` alone, a dataset's `schema_pattern` rule is judged only on Dremio 
 
 `profile_pattern` is not a probe filter: it decides which datasets are profiled, not which are ingested.
 
-A home space is named after its user. When the recipe does not ingest one, the probe counts it, and the folders and datasets in it, in a warning without listing them.
+A home space is named after its user. When the recipe does not ingest one, the probe counts it in a warning without listing it or walking its folders; datasets in such a home space are counted in a warning of their own, not listed.
 
 ### Limitations
 

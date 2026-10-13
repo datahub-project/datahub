@@ -16,14 +16,17 @@ datahub recipe probe filter --recipe nifi_recipe.yml --kind "Process Group" \
 ```
 
 The probe signs in the way ingestion does, with every `auth` mode and `ca_file`. It reads only the
-process group tree, never provenance events or processor properties. `process_group_pattern` is
+process group tree: it never fetches provenance events, and does not inspect or report processor
+properties. `process_group_pattern` is
 matched on a group's name, and ingestion stops walking at a group the pattern refuses, so every
 group inside it is excluded too, whatever its own name. The root group's name is matched as well:
 an allow list that leaves it out excludes everything. Each listed group carries its `ancestors`,
 root first, so `probe filter --from-run` judges them. For a bare `--name`, pass each enclosing group
 as `--parent`, root first. A group ingestion walks is emitted as a container only with
 `emit_process_group_as_container`, and only when it, or a group inside it, holds a supported
-ingress or egress processor.
+ingress or egress processor. As in ingestion, a group below the root that answers an HTTP error is
+listed with a warning and its contents are not read, while a failed read of the root fails the
+command.
 
 ### Limitations
 

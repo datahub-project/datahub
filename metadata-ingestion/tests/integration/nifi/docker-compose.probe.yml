@@ -3,10 +3,10 @@
 # ingestion suite are not needed. An ephemeral host port and its own container
 # name keep it clear of that suite.
 services:
-  nifi_probe:
+  test-nifi-probe:
     image: apache/nifi:1.22.0
-    container_name: nifi_probe
-    hostname: nifi_probe
+    container_name: test-nifi-probe
+    hostname: test-nifi-probe
     environment:
       NIFI_SENSITIVE_PROPS_KEY: admin@datahub
       NIFI_WEB_HTTP_PORT: 9443

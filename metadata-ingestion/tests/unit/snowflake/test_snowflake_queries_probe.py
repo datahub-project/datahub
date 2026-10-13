@@ -100,11 +100,13 @@ def test_a_refused_connection_exits_3(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "login refused" not in str(info.value)
 
 
-def test_the_query_log_itself_is_refused_before_connecting(
+def test_the_query_log_itself_is_refused_before_it_is_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # query_history holds the SQL users ran, literals and all: the catalog
-    # scope this source shares with `snowflake` leaves it out.
+    # scope this source shares with `snowflake` leaves it out. The provider
+    # (and so the connection) is built before the scope check runs; what is
+    # guaranteed is that the query never reaches Snowflake.
     connection = _StubConnection([])
     _connect_with(monkeypatch, connection)
 

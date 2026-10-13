@@ -83,6 +83,7 @@ class SigmaMetadataProbe(ProbeProviderBase):
     def __init__(self, config: SigmaSourceConfig) -> None:
         self._config = config
         self._report = SigmaSourceReport()
+        self._workspaces_filled = False
 
     @classmethod
     def for_config(cls, config: SigmaSourceConfig) -> "SigmaMetadataProbe":
@@ -104,10 +105,18 @@ class SigmaMetadataProbe(ProbeProviderBase):
             close=lambda api: api.session.close(),
         )
 
-    def _all_workspaces(self) -> List[Workspace]:
+    def _filled_api(self) -> SigmaAPI:
+        """The API with its workspace cache filled, once per probe: a scoped
+        listing resolves its workspace and then walks its objects, and
+        fill_workspaces pages all of /workspaces on every call."""
         api = self._api()
-        api.fill_workspaces()
-        return list(api.workspaces.values())
+        if not self._workspaces_filled:
+            api.fill_workspaces()
+            self._workspaces_filled = True
+        return api
+
+    def _all_workspaces(self) -> List[Workspace]:
+        return list(self._filled_api().workspaces.values())
 
     def _workspace_withholding(self) -> PersonalWithholding[Workspace]:
         return PersonalWithholding[Workspace](
@@ -175,10 +184,9 @@ class SigmaMetadataProbe(ProbeProviderBase):
         return [p.record() for p in kept]
 
     def _placed_workbooks(self) -> Iterator[_Placed]:
-        api = self._api()
         # Ingestion lists workspaces first, so get_workspace answers a listed
         # one from that cache; only an unlisted one costs a lookup.
-        api.fill_workspaces()
+        api = self._filled_api()
         # The listing and the /files map get_sigma_workbooks reads; the
         # workspace lookup is its get_workspace, so a workspace that refuses
         # (403) leaves the workbook unplaced, as it does for ingestion.
@@ -237,8 +245,7 @@ class SigmaMetadataProbe(ProbeProviderBase):
         )
 
     def _placed_data_models(self) -> Iterator[_Placed]:
-        api = self._api()
-        api.fill_workspaces()
+        api = self._filled_api()
         # get_data_models' listing and its workspace choice: the /files row's
         # workspace, else the /dataModels payload's own.
         data_models = api._paginated_entries(

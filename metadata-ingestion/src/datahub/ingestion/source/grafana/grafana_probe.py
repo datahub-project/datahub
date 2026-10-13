@@ -1,5 +1,7 @@
 from typing import Dict, Iterator, List, Mapping, Optional, Union
 
+import requests
+
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
@@ -101,21 +103,36 @@ class GrafanaMetadataProbe(ProbeProviderBase):
         them with `probe filter --kind Folder`. Nested folders are not listed,
         because ingestion reads /api/folders without a parent and never sees
         them either. In basic_mode ingestion emits no folders at all, and
-        `probe filter` says so. A 403 or 404 degrades to [] with a warning."""
+        `probe filter` says so. A 403 or 404 degrades to [] with a warning;
+        in basic_mode any failed read does, since ingestion never reads
+        /api/folders there and its credential need not reach it."""
         if self._config.basic_mode:
             self._warn(
                 "basic_mode is set, so ingestion emits no folders; they are "
                 "listed for reference and judged excluded by basic_mode"
             )
+            try:
+                return self._folders(limit)
+            except requests.RequestException as exc:
+                status = getattr(exc.response, "status_code", None)
+                self._warn(
+                    f"the folders listing could not be read "
+                    f"({f'HTTP {status}' if status else type(exc).__name__}); "
+                    f"basic_mode ingestion does not read it"
+                )
+                return []
         with soft_listing(self._warn, 403, 404, context="folders listing"):
-            return take(
-                (
-                    {"name": str(item.get("title") or ""), "uid": item.get("uid")}
-                    for item in self._paged("/api/folders", {})
-                ),
-                limit,
-            )
+            return self._folders(limit)
         return []
+
+    def _folders(self, limit: int) -> List[Dict[str, object]]:
+        return take(
+            (
+                {"name": str(item.get("title") or ""), "uid": item.get("uid")}
+                for item in self._paged("/api/folders", {})
+            ),
+            limit,
+        )
 
     @probe_method(kind=BIContainerSubTypes.GRAFANA_DASHBOARD, row_limit_param="limit")
     def dashboards(self, limit: int = 200) -> List[Dict[str, object]]:

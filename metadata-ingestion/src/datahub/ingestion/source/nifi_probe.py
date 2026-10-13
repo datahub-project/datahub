@@ -1,12 +1,14 @@
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Mapping, Tuple
+from typing import Dict, Iterator, List, Mapping, Optional, Tuple, Union
 from urllib.parse import urljoin
+
+import requests
+from requests.adapters import HTTPAdapter
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
     echoed,
-    soft_listing,
     take,
 )
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
@@ -25,6 +27,32 @@ from datahub.ingestion.source.nifi_selection import (
 # Ingestion's session sets no timeout. A probe answers a person waiting on
 # it, so an unresponsive server fails the command instead of hanging it.
 _TIMEOUT_SECONDS = 30
+
+
+class _DefaultTimeoutAdapter(HTTPAdapter):
+    """Bounds a request sent without a timeout: NifiSource.authenticate posts
+    SINGLE_USER and KERBEROS token requests with none, and a stalled token
+    endpoint would otherwise hang the command."""
+
+    def send(
+        self,
+        request: requests.PreparedRequest,
+        stream: bool = False,
+        timeout: Union[None, float, Tuple[float, float], Tuple[float, None]] = None,
+        verify: Union[bool, str] = True,
+        cert: Union[
+            None, bytes, str, Tuple[Union[bytes, str], Union[bytes, str]]
+        ] = None,
+        proxies: Optional[Mapping[str, str]] = None,
+    ) -> requests.Response:
+        return super().send(
+            request,
+            stream=stream,
+            timeout=_TIMEOUT_SECONDS if timeout is None else timeout,
+            verify=verify,
+            cert=cert,
+            proxies=proxies,
+        )
 
 
 @dataclass(frozen=True)
@@ -71,6 +99,10 @@ class NifiMetadataProbe(ProbeProviderBase):
         source.config = self._config
         source.report = self._report
         source.session = nifi_session(self._config)
+        # Mounted before authenticate, so CLIENT_CERT's more specific
+        # SSLAdapter mount still takes the API base URL.
+        for prefix in ("http://", "https://"):
+            source.session.mount(prefix, _DefaultTimeoutAdapter())
         source.authenticate()
         return source
 
@@ -109,54 +141,60 @@ class NifiMetadataProbe(ProbeProviderBase):
 
         A walked group is emitted as a container only with
         emit_process_group_as_container, and only when it, or a group inside
-        it, holds an ingress or egress component. A 403 or 404 on a group
-        leaves it listed and its contents unread, with a warning."""
+        it, holds an ingress or egress component. As in ingestion, an HTTP
+        error on a group below the root leaves it listed and its contents
+        unread, with a warning, and one on the root fails the command."""
         return take(self._walk(), limit)
 
     def _walk(self) -> Iterator[Dict[str, object]]:
-        with soft_listing(self._warn, 403, 404, context="root process group"):
-            root = self._flow("root")
-            root_name = str(_breadcrumb(root).get("name") or "")
-            stack = [_Pending("root", (root_name,))]
-            unreadable = 0
-            while stack:
-                pending = stack.pop()
-                flow = root if pending.group_id == "root" else self._child_flow(pending)
-                ancestors = pending.path
-                children: List[_Pending] = []
-                for entity in _child_groups(flow):
-                    component = entity.get("component")
-                    group_id = entity.get("id")
-                    if not isinstance(component, dict) or not isinstance(group_id, str):
-                        # NiFi omits the component of a group the credential
-                        # may not read: there is no name to judge.
-                        unreadable += 1
-                        continue
-                    name = str(component.get("name") or "")
-                    yield {
-                        "name": name,
-                        "id": group_id,
-                        "parent_id": component.get("parentGroupId"),
-                        ANCESTORS_ATTRIBUTE: encode_ancestors(ancestors),
-                    }
-                    children.append(_Pending(group_id, (*ancestors, name)))
-                # Reversed, so the walk visits siblings in NiFi's order.
-                stack.extend(reversed(children))
-            if unreadable:
-                self._warn(
-                    f"{unreadable} process groups this credential cannot read "
-                    f"were left out; ingestion cannot read them either"
-                )
+        # Ingestion's create_nifi_flow raises on any failed root read, so the
+        # root is not degraded here either.
+        root = self._flow("root")
+        root_name = str(_breadcrumb(root).get("name") or "")
+        stack = [_Pending("root", (root_name,))]
+        unreadable = 0
+        while stack:
+            pending = stack.pop()
+            flow = root if pending.group_id == "root" else self._child_flow(pending)
+            ancestors = pending.path
+            children: List[_Pending] = []
+            for entity in _child_groups(flow):
+                component = entity.get("component")
+                group_id = entity.get("id")
+                if not isinstance(component, dict) or not isinstance(group_id, str):
+                    # NiFi omits the component of a group the credential
+                    # may not read: there is no name to judge.
+                    unreadable += 1
+                    continue
+                name = str(component.get("name") or "")
+                yield {
+                    "name": name,
+                    "id": group_id,
+                    "parent_id": component.get("parentGroupId"),
+                    ANCESTORS_ATTRIBUTE: encode_ancestors(ancestors),
+                }
+                children.append(_Pending(group_id, (*ancestors, name)))
+            # Reversed, so the walk visits siblings in NiFi's order.
+            stack.extend(reversed(children))
+        if unreadable:
+            self._warn(
+                f"{unreadable} process groups this credential cannot read "
+                f"were left out; ingestion cannot read them either"
+            )
 
     def _child_flow(self, pending: _Pending) -> Mapping[str, object]:
-        with soft_listing(
-            self._warn,
-            403,
-            404,
-            context=f"process group {echoed('/'.join(pending.path))}",
-        ):
+        """A group below the root. Ingestion's update_flow warns and moves on
+        to the next sibling when such a read answers any error status (a
+        connection failure still raises there), so the probe does the same."""
+        try:
             return self._flow(pending.group_id)
-        return {}
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", None)
+            self._warn(
+                f"process group {echoed('/'.join(pending.path))} returned "
+                f"HTTP {status}; treating it as empty."
+            )
+            return {}
 
 
 def _breadcrumb(flow: Mapping[str, object]) -> Mapping[str, object]:

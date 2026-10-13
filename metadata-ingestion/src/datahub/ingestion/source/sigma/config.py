@@ -746,17 +746,35 @@ class SigmaSourceConfig(
         `data_models` run carries."""
         if ctx.structural is not None:
             return None
+        # Each later fact is read, and warned about when missing, only once
+        # the rules before it pass: a name the pattern drops needs neither.
         if ctx.kind == BIContainerSubTypes.SIGMA_WORKBOOK:
-            in_files = ctx.attributes.get("in_files")
+            by_name = workbook_verdict(self, WorkbookFacts(ctx.target))
+            if not by_name.included:
+                return by_name
+            in_files_text = ctx.attributes.get("in_files")
+            if in_files_text is None:
+                ctx.warn(
+                    f"no /files fact for '{ctx.name}' here: ingestion drops a "
+                    "workbook missing from Sigma's /files listing, which only "
+                    "a saved `probe run workbooks` run records; pass one with "
+                    "`probe filter --from-run` to apply that rule too"
+                )
+            in_files = UNKNOWN if in_files_text is None else in_files_text == "true"
+            if in_files is False:
+                return workbook_verdict(self, WorkbookFacts(ctx.target, in_files=False))
             return workbook_verdict(
                 self,
                 WorkbookFacts(
                     ctx.target,
-                    in_files=UNKNOWN if in_files is None else in_files == "true",
+                    in_files=in_files,
                     workspace_name=self._workspace_named_by(ctx),
                 ),
             )
         if ctx.kind == BIContainerSubTypes.SIGMA_DATA_MODEL:
+            by_name = data_model_verdict(self, DataModelFacts(ctx.target))
+            if not by_name.included:
+                return by_name
             return data_model_verdict(
                 self,
                 DataModelFacts(

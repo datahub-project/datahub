@@ -401,6 +401,16 @@ class DremioAPIOperations:
                     f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
                 ) from e
 
+    def get_or_raise(self, url: str) -> object:
+        """A GET that raises requests.HTTPError on an error status. `get`
+        returns an error body as if it were the answer, so a caller that must
+        tell a refused read from an empty one uses this instead."""
+        response = self.session.get(
+            self.base_url + url, verify=self._verify, timeout=self._timeout
+        )
+        response.raise_for_status()
+        return response.json()
+
     def get(self, url: str) -> Dict:
         """Send a GET request to the Dremio API.
 

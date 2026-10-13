@@ -4,6 +4,7 @@ whether ingestion emits them, judged by the predicate ingestion filters with."""
 import json
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Set
+from urllib.parse import quote
 
 import pytest
 import yaml
@@ -19,7 +20,11 @@ from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filter
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.elastic_search import ElasticsearchSourceConfig
-from datahub.ingestion.source.elastic_search_probe import ElasticsearchMetadataProbe
+from datahub.ingestion.source.elastic_search_probe import (
+    _MAX_ENCODED_PATH,
+    ElasticsearchMetadataProbe,
+    _batches,
+)
 from datahub.metadata.schema_classes import SubTypesClass
 from datahub.metadata.urns import DatasetUrn
 from tests.test_helpers.probe_parity import (
@@ -206,10 +211,24 @@ def test_composable_templates_degrade_like_ingestion() -> None:
     assert result.warnings and "HTTP 404" in result.warnings[0]
 
 
-def test_a_composable_listing_that_cannot_connect_fails(tmp_path: Path) -> None:
+def test_a_composable_listing_that_cannot_connect_degrades_like_ingestion() -> None:
+    # Ingestion catches any exception from this call, a lost connection too.
     _FakeOpenSearch.composable_error = ConnectionError("N/A", "refused", None)
-    result = _probe_cli(tmp_path, _recipe(), "index_templates")
-    assert result.exit_code == _EXIT_SOURCE, result.output
+    result = run_probe_method(_SOURCE_TYPE, _recipe(), "index_templates", {})
+    assert isinstance(result.result, list)
+    assert {r["name"] for r in result.result} == set(_LEGACY)
+    assert result.warnings and "composable" in result.warnings[0]
+
+
+def test_index_batches_stay_under_the_encoded_path_budget() -> None:
+    # About 255 bytes of a 2-byte character, six characters each once encoded.
+    long_names = ["\u00e9" * 127 + f"{i}" for i in range(25)]
+    batches = list(_batches(long_names))
+    assert [n for b in batches for n in b] == long_names
+    assert all(
+        sum(len(quote(n, safe="")) + 1 for n in b) <= _MAX_ENCODED_PATH for b in batches
+    )
+    assert len(list(_batches([f"i{n}" for n in range(30)]))) == 2
 
 
 def test_an_unreachable_cluster_exits_as_the_source(tmp_path: Path) -> None:

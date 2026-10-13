@@ -185,6 +185,10 @@ def test_containers_are_judged_on_their_full_path() -> None:
         [{"root": "other"}, {"root": "space"}],
         schema_pattern={"deny": ["^other$"]},
     ) == ["schema_pattern", None]
+    # A dotless folder name is judged as its root, not as "space.".
+    assert _judge(
+        "Dremio Folder", ["space"], schema_pattern={"allow": ["^space$"]}
+    ) == [None]
 
 
 # --- the provider, over a fake Dremio ----------------------------------------
@@ -325,13 +329,43 @@ def test_datasets_carry_their_schema_and_edition(requests_mock: Any) -> None:
         },
     ]
     sent = requests_mock.request_history[-3].json()["sql"]
-    assert "TABLE_TYPE = 'VIEW'" in sent and "LIMIT 201" in sent
+    assert "TABLE_TYPE = 'VIEW'" in sent and "LIMIT 201 OFFSET 0" in sent
 
     dropped = run_probe_method(
         "dremio", _recipe(schema_pattern={"deny": ["^@"]}), "views", {}
     )
     assert _names(dropped) == ["lake.db.unread", "space.f1.orders"]
     assert any("1 dataset(s) in home spaces" in w for w in dropped.warnings)
+
+
+def test_withheld_home_rows_do_not_use_up_the_limit(requests_mock: Any) -> None:
+    _register(requests_mock)
+    requests_mock.post(
+        f"{_API}/sql", [{"json": {"id": "job-1"}}, {"json": {"id": "job-2"}}]
+    )
+    home = [
+        {"TABLE_SCHEMA": "@someone", "TABLE_NAME": f"t{i}", "COLUMN_COUNT": 1}
+        for i in range(3)
+    ]
+    requests_mock.get(f"{_API}/job/job-1/results", json={"rows": home})
+    requests_mock.get(f"{_API}/job/job-2/", json={"jobState": "COMPLETED"})
+    requests_mock.get(
+        f"{_API}/job/job-2/results",
+        json={
+            "rows": [{"TABLE_SCHEMA": "space", "TABLE_NAME": "x", "COLUMN_COUNT": 1}]
+        },
+    )
+    result = run_probe_method(
+        "dremio", _recipe(schema_pattern={"deny": ["^@"]}), "tables", {"limit": 2}
+    )
+    assert _names(result) == ["space.x"]
+    sent = [
+        r.json()["sql"] for r in requests_mock.request_history if r.method == "POST"
+    ]
+    assert [q.rsplit("LIMIT", 1)[1].strip() for q in sent] == [
+        "3 OFFSET 0",
+        "3 OFFSET 3",
+    ]
 
 
 def _cli(tmp_path: Path, config: Dict[str, object], *args: str) -> Result:

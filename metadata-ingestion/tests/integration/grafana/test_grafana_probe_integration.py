@@ -33,7 +33,7 @@ pytestmark = [
     pytest.mark.usefixtures("_isolate_secret_registry"),
 ]
 
-_CONTAINER = "grafana_probe"
+_CONTAINER = "test-grafana-probe"
 _PORT = 3000
 # Grafana's default first-run admin; docker-compose.probe.yml leaves it as is.
 _ADMIN = ("admin", "admin")

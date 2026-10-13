@@ -122,7 +122,7 @@ def test_a_refused_connection_exits_3(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "credentials refused" not in str(info.value)
 
 
-def test_the_jobs_view_is_refused_before_connecting(
+def test_the_jobs_view_is_refused_before_it_is_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # JOBS holds the SQL text of every job, which is exactly what this source
@@ -186,6 +186,7 @@ _OBJECTS = [
     ("proj-a", "_scratch", "t1"),
     ("proj-a", "tmp_work", "t2"),
     ("proj-b", "sales", "orders"),
+    ("proj-a", "INFORMATION_SCHEMA", "TABLES"),
 ]
 
 
@@ -244,6 +245,7 @@ def test_probe_filter_agrees_with_ingestion(recipe_name: str, kind: str) -> None
     [
         (_recipe(), ("proj-a", "_scratch", "t1"), "temp_table_dataset_prefix"),
         (_recipe(project_ids=["proj-a"]), ("proj-b", "sales", "orders"), "project_ids"),
+        (_recipe(), ("proj-a", "INFORMATION_SCHEMA", "TABLES"), "system_table"),
         (
             _recipe(dataset_pattern={"allow": ["^sales$"]}),
             ("proj-a", "marketing", "leads"),

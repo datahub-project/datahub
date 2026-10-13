@@ -206,6 +206,15 @@ def test_basic_mode_says_its_folders_are_not_ingested(grafana: _FakeGrafana) -> 
     assert any("basic_mode" in w for w in _run("folders", basic_mode=True).warnings)
 
 
+def test_basic_mode_does_not_fail_on_a_folder_read_ingestion_never_makes() -> None:
+    with requests_mock.Mocker() as mocker:
+        mocker.get(f"{_URL}/api/folders", status_code=401, text="denied body")
+        result = _run("folders", basic_mode=True)
+    assert result.result == []
+    assert any("HTTP 401" in w for w in result.warnings)
+    assert not any("denied body" in w for w in result.warnings)
+
+
 def test_verify_ssl_off_is_reported_as_ingestion_reports_it(
     grafana: _FakeGrafana,
 ) -> None:

@@ -39,14 +39,17 @@ datahub recipe probe filter --recipe superset_recipe.yml --from-run datasets.jso
 title, a chart by `chart_pattern` on its name, and a dataset by `dataset_pattern` on its table name
 and then by `database_pattern` on its database. Judge a `datasets` listing with
 `probe filter --from-run`, which carries each dataset's database, or pass the database as
-`--parent`; a bare dataset name is judged on `dataset_pattern` alone, with a warning.
+`--parent`; a bare dataset name is judged on `dataset_pattern` alone, with a warning when
+`database_pattern` is restrictive.
 `database_pattern` never drops a chart or a dashboard, and `ingest_dashboards`, `ingest_charts`
 and `ingest_datasets` switch a whole kind off (`ingest_datasets` is off by default).
 
-The probe reads the list endpoints ingestion reads, and a dataset's detail only when its list record
-lacks the database. Records carry names, ids, schemas and database names; owners and the users who
-last changed an object are never returned. A listing the credential's role may not read (HTTP 403 or 404) comes back empty with a warning; a refused login, any other HTTP error or an unreachable host
-fails the command with exit code 3.
+The probe reads the list endpoints ingestion reads, and, as ingestion does, a dataset's detail only
+when `database_pattern` is restrictive and the list record lacks the database. Records carry names, ids, schemas and database names; owners and the users who
+last changed an object are never returned. A listing the credential's role may not read (HTTP 403 or 404) comes back empty with a warning;
+a refused login, any other listing error or an unreachable host fails the command with exit code 3.
+A failed dataset-detail read is a warning instead, and leaves that dataset's record without its
+database.
 
 ### Limitations
 

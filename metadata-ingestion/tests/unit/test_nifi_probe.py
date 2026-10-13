@@ -14,6 +14,7 @@ import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe as recipe_cli
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.nifi import NifiProcessorType
 from tests.test_helpers.probe_parity import (
     ParityListing,
@@ -192,14 +193,14 @@ def test_a_listing_stops_at_its_limit(nifi: requests_mock.Mocker) -> None:
     assert result.truncated
 
 
-def test_a_forbidden_root_degrades_to_empty_with_a_warning() -> None:
+def test_a_forbidden_root_fails_the_command_as_it_fails_ingestion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
     with requests_mock.Mocker() as mocker:
         _FakeNifi(_tree(), forbidden=("root",)).install(mocker)
-        result = _run("process_groups")
-    assert result.result == []
-    assert result.warnings == [
-        "root process group returned HTTP 403; treating it as empty."
-    ]
+        res = _cli(monkeypatch, tmp_path, "process_groups")
+    assert res.exit_code == rc.EXIT_CONNECTION, res.output
+    assert "HTTP 403" in res.output
 
 
 def test_a_forbidden_group_is_listed_but_not_walked_into() -> None:
@@ -334,14 +335,35 @@ def test_a_missing_client_certificate_exits_on_the_source_code(
     assert res.exit_code == rc.EXIT_CONNECTION, res.output
 
 
-def test_a_server_error_inside_the_tree_fails_the_command(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
-) -> None:
+def test_a_server_error_inside_the_tree_skips_only_that_group() -> None:
+    # Ingestion's update_flow warns on any failed child read and goes on to
+    # the next sibling.
     with requests_mock.Mocker() as mocker:
-        _FakeNifi(_tree(), failing=("g-nested",)).install(mocker)
-        res = _cli(monkeypatch, tmp_path, "process_groups")
-    assert res.exit_code == rc.EXIT_CONNECTION, res.output
-    assert "HTTP 500" in res.output
+        _FakeNifi(_tree(), failing=("g-ingest",)).install(mocker)
+        result = _run("process_groups")
+    names = [r["name"] for r in _records(result)]
+    assert "Ingest" in names and "WIP Area" in names
+    assert "Nested Ingest" not in names
+    assert any("HTTP 500" in w for w in result.warnings)
+
+
+def test_a_stalled_token_endpoint_is_bounded_by_the_probe_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: List[object] = []
+
+    def send(
+        self: requests.adapters.HTTPAdapter,
+        request: requests.PreparedRequest,
+        **kwargs: object,
+    ) -> requests.Response:
+        sent.append(kwargs.get("timeout"))
+        raise requests.Timeout("stalled")
+
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", send)
+    with pytest.raises(ProbeConnectionError):
+        _run("flow", auth="SINGLE_USER", username="probe", password=_PASSWORD)
+    assert sent == [30]
 
 
 def test_an_unreachable_server_exits_on_the_source_code(

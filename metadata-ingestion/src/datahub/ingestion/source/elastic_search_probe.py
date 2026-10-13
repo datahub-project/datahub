@@ -1,7 +1,8 @@
-from typing import Dict, List, Mapping, Sequence
+from typing import Dict, Iterator, List, Mapping, Sequence
+from urllib.parse import quote
 
 from opensearchpy import OpenSearch
-from opensearchpy.exceptions import ConnectionError, TransportError
+from opensearchpy.exceptions import TransportError
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
@@ -12,9 +13,27 @@ from datahub.ingestion.source.elastic_search import (
     create_elasticsearch_client,
 )
 
-# Indices named per `GET <a>,<b>,...` request: few round trips, and a URL well
-# under any proxy's limit even at the 255-byte maximum index name.
+# Indices named per `GET <a>,<b>,...` request: few round trips, and a request
+# path kept under common proxy request-line limits (8 KiB) once URL-encoded,
+# which can triple a non-ASCII name's length.
 _INDICES_PER_REQUEST = 25
+_MAX_ENCODED_PATH = 4096
+
+
+def _batches(names: Sequence[str]) -> Iterator[List[str]]:
+    batch: List[str] = []
+    length = 0
+    for name in names:
+        encoded = len(quote(name, safe="")) + 1
+        if batch and (
+            len(batch) >= _INDICES_PER_REQUEST or length + encoded > _MAX_ENCODED_PATH
+        ):
+            yield batch
+            batch, length = [], 0
+        batch.append(name)
+        length += encoded
+    if batch:
+        yield batch
 
 
 def _mapped_fields(mappings: object) -> int:
@@ -60,8 +79,7 @@ class ElasticsearchMetadataProbe(ProbeProviderBase):
 
     def _index_bodies(self, names: Sequence[str]) -> Dict[str, Mapping[str, object]]:
         bodies: Dict[str, Mapping[str, object]] = {}
-        for start in range(0, len(names), _INDICES_PER_REQUEST):
-            batch = names[start : start + _INDICES_PER_REQUEST]
+        for batch in _batches(names):
             # Named explicitly, as ingestion fetches each index, so a hidden
             # index the listing returned is read too.
             bodies.update(self._client().indices.get(index=",".join(batch)))
@@ -97,39 +115,36 @@ class ElasticsearchMetadataProbe(ProbeProviderBase):
         index_template_pattern denies. Ingestion reads them only when
         ingest_index_templates is set, which `probe filter` applies.
         `mapped_fields` is as for `indices`. Metadata only."""
-        records: List[Dict[str, object]] = []
+        return take(self._template_records(), limit)
+
+    def _template_records(self) -> Iterator[Dict[str, object]]:
+        # Lazy, so mappings past the limit are never converted.
         legacy = self._client().indices.get_template()
         for name in sorted(legacy):
-            records.append(
-                {
-                    "name": name,
-                    "template_type": "legacy",
-                    "mapped_fields": _mapped_fields(_section(legacy[name], "mappings")),
-                }
-            )
+            yield {
+                "name": name,
+                "template_type": "legacy",
+                "mapped_fields": _mapped_fields(_section(legacy[name], "mappings")),
+            }
         for template in self._composable_templates():
             name = template.get("name")
             if isinstance(name, str) and name:
-                records.append(
-                    {
-                        "name": name,
-                        "template_type": "composable",
-                        "mapped_fields": _mapped_fields(
-                            _section(template, "index_template", "template", "mappings")
-                        ),
-                    }
-                )
-        return take(records, limit)
+                yield {
+                    "name": name,
+                    "template_type": "composable",
+                    "mapped_fields": _mapped_fields(
+                        _section(template, "index_template", "template", "mappings")
+                    ),
+                }
 
     def _composable_templates(self) -> List[Mapping[str, object]]:
         try:
             response = self._client().indices.get_index_template()
-        except ConnectionError:
-            raise
         except TransportError as exc:
-            # Ingestion logs this and carries on with legacy templates only
-            # (servers before 7.8 have no composable templates), so the probe
-            # does too, and says so.
+            # Ingestion catches any failure here, a lost connection included,
+            # logs it and carries on with legacy templates only (servers
+            # before 7.8 have no composable templates), so the probe does
+            # too, and says so.
             status = exc.status_code if isinstance(exc.status_code, int) else None
             self._warn(
                 f"composable index templates could not be listed"

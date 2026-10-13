@@ -310,7 +310,10 @@ class DremioSourceConfig(
                     "the text before the first '.'; a saved `probe run folders` "
                     "run carries it, pass one with `probe filter --from-run`"
                 )
-            return folder_verdict(self, [root, ctx.name[len(root) + 1 :]])
+            rest = ctx.name[len(root) + 1 :]
+            # A dotless name has no folder part: judge the root alone rather
+            # than "root.", which no schema_pattern entry matches.
+            return folder_verdict(self, [root, rest] if rest else [root])
         if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
             return self._dataset_verdict(ctx)
         return None

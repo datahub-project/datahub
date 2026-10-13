@@ -10,6 +10,7 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
@@ -136,9 +137,11 @@ class SupersetMetadataProbe(ProbeProviderBase):
     def _named(
         self, entity: str, item: Mapping[str, object], key: str
     ) -> Optional[str]:
-        """The record's name, or None (counted) when it has none: ingestion
-        drops such a record when its pattern check fails on the missing name."""
-        name = item.get(key)
+        """The record's name, or None (counted) when it is not a string.
+        Ingestion reads a missing name as "" and still judges the record, but
+        a null or non-string one fails its pattern check and the record is
+        dropped."""
+        name = item.get(key, "")
         if isinstance(name, str):
             return name
         self._unnamed[entity] = self._unnamed.get(entity, 0) + 1
@@ -176,7 +179,9 @@ class SupersetMetadataProbe(ProbeProviderBase):
         """Datasets by table_name, the string dataset_pattern is matched
         against, each with its database and schema. Includes ones the recipe
         would exclude. `probe filter --from-run` reads each record's database,
-        since database_pattern drops a dataset by it. Datasets are ingested only
+        since database_pattern drops a dataset by it; a list record without
+        one is completed from the dataset detail only when database_pattern
+        is restrictive, as ingestion does. Datasets are ingested only
         when ingest_datasets is set. Metadata only."""
 
         def build(item: Mapping[str, object]) -> Optional[ProbeRecord]:
@@ -230,13 +235,17 @@ class SupersetMetadataProbe(ProbeProviderBase):
 
     def _database_of(self, item: Mapping[str, object]) -> Optional[str]:
         """The dataset's database_name: from the list record, which carries it,
-        else from the dataset detail ingestion reads it from. A failed detail
-        read reaches the caller as a warning through probe_report."""
+        else from the dataset detail ingestion reads it from, which ingestion
+        (_process_dataset) and so the probe fetch only when database_pattern
+        is not allow-all. A failed detail read reaches the caller as a warning
+        through probe_report."""
         database = item.get("database")
         if isinstance(database, dict):
             name = database.get("database_name")
             if isinstance(name, str):
                 return name
+        if self._config.database_pattern == AllowDenyPattern.allow_all():
+            return None
         dataset_id = item.get("id")
         if not isinstance(dataset_id, int):
             return None

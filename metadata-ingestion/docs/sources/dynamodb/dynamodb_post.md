@@ -47,7 +47,8 @@ datahub recipe probe run tables --recipe dynamodb_recipe.yml
 datahub recipe probe filter --recipe dynamodb_recipe.yml --kind Table --name us-west-2.Orders
 ```
 
-`tables` lists the tables in the recipe's region with `ListTables`, the call ingestion makes, using
+`tables` lists up to 200 tables in the recipe's region by default (`--limit` sets another bound, up
+to 1000; a listing cut short is marked truncated) with `ListTables`, the call ingestion makes, using
 the recipe's own AWS credentials, role, profile and endpoint. Each name is `region.table`, the string
 `table_pattern` is matched against, so `probe filter` gives ingestion's verdict. Ingestion reads one
 region per run (`aws_region`), and so does the probe: a table in another region is not listed. The

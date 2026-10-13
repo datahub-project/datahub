@@ -323,7 +323,7 @@ def test_a_dataset_record_without_its_database_reads_the_detail_ingestion_reads(
 ) -> None:
     fake = FakeSuperset(dataset_list_without_database=True)
     fake.register(requests_mock)
-    result = _run("datasets")
+    result = _run("datasets", _recipe(database_pattern={"deny": ["^nothing$"]}))
     assert [r["database"] for r in _records(result)] == [
         "analytics",
         "analytics",
@@ -331,16 +331,24 @@ def test_a_dataset_record_without_its_database_reads_the_detail_ingestion_reads(
     ]
     assert any(re.search(r"/api/v1/dataset/1$", u) for u in fake.requested)
 
+    # Ingestion reads no detail under an allow-all database_pattern.
+    fake.requested.clear()
+    unscoped = _run("datasets")
+    assert all("database" not in r for r in _records(unscoped))
+    assert not any(re.search(r"/api/v1/dataset/\d+$", u) for u in fake.requested)
+
 
 def test_an_unnamed_record_is_left_out_with_a_count(requests_mock: Mocker) -> None:
     FakeSuperset(
         charts=[
             {"id": 10, "slice_name": "Revenue", "datasource_id": 1},
             {"id": 11, "slice_name": None, "datasource_id": 1},
+            # A missing name is "" to ingestion, which still emits the chart.
+            {"id": 12, "datasource_id": 1},
         ]
     ).register(requests_mock)
     result = _run("charts")
-    assert _names(result) == ["Revenue"]
+    assert _names(result) == ["Revenue", ""]
     assert result.warnings == [
         "1 chart record(s) had no name and were left out; ingestion drops them too"
     ]
