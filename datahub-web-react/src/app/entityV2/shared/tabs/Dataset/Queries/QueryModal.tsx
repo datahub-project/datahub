@@ -31,7 +31,8 @@ const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }

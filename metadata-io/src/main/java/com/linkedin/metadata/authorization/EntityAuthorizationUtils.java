@@ -242,6 +242,26 @@ public final class EntityAuthorizationUtils {
     return authorizeResolvedChangeUrns(opContext, resolved);
   }
 
+  /**
+   * Authorize whole-entity upserts (legacy Rest.li snapshot ingest) with the same existence-aware
+   * CREATE vs EDIT selection as {@link #isAPIAuthorizedIngest}: CREATE privileges only suffice for
+   * entities that do not exist yet.
+   *
+   * <p>Unlike the MCP paths this does not seed proposed domains: no snapshot aspect union includes
+   * {@code Domains}, so a snapshot can never propose one.
+   */
+  public static boolean isAPIAuthorizedUpsertUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
+    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
+      return true;
+    }
+    return authorizeResolvedChangeUrns(
+            opContext,
+            urns.stream().map(urn -> Pair.of(urn, Pair.of(ChangeType.UPSERT, urn))).toList())
+        .stream()
+        .allMatch(result -> result.getSecond() == HttpStatus.SC_OK);
+  }
+
   private static <T> List<Pair<T, Integer>> authorizeResolvedChangeUrns(
       @Nonnull OperationContext opContext, @Nonnull List<Pair<T, Pair<ChangeType, Urn>>> resolved) {
 

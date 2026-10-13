@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
@@ -57,10 +58,6 @@ logger = logging.getLogger(__name__)
 # conversion, macro stripping, text normalization) to force re-ingestion of
 # all pages on the next run regardless of whether the raw Confluence body changed.
 EXTRACTION_ALGO_VERSION = "2"
-
-# Subtype applied to documents that represent Confluence folders, matching the
-# value DataHub uses for natively-created folders.
-FOLDER_SUBTYPE = "Folder"
 
 
 @platform_name("Confluence")
@@ -865,7 +862,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 title=folder.title,
                 text="",
                 status=DocumentStateClass.PUBLISHED,
-                subtype=FOLDER_SUBTYPE,
+                subtype=DocumentSubTypes.FOLDER,
                 custom_properties=custom_properties,
                 parent_document=parent_urn,
             )
@@ -884,7 +881,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 external_id=folder.id,
                 text="",
                 status=DocumentStateClass.PUBLISHED,
-                subtype=FOLDER_SUBTYPE,
+                subtype=DocumentSubTypes.FOLDER,
                 custom_properties=custom_properties,
                 parent_document=parent_urn,
             )
