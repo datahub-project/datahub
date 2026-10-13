@@ -12,6 +12,7 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.config import (
@@ -24,6 +25,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_HEX_OBJECT_ID_RE,
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
+    MSTR_METRIC_REFERENCE_RE,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
     MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
@@ -35,12 +37,14 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_WHITESPACE_RE,
 )
 from datahub.ingestion.source.microstrategy.models import (
+    ColumnSet,
     DashboardDefinition,
     DatasetObject,
     Datasource,
     DatasourceConnection,
     DatasourceReference,
     Visualization,
+    normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -73,6 +77,19 @@ class SqlViewLineage:
     field_upstreams: Dict[str, List[str]]
 
 
+@dataclass(frozen=True)
+class ColumnSetBinding:
+    """Per-column-group dataset attribution for a compound-grid visualization.
+    Keys are column-set keys (falling back to names when a key is absent)."""
+
+    dataset_id_by_column_set: Dict[str, str]
+    unbound_column_sets: List[str]
+
+    @property
+    def dataset_ids(self) -> List[str]:
+        return sorted(set(self.dataset_id_by_column_set.values()))
+
+
 @dataclass
 class ModelLineageIndex:
     fact_upstreams: Dict[str, List[ModelFieldLineage]]
@@ -82,7 +99,7 @@ class ModelLineageIndex:
     def fact_field_urns(self, fact_ids: Iterable[str]) -> List[str]:
         upstreams: List[str] = []
         for fact_id in fact_ids:
-            for lineage in self.fact_upstreams.get(_normalize_object_id(fact_id), []):
+            for lineage in self.fact_upstreams.get(normalize_object_id(fact_id), []):
                 upstreams.extend(lineage.upstream_field_urns)
         return _dedupe_sorted(upstreams)
 
@@ -91,7 +108,7 @@ class ModelLineageIndex:
         attribute_id: str,
         form_name: Optional[str] = None,
     ) -> List[str]:
-        normalized_attribute_id = _normalize_object_id(attribute_id)
+        normalized_attribute_id = normalize_object_id(attribute_id)
         upstreams: List[str] = []
         if form_name:
             upstreams.extend(
@@ -144,17 +161,34 @@ class MicroStrategyLineageExtractor:
         visualization: Visualization,
     ) -> List[str]:
         dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
-        if visualization.datasets:
+        bound_ids = {
+            dataset_id
+            for dataset_id in visualization.datasets
+            if dataset_id in dataset_by_id
+        }
+
+        # A compound grid reads one dataset per column group, while the earlier
+        # binding tiers (explicit dataset ids, dataset-scoped derived objects)
+        # can prove only some of them — live: 1 of 3. Union rather than tier:
+        # every id here carries positive evidence, and stopping at the first
+        # non-empty tier is exactly what hid the other groups' columns.
+        if visualization.column_sets:
+            binding = bind_visualization_column_sets(dashboard, visualization)
+            if binding.unbound_column_sets:
+                self.report.report_column_sets_unbound(len(binding.unbound_column_sets))
+            column_set_ids = {
+                dataset_id
+                for dataset_id in binding.dataset_ids
+                if dataset_id in dataset_by_id
+            }
+            if column_set_ids - bound_ids:
+                self.report.report_visualization_bound_by_column_sets()
+            bound_ids |= column_set_ids
+
+        if bound_ids:
             return sorted(
-                {
-                    self.dataset_urn(
-                        project_id,
-                        dashboard.id,
-                        dataset_by_id[dataset_id],
-                    )
-                    for dataset_id in visualization.datasets
-                    if dataset_id in dataset_by_id
-                }
+                self.dataset_urn(project_id, dashboard.id, dataset_by_id[dataset_id])
+                for dataset_id in bound_ids
             )
 
         if len(dashboard.datasets) == 1:
@@ -224,11 +258,16 @@ class MicroStrategyLineageExtractor:
 
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
-        from datahub.sql_parsing.split_statements import split_statements
-        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-        from datahub.sql_parsing.sqlglot_lineage import (
-            create_lineage_from_sql_statements,
-        )
+        # A missing module here is an installation problem, never a
+        # per-statement parse failure, so it must surface as one.
+        try:
+            from datahub.sql_parsing.split_statements import split_statements
+            from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+            from datahub.sql_parsing.sqlglot_lineage import (
+                create_lineage_from_sql_statements,
+            )
+        except ImportError as error:
+            raise _sql_lineage_dependency_error(error) from error
 
         # Resolve the sqlglot dialect through DataHub's central platform->dialect
         # map so tokenization matches what the parser itself uses.
@@ -241,6 +280,7 @@ class MicroStrategyLineageExtractor:
         if not statements:
             return SqlViewLineage([], {})
 
+        self.report.report_sql_view_parsed()
         created_tables = _created_table_leaf_names(statements)
         # Column lineage needs the final SELECT wrapped as a sentinel CTAS so its
         # projection is a concrete downstream; table-level upstreams don't, so
@@ -265,6 +305,11 @@ class MicroStrategyLineageExtractor:
                 graph=graph,
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
             )
+        except ImportError as error:
+            # The parser lazily imports some of its own dependencies; an
+            # ImportError is environmental (every statement would fail the
+            # same way), not something to count against this SQL view.
+            raise _sql_lineage_dependency_error(error) from error
         except Exception as error:
             self._report_sql_parse_failure(sql, context, error)
             return SqlViewLineage([], {})
@@ -356,7 +401,7 @@ class MicroStrategyLineageExtractor:
                 if field_urns:
                     _append_lineage(
                         fact_upstreams,
-                        _normalize_object_id(fact_id),
+                        normalize_object_id(fact_id),
                         ModelFieldLineage(upstream_dataset_urn, field_urns),
                     )
 
@@ -380,13 +425,13 @@ class MicroStrategyLineageExtractor:
                     if form_name:
                         _append_lineage(
                             attribute_form_upstreams,
-                            (_normalize_object_id(attribute_id), form_name),
+                            (normalize_object_id(attribute_id), form_name),
                             lineage,
                         )
                 for lineage in attribute_lineages:
                     _append_lineage(
                         attribute_upstreams,
-                        _normalize_object_id(attribute_id),
+                        normalize_object_id(attribute_id),
                         lineage,
                     )
 
@@ -506,6 +551,30 @@ class MicroStrategyLineageExtractor:
             )
             return []
         return unique_inputs
+
+
+def ensure_sql_lineage_dependencies() -> None:
+    """Import the SQL-view lineage parser eagerly so a broken install fails the
+    run at startup with a clear message instead of silently emitting zero
+    lineage. create_lineage_from_sql_statements lazily imports the
+    SqlParsingAggregator module on first use, and that module transitively
+    needs sqlparse (usage_common -> sql_formatter), which the `microstrategy`
+    extra now declares; an environment built from an older extra, or from a
+    bare wheel, lacks it and used to fail one SQL view at a time."""
+    try:
+        import datahub.sql_parsing.sql_parsing_aggregator
+        import datahub.sql_parsing.sqlglot_lineage  # noqa: F401
+    except ImportError as error:
+        raise _sql_lineage_dependency_error(error) from error
+
+
+def _sql_lineage_dependency_error(error: ImportError) -> ConfigurationError:
+    return ConfigurationError(
+        "MicroStrategy SQL-view lineage (extract_warehouse_lineage / "
+        "extract_report_sql_lineage) needs DataHub's SQL parsing dependencies, "
+        f"which are not installed: {error}. Install the connector with its extra, "
+        "`pip install 'acryl-datahub[microstrategy]'`, or disable those flags."
+    )
 
 
 def datahub_platform_for_datasource(
@@ -704,7 +773,7 @@ def _expression_target_ids(model: Dict[str, object], subtype: str) -> List[str]:
         if target_subtype == subtype:
             object_id = _object_id(target)
             if object_id:
-                object_ids.add(_normalize_object_id(object_id))
+                object_ids.add(normalize_object_id(object_id))
     return sorted(object_ids)
 
 
@@ -817,7 +886,7 @@ def consolidation_attribute_ids(consolidation_model: Dict[str, object]) -> List[
             if isinstance(attribute, dict):
                 object_id = _object_id(attribute)
                 if object_id:
-                    object_ids.add(_normalize_object_id(object_id))
+                    object_ids.add(normalize_object_id(object_id))
             for value in node.values():
                 visit(value)
         elif isinstance(node, list):
@@ -855,10 +924,10 @@ def parse_attribute_relationships(
         relationship_type = entry.get("relationshipType")
         relationships.append(
             AttributeRelationship(
-                parent_attribute_id=_normalize_object_id(parent_id),
-                child_attribute_id=_normalize_object_id(child_id),
+                parent_attribute_id=normalize_object_id(parent_id),
+                child_attribute_id=normalize_object_id(child_id),
                 relationship_table_id=(
-                    _normalize_object_id(table_id) if table_id else None
+                    normalize_object_id(table_id) if table_id else None
                 ),
                 relationship_type=(
                     str(relationship_type) if relationship_type else None
@@ -904,7 +973,7 @@ def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str,
             for embedded in _coerce_dicts(derived_entry.get("embeddedObjects")):
                 _add_hex_object_id(embedded.get("id"), derived_ids)
                 _add_hex_object_id(embedded.get("objectId"), derived_ids)
-        derived_ids.discard(_normalize_object_id(dataset_id))
+        derived_ids.discard(normalize_object_id(dataset_id))
         for derived_id in derived_ids:
             if derived_id in owners and owners[derived_id] != dataset_id:
                 shared.add(derived_id)
@@ -915,6 +984,136 @@ def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str,
     return owners
 
 
+def bind_visualization_column_sets(
+    dashboard: DashboardDefinition,
+    visualization: Visualization,
+) -> ColumnSetBinding:
+    """Bind each column group of a compound-grid visualization to the dossier
+    dataset backing it.
+
+    Live-verified shape for multi-cube compound grids: pages are named by time
+    window ("WTD"), datasets "<FAMILY> SALES <WINDOW>", and column groups by
+    family ("RETAIL"). Object ids discriminate the family but not the window
+    (the same plan metric lives in every window's cube), and group names don't
+    reliably substring-match dataset names ("TOTAL SALES" vs "COMBINED TOTALS WTD"),
+    so binding layers four signals: a page-name filter, name-token overlap,
+    non-derived member-id containment to narrow ambiguous name matches or
+    rescue nameless groups, and a final unique-leftover elimination that only
+    fires when the page's datasets correspond one-to-one with the groups.
+
+    Column sets whose identifier is empty (no key, no name) or collides with a
+    sibling's cannot be stored or looked up unambiguously, so they are reported
+    as unbound rather than bound to a guess.
+    """
+    column_sets = list(visualization.column_sets)
+    if not column_sets or not dashboard.datasets:
+        return ColumnSetBinding({}, [])
+
+    identifier_counts: Dict[str, int] = {}
+    for column_set in column_sets:
+        identifier_counts[column_set.identifier] = (
+            identifier_counts.get(column_set.identifier, 0) + 1
+        )
+
+    page_candidates = _page_filtered_datasets(dashboard, visualization)
+    catalog_ids_by_dataset = {
+        dataset.id: dataset.normalized_object_ids() for dataset in page_candidates
+    }
+
+    bindings: Dict[str, str] = {}
+    unbound: List[ColumnSet] = []
+    unbindable: List[ColumnSet] = []
+    for column_set in column_sets:
+        if not column_set.identifier or identifier_counts[column_set.identifier] > 1:
+            unbindable.append(column_set)
+            continue
+        tokens = _lineage_name_tokens(column_set.name or "")
+        name_matches = [
+            dataset
+            for dataset in page_candidates
+            if tokens and tokens.intersection(_lineage_name_tokens(dataset.name))
+        ]
+        member_ids = _column_set_member_ids(column_set)
+        id_matches = [
+            dataset
+            for dataset in page_candidates
+            if member_ids and member_ids <= catalog_ids_by_dataset[dataset.id]
+        ]
+        # Member ids are extracted best-effort, so a unique name match stands on
+        # its own; ids narrow ambiguous name matches and rescue nameless groups.
+        both_signals = [dataset for dataset in name_matches if dataset in id_matches]
+        candidates = both_signals or name_matches or id_matches
+        if len(candidates) == 1:
+            bindings[column_set.identifier] = candidates[0].id
+        else:
+            unbound.append(column_set)
+
+    # Elimination: when the page's datasets and the visualization's column
+    # groups correspond one-to-one and every other group bound uniquely, the
+    # leftover pair belong together even though neither name nor ids say so
+    # ("TOTAL SALES" group -> "COMBINED TOTALS WTD" dataset). Cardinality is
+    # checked against ALL column sets — an unbindable (identifier-less) group
+    # still occupies a dataset, so eliminating around it would bind wrongly.
+    if (
+        len(unbound) == 1
+        and not unbindable
+        and len(page_candidates) == len(column_sets)
+    ):
+        claimed = set(bindings.values())
+        remaining = [
+            dataset for dataset in page_candidates if dataset.id not in claimed
+        ]
+        if len(remaining) == 1:
+            bindings[unbound[0].identifier] = remaining[0].id
+            unbound = []
+
+    return ColumnSetBinding(
+        dataset_id_by_column_set=bindings,
+        unbound_column_sets=[
+            column_set.identifier or f"<unnamed column set {index}>"
+            for index, column_set in enumerate(unbound + unbindable)
+        ],
+    )
+
+
+def _page_filtered_datasets(
+    dashboard: DashboardDefinition,
+    visualization: Visualization,
+) -> List[DatasetObject]:
+    page = _normalize_lineage_key(visualization.page_name or "")
+    if page:
+        matches = [
+            dataset
+            for dataset in dashboard.datasets
+            if page in _normalize_lineage_key(dataset.name)
+        ]
+        if matches:
+            return matches
+    return list(dashboard.datasets)
+
+
+def _column_set_member_ids(column_set: ColumnSet) -> Set[str]:
+    """Normalized ids of the group's non-derived metric members. Derived
+    members are excluded: their ids are visualization-local and can never
+    appear in a dataset's catalog."""
+    return {
+        normalize_object_id(metric.id)
+        for metric in column_set.metrics
+        if metric.id and not metric.derived
+    }
+
+
+def metric_formula_references(expression_text: str) -> List[str]:
+    """Sibling-object names a metric formula references as `{Name}` (Modeling
+    API text) or `[Name]` (Strategy Web editor syntax) tokens."""
+    return _dedupe_sorted(
+        reference.strip()
+        for braced, bracketed in MSTR_METRIC_REFERENCE_RE.findall(expression_text)
+        for reference in (braced or bracketed,)
+        if reference.strip()
+    )
+
+
 def bind_visualizations_by_derived_objects(
     dashboard: DashboardDefinition,
     owner_by_derived_id: Dict[str, str],
@@ -923,7 +1122,7 @@ def bind_visualizations_by_derived_objects(
     in any dataset's shared object catalog (they cannot discriminate). Returns the count bound."""
     dataset_ids = {dataset.id for dataset in dashboard.datasets}
     shared_catalog_ids = {
-        _normalize_object_id(object_id)
+        normalize_object_id(object_id)
         for dataset in dashboard.datasets
         for object_id in dataset.object_ids
     }
@@ -933,7 +1132,7 @@ def bind_visualizations_by_derived_objects(
             continue
         owners: Set[str] = set()
         for object_id in visualization.object_ids:
-            normalized = _normalize_object_id(object_id)
+            normalized = normalize_object_id(object_id)
             if (
                 normalized in owner_by_derived_id
                 and normalized not in shared_catalog_ids
@@ -948,7 +1147,7 @@ def bind_visualizations_by_derived_objects(
 
 def _add_hex_object_id(value: object, out: Set[str]) -> None:
     if isinstance(value, str) and MSTR_HEX_OBJECT_ID_RE.fullmatch(value):
-        out.add(_normalize_object_id(value))
+        out.add(normalize_object_id(value))
 
 
 def _object_id(value: object) -> Optional[str]:
@@ -973,10 +1172,6 @@ def _append_lineage(
     lineage: ModelFieldLineage,
 ) -> None:
     target.setdefault(key, []).append(lineage)
-
-
-def _normalize_object_id(value: str) -> str:
-    return value.strip().upper()
 
 
 def _normalize_lineage_key(value: str) -> str:
@@ -1012,10 +1207,6 @@ def _created_table_leaf_names(statements: List[str]) -> Set[str]:
 # does for warehouse lineage, without duplicating it.
 def object_id(value: object) -> Optional[str]:
     return _object_id(value)
-
-
-def normalize_object_id(value: str) -> str:
-    return _normalize_object_id(value)
 
 
 def coerce_dicts(value: object) -> List[Dict[str, object]]:
