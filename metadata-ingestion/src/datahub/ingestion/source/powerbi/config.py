@@ -630,19 +630,21 @@ class PowerBiDashboardSourceConfig(
         "descriptor SERVICE_NAME (case-insensitive). The value is a platform-detail object; Oracle "
         "servers may add `default_schema`/`default_database` and Databricks servers `metastore`.",
     )
-    fabric_sql_endpoint_to_fabric_onelake: Dict[str, FabricSqlEndpointDetail] = pydantic.Field(
-        default={},
-        description="Mapping from a Fabric SQL analytics endpoint host to the "
-        "fabric-onelake workspace and lakehouse or warehouse it serves. "
-        "Power BI connects to that endpoint with `Sql.Database` or an ODBC SQL Server "
-        "driver, which otherwise lineage to `mssql`. When the host matches, upstream "
-        "datasets are emitted on `fabric-onelake` as "
-        "`{workspace_id}.{item_id}.{schema}.{table}`, the same name the fabric-onelake "
-        "source uses. The key is the host from the M-query (case-insensitive; a trailing "
-        "`,1433` port and a `tcp:` prefix are ignored). `item_id` is the lakehouse or "
-        "warehouse GUID, not the SQL analytics endpoint id. Set `platform_instance` and "
-        "`env` to the values used by the fabric-onelake recipe. SQL Server hosts that "
-        "are absent from this map stay on `mssql`.",
+    fabric_sql_endpoint_to_fabric_onelake: Dict[str, FabricSqlEndpointDetail] = (
+        pydantic.Field(
+            default={},
+            description="Mapping from a Fabric SQL analytics endpoint host to the "
+            "fabric-onelake workspace and lakehouse or warehouse it serves. "
+            "Power BI connects to that endpoint with `Sql.Database` or an ODBC SQL Server "
+            "driver, which otherwise lineage to `mssql`. When the host matches, upstream "
+            "datasets are emitted on `fabric-onelake` as "
+            "`{workspace_id}.{item_id}.{schema}.{table}`, the same name the fabric-onelake "
+            "source uses. The key is the host from the M-query (case-insensitive; a trailing "
+            "`,1433` port and a `tcp:` prefix are ignored). `item_id` is the lakehouse or "
+            "warehouse GUID, not the SQL analytics endpoint id. Set `platform_instance` and "
+            "`env` to the values used by the fabric-onelake recipe. SQL Server hosts that "
+            "are absent from this map stay on `mssql`.",
+        )
     )
     # ODBC DSN to platform mapping
     dsn_to_platform_name: Dict[str, str] = pydantic.Field(
