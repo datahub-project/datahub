@@ -366,6 +366,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 - **Profiling Requires SQL Endpoint**: Table and column profiling queries the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped.
+- **Profiling Covers Tables Only**: Views are registered for usage tracking but are not profiled — only Delta/warehouse tables are.
 
 ### Troubleshooting
 
