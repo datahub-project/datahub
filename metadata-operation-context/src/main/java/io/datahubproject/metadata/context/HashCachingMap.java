@@ -19,7 +19,6 @@ final class HashCachingMap<K, V> implements Map<K, V> {
   @Delegate private final Map<K, V> map;
 
   private int hash;
-  // Separate flag so a legitimate hash of 0 is cached; volatile write publishes `hash` safely.
   private volatile boolean hashComputed;
 
   @Override
