@@ -371,6 +371,27 @@ For each notebook that passes the pattern, the connector calls `POST /workspaces
 
 The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
+#### Notebook Execution: Lineage and Run History
+
+`include_notebook_execution` (off by default, requires `include_notebooks: true`) also models each notebook as a **pipeline**: one DataFlow per notebook (subtype "Fabric Spark Pipeline"), and under it one Spark-job DataJob (subtype "Fabric Spark Job") **per table the notebook writes**. Each job carries that output table's own upstreams, so lineage renders as `input → [job] → output` — precise table-to-table edges with the notebook transformation attributed, not one job with a cross-product of every table the notebook ever read and wrote. The lineage lives on the jobs, not the notebook dataset, so the notebook's code and its lineage (process) stay cleanly separated. It emits two things from the notebook's run history over `notebook_execution_history_days` (default 7): table-level **lineage** on the per-output jobs, and a **run history** of `DataProcessInstance`s on the DataFlow.
+
+**Lineage.** Fabric exposes no API that lists the tables a notebook reads or writes, and the source text hides them when paths are built at run time (e.g. `spark.read.format("delta").load(f"{source}{table}")` or `DeltaTable.forPath(spark, target)`). So the connector reads the **resolved Spark physical plans** of each run instead: for every run in the window it fetches the run's SQL executions from the Spark monitoring API (`livySessions` + the Spark History Server SQL API) and extracts the `abfss://` OneLake table paths actually read and written. Attribution is **order-aware within a run**: a notebook usually reads a table in one Spark execution and writes a derived table in a later execution whose plan references a cached relation rather than the source path, so each written table is credited with the tables read earlier in the same run (the read set resets after each write). This keeps independent, sequential pipelines precise instead of collapsing a run into a cross-product, and recovers read-then-write edges that span executions. Those paths map directly to the GUID-based dataset URNs the connector emits. Because a notebook may apply only specific cells on a given run, lineage is **accumulated across all of the notebook's runs** in the window, giving a complete picture over time. Only edges to tables ingested in the same run are kept; GUID-built URNs that do not match an ingested table, and internal Spark scratch paths (shuffle, lakehouse-warmup), are dropped.
+
+**Run history.** A Fabric run executes the whole notebook (the Job Scheduler reports one status per run, not per table), so for each run in the window the connector emits a `DataProcessInstance` of the notebook's DataFlow, read from the Job Scheduler `GET /workspaces/{id}/items/{itemId}/jobs/instances` API. Each instance records start/end time and the run result (success / failure / skipped).
+
+Because lineage is only accumulated over the runs within the window, a full re-state would drop an edge once its run ages out of `notebook_execution_history_days`. Set `incremental_lineage: true` to emit each job's lineage as an additive patch instead: parsed edges are added to whatever is already in DataHub (including manually added edges), so lineage accumulates across ingestions rather than being replaced each run.
+
+This makes extra API calls per notebook run, so it is slower than table/view extraction alone.
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    include_notebooks: true
+    include_notebook_execution: true
+    notebook_execution_history_days: 7
+```
+
 ### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.

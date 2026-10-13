@@ -8,7 +8,6 @@ from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
     FabricConnection,
     FabricItem,
-    FabricJobInstance,
     FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
@@ -178,43 +177,4 @@ class FabricCoreClient(BaseFabricClient):
                 self.report.report_parse_failure(
                     f"Skipping malformed item connection for "
                     f"item {item_id}: missing required field {e}"
-                )
-
-    def list_item_job_instances(
-        self, workspace_id: str, item_id: str
-    ) -> Iterator[FabricJobInstance]:
-        """List job execution instances for a Fabric item.
-
-        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
-        Limitations: Most items have a limit of 100 recently completed entities, and there is not limit for active entities.
-
-        Args:
-            workspace_id: Workspace GUID
-            item_id: Item GUID (pipeline, copy job, dataflow, etc.)
-
-        Yields:
-            FabricJobInstance objects (newest first)
-        """
-        endpoint = f"workspaces/{workspace_id}/items/{item_id}/jobs/instances"
-        logger.debug(f"Listing job instances for item {item_id}")
-        for data in self._paginate(endpoint):
-            try:
-                # failureReason is an ErrorResponse object; extract the message
-                raw_failure = data.get("failureReason")
-                failure_reason = raw_failure.get("message") if raw_failure else None
-
-                yield FabricJobInstance(
-                    id=data["id"],
-                    item_id=item_id,
-                    workspace_id=workspace_id,
-                    status=data["status"],
-                    start_time_utc=data.get("startTimeUtc"),
-                    end_time_utc=data.get("endTimeUtc"),
-                    invoke_type=data.get("invokeType"),
-                    failure_reason=failure_reason,
-                )
-            except KeyError as e:
-                self.report.report_parse_failure(
-                    f"Skipping malformed job instance for item "
-                    f"{item_id}: missing required field {e}"
                 )
