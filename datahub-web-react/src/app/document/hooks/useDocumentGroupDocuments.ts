@@ -94,14 +94,17 @@ export default function useDocumentGroupDocuments({
     }, [criteriaKey, documents.length, error, inView, loading, setPagination, skip, start, total]);
 
     const documentsWithSelected = useMemo(() => {
+        // Keep the open doc visible even when the group search errors (e.g. GMS
+        // lagging a GraphQL schema change) so Domain mode is not a blank section.
+        const base = skip ? [] : error ? [] : documents;
         if (!selectedDocument || !documentBelongsInDomainGroup(selectedDocument, groupKey)) {
-            return documents;
+            return base;
         }
-        return prependMissingUrnEntities(documents, [selectedDocument]);
-    }, [documents, groupKey, selectedDocument]);
+        return prependMissingUrnEntities(base, [selectedDocument]);
+    }, [documents, error, groupKey, selectedDocument, skip]);
 
     return {
-        documents: skip || error ? [] : documentsWithSelected,
+        documents: documentsWithSelected,
         scrollRef,
     };
 }

@@ -9,6 +9,9 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useSearchDocumentsQuery } from '@graphql/document.generated';
 
+/** Same cap as Metrics group roots / document filter facet dropdowns. */
+const GROUP_FACET_MAX = 100;
+
 /**
  * Domain group headers for the documents sidebar — facet aggregations via
  * searchDocuments (same visibility as the expanded group lists), plus an
@@ -33,6 +36,9 @@ export default function useDocumentGroupRoots(
                 // Facets only — documents list is unused for group headers.
                 count: 0,
                 viewUrn: viewUrn ?? undefined,
+                // Match Metrics useMetricsGroupRoots: only the domains facet, raised bucket cap.
+                facets: [field],
+                searchFlags: { maxAggValues: GROUP_FACET_MAX },
             },
         },
     });

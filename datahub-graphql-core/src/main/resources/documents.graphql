@@ -701,6 +701,18 @@ input SearchDocumentsInput {
   Optional sort. When omitted, defaults to createdAt descending.
   """
   sortInput: SearchSortInput
+
+  """
+  Optional list of facets to aggregate. When provided, only these facets are
+  returned (default facets are skipped) — same pattern as aggregateAcrossEntities.
+  Used by the documents sidebar Domain grouping headers.
+  """
+  facets: [String]
+
+  """
+  Optional search flags (e.g. maxAggValues for facet bucket size).
+  """
+  searchFlags: SearchFlags
 }
 
 """
