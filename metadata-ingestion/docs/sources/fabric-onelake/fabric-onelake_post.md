@@ -344,7 +344,7 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
-### Profiling
+#### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
 
