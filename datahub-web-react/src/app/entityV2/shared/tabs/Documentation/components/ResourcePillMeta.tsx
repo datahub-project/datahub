@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { Pill, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -24,17 +24,27 @@ interface Props {
     /** Rendered text node — typically a `<Trans>` for "Edited N ago" / "Added N ago". */
     content: React.ReactNode;
     actor?: CorpUser | CorpGroup | null;
+    /** Optional free-form resource type, shown as a small badge. */
+    resourceType?: string | null;
+    /** Optional longer description of the resource. */
+    resourceDescription?: string | null;
 }
 
 /**
  * Rich content for the hover popover on a Resource pill. Intended to be passed as the
  * `content` prop of a `<Popover>`.
  */
-export function ResourcePillMeta({ content, actor }: Props) {
+export function ResourcePillMeta({ content, actor, resourceType, resourceDescription }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     return (
         <PopoverRoot>
+            {resourceType && (
+                <div>
+                    <Pill label={resourceType} size="sm" color="gray" variant="outline" dataTestId="link-type-badge" />
+                </div>
+            )}
+            {resourceDescription && <Text size="sm">{resourceDescription}</Text>}
             <Text size="sm" color="textSecondary">
                 {content}
             </Text>

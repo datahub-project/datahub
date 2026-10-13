@@ -51,7 +51,9 @@ public class UpdateLinkResolverTest {
                 "https://updated-url.com",
                 "Updated label",
                 new LinkSettingsInput(false),
-                ASSET_URN));
+                ASSET_URN,
+                null,
+                null));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -73,7 +75,9 @@ public class UpdateLinkResolverTest {
                 "https://updated-url.com",
                 "Updated label",
                 new LinkSettingsInput(false),
-                ASSET_URN));
+                ASSET_URN,
+                null,
+                null));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -99,7 +103,9 @@ public class UpdateLinkResolverTest {
                 "https://duplicated-url.com",
                 "Duplicated label",
                 new LinkSettingsInput(false),
-                ASSET_URN));
+                ASSET_URN,
+                null,
+                null));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -118,7 +124,9 @@ public class UpdateLinkResolverTest {
                 "https://duplicated-url.com",
                 "Duplicated label",
                 new LinkSettingsInput(false),
-                ASSET_URN));
+                ASSET_URN,
+                null,
+                null));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
@@ -141,7 +149,9 @@ public class UpdateLinkResolverTest {
                 "https://duplicated-url.com",
                 "Duplicated label",
                 new LinkSettingsInput(false),
-                ASSET_URN));
+                ASSET_URN,
+                null,
+                null));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);

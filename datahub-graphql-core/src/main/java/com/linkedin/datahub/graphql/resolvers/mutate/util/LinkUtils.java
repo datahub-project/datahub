@@ -41,6 +41,8 @@ public class LinkUtils {
       Urn resourceUrn,
       Urn actor,
       @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription,
       EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
@@ -50,7 +52,14 @@ public class LinkUtils {
                 Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 entityService,
                 new InstitutionalMemory());
-    addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor, settingsInput);
+    addLink(
+        institutionalMemoryAspect,
+        linkUrl,
+        linkLabel,
+        actor,
+        settingsInput,
+        linkType,
+        linkDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -69,6 +78,8 @@ public class LinkUtils {
       Urn resourceUrn,
       Urn actor,
       @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription,
       EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
@@ -86,7 +97,9 @@ public class LinkUtils {
         newLinkUrl,
         newLinkLabel,
         actor,
-        settingsInput);
+        settingsInput,
+        linkType,
+        linkDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -103,6 +116,8 @@ public class LinkUtils {
       Urn resourceUrn,
       Urn actor,
       @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription,
       EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
@@ -112,7 +127,14 @@ public class LinkUtils {
                 Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 entityService,
                 new InstitutionalMemory());
-    upsertLink(institutionalMemoryAspect, linkUrl, linkLabel, actor, settingsInput);
+    upsertLink(
+        institutionalMemoryAspect,
+        linkUrl,
+        linkLabel,
+        actor,
+        settingsInput,
+        linkType,
+        linkDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -152,7 +174,9 @@ public class LinkUtils {
       String linkUrl,
       String linkLabel,
       Urn actor,
-      @Nullable LinkSettingsInput settingsInput) {
+      @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription) {
     if (!institutionalMemoryAspect.hasElements()) {
       institutionalMemoryAspect.setElements(new InstitutionalMemoryMetadataArray());
     }
@@ -172,6 +196,7 @@ public class LinkUtils {
     if (settingsInput != null) {
       newLink.setSettings(mapSettings(settingsInput));
     }
+    setLinkTypeAndDescription(newLink, linkType, linkDescription);
 
     linksArray.add(newLink);
   }
@@ -199,7 +224,9 @@ public class LinkUtils {
       String newLinkUrl,
       String newLinkLabel,
       Urn actor,
-      @Nullable LinkSettingsInput settingsInput) {
+      @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription) {
     if (!institutionalMemoryAspect.hasElements()) {
       throw new IllegalArgumentException(
           String.format(
@@ -237,6 +264,11 @@ public class LinkUtils {
     if (settingsInput != null) {
       updatedLink.setSettings(mapSettings(settingsInput));
     }
+    // Null keeps the current value so callers unaware of these fields don't wipe them.
+    setLinkTypeAndDescription(
+        updatedLink,
+        linkType != null ? linkType : linkToReplace.getLinkType(),
+        linkDescription != null ? linkDescription : linkToReplace.getLinkDescription());
 
     elementsArray.set(elementsArray.indexOf(linkToReplace), updatedLink);
   }
@@ -246,9 +278,18 @@ public class LinkUtils {
       String newLinkUrl,
       String newLinkLabel,
       Urn actor,
-      @Nullable LinkSettingsInput settingsInput) {
+      @Nullable LinkSettingsInput settingsInput,
+      @Nullable String linkType,
+      @Nullable String linkDescription) {
     if (!institutionalMemoryAspect.hasElements()) {
-      addLink(institutionalMemoryAspect, newLinkUrl, newLinkLabel, actor, settingsInput);
+      addLink(
+          institutionalMemoryAspect,
+          newLinkUrl,
+          newLinkLabel,
+          actor,
+          settingsInput,
+          linkType,
+          linkDescription);
       return;
     }
 
@@ -262,9 +303,18 @@ public class LinkUtils {
           newLinkUrl,
           newLinkLabel,
           actor,
-          settingsInput);
+          settingsInput,
+          linkType,
+          linkDescription);
     } else {
-      addLink(institutionalMemoryAspect, newLinkUrl, newLinkLabel, actor, settingsInput);
+      addLink(
+          institutionalMemoryAspect,
+          newLinkUrl,
+          newLinkLabel,
+          actor,
+          settingsInput,
+          linkType,
+          linkDescription);
     }
   }
 
@@ -342,6 +392,18 @@ public class LinkUtils {
           String.format(
               "Failed to change institutional memory for resource %s. Resource does not exist.",
               resourceUrn));
+    }
+  }
+
+  private static void setLinkTypeAndDescription(
+      InstitutionalMemoryMetadata link,
+      @Nullable String linkType,
+      @Nullable String linkDescription) {
+    if (linkType != null && !linkType.isBlank()) {
+      link.setLinkType(linkType);
+    }
+    if (linkDescription != null && !linkDescription.isBlank()) {
+      link.setLinkDescription(linkDescription);
     }
   }
 

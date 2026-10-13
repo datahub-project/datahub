@@ -1,4 +1,4 @@
-import { ButtonTabs, Input } from '@components';
+import { ButtonTabs, Input, TextArea } from '@components';
 import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -106,6 +106,22 @@ export function LinkFormWrapper({ initialValues }: Props) {
                     inputTestId="label-input"
                     onClear={() => setLabel('')}
                     isRequired
+                />
+            </Form.Item>
+
+            <Form.Item name="linkType">
+                <Input
+                    label={t('links.fieldType')}
+                    placeholder={t('links.fieldTypePlaceholder')}
+                    inputTestId="link-type-input"
+                />
+            </Form.Item>
+
+            <Form.Item name="linkDescription">
+                <TextArea
+                    label={t('links.fieldDescription')}
+                    placeholder={t('links.fieldDescriptionPlaceholder')}
+                    inputTestId="link-description-input"
                 />
             </Form.Item>
         </>

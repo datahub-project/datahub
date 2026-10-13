@@ -49,6 +49,8 @@ vi.mock('@app/entityV2/shared/components/links/utils', () => ({
     getGeneralizedLinkFormDataFromFormData: vi.fn((data) => ({
         url: data.variant === 'uploadFile' ? data.fileUrl : data.url,
         label: data.label,
+        linkType: data.linkType,
+        linkDescription: data.linkDescription,
         showInAssetPreview: data.showInAssetPreview,
     })),
 }));
@@ -152,6 +154,8 @@ describe('useLinkUtils', () => {
                         settings: {
                             showInAssetPreview: false,
                         },
+                        linkType: '',
+                        linkDescription: '',
                     },
                 },
             });
@@ -191,6 +195,7 @@ describe('useLinkUtils', () => {
             const newData = {
                 url: 'http://new.com',
                 label: 'New Label',
+                linkType: 'Runbook',
                 variant: LinkFormVariant.URL,
                 fileUrl: '',
                 showInAssetPreview: false,
@@ -210,6 +215,9 @@ describe('useLinkUtils', () => {
                         settings: {
                             showInAssetPreview: false,
                         },
+                        // An unset field is sent as '' so clearing it in the form clears it server-side.
+                        linkType: 'Runbook',
+                        linkDescription: '',
                     },
                 },
             });

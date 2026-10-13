@@ -102,6 +102,8 @@ export function ResourceLinkPill({ link, onEdit, onDelete }: Props) {
                         />
                     }
                     actor={link.actor}
+                    resourceType={link.linkType}
+                    resourceDescription={link.linkDescription}
                 />
             }
             mouseEnterDelay={0.3}

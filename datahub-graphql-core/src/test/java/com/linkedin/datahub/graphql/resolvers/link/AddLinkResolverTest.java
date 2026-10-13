@@ -26,7 +26,7 @@ public class AddLinkResolverTest {
   private static final String TEST_URL = "https://www.github.com";
   private static final String TEST_LABEL = "Test Label";
   private static final AddLinkInput TEST_INPUT =
-      new AddLinkInput(TEST_URL, TEST_LABEL, ASSET_URN, new LinkSettingsInput(true));
+      new AddLinkInput(TEST_URL, TEST_LABEL, ASSET_URN, new LinkSettingsInput(true), null, null);
 
   private void setupTest(DataFetchingEnvironment mockEnv) {
     QueryContext mockContext = getMockAllowContext();

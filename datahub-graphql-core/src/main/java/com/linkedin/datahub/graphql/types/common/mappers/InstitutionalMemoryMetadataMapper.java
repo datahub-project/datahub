@@ -38,6 +38,8 @@ public class InstitutionalMemoryMetadataMapper {
     if (input.getSettings() != null) {
       result.setSettings(mapSettings(input.getSettings()));
     }
+    result.setLinkType(input.getLinkType());
+    result.setLinkDescription(input.getLinkDescription());
     return result;
   }
 
