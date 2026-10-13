@@ -96,6 +96,32 @@ Behavior:
 
 Permissions: the results system table is read over SQL, so a running SQL warehouse (`warehouse_id`) is required. `system.data_quality_monitoring.table_results` is **account-admin only** by default, is **metastore-wide**, and contains **sample values** from every catalog, so an account admin must grant the ingesting principal an explicit `SELECT` on it — share it only with principals authorized to see metastore-wide results.
 
+#### Pipeline Expectations (assertions)
+
+DataHub ingests [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/) (formerly Delta Live Tables) [expectation](https://docs.databricks.com/aws/en/ldp/expectations) results as DataHub **assertions**. When `pipeline_expectations.enabled: true`, DataHub lists the workspace's pipelines, reads each pipeline's event log, and for every pipeline update within the configured `start_time`/`end_time` window emits a dataset-level assertion plus one run result per update, for every expectation defined on a dataset. The assertion passes when no records failed the expectation.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    pipeline_expectations:
+      enabled: true
+      # Optional: restrict which pipelines are read, matched on pipeline name.
+      pipeline_pattern:
+        allow: [".*"]
+```
+
+Behavior:
+
+- The event log is read over the pipelines REST API, so **no SQL warehouse is required** for this feature.
+- One assertion is published per expectation per dataset, scoped to the dataset's rows. Every pipeline update in the `start_time`/`end_time` window produces its own run result (keyed on the update id), so updates that run faster than ingestion are not dropped; re-ingesting an overlapping window updates the same runs rather than duplicating them. The window is the same one used for usage and lineage — widen `start_time` to backfill older updates.
+- `passed_records` and `failed_records` (summed across the update's micro-batches) are reported as the run result. An update that aborts without writing any record counts produces no run event, so a missing count is never recorded as a zero-failure pass.
+- Updates whose events extend before `start_time` are skipped rather than scored on a partial window slice — otherwise the per-window partial sum, keyed on the stable update id, could overwrite an earlier failure with a false pass. Widen `start_time` to capture a continuous pipeline's earlier history, or rely on triggered pipelines whose updates are discrete.
+- The expectation's action, **when the event payload includes it**, is captured on the assertion and maps to failure severity: `expect_or_fail` / `expect_or_drop` at **high** severity, a plain `expect` (warn-only) at **low**. Databricks commonly omits the action from the event log, in which case no severity is set. The expectation's SQL predicate is likewise not present in the event log, so the assertion records the pass criterion (`failed_records == 0`) rather than the original constraint expression.
+- Each expectation's dataset is resolved to a Unity Catalog dataset using the pipeline's target `catalog` and `schema`; pipelines without a Unity Catalog target are skipped.
+
+Permissions: the ingesting principal needs read access (`CAN_VIEW`) on the pipelines whose expectations you want to publish; a pipeline whose event log cannot be read is reported as a warning and skipped.
+
 #### Delta Lake External Tables
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
