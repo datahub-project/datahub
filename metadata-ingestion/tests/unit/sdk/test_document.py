@@ -1124,6 +1124,7 @@ class TestDocumentInfoPatch:
             self._external_doc(
                 parent_document="urn:li:document:root",
                 related_assets=[self.DATASET],
+                related_documents=["urn:li:document:faq"],
             )
         )
 
@@ -1136,6 +1137,9 @@ class TestDocumentInfoPatch:
         assert ops["/parentDocument"]["value"] == {"document": "urn:li:document:root"}
         # Added by key, so related assets users added are left alone.
         assert ops["/relatedAssets/" + self.DATASET]["value"] == {"asset": self.DATASET}
+        assert ops["/relatedDocuments/urn:li:document:faq"]["value"] == {
+            "document": "urn:li:document:faq"
+        }
         assert "/relatedAssets" not in ops
         assert "/relatedDocuments" not in ops
 

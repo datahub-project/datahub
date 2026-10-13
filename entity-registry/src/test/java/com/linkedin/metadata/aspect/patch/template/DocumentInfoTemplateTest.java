@@ -158,4 +158,12 @@ public class DocumentInfoTemplateTest {
             withParent, patch(Json.createArrayBuilder().add(op("remove", "/parentDocument"))));
     Assert.assertFalse(cleared.hasParentDocument());
   }
+
+  @Test
+  public void testRejectsOtherAspectTypes() {
+    DocumentInfo info = TEMPLATE.getDefault();
+    Assert.assertSame(TEMPLATE.getSubtype(info), info);
+    Assert.assertThrows(
+        ClassCastException.class, () -> TEMPLATE.getSubtype(new DocumentContents().setText("")));
+  }
 }

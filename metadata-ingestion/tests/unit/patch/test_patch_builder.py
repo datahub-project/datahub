@@ -225,6 +225,8 @@ def test_document_patch_builder_keys_related_entities_by_urn():
         DocumentPatchBuilder("urn:li:document:handbook")
         .set_title("Handbook")
         .add_related_asset(s3_dataset)
+        .remove_related_asset("urn:li:glossaryTerm:retired")
+        .add_related_document("urn:li:document:faq")
         .remove_related_document("urn:li:document:old")
         .remove_parent_document()
     )
@@ -240,6 +242,16 @@ def test_document_patch_builder_keys_related_entities_by_urn():
             "op": "add",
             "path": "/relatedAssets/urn:li:dataset:(urn:li:dataPlatform:s3,bucket~1orders,PROD)",
             "value": {"asset": s3_dataset},
+        },
+        {
+            "op": "remove",
+            "path": "/relatedAssets/urn:li:glossaryTerm:retired",
+            "value": {},
+        },
+        {
+            "op": "add",
+            "path": "/relatedDocuments/urn:li:document:faq",
+            "value": {"document": "urn:li:document:faq"},
         },
         {
             "op": "remove",
