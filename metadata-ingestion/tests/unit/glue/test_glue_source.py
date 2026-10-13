@@ -1634,7 +1634,9 @@ def test_database_resource_link_target_falls_back_to_owner_table_identity(
     # When TargetDatabase omits a field, the owner's value comes from the table as Glue returned
     # it. It must be read before the table is re-keyed to the link, or the owner would resolve
     # to the link itself.
-    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response: Dict[str, Any] = copy.deepcopy(
+        get_databases_response_with_resource_link
+    )
     del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
 
     source, tables, wus = _ingest_database_resource_link(
