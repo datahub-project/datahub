@@ -202,22 +202,23 @@ class OneLakeClient(BaseFabricClient):
         Yields:
             Item dictionaries from each page
         """
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
-
         request_params = dict(params)
         request_params["max_results"] = str(ONELAKE_CATALOG_PAGE_SIZE)
         page = 1
         total = 0
         seen_tokens: set[str] = set()
         while True:
+            # A large catalog can outlive the token from the first page.
+            try:
+                headers = {
+                    "Authorization": self.auth_helper.get_authorization_header(
+                        scope=ONELAKE_STORAGE_SCOPE
+                    )
+                }
+            except Exception as e:
+                logger.error(f"Failed to get authorization header: {e}")
+                raise
+
             response = self._session.get(
                 url, headers=headers, params=request_params, timeout=self.timeout
             )
