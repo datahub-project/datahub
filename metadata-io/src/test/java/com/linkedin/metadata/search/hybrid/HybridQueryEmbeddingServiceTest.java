@@ -124,10 +124,11 @@ public class HybridQueryEmbeddingServiceTest {
             });
     HybridQueryEmbeddingService service =
         new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2, nanoTime::get);
+    // Construction seeds last success to this instant, and the check is inclusive.
     long before = nanoTime.get() + 1;
 
     service.embed("revenue", deadlineNanos);
-    service.embed("revenue", deadlineNanos);
+    service.embed("revenue", nanoTime.get() + TimeUnit.SECONDS.toNanos(60));
 
     // Too slow to say the provider is healthy, but kept for the repeat query
     assertFalse(service.providerSucceededSince(before));
