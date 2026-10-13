@@ -193,8 +193,9 @@ public class AuthorizationContext implements ContextInterface {
     // While the resource or a subresource has one, evaluate directly and keep the result out of
     // the cache.
     if ((resourceSpec != null && sessionResourceFieldOverrides.containsKey(resourceSpec))
-        || request.getSubResources().stream()
-            .anyMatch(sessionResourceFieldOverrides::containsKey)) {
+        || (request.getSubResources() != null
+            && request.getSubResources().stream()
+                .anyMatch(sessionResourceFieldOverrides::containsKey))) {
       return runAuthorize(opContext, request);
     }
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
