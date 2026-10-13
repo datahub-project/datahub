@@ -419,6 +419,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            keep_platform_instance_case=True,
         )
 
         self.init_hive_metastore_proxy()
@@ -551,6 +552,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                         graph=self.ctx.graph,
+                        keep_platform_instance_case=True,
                     )
                     self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,

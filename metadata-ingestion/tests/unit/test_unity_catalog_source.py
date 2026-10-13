@@ -169,6 +169,41 @@ class TestUnityCatalogSource:
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_schema_resolvers_keep_platform_instance_case(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Unknown tables must get the platform_instance prefix the source emits."""
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": True,
+                "platform_instance": "ProdWS",
+            }
+        )
+        graph = MagicMock()
+        graph.get_entities.return_value = {}
+        source = UnityCatalogSource.create(
+            config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        assert source.view_lineage_schema_resolver is not None
+        for resolver in (
+            source.sql_parser_schema_resolver,
+            source.view_lineage_schema_resolver,
+        ):
+            urn, schema_info = resolver.resolve_table_parts(
+                database="other_catalog", db_schema="staging", table="events"
+            )
+            assert schema_info is None
+            assert urn == (
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+                "ProdWS.other_catalog.staging.events,PROD)"
+            )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
     def test_source_config_page_size_available_to_source(
         self, mock_hive_proxy, mock_unity_proxy, config_with_page_size
     ):

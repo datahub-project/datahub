@@ -76,11 +76,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional["DataHubGraph"] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
+        keep_platform_instance_case: bool = False,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
         self.platform_instance = platform_instance
         self.env = env
+        # For sources that emit URNs with the platform_instance as configured, so a
+        # URN synthesized for an unknown table matches theirs. Off by default:
+        # sources that lowercase whole URNs expect the instance lowercased too.
+        self._keep_platform_instance_case = keep_platform_instance_case
 
         self.graph = graph
         self.report = report
@@ -252,7 +257,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        return (urn_lower if self._prefers_urn_lower() else urn), None
+        if not self._prefers_urn_lower():
+            return urn, None
+        return (urn_mixed if self._keep_platform_instance_case else urn_lower), None
 
     def resolve_table_parts(
         self,

@@ -236,29 +236,32 @@ def _dataset_urn(name: str) -> str:
 def _extractor(
     config: Union[MagicMock, UnityCatalogSourceConfig], proxy: MagicMock
 ) -> UnityCatalogUsageExtractor:
-    # MagicMock attributes are truthy; set explicit defaults for newer bool flags.
-    if isinstance(config.skip_sqlglot_when_system_table_lineage_missing, MagicMock):
-        config.skip_sqlglot_when_system_table_lineage_missing = False
-    if isinstance(config.push_down_database_pattern_access_history, MagicMock):
-        config.push_down_database_pattern_access_history = False
-    if isinstance(config.include_column_usage_stats, MagicMock):
-        config.include_column_usage_stats = False
-    if isinstance(config.catalog_pattern, MagicMock):
-        config.catalog_pattern = None
+    # MagicMock attributes are truthy; set explicit defaults for the flags usage reads.
+    for flag, default in (
+        ("skip_sqlglot_when_system_table_lineage_missing", False),
+        ("push_down_database_pattern_access_history", False),
+        ("include_column_usage_stats", False),
+        ("catalog_pattern", None),
+        ("include_tables", True),
+        ("include_views", True),
+        ("include_metastore", False),
+        ("include_hive_metastore", False),
+    ):
+        if isinstance(getattr(config, flag), MagicMock):
+            setattr(config, flag, default)
 
-    ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
-    ex.config = config
-    ex.report = UnityCatalogReport()
-    ex.proxy = proxy
-    ex.table_urn_builder = lambda ref: _dataset_urn(ref.qualified_table_name)
-    ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
-    ex.platform = "databricks"
-    ex.schema_resolver = SchemaResolver(
-        platform="databricks",
-        platform_instance=None,
-        env="PROD",
+    return UnityCatalogUsageExtractor(
+        config=config,
+        report=UnityCatalogReport(),
+        proxy=proxy,
+        table_urn_builder=lambda ref: _dataset_urn(ref.qualified_table_name),
+        user_urn_builder=lambda u: f"urn:li:corpuser:{u}",
+        schema_resolver=SchemaResolver(
+            platform="databricks",
+            platform_instance=None,
+            env="PROD",
+        ),
     )
-    return ex
 
 
 def _register_tables(ex: UnityCatalogUsageExtractor, full_names: List[str]) -> None:
@@ -560,16 +563,11 @@ def test_is_allowed_table_predicate_platform_instance_safe(
 
     # Build an extractor whose table_urn_builder includes a platform_instance prefix
     # in the URN — exactly what the connector does when platform_instance="core_finance".
-    ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
-    ex.config = config
-    ex.report = UnityCatalogReport()
-    ex.proxy = proxy
+    ex = _extractor(config, proxy)
     ex.table_urn_builder = lambda ref: (
         f"urn:li:dataset:(urn:li:dataPlatform:databricks,"
         f"core_finance.{ref.qualified_table_name},PROD)"
     )
-    ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
-    ex.platform = "databricks"
     ex.schema_resolver = SchemaResolver(
         platform="databricks",
         platform_instance="core_finance",
@@ -2341,6 +2339,9 @@ def test_preparsed_query_multi_target_fanout(
         def add_preparsed_query(self, parsed: object, **kw: object) -> None:
             self.preparsed.append(parsed)
 
+        def is_allowed_table(self, urn: str) -> bool:
+            return True
+
         def gen_metadata(self):  # type: ignore[return]
             return iter([])
 
@@ -2876,30 +2877,27 @@ def test_aggregate_parse_failure_warning() -> None:
     assert warning_titles.count("Failed to parse queries from system tables") == 1
 
 
-def test_full_name_to_urn_quoted_identifier() -> None:
-    config = MagicMock()
-    proxy = MagicMock()
-    ex = _extractor(config, proxy)
-    ex.report = UnityCatalogReport()
-
+def test_resolve_lineage_name_quoted_identifier() -> None:
     quoted = "main.`schema.with.dots`.orders"
     expected_urn = _dataset_urn("main.schema.with.dots.orders")
 
     # A well-formed name this run did not ingest still becomes a URN, built from
     # the split parts rather than the raw backtick-quoted string.
-    assert ex._full_name_to_urn(quoted) == expected_urn
+    ex = _extractor(MagicMock(), MagicMock())
+    assert ex._resolve_lineage_name(quoted).urn == expected_urn
     assert ex.report.num_lineage_tables_not_ingested == 1
     assert ex.report.num_lineage_tables_unresolvable == 0
 
-    # Once registered, the quoted identifier resolves to the registered URN and is
-    # no longer counted as not ingested.
+    # When the run ingested it (tables are registered before usage is parsed), the
+    # quoted identifier resolves to the registered URN.
+    ex = _extractor(MagicMock(), MagicMock())
     synthesized = ex.schema_resolver.resolve_table_parts(
         database="main", db_schema="schema.with.dots", table="orders"
     )[0]
     ex.schema_resolver.add_raw_schema_info(synthesized, {"id": "int"})
 
-    assert ex._full_name_to_urn(quoted) == synthesized == expected_urn
-    assert ex.report.num_lineage_tables_not_ingested == 1
+    assert ex._resolve_lineage_name(quoted).urn == synthesized == expected_urn
+    assert ex.report.num_lineage_tables_not_ingested == 0
     assert ex.report.num_lineage_tables_unresolvable == 0
 
 
@@ -2907,23 +2905,24 @@ _NOT_INGESTED_URN = _dataset_urn("other_catalog.finance.invoices")
 
 
 @pytest.mark.parametrize("full_name", ["main.sales.orders", "system.access.audit"])
-def test_full_name_to_urn_returns_registered_urn_for_ingested_table(
+def test_resolve_lineage_name_returns_registered_urn_for_ingested_table(
     full_name: str,
 ) -> None:
     ex = _extractor(MagicMock(), MagicMock())
     _register_tables(ex, [full_name])
 
-    assert ex._full_name_to_urn(full_name) == _dataset_urn(full_name)
+    assert ex._resolve_lineage_name(full_name).urn == _dataset_urn(full_name)
     assert ex.report.num_lineage_tables_not_ingested == 0
     assert ex.report.num_lineage_tables_system_skipped == 0
 
 
-def test_full_name_to_urn_builds_urn_for_table_not_ingested() -> None:
+def test_resolve_lineage_name_builds_urn_for_table_not_ingested() -> None:
     ex = _extractor(MagicMock(), MagicMock())
 
     for _ in range(3):
         assert (
-            ex._full_name_to_urn("other_catalog.finance.invoices") == _NOT_INGESTED_URN
+            ex._resolve_lineage_name("other_catalog.finance.invoices").urn
+            == _NOT_INGESTED_URN
         )
 
     assert ex.report.num_lineage_tables_not_ingested == 3
@@ -2941,41 +2940,112 @@ def test_full_name_to_urn_builds_urn_for_table_not_ingested() -> None:
         "Main.INFORMATION_SCHEMA.tables",
     ],
 )
-def test_full_name_to_urn_drops_system_tables_not_ingested(full_name: str) -> None:
+def test_resolve_lineage_name_drops_system_tables_not_ingested(full_name: str) -> None:
     ex = _extractor(MagicMock(), MagicMock())
 
-    assert ex._full_name_to_urn(full_name) is None
+    assert ex._resolve_lineage_name(full_name).urn is None
     assert ex.report.num_lineage_tables_system_skipped == 1
     assert ex.report.num_lineage_tables_not_ingested == 0
 
 
-def _system_tables_extractor() -> UnityCatalogUsageExtractor:
+def test_resolve_lineage_name_resolves_each_name_once() -> None:
+    ex = _extractor(MagicMock(), MagicMock())
+    resolver = MagicMock(wraps=ex.schema_resolver)
+    resolver.platform_instance = None
+    ex.schema_resolver = resolver
+
+    for _ in range(3):
+        ex._resolve_lineage_name("other_catalog.finance.invoices")
+        ex._resolve_lineage_name("system.access.audit")
+
+    assert resolver.resolve_table_parts.call_count == 2
+    assert ex.report.num_lineage_tables_not_ingested == 3
+    assert ex.report.num_lineage_tables_system_skipped == 3
+
+
+def _system_tables_extractor(usage_only: bool = False) -> UnityCatalogUsageExtractor:
     config = MagicMock()
     config.usage_uses_system_tables.return_value = True
     config.include_column_usage_stats = False
+    config.include_tables = not usage_only
+    config.include_views = not usage_only
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
     return _extractor(config, proxy)
 
 
-def test_lineage_naming_only_tables_not_ingested_stays_preparsed() -> None:
+def _assert_route(
+    aggregator: MagicMock,
+    ex: UnityCatalogUsageExtractor,
+    *,
+    preparsed: int = 0,
+    observed: int = 0,
+    fallback: int = 0,
+    hive_metastore_fallback: int = 0,
+    skipped_system_tables_only: int = 0,
+    skipped_no_ingested_tables: int = 0,
+) -> None:
+    """Asserts the whole routing outcome, so a query cannot reach two routes."""
+    assert aggregator.add_preparsed_query.call_count == preparsed
+    assert aggregator.add_observed_query.call_count == observed
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == fallback
+    assert (
+        ex.report.num_queries_hive_metastore_fallback_to_sqlglot
+        == hive_metastore_fallback
+    )
+    assert (
+        ex.report.num_queries_skipped_system_tables_only == skipped_system_tables_only
+    )
+    assert (
+        ex.report.num_queries_skipped_no_ingested_tables == skipped_no_ingested_tables
+    )
+
+
+_SELECT_AND_REDACTED = pytest.mark.parametrize(
+    "query_text",
+    [
+        pytest.param("SELECT * FROM other_catalog.finance.invoices", id="select"),
+        pytest.param("<REDACTED>", id="redacted"),
+    ],
+)
+
+
+@_SELECT_AND_REDACTED
+def test_lineage_naming_no_ingested_table_is_skipped(query_text: str) -> None:
     ex = _system_tables_extractor()
+    _register_tables(ex, ["main.sales.orders"])
     aggregator = MagicMock()
 
     ex._add_query_to_aggregator(
         aggregator,
         _query_with_lineage(
-            "SELECT * FROM other_catalog.finance.invoices",
-            "s1",
-            sources=["other_catalog.finance.invoices"],
+            query_text, "s1", sources=["other_catalog.finance.invoices"]
         ),
         default_db=None,
     )
 
-    aggregator.add_observed_query.assert_not_called()
+    _assert_route(aggregator, ex, skipped_no_ingested_tables=1)
+
+
+@_SELECT_AND_REDACTED
+def test_usage_only_lineage_naming_tables_not_ingested_stays_preparsed(
+    query_text: str,
+) -> None:
+    ex = _system_tables_extractor(usage_only=True)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            query_text, "s1", sources=["other_catalog.finance.invoices"]
+        ),
+        default_db=None,
+    )
+
+    _assert_route(aggregator, ex, preparsed=1)
     preparsed = aggregator.add_preparsed_query.call_args.args[0]
     assert preparsed.upstreams == [_NOT_INGESTED_URN]
-    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+    assert preparsed.redacted_query_text == (query_text == "<REDACTED>")
 
 
 def test_lineage_naming_only_system_tables_is_skipped() -> None:
@@ -2992,10 +3062,7 @@ def test_lineage_naming_only_system_tables_is_skipped() -> None:
         default_db=None,
     )
 
-    aggregator.add_observed_query.assert_not_called()
-    aggregator.add_preparsed_query.assert_not_called()
-    assert ex.report.num_queries_skipped_system_tables_only == 1
-    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+    _assert_route(aggregator, ex, skipped_system_tables_only=1)
 
 
 def test_lineage_with_ingested_system_table_stays_preparsed() -> None:
@@ -3013,9 +3080,10 @@ def test_lineage_with_ingested_system_table_stays_preparsed() -> None:
         default_db=None,
     )
 
-    preparsed = aggregator.add_preparsed_query.call_args.args[0]
-    assert preparsed.upstreams == [_dataset_urn("system.access.audit")]
-    assert ex.report.num_queries_skipped_system_tables_only == 0
+    _assert_route(aggregator, ex, preparsed=1)
+    assert aggregator.add_preparsed_query.call_args.args[0].upstreams == [
+        _dataset_urn("system.access.audit")
+    ]
 
 
 def test_lineage_with_system_and_malformed_names_falls_back_to_sqlglot() -> None:
@@ -3030,27 +3098,62 @@ def test_lineage_with_system_and_malformed_names_falls_back_to_sqlglot() -> None
         default_db=None,
     )
 
-    assert aggregator.add_observed_query.call_count == 1
-    assert ex.report.num_queries_skipped_system_tables_only == 0
-    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 1
+    _assert_route(aggregator, ex, observed=1, fallback=1)
 
 
-def test_redacted_query_naming_tables_not_ingested_stays_preparsed() -> None:
+@pytest.mark.parametrize(
+    "sources",
+    [
+        pytest.param(["main.sales.orders"], id="tables_not_ingested_only"),
+        pytest.param(["system.access.audit"], id="system_tables_only"),
+    ],
+)
+def test_hive_metastore_recipe_parses_lineage_without_ingested_tables(
+    sources: List[str],
+) -> None:
+    # system.access.table_lineage does not record hive_metastore tables, so the
+    # statement may read one this recipe ingested even though lineage names none.
     ex = _system_tables_extractor()
     aggregator = MagicMock()
 
     ex._add_query_to_aggregator(
         aggregator,
         _query_with_lineage(
-            "<REDACTED>", "s1", sources=["other_catalog.finance.invoices"]
+            "SELECT * FROM hive_metastore.default.events e JOIN x ON 1 = 1",
+            "s1",
+            sources=sources,
+        ),
+        default_db=None,
+        covers_hive_metastore=True,
+    )
+
+    _assert_route(aggregator, ex, observed=1, hive_metastore_fallback=1)
+
+
+def test_fan_out_counts_the_execution_on_an_ingested_target() -> None:
+    ex = _system_tables_extractor()
+    _register_tables(ex, ["main.sales.orders", "main.sales.items"])
+    aggregator = MagicMock()
+    aggregator.is_allowed_table.side_effect = lambda urn: (
+        urn == _dataset_urn("main.sales.orders")
+    )
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage(
+            "INSERT ...",
+            "s1",
+            sources=["main.sales.items"],
+            # Sorted lineage names put the table this run did not ingest first.
+            targets=["analytics.fin.audit", "main.sales.orders"],
         ),
         default_db=None,
     )
 
-    aggregator.add_observed_query.assert_not_called()
-    preparsed = aggregator.add_preparsed_query.call_args.args[0]
-    assert preparsed.redacted_query_text
-    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+    _assert_route(aggregator, ex, preparsed=2)
+    first = aggregator.add_preparsed_query.call_args_list[0].args[0]
+    assert first.downstream == _dataset_urn("main.sales.orders")
+    assert first.query_count == 1
 
 
 def test_preparsed_fingerprint_falls_back_to_statement_id(
@@ -3075,7 +3178,7 @@ def test_preparsed_fingerprint_falls_back_to_statement_id(
         "stmt-123",
         sources=["main.sales.orders"],
     )
-    preparsed = ex._to_preparsed_queries(query)
+    preparsed = ex._to_preparsed_queries(query, ex._resolve_lineage(query))
 
     assert len(preparsed) == 1
     assert preparsed[0].query_id == "unity-stmt-stmt-123"
@@ -3672,7 +3775,26 @@ def _real_usage_extractor(
             **(config_overrides or {}),
         }
     )
-    return _extractor(config, proxy)
+    ex = _extractor(config, proxy)
+    ex.table_urn_builder = lambda ref: make_dataset_urn_with_platform_instance(
+        "databricks", str(ref), config.platform_instance, "PROD"
+    )
+    ex.schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance=config.platform_instance,
+        env="PROD",
+        keep_platform_instance_case=True,
+    )
+    return ex
+
+
+def _run_usage(
+    ex: UnityCatalogUsageExtractor, table_refs: Set[TableReference]
+) -> List[MetadataWorkUnit]:
+    workunits = list(ex.get_usage_workunits(table_refs))
+    # A failed run yields nothing, which would make absence checks pass vacuously.
+    assert not ex.report.failures, ex.report.failures
+    return workunits
 
 
 def _history_proxy(queries: List[Query]) -> MagicMock:
@@ -3714,6 +3836,12 @@ def _dataset_subjects(workunits: List[MetadataWorkUnit]) -> List[Set[str]]:
     return subjects
 
 
+def _dataset_workunit_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        wu.get_urn() for wu in workunits if wu.get_urn().startswith("urn:li:dataset:")
+    }
+
+
 def _total_sql_queries(workunits: List[MetadataWorkUnit], urn: str) -> List[int]:
     totals: List[int] = []
     for wu in workunits:
@@ -3739,7 +3867,7 @@ def test_tables_not_ingested_are_query_subjects_without_usage(
     )
     _register_tables(ex, ["main.sales.orders"])
 
-    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+    workunits = _run_usage(ex, {_INGESTED_REF})
 
     # No workunit of any kind for the table this run did not ingest, so it never
     # gets usage, operations, a status aspect or a stale-entity checkpoint entry.
@@ -3750,25 +3878,67 @@ def test_tables_not_ingested_are_query_subjects_without_usage(
     assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
 
 
-def test_tables_not_ingested_use_the_recipe_platform_instance() -> None:
+@pytest.mark.parametrize(
+    "config_overrides",
+    [
+        pytest.param({}, id="system_tables_preparsed"),
+        pytest.param({"include_column_usage_stats": True}, id="column_usage_sqlglot"),
+        pytest.param({"usage_data_source": "API"}, id="api_sqlglot"),
+    ],
+)
+def test_tables_not_ingested_use_the_recipe_platform_instance(
+    config_overrides: Dict[str, object],
+) -> None:
     ex = _real_usage_extractor(
-        _history_proxy(_cross_catalog_queries()), {"platform_instance": "inst"}
-    )
-    ex.table_urn_builder = lambda ref: make_dataset_urn_with_platform_instance(
-        "databricks", ref.qualified_table_name, "inst", "PROD"
-    )
-    ex.schema_resolver = SchemaResolver(
-        platform="databricks", platform_instance="inst", env="PROD"
+        _history_proxy(_cross_catalog_queries()),
+        {"platform_instance": "Inst", **config_overrides},
     )
     _register_tables(ex, ["main.sales.orders"])
-    ingested_urn = _dataset_urn("inst.main.sales.orders")
-    not_ingested_urn = _dataset_urn("inst.other_catalog.finance.invoices")
+    ingested_urn = _dataset_urn("Inst.main.sales.orders")
+    not_ingested_urn = _dataset_urn("Inst.other_catalog.finance.invoices")
 
-    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+    workunits = _run_usage(ex, {_INGESTED_REF})
 
     assert _dataset_subjects(workunits) == [{ingested_urn, not_ingested_urn}]
     assert _total_sql_queries(workunits, ingested_urn) == [1]
-    assert not [wu for wu in workunits if wu.get_urn() == not_ingested_urn]
+    assert _dataset_workunit_urns(workunits) == {ingested_urn}
+
+
+def test_column_usage_cannot_expand_star_over_a_table_not_ingested() -> None:
+    # Without DataHub lookups the other recipe's table has no schema, so sqlglot
+    # cannot expand `*` across the join; qualified columns are still counted.
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query_with_lineage(
+                    "SELECT * FROM main.sales.orders o "
+                    "JOIN other_catalog.finance.invoices i ON o.id = i.order_id",
+                    "q1",
+                    sources=["main.sales.orders", "other_catalog.finance.invoices"],
+                ),
+                _query_with_lineage(
+                    "SELECT o.amount FROM main.sales.orders o "
+                    "JOIN other_catalog.finance.invoices i ON o.id = i.order_id",
+                    "q2",
+                    sources=["main.sales.orders", "other_catalog.finance.invoices"],
+                ),
+            ]
+        ),
+        {"include_column_usage_stats": True},
+    )
+    ex.schema_resolver.add_raw_schema_info(
+        _INGESTED_URN, {"id": "int", "customer_id": "int", "amount": "double"}
+    )
+
+    workunits = _run_usage(ex, {_INGESTED_REF})
+
+    fields: Set[str] = set()
+    for wu in workunits:
+        usage = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
+        if wu.get_urn() == _INGESTED_URN and usage is not None:
+            fields.update(f.fieldPath for f in usage.fieldCounts or [])
+    assert "amount" in fields
+    assert "customer_id" not in fields
 
 
 def test_operations_only_for_ingested_targets() -> None:
@@ -3797,7 +3967,7 @@ def test_operations_only_for_ingested_targets() -> None:
     )
     _register_tables(ex, ["main.sales.orders"])
 
-    workunits = list(ex.get_usage_workunits({_INGESTED_REF}))
+    workunits = _run_usage(ex, {_INGESTED_REF})
 
     operation_urns = [
         wu.get_urn()
@@ -3825,11 +3995,173 @@ def test_run_that_ingested_no_tables_falls_back_to_recipe_patterns(
         {"include_tables": False, "include_views": False, **config_overrides},
     )
 
-    workunits = list(ex.get_usage_workunits(set()))
+    workunits = _run_usage(ex, set())
 
     assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
     assert not [wu for wu in workunits if wu.get_urn() == _NOT_INGESTED_URN]
     assert _dataset_subjects(workunits) == [{_INGESTED_URN, _NOT_INGESTED_URN}]
+
+
+_METRIC_VIEW_REF = TableReference(
+    metastore=None, catalog="main", schema="sales", table="revenue_metrics"
+)
+
+
+def test_usage_only_recipe_that_ingests_a_metric_view_still_uses_patterns() -> None:
+    # Metric views land in table_refs even with include_tables / include_views off,
+    # so the usage-only mode must come from config, not from table_refs.
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()),
+        {
+            "include_tables": False,
+            "include_views": False,
+            "catalog_pattern": {"deny": ["other_catalog"]},
+        },
+    )
+    _register_tables(ex, ["main.sales.revenue_metrics"])
+
+    workunits = _run_usage(ex, {_METRIC_VIEW_REF})
+
+    assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
+
+
+def test_usage_only_recipe_does_not_own_tables_it_did_not_ingest() -> None:
+    # Usage written for another recipe's tables is non-primary, so this recipe
+    # neither stamps their status nor records them in its stale-entity state.
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                *_cross_catalog_queries(),
+                _query_with_lineage(
+                    "SELECT * FROM main.sales.revenue_metrics",
+                    "q3",
+                    sources=["main.sales.revenue_metrics"],
+                ),
+            ]
+        ),
+        {"include_tables": False, "include_views": False},
+    )
+    _register_tables(ex, ["main.sales.revenue_metrics"])
+    metric_view_urn = _dataset_urn("main.sales.revenue_metrics")
+
+    workunits = _run_usage(ex, {_METRIC_VIEW_REF})
+
+    primary_by_urn = {
+        wu.get_urn(): wu.is_primary_source
+        for wu in workunits
+        if wu.get_urn().startswith("urn:li:dataset:")
+    }
+    assert primary_by_urn == {
+        _INGESTED_URN: False,
+        _NOT_INGESTED_URN: False,
+        metric_view_urn: True,
+    }
+
+
+@pytest.mark.parametrize(
+    "config_overrides",
+    [
+        pytest.param({}, id="no_tables_found"),
+        pytest.param({"table_pattern": {"deny": [".*"]}}, id="deny_all_tables"),
+    ],
+)
+def test_metadata_recipe_without_ingested_tables_warns(
+    config_overrides: Dict[str, object],
+) -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()), config_overrides
+    )
+
+    workunits = _run_usage(ex, set())
+
+    assert not [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+    ]
+    assert any(
+        w.title == "No ingested tables to attribute usage to"
+        for w in ex.report.warnings
+    )
+
+
+def test_include_metastore_usage_warns() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(_cross_catalog_queries()), {"include_metastore": True}
+    )
+    _register_tables(ex, ["main.sales.orders"])
+
+    _run_usage(ex, {_INGESTED_REF})
+
+    assert any(
+        w.title == "Usage with include_metastore is not attributed to tables"
+        for w in ex.report.warnings
+    )
+
+
+@pytest.mark.parametrize("platform_instance", [None, "Inst"])
+def test_ingested_table_with_reserved_characters_gets_usage(
+    platform_instance: Optional[str],
+) -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query_with_lineage(
+                    "SELECT * FROM main.sales.`inv(2024)`",
+                    "q1",
+                    sources=["main.sales.`inv(2024)`"],
+                )
+            ]
+        ),
+        {"platform_instance": platform_instance},
+    )
+    _register_tables(ex, ["main.sales.inv(2024)"])
+    ref = TableReference(
+        metastore=None, catalog="main", schema="sales", table="inv(2024)"
+    )
+
+    workunits = _run_usage(ex, {ref})
+
+    assert _total_sql_queries(workunits, ex.table_urn_builder(ref)) == [1]
+
+
+def test_pattern_fallback_matches_catalogs_with_reserved_characters() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query_with_lineage(
+                    "SELECT * FROM `fin(eu)`.sales.orders",
+                    "q1",
+                    sources=["`fin(eu)`.sales.orders"],
+                )
+            ]
+        ),
+        {"include_tables": False, "include_views": False, "catalogs": ["fin(eu)"]},
+    )
+    urn = make_dataset_urn_with_platform_instance(
+        "databricks", "fin(eu).sales.orders", None, "PROD"
+    )
+
+    workunits = _run_usage(ex, set())
+
+    assert _total_sql_queries(workunits, urn) == [1]
+
+
+def test_pattern_fallback_skips_system_tables_on_sqlglot_routes() -> None:
+    ex = _real_usage_extractor(
+        _history_proxy(
+            [
+                _query("SELECT * FROM system.access.audit", "q1"),
+                _query("SELECT * FROM main.information_schema.columns", "q2"),
+                _query("SELECT * FROM main.sales.orders", "q3"),
+            ]
+        ),
+        {"include_tables": False, "include_views": False, "usage_data_source": "API"},
+    )
+
+    workunits = _run_usage(ex, set())
+
+    assert _dataset_workunit_urns(workunits) == {_INGESTED_URN}
 
 
 def test_pattern_fallback_keeps_tables_with_dotted_identifiers() -> None:
@@ -3855,7 +4187,7 @@ def test_pattern_fallback_keeps_tables_with_dotted_identifiers() -> None:
         },
     )
 
-    workunits = list(ex.get_usage_workunits(set()))
+    workunits = _run_usage(ex, set())
 
     assert _total_sql_queries(
         workunits, _dataset_urn("main.schema.with.dots.orders")
@@ -3871,7 +4203,7 @@ def test_pattern_fallback_treats_empty_catalogs_as_unrestricted() -> None:
         {"include_tables": False, "include_views": False, "catalogs": []},
     )
 
-    workunits = list(ex.get_usage_workunits(set()))
+    workunits = _run_usage(ex, set())
 
     assert _total_sql_queries(workunits, _INGESTED_URN) == [1]
     assert _total_sql_queries(workunits, _NOT_INGESTED_URN) == [2]

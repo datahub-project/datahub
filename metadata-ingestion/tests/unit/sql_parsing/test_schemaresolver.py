@@ -113,6 +113,33 @@ def test_get_urn_for_table_lowercase():
     )
 
 
+@pytest.mark.parametrize(
+    "keep_platform_instance_case, expected_name",
+    [
+        pytest.param(False, "prodws.main.sales.orders", id="default_lowercases"),
+        pytest.param(True, "ProdWS.main.sales.orders", id="opt_in_keeps_case"),
+    ],
+)
+def test_resolve_table_miss_platform_instance_case(
+    keep_platform_instance_case: bool, expected_name: str
+) -> None:
+    schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance="ProdWS",
+        env="PROD",
+        keep_platform_instance_case=keep_platform_instance_case,
+    )
+
+    urn, schema_info = schema_resolver.resolve_table(
+        _TableName(database="Main", db_schema="Sales", table="Orders")
+    )
+
+    assert schema_info is None
+    assert (
+        urn == f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected_name},PROD)"
+    )
+
+
 def test_get_urn_for_table_not_lower_should_keep_capital_letters():
     schema_resolver = SchemaResolver(
         platform="mssql",
