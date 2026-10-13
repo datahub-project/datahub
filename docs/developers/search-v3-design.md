@@ -61,7 +61,7 @@ A ladder tries one template, then another. The rules for entering a rung, keepin
 
 A rung normally renders the template sections. A rung can instead name a code-registered component that owns the whole search for that rung. This is the escape hatch for a retrieval or ranking strategy that does not fit the template contract. The ladder still owns selection, stopping, joins, and `next`. See [Named rung components](#named-rung-components).
 
-`@Searchable` on a PDL field maps it onto a shared field and a degree. `queryByDefault` puts that indexed field in the default queried set. `boostScore` is that field's default weight. `fields.override` changes a weight and leaves the hit set as it is. `fields.add`, `fields.remove`, and `fields.replace` change which fields are searched. See [Field weights](#field-weights).
+`@Searchable` on a PDL field maps it onto a shared field and a degree. `queryByDefault` puts that indexed field in the default queried set. `boostScore` is that field's default weight. `fields.override` changes a weight and leaves the hit set as it is. `fields.add`, `fields.remove`, and `fields.replace` change which fields are searched. An entry may set `match.exact`, `match.prefix`, and `match.contains` to join those tiers. See [Field weights](#field-weights).
 
 A process advertises the capabilities it can run. Selecting a template it cannot run fails the search. Search V3 runs keyword search, engine rescore, and highlight. Ranking presets beyond `none` and `fixed` are future OSS use. Document rerank, vector retrieval, and the bridge are semantic search. In OSS they run for the Document entity, and for no other entity. See [Capabilities](#capabilities).
 
@@ -69,7 +69,7 @@ A process advertises the capabilities it can run. Selecting a template it cannot
 
 Bind resolves the URN, merges parents, chooses the standard or component executor, and checks capabilities. On a search, the ladder tries rungs until one stops. The standard executor renders, scores, and slices a keyword rung. A named component returns the same rung result envelope through its own implementation. Scroll runs a standard template's own body and does not walk the ladder; a selected component rung fails on scroll. Scroll also drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served, or the explanation data a component supplied. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
 
-The fulltext body, and the exact body when the query is one spaceless token, scores four match tiers inside that query. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. See [Ranking](#ranking).
+The fulltext body, and the exact body when the query is one spaceless token, scores four match tiers inside that query. A field that sets a match mode joins the tier of that name and competes there by its boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. See [Ranking](#ranking).
 
 A vector participates in one of three ways, and each is a different template shape. `knn` on a keyword template reorders rows already in the keyword window and adds no hits. Corpus kNN is its own rung. A keyword rung and a vector rung can run together and add hits that only the vector leg found. In OSS the three shapes run for the Document entity only. Hybrid adds vector-only hits once a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
 
@@ -117,7 +117,7 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `knn`                     | Weights that reorder document rows already in the keyword window, on a from/size search. Scroll drops it.  | [Document rerank](#document-rerank), [Search and scroll](#search-and-scroll)     |
 | `aggregations`            | Facets for this rung. Unset keeps the schema default facets.                                               | [Query sequence](#query-sequence)                                                |
 | `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.  | [Query composition](#query-composition)                                          |
-| `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                            | [Field weights](#field-weights)                                                  |
+| `fields`                  | Queried fields, one weight each, and optional match modes. Each degree is its own field.                   | [Field weights](#field-weights)                                                  |
 | `structuredPropertyQuery` | Name-and-value matching for included string and rich-text properties, at `nameAndValueWeight`.             | [Name and value](#name-and-value)                                                |
 | `highlightFields`         | Default fields highlighting is on for. Opt-in per field.                                                   | [Highlight fields](#highlight-fields)                                            |
 | `parameters`              | Named values the body can reference, such as `deprecatedBoost`.                                            | [Render context](#render-context)                                                |
@@ -206,9 +206,31 @@ fields:
 
 The same shape covers glossary terms and owners. A clause, a list boost, a facet, or a highlight names the indexed field. A filter that matches more than one degree is a disjunction of those fields. Sort names score, then URN, or a numeric usage field.
 
-The tier gap in [Ranking](#ranking) is applied after these weights. In the clause score, a lower tier cannot pass an exact name. A `functionScore` weight, and a `rescore`, `ranking`, or `knn` window, can still reorder.
+The tier gap in [Ranking](#ranking) is applied after these weights. In the clause score, a lower tier cannot pass a higher tier. An exact entity name wins against a field that has not joined the exact tier. A field that joins the exact tier competes with `name` by its configured boost. A `functionScore` weight, and a `rescore`, `ranking`, or `knn` window, can still reorder when the selected template applies them.
 
-A structured property is named by its definition URN and changed with the same `add`, `remove`, and `override` operations. Those operations, and `replace`, decide which properties join name-and-value expansion. `nameAndValueWeight` is not an override. See [Structured properties](#structured-properties).
+A structured property is named by its definition URN and changed with the same `add`, `remove`, and `override` operations. Those operations, and `replace`, decide which properties join name-and-value expansion and which match modes run. `nameAndValueWeight` is not an override. See [Structured properties](#structured-properties).
+
+#### Match modes
+
+`match` is optional on any `fields` entry: a shared field, a degree field, or a structured property. The closed set is `exact`, `prefix`, and `contains`. Each value is a boolean. A mode joins the tier of the same name. A template cannot assign contains to the exact tier, or exact to the contains tier. `similar` stays on analyzed shared text and is not a `match` key.
+
+Leaving `match` unset keeps today's clause. A string, rich-text, or URN property matches its whole value and stays behind the name tiers. Setting a mode adds that mode's clause and leaves the other modes off. `boost` orders fields inside a tier. The gap between tiers is larger than any within-tier boost, so a contains match cannot pass an exact match. Equal boosts in the exact tier tie. A higher boost ranks that field above `name`.
+
+```yaml
+parent: urn:li:searchTemplate:fulltext
+fields:
+  add:
+    - fieldName: urn:li:structuredProperty:businessName
+      boost: 10
+      match:
+        exact: true
+        prefix: true
+        contains: true
+```
+
+`prefix` and `contains` are legal on analyzed text: `name`, `description`, and a string or rich-text structured property. They are rejected on a date, a number, or a URN. `exact` on a string or rich-text property queries the keyword form. A child entry that sets `match` replaces the parent's `match` for that field. An entry that omits `match` keeps the inherited modes. Removing the field removes its whole-value clause, its match-mode clauses, and, for a structured property, its name-and-value clause.
+
+Clauses of one mode, across every field that enabled it, are one `dis_max`. The asset receives the best field's score for that mode. An exact match on one property and a contains match on another stay in their own tiers. These clauses run in the initial keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. That tier score admits a cold exact property match into the ranking window ahead of a lower-tier name, column, description, or annotation match. Scroll keeps the clauses and drops the later windows. `lastModified` already separates two templates that differ only in `match`. See [Ranking](#ranking) and [Highlight fields](#highlight-fields).
 
 ### List boosts
 
@@ -232,6 +254,8 @@ boosts:
 Which field matched is read from values already on the returned document, for the fields this query searched, on that page of hits. The check grows with the page. The default query stays one body.
 
 A named query identifies a field only when that field is its own clause. A `multi_match` does not say which inner field matched. Lucene already scores a sub-query per field inside that one body, so a `_name` on every field costs template size rather than query time. The template does not grow one per queried field, including every degree of separation and every structured property the query searched. An author may still name a distinct clause. The match-tier clauses are that case: naming them reports the tier. They do not replace the field check.
+
+A structured-property match reports the definition URN, the matched value, and the mode: `exact`, `prefix`, `contains`, or `nameAndValue`. The clause queries that definition's own field. The report is what a result card uses to show the value that matched. Result-card layout stays outside this contract. It is a companion dependency of this Search V3 result.
 
 The comparison uses values on the returned document. A shared field filled only by `copy_to` is not stored, which keeps that cost off every write, so the check reads the source fields copied into it. A keyword is the value itself, folded the same way as the folded copy when the match was case-insensitive. Analyzed text uses the same approximate mark the UI applies. That mark can miss a hit found only through a stem, a fuzzy edit, a synonym, or a phrase with slop. The drift is accepted. The engine highlight is the accurate alternative, and it re-analyzes stored text per hit per field.
 
@@ -260,7 +284,7 @@ fields:
 
 Leaving `knn` or `ranking` unset keeps the parent's section. Setting `knn` to empty drops an inherited rerank and leaves the ranking-step order. Setting `ranking` to empty drops an inherited preset and leaves the query order. Setting only `query` leaves an inherited `ladder` in place, so the child still hands off through `next`.
 
-A child that queries a structured property the definition left out names the definition URN. See [Structured properties](#structured-properties). Business Name is that `add`, at the weight on the entry. A second child suppresses a property the definition included and overrides the weight of one already in the set. `name` stays at its `boostScore` because neither child sets `replace`. The parent's `fields` keys merge with these. See [Inheritance](#inheritance).
+A child that queries a structured property the definition left out names the definition URN. See [Structured properties](#structured-properties). Business Name is that `add`. `match` puts its exact, prefix, and contains clauses in the tiers of those names, and `boost` orders it inside each tier. A second child suppresses a property the definition included and overrides the weight of one already in the set. `name` stays at its `boostScore` because neither child sets `replace`. The parent's `fields` keys merge with these. See [Inheritance](#inheritance) and [Match modes](#match-modes).
 
 ```yaml
 parent: urn:li:searchTemplate:fulltext
@@ -268,6 +292,10 @@ fields:
   add:
     - fieldName: urn:li:structuredProperty:businessName
       boost: 10
+      match:
+        exact: true
+        prefix: true
+        contains: true
 ```
 
 ```yaml
@@ -323,7 +351,7 @@ The rendered query is combined with the caller's filter, soft delete, hidden lif
 
 Paging and the result cache stay in the service. System templates are not editable except by the system actor.
 
-`fields.override` leaves the hit set unchanged. `fields.add`, `fields.remove`, and `fields.replace` change which documents match. Owners group cross-match, filter order, result-card layout, Column Views, and favorites are product surfaces outside the query contract.
+`fields.override` leaves the hit set unchanged. `fields.add`, `fields.remove`, and `fields.replace` change which documents match. Owners group cross-match, filter order, result-card layout, Column Views, and favorites are product surfaces outside the query contract. The matched-field report names the structured property and the value that matched so a card can show Business Name. The card layout itself stays outside Search V3.
 
 A named component is an alternative executor, not an authorization escape. It receives the same mandatory constraints and must apply them to hits, totals, and facets. The service authorizes its hits again, validates its result envelope, and keeps ladder control, timeout accounting, cache discrimination, and cancellation outside the component.
 
@@ -372,7 +400,7 @@ A classified list uses this scroll path. An empty query or `*`, with no `SearchF
 
    After the merge, the template's required capabilities are checked against the sections this request will run. A missing capability fails the request the same way a dialect mismatch does. A component rung requires its exact `component:<name>:<version>` registration, valid config, supported request filters and sort, and a search request. The walk does not skip a rung it is going to run, and the service does not drop that section and return keyword order. On a search, a `next` URN the process cannot run fails the same way. On scroll, `next` is unread, so that check waits until a search follows it; a component on the selected template itself still fails.
 
-   The cache key combines the service discriminators for the request with the template discriminators for the walk: every rung consulted, each modification time, and whether a rerank is armed on the rung that was served. When the served query expanded `structuredPropertyQuery`, the key also includes the structured-property catalog stamp used for that expansion. For a component rung it also includes component name, contract version, canonical config, and process build stamp.
+   The cache key combines the service discriminators for the request with the template discriminators for the walk: every rung consulted, each modification time, and whether a rerank is armed on the rung that was served. When the served query expanded `structuredPropertyQuery`, the key also includes the structured-property catalog stamp used for that expansion. Match modes travel on the template, so that modification time already separates two rankings that differ only in `match`. For a component rung it also includes component name, contract version, canonical config, and process build stamp.
 
 2. **Walk.** On a search, the ladder tries the rung. Selection failure skips it and follows `next` without running the query. A rung that runs and matches its stop is kept. A rung that runs and misses its stop follows `next`. The last rung, which has no `next`, is kept either way, including a total of zero. A template with no ladder section is a single rung: it always runs and its result is kept.
 
@@ -407,7 +435,9 @@ A caller-supplied template URN is the first rung. On a search, the walk follows 
 
 Fully qualified name is not an intent. `fullyQualifiedName` and `deepPath` are flags on the `exact` or `fulltext` template. The old exploratory tier is a later ladder rung, not an intent. The default fulltext template has no `next`, which keeps the recall ladder closed for the product default. A deployment that wants strict-then-broad writes a child, sets `next`, and points the slot at the child. Identity and `list` templates set `ranking.preset: none`. The list template also has no `next`. A classified list runs as scroll, so that path does not walk. An explicit URN skips classification. On a search, the walk follows `next` when the named template has one. See [Search and scroll](#search-and-scroll).
 
-A quoted query and one spaceless token are both the `exact` intent. The exact template reads the `quoted` flag from [Query variations](#query-variations). When the flag is set, the phrase clause is required and the similar tier does not run. When it is unset, the unsplit token and the four match tiers run. Whole-value identity stays the `identity` intent. `SearchFlags.searchTemplate` is a request flag. This design does not associate a template URN with a View.
+A quoted query and one spaceless token are both the `exact` intent. The exact template reads the `quoted` flag from [Query variations](#query-variations). When the flag is set, the phrase clause is required and the similar tier does not run. When it is unset, the unsplit token and the four match tiers run. Whole-value identity stays the `identity` intent.
+
+Search V3 selects the template in this order: an explicit `SearchFlags.searchTemplate`, then the organization intent slot, then the system default. A View-associated template is a later Search V3 product input. It is not a Search V2 or Search V2.5 ranking method. Authorization stays outside the template. Result-card layout is a companion of the matched-field report, not a template section.
 
 Selection has no entity type. A multi-index query can still name an aspect field that only one of the indices maps; the others match nothing for that clause. A template that should apply only to one entity type, because it names such a field, needs an entity scope on the slot or on the template. That scope is not part of selection yet.
 
@@ -575,13 +605,13 @@ The cache key includes every member that ran and the join, along with the sequen
 
 `query`, `clauses`, `functionScore`, and `rescore` are separate because each one is a different kind of change, and a child should be able to replace one without rewriting the others.
 
-The service builds one request from them, in order. It renders `query`. When `structuredPropertyQuery` is set, the name-and-value `dis_max` is part of that rendered query, before `functionScore`. See [Name and value](#name-and-value). `bool`, `dis_max`, and `match_all` are valid roots. A missing `query` renders as `match_all`. It merges `clauses` (`must`, `must_not`, `filter`, `should`) into the bool wrapped around that body. It wraps `functionScore` once, with that template's `functions`, `score_mode`, and `boost_mode`, and appends one weight function for each structured boost. It attaches `rescore` after the wrapper. A top-level `function_score` inside `query` is rejected, because the wrapper belongs in `functionScore`. `rescore` cannot be combined with `sort`, or with `boost_mode: replace`. While `rescore` is applied, `sort` is not attached, so an unset `sort` is not yet score, then URN. Scroll drops `rescore`, `ranking`, and `knn`, and that default sort returns. The [query sequence](#query-sequence) attaches `aggregations` and `sort` on the rung that the walk kept. [Ranking](#ranking) runs after the engine returns.
+The service builds one request from them, in order. It renders `query`. When `structuredPropertyQuery` is set, the name-and-value `dis_max` is part of that rendered query, before `functionScore`. Match-mode clauses are a `dis_max` per mode in that same query. See [Name and value](#name-and-value) and [Match modes](#match-modes). `bool`, `dis_max`, and `match_all` are valid roots. A missing `query` renders as `match_all`. It merges `clauses` (`must`, `must_not`, `filter`, `should`) into the bool wrapped around that body. It wraps `functionScore` once, with that template's `functions`, `score_mode`, and `boost_mode`, and appends one weight function for each structured boost. It attaches `rescore` after the wrapper. A top-level `function_score` inside `query` is rejected, because the wrapper belongs in `functionScore`. `rescore` cannot be combined with `sort`, or with `boost_mode: replace`. While `rescore` is applied, `sort` is not attached, so an unset `sort` is not yet score, then URN. Scroll drops `rescore`, `ranking`, and `knn`, and that default sort returns. The [query sequence](#query-sequence) attaches `aggregations` and `sort` on the rung that the walk kept. [Ranking](#ranking) runs after the engine returns.
 
 `rescore` reorders only the top `window_size` hits of a `from`/`size` search. Scroll continues with `search_after`, and the engine rejects `rescore` on that request. The service drops `rescore`, `ranking`, and `knn` on every scroll execution and sorts by score, then URN. A standard template is not split to get there: the same URN serves search and scroll, and a scroll surface points at a different URN only when scroll should rank differently for a reason of its own. A component template is search-only. The scroll order is the query order, not the rescored order, and a scroll cursor is not a continuation of a rescored page. The rescored ranking exists only inside that window. Past it, the engine has not computed the order. A caller `sortCriteria` replaces engine `rescore`, `ranking`, and `knn` on a search. On scroll those three are already dropped, and `sortCriteria` replaces the score, then URN sort. The full split is in [Search and scroll](#search-and-scroll).
 
 `sort` may name the numeric document fields `queryCountLast30Days` and `viewCountLast30Days`. Most Queried and Most Visited are those sorts, including when the caller sends them as `sortCriteria`. The `usage` ranking preset reorders the window by usage signals and does not replace either sort.
 
-The fulltext body, and the exact body when the query is one spaceless token, score four match tiers as clause boosts: exact name, prefix, contains, and similar. The gap is applied after field weights. [Ranking](#ranking) states where that order survives the later window.
+The fulltext body, and the exact body when the query is one spaceless token, score four match tiers as clause boosts: exact, prefix, contains, and similar. A field joins a tier through `match`. The gap is applied after field weights. [Ranking](#ranking) states where that order survives the later window.
 
 ### Ranking
 
@@ -606,11 +636,13 @@ ranking:
 
 `fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
 
-The fulltext body, and the exact body when the query is one spaceless token, score four match tiers as clause boosts: exact name, then prefix, then contains, then similar. The boost between tiers is applied after field weights and is larger than the lower tier's weighted lexical score. In that clause score, an exact name stays ahead of a prefix, a column hit, a glossary hit, and a lower tier whose field weight was overridden. `functionScore` wraps the query after those clauses, and each structured boost is a weight function in that wrapper. A weight there can place a lower tier ahead in the engine score. `matchTierBand` is the `usageAndMatchTier` preset's own band inside the window. It is not this gap.
+The fulltext body, and the exact body when the query is one spaceless token, score four match tiers as clause boosts: exact, then prefix, then contains, then similar. The boost between tiers is applied after field weights and is larger than the lower tier's weighted lexical score. In that clause score, a higher tier stays ahead of a lower tier. An exact entity name stays ahead of a prefix, a column hit, a glossary hit, a structured-property value whose field has not joined the exact tier, and a lower tier whose field weight was overridden. A field that sets `match.exact` joins the exact tier and competes there by `boost`. Equal boosts tie. A higher boost on that field ranks it above `name`. `functionScore` wraps the query after those clauses, and each structured boost is a weight function in that wrapper. A weight there can place a lower tier ahead in the engine score when the template applies it. `matchTierBand` is the `usageAndMatchTier` preset's own band inside the window. It is not this gap.
 
-`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window a lower tier can move ahead. Past those windows the served order is the query score. Scroll drops all three, so scroll keeps the query-score order. `usageAndMatchTier` applies usage and entity-type diversity inside its window, on top of the query score. A quoted query does not use these tiers. See [Selection](#selection).
+Enabled match clauses use that same tier scoring in the initial keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. The exact-tier score, not a later window, admits a cold exact property match ahead of a lower-tier name, column, description, or annotation match. Downstream scoring crosses tiers only when the selected template applies `functionScore`, `rescore`, `ranking`, or `knn`.
 
-The name-and-value group sits in that query, before `functionScore`, so the exact-name gap keeps an exact entity name ahead of it. It is not a ranking preset. See [Name and value](#name-and-value).
+`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window a lower tier can move ahead. Past those windows the served order is the query score. Scroll drops all three, so scroll keeps the query-score order, including the match-mode clauses. `usageAndMatchTier` applies usage and entity-type diversity inside its window, on top of the query score. A quoted query does not use these tiers. See [Selection](#selection).
+
+The name-and-value group sits in that query, before `functionScore`, and stays behind the exact tier. It is not a ranking preset and it does not join `match.exact`. See [Name and value](#name-and-value).
 
 Order on a from/size search, for the keyword rung the walk kept:
 
@@ -738,7 +770,7 @@ The same map receives values the service injects for the request. `viewerUrn` is
 
 Creating or updating a template resolves structured-property URNs to field names, renders `query`, `clauses`, `functionScore`, `rescore`, `aggregations`, and `sort` with a validation context, then parses the result. See [Structured properties](#structured-properties). For the Elasticsearch dialect, each of those sections has to be valid JSON, and `query`, `clauses`, and `functionScore` have to be valid query syntax. `functionScore` is parsed as a `function_score` wrapper, so a filter snippet on a function is parsed with that function. A render failure or a parse failure rejects the write. The check runs on the section as written and again on the body after parent merge. The Postgres dialect is rendered only. `structuredPropertyQuery` is checked for shape only: a positive `nameAndValueWeight`, or an explicit empty section. That check does not expand the definition catalog. URN-to-field resolution still applies to `query`, `clauses`, `fields`, and the other sections that name a property.
 
-`ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `component`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, the injectable named by a boost, and the registered component name and contract version. A component registration validates its own `config`. A write that sets `component` together with a standard execution section is rejected. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected.
+`ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `component`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, the injectable named by a boost, and the registered component name and contract version. A component registration validates its own `config`. A write that sets `component` together with a standard execution section is rejected. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `match` map may set only `exact`, `prefix`, and `contains`, each as a boolean. `prefix` and `contains` are rejected on a date, a number, or a URN.
 
 Capability is a search-time check. A stored template remains writable on a process that does not yet advertise the capability. Selecting it there fails closed. The same rule applies to a component template stored where its exact name and version are known to the registry but not executable by the serving process.
 
@@ -782,7 +814,9 @@ A template names a structured property by its definition URN, such as `urn:li:st
 - `fields.remove` drops one the definition included.
 - `fields.override` changes the weight of one already in the set.
 
-The examples are in [Examples](#examples). A string, rich-text, or URN value matches as one whole term. A multi-word query matches when the whole value is that term. One identifier token keeps a hyphenated value as one term. That match stays behind an exact name. A date or a number stays on its typed field. In a query body, a clause, or a highlight, write the URN as `{{urn:li:structuredProperty:certification.status}}`.
+The examples are in [Examples](#examples). With `match` unset, a string, rich-text, or URN value matches as one whole term and stays behind the name tiers. A multi-word query matches when the whole value is that term. One identifier token keeps a hyphenated value as one term. A date or a number stays on its typed field. `match.exact`, `match.prefix`, and `match.contains` are the opt-in that joins the tiers of those names. See [Match modes](#match-modes). In a query body, a clause, or a highlight, write the URN as `{{urn:li:structuredProperty:certification.status}}`.
+
+Search V3 keeps the whole-value keyword form on each string and rich-text property and indexes one analyzed, ASCII-folded text form on that same field, using the shared text analyzer. `exact` queries the keyword form. `prefix` and `contains` query the analyzed form. The analyzed form stays on the per-definition field, so the match still names that definition. It is not copied into `_search.structuredProperties` or `customProperties`. URN, date, and number properties do not get the analyzed form. Adding it is a Search V3 mapping change and a rebuild. Search V2 and Search V2.5 do not index it and do not run match modes.
 
 #### Name and value
 
@@ -799,17 +833,27 @@ structuredPropertyQuery:
 
 `nameAndValueWeight` enables the match at that positive weight. Leaving `structuredPropertyQuery` unset inherits the parent section. An explicit empty section drops it, including an inherited section, and leaves value-only matching in place. The weight is not a `fields.override` and is not a `functionScore` weight.
 
-The executor expands the section at search time from the current definitions. The template does not store one clause per property, a snapshot of names, or resolved field paths. Expansion includes only string and rich-text properties that remain in the resolved queried set. `fields.add`, `fields.remove`, `fields.override`, and `fields.replace` control participation the same way they control value querying. Removing a property removes both its value clause and its name-and-value clause. `fields.override` still changes only that property's value-clause weight.
+The executor expands the section at search time from the current definitions. The template does not store one clause per property, a snapshot of names, or resolved field paths. Expansion includes only string and rich-text properties that remain in the resolved queried set. `fields.add`, `fields.remove`, `fields.override`, and `fields.replace` control participation the same way they control value querying. Removing a property removes its whole-value clause, its match-mode clauses, and its name-and-value clause. `fields.override` changes that property's value-clause boost and its match-mode boost. It does not change `nameAndValueWeight`.
 
 Comparison is case-insensitive against `displayName` and `qualifiedName`. A display name matches a whole-word span. A qualified name matches as one span, with its dots preserved. A trailing word such as `status` does not match `certification.status`. The longest matching span is the one used. A shorter overlapping span is not also applied. The unmatched remainder must be non-empty. An empty remainder produces no asset clause. The remainder matches that property's assigned value as one whole term, the same string and rich-text rule as above.
 
-The matches are `should` clauses grouped in one `dis_max`. An asset receives the best matching property's score, not the sum across properties. The group is placed in the rendered query before `functionScore`. The exact-name tier gap in [Ranking](#ranking) therefore keeps an exact entity name ahead of it. The group is not a `functionScore` weight, a `rescore`, or a ranking preset.
+The matches are `should` clauses grouped in one `dis_max`. An asset receives the best matching property's score, not the sum across properties. The group is placed in the rendered query before `functionScore`. It stays behind the exact tier in [Ranking](#ranking). The group is not a `functionScore` weight, a `rescore`, a ranking preset, or a `match.exact` clause.
 
 Value-only matching still queries the whole query against each included value field. Name-and-value matching is the additional per-definition remainder clause. That is what allows `certification status gold` to match the value `gold`. The clauses run on search and scroll because they belong to the query. Dropping `rescore`, `ranking`, or `knn` does not drop them. See [Search and scroll](#search-and-scroll).
 
 Write time checks the section shape: a positive `nameAndValueWeight`, or an explicit empty section. It does not expand the definition catalog. Search time resolves the definitions again. A definition-name change must not keep serving an expansion built from the previous catalog. The catalog stamp used for that expansion is part of the result-cache key. See [Query sequence](#query-sequence).
 
-Search V2 and Search V2.5 keep their current structured-property full-text behavior until those paths are deprecated. On V3 the value stays on the keyword or typed field the mapping already builds. The definition does not set an analyzer. V3 does not copy the value into `_search.structuredProperties` or `customProperties`. An entity type the definition does not allow has no field. Changing the definition's version or value type is a mapping change and a rebuild.
+Search V2 and Search V2.5 keep their current structured-property full-text behavior until those paths are deprecated. Match modes, tier joining, and the analyzed property form are Search V3 only. On V3 the value stays on the per-definition keyword or typed field the mapping already builds, with the analyzed text form beside it for string and rich text. The definition does not set an analyzer. V3 does not copy the value into `_search.structuredProperties` or `customProperties`. An entity type the definition does not allow has no field. Changing the definition's version or value type is a mapping change and a rebuild.
+
+| Case                                          | Result                                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Business Name exact, asset otherwise cold     | The exact-tier clause admits it ahead of a weak name, column, description, or annotation match. |
+| `match.exact` and the same boost as `name`    | Exact Business Name and exact entity name tie.                                                  |
+| `match.exact` with a higher boost than `name` | Exact Business Name ranks above the exact entity name.                                          |
+| `match.exact` only                            | Prefix and contains clauses are absent.                                                         |
+| Prefix or contains                            | Each lands in its own tier. A template cannot move contains into the exact tier.                |
+| Property removed from the queried set         | Whole-value, match-mode, and name-and-value clauses for that property are absent.               |
+| Two properties match the same mode            | The asset takes the best property's score for that mode.                                        |
 
 #### Structured property references
 
@@ -817,7 +861,7 @@ Search V2 and Search V2.5 keep their current structured-property full-text behav
 
 `toElasticsearchFieldName` returns the suffix only. The caller adds the `structuredProperties.` prefix for every definition. An unversioned definition is the qualified name with each `.` replaced by `_`, so `certification.status` becomes `structuredProperties.certification_status`. A versioned definition is `structuredProperties._versioned.<name>.<version>.<type>`. That versioned path is the resolver's output. A caller passes a definition URN, or the logical name `structuredProperties.<qualified name>`. Passing the versioned path in as a logical name is rejected, because lookup would read it as a qualified name.
 
-`.keyword` is appended only for string and rich text. A date, a number, or a URN does not get that suffix. When two qualified names sanitize to one field and the mappings are identical, the collision resolver keeps the lexicographically smallest URN. When the mappings differ, it omits the field. A template that names an omitted field is rejected at write time.
+`.keyword` is appended only for string and rich text. The analyzed form used by `prefix` and `contains` is chosen by the builder from `match`. It is not a `subfield` an author writes. A date, a number, or a URN does not get that suffix. When two qualified names sanitize to one field and the mappings are identical, the collision resolver keeps the lexicographically smallest URN. When the mappings differ, it omits the field. A template that names an omitted field is rejected at write time.
 
 Inline text injects the URN as a Mustache constant. The tag body is the whole URN. A subfield is text after the tag, from a closed set. `keyword` is the only value, written `.keyword`.
 
@@ -846,7 +890,7 @@ A read that only needs those projected fields would build the aspect from the hi
 
 ### Analyzers and hybrid documents
 
-Analyzed text stays on the shared text fields. A structured property stays on the keyword or typed field the mapping already builds. A property name is not copied onto the asset. A string or rich-text value stays on the keyword field, and a whole-term match is unchanged. See [Structured properties](#structured-properties). Ordinary aspect fields stay keywords, numbers, dates, and booleans. Word-gram fields, ngram fields, and the per-field analyzer chain do not come forward.
+Analyzed text stays on the shared text fields. A structured property stays on its per-definition field. Search V3 indexes an analyzed, ASCII-folded text form beside the keyword form for string and rich text, so `prefix` and `contains` can grade that value. A template that leaves `match` unset queries only the whole-value keyword. A property name is not copied onto the asset. See [Structured properties](#structured-properties) and [Match modes](#match-modes). Ordinary aspect fields stay keywords, numbers, dates, and booleans. Word-gram fields, ngram fields, and the per-field analyzer chain do not come forward.
 
 A keyword field filtered either with or without case is stored in both forms: the original value, and the value lowercased and ASCII-folded. URN and id are indexed in the original case only. A string or rich-text structured property follows the dual-form rule. A URN-typed structured property is indexed in the original case only, the same rule as URN and id. A date or a number has no case form.
 
