@@ -71,11 +71,9 @@ jobs:
         include:
           # Note: this should be kept in sync with tox.ini.
           #
-          # Known limitation: Airflow constraints pin several packages below
-          # acryl-datahub's Docker/lock-time CVE floors (e.g. aiohttp 3.12.15 in
-          # 3.1.0, click 8.2.1 / 8.3.1). CI installs under Airflow constraints;
-          # the security floors live in docker/snippets/ingestion/constraints.txt
-          # and metadata-ingestion pyproject [tool.uv] constraint-dependencies.
+          # Airflow constraints pin anyio and click below acryl-datahub. The
+          # plugin build rewrites those two pins (scripts/relax_airflow_constraints.py)
+          # before installing. Other Airflow pins (for example aiohttp) are unchanged.
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=3.0.0 apache-airflow-providers-openlineage>=2.1.0"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.0.6/constraints-3.11.txt"
