@@ -91,7 +91,7 @@ export const ManagePermissions = () => {
                 path: TabType.DataAccessRoles,
                 content: <ManageDataAccessRoles />,
                 display: {
-                    enabled: () => showAccessManagement,
+                    enabled: () => !!showAccessManagement,
                 },
             },
         ];

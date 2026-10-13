@@ -5,18 +5,15 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
-import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+import { AvatarItemProps } from '@components/components/AvatarStack/types';
 
 import {
     DataAccessRole,
-    DataAccessRoleGroup,
-    DataAccessRoleUser,
-    getDataAccessRoleGroups,
-    getDataAccessRoleUsers,
+    getDataAccessRoleGroupAvatars,
+    getDataAccessRoleUserAvatars,
 } from '@app/permissions/dataAccessRoles/dataAccessRoles.utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
 
 type Props = {
     role?: DataAccessRole;
@@ -42,25 +39,12 @@ const PillsContainer = styled.div`
     gap: 4px;
 `;
 
-function toAvatar(
-    actor: DataAccessRoleUser | DataAccessRoleGroup,
-    entityRegistry: ReturnType<typeof useEntityRegistry>,
-): AvatarItemProps {
-    const isGroup = actor.urn?.startsWith('urn:li:corpGroup');
-    return {
-        name: entityRegistry.getDisplayName(isGroup ? EntityType.CorpGroup : EntityType.CorpUser, actor),
-        imageUrl: actor.editableProperties?.pictureLink || undefined,
-        urn: actor.urn,
-        type: isGroup ? AvatarType.group : AvatarType.user,
-    };
-}
-
 export default function DataAccessRoleDetailsModal({ role, open, onClose }: Props) {
     const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
 
-    const userAvatars = getDataAccessRoleUsers(role).map((user) => toAvatar(user, entityRegistry));
-    const groupAvatars = getDataAccessRoleGroups(role).map((group) => toAvatar(group, entityRegistry));
+    const userAvatars = getDataAccessRoleUserAvatars(role, entityRegistry);
+    const groupAvatars = getDataAccessRoleGroupAvatars(role, entityRegistry);
 
     const renderAvatarPills = (avatars: AvatarItemProps[]) => (
         <PillsContainer>
@@ -139,7 +123,7 @@ export default function DataAccessRoleDetailsModal({ role, open, onClose }: Prop
                         <Heading type="h5" size="sm" weight="bold">
                             {t('dataAccessRoles.requestUrl')}
                         </Heading>
-                        <a href={role.properties.requestUrl} target="_blank" rel="noreferrer">
+                        <a href={safeUrl(role.properties.requestUrl)} target="_blank" rel="noreferrer">
                             {role.properties.requestUrl}
                         </a>
                     </Section>

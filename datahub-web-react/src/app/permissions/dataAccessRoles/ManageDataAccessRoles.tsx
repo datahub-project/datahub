@@ -6,15 +6,13 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
-import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+import { AvatarItemProps } from '@components/components/AvatarStack/types';
 
 import DataAccessRoleDetailsModal from '@app/permissions/dataAccessRoles/DataAccessRoleDetailsModal';
 import {
     DataAccessRole,
-    DataAccessRoleGroup,
-    DataAccessRoleUser,
-    getDataAccessRoleGroups,
-    getDataAccessRoleUsers,
+    getDataAccessRoleGroupAvatars,
+    getDataAccessRoleUserAvatars,
 } from '@app/permissions/dataAccessRoles/dataAccessRoles.utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
@@ -65,19 +63,6 @@ const EmptyContainer = styled.div`
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
-
-function toAvatar(
-    actor: DataAccessRoleUser | DataAccessRoleGroup,
-    entityRegistry: ReturnType<typeof useEntityRegistry>,
-): AvatarItemProps {
-    const isGroup = actor.urn?.startsWith('urn:li:corpGroup');
-    return {
-        name: entityRegistry.getDisplayName(isGroup ? EntityType.CorpGroup : EntityType.CorpUser, actor),
-        imageUrl: actor.editableProperties?.pictureLink || undefined,
-        urn: actor.urn,
-        type: isGroup ? AvatarType.group : AvatarType.user,
-    };
-}
 
 export const ManageDataAccessRoles = () => {
     const { t } = useTranslation('settings.permissions');
@@ -148,8 +133,8 @@ export const ManageDataAccessRoles = () => {
             title: t('usersLabel'),
             key: 'users',
             width: '35%',
-            render: (record: { actors: Array<DataAccessRoleUser | DataAccessRoleGroup> }) => {
-                const actors: AvatarItemProps[] = record.actors.map((actor) => toAvatar(actor, entityRegistry));
+            render: (record: { actors: AvatarItemProps[] }) => {
+                const { actors } = record;
                 if (!actors.length) {
                     return null;
                 }
@@ -186,7 +171,10 @@ export const ManageDataAccessRoles = () => {
         name: role.properties?.name || '',
         description: role.properties?.description || '',
         accessType: role.properties?.type || '',
-        actors: [...getDataAccessRoleUsers(role), ...getDataAccessRoleGroups(role)],
+        actors: [
+            ...getDataAccessRoleUserAvatars(role, entityRegistry),
+            ...getDataAccessRoleGroupAvatars(role, entityRegistry),
+        ],
     }));
 
     return (
@@ -208,7 +196,7 @@ export const ManageDataAccessRoles = () => {
                 allowClear
             />
             <TableScrollContainer>
-                {!loading && tableData.length === 0 ? (
+                {!loading && !error && tableData.length === 0 ? (
                     <EmptyContainer>
                         <Text size="md" color="gray">
                             {t('dataAccessRoles.empty')}
