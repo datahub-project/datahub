@@ -63,10 +63,9 @@ def _to_iso(value: object) -> str:
 
 @dataclass(frozen=True)
 class _CheckColumns:
-    """Binds a CheckSpec to its struct in the results table and the shape of its run
-    event. Row-count checks report ``last_value`` as the aggregate and the predicted
-    min/max band on nativeResults; the freshness check's values are timestamps, so they
-    all go on nativeResults instead of actualAggValue."""
+    # Row-count checks report last_value as the aggregate and the predicted min/max
+    # band on nativeResults; the freshness check's values are timestamps, so they all
+    # go on nativeResults instead of actualAggValue.
 
     spec: CheckSpec
     struct_path: str

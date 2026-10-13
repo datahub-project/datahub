@@ -138,11 +138,9 @@ def test_assertion_urn_is_per_dataset_and_per_check() -> None:
     dataset_urn = _dataset_urn(_ref())
     other = make_dataset_urn("databricks", "cat.sch.other", "PROD")
     freshness = make_dq_assertion_urn(dataset_urn, COMMIT_FRESHNESS_CHECK.key)
-    # Idempotent: same identity -> same URN.
     assert freshness == make_dq_assertion_urn(dataset_urn, COMMIT_FRESHNESS_CHECK.key)
-    # Each check is its own assertion.
     assert freshness != make_dq_assertion_urn(dataset_urn, DAILY_ROW_COUNT_CHECK.key)
-    # Datasets (and so workspaces) cannot collide.
+    # Different dataset URNs (so different workspaces) cannot collide.
     assert freshness != make_dq_assertion_urn(other, COMMIT_FRESHNESS_CHECK.key)
 
 
