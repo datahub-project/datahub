@@ -1068,6 +1068,74 @@ class TestLineageGeneration:
         assert field.path == "upstreams.dataset"
         assert field.isLineage is True
 
+    @pytest.mark.timeout(10)
+    def test_extract_lineage_fields_from_schema_self_referencing_record(self):
+        schema_dict = {
+            "type": "record",
+            "name": "Node",
+            "fields": [
+                {"name": "upstream", "type": "string", "isLineage": True},
+                {
+                    "name": "children",
+                    "type": ["null", {"type": "array", "items": "Node"}],
+                },
+            ],
+        }
+        schema = avro.schema.parse(json.dumps(schema_dict))
+
+        lineage_fields = extract_lineage_fields_from_schema(schema)
+
+        assert [f.path for f in lineage_fields] == ["upstream"]
+
+    @pytest.mark.timeout(10)
+    def test_extract_lineage_fields_from_schema_mutually_recursive_records(self):
+        schema_dict = {
+            "type": "record",
+            "name": "TestAspect",
+            "fields": [
+                {
+                    "name": "a",
+                    "type": {
+                        "type": "record",
+                        "name": "RecordA",
+                        "fields": [
+                            {"name": "upstreamA", "type": "string", "isLineage": True},
+                            {
+                                "name": "b",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "RecordB",
+                                        "fields": [
+                                            {
+                                                "name": "upstreamB",
+                                                "type": "string",
+                                                "isLineage": True,
+                                            },
+                                            {"name": "a", "type": ["null", "RecordA"]},
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+                # Non-recursive reuse of the same record must still be traversed.
+                {"name": "otherB", "type": ["null", "RecordB"]},
+            ],
+        }
+        schema = avro.schema.parse(json.dumps(schema_dict))
+
+        lineage_fields = extract_lineage_fields_from_schema(schema)
+
+        assert [f.path for f in lineage_fields] == [
+            "a.upstreamA",
+            "a.b.upstreamB",
+            "otherB.upstreamB",
+            "otherB.a.upstreamA",
+        ]
+
     def test_extract_lineage_fields_with_registry_data(self):
         """Test the main extract_lineage_fields function with registry data."""
         clear_registries()
