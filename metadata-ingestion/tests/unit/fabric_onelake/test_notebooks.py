@@ -4,6 +4,8 @@ import base64
 from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake import client as client_module
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
@@ -14,7 +16,11 @@ from datahub.ingestion.source.fabric.onelake.notebooks import (
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
-from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DataJobInputOutputClass,
+    SubTypesClass,
+)
 from datahub.sdk.dataset import Dataset
 
 
@@ -173,3 +179,44 @@ def test_definition_failure_still_emits_notebook() -> None:
     assert isinstance(dataset, Dataset)
     assert dataset.custom_properties == {"path": "/Shared/analysis"}
     assert source.report.notebooks_scanned == 1
+
+
+def test_incremental_lineage_converts_datajob_io_to_patch() -> None:
+    source = MagicMock()
+    source.report = FabricOneLakeSourceReport()
+    convert = FabricOneLakeSource._convert_notebook_lineage_to_patch.__get__(
+        source, FabricOneLakeSource
+    )
+    job_urn = "urn:li:dataJob:(urn:li:dataFlow:(fabric-onelake,ws.nb,PROD),nb)"
+    ds = "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws.lh.s.t,PROD)"
+    wu = MetadataWorkUnit(
+        id="io",
+        mcp=MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
+            aspect=DataJobInputOutputClass(inputDatasets=[ds], outputDatasets=[]),
+        ),
+    )
+    out = list(convert([wu]))
+
+    assert len(out) == 1
+    patched = out[0].metadata
+    assert patched.entityUrn == job_urn
+    assert patched.changeType == ChangeTypeClass.PATCH
+
+
+def test_incremental_lineage_drops_empty_io_aspect() -> None:
+    # An empty upsert would wipe manually added edges, so it must be dropped
+    # rather than passed through (which an upsert would do).
+    source = MagicMock()
+    source.report = FabricOneLakeSourceReport()
+    convert = FabricOneLakeSource._convert_notebook_lineage_to_patch.__get__(
+        source, FabricOneLakeSource
+    )
+    wu = MetadataWorkUnit(
+        id="empty",
+        mcp=MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataJob:(urn:li:dataFlow:(fabric-onelake,ws.nb,PROD),nb)",
+            aspect=DataJobInputOutputClass(inputDatasets=[], outputDatasets=[]),
+        ),
+    )
+    assert list(convert([wu])) == []

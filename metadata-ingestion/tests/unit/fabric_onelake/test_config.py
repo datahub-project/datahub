@@ -70,6 +70,24 @@ class TestFabricOneLakeSourceConfig:
         )
         assert config.api_timeout == 30
 
+    def test_notebook_execution_requires_include_notebooks(self) -> None:
+        """Notebook execution flag requires include_notebooks=True."""
+        with pytest.raises(ValidationError):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                include_notebooks=False,
+                include_notebook_execution=True,
+            )
+
+    def test_notebook_execution_enabled_with_notebooks(self) -> None:
+        """Notebook execution is accepted when include_notebooks is on."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            include_notebooks=True,
+            include_notebook_execution=True,
+        )
+        assert config.include_notebook_execution
+
     def test_workspace_pattern_filtering(self) -> None:
         """Workspace pattern should filter correctly."""
         config = FabricOneLakeSourceConfig(

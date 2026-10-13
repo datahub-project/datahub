@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Callable, Dict, Iterator, Optional, Tuple, TypeVar
+from datetime import datetime
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypeVar
 
 import requests
 
@@ -12,10 +13,13 @@ from datahub.ingestion.source.fabric.common.auth import (
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
+    FabricJobInstance,
+    FabricSparkSession,
     FabricWorkspace,
     item_owner_user_principal_name,
     sensitivity_label_id,
 )
+from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
@@ -40,6 +44,10 @@ ONELAKE_CATALOG_PAGE_SIZE = 1000
 # the operation longer than a single HTTP timeout.
 _LRO_POLL_SLEEP_CAP_SEC = 15
 _LRO_MIN_DEADLINE_SEC = 120
+
+# The Spark History Server SQL endpoint returns a bare array and defaults to 20
+# executions; page through it explicitly so late write executions aren't lost.
+_SPARK_SQL_PAGE_SIZE = 100
 
 
 class OneLakeClient(BaseFabricClient):
@@ -305,6 +313,127 @@ class OneLakeClient(BaseFabricClient):
             except ValueError:
                 delay = 2
             time.sleep(min(delay, _LRO_POLL_SLEEP_CAP_SEC))
+
+    def get_notebook_runs(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricJobInstance]:
+        """Fetch notebook job instances within the lookback window.
+
+        Uses the generic Job Scheduler list_item_job_instances(), which returns
+        runs newest-first. Stops as soon as a run's startTimeUtc falls before
+        the window, avoiding unnecessary pages.
+
+        Args:
+            workspace_id: Workspace GUID
+            notebook_id: Notebook item GUID
+            lookback_window_start: Cutoff datetime (UTC); older runs are excluded.
+
+        Returns:
+            List of FabricJobInstance within the lookback window.
+        """
+        runs: List[FabricJobInstance] = []
+        for job_instance in self.list_item_job_instances(workspace_id, notebook_id):
+            if job_instance.start_time_utc:
+                run_start = parse_iso_datetime(job_instance.start_time_utc)
+                if run_start < lookback_window_start:
+                    break
+            runs.append(job_instance)
+        return runs
+
+    def list_notebook_spark_sessions(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricSparkSession]:
+        """List Spark (Livy) sessions for a notebook within the lookback window.
+
+        Unlike the Job Scheduler ``jobs/instances`` endpoint, this reports every
+        Spark application that ran the notebook - including pipeline-triggered
+        runs - and exposes each run's Spark History Server application id.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/spark/livy-sessions
+        """
+        endpoint = f"workspaces/{workspace_id}/notebooks/{notebook_id}/livySessions"
+        sessions: List[FabricSparkSession] = []
+        for data in self._paginate(endpoint):
+            application_id = data.get("sparkApplicationId")
+            livy_id = data.get("livyId")
+            if not application_id or not livy_id:
+                continue
+            start = data.get("startDateTime")
+            if start and parse_iso_datetime(start) < lookback_window_start:
+                continue
+            item = data.get("item") or {}
+            sessions.append(
+                FabricSparkSession(
+                    livy_id=livy_id,
+                    application_id=application_id,
+                    item_id=item.get("itemId", notebook_id),
+                    state=data.get("state"),
+                    start_time_utc=start,
+                    end_time_utc=data.get("endDateTime"),
+                )
+            )
+        return sessions
+
+    def get_spark_sql_plans(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        livy_id: str,
+        application_id: str,
+    ) -> List[str]:
+        """Return the physical plan text of each SQL execution in a Spark run.
+
+        Proxies the Spark History Server SQL API, whose executions carry a
+        ``planDescription`` listing the resolved ``abfss://`` paths read and
+        written. The endpoint returns a bare JSON array, not a paged envelope,
+        and defaults to only the first 20 executions - so it must be paged
+        explicitly via ``offset``/``length``. Table writes typically run late
+        in a notebook, so a truncated fetch sees the reads but misses the
+        writes (hence lineage with inputs but no outputs).
+
+        Plans are returned in chronological execution order (ascending SQL
+        execution ``id``). Lineage attribution is order-aware - a write is
+        credited with the tables read earlier in the same run - so the API's
+        own ordering (newest-first, and sliced across pages) must be normalized
+        here before the plans are consumed.
+        """
+        endpoint = (
+            f"workspaces/{workspace_id}/notebooks/{notebook_id}"
+            f"/livySessions/{livy_id}/applications/{application_id}/sql"
+        )
+        executions: List[Tuple[int, str]] = []
+        offset = 0
+        while True:
+            data = self.get(
+                endpoint,
+                params={
+                    "offset": str(offset),
+                    "length": str(_SPARK_SQL_PAGE_SIZE),
+                },
+            ).json()
+            if not isinstance(data, list) or not data:
+                break
+            for execution in data:
+                if not isinstance(execution, dict) or not execution.get(
+                    "planDescription"
+                ):
+                    continue
+                # `id` is the monotonic SQL execution id; fall back to append
+                # order when absent so a plan is never silently dropped.
+                exec_id = execution.get("id")
+                order = exec_id if isinstance(exec_id, int) else len(executions)
+                executions.append((order, execution["planDescription"]))
+            if len(data) < _SPARK_SQL_PAGE_SIZE:
+                break
+            offset += _SPARK_SQL_PAGE_SIZE
+        executions.sort(key=lambda item: item[0])
+        return [plan for _, plan in executions]
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str

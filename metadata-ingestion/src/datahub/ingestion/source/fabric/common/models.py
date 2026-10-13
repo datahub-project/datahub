@@ -224,3 +224,20 @@ class FabricJobInstance:
     end_time_utc: Optional[str] = None  # ISO 8601
     invoke_type: Optional[str] = None
     failure_reason: Optional[str] = None
+
+
+@dataclass
+class FabricSparkSession:
+    """A Spark (Livy) session for a notebook run, from the Spark monitoring API.
+
+    Returned by GET /workspaces/{workspaceId}/notebooks/{notebookId}/livySessions.
+    The ``application_id`` + ``livy_id`` identify the Spark History Server
+    application whose SQL plans carry the resolved OneLake read/write paths.
+    """
+
+    livy_id: str
+    application_id: str
+    item_id: str
+    state: Optional[str] = None
+    start_time_utc: Optional[str] = None  # ISO 8601
+    end_time_utc: Optional[str] = None  # ISO 8601

@@ -1531,7 +1531,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut target is emitted as an upstream of the shortcut table.",
+          "description": "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut target is emitted as an upstream of the shortcut table. When `include_notebook_execution` is enabled, each notebook is modelled as a pipeline (DataFlow) with one Spark-job DataJob per table it writes, whose input tables are recovered from each run's Spark physical plans and resolved against ingested tables.",
           "subtype_modifier": null,
           "supported": true
         }

@@ -10,6 +10,9 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.fabric.common.ownership import FabricOwnershipConfigMixin
 from datahub.ingestion.source.fabric.common.sensitivity import (
@@ -155,6 +158,7 @@ class FabricOneLakeSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalLineageConfigMixin,
     FabricOwnershipConfigMixin,
     FabricSensitivityLabelConfigMixin,
 ):
@@ -290,6 +294,34 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    include_notebook_execution: bool = Field(
+        default=False,
+        description=(
+            "Model each notebook as a pipeline (a DataFlow with one Spark-job "
+            "DataJob per table it writes) built from its run history over "
+            "`notebook_execution_history_days`. This emits both: (1) table-level "
+            "lineage derived from each run's Spark physical plans, read via the "
+            "Spark monitoring API (`livySessions` + the Spark History Server SQL "
+            "API) - grouped per write so each output table gets its own precise "
+            "upstreams, accumulated across runs (which may each execute "
+            "different cells), keeping only edges to tables ingested in the same "
+            "run; and (2) run history as DataProcessInstances of the DataFlow "
+            "from the Job Scheduler API "
+            "(`GET /workspaces/{id}/items/{id}/jobs/instances`). Adds API calls "
+            "per notebook run. Requires `include_notebooks=True`."
+        ),
+    )
+
+    notebook_execution_history_days: int = Field(
+        default=7,
+        description=(
+            "How many days of notebook run history to scan for "
+            "`include_notebook_execution` (Spark-plan lineage and run instances)."
+        ),
+        ge=1,
+        le=90,
+    )
+
     extract_schemas: bool = Field(
         default=True,
         description="Whether to extract schema containers. "
@@ -348,6 +380,15 @@ class FabricOneLakeSourceConfig(
             "configured and enabled `sql_endpoint`."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_notebook_feature_dependencies(self):
+        """Notebook execution (lineage + run history) requires notebook ingestion."""
+        if self.include_notebook_execution and not self.include_notebooks:
+            raise ValueError(
+                "include_notebook_execution=True requires include_notebooks=True."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):

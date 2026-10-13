@@ -234,6 +234,9 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # Microsoft Fabric — a notebook modelled as its own pipeline (DataFlow), with
+    # its Spark executions as DataJobs rolling up to it.
+    FABRIC_SPARK_PIPELINE = "Fabric Spark Pipeline"
 
 
 class DataJobSubTypes(StrEnum):
@@ -289,6 +292,9 @@ class DataJobSubTypes(StrEnum):
     FABRIC_EXECUTE_SSIS_PACKAGE = "Execute SSIS Package"
     FABRIC_KQL_ACTIVITY = "KQL Activity"
     FABRIC_TRIDENT_NOTEBOOK = "Trident Notebook"
+    # A Fabric notebook's executed Spark application, rolled up to the notebook
+    # pipeline (DataFlow). Carries the Spark-plan table lineage.
+    FABRIC_SPARK_JOB = "Fabric Spark Job"
     FABRIC_OFFICE365_EMAIL = "Office 365 Email"
     FABRIC_EMAIL_ACTIVITY = "Email Activity"
     FABRIC_TEAMS_ACTIVITY = "Teams Activity"
