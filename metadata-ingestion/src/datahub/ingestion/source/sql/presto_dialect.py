@@ -6,6 +6,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type
 
 import prestodb.auth
+import prestodb.constants
 import prestodb.dbapi
 import prestodb.exceptions
 from sqlalchemy import exc, types, util
@@ -206,6 +207,18 @@ def build_presto_connect_args(params: Dict[str, Any]) -> Dict[str, Any]:
         kwargs.setdefault("session_properties", session_props)
     if "timeout" in requests_kwargs:
         kwargs.setdefault("request_timeout", requests_kwargs.pop("timeout"))
+
+    if kwargs.get("http_scheme", prestodb.constants.HTTP) == prestodb.constants.HTTP:
+        # TLS settings do nothing over plain HTTP, and presto-python-client
+        # refuses any auth object there, so fail with the setting to change.
+        requests_kwargs.pop("verify", None)
+        requests_kwargs.pop("cert", None)
+        if auth is not None or requests_kwargs:
+            raise ValueError(
+                "Presto authentication (password, Kerberos, auth or "
+                "requests_kwargs auth) requires HTTPS; set protocol: https "
+                "in connect_args."
+            )
 
     if requests_kwargs:
         auth = _HttpSessionAuthentication(

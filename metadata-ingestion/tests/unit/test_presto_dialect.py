@@ -228,11 +228,22 @@ def test_kerberos_args_configure_the_http_session() -> None:
             "requests_kwargs": {"auth": object()},
         },
         {"host": "h", "not_a_presto_arg": 1},
+        # presto-python-client refuses authentication over plain HTTP.
+        {"host": "h", "requests_kwargs": {"auth": object()}},
+        {"host": "h", "username": "u", "password": "p", "protocol": "http"},
     ],
 )
 def test_build_presto_connect_args_rejects_unsupported(params: dict) -> None:
     with pytest.raises(ValueError):
         build_presto_connect_args(params)
+
+
+def test_tls_requests_kwargs_are_dropped_over_http() -> None:
+    kwargs = build_presto_connect_args(
+        {"host": "h", "requests_kwargs": {"verify": False, "cert": "/c.pem"}}
+    )
+
+    assert "auth" not in kwargs
 
 
 def test_sql_generic_registers_presto_dialect() -> None:
