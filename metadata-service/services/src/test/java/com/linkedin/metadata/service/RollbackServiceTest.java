@@ -7,24 +7,39 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -32,17 +47,23 @@ import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.RollbackResponse;
+import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.mockito.stubbing.OngoingStubbing;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,30 +89,72 @@ public class RollbackServiceTest {
     mockSystemMetadataService = mock(SystemMetadataService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
 
-    rollbackService =
-        new RollbackService(
-            mockEntityService,
-            mockSystemMetadataService,
-            mockTimeseriesAspectService,
-            TEST_SYSTEM_METADATA_SERVICE_CONFIG.toBuilder()
-                .limit(
-                    TEST_SYSTEM_METADATA_SERVICE_CONFIG.getLimit().toBuilder()
-                        .results(
-                            ResultsLimitConfig.builder()
-                                .max(MAX_SEARCH_RESULTS)
-                                .apiDefault(MAX_SEARCH_RESULTS)
-                                .build())
-                        .build())
-                .build());
+    rollbackService = withoutPause(newRollbackService(null));
+  }
+
+  /** Multi-page runs would otherwise wait the real delay between pages. */
+  private static RollbackService withoutPause(RollbackService service) {
+    RollbackService spied = spy(service);
+    doNothing().when(spied).pauseBetweenPages();
+    return spied;
+  }
+
+  /** The first page of the run: read from the start, so no row to continue after. */
+  private OngoingStubbing<List<AspectRowSummary>> whenFirstPage(boolean includeSoftDeleted) {
+    return when(
+        mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(includeSoftDeleted),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)));
+  }
+
+  /** A later page: continues after the last row of the page before it. */
+  private OngoingStubbing<List<AspectRowSummary>> whenPageAfter(
+      boolean includeSoftDeleted, AspectRowSummary lastRowOfPreviousPage) {
+    return when(
+        mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(includeSoftDeleted),
+            same(lastRowOfPreviousPage),
+            eq(MAX_SEARCH_RESULTS)));
+  }
+
+  private void verifyFirstPageRead(boolean includeSoftDeleted) {
+    verify(mockSystemMetadataService)
+        .findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(includeSoftDeleted),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS));
+  }
+
+  private RollbackService newRollbackService(IngestionRollbackDispatcher dispatcher) {
+    return new RollbackService(
+        mockEntityService,
+        mockSystemMetadataService,
+        mockTimeseriesAspectService,
+        TEST_SYSTEM_METADATA_SERVICE_CONFIG.toBuilder()
+            .limit(
+                TEST_SYSTEM_METADATA_SERVICE_CONFIG.getLimit().toBuilder()
+                    .results(
+                        ResultsLimitConfig.builder()
+                            .max(MAX_SEARCH_RESULTS)
+                            .apiDefault(MAX_SEARCH_RESULTS)
+                            .build())
+                    .build())
+            .build(),
+        dispatcher);
   }
 
   @Test
   public void testRollbackTargetAspects() {
     // Arrange
     List<AspectRowSummary> expectedAspects = createTestAspectRows(false);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(expectedAspects);
+    whenFirstPage(true).thenReturn(expectedAspects);
 
     // Act
     List<AspectRowSummary> result =
@@ -99,18 +162,14 @@ public class RollbackServiceTest {
 
     // Assert
     assertEquals(result, expectedAspects);
-    verify(mockSystemMetadataService)
-        .findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
+    verifyFirstPageRead(true);
   }
 
   @Test
   public void testRollbackIngestion_DryRun() throws AuthenticationException {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects);
+    whenFirstPage(false).thenReturn(testAspects);
 
     // For each urn in test aspects
     when(mockSystemMetadataService.findByUrn(
@@ -138,8 +197,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+    whenFirstPage(true)
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>()); // Second call returns empty to end the loop
 
@@ -205,10 +263,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> nonKeyRows =
         testAspects.stream().filter(row -> !row.isKeyAspect()).collect(Collectors.toList());
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(false).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     RollbackRunResult mockRollbackResult =
         new RollbackRunResult(nonKeyRows, 0, Collections.emptyList());
@@ -250,15 +305,10 @@ public class RollbackServiceTest {
 
     List<AspectRowSummary> secondPageAspects = createMoreTestAspectRows();
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class),
-            eq(TEST_RUN_ID),
-            eq(true),
-            anyInt(),
-            eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(firstPageAspects)
-        .thenReturn(secondPageAspects)
-        .thenReturn(new ArrayList<>()); // Third call returns empty to end the loop
+    // The second page continues after the last row of the first; it is short, so the loop ends.
+    whenFirstPage(true).thenReturn(firstPageAspects);
+    whenPageAfter(true, firstPageAspects.get(firstPageAspects.size() - 1))
+        .thenReturn(secondPageAspects);
 
     // Create rollback results for detailed tracking with proper RollbackResult objects
     List<RollbackResult> firstRollbackResults = new ArrayList<>();
@@ -324,11 +374,13 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_MultiPageUnsafeEntitiesCoverAllPages()
       throws AuthenticationException {
     // Prove affected/unsafe entity math spans every page, not just the last. First page carries
-    // a key aspect for urn1; second page carries a key aspect for urn3. The while-loop exits when
-    // the second page (3 rows) drops below apiDefault (5), so the last aspectRowsToDelete is
-    // secondPageAspects — a last-page-only keyAspects derivation would find urn3's key only and
-    // undercount to unsafeEntitiesCount=1, missing urn1/urn2. allKeyAspects must accumulate
-    // across pages to cover all three.
+    // key aspects for urn1 and urn2; second page carries a key aspect for urn3. The while-loop
+    // exits when the second page (3 rows) drops below apiDefault (5), so the last
+    // aspectRowsToDelete is secondPageAspects — a last-page-only keyAspects derivation would find
+    // urn3's key only and undercount to unsafeEntitiesCount=1, missing urn1/urn2. allKeyAspects
+    // must accumulate across pages to cover all three.
+    // A hard rollback only looks at entities it kept, so every key row is left out of
+    // rowsRolledBack below: that is what makes each entity a candidate for the unsafe report.
     List<AspectRowSummary> firstPageAspects = createTestAspectRows(true); // keys for urn1, urn2
     AspectRowSummary extra = new AspectRowSummary();
     extra.setUrn(TEST_URN_2);
@@ -339,20 +391,14 @@ public class RollbackServiceTest {
 
     List<AspectRowSummary> secondPageAspects = createMoreTestAspectRows(); // key for urn3
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class),
-            eq(TEST_RUN_ID),
-            eq(true),
-            anyInt(),
-            eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(firstPageAspects)
-        .thenReturn(secondPageAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(firstPageAspects);
+    whenPageAfter(true, firstPageAspects.get(firstPageAspects.size() - 1))
+        .thenReturn(secondPageAspects);
 
     RollbackRunResult firstRunResult =
-        new RollbackRunResult(firstPageAspects, 0, Collections.emptyList());
+        new RollbackRunResult(withoutKeyRows(firstPageAspects), 0, Collections.emptyList());
     RollbackRunResult secondRunResult =
-        new RollbackRunResult(secondPageAspects, 0, Collections.emptyList());
+        new RollbackRunResult(withoutKeyRows(secondPageAspects), 0, Collections.emptyList());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
         .thenReturn(firstRunResult)
         .thenReturn(secondRunResult)
@@ -393,6 +439,11 @@ public class RollbackServiceTest {
     assertTrue(response.getUnsafeEntities().stream().anyMatch(u -> u.getUrn().equals(testUrn3)));
   }
 
+  /** The rows a hard rollback reverts when it keeps every entity: all but the key rows. */
+  private static List<AspectRowSummary> withoutKeyRows(List<AspectRowSummary> rows) {
+    return rows.stream().filter(row -> !row.isKeyAspect()).collect(Collectors.toList());
+  }
+
   private static List<AspectRowSummary> unsafeRow(String urn, String runId) {
     AspectRowSummary row = new AspectRowSummary();
     row.setUrn(urn);
@@ -400,6 +451,357 @@ public class RollbackServiceTest {
     row.setRunId(runId);
     row.setKeyAspect(false);
     return new ArrayList<>(Collections.singletonList(row));
+  }
+
+  @Test(timeOut = 10000)
+  public void testRollbackIngestion_PageOfRefusedKeyRowsDoesNotStallLaterPages()
+      throws AuthenticationException {
+    // A hard rollback keeps an entity others wrote to, so its key row is not rolled back and keeps
+    // this run's id in the index. A full page of such rows must not be read again: the next page
+    // continues after the last of them and reaches the rows behind.
+    List<AspectRowSummary> keptKeyRows = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      keptKeyRows.add(summaryRow(datasetUrn(i), "datasetKey", true));
+    }
+    AspectRowSummary lastKeptKeyRow = keptKeyRows.get(keptKeyRows.size() - 1);
+    AspectRowSummary rowBehindThem = summaryRow(datasetUrn(MAX_SEARCH_RESULTS), "status", false);
+    List<AspectRowSummary> shortPage = new ArrayList<>(Collections.singletonList(rowBehindThem));
+
+    whenFirstPage(true).thenReturn(keptKeyRows);
+    whenPageAfter(true, lastKeptKeyRow).thenReturn(shortPage);
+    when(mockEntityService.rollbackRun(
+            eq(operationContext), eq(keptKeyRows), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, Collections.emptyList()));
+    when(mockEntityService.rollbackRun(
+            eq(operationContext), eq(shortPage), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(
+            new RollbackRunResult(
+                new ArrayList<>(Collections.singletonList(rowBehindThem)),
+                0,
+                Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    stubNoOtherRunsOnEntities();
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    verify(mockTimeseriesAspectService, times(1)).rollbackTimeseriesAspects(any(), anyString());
+    verify(mockEntityService)
+        .rollbackRun(
+            eq(operationContext),
+            argThat(rows -> rows.contains(rowBehindThem)),
+            eq(TEST_RUN_ID),
+            eq(true));
+    // Only the first page starts from the beginning; re-reading it is what made the loop spin.
+    verify(mockSystemMetadataService, times(1))
+        .findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS));
+    assertEquals(response.getEntitiesDeleted(), 0);
+    assertEquals(response.getAspectsReverted(), 1);
+  }
+
+  @Test
+  public void testRollbackIngestion_HardRollbackCountsOnlyKeyRowsItRolledBack()
+      throws AuthenticationException {
+    AspectRowSummary keyRolledBack1 = summaryRow(datasetUrn(1), "datasetKey", true);
+    AspectRowSummary keyKept = summaryRow(datasetUrn(2), "datasetKey", true);
+    AspectRowSummary keyRolledBack2 = summaryRow(datasetUrn(3), "datasetKey", true);
+    AspectRowSummary nonKey = summaryRow(datasetUrn(1), "datasetProperties", false);
+    List<AspectRowSummary> page =
+        new ArrayList<>(Arrays.asList(keyRolledBack1, keyKept, keyRolledBack2, nonKey));
+
+    whenFirstPage(true).thenReturn(page);
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(
+            new RollbackRunResult(
+                new ArrayList<>(Arrays.asList(keyRolledBack1, keyRolledBack2, nonKey)),
+                0,
+                Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    stubNoOtherRunsOnEntities();
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    assertEquals(response.getEntitiesDeleted(), 2);
+  }
+
+  @Test
+  public void testRollbackIngestion_SoftRollbackCountsEveryKeyRow() throws AuthenticationException {
+    // A soft rollback never rolls a key row back; it marks the entity removed instead, so every
+    // key row the run touched counts even though none is in rowsRolledBack.
+    List<AspectRowSummary> page =
+        new ArrayList<>(
+            Arrays.asList(
+                summaryRow(datasetUrn(1), "datasetKey", true),
+                summaryRow(datasetUrn(2), "datasetKey", true),
+                summaryRow(datasetUrn(3), "datasetKey", true),
+                summaryRow(datasetUrn(3), "datasetProperties", false)));
+
+    whenFirstPage(false).thenReturn(page);
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(false)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    stubNoOtherRunsOnEntities();
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            false, // hardDelete — soft delete
+            null);
+
+    assertEquals(response.getEntitiesDeleted(), 3);
+  }
+
+  @Test
+  public void testRollbackIngestion_HardRollbackChecksOnlyEntitiesItKept()
+      throws AuthenticationException {
+    String rolledBackUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    AspectRowSummary keyRolledBack = summaryRow(rolledBackUrn, "datasetKey", true);
+    AspectRowSummary keyKept = summaryRow(keptUrn, "datasetKey", true);
+    whenFirstPage(true).thenReturn(new ArrayList<>(Arrays.asList(keyRolledBack, keyKept)));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(
+            new RollbackRunResult(
+                new ArrayList<>(Collections.singletonList(keyRolledBack)),
+                0,
+                Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    // Both entities have another run's aspect, so only the lookup decides which one is reported.
+    stubOtherRunOnEntity(rolledBackUrn);
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    verify(mockSystemMetadataService)
+        .findByUrn(
+            any(OperationContext.class), eq(keptUrn), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService, never())
+        .findByUrn(any(OperationContext.class), eq(rolledBackUrn), anyBoolean(), anyInt(), any());
+    assertEquals(unsafeEntityUrns(response), Collections.singletonList(keptUrn));
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+    assertEquals(response.getEntitiesDeleted(), 1);
+  }
+
+  @Test
+  public void testRollbackIngestion_SoftRollbackChecksEveryKeyRowEntity()
+      throws AuthenticationException {
+    // A soft rollback never returns key rows in rowsRolledBack, yet it hides every entity it
+    // touched, so each one has to be checked for other runs' aspects.
+    String urnA = datasetUrn(1);
+    String urnB = datasetUrn(2);
+    whenFirstPage(false)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(urnA, "datasetKey", true), summaryRow(urnB, "datasetKey", true))));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(false)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(), 0, Collections.emptyList()));
+    stubTimeseriesRollback(0L);
+    stubOtherRunOnEntity(urnA);
+    stubOtherRunOnEntity(urnB);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            false, // hardDelete — soft delete
+            null);
+
+    verify(mockSystemMetadataService)
+        .findByUrn(any(OperationContext.class), eq(urnA), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    verify(mockSystemMetadataService)
+        .findByUrn(any(OperationContext.class), eq(urnB), eq(false), eq(0), eq(MAX_SEARCH_RESULTS));
+    assertEquals(response.getUnsafeEntitiesCount(), 2);
+  }
+
+  @Test
+  public void testRollbackIngestion_FailedPageReadStopsBeforeTimeseriesAndRolledBackStatus()
+      throws Exception {
+    stubExecutionRequestResult();
+    List<AspectRowSummary> fullPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      fullPage.add(summaryRow(datasetUrn(i), "datasetProperties", false));
+    }
+    whenFirstPage(true).thenReturn(fullPage);
+    // The index read for the second page fails, as findByRunIdAfter does when the search errors.
+    whenPageAfter(true, fullPage.get(fullPage.size() - 1))
+        .thenThrow(new IllegalStateException("page read failed"));
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(fullPage), 0, Collections.emptyList()));
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            rollbackService.rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                false, // dryRun
+                true, // hardDelete
+                null));
+
+    verify(mockTimeseriesAspectService, never()).rollbackTimeseriesAspects(any(), anyString());
+    assertFalse(writtenExecutionStatuses().contains(RollbackService.ROLLED_BACK_STATUS));
+  }
+
+  @Test
+  public void testRollbackIngestion_InterruptBetweenPagesStopsRollback()
+      throws AuthenticationException {
+    List<AspectRowSummary> fullPage = new ArrayList<>();
+    for (int i = 0; i < MAX_SEARCH_RESULTS; i++) {
+      fullPage.add(summaryRow(datasetUrn(i), "datasetProperties", false));
+    }
+    List<AspectRowSummary> nextPage =
+        new ArrayList<>(
+            Collections.singletonList(summaryRow(datasetUrn(MAX_SEARCH_RESULTS), "status", false)));
+    whenFirstPage(true).thenReturn(fullPage);
+    whenPageAfter(true, fullPage.get(fullPage.size() - 1)).thenReturn(nextPage);
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(new ArrayList<>(fullPage), 0, Collections.emptyList()));
+    // The real pause: an interrupted thread makes its sleep throw at once, so no time passes.
+    RollbackService realPauseService = newRollbackService(null);
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThrows(
+          IllegalStateException.class,
+          () ->
+              realPauseService.rollbackIngestion(
+                  operationContext,
+                  TEST_RUN_ID,
+                  false, // dryRun
+                  true, // hardDelete
+                  null));
+      // The cancellation must stay visible to whoever runs this thread.
+      assertTrue(Thread.interrupted());
+    } finally {
+      Thread.interrupted();
+    }
+
+    verify(mockEntityService, times(1)).rollbackRun(any(), any(), any(), anyBoolean());
+    verify(mockSystemMetadataService, never())
+        .findByRunIdAfter(
+            any(OperationContext.class),
+            anyString(),
+            anyBoolean(),
+            any(AspectRowSummary.class),
+            any());
+    verifyNoInteractions(mockTimeseriesAspectService);
+  }
+
+  private void stubTimeseriesRollback(long numDocsDeleted) {
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(numDocsDeleted);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+  }
+
+  private void stubNoOtherRunsOnEntities() {
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+  }
+
+  @Test
+  public void testRollbackIngestion_HardDryRunDoesNotCountEntitiesItWouldKeep()
+      throws AuthenticationException {
+    String deletedUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    whenFirstPage(true)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(deletedUrn, "datasetKey", true),
+                    summaryRow(keptUrn, "datasetKey", true))));
+    // Only keptUrn has another run's aspect, so a hard rollback would keep it.
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            true, // dryRun
+            true, // hardDelete
+            null);
+
+    assertEquals(response.getEntitiesDeleted(), 1);
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testRollbackIngestion_SoftDryRunCountsEveryEntity() throws AuthenticationException {
+    String deletedUrn = datasetUrn(1);
+    String keptUrn = datasetUrn(2);
+    whenFirstPage(false)
+        .thenReturn(
+            new ArrayList<>(
+                Arrays.asList(
+                    summaryRow(deletedUrn, "datasetKey", true),
+                    summaryRow(keptUrn, "datasetKey", true))));
+    stubOtherRunOnEntity(keptUrn);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            true, // dryRun
+            false, // hardDelete
+            null);
+
+    // A soft rollback hides every entity, other runs' aspects or not.
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(response.getUnsafeEntitiesCount(), 1);
+  }
+
+  private void stubOtherRunOnEntity(String urn) {
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), eq(urn), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unsafeRow(urn, "other-run"));
+  }
+
+  private static List<String> unsafeEntityUrns(RollbackResponse response) {
+    return response.getUnsafeEntities().stream()
+        .map(UnsafeEntityInfo::getUrn)
+        .collect(Collectors.toList());
+  }
+
+  private static String datasetUrn(int index) {
+    return String.format("urn:li:dataset:(urn:li:dataPlatform:hive,page-dataset-%d,PROD)", index);
+  }
+
+  private static AspectRowSummary summaryRow(String urn, String aspectName, boolean isKeyAspect) {
+    AspectRowSummary row = new AspectRowSummary();
+    row.setUrn(urn);
+    row.setAspectName(aspectName);
+    row.setRunId(TEST_RUN_ID);
+    row.setKeyAspect(isKeyAspect);
+    return row;
   }
 
   @Test
@@ -472,10 +874,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create result with rows deleted from entity deletion
     RollbackRunResult mockRollbackResult =
@@ -520,10 +919,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create realistic RollbackResult objects
     List<RollbackResult> rollbackResults = new ArrayList<>();
@@ -585,9 +981,7 @@ public class RollbackServiceTest {
   public void testRollbackTargetAspects_EmptyResults() {
     // Test handling empty results
     // Arrange
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(new ArrayList<>());
 
     // Act
     List<AspectRowSummary> result =
@@ -595,9 +989,7 @@ public class RollbackServiceTest {
 
     // Assert
     assertTrue(result.isEmpty());
-    verify(mockSystemMetadataService)
-        .findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
+    verifyFirstPageRead(true);
   }
 
   @Test
@@ -606,10 +998,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     RollbackRunResult mockRollbackResult = new RollbackRunResult(testAspects, 0, new ArrayList<>());
 
@@ -633,6 +1022,227 @@ public class RollbackServiceTest {
         () -> {
           rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
         });
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherTakesRollback_NothingRunsInProcess()
+      throws Exception {
+    stubExecutionRequestResult();
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenReturn(true);
+
+    RollbackResponse response =
+        newRollbackService(dispatcher)
+            .rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                false, // dryRun
+                true, // hardDelete
+                null);
+
+    verify(dispatcher, times(1)).dispatch(operationContext, TEST_RUN_ID, true);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+    verifyNoInteractions(mockTimeseriesAspectService);
+    // The process that runs it marks the run; a write here could land after its end status.
+    assertTrue(writtenExecutionStatuses().isEmpty());
+    assertEquals(response.getEntitiesAffected(), 0);
+    assertEquals(response.getAspectsAffected(), 0);
+    assertEquals(response.getEntitiesDeleted(), 0);
+    assertEquals(response.getAspectsReverted(), 0);
+    assertEquals(response.getUnsafeEntitiesCount(), 0);
+    assertTrue(response.getAspectRowSummaries().isEmpty());
+    assertTrue(response.getUnsafeEntities().isEmpty());
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherDeclines_RunsInProcess() throws Exception {
+    stubExecutionRequestResult();
+    List<AspectRowSummary> testAspects = createTestAspectRows(true);
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(testAspects, 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenReturn(false);
+
+    newRollbackService(dispatcher)
+        .rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    verify(dispatcher, times(1)).dispatch(operationContext, TEST_RUN_ID, true);
+    verify(mockEntityService).rollbackRun(operationContext, testAspects, TEST_RUN_ID, true);
+    assertEquals(
+        writtenExecutionStatuses(),
+        List.of(RollbackService.ROLLING_BACK_STATUS, RollbackService.ROLLED_BACK_STATUS));
+  }
+
+  @Test
+  public void testRollbackIngestion_DispatcherRefuses_PropagatesAndWritesNoStatus()
+      throws Exception {
+    stubExecutionRequestResult();
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
+    RollbackNotHandedOffException refusal = new RollbackNotHandedOffException("not taken");
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(operationContext, TEST_RUN_ID, true)).thenThrow(refusal);
+    RollbackService service = newRollbackService(dispatcher);
+
+    RollbackNotHandedOffException thrown =
+        expectThrows(
+            RollbackNotHandedOffException.class,
+            () ->
+                service.rollbackIngestion(
+                    operationContext,
+                    TEST_RUN_ID,
+                    false, // dryRun
+                    true, // hardDelete
+                    null));
+
+    assertSame(thrown, refusal);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+    verifyNoInteractions(mockTimeseriesAspectService);
+    // Neither ROLLING_BACK nor ROLLBACK_FAILED: the run that already holds the job keeps its
+    // status.
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
+  }
+
+  @Test
+  public void testRollbackIngestion_NoDispatcher_MarksRollingBackBeforeReadingRows()
+      throws Exception {
+    stubExecutionRequestResult();
+    whenFirstPage(true).thenReturn(new ArrayList<>());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(new RollbackRunResult(Collections.emptyList(), 0, Collections.emptyList()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+
+    rollbackService.rollbackIngestion(
+        operationContext,
+        TEST_RUN_ID,
+        false, // dryRun
+        true, // hardDelete
+        null);
+
+    InOrder statusThenRead = inOrder(mockEntityService, mockSystemMetadataService);
+    statusThenRead
+        .verify(mockEntityService)
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), any(), anyBoolean());
+    statusThenRead
+        .verify(mockSystemMetadataService)
+        .findByRunIdAfter(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), isNull(), anyInt());
+  }
+
+  @Test
+  public void testRollbackIngestion_DryRunIsNeverOfferedToDispatcher() throws Exception {
+    stubExecutionRequestResult();
+    whenFirstPage(false).thenReturn(createTestAspectRows(true));
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    when(dispatcher.dispatch(any(), anyString(), anyBoolean())).thenReturn(true);
+
+    RollbackResponse response =
+        newRollbackService(dispatcher)
+            .rollbackIngestion(
+                operationContext,
+                TEST_RUN_ID,
+                true, // dryRun
+                false, // hardDelete
+                null);
+
+    verifyNoInteractions(dispatcher);
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(writtenExecutionStatuses(), Collections.emptyList());
+  }
+
+  @Test
+  public void testRollbackIngestion_UnauthorizedIsNeverOfferedToDispatcher() throws Exception {
+    // Authorizer.EMPTY denies everything; REST API authorization is a process-wide flag that is
+    // off by default in unit tests, so turn it on for this case only.
+    OperationContext deniedContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            Authorizer.EMPTY, UrnUtils.getUrn("urn:li:corpuser:denied-user"));
+    whenFirstPage(true).thenReturn(createTestAspectRows(true));
+    IngestionRollbackDispatcher dispatcher = mock(IngestionRollbackDispatcher.class);
+    // Would hand the rollback to a process that runs as system if the offer preceded authorization.
+    when(dispatcher.dispatch(any(), anyString(), anyBoolean())).thenReturn(true);
+    RollbackService service = newRollbackService(dispatcher);
+
+    boolean previous = isRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+    try {
+      assertThrows(
+          AuthenticationException.class,
+          () ->
+              service.rollbackIngestion(
+                  deniedContext,
+                  TEST_RUN_ID,
+                  false, // dryRun
+                  true, // hardDelete
+                  null));
+    } finally {
+      setRestApiAuthorizationEnabled(previous);
+    }
+
+    verifyNoInteractions(dispatcher);
+    verify(mockEntityService, never()).rollbackRun(any(), any(), any(), anyBoolean());
+  }
+
+  /** Lets updateExecutionRequestStatus find a result aspect to update, so its writes show up. */
+  private void stubExecutionRequestResult() throws Exception {
+    EnvelopedAspect aspect = new EnvelopedAspect();
+    aspect.setName(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+    aspect.setValue(new Aspect(new ExecutionRequestResult().setStatus("RUNNING").data()));
+    when(mockEntityService.getLatestEnvelopedAspect(
+            any(OperationContext.class), anyString(), any(Urn.class), anyString()))
+        .thenReturn(aspect);
+  }
+
+  /** The execution request statuses written so far, in order. */
+  private List<String> writtenExecutionStatuses() {
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockEntityService, atLeast(0))
+        .ingestProposal(
+            any(OperationContext.class), proposals.capture(), any(AuditStamp.class), anyBoolean());
+    return proposals.getAllValues().stream()
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                        proposal.getAspect().getValue(),
+                        proposal.getAspect().getContentType(),
+                        ExecutionRequestResult.class)
+                    .getStatus())
+        .collect(Collectors.toList());
+  }
+
+  private static boolean isRestApiAuthorizationEnabled() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    return field.getBoolean(null);
+  }
+
+  private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, enabled);
   }
 
   private List<AspectRowSummary> createTestAspectRows(boolean includeKeyAspects) {
@@ -704,10 +1314,7 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
-    when(mockSystemMetadataService.findByRunId(
-            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
-        .thenReturn(testAspects)
-        .thenReturn(new ArrayList<>());
+    whenFirstPage(true).thenReturn(testAspects).thenReturn(new ArrayList<>());
 
     // Create rollback results where isNoOp() would return true
     Urn testUrn = UrnUtils.getUrn(TEST_URN_1);

@@ -26,7 +26,6 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
-import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
@@ -49,7 +48,7 @@ import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
@@ -61,8 +60,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -83,8 +80,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.SystemMetadata;
@@ -99,11 +94,9 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
-import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -150,7 +143,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_REQUEST = "request";
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
-  private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private final Clock _clock = Clock.systemUTC();
 
   @Inject
@@ -186,8 +178,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private DeleteEntityService deleteEntityService;
 
   @Inject
-  @Named("reliableHardDelete")
-  private ReliableHardDelete reliableHardDelete;
+  @Named("hardDeleteService")
+  private HardDeleteService hardDeleteService;
 
   @Inject
   @Named("timeseriesAspectService")
@@ -224,8 +216,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   @VisibleForTesting
-  void setReliableHardDelete(ReliableHardDelete reliableHardDelete) {
-    this.reliableHardDelete = reliableHardDelete;
+  void setHardDeleteService(HardDeleteService hardDeleteService) {
+    this.hardDeleteService = hardDeleteService;
+  }
+
+  @VisibleForTesting
+  void setDeleteEntityService(DeleteEntityService deleteEntityService) {
+    this.deleteEntityService = deleteEntityService;
   }
 
   @VisibleForTesting
@@ -1143,16 +1140,27 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           List<String> timeseriesAspectsToDelete =
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
-          DeleteEntityResponse response = new DeleteEntityResponse();
           if (aspectName == null) {
-            if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
-              response.setRows(reliableHardDelete.delete(opContext, urn).rowsDeleted());
-            } else {
-              RollbackRunResult result = entityService.deleteUrn(opContext, urn);
-              Integer rows = result.getRowsDeletedFromEntityDeletion();
-              response.setRows(rows != null ? rows.longValue() : 0L);
+            // The timeseries values go with the entity only when the actor may delete them;
+            // otherwise the entity is deleted and the request refused, as deleteTimeseriesAspects
+            // refuses it.
+            final boolean timeseriesAuthorized =
+                timeseriesAspectsToDelete.isEmpty() || isTimeseriesDeleteAuthorized(urn);
+            final DeleteEntityResponse response =
+                hardDeleteService.deleteEntityAndTimeseries(
+                    opContext,
+                    timeseriesDeleteContext(urn),
+                    urn,
+                    timeseriesAuthorized ? timeseriesAspectsToDelete : List.of(),
+                    startTimeMills,
+                    endTimeMillis);
+            if (!timeseriesAuthorized) {
+              throw new RestLiServiceException(
+                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
             }
+            return response.setUrn(urnStr);
           }
+          DeleteEntityResponse response = new DeleteEntityResponse();
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(
                   urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete);
@@ -1187,12 +1195,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return 0L;
     }
 
-    long totalNumberOfDocsDeleted = 0;
-
-    final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = RestliUtils.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "deleteTimeseriesAspects", urn.getEntityType()).withUsageOperation(UsageOperation.ASPECT_DELETE), authorizer, auth, true);
+    final OperationContext opContext = timeseriesDeleteContext(urn);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -1202,38 +1205,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
     }
 
-    // Construct the filter.
-    List<Criterion> criteria = new ArrayList<>();
-    criteria.add(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn.toString()));
-    if (startTimeMillis != null) {
-      criteria.add(
-              CriterionUtils.buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTimeMillis.toString()));
-    }
-    if (endTimeMillis != null) {
-      criteria.add(
-              CriterionUtils.buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTimeMillis.toString()));
-    }
-    final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
+    return hardDeleteService.deleteTimeseriesAspects(
+        opContext, urn, aspectsToDelete, startTimeMillis, endTimeMillis);
+  }
 
-    // Delete all the timeseries aspects by the filter.
-    final String entityType = urn.getEntityType();
-    for (final String aspect : aspectsToDelete) {
-      DeleteAspectValuesResult result =
-          timeseriesAspectService.deleteAspectValues(opContext, entityType, aspect, filter);
-      totalNumberOfDocsDeleted += result.getNumDocsDeleted();
+  /** Whether the actor may delete the timeseries values of {@code urn}. */
+  private boolean isTimeseriesDeleteAuthorized(@Nonnull Urn urn) {
+    return isAPIAuthorizedUrns(timeseriesDeleteContext(urn), TIMESERIES, DELETE, List.of(urn));
+  }
 
-      log.debug(
-          "Number of timeseries docs deleted for entity:{}, aspect:{}, urn:{}, startTime:{}, endTime:{}={}",
-          entityType,
-          aspect,
-          urn,
-          startTimeMillis,
-          endTimeMillis,
-          result.getNumDocsDeleted());
-    }
-    return totalNumberOfDocsDeleted;
+  private OperationContext timeseriesDeleteContext(@Nonnull Urn urn) {
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    return RestliUtils.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "deleteTimeseriesAspects", urn.getEntityType()).withUsageOperation(UsageOperation.ASPECT_DELETE), authorizer, auth, true);
   }
 
   @Action(name = "deleteReferences")
@@ -1260,7 +1245,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     return RestliUtils.toTask(opContext,
-        () -> deleteEntityService.deleteReferencesTo(opContext, urn, dryRun),
+        () ->
+            dryRun
+                ? deleteEntityService.deleteReferencesTo(opContext, urn, dryRun)
+                : hardDeleteService.deleteReferences(opContext, urn),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 
