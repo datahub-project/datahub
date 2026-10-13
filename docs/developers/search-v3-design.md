@@ -98,33 +98,33 @@ The result cache key combines those service discriminators with the template dis
 
 These are the sections on `searchTemplateProperties`. The bodies behind the bootstrapped URNs are not specified here.
 
-| Field                     | What it does                                                                                               | Detail                                                                           |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `name`                    | Display name. Not part of the query.                                                                       |                                                                                  |
-| `description`             | What this template ranks or matches. Not part of the query.                                                |                                                                                  |
-| `parent`                  | Template whose unset sections this one inherits.                                                           | [Inheritance](#inheritance)                                                      |
-| `editable`                | When false, only the system actor may change the template.                                                 | [What stays fixed](#what-stays-fixed)                                            |
-| `dialect`                 | Body language. The request has to match it.                                                                | [Dialect](#dialect)                                                              |
-| `component`               | A named, code-registered executor that replaces the standard executor for this whole rung.                 | [Named rung components](#named-rung-components)                                  |
-| `query`                   | Mustache body for this rung. Used when retrieval is keyword. Setting it replaces the whole body.           | [Query composition](#query-composition)                                          |
-| `queryFragments`          | JSON spliced into a named hole the parent body has opened.                                                 | [Query holes](#query-holes)                                                      |
-| `clauses`                 | Extra bool clauses merged into that body.                                                                  | [Query composition](#query-composition)                                          |
-| `functionScore`           | Score functions wrapped around the body. A filter snippet is for a boost that is not list membership.      | [Query composition](#query-composition), [List boosts](#list-boosts)             |
-| `boosts`                  | List-membership weights. Each entry is a field, an injectable list, and a weight.                          | [List boosts](#list-boosts)                                                      |
-| `rescore`                 | An engine rescore window after that wrapper, on a from/size search. Scroll drops it.                       | [Query composition](#query-composition), [Search and scroll](#search-and-scroll) |
-| `ranking`                 | Preset that reorders the engine window after the query returns, on a from/size search. Scroll drops it.    | [Ranking](#ranking), [Search and scroll](#search-and-scroll)                     |
+| Field                     | What it does                                                                                                 | Detail                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `name`                    | Display name. Not part of the query.                                                                         |                                                                                  |
+| `description`             | What this template ranks or matches. Not part of the query.                                                  |                                                                                  |
+| `parent`                  | Template whose unset sections this one inherits.                                                             | [Inheritance](#inheritance)                                                      |
+| `editable`                | When false, only the system actor may change the template.                                                   | [What stays fixed](#what-stays-fixed)                                            |
+| `dialect`                 | Body language. The request has to match it.                                                                  | [Dialect](#dialect)                                                              |
+| `component`               | A named, code-registered executor that replaces the standard executor for this whole rung.                   | [Named rung components](#named-rung-components)                                  |
+| `query`                   | Mustache body for this rung. Used when retrieval is keyword. Setting it replaces the whole body.             | [Query composition](#query-composition)                                          |
+| `queryFragments`          | JSON spliced into a named hole the parent body has opened.                                                   | [Query holes](#query-holes)                                                      |
+| `clauses`                 | Extra bool clauses merged into that body.                                                                    | [Query composition](#query-composition)                                          |
+| `functionScore`           | Score functions wrapped around the body. A filter snippet is for a boost that is not list membership.        | [Query composition](#query-composition), [List boosts](#list-boosts)             |
+| `boosts`                  | List-membership weights. Each entry is a field, an injectable list, and a weight.                            | [List boosts](#list-boosts)                                                      |
+| `rescore`                 | An engine rescore window after that wrapper, on a from/size search. Scroll drops it.                         | [Query composition](#query-composition), [Search and scroll](#search-and-scroll) |
+| `ranking`                 | Preset that reorders the engine window after the query returns, on a from/size search. Scroll drops it.      | [Ranking](#ranking), [Search and scroll](#search-and-scroll)                     |
 | `routes`                  | Ordered query matchers that choose another template before this body runs. An empty list pins this template. | [Selection](#selection)                                                          |
-| `ladder`                  | On a search: when to run this rung, when to keep the result, and the next template URN. Scroll ignores it. | [Query ladder](#query-ladder), [Search and scroll](#search-and-scroll)           |
-| `retrieval`               | How this rung retrieves. Unset is keyword. `vector` retrieves by embedding.                                | [Vector retrieval](#vector-retrieval)                                            |
-| `knn`                     | Weights that reorder document rows already in the keyword window, on a from/size search. Scroll drops it.  | [Document rerank](#document-rerank), [Search and scroll](#search-and-scroll)     |
-| `aggregations`            | Facets for this rung. Unset keeps the schema default facets.                                               | [Query sequence](#query-sequence)                                                |
-| `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.  | [Query composition](#query-composition)                                          |
-| `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                            | [Field weights](#field-weights)                                                  |
-| `structuredPropertyQuery` | Name-and-value matching for included string and rich-text properties, at `nameAndValueWeight`.             | [Name and value](#name-and-value)                                                |
-| `highlightFields`         | Default fields highlighting is on for. Opt-in per field.                                                   | [Highlight fields](#highlight-fields)                                            |
-| `parameters`              | Named values the body can reference, such as `deprecatedBoost`.                                            | [Render context](#render-context)                                                |
-| `created`                 | When the template was first written. Callers omit it.                                                      | [Stamps](#stamps)                                                                |
-| `lastModified`            | When the template was last written. Callers omit it. Part of the result cache key.                         | [Stamps](#stamps)                                                                |
+| `ladder`                  | On a search: when to run this rung, when to keep the result, and the next template URN. Scroll ignores it.   | [Query ladder](#query-ladder), [Search and scroll](#search-and-scroll)           |
+| `retrieval`               | How this rung retrieves. Unset is keyword. `vector` retrieves by embedding.                                  | [Vector retrieval](#vector-retrieval)                                            |
+| `knn`                     | Weights that reorder document rows already in the keyword window, on a from/size search. Scroll drops it.    | [Document rerank](#document-rerank), [Search and scroll](#search-and-scroll)     |
+| `aggregations`            | Facets for this rung. Unset keeps the schema default facets.                                                 | [Query sequence](#query-sequence)                                                |
+| `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.    | [Query composition](#query-composition)                                          |
+| `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                              | [Field weights](#field-weights)                                                  |
+| `structuredPropertyQuery` | Name-and-value matching for included string and rich-text properties, at `nameAndValueWeight`.               | [Name and value](#name-and-value)                                                |
+| `highlightFields`         | Default fields highlighting is on for. Opt-in per field.                                                     | [Highlight fields](#highlight-fields)                                            |
+| `parameters`              | Named values the body can reference, such as `deprecatedBoost`.                                              | [Render context](#render-context)                                                |
+| `created`                 | When the template was first written. Callers omit it.                                                        | [Stamps](#stamps)                                                                |
+| `lastModified`            | When the template was last written. Callers omit it. Part of the result cache key.                           | [Stamps](#stamps)                                                                |
 
 ### Inheritance
 
@@ -424,7 +424,7 @@ The same standard-template URN serves both. On scroll the ladder section is left
 | `rescore`                                               | Runs on the top `window_size`                                     | Dropped. The engine rejects `rescore` with `search_after` |
 | `ranking`                                               | Reorders the fetched window                                       | Dropped                                                   |
 | `knn` document rerank                                   | Reorders inside the ranking window                                | Dropped                                                   |
-| `routes`                                              | Followed before the body runs                                    | Followed before the body runs                            |
+| `routes`                                                | Followed before the body runs                                     | Followed before the body runs                             |
 | `ladder`, including a parallel join and fusion          | Walks `select`, `stop`, and `next`                                | Left unread. `next` is not followed                       |
 | Vector retrieval, `bridge`, and hybrid retrieval        | A window sliced from offset 0                                     | Left unread                                               |
 | Named rung component                                    | Runs as the whole rung executor                                   | Unsupported. Selecting one fails the request              |
@@ -469,25 +469,25 @@ Routes match the trimmed query in the escaped form the service already uses. Eac
 
 The search seed is `urn:li:searchTemplate:fulltext`. A miss stays there.
 
-| Order | Pattern                         | Template                                      |
-| ----- | ------------------------------- | --------------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`     |
-| 2     | `^$`                            | `urn:li:searchTemplate:list`                  |
-| 3     | `^\*$`                          | `urn:li:searchTemplate:list`                  |
-| 4     | `^\\/q ["'].+["']$`             | `urn:li:searchTemplate:structuredExact`       |
-| 5     | `^\\/q .*`                      | `urn:li:searchTemplate:structured`            |
-| 6     | `^["'].+["']$`                  | `urn:li:searchTemplate:exact`                 |
-| 7     | `^\S+$`                         | `urn:li:searchTemplate:exact`                 |
+| Order | Pattern                                  | Template                                |
+| ----- | ---------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
+| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
+| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
+| 5     | `^\\/q .*`                               | `urn:li:searchTemplate:structured`      |
+| 6     | `^["'].+["']$`                           | `urn:li:searchTemplate:exact`           |
+| 7     | `^\S+$`                                  | `urn:li:searchTemplate:exact`           |
 
 The structured seed is `urn:li:searchTemplate:structured`. A miss stays there. It has no spaceless route: with `fulltext=false`, one token is still structured.
 
-| Order | Pattern                         | Template                                      |
-| ----- | ------------------------------- | --------------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`     |
-| 2     | `^$`                            | `urn:li:searchTemplate:list`                  |
-| 3     | `^\*$`                          | `urn:li:searchTemplate:list`                  |
-| 4     | `^\\/q ["'].+["']$`             | `urn:li:searchTemplate:structuredExact`       |
-| 5     | `^["'].+["']$`                  | `urn:li:searchTemplate:structuredExact`       |
+| Order | Pattern                                  | Template                                |
+| ----- | ---------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
+| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
+| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
+| 5     | `^["'].+["']$`                           | `urn:li:searchTemplate:structuredExact` |
 
 `identity`, `list`, `exact`, and `structuredExact` set `routes` to an empty list. A hop to one of them does not route again. `structuredExact` is a child of `structured`, so the empty list is what drops the inherited routes.
 
