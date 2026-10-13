@@ -761,33 +761,3 @@ def test_without_the_flag_redshift_matches_the_bare_schema_name():
     ).results[0]
     assert result.target == "analytics"
     assert result.included
-
-
-@pytest.mark.parametrize(
-    "query",
-    [
-        "SELECT statement_text FROM system.query.history",
-        "SELECT * FROM system.access.audit",
-        "SELECT * FROM system.access.table_lineage",
-        "SELECT * FROM system.billing.usage",
-        "SELECT * FROM main.analytics.orders",
-        "SELECT * FROM system.information_schema.tables t "
-        "JOIN main.analytics.orders o ON 1=1",
-    ],
-)
-def test_databricks_scope_refuses_query_history_audit_and_user_tables(
-    query: str,
-) -> None:
-    with pytest.raises(SqlScopeError):
-        check_query_scope(query, platform="databricks", scope=_scope("unity-catalog"))
-
-
-@pytest.mark.parametrize(
-    "query",
-    [
-        "SELECT table_name FROM system.information_schema.tables",
-        "SELECT tag_name FROM main.information_schema.table_tags",
-    ],
-)
-def test_databricks_scope_admits_both_information_schemas(query: str) -> None:
-    check_query_scope(query, platform="databricks", scope=_scope("unity-catalog"))

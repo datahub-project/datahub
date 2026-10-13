@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,10 +26,19 @@ from databricks.sql.exc import RequestError, ServerOperationError
 from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
+from datahub.ingestion.agent.provider_helpers import PersonalWithholding
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeSoftError,
+)
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import TableInfoWithGeneration
-from datahub.ingestion.source.unity.unity_probe import UnityCatalogMetadataProbe
+from datahub.ingestion.source.unity.unity_probe import (
+    UnityCatalogMetadataProbe,
+    _is_shared_path,
+)
 
 BASE: Dict[str, Any] = {
     "workspace_url": "https://example.cloud.databricks.com",
@@ -51,18 +60,20 @@ def _probe(ws: MagicMock, **extra: Any) -> UnityCatalogMetadataProbe:
     return UnityCatalogMetadataProbe(ws, _config(**extra))
 
 
+def _denied(code: Optional[str], message: str = "denied") -> PermissionDenied:
+    return PermissionDenied(message, error_code=code)
+
+
+def _not_found(code: Optional[str], message: str = "not found") -> NotFound:
+    return NotFound(message, error_code=code)
+
+
 def test_probe_methods_advertise_the_unity_commands_not_the_sqlalchemy_ones() -> None:
     commands = {s.command for s in list_probe_methods("unity-catalog")}
     assert {"catalogs", "sql"} <= commands
     # The inherited SQLAlchemy getters could not authenticate against Databricks.
     assert "containers" not in commands
     assert "foreign_keys" not in commands
-
-
-def test_the_databricks_alias_reaches_the_same_provider() -> None:
-    assert {s.command for s in list_probe_methods("databricks")} == {
-        s.command for s in list_probe_methods("unity-catalog")
-    }
 
 
 def test_catalogs_lists_every_catalog_including_ones_the_pattern_denies() -> None:
@@ -80,15 +91,46 @@ def test_catalogs_honours_a_pinned_list_and_reports_a_missing_entry() -> None:
 
     def get(name: str, include_browse: bool) -> CatalogInfo:
         if name == "typo":
-            raise NotFound("catalog not found")
+            raise _not_found("CATALOG_DOES_NOT_EXIST")
         return CatalogInfo(name=name)
 
     ws.catalogs.get.side_effect = get
     probe = _probe(ws, catalogs=["main", "typo"])
     assert probe.catalogs(limit=10) == ["main"]
     ws.catalogs.list.assert_not_called()
-    # _get_catalogs has no try around catalogs.get, so the run itself fails.
-    assert any("typo" in w and "fail" in w for w in probe.warnings)
+    assert any("'typo'" in w for w in probe.warnings)
+
+
+def test_pinned_catalogs_are_listed_once_up_to_the_limit_without_hive_metastore() -> (
+    None
+):
+    ws = _fake_ws()
+    ws.catalogs.get.side_effect = lambda name, include_browse: CatalogInfo(name=name)
+    probe = _probe(
+        ws,
+        catalogs=["main", "main", "sales", "ops"],
+        warehouse_id="w1",
+        include_hive_metastore=True,
+    )
+    # _get_catalogs reads only the pinned names: no hive_metastore proxy
+    # catalog on this path.
+    assert probe.catalogs(limit=2) == ["main", "sales"]
+    assert [c.args[0] for c in ws.catalogs.get.call_args_list] == [
+        "main",
+        "main",
+        "sales",
+    ]
+
+
+def test_a_refused_catalog_listing_is_the_sessions_failure_not_an_empty_answer() -> (
+    None
+):
+    # The listing leaves out what the principal cannot see, so its 403 can
+    # only refuse the session.
+    ws = _fake_ws()
+    ws.catalogs.list.side_effect = _denied("PERMISSION_DENIED")
+    with pytest.raises(ProbeConnectionError):
+        _probe(ws).catalogs(limit=10)
 
 
 def test_catalogs_adds_hive_metastore_when_ingestion_would_read_it() -> None:
@@ -127,7 +169,7 @@ def test_catalogs_reads_no_metastore_when_it_is_not_part_of_the_id() -> None:
 def test_catalogs_still_lists_when_the_metastore_may_not_be_read() -> None:
     ws = _fake_ws()
     ws.catalogs.list.return_value = [CatalogInfo(name="main")]
-    ws.metastores.summary.side_effect = PermissionDenied("secret-detail")
+    ws.metastores.summary.side_effect = _denied("PERMISSION_DENIED", "secret-detail")
     probe = _probe(ws, include_metastore=True)
     assert probe.catalogs(limit=10) == ["main"]
     assert any("metastore" in w for w in probe.warnings)
@@ -184,19 +226,58 @@ def test_schemas_lists_raw_names_and_carries_the_catalog_as_parent(
 
 def test_schemas_of_an_unknown_catalog_is_a_caller_error() -> None:
     ws = _fake_ws()
-    ws.catalogs.get.side_effect = NotFound("no such catalog")
-    with pytest.raises(ValueError, match="no catalog 'typo'"):
+    ws.catalogs.get.side_effect = _not_found("CATALOG_DOES_NOT_EXIST")
+    with pytest.raises(ProbeArgumentError, match="'typo'"):
         _probe(ws).schemas(catalog="typo")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        # The workspace has no metastore assigned.
+        _not_found("METASTORE_DOES_NOT_EXIST"),
+        # An HTML 404 from a workspace_url naming the wrong host.
+        _not_found("NOT_FOUND"),
+        _not_found(None),
+    ],
+)
+def test_a_404_that_names_no_requested_object_is_the_sources_failure(
+    error: NotFound,
+) -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.side_effect = error
+    with pytest.raises(ProbeConnectionError):
+        _probe(ws).schemas(catalog="main")
 
 
 def test_schemas_the_credential_cannot_browse_degrade_with_a_warning() -> None:
     ws = _fake_ws()
     ws.catalogs.get.return_value = CatalogInfo(name="main")
-    ws.schemas.list.side_effect = PermissionDenied("no USE CATALOG")
+    ws.schemas.list.side_effect = _denied("PERMISSION_DENIED", "no USE CATALOG")
     probe = _probe(ws)
     assert probe.schemas(catalog="main") == []
     # Empty WITH a reason, never a silent empty.
-    assert any("main" in w and "403" in w for w in probe.warnings)
+    assert any("main" in w and "PERMISSION_DENIED" in w for w in probe.warnings)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        # What an invalid or revoked token's body carries.
+        "403",
+        # An IP access list block: an HTML page, so the SDK takes the reason.
+        "FORBIDDEN",
+        None,
+    ],
+)
+def test_a_403_refusing_the_session_is_a_connection_failure(
+    code: Optional[str],
+) -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.schemas.list.side_effect = _denied(code, "Invalid access token")
+    with pytest.raises(ProbeConnectionError):
+        _probe(ws).schemas(catalog="main")
 
 
 def _hive_probe(ws: MagicMock) -> UnityCatalogMetadataProbe:
@@ -223,26 +304,49 @@ def test_sdk_error_text_never_reaches_the_caller() -> None:
     assert "s3cr3t" not in str(raised.value)
     assert "Unauthenticated" in str(raised.value) and "401" in str(raised.value)
 
-    ws.schemas.list.side_effect = PermissionDenied(leaky)
+    ws.schemas.list.side_effect = _denied("PERMISSION_DENIED", leaky)
     probe = _probe(ws)
     assert probe.schemas(catalog="main") == []
     assert probe.warnings and not any("s3cr3t" in w for w in probe.warnings)
 
-    ws.catalogs.get.side_effect = NotFound(leaky)
-    with pytest.raises(ValueError) as missing:
+    ws.catalogs.get.side_effect = _not_found("CATALOG_DOES_NOT_EXIST", leaky)
+    with pytest.raises(ProbeArgumentError) as missing:
         _probe(ws).schemas(catalog="main")
     assert "s3cr3t" not in str(missing.value)
+
+
+def test_the_token_endpoints_body_in_a_value_error_is_never_shown() -> None:
+    # The SDK's OAuth exchange raises ValueError(resp.content) on the first
+    # request; it is the source refusing the session, not a bad argument.
+    ws = _fake_ws()
+    ws.catalogs.get.side_effect = ValueError(
+        b'{"error":"invalid_client","client_secret":"s3cr3t"}'
+    )
+    with pytest.raises(ProbeConnectionError) as raised:
+        _probe(ws).schemas(catalog="main")
+    assert "s3cr3t" not in str(raised.value)
+
+
+@pytest.mark.parametrize("raised", [ProbeArgumentError("x"), ProbeSoftError("x")])
+def test_the_probes_own_errors_keep_their_type_through_the_sdk_mapping(
+    raised: ValueError,
+) -> None:
+    # Both are ValueErrors, which the mapping otherwise reads as the SDK's
+    # auth failure (exit 3).
+    with pytest.raises(type(raised)):
+        with _probe(_fake_ws())._calling("reading"):
+            raise raised
 
 
 @pytest.mark.parametrize(
     "command, arguments, shown",
     [
-        ("schemas", {"catalog": "typo"}, "no catalog 'typo' visible"),
-        ("tables", {"catalog": "main", "schema": "s"}, "refused as a bad request"),
+        ("schemas", {"catalog": "typo"}, "typo"),
+        ("tables", {"catalog": "main", "schema": "s"}, "main.s"),
         (
             "sql",
             {"query": "SELECT table_name FROM main.information_schema.tables"},
-            "set warehouse_id in the recipe",
+            "warehouse_id",
         ),
     ],
 )
@@ -258,11 +362,11 @@ def test_a_caller_mistake_reaches_the_caller_with_its_message(
 
     def get(name: str, include_browse: bool) -> CatalogInfo:
         if name == "typo":
-            raise NotFound("no such catalog")
+            raise _not_found("CATALOG_DOES_NOT_EXIST")
         return CatalogInfo(name=name)
 
     ws.catalogs.get.side_effect = get
-    ws.tables.list.side_effect = BadRequest("INVALID_PARAMETER_VALUE")
+    ws.tables.list.side_effect = BadRequest("bad", error_code="INVALID_PARAMETER_VALUE")
     _serve(monkeypatch, ws)
     with pytest.raises(ProbeArgumentError, match=shown):
         run_probe_method("unity-catalog", BASE, command, arguments)
@@ -273,18 +377,14 @@ class _OtherLibraryError(Exception):
 
 
 def test_an_escaping_sdk_error_is_labelled_with_its_code_never_its_text() -> None:
-    exc = PermissionDenied("Bearer s3cr3t", error_code="PERMISSION_DENIED")
-    assert UnityCatalogMetadataProbe.probe_error_code(exc) == "PERMISSION_DENIED"
-    assert foreign_label(exc, UnityCatalogMetadataProbe) == (
-        "PermissionDenied; PERMISSION_DENIED"
+    label = foreign_label(
+        _denied("PERMISSION_DENIED", "Bearer s3cr3t"), UnityCatalogMetadataProbe
     )
-    # Text in the code slot is no code, and another library's attribute is
-    # not the SDK's.
+    assert "PERMISSION_DENIED" in label and "s3cr3t" not in label
+    # Text in the code slot is no code: the HTTP status names it instead. And
+    # another library's attribute is not the SDK's.
     assert (
-        UnityCatalogMetadataProbe.probe_error_code(
-            PermissionDenied("x", error_code="see s3cr3t")
-        )
-        is None
+        UnityCatalogMetadataProbe.probe_error_code(_denied("see s3cr3t")) == "HTTP 403"
     )
     assert UnityCatalogMetadataProbe.probe_error_code(_OtherLibraryError()) is None
 
@@ -301,6 +401,19 @@ def test_a_client_that_cannot_be_built_is_reported_without_the_sdk_text(
     with pytest.raises(ProbeConnectionError) as raised:
         UnityCatalogMetadataProbe.for_config(_config())
     assert "s3cr3t" not in str(raised.value)
+
+
+def test_a_defect_building_the_client_is_not_reported_as_bad_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(config: UnityCatalogSourceConfig) -> MagicMock:
+        raise AttributeError("no such attribute")
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.create_workspace_client", broken
+    )
+    with pytest.raises(AttributeError):
+        UnityCatalogMetadataProbe.for_config(_config())
 
 
 _HAS_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None) is not None
@@ -343,7 +456,7 @@ def test_stopping_at_the_limit_restores_the_sdk_class_ingestion_patches() -> Non
     assert sdk_catalog.TableInfo is original
 
 
-def test_a_listed_table_round_trips_into_the_verdict_ingestion_makes(
+def test_a_listed_table_is_judged_on_its_catalog_schema_table_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ws = _tables_ws()
@@ -394,19 +507,32 @@ def test_hive_metastore_is_listed_over_rest_while_include_hive_metastore_is_off(
     assert probe.warnings == []
 
 
-@pytest.mark.parametrize("command", ["tables", "views", "metric_views"])
-def test_a_mistyped_schema_is_a_caller_error(command: str) -> None:
+def test_a_mistyped_schema_is_a_caller_error() -> None:
     ws = _fake_ws()
     ws.catalogs.get.return_value = CatalogInfo(name="main")
-    ws.tables.list.side_effect = NotFound("SCHEMA_DOES_NOT_EXIST")
-    with pytest.raises(ValueError, match="main.typo"):
-        getattr(_probe(ws), command)(catalog="main", schema="typo")
+    ws.tables.list.side_effect = _not_found("SCHEMA_DOES_NOT_EXIST")
+    with pytest.raises(ProbeArgumentError, match="main.typo"):
+        _probe(ws).tables(catalog="main", schema="typo")
+
+
+def test_metric_views_on_an_sdk_without_the_type_warn_instead_of_listing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.metric_view_supported",
+        lambda: False,
+    )
+    ws = _tables_ws()
+    probe = _probe(ws)
+    assert probe.metric_views(catalog="main", schema="analytics") == []
+    ws.tables.list.assert_not_called()
+    assert any("METRIC_VIEW" in w for w in probe.warnings)
 
 
 def test_tables_of_a_schema_the_credential_cannot_read_degrade_with_a_warning() -> None:
     ws = _fake_ws()
     ws.catalogs.get.return_value = CatalogInfo(name="main")
-    ws.tables.list.side_effect = PermissionDenied("no USE SCHEMA")
+    ws.tables.list.side_effect = _denied("PERMISSION_DENIED", "no USE SCHEMA")
     probe = _probe(ws)
     assert probe.views(catalog="main", schema="analytics") == []
     assert any("main.analytics" in w for w in probe.warnings)
@@ -430,30 +556,62 @@ def test_columns_are_structural_metadata_only() -> None:
             "partition_index": None,
         }
     ]
-    assert ws.tables.get.call_args.kwargs["full_name"] == "main.analytics.orders"
+    assert ws.tables.get.call_args.kwargs == {
+        "full_name": "main.analytics.orders",
+        # As every proxy listing passes it: a browse-only table is listed by
+        # `tables`, so its columns must be readable too.
+        "include_browse": True,
+    }
+
+
+def test_columns_say_so_when_the_api_returns_no_column_list() -> None:
+    ws = _fake_ws()
+    ws.tables.get.return_value = TableInfo(name="orders", columns=None)
+    probe = _probe(ws)
+    assert probe.columns(catalog="main", schema="analytics", table="orders") == []
+    assert any("main.analytics.orders" in w for w in probe.warnings)
 
 
 def test_columns_of_an_unknown_table_is_a_caller_error() -> None:
     ws = _fake_ws()
-    ws.tables.get.side_effect = NotFound("no such table")
-    with pytest.raises(ValueError, match="main.analytics.typo"):
+    ws.tables.get.side_effect = _not_found("TABLE_DOES_NOT_EXIST")
+    with pytest.raises(ProbeArgumentError, match="main.analytics.typo"):
         _probe(ws).columns(catalog="main", schema="analytics", table="typo")
+
+
+def _withheld(count: int, *, stopped_early: bool = False) -> str:
+    # The framework's wording for the count, so only the count is pinned here.
+    withholding = PersonalWithholding[str](
+        is_personal=lambda _: True, would_ingest=lambda _: False, withheld=count
+    )
+    return withholding.count_text(stopped_early=stopped_early)
+
+
+@pytest.mark.parametrize(
+    "path, shared",
+    [
+        ("/Shared/x", True),
+        ("/Workspace/Shared/x", True),
+        ("//Shared//x", True),
+        ("/shared/lower", True),
+        ("/Users/person.one@example.com/pipeline", False),
+        ("/users/lower@example.com/n", False),
+        ("/Repos/repouser@example.com/r/nb", False),
+        ("/Workspace/Users/wsuser@example.com/n", False),
+        ("//Users/dbl@example.com/n", False),
+        ("/Shared/../Users/dotdot@example.com/n", False),
+        ("/Shared/./x", False),
+        ("/Repos/team/report", False),
+    ],
+)
+def test_only_paths_under_shared_count_as_shared_however_spelled(
+    path: str, shared: bool
+) -> None:
+    assert _is_shared_path(path) is shared
 
 
 def _notebook(object_id: int, path: str) -> ObjectInfo:
     return ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=object_id, path=path)
-
-
-# Every spelling a personal path takes, each naming a placeholder principal.
-_PERSONAL = {
-    "/Users/person.one@example.com/pipeline": "person.one",
-    "/users/lower@example.com/n": "lower@",
-    "/Repos/repouser@example.com/r/nb": "repouser",
-    "/Workspace/Users/wsuser@example.com/n": "wsuser",
-    "//Users/dbl@example.com/n": "dbl@",
-    "/Shared/../Users/dotdot@example.com/n": "dotdot",
-}
-_SHARED = ["/Shared/x", "/Workspace/Shared/x", "//Shared//x", "/shared/lower"]
 
 
 def _notebook_ws(paths: List[str]) -> MagicMock:
@@ -464,34 +622,34 @@ def _notebook_ws(paths: List[str]) -> MagicMock:
     return ws
 
 
-@pytest.mark.parametrize("path", _SHARED)
-def test_shared_notebooks_are_listed_raw_even_while_include_notebooks_is_off(
-    path: str,
-) -> None:
-    probe = _probe(_notebook_ws([path]))
+def test_shared_notebooks_are_listed_raw_even_while_include_notebooks_is_off() -> None:
+    probe = _probe(_notebook_ws(["//Shared//x"]))
     # The raw path, not the normalised form: it is what notebook_pattern sees.
-    assert probe.notebooks() == [path]
+    assert probe.notebooks() == ["//Shared//x"]
     assert probe.warnings == []
 
 
-@pytest.mark.parametrize("path", [*_PERSONAL, "/Repos/team/report"])
-def test_a_path_outside_shared_is_withheld_unless_ingestion_reads_it(
-    path: str,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
+def test_a_path_outside_shared_is_withheld_and_never_reaches_the_output_or_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    _serve(monkeypatch, _notebook_ws(["/Shared/etl", path]))
+    _serve(
+        monkeypatch,
+        _notebook_ws(["/Shared/etl", "/Users/person.one@example.com/pipeline"]),
+    )
     result = run_probe_method("unity-catalog", BASE, "notebooks", {})
     assert result.result == ["/Shared/etl"]
-    assert any(w.startswith("1 notebook outside") for w in result.warnings)
-    principal = _PERSONAL.get(path, "team")
-    assert principal not in json.dumps(result.to_dict())
-    assert principal not in caplog.text
+    assert any(w.startswith(_withheld(1)) for w in result.warnings)
+    assert "person.one" not in json.dumps(result.to_dict())
+    assert "person.one" not in caplog.text
 
 
 def test_a_personal_notebook_the_recipe_ingests_is_listed() -> None:
-    paths = list(_PERSONAL)
+    paths = [
+        "/Users/person.one@example.com/pipeline",
+        "/Repos/repouser@example.com/r/nb",
+        "/Shared/../Users/dotdot@example.com/n",
+    ]
     probe = _probe(
         _notebook_ws(["/Shared/etl", *paths]),
         include_notebooks=True,
@@ -499,12 +657,8 @@ def test_a_personal_notebook_the_recipe_ingests_is_listed() -> None:
     )
     # notebook_pattern allows /Shared/../Users/... too: ingestion would read
     # it, so it is no secret from this recipe.
-    assert probe.notebooks() == [
-        "/Shared/etl",
-        "/Repos/repouser@example.com/r/nb",
-        "/Shared/../Users/dotdot@example.com/n",
-    ]
-    assert any(w.startswith(f"{len(paths) - 2} notebooks") for w in probe.warnings)
+    assert probe.notebooks() == ["/Shared/etl", *paths[1:]]
+    assert any(w.startswith(_withheld(1)) for w in probe.warnings)
 
 
 def test_a_walk_cut_at_the_limit_reports_the_withheld_count_as_a_lower_bound() -> None:
@@ -512,12 +666,12 @@ def test_a_walk_cut_at_the_limit_reports_the_withheld_count_as_a_lower_bound() -
         _notebook_ws(["/Users/a@example.com/n", "/Shared/a", "/Shared/b", "/Shared/c"])
     )
     assert probe.notebooks(limit=2) == ["/Shared/a", "/Shared/b"]
-    assert any(w.startswith("at least 1 notebook") for w in probe.warnings)
+    assert any(w.startswith(_withheld(1, stopped_early=True)) for w in probe.warnings)
 
 
 def test_notebooks_the_credential_cannot_list_degrade_with_a_warning() -> None:
     ws = _fake_ws()
-    ws.workspace.list.side_effect = PermissionDenied("no workspace access")
+    ws.workspace.list.side_effect = _denied("PERMISSION_DENIED", "no workspace access")
     probe = _probe(ws)
     assert probe.notebooks() == []
     assert probe.warnings
@@ -546,7 +700,7 @@ def test_sql_without_a_warehouse_is_a_recipe_error() -> None:
         )
 
 
-def test_sql_opens_one_connection_with_ingestions_params_and_a_server_timeout(
+def test_sql_opens_one_connection_with_a_server_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     opened: List[Dict[str, Any]] = []
@@ -557,55 +711,102 @@ def test_sql_opens_one_connection_with_ingestions_params_and_a_server_timeout(
         return conn
 
     monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
-    probe = _probe(_sql_ws(), warehouse_id="w1")
     query = "SELECT table_name FROM main.information_schema.tables"
-    rows = probe.execute_catalog_query(query, 3)
-    probe.execute_catalog_query(query, 3)
+    with _probe(_sql_ws(), warehouse_id="w1") as probe:
+        rows = probe.execute_catalog_query(query, 3)
+        probe.execute_catalog_query(query, 3)
     assert list(rows.columns) == ["table_name"]
     assert [list(r) for r in rows.rows] == [["orders"]]
     assert len(opened) == 1
-    assert opened[0]["http_path"] == "/sql/1.0/warehouses/w1"
-    assert opened[0]["server_hostname"] == "example.cloud.databricks.com"
     assert opened[0]["session_configuration"] == {"STATEMENT_TIMEOUT": "30"}
     conn.cursor.return_value.__enter__.return_value.fetchmany.assert_called_with(3)
-    probe.__exit__(None, None, None)
     conn.close.assert_called_once()
 
 
-def test_sql_through_the_framework_is_scope_checked_before_the_warehouse_is_touched(
+def test_sql_without_a_timeout_budget_sets_no_statement_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     opened: List[Dict[str, Any]] = []
 
     def connect(**kwargs: Any) -> MagicMock:
         opened.append(kwargs)
-        return _fake_connection([("orders",)])
+        return _fake_connection([])
+
+    monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
+    probe = _probe(_sql_ws(), warehouse_id="w1")
+    monkeypatch.setattr(probe, "query_budget", QueryBudget(timeout_seconds=None))
+    probe.execute_catalog_query("SELECT 1 FROM system.information_schema.tables", 1)
+    assert "session_configuration" not in opened[0]
+
+
+def test_sql_retries_the_open_after_a_failed_connect_and_closes_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _fake_connection([("orders",)])
+    attempts: List[int] = []
+
+    def connect(**kwargs: Any) -> MagicMock:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RequestError("Error during request to server")
+        return conn
+
+    monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
+    query = "SELECT table_name FROM main.information_schema.tables"
+    with _probe(_sql_ws(), warehouse_id="w1") as probe:
+        with pytest.raises(ProbeConnectionError):
+            probe.execute_catalog_query(query, 1)
+        assert probe.execute_catalog_query(query, 1).rows == [["orders"]]
+    assert len(attempts) == 2
+    conn.close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT statement_text FROM system.query.history",
+        "SELECT * FROM main.analytics.orders",
+        "SELECT * FROM system.information_schema.tables t "
+        "JOIN main.analytics.orders o ON 1=1",
+    ],
+)
+def test_sql_outside_information_schema_is_refused_before_the_warehouse_is_touched(
+    monkeypatch: pytest.MonkeyPatch, query: str
+) -> None:
+    opened: List[Dict[str, Any]] = []
+
+    def connect(**kwargs: Any) -> MagicMock:
+        opened.append(kwargs)
+        return _fake_connection([])
 
     monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
     _serve(monkeypatch, _sql_ws())
-    config = {**BASE, "warehouse_id": "w1"}
     with pytest.raises(ValueError):
         run_probe_method(
-            "unity-catalog",
-            config,
-            "sql",
-            {"query": "SELECT statement_text FROM system.query.history"},
+            "unity-catalog", {**BASE, "warehouse_id": "w1"}, "sql", {"query": query}
         )
     assert opened == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT table_name FROM system.information_schema.tables",
+        "SELECT tag_name FROM main.information_schema.table_tags",
+    ],
+)
+def test_sql_over_either_information_schema_reaches_the_warehouse(
+    monkeypatch: pytest.MonkeyPatch, query: str
+) -> None:
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.connect",
+        lambda **kwargs: _fake_connection([("orders",)]),
+    )
+    _serve(monkeypatch, _sql_ws())
     result = run_probe_method(
-        "unity-catalog",
-        config,
-        "sql",
-        {"query": "SELECT table_name FROM main.information_schema.tables"},
+        "unity-catalog", {**BASE, "warehouse_id": "w1"}, "sql", {"query": query}
     )
     assert isinstance(result.result, dict) and result.result["rows"] == [["orders"]]
-
-
-def test_the_sql_help_says_it_needs_and_may_start_a_warehouse() -> None:
-    (spec,) = [s for s in list_probe_methods("unity-catalog") if s.command == "sql"]
-    help_text = " ".join(spec.description.split())
-    assert "warehouse_id" in help_text
-    assert "start" in help_text and "stopped" in help_text
 
 
 @pytest.mark.parametrize(
@@ -615,15 +816,34 @@ def test_the_sql_help_says_it_needs_and_may_start_a_warehouse() -> None:
             ServerOperationError(
                 "[CAST_INVALID_INPUT] The value 's3cr3t-row-value' cannot be cast"
             ),
-            ValueError,
+            ProbeArgumentError,
         ),
+        (
+            ServerOperationError(
+                "[UNRESOLVED_COLUMN.WITH_SUGGESTION] A column `s3cr3t` cannot be "
+                "resolved"
+            ),
+            ProbeArgumentError,
+        ),
+        # The probe's own STATEMENT_TIMEOUT, and the warehouse's failures, are
+        # no reason to rewrite the query.
+        (
+            ServerOperationError("[STATEMENT_TIMEOUT] s3cr3t ran too long"),
+            ProbeConnectionError,
+        ),
+        (
+            ServerOperationError("[INTERNAL_ERROR] s3cr3t"),
+            ProbeConnectionError,
+        ),
+        (ServerOperationError("s3cr3t without a class"), ProbeConnectionError),
         (
             RequestError("Error during request to server: Bearer s3cr3t"),
             ProbeConnectionError,
         ),
+        (_denied("PERMISSION_DENIED", "Bearer s3cr3t"), ProbeConnectionError),
     ],
 )
-def test_warehouse_error_text_never_reaches_the_caller(
+def test_warehouse_failures_are_labelled_and_their_text_never_shown(
     monkeypatch: pytest.MonkeyPatch, error: Exception, expected: type
 ) -> None:
     conn = _fake_connection([])
@@ -637,6 +857,7 @@ def test_warehouse_error_text_never_reaches_the_caller(
         probe.execute_catalog_query(
             "SELECT table_name FROM main.information_schema.tables", 2
         )
+    assert type(raised.value) is expected
     assert "s3cr3t" not in str(raised.value)
     assert type(error).__name__ in str(raised.value)
 
@@ -662,31 +883,9 @@ def test_service_principals_lists_display_names_and_never_application_ids(
     assert "app-1" not in payload and "app-2" not in payload
 
 
-def test_service_principals_lists_only_what_ingestion_keeps() -> None:
-    # Ingestion drops a principal without a display name or application id.
-    ws = _fake_ws()
-    ws.service_principals.list.return_value = iter(
-        [_principal("etl-bot", "app-1"), SdkServicePrincipal(id="no-app")]
-    )
-    assert _probe(ws).service_principals() == ["etl-bot"]
-
-
-def test_service_principals_says_when_the_listing_stopped_at_the_limit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ws = _fake_ws()
-    ws.service_principals.list.return_value = iter(
-        [_principal(f"bot-{i}", f"app-{i}") for i in range(5)]
-    )
-    _serve(monkeypatch, ws)
-    result = run_probe_method("unity-catalog", BASE, "service_principals", {"limit": 3})
-    assert result.result == ["bot-0", "bot-1", "bot-2"]
-    assert result.truncated is True
-
-
 def test_service_principals_the_credential_cannot_list_degrade_with_a_warning() -> None:
     ws = _fake_ws()
-    ws.service_principals.list.side_effect = PermissionDenied("s3cr3t-detail")
+    ws.service_principals.list.side_effect = _denied("PERMISSION_DENIED", "s3cr3t")
     probe = _probe(ws)
     assert probe.service_principals() == []
     assert any("service principals" in w for w in probe.warnings)

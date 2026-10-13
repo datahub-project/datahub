@@ -129,6 +129,8 @@ The `emit_siblings` option described under _Delta Lake External Tables_ above is
 
 A notebook path outside `/Shared/` that the recipe would not ingest is left out of `notebooks` and only counted in a warning, because user folders and personal repos are named after people. `sql` fails without `warehouse_id`, and running it can start a stopped warehouse, which costs money; no other command touches the warehouse. With `include_hive_metastore` on, ingestion reads `hive_metastore` through the warehouse, so the probe lists nothing inside it and says so in a warning.
 
+An object the credential lacks a Unity Catalog privilege on comes back empty, with a warning. Any other refusal fails the command: an invalid or revoked token, a principal without workspace access, an IP access list block, or a `workspace_url` with no metastore behind it.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces

@@ -28,7 +28,6 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
     ancestors_in,
-    pattern_verdict,
 )
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
@@ -69,6 +68,13 @@ logger = logging.getLogger(__name__)
 # Configuration default constants
 INCLUDE_TAGS_DEFAULT = True
 INCLUDE_HIVE_METASTORE_DEFAULT = True
+
+# The kinds process_tables judges in one loop, by table_like_rejected_by.
+_TABLE_LIKE_KINDS = (
+    DatasetSubTypes.TABLE,
+    DatasetSubTypes.VIEW,
+    DatasetSubTypes.METRIC_VIEW,
+)
 
 
 class LineageDataSource(ConfigEnum):
@@ -736,34 +742,58 @@ class UnityCatalogSourceConfig(
             (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
         )
 
+    def pinned_catalogs(self) -> Optional[List[str]]:
+        """The catalogs _get_catalogs reads one by one, or None when it lists
+        every catalog: `catalogs: []` lists all, as an unset one does."""
+        return self.catalogs or None
+
+    def table_like_rejected_by(
+        self, qualified_name: str, *, is_view: bool, is_metric_view: bool
+    ) -> Optional[str]:
+        """The field that makes process_tables drop one table, view or metric
+        view, in the order it checks them, or None when it is ingested.
+        table_pattern applies to every kind; metric_view_pattern only while
+        include_metric_views is on."""
+        if not self.table_pattern.allowed(qualified_name):
+            return "table_pattern"
+        if is_view:
+            if not self.include_views:
+                return "include_views"
+            if not self.view_pattern.allowed(qualified_name):
+                return "view_pattern"
+        elif is_metric_view:
+            if self.include_metric_views and not self.metric_view_pattern.allowed(
+                qualified_name
+            ):
+                return "metric_view_pattern"
+        elif not self.include_tables:
+            return "include_tables"
+        return None
+
+    def notebook_ingested(self, path: str) -> bool:
+        return self.include_notebooks and self.notebook_pattern.allowed(path)
+
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """What process_tables and _get_catalogs (source.py) decide that no
-        single pattern states: every table-like object must pass table_pattern
-        before its own pattern is read, metric_view_pattern applies only with
-        include_metric_views, and a pinned `catalogs` list is all ingestion
-        reads. A kind switch's exclusion (include_views: false) stands, and
-        the SQL family's rules judge every name these leave alone."""
+        # A kind switch's exclusion (include_views: false) stands.
         if ctx.structural is not None:
             return None
-        if ctx.kind in (DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW):
+        if ctx.kind in _TABLE_LIKE_KINDS:
             # Read off this config, which is the copy --try-allow/--try-deny
             # edited; a tried view_pattern cannot rescue a view table_pattern
             # drops, and the verdict says which pattern to change.
-            via_table = pattern_verdict(self, "table_pattern", ctx.target)
-            if not via_table.included:
-                return via_table
-            if (
-                ctx.kind == DatasetSubTypes.METRIC_VIEW
-                and not self.include_metric_views
-            ):
+            rejected_by = self.table_like_rejected_by(
+                ctx.target,
+                is_view=ctx.kind == DatasetSubTypes.VIEW,
+                is_metric_view=ctx.kind == DatasetSubTypes.METRIC_VIEW,
+            )
+            if rejected_by is None:
                 return Verdict.include()
-            return sql_structural_verdict(self, ctx)
-        if ctx.kind == DatasetContainerSubTypes.CATALOG and self.catalogs:
-            # Truthiness, as _get_catalogs reads it: `catalogs: []` lists all.
+            return Verdict.exclude(rejected_by)
+        pinned = self.pinned_catalogs()
+        if ctx.kind == DatasetContainerSubTypes.CATALOG and pinned is not None:
             # Case-folded because catalogs.get resolves names
             # case-insensitively and the listing reports the stored name.
-            pinned = {name.casefold() for name in self.catalogs}
-            if ctx.name.casefold() not in pinned:
+            if ctx.name.casefold() not in {name.casefold() for name in pinned}:
                 return Verdict.exclude("catalogs")
         return sql_structural_verdict(self, ctx)
 

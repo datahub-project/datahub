@@ -700,7 +700,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
-            if not self.config.notebook_pattern.allowed(notebook.path):
+            if not self.config.notebook_ingested(notebook.path):
                 self.report.notebooks.dropped(notebook.path)
                 continue
 
@@ -792,8 +792,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
-        if self.config.catalogs:
-            for catalog_name in self.config.catalogs:
+        pinned = self.config.pinned_catalogs()
+        if pinned is not None:
+            for catalog_name in pinned:
                 catalog = self.unity_catalog_api_proxy.catalog(
                     catalog_name, metastore=metastore
                 )
@@ -828,39 +829,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_tables(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
-            if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                continue
-
-            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
-            # include_views + view_pattern, mirroring SQL-based sources. Metric
-            # views are not is_view and keep their dedicated filtering below.
-            if table.is_view and (
-                not self.config.include_views
-                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
-            ):
-                self.report.tables.dropped(table.id, f"view ({table.table_type})")
-                continue
-
-            if (
-                table.is_metric_view
-                and self.config.include_metric_views
-                and not self.config.metric_view_pattern.allowed(
-                    table.ref.qualified_table_name
+            rejected_by = self.config.table_like_rejected_by(
+                table.ref.qualified_table_name,
+                is_view=table.is_view,
+                is_metric_view=table.is_metric_view,
+            )
+            if rejected_by is not None:
+                dropped_as = (
+                    "view"
+                    if table.is_view and rejected_by != "table_pattern"
+                    else "table"
                 )
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                self.report.metric_views.dropped(table.id)
-                continue
-
-            # Regular tables (neither view nor metric view) are honored via
-            # include_tables; views and metric views keep their own toggles above.
-            if (
-                not table.is_view
-                and not table.is_metric_view
-                and not self.config.include_tables
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                self.report.tables.dropped(
+                    table.id, f"{dropped_as} ({table.table_type})"
+                )
+                if rejected_by == "metric_view_pattern":
+                    self.report.metric_views.dropped(table.id)
                 continue
 
             if (
