@@ -3,6 +3,7 @@ package security;
 import static auth.AuthUtils.*;
 import static auth.sso.oidc.OidcConfigs.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import auth.sso.oidc.OidcConfigs;
 import auth.sso.oidc.OidcProvider;
@@ -410,5 +411,41 @@ public class OidcConfigurationTest {
     assertEquals("Env denied message", oidcConfigs.getAccessDeniedMessage().orElse(null));
     assertEquals(
         "https://example.com/denied", oidcConfigs.getAccessDeniedRedirectUrl().orElse(null));
+  }
+
+  @Test
+  public void blankAccessDeniedFieldsFromJsonClearToEmpty() {
+    // Clearing these in the settings UI sends "", which must override the env seed AND collapse to
+    // an empty Optional. OidcResponseErrorHandler only checks isPresent(), so a present-but-empty
+    // redirect URL would redirect every denied user to "" instead of the explanation page.
+    final String SSO_SETTINGS_JSON_STR =
+        new JSONObject()
+            .put(ACCESS_DENIED_MESSAGE, "")
+            .put(ACCESS_DENIED_REDIRECT_URL, "   ")
+            .toString();
+    CONFIG.withValue(
+        OIDC_ACCESS_DENIED_MESSAGE, ConfigValueFactory.fromAnyRef("Env denied message"));
+    CONFIG.withValue(
+        OIDC_ACCESS_DENIED_REDIRECT_URL,
+        ConfigValueFactory.fromAnyRef("https://example.com/denied"));
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    assertTrue(oidcConfigs.getAccessDeniedMessage().isEmpty());
+    assertTrue(oidcConfigs.getAccessDeniedRedirectUrl().isEmpty());
+  }
+
+  @Test
+  public void blankAccessDeniedFieldsFromConfigAreEmpty() {
+    // Helm commonly renders unset AUTH_OIDC_ACCESS_DENIED_* env vars as "". A blank env value must
+    // be treated as unset, not as a redirect to "".
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().toString();
+    CONFIG.withValue(OIDC_ACCESS_DENIED_MESSAGE, ConfigValueFactory.fromAnyRef(""));
+    CONFIG.withValue(OIDC_ACCESS_DENIED_REDIRECT_URL, ConfigValueFactory.fromAnyRef("  "));
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    assertTrue(oidcConfigs.getAccessDeniedMessage().isEmpty());
+    assertTrue(oidcConfigs.getAccessDeniedRedirectUrl().isEmpty());
   }
 }
