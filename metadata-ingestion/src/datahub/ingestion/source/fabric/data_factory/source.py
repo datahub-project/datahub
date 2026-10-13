@@ -75,7 +75,7 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     EdgeClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
@@ -391,7 +391,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         user_principal_name: Optional[str],
         *,
         parent_user_principal_name: Optional[str] = None,
-    ):
+    ) -> Optional[list[tuple[CorpUserUrn, str]]]:
         """Owners for this entity, falling back to the parent when cascading."""
         if not self.config.extract_owners.enabled:
             return None

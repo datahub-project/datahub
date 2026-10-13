@@ -90,7 +90,7 @@ def test_emitter_glossary_term_uses_label_description() -> None:
         auth_helper=MagicMock(),
         timeout=30,
     )
-    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[union-attr]
+    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[method-assign,union-attr]
         id=label_id,
         name="Confidential",
         description="Secret data",
@@ -118,7 +118,7 @@ def test_emitter_tag_uses_label_name_and_description() -> None:
         auth_helper=MagicMock(),
         timeout=30,
     )
-    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[union-attr]
+    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[method-assign,union-attr]
         id=label_id,
         name="Highly Confidential",
         description="Restricted",
@@ -173,7 +173,7 @@ def test_list_lakehouses_reads_sensitivity_label_from_items_get() -> None:
     client.include_sensitivity_labels = True
     called: list[tuple[str, object]] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append((endpoint, params))
         if endpoint == "workspaces/ws-1/lakehouses":
             return _json_response({"value": [{"id": "lh-1", "displayName": "Sales"}]})
@@ -197,7 +197,7 @@ def test_warehouse_without_label_uses_items_get() -> None:
     client.include_owners = True
     client.include_sensitivity_labels = True
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         if endpoint == "workspaces/ws-1/warehouses":
             return _json_response({"value": [{"id": "wh-1", "displayName": "Sales"}]})
         if endpoint == "workspaces/ws-1/warehouses/wh-1":
@@ -240,7 +240,7 @@ def test_lakehouse_glossary_term_description_comes_from_the_label() -> None:
         auth_helper=MagicMock(),
         timeout=30,
     )
-    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[union-attr]
+    emitter._resolver.resolve = lambda label_id: SensitivityLabel(  # type: ignore[method-assign,union-attr]
         id=label_id,
         name="Confidential",
         description="Secret data",

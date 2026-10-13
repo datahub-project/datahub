@@ -1,5 +1,6 @@
 """Warehouse table listing uses the OneLake catalog, not query history."""
 
+from typing import Optional
 from unittest.mock import MagicMock
 
 import requests
@@ -40,12 +41,17 @@ def test_list_warehouse_tables_uses_onelake_and_skips_system_schemas() -> None:
         ]
     }
 
-    def get(url: str, headers=None, params=None, timeout=None):
+    def get(
+        url: str,
+        headers: object = None,
+        params: object = None,
+        timeout: object = None,
+    ) -> MagicMock:
         if url.endswith("/schemas"):
             return schema_resp
         return table_resp
 
-    client._session.get.side_effect = get
+    client._session.get.side_effect = get  # type: ignore[attr-defined]
 
     tables = list(client.list_warehouse_tables("ws-1", "wh-1"))
 
@@ -56,7 +62,7 @@ def test_list_warehouse_tables_uses_onelake_and_skips_system_schemas() -> None:
     assert tables[0].description == "order facts"
     table_calls = [
         call
-        for call in client._session.get.call_args_list
+        for call in client._session.get.call_args_list  # type: ignore[attr-defined]
         if str(call.args[0]).endswith("/tables")
     ]
     assert len(table_calls) == 1
@@ -88,13 +94,19 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
     }
     requests_seen: list[dict] = []
 
-    def get(url: str, headers=None, params=None, timeout=None):
+    def get(
+        url: str,
+        headers: object = None,
+        params: Optional[dict] = None,
+        timeout: object = None,
+    ) -> MagicMock:
+        assert params is not None
         requests_seen.append(dict(params))
         if url.endswith("/schemas"):
             return schema_pages.pop(0)
         return table_pages[params["schema_name"]].pop(0)
 
-    client._session.get.side_effect = get
+    client._session.get.side_effect = get  # type: ignore[attr-defined]
 
     tables = list(client.list_warehouse_tables("ws-1", "wh-1"))
 
@@ -113,7 +125,7 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
 
 def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
     client = _client()
-    client._session.get.return_value = _page(
+    client._session.get.return_value = _page(  # type: ignore[attr-defined]
         {"schemas": [{"name": "dbo"}], "next_page_token": "same"}
     )
 
@@ -122,7 +134,7 @@ def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
     )
 
     assert schemas == ["dbo", "dbo"]
-    assert client._session.get.call_count == 2
+    assert client._session.get.call_count == 2  # type: ignore[attr-defined]
 
 
 def test_list_warehouse_tables_404_yields_nothing() -> None:
@@ -133,7 +145,7 @@ def test_list_warehouse_tables_404_yields_nothing() -> None:
     error = requests.exceptions.HTTPError(response=response)
     schema_resp = MagicMock()
     schema_resp.raise_for_status.side_effect = error
-    client._session.get.return_value = schema_resp
+    client._session.get.return_value = schema_resp  # type: ignore[attr-defined]
 
     assert list(client.list_warehouse_tables("ws-1", "wh-1")) == []
-    client.report.report_error.assert_not_called()
+    client.report.report_error.assert_not_called()  # type: ignore[attr-defined]

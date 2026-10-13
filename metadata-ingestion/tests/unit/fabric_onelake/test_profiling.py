@@ -69,8 +69,8 @@ def test_emit_dataset_profiles_uses_mssql_profiler_and_fabric_urn() -> None:
         "customerid"
     )
     assert len(workunits) == 1
-    assert workunits[0].metadata.aspect.rowCount == 4
-    assert workunits[0].metadata.entityUrn == (
+    assert workunits[0].metadata.aspect.rowCount == 4  # type: ignore[union-attr]
+    assert workunits[0].metadata.entityUrn == (  # type: ignore[union-attr]
         "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.wh-1.dbo.orders,PROD)"
     )
     assert report.entities_profiled == 1

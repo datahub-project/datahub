@@ -648,6 +648,9 @@ plugins: Dict[str, Set[str]] = {
     },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
+        # greenlet is imported directly by the SQLAlchemy profiler's
+        # query_combiner, which report.py pulls in at module import.
+        "greenlet<4.0.0",
         "pyodbc>=4.0,<6.0.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",

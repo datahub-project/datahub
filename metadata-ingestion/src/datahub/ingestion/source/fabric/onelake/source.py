@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset, parse_cll_mapping
 from datahub.sdk.entity import Entity
@@ -327,7 +328,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         user_principal_name: Optional[str],
         *,
         parent_user_principal_name: Optional[str] = None,
-    ):
+    ) -> Optional[list[tuple[CorpUserUrn, str]]]:
         """Owners for this entity, falling back to the parent when cascading."""
         if not self.config.extract_owners.enabled:
             return None

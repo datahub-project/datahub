@@ -10,6 +10,7 @@ from datahub.ingestion.source.fabric.common.models import (
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_workspace_name
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
 
 
@@ -32,7 +33,7 @@ def owners_from_user_principal_name(
     parent_user_principal_name: Optional[str] = None,
     ownership_type: str = "TECHNICAL_OWNER",
     cascade: bool = False,
-) -> Optional[List[Tuple[str, str]]]:
+) -> Optional[List[Tuple[CorpUserUrn, str]]]:
     """Return DataHub owners for a Fabric userPrincipalName.
 
     Uses the entity's own userPrincipalName. When that is missing and
@@ -45,7 +46,7 @@ def owners_from_user_principal_name(
         principal_name = parent_user_principal_name
     if not principal_name:
         return None
-    return [(principal_name, ownership_type)]
+    return [(CorpUserUrn(principal_name), ownership_type)]
 
 
 def make_workspace_key(

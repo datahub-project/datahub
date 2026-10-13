@@ -24,7 +24,7 @@ def test_list_lakehouses_reads_default_identity_upn() -> None:
     client = OneLakeClient.__new__(OneLakeClient)
     client.include_owners = True
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         if endpoint == "workspaces/ws-1/lakehouses":
             return _json_response({"value": [{"id": "lh-1", "displayName": "Sales"}]})
         assert endpoint == "workspaces/ws-1/items/lh-1"
@@ -50,7 +50,7 @@ def test_list_warehouses_reads_owner_from_warehouse_endpoint() -> None:
     client.include_owners = True
     called: list[str] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append(endpoint)
         if endpoint == "workspaces/ws-1/warehouses":
             return _json_response({"value": [{"id": "wh-1", "displayName": "Sales"}]})
@@ -78,7 +78,7 @@ def test_list_warehouses_reads_owner_from_admin_creator_principal() -> None:
     client.include_owners = True
     called: list[str] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append(endpoint)
         if endpoint == "workspaces/ws-1/warehouses":
             return _json_response({"value": [{"id": "wh-1", "displayName": "Sales"}]})
@@ -123,7 +123,7 @@ def test_list_notebooks_reads_default_identity_upn() -> None:
     client = OneLakeClient.__new__(OneLakeClient)
     client.include_owners = True
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         if endpoint == "workspaces/ws-1/notebooks":
             return _json_response(
                 {"value": [{"id": "nb-1", "displayName": "Explore", "folderId": None}]}
@@ -150,7 +150,7 @@ def test_list_notebooks_reads_owner_from_admin_creator_principal() -> None:
     client.include_owners = True
     called: list[str] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append(endpoint)
         if endpoint == "workspaces/ws-1/notebooks":
             return _json_response(
@@ -188,7 +188,7 @@ def test_service_principal_identity_is_not_replaced_by_the_creator() -> None:
     client.include_owners = True
     called: list[str] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append(endpoint)
         if endpoint == "workspaces/ws-1/notebooks":
             return _json_response(
@@ -210,7 +210,7 @@ def test_list_items_reads_default_identity_upn() -> None:
     client = FabricCoreClient.__new__(FabricCoreClient)
     client.include_owners = True
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         if endpoint == "workspaces/ws-1/items":
             return _json_response(
                 {
@@ -240,7 +240,7 @@ def test_failed_default_identity_lookup_still_lists_the_item() -> None:
     client = OneLakeClient.__new__(OneLakeClient)
     client.include_owners = True
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         if endpoint == "workspaces/ws-1/lakehouses":
             return _json_response({"value": [{"id": "lh-1", "displayName": "Sales"}]})
         raise RuntimeError("identity lookup failed")
@@ -258,7 +258,7 @@ def test_owner_lookup_skipped_when_disabled() -> None:
     client.include_owners = False
     called: list[str] = []
 
-    def get(endpoint: str, params=None):
+    def get(endpoint: str, params: object = None) -> MagicMock:
         called.append(endpoint)
         return _json_response({"value": [{"id": "lh-1", "displayName": "Sales"}]})
 
@@ -299,9 +299,9 @@ def test_lakehouse_container_owner_is_user_principal_name() -> None:
         )
     )
 
-    assert emitted[0].owners is not None
-    assert emitted[0].owners[0].owner == make_user_urn("jane.doe@contoso.com")
-    assert emitted[0].owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
+    assert emitted[0].owners is not None  # type: ignore[union-attr]
+    assert emitted[0].owners[0].owner == make_user_urn("jane.doe@contoso.com")  # type: ignore[union-attr]
+    assert emitted[0].owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER  # type: ignore[union-attr]
 
 
 def test_notebook_dataset_owner_is_user_principal_name() -> None:
@@ -461,6 +461,6 @@ def test_activity_inherits_pipeline_owner() -> None:
         )
     )
 
-    assert emitted[0].owners is not None
-    assert emitted[0].owners[0].owner == make_user_urn("jane.doe@contoso.com")
-    assert emitted[0].owners[0].type == OwnershipTypeClass.BUSINESS_OWNER
+    assert emitted[0].owners is not None  # type: ignore[union-attr]
+    assert emitted[0].owners[0].owner == make_user_urn("jane.doe@contoso.com")  # type: ignore[union-attr]
+    assert emitted[0].owners[0].type == OwnershipTypeClass.BUSINESS_OWNER  # type: ignore[union-attr]

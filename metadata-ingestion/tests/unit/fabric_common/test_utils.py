@@ -9,6 +9,7 @@ from datahub.ingestion.source.fabric.common.utils import (
     build_workspace_container,
     owners_from_user_principal_name,
 )
+from datahub.metadata.urns import CorpUserUrn
 
 
 def test_workspace_container_includes_external_url() -> None:
@@ -77,7 +78,7 @@ def test_default_identity_user_principal_name() -> None:
         == "identity@contoso.com"
     )
     assert owners_from_user_principal_name("jane.doe@contoso.com") == [
-        ("jane.doe@contoso.com", "TECHNICAL_OWNER")
+        (CorpUserUrn("jane.doe@contoso.com"), "TECHNICAL_OWNER")
     ]
     assert owners_from_user_principal_name(None) is None
     assert owners_from_user_principal_name(
@@ -85,13 +86,13 @@ def test_default_identity_user_principal_name() -> None:
         parent_user_principal_name="jane.doe@contoso.com",
         ownership_type="BUSINESS_OWNER",
         cascade=True,
-    ) == [("jane.doe@contoso.com", "BUSINESS_OWNER")]
+    ) == [(CorpUserUrn("jane.doe@contoso.com"), "BUSINESS_OWNER")]
     assert owners_from_user_principal_name(
         "child@contoso.com",
         parent_user_principal_name="jane.doe@contoso.com",
         ownership_type="DATA_STEWARD",
         cascade=True,
-    ) == [("child@contoso.com", "DATA_STEWARD")]
+    ) == [(CorpUserUrn("child@contoso.com"), "DATA_STEWARD")]
     assert (
         owners_from_user_principal_name(
             None,

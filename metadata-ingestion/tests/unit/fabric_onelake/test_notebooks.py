@@ -14,6 +14,7 @@ from datahub.ingestion.source.fabric.onelake.notebooks import (
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
 from datahub.metadata.schema_classes import SubTypesClass
+from datahub.sdk.dataset import Dataset
 
 
 def _definition(path: str, source: str) -> dict:
@@ -135,6 +136,7 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
 
     assert len(datasets) == 1
     dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
     assert dataset.display_name == "analysis"
     assert dataset.external_url == (
         "https://app.fabric.microsoft.com/groups/ws-1/synapsenotebooks/nb-1"
@@ -168,5 +170,7 @@ def test_definition_failure_still_emits_notebook() -> None:
     datasets = list(FabricOneLakeSource._process_notebooks(source, workspace))
 
     assert len(datasets) == 1
-    assert datasets[0].custom_properties == {"path": "/Shared/analysis"}
+    dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
+    assert dataset.custom_properties == {"path": "/Shared/analysis"}
     assert source.report.notebooks_scanned == 1
