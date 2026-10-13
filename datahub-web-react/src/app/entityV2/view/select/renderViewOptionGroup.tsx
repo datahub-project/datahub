@@ -18,6 +18,7 @@ type Args = {
     setHoverViewUrn: (viewUrn: string) => void;
     onClickEditView: (view: DataHubView) => void;
     onClickPreviewView: (view: DataHubView) => void;
+    onClickDeleteView: (view: DataHubView) => void;
     onClickClear: () => void;
     onSelectView: (newURn: string) => void;
 };
@@ -33,6 +34,7 @@ export const renderViewOptionGroup = ({
     setHoverViewUrn,
     onClickEditView,
     onClickPreviewView,
+    onClickDeleteView,
     onClickClear,
     onSelectView,
 }: Args) => {
@@ -58,6 +60,7 @@ export const renderViewOptionGroup = ({
                 isGlobalDefault={view.urn === maybeGlobalDefaultViewUrn}
                 onClickEdit={() => onClickEditView(view)}
                 onClickPreview={() => onClickPreviewView(view)}
+                onClickDelete={() => onClickDeleteView(view)}
                 onClickClear={onClickClear}
                 selectView={() => onSelectView(view.urn)}
                 fixedWidth={fixedWidth}

@@ -61,6 +61,7 @@ export default function ViewsExternalDropdownContent({ className }: Props) {
         setHoverViewUrn,
         onClickEditView,
         onClickPreviewView,
+        onClickDeleteView,
         onClear,
         onSelectView,
         publicViewCount,
@@ -105,6 +106,7 @@ export default function ViewsExternalDropdownContent({ className }: Props) {
                             setHoverViewUrn,
                             onClickEditView,
                             onClickPreviewView,
+                            onClickDeleteView,
                             onClickClear: onClear,
                             onSelectView,
                         })}
@@ -120,6 +122,7 @@ export default function ViewsExternalDropdownContent({ className }: Props) {
                             setHoverViewUrn,
                             onClickEditView,
                             onClickPreviewView,
+                            onClickDeleteView,
                             onClickClear: onClear,
                             onSelectView,
                         })}

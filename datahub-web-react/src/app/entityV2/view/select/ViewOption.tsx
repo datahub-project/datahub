@@ -71,6 +71,7 @@ type Props = {
     scrollToRef?: any;
     onClickEdit: () => void;
     onClickPreview: () => void;
+    onClickDelete: () => void;
     onClickClear: () => void;
     selectView: () => void;
     fixedWidth?: boolean;
@@ -86,6 +87,7 @@ export const ViewOption = ({
     scrollToRef,
     onClickEdit,
     onClickPreview,
+    onClickDelete,
     onClickClear,
     selectView,
     fixedWidth,
@@ -114,6 +116,7 @@ export const ViewOption = ({
                     visible={showOptions}
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
+                    onClickDelete={onClickDelete}
                     selected={selectedUrn}
                     selectView={selectView}
                     fixedWidth={fixedWidth}
