@@ -487,7 +487,8 @@ databricks = {
     "requests<3.0.0",
 }
 
-mysql = {"pymysql>=1.0.2,<2.0.0"}
+# [rsa] pulls cryptography, needed for MySQL 8 caching_sha2_password full auth.
+mysql = {"pymysql[rsa]>=1.0.2,<2.0.0"}
 mysql_common = sql_common | mysql | aws_common
 
 sac = {
@@ -746,7 +747,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "psycopg2-binary<3.0.0",
-        "pymysql>=1.0.2,<2.0.0",
+        "pymysql[rsa]>=1.0.2,<2.0.0",
         "pymetastore>=0.4.2,<1.0.0",
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
@@ -810,7 +811,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "psycopg2-binary<3.0.0",
-        "pymysql>=1.0.2,<2.0.0",
+        "pymysql[rsa]>=1.0.2,<2.0.0",
         "pymetastore>=0.4.2,<1.0.0",
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
