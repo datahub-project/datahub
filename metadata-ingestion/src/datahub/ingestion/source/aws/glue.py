@@ -1746,12 +1746,19 @@ class GlueSource(StatefulIngestionSourceBase):
                         context=f"{database_name}.{table.get('Name')}",
                     )
                     continue
+                # Capture the owner identity before the table is re-keyed below: the table's own
+                # CatalogId/DatabaseName are the owner's and are the fallback when TargetDatabase
+                # omits them.
+                owner_catalog_id = target_database.get("CatalogId") or table.get(
+                    "CatalogId"
+                )
+                owner_database_name = target_database.get("DatabaseName") or table.get(
+                    "DatabaseName"
+                )
                 if "TargetTable" not in table:
                     table["TargetTable"] = {
-                        "CatalogId": target_database.get("CatalogId")
-                        or table.get("CatalogId"),
-                        "DatabaseName": target_database.get("DatabaseName")
-                        or table.get("DatabaseName"),
+                        "CatalogId": owner_catalog_id,
+                        "DatabaseName": owner_database_name,
                         "Name": table["Name"],
                     }
                 table["DatabaseName"] = database["Name"]

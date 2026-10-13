@@ -1604,6 +1604,34 @@ def test_database_resource_link_without_link_catalog_id_is_skipped():
     ]
 
 
+@pytest.mark.parametrize("missing_key", ["CatalogId", "DatabaseName"])
+def test_database_resource_link_target_falls_back_to_owner_table_identity(
+    missing_key: str,
+) -> None:
+    # When TargetDatabase omits a field, the owner's value comes from the table as Glue returned
+    # it. It must be read before the table is re-keyed to the link, or the owner would resolve
+    # to the link itself.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
+
+    source, tables, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        databases_response=databases_response,
+    )
+
+    assert tables[0]["TargetTable"] == {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    }
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+    assert source.report.num_resource_link_self_referential == 0
+
+
 def test_database_resource_link_preserves_existing_target_table():
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     explicit_target = {
