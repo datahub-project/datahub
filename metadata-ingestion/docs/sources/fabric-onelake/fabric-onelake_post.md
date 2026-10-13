@@ -344,7 +344,7 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
-### Shortcuts
+#### Shortcuts
 
 Shortcut detection is enabled by default (`shortcuts.enabled`). Each lakehouse is checked against the [OneLake Shortcuts API](https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/list-shortcuts). Shortcuts whose path is under `Tables` are matched to ingested tables. Those tables are tagged `shortcut` and receive these custom properties:
 
@@ -361,7 +361,7 @@ Display names are resolved once per workspace and item. If the caller cannot rea
 
 `shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`). When that origin table is ingested in the same run and both tables have schema, each shortcut column is linked to the origin column of the same name. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
 
-### Notebooks
+#### Notebooks
 
 Notebook ingestion is off by default. Set `include_notebooks: true` to ingest each workspace notebook as a dataset with subtype Notebook, the same representation the Databricks Unity Catalog source uses.
 
@@ -371,7 +371,7 @@ For each notebook that passes the pattern, the connector calls `POST /workspaces
 
 The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
-### Profiling
+#### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
 
