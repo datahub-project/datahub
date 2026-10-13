@@ -331,7 +331,10 @@ class FabricOneLakeSourceConfig(
 
     @model_validator(mode="after")
     def pass_profile_pattern_to_profiling(self):
-        """Column filters inside the SQL profiler read `profiling._allow_deny_patterns`."""
-        if self.profiling.enabled:
-            self.profiling._allow_deny_patterns = self.profile_pattern
+        """Column filters inside the SQL profiler read `profiling._allow_deny_patterns`.
+
+        Copy the pattern even when profiling is disabled. An env override can
+        turn profiling on after this validator has already run.
+        """
+        self.profiling._allow_deny_patterns = self.profile_pattern
         return self

@@ -228,6 +228,21 @@ class TestSqlEndpointDependencyValidator:
         assert config.profiling._allow_deny_patterns.allow == ["dbo.orders"]
         assert config.is_profiling_enabled()
 
+    def test_profile_pattern_is_passed_when_profiling_is_disabled(self) -> None:
+        pattern = AllowDenyPattern(allow=["dbo.orders"])
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            extract_views=False,
+            extract_schema=ExtractSchemaConfig(enabled=False),
+            usage=FabricUsageConfig(include_usage_statistics=False),
+            profile_pattern=pattern,
+            profiling=ProfilingConfig(enabled=False),
+        )
+        assert not config.profiling.enabled
+        assert config.profiling._allow_deny_patterns.allow == ["dbo.orders"]
+        config.profiling.enabled = True
+        assert config.profiling._allow_deny_patterns.allow == ["dbo.orders"]
+
     def test_usage_requires_enabled_sql_endpoint(self) -> None:
         with pytest.raises(ValidationError, match="usage.include_usage_statistics"):
             FabricOneLakeSourceConfig(

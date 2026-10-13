@@ -146,3 +146,58 @@ def test_failed_profile_does_not_count_as_profiled() -> None:
 
     assert workunits == []
     assert report.entities_profiled == 0
+
+
+def test_profiler_failure_warns_and_keeps_earlier_profiles() -> None:
+    report = FabricOneLakeSourceReport()
+    targets = [
+        FabricProfileTarget(
+            schema_name="dbo",
+            table_name="orders",
+            dataset_name="ws-1.wh-1.dbo.orders",
+        ),
+        FabricProfileTarget(
+            schema_name="dbo",
+            table_name="customers",
+            dataset_name="ws-1.wh-1.dbo.customers",
+        ),
+    ]
+    profile = DatasetProfileClass(timestampMillis=1, rowCount=4)
+
+    def _generate(requests, max_workers, platform=None, profiler_args=None):
+        yield requests[0], profile
+        raise RuntimeError("query combiner failed")
+
+    profiler = MagicMock()
+    profiler.generate_profiles.side_effect = _generate
+    profiler_cls = MagicMock(return_value=profiler)
+    fake_module = types.ModuleType(
+        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+    )
+    fake_module.SQLAlchemyProfiler = profiler_cls  # type: ignore[attr-defined]
+    module_name = fake_module.__name__
+    previous = sys.modules.get(module_name)
+    sys.modules[module_name] = fake_module
+    try:
+        workunits = list(
+            emit_dataset_profiles(
+                engine=MagicMock(),
+                report=report,
+                profiling=ProfilingConfig(enabled=True),
+                profile_pattern=AllowDenyPattern.allow_all(),
+                targets=targets,
+                platform="fabric-onelake",
+                env="PROD",
+                platform_instance=None,
+                field_path_transform=lambda name: name,
+            )
+        )
+    finally:
+        if previous is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+
+    assert len(workunits) == 1
+    assert report.entities_profiled == 1
+    assert [w.title for w in report.warnings] == ["Profiling Failed"]
