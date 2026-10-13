@@ -100,7 +100,7 @@ and our copy lacks becomes a `NoSuchMethodError` in production. Before carrying 
 upgrade, check that upstream still lacks the behaviour.
 
 **Removed customizations.** These were deleted in
-[#20420](https://github.com/datahub-project/datahub/pull/20420) because upstream OpenLineage already
+[#20412](https://github.com/datahub-project/datahub/pull/20412) because upstream OpenLineage already
 covers them, or they never ran. Do not re-vendor them on an upgrade:
 
 | Removed                                                                      | Why it was redundant                                                                                                                                                                                                               |
