@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
-from datahub.ingestion.source.fabric.common.models import FabricItem, FabricWorkspace
+from datahub.ingestion.source.fabric.common.models import (
+    FabricItem,
+    FabricWorkspace,
+    WorkspaceKey,
+)
 from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
 from datahub.ingestion.source.fabric.data_factory.source import FabricDataFactorySource
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
@@ -12,6 +16,7 @@ from datahub.ingestion.source.fabric.onelake.models import FabricLakehouse, Fabr
 from datahub.ingestion.source.fabric.onelake.notebooks import FabricNotebook
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
 from datahub.metadata.schema_classes import OwnershipTypeClass
+from datahub.sdk.dataflow import DataFlow
 
 
 def _json_response(payload: dict) -> MagicMock:
@@ -430,9 +435,6 @@ def test_schema_and_table_stay_unowned_when_ownership_is_disabled() -> None:
 
 
 def test_activity_inherits_pipeline_owner() -> None:
-    from datahub.ingestion.source.fabric.common.models import WorkspaceKey
-    from datahub.sdk.dataflow import DataFlow
-
     source = FabricDataFactorySource.__new__(FabricDataFactorySource)
     source.config = MagicMock()
     source.config.extract_owners.enabled = True

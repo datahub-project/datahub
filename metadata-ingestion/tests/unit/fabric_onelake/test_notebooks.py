@@ -7,6 +7,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
+from datahub.ingestion.source.fabric.onelake import client as client_module
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.notebooks import (
     FabricNotebook,
@@ -86,8 +87,6 @@ def test_get_notebook_definition_polls_long_running_operation() -> None:
     client.post = MagicMock(return_value=accepted)  # type: ignore[method-assign]
     client.get = MagicMock(side_effect=[running, succeeded, result])  # type: ignore[method-assign]
     client_module_sleep = MagicMock()
-
-    import datahub.ingestion.source.fabric.onelake.client as client_module
 
     original_sleep = client_module.time.sleep
     client_module.time.sleep = client_module_sleep
