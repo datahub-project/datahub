@@ -68,7 +68,7 @@
     "dataProduct.namePlural": "Datatuotteet",
     "dataProduct.newDataProduct": "Uusi datatuote",
     "dataProduct.noDataProductsEmpty": "Ei datatuotteita",
-    "dataProduct.outputPortsCountTitle": "Tulostusportit ({{count}})",
+    "dataProduct.outputPortsCountTitle": "Lähtöportit ({{count}})",
     "dataProduct.searchPlaceholder": "Hae datatuotteita...",
     "dataProduct.updateError": "Datatuotteen päivittäminen epäonnistui. Tapahtui odottamaton virhe",
     "dataProduct.updateSuccess": "Datatuote päivitetty!",

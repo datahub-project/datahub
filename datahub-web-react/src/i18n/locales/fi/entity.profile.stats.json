@@ -100,7 +100,7 @@
     "profileScope.fullTable": "Laskettu koko taulusta",
     "profileScope.partition": "Laskettu osiosta {{detail}}",
     "profileScope.partitionUnknown": "Laskettu osiosta",
-    "profileScope.query": "Laskettu lähteestä: {{detail}}",
+    "profileScope.query": "Laskettu kyselystä: {{detail}}",
     "profileScope.queryUnknown": "Laskettu kyselystä",
     "profileScope.short.fullTable": "Koko taulu",
     "profileScope.short.partition": "Osio {{detail}}",
