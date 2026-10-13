@@ -31,13 +31,14 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(context.getOperationContext(), urn);
+              final var references =
+                  _entityClient.deleteEntityThenReferences(context.getOperationContext(), urn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(
