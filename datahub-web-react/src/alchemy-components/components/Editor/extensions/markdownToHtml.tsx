@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 
 import { FILE_ATTRS, isFileUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
-import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
+import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
 
 function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

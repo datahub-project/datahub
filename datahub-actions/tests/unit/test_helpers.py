@@ -217,6 +217,9 @@ class StoppableEventSource(EventSource):
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
         pass
 
+    def request_stop(self) -> None:
+        self.stopped = True
+
     def close(self) -> None:
         self.stopped = True
 

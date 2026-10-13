@@ -34,7 +34,8 @@ const EditorContainer = styled.div`
     flex: 1;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 10px;
         min-height: 150px;
     }
