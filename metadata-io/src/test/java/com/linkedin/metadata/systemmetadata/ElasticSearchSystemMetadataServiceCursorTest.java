@@ -21,6 +21,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -66,8 +67,10 @@ public class ElasticSearchSystemMetadataServiceCursorTest {
 
   @Test
   public void testFindByRunIdAfter_ReturnsEmptyListWhenNoRowsMatch() {
+    // Built before when(...): creating and stubbing mocks inside thenReturn is unfinished stubbing.
+    SearchResponse noHits = responseWithNoHits();
     when(mockDao.scroll(any(), any(), eq(true), any(), isNull(), isNull(), eq(PAGE_SIZE)))
-        .thenReturn(responseWithNoHits());
+        .thenReturn(noHits);
 
     List<AspectRowSummary> rows =
         service.findByRunIdAfter(opContext, RUN_ID, true, null, PAGE_SIZE);
@@ -77,8 +80,10 @@ public class ElasticSearchSystemMetadataServiceCursorTest {
 
   @Test
   public void testFindByRunIdAfter_FirstPageStartsWithoutCursor() {
+    // Built before when(...): creating and stubbing mocks inside thenReturn is unfinished stubbing.
+    SearchResponse noHits = responseWithNoHits();
     when(mockDao.scroll(any(), any(), eq(true), any(), isNull(), isNull(), eq(PAGE_SIZE)))
-        .thenReturn(responseWithNoHits());
+        .thenReturn(noHits);
 
     service.findByRunIdAfter(opContext, RUN_ID, true, null, PAGE_SIZE);
 
@@ -97,8 +102,10 @@ public class ElasticSearchSystemMetadataServiceCursorTest {
 
   @Test
   public void testFindByRunIdAfter_ContinuesAfterTheGivenRow() {
+    // Built before when(...): creating and stubbing mocks inside thenReturn is unfinished stubbing.
+    SearchResponse noHits = responseWithNoHits();
     when(mockDao.scroll(any(), any(), eq(true), any(), isNull(), isNull(), eq(PAGE_SIZE)))
-        .thenReturn(responseWithNoHits());
+        .thenReturn(noHits);
     AspectRowSummary after = new AspectRowSummary();
     after.setUrn("urn:li:dataset:(urn:li:dataPlatform:hive,after-dataset,PROD)");
     after.setAspectName("datasetProperties");
@@ -123,10 +130,10 @@ public class ElasticSearchSystemMetadataServiceCursorTest {
   }
 
   private static SearchResponse responseWithNoHits() {
-    SearchHits hits = mock(SearchHits.class);
-    when(hits.getHits()).thenReturn(new SearchHit[0]);
     SearchResponse response = mock(SearchResponse.class);
-    when(response.getHits()).thenReturn(hits);
+    when(response.getHits())
+        .thenReturn(
+            new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 0f));
     return response;
   }
 }
