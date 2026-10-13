@@ -152,6 +152,16 @@ class Schema(CommonProperty):
 
 
 @dataclass
+class Volume(CommonProperty):
+    schema: Schema
+    volume_type: Optional[str]
+    storage_location: Optional[str]
+    owner: Optional[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+
+@dataclass
 class Column(CommonProperty):
     type_text: str
     type_name: Optional[ColumnTypeName]
