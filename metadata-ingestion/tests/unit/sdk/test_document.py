@@ -9,9 +9,13 @@ and example scripts. They cover:
 - All property getters and setters
 """
 
+import json
+from typing import Any, Dict
+
 import pytest
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import CorpUserUrn, DocumentUrn
 from datahub.sdk.document import Document
@@ -1065,3 +1069,89 @@ class TestDocumentExternalUrlValidation:
                 platform="notion",
                 external_url="notion.so/page/123",  # Missing https://
             )
+
+
+class TestDocumentInfoPatch:
+    """Emitting documentInfo as a patch, keeping user-added related entities."""
+
+    DATASET = "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)"
+
+    @staticmethod
+    def _external_doc(**kwargs: Any) -> Document:
+        return Document.create_external_document(
+            id="handbook",
+            title="Handbook",
+            platform="urn:li:dataPlatform:notion",
+            external_url="https://notion.so/handbook",
+            external_id="abc123",
+            text="Welcome",
+            custom_properties={"space": "ENG"},
+            **kwargs,
+        )
+
+    @staticmethod
+    def _ops_by_path(doc: Document) -> Dict[str, dict]:
+        patch_mcps = [
+            wu.metadata
+            for wu in doc.as_workunits(patch_document_info=True)
+            if isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        ]
+        assert len(patch_mcps) == 1
+        mcp = patch_mcps[0]
+        assert mcp.changeType == models.ChangeTypeClass.PATCH
+        assert mcp.aspectName == models.DocumentInfoClass.ASPECT_NAME
+        assert mcp.aspect is not None
+        return {op["path"]: op for op in json.loads(mcp.aspect.value)}
+
+    def test_document_info_is_patched_and_other_aspects_upserted(self):
+        doc = self._external_doc(subtype="Page")
+
+        workunits = doc.as_workunits(patch_document_info=True)
+
+        upserted = {
+            wu.metadata.aspectName
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }
+        assert models.DocumentInfoClass.ASPECT_NAME not in upserted
+        assert models.SubTypesClass.ASPECT_NAME in upserted
+        # documentInfo keeps its place in the stream, ahead of the other aspects.
+        assert isinstance(workunits[0].metadata, models.MetadataChangeProposalClass)
+        assert len({wu.id for wu in workunits}) == len(workunits)
+
+    def test_patch_carries_the_fields_the_source_owns(self):
+        ops = self._ops_by_path(
+            self._external_doc(
+                parent_document="urn:li:document:root",
+                related_assets=[self.DATASET],
+            )
+        )
+
+        assert ops["/title"]["value"] == "Handbook"
+        assert ops["/contents"]["value"] == {"text": "Welcome"}
+        assert ops["/source"]["value"]["externalId"] == "abc123"
+        assert ops["/status"]["op"] == "add"
+        assert "/created" in ops and "/lastModified" in ops
+        assert ops["/customProperties"]["value"] == {"space": "ENG"}
+        assert ops["/parentDocument"]["value"] == {"document": "urn:li:document:root"}
+        # Added by key, so related assets users added are left alone.
+        assert ops["/relatedAssets/" + self.DATASET]["value"] == {"asset": self.DATASET}
+        assert "/relatedAssets" not in ops
+        assert "/relatedDocuments" not in ops
+
+    def test_missing_parent_is_removed(self):
+        ops = self._ops_by_path(self._external_doc())
+
+        assert ops["/parentDocument"]["op"] == "remove"
+
+    def test_default_still_upserts_document_info(self):
+        workunits = self._external_doc().as_workunits()
+
+        assert all(
+            isinstance(wu.metadata, MetadataChangeProposalWrapper) for wu in workunits
+        )
+        assert models.DocumentInfoClass.ASPECT_NAME in {
+            wu.metadata.aspectName
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }

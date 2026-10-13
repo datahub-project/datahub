@@ -31,6 +31,9 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.source.common.document_info_patch import (
+    supports_document_info_patch,
+)
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
@@ -139,6 +142,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
         self._soft_deleted_cache: Optional[Set[str]] = None
+        self.patch_document_info = supports_document_info_patch(ctx.graph)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -254,7 +258,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._source_id_to_urn[source_id] = str(doc.urn)
         self._attach_browse_path(doc, source_id)
         self.report.folders_processed += 1
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
 
     def _emit_folder_document(
         self,
@@ -313,7 +317,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._source_id_to_urn[dir_source_id] = str(doc.urn)
         self._attach_browse_path(doc, dir_source_id)
         self.report.folders_processed += 1
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
 
     def _emit_file_document(
         self,
@@ -383,7 +387,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._source_id_to_urn[source_id] = str(doc.urn)
         self._attach_browse_path(doc, source_id)
         self.report.files_processed += 1
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
 
     def _should_skip_unchanged_file(self, document_urn: str, content_hash: str) -> bool:
         if not self.ctx.graph:

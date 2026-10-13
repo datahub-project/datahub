@@ -31,6 +31,9 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.document_info_patch import (
+    supports_document_info_patch,
+)
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
@@ -233,6 +236,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
         )
         self._ingest_fingerprint = self._compute_ingest_fingerprint()
+        self.patch_document_info = supports_document_info_patch(ctx.graph)
         instance = config.platform_instance
         # Owners this connector writes carry this source, so later runs can update or
         # remove them without touching owners added in DataHub.
@@ -489,7 +493,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         )
         self._attach_common_aspects(doc, parent_folder, tree)
         self.report.folders_emitted += 1
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
 
     def _process_document(
         self, ref: DocumentRef, tree: DriveTree, stored: Optional[StoredDocument]
@@ -558,7 +562,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         )
         self._attach_common_aspects(doc, folder, tree)
         self.report.documents_emitted += 1
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
         yield from self._ownership_workunits(urn, file, stored)
         yield from embedded.workunits
         if embedded.limit_error is not None:

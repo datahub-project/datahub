@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.filters import RemovedStatusFilter
@@ -25,11 +26,14 @@ from datahub.ingestion.source.github_documents.github_documents_source import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
+    ChangeTypeClass,
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentSourceTypeClass,
+    MetadataChangeProposalClass,
     StatusClass,
 )
+from datahub.utilities.server_config_util import RestServiceConfig
 
 
 def _entity_urns_by_source_id(workunits: list) -> dict[str, str]:
@@ -1273,3 +1277,43 @@ def test_existing_folder_document_does_not_overwrite_body(
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == existing_urn
     ]
     assert any(status is not None and status.removed is False for status in statuses)
+
+
+@pytest.mark.parametrize("server_supports_patch", [True, False])
+def test_document_info_is_patched_when_the_server_supports_it(
+    server_supports_patch: bool,
+) -> None:
+    graph = MagicMock()
+    graph.server_config = RestServiceConfig(
+        raw_config={"documentInfoPatchCapable": server_supports_patch}
+    )
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.return_value = None
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+    )
+    source = GitHubDocumentsSource(
+        config, PipelineContext(run_id="test-run", graph=graph)
+    )
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        file_content="# Hello",
+    )
+
+    document_info_change_types = {
+        wu.metadata.changeType
+        for wu in source.get_workunits_internal()
+        if isinstance(wu, MetadataWorkUnit)
+        and isinstance(
+            wu.metadata, (MetadataChangeProposalClass, MetadataChangeProposalWrapper)
+        )
+        and wu.metadata.aspectName == DocumentInfoClass.ASPECT_NAME
+    }
+
+    expected = (
+        ChangeTypeClass.PATCH if server_supports_patch else ChangeTypeClass.UPSERT
+    )
+    assert document_info_change_types == {expected}

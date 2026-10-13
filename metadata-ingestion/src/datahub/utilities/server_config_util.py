@@ -39,6 +39,9 @@ class ServiceFeature(Enum):
     # entityTypes). Version-gated on managed servers; OSS is recipe-driven, so no
     # "core" requirement is defined (supports_feature returns False for core).
     SEMANTIC_MODEL_ENTITIES = "semantic_model_entities"
+    # Server has a patch template for documentInfo, so ingestion can update a
+    # Document without overwriting related entities that users added.
+    DOCUMENT_INFO_PATCH = "document_info_patch"
     # Add more features as needed
 
 
@@ -238,6 +241,9 @@ class RestServiceConfig:
             ),
             ServiceFeature.PATCH_CAPABLE: lambda: (
                 self.raw_config.get("patchCapable", False) is True
+            ),
+            ServiceFeature.DOCUMENT_INFO_PATCH: lambda: (
+                self.raw_config.get("documentInfoPatchCapable", False) is True
             ),
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.raw_config.get("telemetry") or {}
