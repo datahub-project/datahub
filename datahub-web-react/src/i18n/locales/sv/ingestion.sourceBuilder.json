@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Fortsätt konfigurationen",
     "multiStep.builder.discard.description": "Om du avslutar nu förkastas din konfiguration. Du kan fortsätta konfigurationen eller avsluta och börja om senare",
     "multiStep.builder.discard.title": "Du har osparade ändringar",
-    "multiStep.chat.placeholder": "Platshållare för AI-chatt",
     "multiStep.connection.addOwners": "Lägg till ägare",
     "multiStep.connection.advancedSettings": "Avancerade inställningar",
     "multiStep.connection.cannotChangeSourceType": "Det går inte att ändra källtyp för en befintlig Ingestion-källa",

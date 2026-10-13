@@ -41,12 +41,13 @@ public class DeleteFormResolver implements DataFetcher<CompletableFuture<Boolean
             if (!AuthorizationUtils.canManageForms(context)) {
               throw new AuthorizationException("Unable to delete form. Please contact your admin.");
             }
-            _entityClient.deleteEntity(context.getOperationContext(), formUrn);
+            final var references =
+                _entityClient.deleteEntityThenReferences(context.getOperationContext(), formUrn);
             // Asynchronously Delete all references to the entity (to return quickly)
             CompletableFuture.runAsync(
                 () -> {
                   try {
-                    _entityClient.deleteEntityReferences(context.getOperationContext(), formUrn);
+                    references.run();
                   } catch (Exception e) {
                     log.error(
                         String.format(

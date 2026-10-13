@@ -5,7 +5,7 @@ x-primary-datastore-mysql-env: &primary-datastore-mysql-env
   EBEAN_DATASOURCE_USERNAME: ${DATAHUB_EBEAN_DATASOURCE_ROOT_USERNAME:-root}
   EBEAN_DATASOURCE_PASSWORD: ${DATAHUB_EBEAN_DATASOURCE_ROOT_PASSWORD:-datahub}
   EBEAN_DATASOURCE_HOST: mysql:3306
-  EBEAN_DATASOURCE_URL: 'jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2'
+  EBEAN_DATASOURCE_URL: 'jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&rewriteBatchedStatements=true&enabledTLSProtocols=TLSv1.2'
   EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
 
 x-primary-datastore-postgres-env: &primary-datastore-postgres-env

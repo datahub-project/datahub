@@ -252,8 +252,9 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                 getBulkProcessor(),
                 SearchWriteAccess.fixed(getBulkProcessor())));
     // No document title equals the query: an exact title match scores in a keyword tier of its own,
-    // which the vector score does not lift a document over. Each keyword match leads through a
-    // title that holds the query word; that lead is small next to the vectors, which decide
+    // which the vector score does not lift a document over. The keyword match whose rank an
+    // assertion relies on leads through a title that holds the query word; that lead is small
+    // next to the vectors, which decide
     Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
     batch.put(
         FAR_DOCUMENT,
