@@ -652,6 +652,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Filter jobs by job_id_pattern and optionally by generate_docs
         filtered_job_ids: List[int] = []
+        pattern_matched_jobs = 0
         for job in all_jobs:
             passes_docs_check = (
                 not self.config.auto_discovery.require_generate_docs
@@ -661,6 +662,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 str(job.id)
             )
 
+            if passes_pattern_check:
+                pattern_matched_jobs += 1
             if passes_docs_check and passes_pattern_check:
                 filtered_job_ids.append(job.id)
             else:
@@ -686,6 +689,31 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     context=f"job_id={job.id}, account_id={self.config.account_id}, project_id={self.config.project_id}, environment_id={production_env.id}, reason={reason_str}",
                 )
 
+        if not filtered_job_ids:
+            # Empty here means one of: no jobs at all, none match the pattern,
+            # or every pattern-matched job lacks "Generate docs on run".
+            if not all_jobs:
+                message = (
+                    f"No jobs found in production environment {production_env.id}. "
+                    "Check that the environment has jobs and that the token can see them."
+                )
+            elif not pattern_matched_jobs:
+                message = "No job in the production environment matches auto_discovery.job_id_pattern."
+            else:
+                message = (
+                    "Every job matching auto_discovery.job_id_pattern has "
+                    '"Generate docs on run" turned off, and auto_discovery.require_generate_docs '
+                    "is enabled."
+                )
+            self.report.failure(
+                title="No dbt Cloud jobs discovered",
+                message=f"{message} Nothing was ingested.",
+                context=f"account_id={self.config.account_id}, "
+                f"project_id={self.config.project_id}, "
+                f"environment_id={production_env.id}, "
+                f"jobs_retrieved={len(all_jobs)}",
+            )
+
         logger.info(
             f"Auto-discovery completed: found {len(filtered_job_ids)} jobs to ingest for project {self.config.project_id}"
         )
@@ -707,7 +735,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.info("Auto-discovery mode: discovering jobs for configured project")
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
-                logger.warning("No jobs discovered in auto-discovery mode")
                 return [], []
             run_id = None  # Always use latest run in auto-discovery
         else:
