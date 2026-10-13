@@ -85,6 +85,7 @@ from datahub.ingestion.source.fabric.onelake.notebooks import (
     FabricNotebook,
     decode_notebook_definition,
     notebook_path,
+    notebook_view_logic,
 )
 from datahub.ingestion.source.fabric.onelake.profiling import (
     FabricProfileTarget,
@@ -117,8 +118,10 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DatasetLineageTypeClass,
     MetadataChangeProposalClass,
+    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
@@ -723,12 +726,35 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         content: Optional[str],
         language: Optional[str],
     ) -> Dataset:
-        """Create a notebook dataset, including decoded fabricGitSource contents."""
+        """Create a notebook dataset carrying its code as a view definition.
+
+        The notebook is dual-subtyped View + Notebook (mirroring how Tableau
+        models Custom SQL): the decoded source is stored as the view definition
+        so the UI renders it in the first-class "View Definition" tab. Lineage
+        is NOT attached here — it lives on the notebook's DataJob, where it can
+        accumulate across partial runs. ``parse_view_lineage`` is therefore off.
+        """
         custom_properties = {"path": path}
         if language:
             custom_properties["language"] = language
-        if content:
-            custom_properties["content"] = content
+
+        # The view definition is the notebook's code split into cells with the
+        # Fabric metadata scaffolding stripped (see notebook_view_logic).
+        view_logic = notebook_view_logic(content, language)
+
+        # A View with no logic would be misleading; only dual-subtype as a View
+        # when the source was actually decoded.
+        subtypes: list[str]
+        if view_logic:
+            subtypes = [DatasetSubTypes.VIEW, DatasetSubTypes.NOTEBOOK]
+            view_definition: Optional[ViewPropertiesClass] = ViewPropertiesClass(
+                materialized=False,
+                viewLanguage=language.upper() if language else "UNKNOWN",
+                viewLogic=view_logic,
+            )
+        else:
+            subtypes = [DatasetSubTypes.NOTEBOOK]
+            view_definition = None
 
         return Dataset(
             platform=PLATFORM,
@@ -742,12 +768,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 env=self.config.env,
                 workspace_id=workspace.id,
             ),
-            subtype=DatasetSubTypes.NOTEBOOK,
+            view_definition=view_definition,
+            parse_view_lineage=False,
             external_url=(
                 f"{FABRIC_APP_BASE_URL}/groups/{workspace.id}"
                 f"/synapsenotebooks/{notebook.id}"
             ),
             custom_properties=custom_properties,
+            extra_aspects=[SubTypesClass(typeNames=subtypes)],
             owners=self._owners(notebook.owner_user_principal_name),
         )
 
