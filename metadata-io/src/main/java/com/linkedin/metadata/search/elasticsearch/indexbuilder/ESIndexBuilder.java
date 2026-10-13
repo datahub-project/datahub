@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
@@ -139,7 +140,12 @@ public class ESIndexBuilder {
 
   @Getter @VisibleForTesting private final StructuredPropertiesConfiguration structPropConfig;
 
-  @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
+  /**
+   * Per-index settings overrides. Values are strings for flat settings (e.g. {@code
+   * number_of_shards}) or nested maps for grouped settings such as {@code analysis}; nested maps
+   * are deep-merged into the generated settings, see {@link #mergeSettings}.
+   */
+  @Getter private final Map<String, Map<String, Object>> indexSettingOverrides;
 
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
@@ -167,13 +173,15 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration elasticSearchConfiguration,
       StructuredPropertiesConfiguration structuredPropertiesConfiguration,
-      Map<String, Map<String, String>> indexSettingOverrides,
+      Map<String, ? extends Map<String, ?>> indexSettingOverrides,
       GitVersion gitVersion) {
     this.searchClient = searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
     this.structPropConfig = structuredPropertiesConfiguration;
-    this.indexSettingOverrides = indexSettingOverrides;
+    Map<String, Map<String, Object>> overrides = new HashMap<>();
+    indexSettingOverrides.forEach((index, value) -> overrides.put(index, new HashMap<>(value)));
+    this.indexSettingOverrides = overrides;
     this.gitVersion = gitVersion;
 
     BuildIndicesConfiguration buildIndices =
@@ -403,20 +411,43 @@ public class ESIndexBuilder {
                     && structPropConfig.isSystemUpdateEnabled()
                     && structPropConfig.isTypeMismatchReindexEnabled()
                     && !copyStructuredPropertyMappings)
+            .enableStructuredPropertyCopyToMismatchReindex(
+                structPropConfig.isEnabled()
+                    && structPropConfig.isSystemUpdateEnabled()
+                    && structPropConfig.isCopyToMismatchReindexEnabled()
+                    && !copyStructuredPropertyMappings)
             .version(gitVersion.getVersion())
             .settingsComparisonShim(searchClient);
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put(NUMBER_OF_SHARDS, indexConfig.getNumShards());
     baseSettings.put(NUMBER_OF_REPLICAS, indexConfig.getNumReplicas());
-    baseSettings.put(
-        REFRESH_INTERVAL, String.format("%ss", indexConfig.getRefreshIntervalSeconds()));
     // Use zstd in OS only and only if KNN is not enabled (codec settings conflict with KNN)
     // In ES we can use it in the future with best_compression
     if (isOpenSearch29OrHigher(opContext) && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
-    baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    // refresh_interval is owned by refreshIntervals, not the generic settings override map.
+    // Remaining overrides are deep-merged so a nested key (for example analysis.filter) does not
+    // replace the generated settings object.
+    Map<String, Object> settingOverrides =
+        new HashMap<>(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    if (settingOverrides.containsKey(REFRESH_INTERVAL)) {
+      log.warn(
+          "Index {} ignores settingsOverrides refresh_interval={}. Set elasticsearch.index.refreshIntervals instead.",
+          indexName,
+          settingOverrides.get(REFRESH_INTERVAL));
+    }
+    settingOverrides.remove(REFRESH_INTERVAL);
+    mergeSettings(baseSettings, settingOverrides);
+    String refreshInterval =
+        RefreshIntervalResolver.toSetting(
+            RefreshIntervalResolver.resolveSeconds(
+                indexConfig.getRefreshIntervals(),
+                opContext.getSearchContext().getIndexConvention(),
+                opContext,
+                indexName));
+    baseSettings.put(REFRESH_INTERVAL, refreshInterval);
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -427,6 +458,7 @@ public class ESIndexBuilder {
 
     // If index doesn't exist, no reindex
     if (!exists) {
+      log.info("Index {}: creating with refresh_interval={}", indexName, refreshInterval);
       builder.targetMappings(mappings);
       return builder.build();
     }
@@ -440,6 +472,14 @@ public class ESIndexBuilder {
             .iterator()
             .next();
     builder.currentSettings(currentSettings);
+    String currentRefresh = currentSettings.get(INDEX_REFRESH_INTERVAL);
+    if (!RefreshIntervalResolver.sameDuration(refreshInterval, currentRefresh)) {
+      log.info(
+          "Index {}: refresh_interval desired={} current={}",
+          indexName,
+          refreshInterval,
+          currentRefresh);
+    }
 
     Map<String, Object> currentMappings =
         searchClient
@@ -614,9 +654,15 @@ public class ESIndexBuilder {
             searchClient
                 .updateIndexSettings(opContext, request, requestOptionsLong)
                 .isAcknowledged();
+        String currentRefresh =
+            indexState.currentSettings() == null
+                ? null
+                : indexState.currentSettings().get(INDEX_REFRESH_INTERVAL);
         log.info(
-            "Updated index {} with new settings. Settings: {}, Acknowledged: {}",
+            "Updated index {} settings. desired refresh_interval={} current refresh_interval={} settings={} acknowledged={}",
             indexState.name(),
+            indexSettings.get(INDEX_REFRESH_INTERVAL),
+            currentRefresh,
             ReindexConfig.OBJECT_MAPPER.writeValueAsString(indexSettings),
             ack);
       }
@@ -833,9 +879,11 @@ public class ESIndexBuilder {
           indexState.enableIndexMappingsReindex());
       if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
-        // engine rejects writes to an alias, so this index stops taking V3 writes. Other unapplied
-        // changes keep only the warning above: Elasticsearch 8 can report spurious mapping drift on
-        // every upgrade, so an error for each of them would also fire on healthy indices.
+        // engine rejects writes to an alias, so this index stops taking V3 writes; an older V3
+        // mapping without the shared full-text fields leaves V3 search matching nothing. Other
+        // unapplied changes keep only the warning above: Elasticsearch 8 can report spurious
+        // mapping drift on every upgrade, so an error for each of them would also fire on healthy
+        // indices.
         log.error(
             "Search V3 index {} keeps its previous mapping, so V3 writes to it can be rejected and"
                 + " V3 reads can miss fields. Rebuild it: run system-update with"
@@ -871,7 +919,8 @@ public class ESIndexBuilder {
 
   /**
    * Whether applyMappings leaves a Search V3 index declaring as aliases root fields that are real
-   * fields now, which only a rebuild fixes.
+   * fields now, or without the shared full-text fields V3 search reads. Only a rebuild fixes
+   * either.
    */
   private static boolean v3IndexNeedsRebuild(
       @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) {
@@ -879,7 +928,9 @@ public class ESIndexBuilder {
         && !indexState.isPureStructuredPropertyAddition()
         && !indexState.isInPlaceMappingParameterUpdate()
         && opContext.getSearchContext().getIndexConvention().isV3EntityIndexType(indexState.name())
-        && replacesRootAlias(indexState);
+        && (replacesRootAlias(indexState)
+            || V3SearchFields.lacksSharedSearchFields(
+                indexState.currentMappings(), indexState.targetMappings()));
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
@@ -3015,5 +3066,26 @@ public class ESIndexBuilder {
       }
     }
     return orphanedIndices;
+  }
+
+  /**
+   * Merges {@code overrides} into {@code target}. When both sides hold a map for the same key (for
+   * example {@code analysis} or {@code analysis.filter}) the maps are merged recursively, so an
+   * override only needs to name what it changes and keeps every other generated analyzer, filter
+   * and tokenizer. Any other value replaces the generated one.
+   */
+  @SuppressWarnings("unchecked")
+  private static void mergeSettings(Map<String, Object> target, Map<String, ?> overrides) {
+    for (Map.Entry<String, ?> entry : overrides.entrySet()) {
+      Object current = target.get(entry.getKey());
+      Object override = entry.getValue();
+      if (current instanceof Map && override instanceof Map) {
+        Map<String, Object> merged = new HashMap<>((Map<String, Object>) current);
+        mergeSettings(merged, (Map<String, ?>) override);
+        target.put(entry.getKey(), merged);
+      } else {
+        target.put(entry.getKey(), override);
+      }
+    }
   }
 }

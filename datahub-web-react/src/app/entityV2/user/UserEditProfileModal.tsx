@@ -1,5 +1,5 @@
-import { MoreOutlined } from '@ant-design/icons';
 import { Modal, Text, Tooltip } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -264,7 +264,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         t={t}
                         i18nKey="user.slackMemberIdHelp"
                         components={{
-                            icon: <MoreOutlined />,
+                            icon: <DotsThreeVertical />,
                             anchor: (
                                 // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
                                 <a

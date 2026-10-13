@@ -241,6 +241,18 @@ def side_effect_workbook_data(*arg, **kwargs):
     ], mock_pagination
 
 
+def side_effect_workbook_get_by_id(id, *arg, **kwargs):
+    workbooks, _ = side_effect_workbook_data()
+    project_id = next((wb.project_id for wb in workbooks if wb._id == id), None)
+
+    workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
+    type(workbook_mock).project_id = mock.PropertyMock(return_value=project_id)
+    type(workbook_mock).permissions = mock.PropertyMock(
+        return_value=side_effect_workbook_permissions()
+    )
+    return workbook_mock
+
+
 def side_effect_datasource_get_by_id(id, *arg, **kwargs):
     datasources, _ = side_effect_datasource_data()
     for ds in datasources:
@@ -283,11 +295,7 @@ def mock_sdk_client(
 
     mock_client.workbooks = mock.Mock()
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
-    workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
-    type(workbook_mock).permissions = mock.PropertyMock(
-        return_value=side_effect_workbook_permissions()
-    )
-    mock_client.workbooks.get_by_id.return_value = workbook_mock
+    mock_client.workbooks.get_by_id.side_effect = side_effect_workbook_get_by_id
 
     mock_client.views.get.side_effect = side_effect_usage_stat
     mock_client.auth.sign_in.return_value = None

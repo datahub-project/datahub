@@ -1,6 +1,6 @@
-import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
-import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
+import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { Typography } from 'antd';
 import i18next from 'i18next';
 import React from 'react';
@@ -81,11 +81,11 @@ export default function HealthPopover({ health, baseUrl }: Props) {
 function healthIcon({ type }: Health) {
     switch (type) {
         case HealthStatusType.Incidents:
-            return <ReportProblemOutlinedIcon fontSize="inherit" />;
+            return <Warning size="1em" />;
         case HealthStatusType.Assertions:
-            return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+            return <WarningCircle size="1em" />;
         case HealthStatusType.Tests:
-            return <VerifiedOutlinedIcon fontSize="inherit" />;
+            return <SealCheck size="1em" />;
         default:
             return null;
     }

@@ -1892,7 +1892,16 @@ class SigmaAPI:
                 data_model.urlId = file_meta.urlId
 
         elements = self._get_data_model_elements(data_model.dataModelId)
+        # Every truncated listing bumps one of these; see _paginated_raw_entries.
+        problems_before = (
+            self.report.pagination_aborted
+            + self.report.pagination_malformed_entries_dropped
+        )
         columns = self._get_data_model_columns(data_model.dataModelId)
+        data_model.columns_complete = problems_before == (
+            self.report.pagination_aborted
+            + self.report.pagination_malformed_entries_dropped
+        )
         # ``extract_lineage=False`` is a historical opt-out for the
         # privileged ``/workbooks/{id}/lineage`` surface; users who set
         # it don't expect the connector to call *any* ``/lineage``

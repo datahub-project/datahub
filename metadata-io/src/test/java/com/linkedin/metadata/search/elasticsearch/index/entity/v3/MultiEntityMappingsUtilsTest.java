@@ -384,7 +384,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     assertTrue(result.containsKey("dynamic"));
     assertTrue(result.containsKey("properties"));
@@ -407,7 +407,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Arrays.asList(entitySpec1, entitySpec2);
 
     // This should throw an IllegalArgumentException due to type conflicts
-    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
   }
 
   @Test
@@ -415,7 +415,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.emptyList();
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     @SuppressWarnings("unchecked")
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
@@ -431,7 +431,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
 
     // Verify basic structure
     assertNotNull(result, "Result should not be null");

@@ -12,6 +12,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
@@ -151,6 +152,41 @@ public class MultiEntitySettingsBuilderTest {
     assertNotNull(analysis.get("tokenizer"), "Should contain tokenizer section");
   }
 
+  /**
+   * A configured main tokenizer replaces the word tokenizer of the shared search fields' analyzers,
+   * as it replaces V2's.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testMainTokenizerReplacesTheSharedFieldTokenizer() throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("test_index")).thenReturn(true);
+    MultiEntitySettingsBuilder builder =
+        new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
+
+    for (Map.Entry<String, String> expected :
+        Map.of("", "v3_word_tokenizer", "ik_smart", "ik_smart").entrySet()) {
+      IndexConfiguration indexConfiguration =
+          IndexConfiguration.builder()
+              .minSearchFilterLength(3)
+              .mainTokenizer(expected.getKey())
+              .build();
+      Map<String, Object> analyzers =
+          (Map<String, Object>)
+              ((Map<String, Object>)
+                      builder.getSettings(indexConfiguration, "test_index").get("analysis"))
+                  .get("analyzer");
+      for (String analyzer :
+          List.of("v3_text", "v3_text_search", "v3_stemmed", "v3_stemmed_search")) {
+        assertEquals(
+            ((Map<String, Object>) analyzers.get(analyzer)).get("tokenizer"),
+            expected.getValue(),
+            analyzer);
+      }
+    }
+  }
+
   @Test
   public void testGetSettingsConsistency() throws IOException {
     // Test that getSettings returns consistent results
@@ -236,7 +272,8 @@ public class MultiEntitySettingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
 
-    // Search tier analyzers are gone; the merged V2 analyzers serve the per-field queries
+    // Search tier analyzers are gone; the merged V2 analysis serves autocomplete, legacy browse
+    // and the filters the shared search field analyzers reuse
     assertNull(analyzers.get("full"), "tier analyzer full should be gone");
     assertNotNull(analyzers.get("word_delimited"), "word_delimited analyzer should be present");
     assertNotNull(
@@ -448,6 +485,47 @@ public class MultiEntitySettingsBuilderTest {
     assertNotNull(analyzers.get("query_word_delimited"));
     assertNotNull(analyzers.get("urn_component"));
     assertNotNull(analyzers.get("query_urn_component"));
+  }
+
+  /**
+   * The analyzers of the shared _search fields reuse V2 filters (stop words, synonyms, stem
+   * overrides) that only the merged V2 analysis defines; each tokenizer and filter they name must
+   * be defined in the index settings or built into the engine.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSharedSearchFieldAnalyzersUseDefinedTokenizersAndFilters() throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
+    Set<String> builtInFilters = Set.of("asciifolding", "lowercase", "stop", "snowball");
+
+    Map<String, Object> analysis =
+        (Map<String, Object>)
+            new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention)
+                .getSettings(
+                    IndexConfiguration.builder().minSearchFilterLength(3).build(),
+                    "datasetindex_v3")
+                .get("analysis");
+    Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
+    Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
+    Map<String, Object> tokenizers = (Map<String, Object>) analysis.get("tokenizer");
+
+    for (String name :
+        List.of(
+            V3SearchFields.TEXT_ANALYZER,
+            V3SearchFields.TEXT_SEARCH_ANALYZER,
+            V3SearchFields.STEMMED_ANALYZER,
+            V3SearchFields.STEMMED_SEARCH_ANALYZER)) {
+      Map<String, Object> analyzer = (Map<String, Object>) analyzers.get(name);
+      assertNotNull(analyzer, name);
+      assertTrue(tokenizers.containsKey((String) analyzer.get("tokenizer")), name);
+      for (Object filter : (List<Object>) analyzer.get("filter")) {
+        assertTrue(
+            builtInFilters.contains(filter) || filters.containsKey((String) filter),
+            name + " uses undefined filter " + filter);
+      }
+    }
   }
 
   @Test
