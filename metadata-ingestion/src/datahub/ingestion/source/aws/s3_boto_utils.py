@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -45,8 +45,16 @@ def get_bucket_tag_set(
     verify_ssl: Optional[Union[bool, str]] = None,
 ) -> List[Dict[str, str]]:
     """The bucket's TagSet, read the way ingestion reads it (through the
-    resource). Raises what boto raises, NoSuchTagSet included."""
-    return _bucket_tag_set(aws_config.get_s3_resource(verify_ssl), bucket_name)
+    resource). Raises what boto raises, NoSuchTagSet included.
+
+    get_s3_resource builds a new resource on every call, which no cache
+    closes, so its client is closed here.
+    """
+    s3 = aws_config.get_s3_resource(verify_ssl)
+    try:
+        return _bucket_tag_set(s3, bucket_name)
+    finally:
+        s3.meta.client.close()
 
 
 def get_object_tag_set(
@@ -87,8 +95,10 @@ def get_s3_tags(
                 ]
             )
         # s3.meta.client.exceptions.ClientError is botocore's ClientError.
-        except ClientError:
-            logger.warning(f"No tags found for bucket={bucket_name}")
+        except ClientError as e:
+            logger.warning(
+                f"No tags found for bucket={bucket_name} ({aws_error_code(e)})"
+            )
 
     if use_s3_object_tags and key_name is not None:
         tag_set = get_object_tag_set(bucket_name, key_name, aws_config)

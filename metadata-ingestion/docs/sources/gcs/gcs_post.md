@@ -168,10 +168,13 @@ rules ingestion uses, without ingesting anything:
 ```shell
 datahub recipe probe methods --recipe gcs.yml
 datahub recipe probe run buckets --recipe gcs.yml
+datahub recipe probe run folders --recipe gcs.yml --bucket my-bucket --prefix data/
 datahub recipe probe run objects --recipe gcs.yml --bucket my-bucket --prefix data/
 datahub recipe probe run datasets --recipe gcs.yml --path-spec 0 --report-to datasets.json
 datahub recipe probe filter --recipe gcs.yml --from-run datasets.json
 datahub recipe probe filter --recipe gcs.yml --kind Table --name gs://my-bucket/data/events
+datahub recipe probe run path_spec_folders --recipe gcs.yml --path-spec 1 --report-to folders.json
+datahub recipe probe filter --recipe gcs.yml --kind Folder --from-run folders.json
 ```
 
 - The probe uses the same S3-compatible client and credentials as ingestion, and only lists
@@ -188,6 +191,14 @@ datahub recipe probe filter --recipe gcs.yml --kind Table --name gs://my-bucket/
   and the files in the selected partitions are applied per file during ingestion, so a table
   folder whose files all fail them is reported as included, with a warning. Use `objects` to
   check its files.
+- `folders` lists the folders one level under a bucket and prefix, to write an include against.
+  For an `emit_folders_only` path_spec, `datasets` lists nothing: list its folders with
+  `path_spec_folders --path-spec N` and judge them with `probe filter --kind Folder`.
+- A listing denied while `datasets` or `path_spec_folders` walks a path_spec (resolving its
+  wildcards, or listing its table folders) is reported as a failure, at any depth: ingestion
+  stops the whole run on it, so later path_specs are not ingested either. The rows listed
+  before the denial are still returned. A missing bucket under a `{table}` path_spec is only a
+  warning, because ingestion warns "Missing bucket" and skips that path_spec.
 - A credential that is rejected (a wrong HMAC secret, or WIF / ADC credentials that cannot be
   loaded or refreshed) is reported as a connection error. The error names the failure type
   only, never the credential material, token file paths or the token endpoint's response.

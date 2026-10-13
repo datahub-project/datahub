@@ -37,6 +37,7 @@ from datahub.ingestion.agent.verdicts import (
     ProbeInternalError,
     ProbeSoftError,
 )
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.aws_common import (
     aws_error_code,
     aws_probe_error_code,
@@ -47,6 +48,12 @@ from datahub.ingestion.source.aws.glue import (
     GlueSourceReport,
     glue_catalog_kwargs,
 )
+from datahub.ingestion.source.aws.glue_selection import (
+    CATALOG_ID_FACT,
+    DATABASE_CATALOG_ID_FACT,
+    DATABASE_RESOURCE_LINK_FACT,
+    RESOURCE_LINK_FACT,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -55,6 +62,18 @@ from datahub.ingestion.source.common.subtypes import (
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
+    from mypy_boto3_s3 import S3Client
+
+# The note `tables --database` gives for a database ignore_resource_links hides.
+RESOURCE_LINK_DATABASE_NOTE = (
+    "database '{database}' is a Lake Formation resource link and "
+    "ignore_resource_links is true, so ingestion never lists it or any table in it"
+)
+# What a DAG node ingestion cannot resolve does: _transform_extraction has no
+# try, so the error ends get_workunits_internal and the run.
+_DAG_ABORTS_RUN = (
+    "ingestion aborts the run at this job; later jobs and view lineage are not emitted"
+)
 
 # What get_all_databases_and_tables does when one database's GetTables fails.
 _DENIED_TABLES_SUFFIX = (
@@ -177,10 +196,10 @@ def _database_record(database: Mapping[str, Any]) -> Dict[str, object]:
         # database whatever catalog_id says (get_all_databases tests the
         # CatalogId for truthiness), and an absent attribute would make
         # `probe filter --from-run` warn that it cannot tell.
-        "catalog_id": database.get("CatalogId") or "",
+        CATALOG_ID_FACT: database.get("CatalogId") or "",
         # Truthiness, as the JMESPath `[?!TargetDatabase]` in
         # get_all_databases reads it: an empty struct is not a link.
-        "resource_link": bool(target),
+        RESOURCE_LINK_FACT: bool(target),
         "target": (
             f"{target.get('CatalogId', '')}/{target.get('DatabaseName', '')}"
             if target
@@ -200,17 +219,17 @@ def _table_record(
         # The subtype _gen_table_wu gives it.
         "subtype": str(DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE),
         "table_type": table_type,
-        "catalog_id": table.get("CatalogId") or "",
+        CATALOG_ID_FACT: table.get("CatalogId") or "",
         # Membership, as get_tables_from_database tests it.
-        "resource_link": "TargetTable" in table,
+        RESOURCE_LINK_FACT: "TargetTable" in table,
         "column_count": len(descriptor.get("Columns") or [])
         + len(table.get("PartitionKeys") or []),
         # The database's facts, carried on each table: `probe filter` judges a
         # --parent container by name only, so a rule decided by them -- a
         # table under an ignored resource-link database -- can only be judged
         # from the table's own record.
-        "database_resource_link": bool(database.get("TargetDatabase")),
-        "database_catalog_id": database.get("CatalogId") or "",
+        DATABASE_RESOURCE_LINK_FACT: bool(database.get("TargetDatabase")),
+        DATABASE_CATALOG_ID_FACT: database.get("CatalogId") or "",
     }
 
 
@@ -280,6 +299,32 @@ def _unparseable_node(dag: Mapping[str, Any]) -> str:
     return "node unknown"
 
 
+def glue_source_for_probe(
+    config: GlueSourceConfig, glue_client: "GlueClient", s3_client: "S3Client"
+) -> GlueSource:
+    """An uninitialized GlueSource whose per-object helpers the probe reuses.
+
+    __init__ builds the stateful-ingestion handler, a SqlParsingAggregator,
+    a Lake Formation client and, with a graph, a platform-resource
+    repository; the probe needs none of them. Only what those helpers read
+    is primed: _is_delta_schema reads source_config; get_dataflow_script,
+    get_dataflow_graph and process_dataflow_graph (with the connection
+    and JDBC resolvers they reach) read the clients, report, env, platform
+    and _glue_connection_cache. A helper reaching for anything else fails
+    with AttributeError, which the probe reports as a defect (exit 1).
+    """
+    source = GlueSource.__new__(GlueSource)
+    source.ctx = PipelineContext(run_id="glue-probe")
+    source.source_config = config
+    source.report = GlueSourceReport()
+    source.report.catalog_id = config.catalog_id
+    source.glue_client = glue_client
+    source.s3_client = s3_client
+    source.env = config.env
+    source._glue_connection_cache = {}
+    return source
+
+
 class GlueMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the AWS Glue Data Catalog and Glue jobs.
 
@@ -304,6 +349,14 @@ class GlueMetadataProbe(ProbeProviderBase):
     def probe_error_code(exc: BaseException) -> Optional[str]:
         return aws_probe_error_code(exc)
 
+    def __exit__(self, *exc: object) -> None:
+        # job_nodes' S3 client is memoized on the config by get_s3_client, not
+        # opened through _open_once, so the base closer does not reach it.
+        try:
+            self._config.close_cached_s3_clients()
+        finally:
+            super().__exit__(*exc)
+
     @property
     def probe_report(self) -> Optional[GlueSourceReport]:
         """The report ingestion's job-DAG helpers write to (`job_nodes`), so
@@ -321,10 +374,10 @@ class GlueMetadataProbe(ProbeProviderBase):
     def _ingestion_source(self) -> GlueSource:
         if self._source is None:
             glue = self._glue()
-            # Left open on exit: get_s3_client memoizes it on the config.
+            # Memoized on the config by get_s3_client; __exit__ closes it.
             with aws_call("resolving AWS credentials for S3"):
                 s3 = self._config.get_s3_client()
-            self._source = GlueSource.for_probe(
+            self._source = glue_source_for_probe(
                 self._config, glue_client=glue, s3_client=s3
             )
         return self._source
@@ -400,11 +453,7 @@ class GlueMetadataProbe(ProbeProviderBase):
     def _note_database_rules(self, database: Mapping[str, Any]) -> None:
         name = database["Name"]
         if self._config.ignore_resource_links and database.get("TargetDatabase"):
-            self._warn(
-                f"database '{name}' is a Lake Formation resource link and "
-                f"ignore_resource_links is true, so ingestion never lists it "
-                f"or any table in it"
-            )
+            self._warn(RESOURCE_LINK_DATABASE_NOTE.format(database=name))
         owner = database.get("CatalogId")
         if self._config.catalog_id and owner and owner != self._config.catalog_id:
             self._warn(
@@ -573,8 +622,8 @@ class GlueMetadataProbe(ProbeProviderBase):
             except yaml.YAMLError:
                 raise ProbeArgumentError(
                     f"job '{job}' has a DAG node whose arguments are not valid "
-                    f"YAML ({_unparseable_node(dag)}), so ingestion fails on "
-                    f"this job; the job script was likely edited by hand"
+                    f"YAML ({_unparseable_node(dag)}): {_DAG_ABORTS_RUN}; the job "
+                    f"script was likely edited by hand"
                 ) from None
             except ValueError as exc:
                 raise ProbeArgumentError(self._dag_value_error(job, exc)) from None
@@ -591,13 +640,13 @@ class GlueMetadataProbe(ProbeProviderBase):
         if unrecognized and not self._config.ignore_unsupported_connectors:
             return (
                 f"job '{job}' has a data source or sink ingestion does not "
-                f"recognise, and ignore_unsupported_connectors is false, so "
-                f"ingestion fails on this job; set it to true to skip such "
-                f"nodes with a warning"
+                f"recognise, and ignore_unsupported_connectors is false: "
+                f"{_DAG_ABORTS_RUN}; set it to true to skip such nodes with a "
+                f"warning"
             )
         return (
             f"job '{job}' has a DAG node ingestion cannot resolve "
-            f"({type(exc).__name__}), so ingestion fails on this job"
+            f"({type(exc).__name__}): {_DAG_ABORTS_RUN}"
         )
 
     @probe_method()

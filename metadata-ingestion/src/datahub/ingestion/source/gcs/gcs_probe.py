@@ -15,7 +15,6 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
-    Whole,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_source import (
@@ -46,7 +45,13 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
         self._auth_type = auth_type
 
     @contextmanager
-    def _storage_errors(self, context: str, whole: Whole) -> Iterator[None]:
+    def _storage_errors(
+        self,
+        context: str,
+        *,
+        aborts_ingestion: bool = False,
+        missing_bucket_skips: bool = False,
+    ) -> Iterator[None]:
         """The base's split, plus the OAuth token refresh (WIF / ADC), which
         fails outside botocore's error types. google-auth's text carries the
         subject-token path, the token endpoint's response body and the
@@ -61,7 +66,11 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
                 self._aws_config.refresh_token_if_needed(
                     margin_seconds=_TOKEN_REFRESH_MARGIN_SECONDS
                 )
-            with super()._storage_errors(context, whole):
+            with super()._storage_errors(
+                context,
+                aborts_ingestion=aborts_ingestion,
+                missing_bucket_skips=missing_bucket_skips,
+            ):
                 yield
         except (
             google.auth.exceptions.GoogleAuthError,
@@ -79,7 +88,12 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
         # Loading WIF / ADC credentials reads local configuration only.
         try:
             aws_config = build_gcs_aws_connection_config(config)
-        except Exception as exc:
+        # What a bad or unreadable credential raises: build_gcs_aws_connection_config
+        # and the WIF loader raise ValueError (pydantic's ValidationError and
+        # json's decode error are ones), file reads OSError, google-auth its
+        # own. Anything else is a defect and is left for the framework to
+        # report as one.
+        except (ValueError, OSError, google.auth.exceptions.GoogleAuthError) as exc:
             # The google-auth errors ingestion wraps carry file paths and
             # parser text from the credential material; report the class only,
             # and do not chain the original, which a traceback would print.

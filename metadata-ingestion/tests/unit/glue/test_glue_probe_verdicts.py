@@ -224,3 +224,52 @@ def test_resource_links_are_kept_when_not_ignored() -> None:
     )
 
     assert _verdicts(result) == {"shared_orders": ""}
+
+
+def test_a_table_without_parent_is_judged_by_its_link_fact() -> None:
+    result = _judge(
+        {"ignore_resource_links": True},
+        "Table",
+        ["shared_orders", "orders"],
+        attributes=[
+            {
+                "resource_link": "true",
+                "database_resource_link": "false",
+                "database_catalog_id": "",
+            },
+            {
+                "resource_link": "false",
+                "database_resource_link": "false",
+                "database_catalog_id": "",
+            },
+        ],
+    )
+
+    assert _verdicts(result)["shared_orders"] == "ignore_resource_links"
+    assert result.results[1].included
+
+
+def test_a_table_without_parent_or_facts_is_not_excluded_by_links() -> None:
+    result = _judge({"ignore_resource_links": True}, "Table", ["orders"])
+
+    assert result.results[0].excluded_by != "ignore_resource_links"
+    assert any("--from-run" in w for w in result.warnings)
+
+
+def test_bare_database_names_warn_that_catalog_id_was_not_applied() -> None:
+    result = _judge({"catalog_id": _OTHER_ACCOUNT}, "Database", ["sales"])
+
+    assert _verdicts(result) == {"sales": ""}
+    assert any("catalog_id" in w for w in result.warnings)
+
+
+def test_an_unrecognised_link_fact_warns_instead_of_including() -> None:
+    result = _judge(
+        {"ignore_resource_links": True},
+        "Database",
+        ["shared_link"],
+        attributes=[{"catalog_id": "", "resource_link": "True"}],
+    )
+
+    assert _verdicts(result) == {"shared_link": ""}
+    assert any("--from-run" in w for w in result.warnings)

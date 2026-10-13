@@ -8,16 +8,24 @@ in their scheme -- for GCS that is s3://, because GCSSource rewrites both
 before matching (see equivalent_s3_path_specs).
 """
 
-from typing import Callable, Optional, Sequence
+from dataclasses import replace
+from typing import Callable, List, Optional, Sequence
 
 import parse
 from wcmatch import pathlib
 
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, Verdict
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.data_lake_common.path_listing import listing_prefix
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import listing_prefix
 
 TABLE_MARKER = "{table}"
+RECURSIVE_GLOB = "**"
+_S3_SCHEME = "s3://"
 
 TEMPLATED_FILE_RULES_WARNING = (
     "a {table} path_spec is judged at the table folder: exclude, file_types and "
@@ -58,6 +66,22 @@ def _reaches(path: str, glob: str) -> bool:
 def _table_depth(spec: PathSpec) -> int:
     # The same count extract_table_name_and_path uses to cut the table path.
     return spec.include.count("/", 0, spec.include.find(TABLE_MARKER))
+
+
+def _container_globs(glob_parts: Sequence[str], depth: int) -> List[str]:
+    """The glob prefixes a folder at `depth` (its count of "/") must reach to
+    sit above a dataset of a non-table spec; empty when none can lie below it.
+
+    A `**` matches any number of folders, so every folder at or below it can
+    hold a matching file, however deep.
+    """
+    if RECURSIVE_GLOB in glob_parts:
+        star = glob_parts.index(RECURSIVE_GLOB)
+        if depth >= star:
+            return ["/".join(glob_parts[: star + 1])]
+    if depth >= len(glob_parts) - 1:
+        return []
+    return ["/".join(glob_parts[: depth + 1])]
 
 
 def _table_name_parses(spec: PathSpec, folder: str) -> bool:
@@ -145,15 +169,19 @@ def judge_folder(
     warn: Callable[[str], None],
     *,
     bucket_kind: Optional[str] = None,
+    display_uri: Optional[str] = None,
 ) -> Verdict:
     """`bucket_kind` names the kind a bucket is judged as, for the error that
-    tells a caller who passed a bare bucket URI where to ask instead."""
+    tells a caller who passed a bare bucket URI where to ask instead.
+    `display_uri` is the name that error quotes, when the caller wrote it in
+    another scheme than the s3:// one judged here."""
     folder = uri.rstrip("/")
     # "s3://my-bucket" has two slashes: it is a bucket container, never a folder.
     if folder.count("/") <= 2:
         where = f'--kind "{bucket_kind}"' if bucket_kind else "the bucket kind"
         raise ProbeArgumentError(
-            f"'{uri}' is a bucket, not a folder; judge its bare name with {where}"
+            f"'{display_uri or uri}' is a bucket, not a folder; judge its bare "
+            f"name with {where}"
         )
 
     def reason(spec: PathSpec) -> Optional[str]:
@@ -177,18 +205,23 @@ def judge_folder(
                 return ""
             return spec.folder_rejection_reason(folder)
         # A folder strictly above the dataset level is a container of datasets.
-        leaf = (
-            _table_depth(spec) if TABLE_MARKER in spec.include else len(glob_parts) - 1
-        )
         depth = folder.count("/")
-        glob_prefix = "/".join(glob_parts[: depth + 1])
-        if depth >= leaf or not _reaches(folder, glob_prefix):
+        if TABLE_MARKER in spec.include:
+            globs = (
+                ["/".join(glob_parts[: depth + 1])]
+                if depth < _table_depth(spec)
+                else []
+            )
+        else:
+            globs = _container_globs(glob_parts, depth)
+        reached = [glob for glob in globs if _reaches(folder, glob)]
+        if not reached:
             return ""
         # Every dataset beneath it fails the same two checks _dataset_reason
         # applies, so ingestion never emits it as their container.
         if spec.is_path_hidden(folder) and not spec.include_hidden_folders:
             return "include_hidden_folders"
-        if not _matches(folder, glob_prefix):
+        if not any(_matches(folder, glob) for glob in reached):
             return "include"
         warn(CONTAINER_WARNING)
         return None
@@ -206,3 +239,43 @@ def judge_bucket(
         return None
 
     return _first_claim(path_specs, bucket, reason)
+
+
+def judge_path_spec_name(
+    path_specs: Sequence[PathSpec],
+    ctx: VerdictContext,
+    *,
+    scheme: str,
+    bucket_kind: str,
+    ignore_ext: bool = False,
+) -> Verdict:
+    """One `probe filter` name against ingestion-equivalent s3:// specs, for a
+    source whose names are written in `scheme` (s3:// or gs://). The judges
+    see s3:// URIs, as S3Source matches them; the error text and the reported
+    target keep the scheme the caller wrote."""
+    kind = str(ctx.kind)
+    if kind == bucket_kind:
+        if "/" in ctx.name:
+            raise ProbeArgumentError(
+                f"'{ctx.name}' is not a bucket name; pass bare names, as "
+                f"`probe run buckets` lists them"
+            )
+        return judge_bucket(path_specs, ctx.name, ctx.warn)
+    if not ctx.name.startswith(scheme):
+        raise ProbeArgumentError(
+            f"'{ctx.name}' is not a {scheme} URI; {kind} names are full "
+            f"{scheme} URIs, as `probe run datasets` lists them"
+        )
+    s3_uri = _S3_SCHEME + ctx.name[len(scheme) :]
+    if kind == str(DatasetContainerSubTypes.FOLDER):
+        verdict = judge_folder(
+            path_specs,
+            s3_uri,
+            ctx.warn,
+            bucket_kind=bucket_kind,
+            display_uri=ctx.name,
+        )
+    else:
+        verdict = judge_dataset(path_specs, s3_uri, ctx.warn, ignore_ext=ignore_ext)
+    judged = verdict.matched_target or s3_uri
+    return replace(verdict, matched_target=scheme + judged[len(_S3_SCHEME) :])

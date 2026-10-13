@@ -252,6 +252,22 @@ def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
     assert result.failures
 
 
+def test_a_denied_bucket_tag_read_warns_as_ingestion_carries_on(
+    tagged: None,
+) -> None:
+    # get_s3_tags catches every ClientError of the bucket read and attaches no
+    # bucket tags, so the run goes on; the probe must not fail the command.
+    with mock.patch(
+        "datahub.ingestion.source.s3.s3_probe.get_bucket_tag_set",
+        side_effect=_denied("GetBucketTagging"),
+    ):
+        result = run_probe_method(
+            "s3", _tag_recipe(use_s3_bucket_tags=True), "tags", {"bucket": "my-bucket"}
+        )
+    assert result.result == {"bucket": [], "object": []}
+    assert result.warnings and not result.failures
+
+
 def test_tags_issues_only_tagging_reads(tagged: None) -> None:
     seen: List[str] = []
     with _recording(seen):

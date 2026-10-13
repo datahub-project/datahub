@@ -10,7 +10,7 @@ from moto import mock_aws
 from datahub.ingestion.agent.error_policy import foreign_label
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.data_lake_common import object_store_probe
+from datahub.ingestion.source.data_lake_common import object_store_probe, path_listing
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
 )
@@ -96,10 +96,10 @@ def test_a_denied_whole_listing_is_a_failure_not_an_empty_result() -> None:
     assert probe.failures and not probe.warnings
 
 
-def test_a_denied_prefix_during_table_resolution_is_a_warning(bucket: None) -> None:
-    # resolve_templated_folders (s3.source) is not patched; only the per-prefix
-    # table-folder listing the base issues is denied. The wildcard before
-    # {table} makes that one prefix among several.
+def test_a_denied_prefix_during_table_resolution_is_a_failure(bucket: None) -> None:
+    # resolve_templated_folders (path_listing) is not patched; only the
+    # per-prefix table-folder listing the base issues is denied. Ingestion
+    # re-raises it from _process_templated_path, so the run fails.
     probe = _probe("s3://my-bucket/*/{table}/*/*.csv")
     with mock.patch.object(
         object_store_probe,
@@ -107,7 +107,7 @@ def test_a_denied_prefix_during_table_resolution_is_a_warning(bucket: None) -> N
         side_effect=_client_error("AccessDenied", 403),
     ):
         assert probe.datasets(limit=10) == []
-    assert probe.warnings and not probe.failures
+    assert probe.failures and not probe.warnings
 
 
 def test_prefix_budget_stops_and_warns(
@@ -280,25 +280,24 @@ def test_a_denied_single_table_prefix_is_the_whole_answer(bucket: None) -> None:
 
 def _deny_listing_under(prefix: str) -> Any:
     """Deny resolve_templated_folders' listings of `prefix`, pass the rest."""
-    from datahub.ingestion.source.s3 import source as s3_source
-
-    real = s3_source.list_folders_path
+    real = path_listing.list_folders_path
 
     def listing(uri: str, *args: Any, **kwargs: Any) -> Any:
         if uri.startswith(prefix):
             raise _client_error("AccessDenied", 403)
         return real(uri, *args, **kwargs)
 
-    return mock.patch.object(s3_source, "list_folders_path", side_effect=listing)
+    return mock.patch.object(path_listing, "list_folders_path", side_effect=listing)
 
 
 @pytest.mark.parametrize(
     "command", ["datasets", "path_spec_folders"], ids=["tables", "folders_only"]
 )
-def test_a_denied_listing_while_resolving_wildcards_is_a_warning(
+def test_a_denied_deeper_listing_while_resolving_wildcards_is_a_failure(
     bucket: None, command: str
 ) -> None:
-    # The first listing (the bucket) succeeds, so the answer is partial.
+    # The first listing (the bucket) succeeds, but ingestion's walk raises on
+    # the deeper denial all the same.
     spec = PathSpec(
         include="s3://my-bucket/*/*/{table}/*.csv"
         if command == "datasets"
@@ -308,6 +307,14 @@ def test_a_denied_listing_while_resolving_wildcards_is_a_warning(
     probe = S3CompatibleMetadataProbe(_aws(), [spec])
     with _deny_listing_under("s3://my-bucket/data/"):
         getattr(probe, command)(limit=10)
+    assert probe.failures and not probe.warnings
+
+
+def test_a_missing_bucket_under_a_table_spec_is_a_warning(bucket: None) -> None:
+    # _process_templated_path reports "Missing bucket" as a warning and skips
+    # the path_spec; it does not fail the run.
+    probe = _probe("s3://no-such-bucket/data/{table}/*.csv")
+    assert probe.datasets(limit=10) == []
     assert probe.warnings and not probe.failures
 
 

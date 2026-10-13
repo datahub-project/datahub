@@ -1,6 +1,9 @@
 import pytest
 
-from datahub.ingestion.source.s3.source import listing_prefix, table_marker_prefix
+from datahub.ingestion.source.data_lake_common.path_listing import (
+    listing_prefix,
+    table_marker_prefix,
+)
 
 
 @pytest.mark.parametrize(

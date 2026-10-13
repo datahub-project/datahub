@@ -3,7 +3,7 @@ and path_specs S3Source ingests with. The listings themselves live in the
 shared S3-compatible base; this adds what only native S3 has."""
 
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from botocore.exceptions import ClientError
 
@@ -18,7 +18,29 @@ from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig, s3_probe_refusal
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+
+
+def s3_probe_refusal(config: DataLakeSourceConfig) -> Optional[str]:
+    """Why the probe cannot list for this recipe, or None.
+
+    Mirrors where S3Source itself would not reach S3: a local-path recipe is
+    walked with os.walk (local_browser), which the probe must never do on the
+    host it runs on, and an S3 recipe without aws_config raises
+    "aws_config not set" in s3_browser.
+    """
+    if config.platform != "s3":
+        return (
+            f"this recipe's path_specs are on the '{config.platform}' platform "
+            f"(local paths, not s3://); the probe lists and judges S3 only"
+        )
+    if config.aws_config is None:
+        return (
+            "aws_config is not set, and S3 ingestion refuses to browse S3 "
+            "without it; add aws_config (an empty mapping uses the default AWS "
+            "credential chain)"
+        )
+    return None
 
 
 class S3MetadataProbe(S3CompatibleMetadataProbe):
@@ -92,24 +114,29 @@ class S3MetadataProbe(S3CompatibleMetadataProbe):
             )
         found: Dict[str, List[str]] = {"bucket": [], "object": []}
         if flags.use_s3_bucket_tags:
-            with self._storage_errors(
-                f"reading the tags of bucket '{bucket}'", whole=True
-            ):
+            context = f"reading the tags of bucket '{bucket}'"
+            with self._storage_errors(context):
                 try:
                     tag_set = get_bucket_tag_set(
                         bucket, self._aws_config, flags.verify_ssl
                     )
                 except ClientError as exc:
-                    # What an untagged bucket answers; ingestion logs it and
-                    # attaches nothing.
-                    if aws_error_code(exc) != "NoSuchTagSet":
+                    if self._is_credential_error(exc):
                         raise
+                    # get_s3_tags catches every ClientError of this read,
+                    # logs it and attaches no bucket tags. NoSuchTagSet is
+                    # what an untagged bucket answers, so only the others are
+                    # worth a warning.
+                    code = aws_error_code(exc)
+                    if code != "NoSuchTagSet":
+                        self.warnings.append(
+                            f"{context} failed ({code}); ingestion logs this "
+                            f"and quietly attaches no bucket tags"
+                        )
                     tag_set = []
                 found["bucket"] = [f"{t['Key']}:{t['Value']}" for t in tag_set]
         if key:
-            with self._storage_errors(
-                f"reading the tags of object '{key}'", whole=True
-            ):
+            with self._storage_errors(f"reading the tags of object '{key}'"):
                 found["object"] = [
                     f"{t['Key']}:{t['Value']}"
                     for t in get_object_tag_set(bucket, key, self._aws_config)

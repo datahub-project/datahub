@@ -1,6 +1,5 @@
 import logging
 import time
-from dataclasses import replace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -24,11 +23,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.verdicts import (
-    ProbeArgumentError,
-    Verdict,
-    VerdictContext,
-)
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -55,11 +50,6 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
-from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
-    judge_bucket,
-    judge_dataset,
-    judge_folder,
-)
 from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
@@ -294,38 +284,19 @@ class GCSSourceConfig(
         """Judge one name the way GCSSource does: with the s3:// specs
         equivalent_s3_path_specs builds for ingestion, and the name rewritten
         to s3:// to match. The reported target stays the gs:// name given."""
-        specs = equivalent_s3_path_specs(self.path_specs)
-        kind = str(ctx.kind)
-        if kind == str(DatasetContainerSubTypes.GCS_BUCKET):
-            if "/" in ctx.name:
-                raise ProbeArgumentError(
-                    f"'{ctx.name}' is not a bucket name; pass bare names, as "
-                    f"`probe run buckets` lists them"
-                )
-            return judge_bucket(specs, ctx.name, ctx.warn)
-        if not is_gcs_uri(ctx.name):
-            raise ProbeArgumentError(
-                f"'{ctx.name}' is not a gs:// URI; {kind} names are full gs:// "
-                f"URIs, as `probe run datasets` lists them"
-            )
-        s3_uri = "s3://" + ctx.name[len("gs://") :]
-        if kind == str(DatasetContainerSubTypes.FOLDER):
-            try:
-                verdict = judge_folder(
-                    specs,
-                    s3_uri,
-                    ctx.warn,
-                    bucket_kind=str(DatasetContainerSubTypes.GCS_BUCKET),
-                )
-            except ProbeArgumentError as exc:
-                # The judge sees the rewritten s3:// name; the caller wrote gs://.
-                raise ProbeArgumentError(str(exc).replace(s3_uri, ctx.name)) from exc
-        else:
-            # GCSSource never sets use_s3_content_type, so S3Source passes
-            # ignore_ext=False for every file.
-            verdict = judge_dataset(specs, s3_uri, ctx.warn)
-        judged = verdict.matched_target or s3_uri
-        return replace(verdict, matched_target="gs://" + judged[len("s3://") :])
+        # lazy: path_spec_verdict is probe-only, and ingestion never needs it
+        from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+            judge_path_spec_name,
+        )
+
+        # GCSSource never sets use_s3_content_type, so S3Source passes
+        # ignore_ext=False for every file.
+        return judge_path_spec_name(
+            equivalent_s3_path_specs(self.path_specs),
+            ctx,
+            scheme="gs://",
+            bucket_kind=str(DatasetContainerSubTypes.GCS_BUCKET),
+        )
 
 
 def equivalent_s3_path_specs(path_specs: Sequence[PathSpec]) -> List[PathSpec]:

@@ -13,7 +13,10 @@ from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeInternalError
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
-from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
+from datahub.ingestion.source.aws.glue_probe import (
+    GlueMetadataProbe,
+    glue_source_for_probe,
+)
 from tests.unit.glue.test_glue_source_stubs import (
     get_dataflow_graph_response_1,
     get_jobs_response,
@@ -548,6 +551,21 @@ def _stub_one_job(glue: Stubber, s3: Stubber) -> None:
     )
 
 
+def test_exit_closes_the_memoized_s3_client(
+    glue: Stubber, s3: Stubber, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    closed: List[GlueSourceConfig] = []
+    monkeypatch.setattr(
+        GlueSourceConfig, "close_cached_s3_clients", lambda self: closed.append(self)
+    )
+    _stub_one_job(glue, s3)
+    config = GlueSourceConfig.model_validate(_RECIPE)
+    with GlueMetadataProbe(config) as probe:
+        probe.job_nodes(job=_JOB_ONE_NAME)
+
+    assert closed == [config]
+
+
 def test_job_nodes_match_the_datajobs_ingestion_emits(
     glue: Stubber, s3: Stubber
 ) -> None:
@@ -556,7 +574,7 @@ def test_job_nodes_match_the_datajobs_ingestion_emits(
     _stub_one_job(glue, s3)
     config = GlueSourceConfig.model_validate(_RECIPE)
     # Both getters are patched to return the stubbed clients.
-    source = GlueSource.for_probe(
+    source = glue_source_for_probe(
         config, glue_client=config.get_glue_client(), s3_client=config.get_s3_client()
     )
     emitted = {

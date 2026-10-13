@@ -7,6 +7,7 @@ from moto import mock_aws
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
+from datahub.ingestion.source.aws.glue_probe import RESOURCE_LINK_DATABASE_NOTE
 from datahub.metadata.schema_classes import SubTypesClass
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
 from tests.test_helpers.probe_parity import (
@@ -113,8 +114,7 @@ def _ingest(config: Dict[str, object]) -> EmittedIndex:
 # Notes glue_probe.py gives on a normal run of a recipe that sets the rule;
 # none is a degraded fetch. `_note_database_rules`, from `tables --database`:
 _RESOURCE_LINK_NOTE = re.compile(
-    r"database '[^']+' is a Lake Formation resource link and "
-    r"ignore_resource_links is true, so ingestion never lists it or any table in it"
+    re.escape(RESOURCE_LINK_DATABASE_NOTE).replace(re.escape("{database}"), "[^']+")
 )
 # `jobs`, when extract_transforms is false and when catalog_id is set:
 _NO_TRANSFORMS_NOTE = (
@@ -196,8 +196,7 @@ def test_each_rule_is_exercised_and_named(catalog: None) -> None:
         "glue", {**_BASE, **recipe}, _ingest, _listings(recipe)
     )
     assert report.kinds["tables"].accepted_warnings == (
-        "database 'shared_link' is a Lake Formation resource link and "
-        "ignore_resource_links is true, so ingestion never lists it or any table in it",
+        RESOURCE_LINK_DATABASE_NOTE.format(database="shared_link"),
     )
     assert report.excluded_by("databases") == {
         "scratch": "database_pattern",

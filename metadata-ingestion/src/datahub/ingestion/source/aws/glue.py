@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     Dict,
@@ -77,8 +76,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.glue_selection import (
+    CATALOG_ID_FACT,
+    DATABASE_CATALOG_ID_FACT,
+    DATABASE_RESOURCE_LINK_FACT,
     IGNORE_RESOURCE_LINKS,
+    RESOURCE_LINK_FACT,
     database_verdict,
+    flag_fact,
     jobs_verdict,
     table_link_verdict,
     table_pattern_verdict,
@@ -171,10 +175,6 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 
-if TYPE_CHECKING:
-    from mypy_boto3_glue import GlueClient
-    from mypy_boto3_s3 import S3Client
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
@@ -240,13 +240,6 @@ def _sanitize_jdbc_url(jdbc_url: str) -> str:
     if parsed.port:
         safe_netloc = f"{safe_netloc}:{parsed.port}"
     return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
-
-
-def _flag_or_none(value: Optional[str]) -> Optional[bool]:
-    """A boolean fact `probe run` stamped as "true"/"false"; None when absent."""
-    if value is None:
-        return None
-    return value == "true"
 
 
 def glue_catalog_kwargs(catalog_id: Optional[str]) -> Dict[str, Any]:
@@ -529,20 +522,20 @@ class GlueSourceConfig(
             return self._database_facts_verdict(
                 ctx,
                 name=ctx.target,
-                link_key="resource_link",
-                catalog_key="catalog_id",
+                link_key=RESOURCE_LINK_FACT,
+                catalog_key=CATALOG_ID_FACT,
             )
         if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
             # name=None: a table's database pattern is the --parent check.
             database_rule = self._database_facts_verdict(
                 ctx,
                 name=None,
-                link_key="database_resource_link",
-                catalog_key="database_catalog_id",
+                link_key=DATABASE_RESOURCE_LINK_FACT,
+                catalog_key=DATABASE_CATALOG_ID_FACT,
             )
             if not database_rule.included:
                 return database_rule
-            is_link = _flag_or_none(ctx.attributes.get("resource_link"))
+            is_link = flag_fact(ctx.attributes.get(RESOURCE_LINK_FACT))
             if ctx.parent_path:
                 return table_verdict(
                     self,
@@ -566,7 +559,7 @@ class GlueSourceConfig(
         """database_verdict on the facts `probe run` stamped on the record,
         warning for each one the recipe needs and a bare name lacks. The
         catalog note is skipped once an earlier rule has decided."""
-        is_link = _flag_or_none(ctx.attributes.get(link_key))
+        is_link = flag_fact(ctx.attributes.get(link_key))
         if self.ignore_resource_links and is_link is None:
             ctx.warn(
                 "ignore_resource_links is on, and whether a database is a "
@@ -1181,35 +1174,6 @@ class GlueSource(StatefulIngestionSourceBase):
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    @classmethod
-    def for_probe(
-        cls,
-        config: GlueSourceConfig,
-        glue_client: "GlueClient",
-        s3_client: "S3Client",
-    ) -> "GlueSource":
-        """An uninitialized source whose per-object helpers the probe reuses.
-
-        __init__ builds the stateful-ingestion handler, a SqlParsingAggregator,
-        a Lake Formation client and, with a graph, a platform-resource
-        repository; the probe needs none of them. Only what those helpers read
-        is primed: _is_delta_schema reads source_config; get_dataflow_script,
-        get_dataflow_graph and process_dataflow_graph (with the connection
-        and JDBC resolvers they reach) read the clients, report, env, platform
-        and _glue_connection_cache. A helper reaching for anything else fails
-        with AttributeError, which the probe reports as a defect (exit 1).
-        """
-        source = cls.__new__(cls)
-        source.ctx = PipelineContext(run_id="glue-probe")
-        source.source_config = config
-        source.report = GlueSourceReport()
-        source.report.catalog_id = config.catalog_id
-        source.glue_client = glue_client
-        source.s3_client = s3_client
-        source.env = config.env
-        source._glue_connection_cache = {}
-        return source
 
     @property
     def platform(self) -> str:

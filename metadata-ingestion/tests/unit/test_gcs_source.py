@@ -19,6 +19,8 @@ from datahub.ingestion.source.gcs.gcs_source import (
     GCSSource,
     GCSSourceConfig,
     _register_gcs_oauth_before_send,
+    build_gcs_aws_connection_config,
+    equivalent_s3_path_specs,
 )
 
 
@@ -750,10 +752,6 @@ def test_gcs_oauth_aws_config_raises_without_creds():
 
 
 def test_client_config_is_built_from_the_config_alone() -> None:
-    from datahub.ingestion.source.gcs.gcs_source import (
-        build_gcs_aws_connection_config,
-    )
-
     config = GCSSourceConfig.model_validate(
         {
             "path_specs": [{"include": "gs://my-bucket/data/{table}/*.parquet"}],
@@ -769,10 +767,6 @@ def test_client_config_is_built_from_the_config_alone() -> None:
 def test_adc_client_config_carries_the_oauth_credentials(
     mock_default: mock.MagicMock,
 ) -> None:
-    from datahub.ingestion.source.gcs.gcs_source import (
-        build_gcs_aws_connection_config,
-    )
-
     creds = mock.MagicMock()
     mock_default.return_value = (creds, "my-project")
     aws_config = build_gcs_aws_connection_config(
@@ -783,8 +777,6 @@ def test_adc_client_config_carries_the_oauth_credentials(
 
 
 def test_equivalent_specs_match_what_the_source_ingests_with() -> None:
-    from datahub.ingestion.source.gcs.gcs_source import equivalent_s3_path_specs
-
     ctx = PipelineContext(run_id="test-gcs")
     source = GCSSource.create(
         {

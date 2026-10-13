@@ -23,6 +23,12 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common import object_store_probe
+from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
+from datahub.ingestion.source.gcs.gcs_source import (
+    GCSSourceConfig,
+    equivalent_s3_path_specs,
+)
 
 HMAC: Dict[str, object] = {"hmac_access_id": "id", "hmac_access_secret": "secret"}
 
@@ -541,9 +547,6 @@ def test_a_token_about_to_expire_is_refreshed_before_the_listing(
 
 
 def test_a_credential_load_failure_does_not_chain_the_original_error() -> None:
-    from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
-    from datahub.ingestion.source.gcs.gcs_source import GCSSourceConfig
-
     config = GCSSourceConfig.model_validate(_recipe("gs://my-bucket/raw/*.csv"))
     with (
         mock.patch(
@@ -558,20 +561,29 @@ def test_a_credential_load_failure_does_not_chain_the_original_error() -> None:
     assert _LEAKY_TEXT[0] not in rendered
 
 
+def test_a_defect_while_loading_credentials_is_not_a_credential_error() -> None:
+    # Only what a bad credential raises is a connection error (exit 3); a bug
+    # in the loader reaches the framework as a defect.
+    config = GCSSourceConfig.model_validate(_recipe("gs://my-bucket/raw/*.csv"))
+    with (
+        mock.patch(
+            "datahub.ingestion.source.gcs.gcs_probe.build_gcs_aws_connection_config",
+            side_effect=AttributeError("no such attribute"),
+        ),
+        pytest.raises(AttributeError),
+    ):
+        GCSMetadataProbe.for_config(config)
+
+
 def test_prefix_budget_stops_and_warns(
     seeded_bucket: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from datahub.ingestion.source.data_lake_common import object_store_probe
-
     monkeypatch.setattr(object_store_probe, "MAX_RESOLVED_PREFIXES", 1)
     result = _run(_recipe("gs://my-bucket/*/{table}/*.parquet"), "datasets")
     assert any("narrow" in w for w in result.warnings)
 
 
 def test_the_provider_closes_its_clients() -> None:
-    from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
-    from datahub.ingestion.source.gcs.gcs_source import GCSSourceConfig
-
     probe = GCSMetadataProbe.for_config(
         GCSSourceConfig.model_validate(_recipe("gs://my-bucket/raw/*.csv"))
     )
@@ -583,12 +595,6 @@ def test_the_provider_closes_its_clients() -> None:
 
 
 def test_for_config_reports_the_specs_ingestion_matches_with() -> None:
-    from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
-    from datahub.ingestion.source.gcs.gcs_source import (
-        GCSSourceConfig,
-        equivalent_s3_path_specs,
-    )
-
     config = GCSSourceConfig.model_validate(_recipe("gs://my-bucket/data/{table}"))
     probe = GCSMetadataProbe.for_config(config)
     assert [s.include for s in probe._path_specs] == [

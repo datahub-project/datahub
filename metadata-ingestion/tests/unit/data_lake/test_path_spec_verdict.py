@@ -162,3 +162,13 @@ def test_a_hidden_folder_above_datasets_is_not_a_container(include: str) -> None
     assert v.excluded_by == "path_specs[0].include"
     v, _ = _judge(judge_folder, [spec], "s3://my-bucket/_tmp")
     assert v.included
+
+
+def test_folders_at_any_depth_below_a_recursive_glob_are_containers() -> None:
+    # `**` matches any number of folders, so a file can sit at any depth below
+    # it and ingestion emits every folder on the way as its container.
+    spec = PathSpec(include="s3://my-bucket/data/**/*.csv", allow_double_stars=True)
+    for folder in ("s3://my-bucket/data/a", "s3://my-bucket/data/a/b/c"):
+        v, warnings = _judge(judge_folder, [spec], folder)
+        assert v.included and warnings
+    assert not _judge(judge_folder, [spec], "s3://my-bucket/other/a")[0].included

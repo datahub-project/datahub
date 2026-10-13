@@ -515,9 +515,15 @@ class AwsConnectionConfig(ConfigModel):
         """Close and forget the clients get_s3_client memoized, for a caller that
         owns this config and is done with it (the probe's __exit__)."""
         with self._s3_client_lock:
-            for client in self._s3_client_cache.values():
-                client.close()
+            clients = list(self._s3_client_cache.values())
             self._s3_client_cache.clear()
+        # Taken out of the cache first, and each closed on its own: one close
+        # raising leaves no client cached and still closes the rest.
+        for client in clients:
+            try:
+                client.close()
+            except Exception as e:
+                logger.debug(f"Closing a cached S3 client failed: {e}")
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None

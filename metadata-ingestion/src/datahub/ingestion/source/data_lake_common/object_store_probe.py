@@ -20,7 +20,6 @@ from typing import (
     Pattern,
     Sequence,
     TypeVar,
-    Union,
 )
 
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
@@ -42,12 +41,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import (
+from datahub.ingestion.source.data_lake_common.path_listing import (
     listing_prefix,
     resolve_templated_folders,
     table_marker_prefix,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
 # Listings one include may cost while its wildcards are expanded: every
 # folder listed on the way, plus (for tables) each resolved prefix, which is
@@ -95,9 +94,14 @@ _REGION_ERROR_CODES = frozenset(
 )
 
 T = TypeVar("T")
-# Whether a denied listing is the whole answer, or a callable deciding that
-# when the denial arrives.
-Whole = Union[bool, Callable[[], bool]]
+
+# S3Source re-raises every listing error of a path_spec walk except a missing
+# bucket under {table} (_process_templated_path, _process_simple_path,
+# _process_folders), and the pipeline ends the run on it.
+_INGESTION_ABORTS = (
+    "; ingestion fails the whole run on this listing, so later path_specs are "
+    "not ingested either"
+)
 
 
 class S3CompatibleMetadataProbe(ProbeProviderBase):
@@ -124,8 +128,10 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
         return aws_probe_error_code(exc)
 
     def __exit__(self, *exc: object) -> None:
-        self._aws_config.close_cached_s3_clients()
-        super().__exit__(*exc)
+        try:
+            self._aws_config.close_cached_s3_clients()
+        finally:
+            super().__exit__(*exc)
 
     def _refuse_if_unavailable(self) -> None:
         if self._refusal is not None:
@@ -142,12 +148,31 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             prefix += "/"
         return f"s3://{bucket}/{prefix.lstrip('/')}"
 
+    @staticmethod
+    def _is_credential_error(exc: ClientError) -> bool:
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        return (
+            exc.operation_name in _CREDENTIAL_OPERATIONS
+            or aws_error_code(exc) in _AUTH_ERROR_CODES
+            or status == 401
+        )
+
     @contextmanager
-    def _storage_errors(self, context: str, whole: Whole) -> Iterator[None]:
+    def _storage_errors(
+        self,
+        context: str,
+        *,
+        aborts_ingestion: bool = False,
+        missing_bucket_skips: bool = False,
+    ) -> Iterator[None]:
         """Split storage errors the way the probe contract asks: a missing bucket
-        or key is the caller's mistake, a denied listing is recorded (as a
-        failure when it is the whole answer), a rejected credential or an
-        unreachable endpoint is a connection error.
+        or key is the caller's mistake, a denied listing is recorded as a
+        failure (what was listed before it is kept), a rejected credential or
+        an unreachable endpoint is a connection error.
+
+        `aborts_ingestion`: the listing is one of a path_spec walk, and the
+        failure says ingestion ends the run on it. `missing_bucket_skips`: a
+        missing bucket is only the warning _process_templated_path gives.
 
         Only an error code reaches a message: AWS error text names account ids,
         principals and ARNs, and botocore's client errors name the endpoint host
@@ -158,14 +183,16 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
         except ClientError as exc:
             code = aws_error_code(exc)
             status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if (
-                exc.operation_name in _CREDENTIAL_OPERATIONS
-                or code in _AUTH_ERROR_CODES
-                or status == 401
-            ):
+            if self._is_credential_error(exc):
                 raise ProbeConnectionError(
                     f"{context}: credential rejected ({code or status})"
                 ) from exc
+            if code == "NoSuchBucket" and missing_bucket_skips:
+                self.warnings.append(
+                    f"{context}: no such bucket; ingestion warns 'Missing "
+                    f"bucket' and skips this path_spec"
+                )
+                return
             if code == "NoSuchBucket":
                 raise ProbeArgumentError(f"{context}: no such bucket") from exc
             if code == "NoSuchKey":
@@ -177,9 +204,9 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
                     else "the bucket is in another region than the client; set "
                     "aws_region"
                 )
-                is_whole = whole() if callable(whole) else whole
-                (self.failures if is_whole else self.warnings).append(
+                self.failures.append(
                     f"{context}: {why}, so this could not be listed"
+                    + (_INGESTION_ABORTS if aborts_ingestion else "")
                 )
                 return
             raise ProbeConnectionError(
@@ -197,7 +224,12 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             ) from exc
 
     def _take(
-        self, listing: Callable[[], Iterable[T]], limit: int, context: str
+        self,
+        listing: Callable[[], Iterable[T]],
+        limit: int,
+        context: str,
+        *,
+        aborts_ingestion: bool = False,
     ) -> List[T]:
         self._refuse_if_unavailable()
         # A factory, not an iterable: the listing is created inside the error
@@ -212,7 +244,7 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             out.append(item)
             return True
 
-        with self._storage_errors(context, whole=True):
+        with self._storage_errors(context, aborts_ingestion=aborts_ingestion):
             # take closes the listing when it stops at the limit, so a
             # suspended wildcard-resolution generator ends deterministically.
             take(listing(), limit, keep=collect)
@@ -227,12 +259,13 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             )
         return self._path_specs[index]
 
-    def _bounded_prefixes(self, prefix: str, listed_after: bool) -> Iterator[str]:
+    def _bounded_prefixes(
+        self, prefix: str, listed_after: bool, missing_bucket_skips: bool
+    ) -> Iterator[str]:
         """resolve_templated_folders, stopped once it has cost
         MAX_RESOLVED_PREFIXES listings. `listed_after`: the caller lists each
         resolved prefix again, so each one is charged too."""
         spent = 0
-        walked = 0
 
         def charge(_: str) -> None:
             nonlocal spent
@@ -240,21 +273,16 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             if spent > MAX_RESOLVED_PREFIXES:
                 raise _ListingBudgetSpent()
 
-        def on_listing(folder: str) -> None:
-            nonlocal walked
-            walked += 1
-            charge(folder)
-
         try:
-            # Only the walk's first listing is the whole answer. Once it has
-            # returned, a denied deeper one leaves a partial answer -- the walk
-            # cannot resume past it -- like a denied prefix in _table_folders.
+            # A denial at any depth fails ingestion's walk, so it is a failure
+            # here too; the folders resolved before it are kept.
             with self._storage_errors(
                 f"resolving the wildcards in {self._display(prefix)}",
-                whole=lambda: walked <= 1,
+                aborts_ingestion=True,
+                missing_bucket_skips=missing_bucket_skips,
             ):
                 for resolved in resolve_templated_folders(
-                    prefix, self._aws_config, on_listing=on_listing
+                    prefix, self._aws_config, on_listing=charge
                 ):
                     if listed_after:
                         charge(resolved)
@@ -321,7 +349,10 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             return []
         if "{table}" in spec.include:
             return self._take(
-                lambda: self._table_folders(spec), limit, "resolving tables"
+                lambda: self._table_folders(spec),
+                limit,
+                "resolving tables",
+                aborts_ingestion=True,
             )
         dirname, startswith = listing_prefix(spec.include)
         found = self._take(
@@ -330,6 +361,7 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             ),
             limit,
             f"listing {self._display(dirname)}",
+            aborts_ingestion=True,
         )
         return [
             {
@@ -344,12 +376,13 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
         # scan after it lists every object in the table and is not needed to
         # name the table.
         prefix = table_marker_prefix(spec.include)
-        # With no wildcard before {table} there is one prefix, and a denied
-        # listing of it is the whole answer, as it is for `objects`.
-        whole = "*" not in prefix
-        for resolved in self._bounded_prefixes(prefix, listed_after=True):
+        for resolved in self._bounded_prefixes(
+            prefix, listed_after=True, missing_bucket_skips=True
+        ):
             with self._storage_errors(
-                f"listing {self._display(resolved)}", whole=whole
+                f"listing {self._display(resolved)}",
+                aborts_ingestion=True,
+                missing_bucket_skips=True,
             ):
                 for folder in list_folders_path(resolved, aws_config=self._aws_config):
                     yield {
@@ -372,8 +405,11 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
             )
             return []
         found = self._take(
-            lambda: self._bounded_prefixes(spec.glob_include, listed_after=False),
+            lambda: self._bounded_prefixes(
+                spec.glob_include, listed_after=False, missing_bucket_skips=False
+            ),
             limit,
             "resolving folders",
+            aborts_ingestion=True,
         )
         return [self._display(uri.rstrip("/")) for uri in found]

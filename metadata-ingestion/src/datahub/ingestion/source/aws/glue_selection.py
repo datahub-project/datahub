@@ -13,6 +13,24 @@ from datahub.ingestion.agent.verdicts import Verdict
 
 IGNORE_RESOURCE_LINKS = "ignore_resource_links"
 
+# The facts `probe run databases` / `probe run tables` stamp on each record,
+# which probe_verdict_override reads back through `probe filter --from-run`.
+RESOURCE_LINK_FACT = "resource_link"
+CATALOG_ID_FACT = "catalog_id"
+DATABASE_RESOURCE_LINK_FACT = "database_resource_link"
+DATABASE_CATALOG_ID_FACT = "database_catalog_id"
+
+_FLAG_FACTS = {"true": True, "false": False}
+
+
+def flag_fact(value: Optional[str]) -> Optional[bool]:
+    """A boolean fact as `probe run` stamps it ("true"/"false"). None when it
+    is absent or reads as neither, as in a hand-edited run file, so the
+    caller warns that the rule could not be applied rather than guessing."""
+    if value is None:
+        return None
+    return _FLAG_FACTS.get(value)
+
 
 class GlueSelectionConfig(Protocol):
     @property
