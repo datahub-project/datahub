@@ -478,23 +478,21 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             .filter(fieldName -> !"urn".equals(fieldName) && source.get(fieldName) != null)
             .distinct()
             .collect(Collectors.toList());
-    // An autocomplete input is a prefix being typed, so no word of it is too short to match
-    return new V3MatchedFields(input, 0)
-        .find(source, fields).stream()
-            .findFirst()
-            .map(MatchedField::getValue)
-            .or(
-                () ->
-                    fields.stream()
-                        .map(source::get)
-                        .map(
-                            value ->
-                                value instanceof List<?> list
-                                    ? (list.isEmpty() ? null : list.get(0))
-                                    : value)
-                        .filter(java.util.Objects::nonNull)
-                        .map(String::valueOf)
-                        .findFirst());
+    return V3MatchedFields.forAutocomplete(input).find(source, fields).stream()
+        .findFirst()
+        .map(MatchedField::getValue)
+        .or(
+            () ->
+                fields.stream()
+                    .map(source::get)
+                    .map(
+                        value ->
+                            value instanceof List<?> list
+                                ? (list.isEmpty() ? null : list.get(0))
+                                : value)
+                    .filter(java.util.Objects::nonNull)
+                    .map(String::valueOf)
+                    .findFirst());
   }
 
   @Override

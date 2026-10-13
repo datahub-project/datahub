@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Jatka määritystä",
     "multiStep.builder.discard.description": "Poistuminen nyt hylkää määrityksesi. Voit jatkaa määritystä tai poistua ja aloittaa myöhemmin alusta",
     "multiStep.builder.discard.title": "Sinulla on tallentamattomia muutoksia",
-    "multiStep.chat.placeholder": "AI-chatin paikkamerkki",
     "multiStep.connection.addOwners": "Lisää omistajia",
     "multiStep.connection.advancedSettings": "Lisäasetukset",
     "multiStep.connection.cannotChangeSourceType": "Olemassa olevan sisäänlukulähteen lähdetyyppiä ei voi muuttaa",
