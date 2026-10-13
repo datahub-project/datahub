@@ -75,8 +75,11 @@ The associations in the list above are an _intersection_ or an _AND_ operation. 
 
 ##### Match Conditions
 
-Each resource filter has a match condition that controls how its values are compared against the asset. You can set
-the condition for each filter in the policy builder UI, or through the `condition` field of a criterion in the API.
+Each resource filter has a match condition that controls how its values are compared against the asset. You can set the condition for each filter in the policy builder UI, or through the `condition` field of a criterion in the API.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies/policy-match-condition.png"/>
+</p>
 
 | Condition     | UI label    | The filter matches an asset when...                                                           |
 | ------------- | ----------- | --------------------------------------------------------------------------------------------- |
@@ -84,8 +87,7 @@ the condition for each filter in the policy builder UI, or through the `conditio
 | `NOT_EQUALS`  | Not Equals  | The asset has none of the selected values.                                                    |
 | `STARTS_WITH` | Starts With | At least one of the asset's values starts with the entered prefix (for example a URN prefix). |
 
-For example, a policy with resource type `Equals dataset` and domain `Not Equals Finance` applies to every dataset
-that is not in the Finance domain.
+For example, a policy with resource type `Equals dataset` and domain `Not Equals Finance` applies to every dataset that is not in the Finance domain.
 
 Keep the following in mind when using conditions:
 
