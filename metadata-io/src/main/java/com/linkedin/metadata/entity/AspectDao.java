@@ -100,6 +100,16 @@ public interface AspectDao {
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   /**
+   * {@link #getLatestAspects} with {@code forUpdate}, locking the rows even where locking reads are
+   * otherwise skipped (optimistic locking): for a check that must hold until the transaction ends.
+   */
+  @Nonnull
+  default Map<String, Map<String, SystemAspect>> getLatestAspectsLocked(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    return getLatestAspects(opContext, urnAspects, true);
+  }
+
+  /**
    * Updates the system aspect
    *
    * @param operationContext
@@ -541,6 +551,21 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * {@link #deleteUrn}, leaving the rows of {@code keptAspectNames} in place; with none kept it is
+   * {@link #deleteUrn}. Same transaction requirement.
+   */
+  default int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
+    if (keptAspectNames.isEmpty()) {
+      return deleteUrn(opContext, txContext, urn);
+    }
+    throw new UnsupportedOperationException("deleteUrnExcept with kept aspects");
+  }
 
   /**
    * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row

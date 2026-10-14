@@ -261,7 +261,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testBrowseV2OnV3UsesV2Fields() throws Exception {
+  public void testBrowseV2OnV3UsesV3FullTextQuery() throws Exception {
     SearchResponse mockGroupsResponse = mock(SearchResponse.class);
     SearchHits mockGroupsHits = mock(SearchHits.class);
     when(mockGroupsResponse.getHits()).thenReturn(mockGroupsHits);
@@ -284,10 +284,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     verify(mockClient)
         .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
     String query = requestCaptor.getValue().source().query().toString();
-    // V3 root fields carry the V2 subfields, so browse depth and the input query match V2
+    // Browse depth reads the browse path token count as on V2; the input query is the V3
+    // full-text query over the shared _search fields (deliberate V3 change)
     assertTrue(query.contains("\"browsePathV2.length\""), query);
     assertFalse(query.contains("_aspects."), query);
-    assertTrue(query.contains("query_urn_component"), query);
+    assertTrue(query.contains("_search.entityName.text"), query);
+    assertFalse(query.contains("query_urn_component"), query);
   }
 
   @Test

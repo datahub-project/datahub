@@ -469,6 +469,26 @@ public class MetricUtilsTest {
   }
 
   @Test
+  public void testCounterCacheIsScopedToItsRegistry() {
+    SimpleMeterRegistry otherRegistry = new SimpleMeterRegistry();
+    try {
+      MetricUtils otherMetricUtils = MetricUtils.builder().registry(otherRegistry).build();
+
+      Counter first = metricUtils.registerCounter("test.registry.counter", "type", "semantic");
+      Counter second =
+          otherMetricUtils.registerCounter("test.registry.counter", "type", "semantic");
+      first.increment();
+      second.increment(2);
+
+      assertNotSame(first, second);
+      assertEquals(meterRegistry.get("test.registry.counter").counter().count(), 1d);
+      assertEquals(otherRegistry.get("test.registry.counter").counter().count(), 2d);
+    } finally {
+      otherRegistry.close();
+    }
+  }
+
+  @Test
   public void testIncrementMicrometerMultipleIncrementsOnSameCounter() {
     String metricName = "test.multiple.increments";
 

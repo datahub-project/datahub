@@ -2,7 +2,6 @@ import dataclasses
 import functools
 import logging
 import os
-import pathlib
 import re
 import time
 from collections import OrderedDict
@@ -207,16 +206,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
         fields = []
 
-        extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
-
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+        extension = path_spec.resolve_format_extension(table_data.full_path)
 
         try:
             if extension == ".parquet":
@@ -280,7 +270,15 @@ class ABSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_abs_prefix(table_data.table_path)
             if self.is_abs_platform()
@@ -322,6 +320,7 @@ class ABSSource(StatefulIngestionSourceBase):
             azure_config=self.source_config.azure_config,
             use_abs_container_properties=self.source_config.use_abs_container_properties,
             use_abs_blob_properties=self.source_config.use_abs_blob_properties,
+            set_schema_inferred_from=schema_will_be_inferred,
         )
 
         dataset_properties = DatasetPropertiesClass(
@@ -330,7 +329,12 @@ class ABSSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 fields = self.get_fields(table_data, path_spec)
                 schema_metadata = SchemaMetadata(
@@ -346,6 +350,9 @@ class ABSSource(StatefulIngestionSourceBase):
                 logger.error(
                     f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"

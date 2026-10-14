@@ -75,14 +75,15 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
     String csv = body.toString();
-    // V3 runs the Stage 1 query over the per-field subfields and analyzers
-    assertTrue(csv.contains(".delimited"), csv);
-    assertTrue(csv.contains("query_word_delimited"), csv);
+    // Deliberate V3 change: the Stage 1 query reads the shared _search fields, so the export lists
+    // their subfields and no V2 per-field subfields, analyzers or word-gram phrases
+    assertTrue(csv.contains("_search.entityName.text"), csv);
+    assertTrue(csv.contains("_search.description.stemmed"), csv);
     assertTrue(csv.contains("prefix_match"), csv);
-    // Stage 1 clauses under the dis_max root: constant-score exact names, word gram matches
+    // Stage 1 clauses under the dis_max root: constant-score exact names on the root keywords
     assertTrue(csv.contains("exact_match,ConstantScoreQueryBuilder,name.keyword"), csv);
-    assertTrue(csv.contains("match,MatchQueryBuilder"), csv);
-    // V2's word gram phrase clauses are gone
+    assertFalse(csv.contains(".delimited"), csv);
+    assertFalse(csv.contains("query_word_delimited"), csv);
     assertFalse(csv.contains("phrase_match"), csv);
   }
 }

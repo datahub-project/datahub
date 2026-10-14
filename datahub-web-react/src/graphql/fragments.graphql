@@ -307,17 +307,6 @@ fragment owner on Owner {
                 displayName
                 email
             }
-            memberCount: relationships(
-                input: {
-                    types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
-                    direction: INCOMING
-                    start: 0
-                    count: 0
-                    includeSoftDelete: false
-                }
-            ) {
-                total
-            }
             info {
                 displayName
                 email
@@ -1936,6 +1925,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditQueries
     canEditEmbed
     canManageEntity
+    canDeleteEntity
     canManageChildren
     canEditProperties
     canViewDatasetUsage
