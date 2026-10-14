@@ -9,6 +9,7 @@ import {
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV3/useComputeGraph/getDisplayedNodes';
 import orderNodes from '@app/lineageV3/useComputeGraph/orderNodes';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { LineageDirection } from '@types';
 
@@ -55,6 +56,7 @@ export interface LineageGraph {
  *
  * @param urn The focused or "home" entity's urn
  * @param context LineageNodesContext that represents the current state of the graph
+ * @param entityRegistry Resolves urns to entity types, to identify transformations and queries
  * @param ignoreSchemaFieldStatus Whether to ignore schema field status when computing the graph
  * @param options Optional node filter and displayed node transformation
  * @returns The graph store post-hiding, node order indices, and the root, displayed nodes, and
@@ -63,6 +65,7 @@ export interface LineageGraph {
 export default function computeLineageGraph(
     urn: string,
     context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
     { nodeFilter, transformDisplayedNodes, compareNodes, seedNodes, createFilterNodes }: Options = {},
 ): LineageGraph {
@@ -74,8 +77,20 @@ export default function computeLineageGraph(
     // Includes nodes that will be hidden, but they'll be filtered out by `getDisplayedNodes`.
     const orderNodesOptions = { compareNodes, seedNodes };
     const orderedNodes = {
-        [LineageDirection.Upstream]: orderNodes(urn, LineageDirection.Upstream, graphStore, orderNodesOptions),
-        [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, graphStore, orderNodesOptions),
+        [LineageDirection.Upstream]: orderNodes(
+            urn,
+            LineageDirection.Upstream,
+            graphStore,
+            entityRegistry,
+            orderNodesOptions,
+        ),
+        [LineageDirection.Downstream]: orderNodes(
+            urn,
+            LineageDirection.Downstream,
+            graphStore,
+            entityRegistry,
+            orderNodesOptions,
+        ),
     };
 
     const config: HideNodesConfig = {
@@ -84,7 +99,7 @@ export default function computeLineageGraph(
         hideGhostEntities: !showGhostEntities,
         ignoreSchemaFieldStatus,
     };
-    const newGraphStore = { ...hideNodes(urn, rootType, config, graphStore, nodeFilter), rootType };
+    const newGraphStore = { ...hideNodes(urn, rootType, entityRegistry, config, graphStore, nodeFilter), rootType };
     console.debug(newGraphStore);
 
     const { displayedNodes, parents, lineageFilters } = getDisplayedNodes(urn, orderedNodes, newGraphStore, {

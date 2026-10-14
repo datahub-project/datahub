@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -38,7 +38,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetricsParse,
     DBTNode,
+    DBTProject,
     DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
@@ -650,6 +652,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Filter jobs by job_id_pattern and optionally by generate_docs
         filtered_job_ids: List[int] = []
+        pattern_matched_jobs = 0
         for job in all_jobs:
             passes_docs_check = (
                 not self.config.auto_discovery.require_generate_docs
@@ -659,6 +662,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 str(job.id)
             )
 
+            if passes_pattern_check:
+                pattern_matched_jobs += 1
             if passes_docs_check and passes_pattern_check:
                 filtered_job_ids.append(job.id)
             else:
@@ -684,12 +689,37 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     context=f"job_id={job.id}, account_id={self.config.account_id}, project_id={self.config.project_id}, environment_id={production_env.id}, reason={reason_str}",
                 )
 
+        if not filtered_job_ids:
+            # Empty here means one of: no jobs at all, none match the pattern,
+            # or every pattern-matched job lacks "Generate docs on run".
+            if not all_jobs:
+                message = (
+                    f"No jobs found in production environment {production_env.id}. "
+                    "Check that the environment has jobs and that the token can see them."
+                )
+            elif not pattern_matched_jobs:
+                message = "No job in the production environment matches auto_discovery.job_id_pattern."
+            else:
+                message = (
+                    "Every job matching auto_discovery.job_id_pattern has "
+                    '"Generate docs on run" turned off, and auto_discovery.require_generate_docs '
+                    "is enabled."
+                )
+            self.report.failure(
+                title="No dbt Cloud jobs discovered",
+                message=f"{message} Nothing was ingested.",
+                context=f"account_id={self.config.account_id}, "
+                f"project_id={self.config.project_id}, "
+                f"environment_id={production_env.id}, "
+                f"jobs_retrieved={len(all_jobs)}",
+            )
+
         logger.info(
             f"Auto-discovery completed: found {len(filtered_job_ids)} jobs to ingest for project {self.config.project_id}"
         )
         return filtered_job_ids
 
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+    def _fetch_nodes_and_exposures(self) -> Tuple[List[DBTNode], List[DBTExposure]]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
         # jobs that do a full / mostly full build of the project, and will
@@ -705,8 +735,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.info("Auto-discovery mode: discovering jobs for configured project")
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
-                logger.warning("No jobs discovered in auto-discovery mode")
-                return [], {}
+                return [], []
             run_id = None  # Always use latest run in auto-discovery
         else:
             assert self.config.job_id is not None
@@ -780,7 +809,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         break
 
         # Parse exposures
-        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+        exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
         # Track semantic model count
         semantic_model_count = sum(
@@ -792,11 +821,25 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Fetched {semantic_model_count} semantic models from dbt Cloud"
             )
 
-        additional_metadata: Dict[str, Optional[str]] = {
-            "account_id": str(self.config.account_id),
-        }
+        return nodes, exposures
 
-        return nodes, additional_metadata
+    def load_projects(self) -> Iterator[DBTProject]:
+        nodes, exposures = self._fetch_nodes_and_exposures()
+        yield DBTProject(
+            nodes=nodes,
+            exposures=exposures,
+            # dbt Cloud's Discovery API exposes no top-level metrics block;
+            # see report_metric_source_limitations.
+            metrics=DBTMetricsParse(),
+            platform_instance=self.config.platform_instance,
+            # No manifest metadata; the semantic-model path infers the project
+            # name from the nodes' packageName.
+            project_name=None,
+            manifest_path=None,
+            artifact_props={"account_id": str(self.config.account_id)},
+            catalog_generated_at=None,
+            manifest_generated_at=None,
+        )
 
     def _extract_code_fields(
         self, node: Dict, materialization: Optional[str]

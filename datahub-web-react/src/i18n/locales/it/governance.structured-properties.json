@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Aggiungere un nuovo valore all'elenco consentito",
     "allowedValues.anyValueAllowed": "Sarà consentito qualsiasi valore di tipo <type>{{valueType}}</type>",
     "allowedValues.descriptionPlaceholder": "Fornire una descrizione",
+    "allowedValues.descriptionTooltip": "Aggiungi una descrizione",
+    "allowedValues.dragTooltip": "Trascina per riordinare",
     "allowedValues.editExistingTooltip": "Non è consentito modificare i valori consentiti esistenti",
     "allowedValues.fieldTooltip": "Definire l'insieme di valori validi per questa proprietà. Se non ne viene fornito nessuno, sarà consentito qualsiasi valore",
+    "allowedValues.hideDescriptionTooltip": "Nascondi descrizione",
     "allowedValues.removeTooltip": "Rimuovere dall'elenco dei valori consentiti",
     "allowedValues.title": "Valori consentiti",
     "allowedValues.updateButton": "Aggiorna valori consentiti",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Si applica a",
     "appliesTo.titleCapitalized": "Si applica a",
     "appliesTo.tooltip": "Selezionare i tipi di entità a cui è possibile aggiungere questa proprietà",
+    "badgeReplaceError": "Proprietà strutturata salvata, ma non è stato possibile aggiornare il badge dell'asset.",
     "create.nameError": "Inserire il nome",
     "create.namePlaceholder": "Fornire un nome",
     "create.propertyType": "Tipo di proprietà",
@@ -64,6 +68,7 @@
     "page.subtitle": "Crea e gestisci proprietà personalizzate per i propri asset di dati",
     "page.title": "Proprietà strutturate",
     "permissionTooltip": "È necessaria l'autorizzazione a gestire le proprietà strutturate. Contattare l'amministratore di DataHub.",
+    "table.allowedPlatformsColumn": "Piattaforme",
     "table.confirmDeleteText": "Eliminare? L'eliminazione rimuoverà questa proprietà strutturata da tutti gli asset su cui è attualmente presente.",
     "table.confirmDeleteTitle": "Conferma eliminazione",
     "table.copyUrn": "Copia URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Tipi di entità",
     "table.noPropertiesYet": "Nessuna proprietà ancora presente!",
     "table.noSearchResults": "Nessun risultato di ricerca!",
+    "table.typeColumn": "Tipo",
     "updateError": "Impossibile aggiornare la proprietà strutturata.",
     "updateSuccess": "Proprietà strutturata aggiornata!",
     "valueType.dateDescription": "Una data specifica",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Un valore stringa",
     "valueType.textLabel": "Testo",
     "valueType.textListDescription": "Un elenco di valori stringa",
-    "valueType.textListLabel": "Testo - Elenco"
+    "valueType.textListLabel": "Testo - Elenco",
+    "viewTitle": "Visualizza proprietà strutturata"
 }
