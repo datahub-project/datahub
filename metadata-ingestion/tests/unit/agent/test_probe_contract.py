@@ -18,7 +18,7 @@ import difflib
 import inspect
 import re
 from pathlib import Path
-from typing import Annotated, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Annotated, Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 import pytest
 from pydantic import Field
@@ -165,12 +165,7 @@ def test_the_scan_actually_reached_providers():
 # Sources whose config inherits a probe provider that doesn't work for them yet,
 # so they don't declare Probe. Drop an entry when the source gets a provider of
 # its own and declares the capability.
-_PROBE_CAPABILITY_KNOWN_GAPS = frozenset(
-    {
-        # The generic SQLAlchemy URL carries no token or http_path.
-        "unity-catalog",
-    }
-)
+_PROBE_CAPABILITY_KNOWN_GAPS: FrozenSet[str] = frozenset()
 
 
 def test_probe_capability_is_declared_exactly_where_a_provider_is():

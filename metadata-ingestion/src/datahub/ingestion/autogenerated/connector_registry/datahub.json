@@ -5492,6 +5492,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,

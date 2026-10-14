@@ -62,6 +62,8 @@ def _framework_modules_loaded_by(
         "datahub.ingestion.source.sql.postgres.source",
         "datahub.ingestion.source.sql.mysql",
         "datahub.ingestion.source.snowflake.snowflake_config",
+        "datahub.ingestion.source.unity.config",
+        "datahub.ingestion.source.unity.source",
     ],
 )
 def test_sql_source_import_leaves_out_the_probe_framework(module: str) -> None:
