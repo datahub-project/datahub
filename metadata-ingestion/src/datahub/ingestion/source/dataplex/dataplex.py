@@ -126,6 +126,10 @@ def _resolve_project_numbers(
     SourceCapability.GLOSSARY_TERMS,
     "Optionally enabled via configuration `include_glossaries`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog.
 

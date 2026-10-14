@@ -154,6 +154,10 @@ class WarehouseSchemaKey(WarehouseKey):
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
 
