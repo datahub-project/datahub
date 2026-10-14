@@ -131,10 +131,14 @@ public class AnalyticsService {
       String dateRangeField) {
 
     log.debug(
-        String.format(
-                "Invoked getTimeseriesChart with indexName: %s, dateRange: %s to %s, granularity: %s, dimension: %s,",
-                indexName, dateRange.getStart(), dateRange.getEnd(), granularity, dimension)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getTimeseriesChart with indexName: {}, dateRange: {} to {}, granularity: {}, dimension: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange.getStart(),
+        dateRange.getEnd(),
+        granularity,
+        dimension,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg =
         getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange), dateRangeField);
@@ -225,20 +229,15 @@ public class AnalyticsService {
       Optional<String> uniqueOn,
       boolean showMissing) {
     log.debug(
-        String.format(
-                "Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,",
-                indexName, dateRange, dimensions)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getBarChart with indexName: {}, dateRange: {}, dimensions: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        dimensions,
+        filters,
+        uniqueOn);
 
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
-    }
-    if (isUnimplementedV3EntityKeywordAggregation(indexName, dimensions)) {
-      log.error(
-          "Entity-index analytics aggregations on V2 keyword subfields {} are not implemented when Search V3 keyword reads are enabled (index {}). Returning empty results.",
-          dimensions,
-          indexName);
-      return ImmutableList.of();
     }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
@@ -294,24 +293,6 @@ public class AnalyticsService {
     }
   }
 
-  /**
-   * Landscape charts still aggregate on V2 {@code .keyword} URN subfields ({@code
-   * platform.keyword}, {@code domains.keyword}, …). V3 maps those as keyword parents without that
-   * subfield, so the query is not implemented for V3 entity indices.
-   */
-  private boolean isUnimplementedV3EntityKeywordAggregation(
-      String indexName, List<String> dimensions) {
-    if (!EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
-      return false;
-    }
-    boolean usesKeywordSubfield =
-        dimensions.stream().anyMatch(field -> field.endsWith(SearchUtil.KEYWORD_SUFFIX));
-    if (!usesKeywordSubfield) {
-      return false;
-    }
-    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
-  }
-
   private List<BarSegment> extractBarSegmentsFromAggregations(
       Aggregations aggregations, String aggregationKey, boolean didUnique) {
     return aggregations.<Terms>get(aggregationKey).getBuckets().stream()
@@ -340,10 +321,12 @@ public class AnalyticsService {
       int maxRows,
       Function<String, Cell> groupByValueToCell) {
     log.debug(
-        String.format(
-                "Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
-                indexName, dateRange, groupBy)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getTopNTableChart with indexName: {}, dateRange: {}, groupBy: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        groupBy,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
@@ -381,9 +364,11 @@ public class AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
     log.debug(
-        String.format(
-                "Invoked getHighlights with indexName: %s, dateRange: %s", indexName, dateRange)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getHighlights with indexName: {}, dateRange: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
@@ -413,9 +398,10 @@ public class AnalyticsService {
       Map<String, DateRange> keyedRanges,
       String uniqueOn) {
     log.debug(
-        String.format(
-            "Invoked getUniqueCountsByRange with indexName: %s, ranges: %s, uniqueOn: %s",
-            indexName, keyedRanges.keySet(), uniqueOn));
+        "Invoked getUniqueCountsByRange with indexName: {}, ranges: {}, uniqueOn: {}",
+        indexName,
+        keyedRanges.keySet(),
+        uniqueOn);
 
     if (keyedRanges.isEmpty()) {
       return Collections.emptyMap();
@@ -478,9 +464,7 @@ public class AnalyticsService {
   public Map<EntityType, EntityStats> getEntityStats(
       @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
     log.debug(
-        String.format(
-            "Invoked getEntityStats with entityTypes: %s, facetFields: %s",
-            entityTypes, facetFields));
+        "Invoked getEntityStats with entityTypes: {}, facetFields: {}", entityTypes, facetFields);
 
     // Duplicates would collide as repeated aggregation bucket keys.
     List<EntityType> distinctTypes = entityTypes.stream().distinct().collect(Collectors.toList());

@@ -8,7 +8,7 @@ import time_machine
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
@@ -61,7 +61,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
-                        profiling=GEProfilingConfig(
+                        profiling=ProfilingConfig(
                             enabled=True,
                             profile_if_updated_since_days=None,
                             profile_table_row_limit=None,

@@ -28,6 +28,18 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
+  public void testEntityGraphCacheDefaultsOnWithoutProcessProfile() {
+    assertTrue(
+        testApplication
+            .getDataHubAppConfig()
+            .getDatahub()
+            .getGms()
+            .getEntityGraphCache()
+            .isEnabled(),
+        "shared application.yaml defaults entityGraphCache.enabled to true");
+  }
+
+  @Test
   public void testPreProcessHooksDefaults() {
     PreProcessHooks hooks =
         testApplication.getDataHubAppConfig().getFeatureFlags().getPreProcessHooks();

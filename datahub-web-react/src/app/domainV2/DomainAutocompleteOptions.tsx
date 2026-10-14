@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,18 +8,6 @@ import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon'
 import ParentEntities from '@app/search/filters/ParentEntities';
 
 import { Domain, Entity } from '@types';
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${(props) => props.theme.colors.icon};
-    }
-`;
 
 const LabelWrapper = styled.div`
     display: flex;
@@ -45,11 +33,7 @@ export default function domainAutocompleteOptions(
     if (loading) {
         return [
             {
-                label: (
-                    <LoadingWrapper>
-                        <LoadingOutlined />
-                    </LoadingWrapper>
-                ),
+                label: <Loader size="xs" padding={8} />,
                 value: 'loading',
             },
         ];

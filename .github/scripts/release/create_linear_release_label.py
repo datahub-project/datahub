@@ -75,6 +75,20 @@ def find_existing_label_id(api_key: str, name: str, parent_id: str) -> str | Non
     return nodes[0]["id"] if nodes else None
 
 
+def find_label_id_by_name(api_key: str, name: str) -> str | None:
+    """Id of any workspace label with this name. Linear label names are unique."""
+    query = """
+        query($name: String!) {
+          issueLabels(filter: { name: { eq: $name } }, first: 1) {
+            nodes { id }
+          }
+        }
+    """
+    data = graphql(api_key, query, {"name": name})
+    nodes = data["issueLabels"]["nodes"]
+    return nodes[0]["id"] if nodes else None
+
+
 def create_label(api_key: str, name: str, parent_id: str, description: str) -> str:
     query = """
         mutation($name: String!, $parent: String!, $description: String) {
@@ -95,36 +109,55 @@ def create_label(api_key: str, name: str, parent_id: str, description: str) -> s
     return result["issueLabel"]["id"]
 
 
+# Child labels under OSS Release use ``OSS v1.7.0.1``, matching the security-scan sync.
+OSS_RELEASE_LABEL_PREFIX = "OSS "
+
+
+def release_label_name(tag: str, group_name: str) -> str:
+    """Linear label name for a release tag in ``group_name``."""
+    name = tag.strip()
+    if group_name == LINEAR_RELEASE_GROUP:
+        return f"{OSS_RELEASE_LABEL_PREFIX}{name}"
+    return name
+
+
 def run(tag: str, group_name: str) -> int:
     api_key = os.environ.get("INGESTION_LINEAR_KEY", "").strip()
     if not api_key:
         print("INGESTION_LINEAR_KEY not set, skipping Linear label creation")
         return 0
 
+    label_name = release_label_name(tag, group_name)
     group_id = find_group_id(api_key, group_name)
     if not group_id:
         print(f"Could not find Linear label group '{group_name}'", file=sys.stderr)
         return 1
     print(f"Found '{group_name}' group: {group_id}")
 
-    existing_id = find_existing_label_id(api_key, tag, group_id)
+    existing_id = find_existing_label_id(api_key, label_name, group_id)
     if existing_id:
-        print(f"Label '{tag}' already exists under '{group_name}' (id: {existing_id}), nothing to do")
+        print(f"Label '{label_name}' already exists under '{group_name}' (id: {existing_id}), nothing to do")
+        return 0
+    existing_id = find_label_id_by_name(api_key, label_name)
+    if existing_id:
+        print(
+            f"Label '{label_name}' already exists in the workspace (id: {existing_id}); reusing it"
+        )
         return 0
 
     new_id = create_label(
         api_key,
-        name=tag,
+        name=label_name,
         parent_id=group_id,
-        description=f"Released in {tag}",
+        description=f"Released in {tag.strip()}",
     )
-    print(f"Created Linear label '{tag}' (id: {new_id}) under '{group_name}'")
+    print(f"Created Linear label '{label_name}' (id: {new_id}) under '{group_name}'")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", required=True, help="Release tag, used as the label name")
+    parser.add_argument("--tag", required=True, help="Release tag; OSS Release labels are named 'OSS <tag>'")
     parser.add_argument("--group", default=LINEAR_RELEASE_GROUP, help=f"Linear label group name (default: {LINEAR_RELEASE_GROUP!r})")
     args = parser.parse_args()
 

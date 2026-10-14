@@ -80,6 +80,7 @@ dependencies {
   implementation externalDependency.commonsLang3  // CVE-2025-48924
 
   testImplementation externalDependency.testng
+  testImplementation externalDependency.archunit
   testImplementation externalDependency.springBootTest
   testRuntimeOnly externalDependency.logbackClassic
 }
@@ -172,6 +173,8 @@ docker {
 }
 
 test {
+  // RuntimeConfigArchTest imports every module GMS runs; the 512m default heap is not enough.
+  maxHeapSize = '2g'
   jacoco {
     // This contains quickstart tested code for jetty startup
     excludes = ["com.linkedin.gms.ServletConfig",

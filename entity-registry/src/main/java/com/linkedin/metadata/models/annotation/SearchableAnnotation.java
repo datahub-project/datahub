@@ -64,13 +64,14 @@ public class SearchableAnnotation {
 
   Optional<String> systemModifiedAtFieldName;
 
-  // Search tier for the field (integer value)
+  // Deprecated no-op: search indices no longer build tier fields. Still parsed and validated so
+  // existing models keep loading
   Optional<Integer> searchTier;
 
   // Unified label for search operations
   Optional<String> searchLabel;
 
-  // Whether to index the field as a KEYWORD outside of _search when searchTier is present
+  // Deprecated no-op, like searchTier: every searchable field is indexed under its own name
   Optional<Boolean> searchIndexed;
 
   // If set, this field will be copied to _search.<entityFieldName> and the root alias will point

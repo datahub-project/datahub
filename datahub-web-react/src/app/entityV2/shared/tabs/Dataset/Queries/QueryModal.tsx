@@ -3,10 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
-import { Editor, Modal } from '@src/alchemy-components';
+import { CodeBlock, Editor, Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -21,15 +19,6 @@ const MODAL_BODY_STYLE = {
     overflow: 'auto',
 };
 
-const QueryActions = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    width: 100%;
-    height: 0px;
-    transform: translate(-24px, 32px);
-`;
-
 const QueryDetails = styled.div`
     padding: 28px 28px 28px 28px;
 `;
@@ -42,7 +31,8 @@ const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
@@ -56,12 +46,12 @@ const QueryContainer = styled.div`
     border-radius: 4px;
 `;
 
-const NestedSyntax = styled(StyledSyntaxHighlighter)`
-    background-color: transparent !important;
-    border: none !important;
-    height: 100% !important;
-    margin: 0px !important;
-    padding: 12px !important;
+const NestedCode = styled(CodeBlock)`
+    height: 100%;
+
+    pre {
+        padding: 12px !important;
+    }
 `;
 
 type Props = {
@@ -93,13 +83,18 @@ export default function QueryModal({ query, title, description, showDetails = tr
                 },
             ]}
         >
-            <QueryActions>
-                <CopyQuery query={query} showCopyText />
-            </QueryActions>
             <QueryContainer>
-                <NestedSyntax data-testid="query-modal-query" showLineNumbers language={SQL_LANGUAGE}>
-                    {query}
-                </NestedSyntax>
+                <NestedCode
+                    data-testid="query-modal-query"
+                    code={query}
+                    language={SQL_LANGUAGE}
+                    variant="embedded"
+                    showHeader={false}
+                    showCopy
+                    showFormat={false}
+                    showLineNumbers
+                    languageLabel={false}
+                />
             </QueryContainer>
             {showDetails && (
                 <QueryDetails>

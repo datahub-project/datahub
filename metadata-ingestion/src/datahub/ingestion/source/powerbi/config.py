@@ -228,6 +228,13 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="odbc",
     )
 
+    # Starburst's Power BI connectors target Trino-protocol clusters, ingested
+    # under the "trino" platform (there is no separate "starburst" platform).
+    STARBURST_TRINO = DataPlatformPair(
+        powerbi_data_platform_name="Starburst",
+        datahub_data_platform_name="trino",
+    )
+
     # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
     FABRIC_ONELAKE = DataPlatformPair(
         powerbi_data_platform_name="FabricOneLake",

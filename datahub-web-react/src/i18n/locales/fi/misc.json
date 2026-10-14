@@ -146,6 +146,8 @@
     "metrics.homeEmptyTitle": "Ei vielä sisäänluettuja metriikoita",
     "metrics.homeEmptyDescription": "Kun metriikat ja semanttiset mallit on luettu sisään data-alustaltasi, ne näkyvät täällä.",
     "metrics.homeEmptyAction": "Lue metriikat sisään",
+    "metrics.homeEmptyLearnMore": "Lue lisää",
+    "metrics.homeEmptyMigrationHint": "Noudatko jo Snowflake Semantic Views -näkymiä? <anchor>Katso, miten ne siirretään</anchor> uuteen malliin.",
     "mfeframework.disabledError": "{{label}} on poistettu käytöstä.",
     "mfeframework.notAvailableError": "{{label}} ei ole tällä hetkellä saatavilla",
     "tags.appliedToEntityCount_one": "{{count}} entiteetti",

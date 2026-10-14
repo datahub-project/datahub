@@ -21,6 +21,7 @@ import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.TestHazelcast;
 import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -45,7 +46,13 @@ public class DataHubTokenAuthenticatorTest {
   final EntityService mockService = mock(EntityService.class);
   final StatefulTokenService statefulTokenService =
       new StatefulTokenService(
-          testOperationContext(), TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALT);
+          testOperationContext(),
+          TEST_SIGNING_KEY,
+          "HS256",
+          null,
+          mockService,
+          TEST_SALT,
+          TestHazelcast.instance());
 
   private static OperationContext testOperationContext() {
     PathSpecBasedSchemaAnnotationVisitor.class

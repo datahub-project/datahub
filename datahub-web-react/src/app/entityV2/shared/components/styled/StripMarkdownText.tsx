@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { stripMarkdownLinks } from '@app/shared/stripMarkdownLinks';
+
 const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     display: block;
     overflow-wrap: break-word;
@@ -33,12 +35,24 @@ function extractContentBetweenHeaders(markdown: string): string {
     return markdown.substring(startIndex, endIndex).trim();
 }
 
-export const removeMarkdown = (text: string) => {
-    return extractContentBetweenHeaders(text);
+export const removeMarkdown = (text: string, options?: { preserveNewlines?: boolean }) => {
+    const preserveNewlines = options?.preserveNewlines ?? false;
+    let cleaned = extractContentBetweenHeaders(text);
+    // Strip markdown links: [text](url) → text (handles nested parens in URNs)
+    cleaned = stripMarkdownLinks(cleaned);
+    // Unescape markdown escape sequences (e.g. \_ → _, \* → *, \[ → [)
+    // Remirror serializes plain text with special chars escaped for markdown validity,
+    // so titles like "my_table" get stored as "my\_table" and must be unescaped for display.
+    cleaned = cleaned.replace(/\\([\\`*_{}[\]()#+\-.!])/g, '$1');
+    if (!preserveNewlines) {
+        // Replace newlines with spaces for single-line contexts (titles, pills, etc)
+        cleaned = cleaned.replace(/\n/g, ' ');
+    }
+    return cleaned;
 };
 
 export default function NoMarkdownViewer({ children, customRender, readMore, suffix, limit, shouldWrap }: Props) {
-    let plainText = removeMarkdown(children || '');
+    let plainText = removeMarkdown(children || '', { preserveNewlines: !!shouldWrap });
 
     if (limit) {
         let abridgedPlainText = plainText.substring(0, limit);

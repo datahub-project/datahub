@@ -102,6 +102,21 @@ class DataLakeSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    enable_schema_inference: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer the schema from sampled files and emit a "
+            "`schemaMetadata` aspect. Set to `False` when another pipeline owns the "
+            "schema: no `schemaMetadata` is emitted for any dataset in this recipe, "
+            "and no files are opened for inference. Schemas already in DataHub are "
+            "left as they are and stop updating; new datasets get no schema unless "
+            "another pipeline writes one. Partition columns are part of the schema, "
+            "so `add_partition_columns_to_schema` can't be combined with this. "
+            "Properties, partitions, containers, tags and profiling are still "
+            "emitted, and profiling still reads files."
+        ),
+    )
+
     _rename_path_spec_to_plural = pydantic_renamed_field(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
@@ -207,5 +222,11 @@ class DataLakeSourceConfig(
                 raise ValueError(
                     "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
                 )
+
+        if self.add_partition_columns_to_schema and not self.enable_schema_inference:
+            raise ValueError(
+                "add_partition_columns_to_schema has no effect when enable_schema_inference is false, "
+                "because partition columns are part of the inferred schema. Remove one of the two settings."
+            )
 
         return self

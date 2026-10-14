@@ -9,6 +9,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -44,7 +45,7 @@ public class IndexBuilderRetryElasticSearchIntegrationTest
     extends AbstractTestNGSpringContextTests {
 
   private static final String TEST_INDEX_NAME = "estest_datasetindex_v2";
-  private static final String CREATE_INDEX_RETRY_INDEX = "estest_retry_createindex_v1";
+  private static final String CREATE_INDEX_RETRY_INDEX = "estest_retryindex_v2";
   private static final int NDOCS = 5;
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -104,6 +105,7 @@ public class IndexBuilderRetryElasticSearchIntegrationTest
                     .numReplicas(0)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     ESIndexBuilder builder1Shard =
@@ -132,6 +134,7 @@ public class IndexBuilderRetryElasticSearchIntegrationTest
                     .numReplicas(0)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     ESIndexBuilder builder2Shards =

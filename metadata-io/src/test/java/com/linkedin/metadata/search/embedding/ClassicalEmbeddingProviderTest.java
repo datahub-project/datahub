@@ -116,6 +116,12 @@ public class ClassicalEmbeddingProviderTest {
   }
 
   @Test
+  public void prepareInputLeavesTextUnchangedByDefault() {
+    String text = "orders placed by customer_id";
+    assertEquals(provider.prepareInput(text, null, EmbeddingTaskType.DOCUMENT), text);
+  }
+
+  @Test
   public void rejectsMalformedModelNames() {
     for (String model :
         new String[] {

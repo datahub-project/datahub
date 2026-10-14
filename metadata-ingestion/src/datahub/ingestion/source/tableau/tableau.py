@@ -7,7 +7,7 @@ from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import (
     Any,
@@ -179,6 +179,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    SchemaResolver,
+)
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sql_parsing_result_utils import (
@@ -187,6 +191,7 @@ from datahub.sql_parsing.sql_parsing_result_utils import (
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
+    create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
@@ -896,6 +901,8 @@ class TableauSourceReport(
 ):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
+    num_workbook_project_lookups: int = 0
+    num_get_workbook_query_failures: int = 0
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
@@ -1192,6 +1199,9 @@ class TableauSiteSource:
         self.server: Server = server
         self.ctx: PipelineContext = ctx
         self.platform = platform
+        # Datasets whose schema lookup raised, so it is attempted once per
+        # dataset rather than once per column (see _ingested_schema).
+        self._failed_schema_lookups: Set[str] = set()
 
         self.vc_processor: VirtualConnectionProcessor = VirtualConnectionProcessor(self)
 
@@ -1211,7 +1221,7 @@ class TableauSiteSource:
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
         self.tableau_project_registry: Dict[str, TableauProject] = {}
-        self.workbook_project_map: Dict[str, str] = {}
+        self.workbook_project_map: Dict[str, Optional[str]] = {}
         self.datasource_project_map: Dict[str, str] = {}
         self.db_tables_lookup: Dict[str, dict] = {}
 
@@ -1512,13 +1522,11 @@ class TableauSiteSource:
         if self.server is None:
             return
 
+        # Every workbook is recorded, not just those in selected projects, so that a
+        # workbook returned by the Metadata API for an unselected project (e.g. one that
+        # shares its name with a selected project) can be reported accurately without
+        # a follow-up REST lookup. Consumers check tableau_project_registry membership.
         for wb in TSC.Pager(self.server.workbooks):
-            if wb.project_id not in self.tableau_project_registry:
-                logger.debug(
-                    f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
-                    f"registry"
-                )
-                continue
             if wb.id is None:
                 self.report.warning(
                     title="Workbook without an id skipped",
@@ -1905,11 +1913,18 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    self.report.warning(
-                        title="Skipping Missing Workbook",
-                        message="Skipping workbook as its project is not present in project registry",
-                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
-                    )
+                    if project_luid is None:
+                        self.report.warning(
+                            title="Unable to Resolve Workbook Project",
+                            message="Skipping workbook because its project could not be resolved: the workbook has no luid, or the Tableau REST API did not return it or returned it without a project. Check that the ingestion user can view the workbook. If it was published or modified during this run, it will be picked up on the next run.",
+                            context=f"workbook={wrk_name}({wrk_id}), project={prj_name}",
+                        )
+                    else:
+                        self.report.info(
+                            title="Skipping Workbook in Unselected Project",
+                            message="Skipping workbook because its project is not selected by the project filters. This typically happens when another project with the same name is selected.",
+                            context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
+                        )
                     continue
 
                 yield from self.emit_workbook_as_container(workbook)
@@ -2304,13 +2319,16 @@ class TableauSiteSource:
                         self.is_snowflake_urn(parent_dataset_urn)
                         and not self.config.ingest_tables_external
                     ):
-                        # This is required for column level lineage to work correctly as
-                        # DataHub Snowflake source lowercases all field names in the schema.
+                        # Snowflake field paths follow that source's own casing
+                        # settings, so match against the schema already in DataHub
+                        # rather than assuming a convention.
                         #
                         # It should not be done if snowflake tables are not pre ingested but
                         # parsed from SQL queries or ingested from Tableau metadata (in this case
                         # it just breaks case sensitive table level linage)
-                        name = name.lower().replace(" ", "_")
+                        name = self._match_snowflake_column_name(
+                            parent_dataset_urn, name
+                        )
                     input_columns.append(
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
@@ -2331,6 +2349,93 @@ class TableauSiteSource:
                 )
 
         return fine_grained_lineages
+
+    @cached_property
+    def _upstream_schema_resolver(self) -> Optional["SchemaResolver"]:
+        """Resolver used to read upstream schemas already in DataHub.
+
+        ``resolve_urn`` keys off the URN itself, so one instance serves every
+        upstream platform; the platform and env below only seed the factory.
+        """
+        if self.ctx.graph is None:
+            return None
+        return create_and_cache_schema_resolver(
+            platform="snowflake",
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
+    def _match_snowflake_column_name(self, dataset_urn: str, name: str) -> str:
+        """Resolve a Tableau field to the field path the Snowflake source emitted.
+
+        Tableau reports the warehouse's own casing. What the Snowflake source
+        stored depends on its `preserve_column_case` setting, so lowercasing here
+        would silently sever column lineage whenever that setting is on. Match
+        against the ingested schema and adopt its spelling.
+
+        Falls back to lowercasing — the behaviour this replaces — whenever the
+        schema cannot answer: no graph, dataset not ingested, the column absent
+        from the schema we have, or the lookup itself failing.
+        """
+        schema_info = self._ingested_schema(dataset_urn)
+        if schema_info:
+            by_folded_name = {column.lower(): column for column in schema_info}
+            # The space-to-underscore substitution is a candidate, not a
+            # pre-transform: Snowflake allows a space in a quoted identifier and
+            # keeps it, so a column really named `My Col` is only findable by the
+            # unsubstituted name. Doing it up front made that column unmatchable
+            # under either casing setting.
+            for candidate in (name, name.replace(" ", "_")):
+                # Exact before case-insensitive. With preserve_column_case on, the
+                # schema can hold `col` and `COL` as two real columns, and folding
+                # straight away collapses them into one index entry -- attaching
+                # this column's lineage to its sibling. Tableau reports the
+                # warehouse's own spelling, so an exact hit is the column asked for.
+                if candidate in schema_info:
+                    return candidate
+
+                # Then folded, for the far more common case: the Snowflake source
+                # lowercased its field paths, so nothing matches exactly.
+                # Deliberately not match_columns_to_schema: it returns the input
+                # unchanged on a miss, which here would emit warehouse casing for a
+                # column the schema does not have. A miss must fall through instead.
+                matched = by_folded_name.get(candidate.lower())
+                if matched is not None:
+                    return matched
+
+        return name.replace(" ", "_").lower()
+
+    def _ingested_schema(self, dataset_urn: str) -> Optional["SchemaInfo"]:
+        """The upstream's schema as DataHub holds it, or None if unavailable.
+
+        This is a graph call on a path that used to be a local string rewrite, so
+        it must not be able to fail the run: the site ingest loop only catches
+        MetadataQueryException, and one timed-out lookup would otherwise abort
+        every remaining workbook.
+        """
+        resolver = self._upstream_schema_resolver
+        if resolver is None:
+            return None
+
+        # SchemaResolver caches hits and misses but not exceptions, and this runs
+        # once per upstream column. Without remembering the failure, a single GMS
+        # outage would re-request — and re-warn — for every column on the dataset.
+        if dataset_urn in self._failed_schema_lookups:
+            return None
+
+        try:
+            _, schema_info = resolver.resolve_urn(dataset_urn)
+            return schema_info
+        except Exception as e:
+            self._failed_schema_lookups.add(dataset_urn)
+            self.report.warning(
+                title="Could not read an upstream schema for column lineage",
+                message="Falling back to lowercased column names, which is only "
+                "correct while the upstream source lowercases its field paths. "
+                "Column-level lineage to this dataset may not resolve.",
+                context=f"{dataset_urn}: {type(e).__name__}: {e}",
+            )
+            return None
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
@@ -2683,12 +2788,39 @@ class TableauSiteSource:
             )
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
-        if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
-            return self.workbook_project_map[wb[c.LUID]]
+        wb_luid: Optional[str] = wb.get(c.LUID)
+        if not wb_luid:
+            logger.debug(
+                f"workbook {wb.get(c.NAME)} has no luid, project_luid not found"
+            )
+            return None
 
-        logger.debug(f"workbook {wb.get(c.NAME)} project_luid not found")
+        if wb_luid not in self.workbook_project_map:
+            # A None result is recorded too, so a failed lookup is not repeated.
+            self.workbook_project_map[wb_luid] = self._query_workbook_for_project_luid(
+                wb_luid
+            )
 
-        return None
+        project_luid: Optional[str] = self.workbook_project_map[wb_luid]
+        if project_luid is None:
+            logger.debug(f"workbook {wb.get(c.NAME)} project_luid not found")
+
+        return project_luid
+
+    def _query_workbook_for_project_luid(self, wb_luid: str) -> Optional[str]:
+        self.report.num_workbook_project_lookups += 1
+
+        try:
+            return self.server.workbooks.get_by_id(wb_luid).project_id
+        except Exception:
+            # The skip itself is reported by emit_workbooks; only log the cause here
+            # so one failed workbook does not produce two report entries.
+            self.report.num_get_workbook_query_failures += 1
+            logger.warning(
+                f"Failed to get workbook details for workbook_luid={wb_luid}",
+                exc_info=True,
+            )
+            return None
 
     def _get_embedded_datasource_project_luid(self, ds: dict) -> Optional[str]:
         if ds.get(c.WORKBOOK):

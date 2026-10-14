@@ -21,9 +21,10 @@ export function SidebarDatasetViewDefinitionSection() {
     const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const statement = baseEntity?.dataset?.viewProperties?.logic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Dataset, baseEntity?.dataset?.urn || '');
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection
@@ -38,19 +39,25 @@ export function SidebarDataJobTransformationLogicSection() {
     const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDataJobQuery>();
     const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const canViewQueries = baseEntity?.dataJob?.privileges?.canViewQueries ?? false;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection title={t('sidebar.logic.logicTitle')} statement={statement} externalUrl={externalUrl} />
     );
 }
 
+type QuerySidebarEntity = QueryEntity & {
+    privileges?: { canViewQueries?: boolean | null } | null;
+};
+
 export function SidebarQueryLogicSection() {
     const { t } = useTranslation('entity.shared.containers');
-    const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
+    const baseEntity = useBaseEntity<{ entity: QuerySidebarEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
+    const canViewQueries = baseEntity?.entity?.privileges?.canViewQueries ?? false;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Query, baseEntity?.entity?.urn || '');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
@@ -59,7 +66,7 @@ export function SidebarQueryLogicSection() {
         [fineGrainedOperations],
     );
 
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection
@@ -78,7 +85,6 @@ interface HelperProps {
     externalUrl: string;
 }
 
-// exported for testing only
 function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tv } = useTranslation('entity.profile.view');

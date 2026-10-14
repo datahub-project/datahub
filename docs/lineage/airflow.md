@@ -28,6 +28,19 @@ The plugin requires Airflow 3.0+ and Python 3.10+. If you don't meet these requi
 pip install 'acryl-datahub-airflow-plugin'
 ```
 
+### Installing with Airflow constraints
+
+`acryl-datahub` requires `click>=8.3.3` and `anyio>=4.14.2`. Apache Airflow's published constraint file still pins older releases of both, so `pip install acryl-datahub-airflow-plugin -c <airflow constraints>` cannot resolve. Rewrite those two lines, then install against the result. Replace the Airflow and Python versions in the URL with the ones you run:
+
+```shell
+curl -fsSL "https://raw.githubusercontent.com/apache/airflow/constraints-3.0.2/constraints-3.11.txt" \
+  | sed -e 's/^anyio==.*/anyio>=4.14.2/' -e 's/^click==.*/click>=8.3.3/' \
+  > /tmp/datahub-relaxed-constraints.txt
+pip install 'acryl-datahub-airflow-plugin' -c /tmp/datahub-relaxed-constraints.txt
+```
+
+Leave every other pin in that file as Airflow published it.
+
 ### Configuration
 
 Set up a DataHub connection in Airflow, either via command line or the Airflow UI.
@@ -68,7 +81,7 @@ enabled = True  # default
 | capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                |
 | capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                           |
 | capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                    |
-| materialize_iolets                 | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                                                                |
+| materialize_iolets                 | true                 | Create the datasets referenced by task inlets/outlets if they are missing from DataHub. See [Materializing lineage iolets](#materializing-lineage-iolets).                                                                  |
 | enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                        |
 | disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                             |
 | enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                             |
@@ -78,6 +91,12 @@ enabled = True  # default
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                            |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                            |
 | emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
+
+#### Materializing lineage iolets
+
+By default (`materialize_iolets = true`), the plugin creates the datasets referenced by a task's inlets and outlets if they don't exist in DataHub yet, and records a write operation on each outlet so the dataset shows when the pipeline last updated it. Datasets created this way are placeholders: they have a platform, name, and environment, but no schema or documentation until a source connector ingests the real asset.
+
+Set this to `false` when every table your DAGs touch is already ingested by a source connector (Snowflake, BigQuery, and so on). The plugin then stops creating placeholders, which is useful because SQL parsing can resolve to temporary or mistyped table names you don't want in your catalog. Lineage is emitted either way, but DataHub only renders a lineage edge once both ends exist, so an edge pointing at a dataset that no connector ingests stays hidden — it appears on its own once that dataset is ingested, with no need to re-run the DAG. When the plugin is configured with a DataHub REST connection, it logs a warning for each inlet and outlet that is missing from DataHub.
 
 ## Automatic lineage extraction
 
@@ -602,6 +621,14 @@ All recent versions require Python 3.10+.
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://archive.docs.datahub.com/docs/0.10.5/lineage/airflow#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
 
 ## Changelog
+
+### Next
+
+- _Fixes_:
+  - Installing with Apache Airflow's constraint file needs those two pins relaxed first.
+    `click` is `>=8.3.3` and `anyio` is `>=4.14.2`, and Airflow's file still pins older
+    releases, so a constrained install cannot resolve until the file is rewritten. See
+    [Installing with Airflow constraints](#installing-with-airflow-constraints).
 
 `acryl-datahub-airflow-plugin` is published to PyPI on **every** DataHub release and carries that
 release's version, so `acryl-datahub-airflow-plugin==1.7.0.10` is the plugin built from DataHub

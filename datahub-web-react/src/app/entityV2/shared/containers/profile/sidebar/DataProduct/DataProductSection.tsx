@@ -1,6 +1,7 @@
 import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -56,6 +57,11 @@ export default function DataProductSection({ readOnly }: Props) {
         .map((r) => r.entity?.urn)
         .sort()
         .join(',');
+
+    const shouldShowEditButton = useMemo(
+        () => !isMultipleDataProductsEnabled && dataProducts.length > 0,
+        [isMultipleDataProductsEnabled, dataProducts.length],
+    );
 
     useEffect(() => {
         if (dataProductRelationships && dataProductRelationships.length > 0) {
@@ -187,7 +193,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
                 extra={
                     <SectionActionButton
-                        icon={Plus}
+                        icon={shouldShowEditButton ? PencilSimple : Plus}
                         onClick={(event) => {
                             setIsModalVisible(true);
                             event.stopPropagation();

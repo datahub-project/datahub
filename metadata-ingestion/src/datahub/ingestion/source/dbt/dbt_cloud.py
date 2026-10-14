@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -38,11 +38,15 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetricsParse,
     DBTNode,
+    DBTProject,
+    DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
+    parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -648,6 +652,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Filter jobs by job_id_pattern and optionally by generate_docs
         filtered_job_ids: List[int] = []
+        pattern_matched_jobs = 0
         for job in all_jobs:
             passes_docs_check = (
                 not self.config.auto_discovery.require_generate_docs
@@ -657,6 +662,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 str(job.id)
             )
 
+            if passes_pattern_check:
+                pattern_matched_jobs += 1
             if passes_docs_check and passes_pattern_check:
                 filtered_job_ids.append(job.id)
             else:
@@ -682,12 +689,37 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     context=f"job_id={job.id}, account_id={self.config.account_id}, project_id={self.config.project_id}, environment_id={production_env.id}, reason={reason_str}",
                 )
 
+        if not filtered_job_ids:
+            # Empty here means one of: no jobs at all, none match the pattern,
+            # or every pattern-matched job lacks "Generate docs on run".
+            if not all_jobs:
+                message = (
+                    f"No jobs found in production environment {production_env.id}. "
+                    "Check that the environment has jobs and that the token can see them."
+                )
+            elif not pattern_matched_jobs:
+                message = "No job in the production environment matches auto_discovery.job_id_pattern."
+            else:
+                message = (
+                    "Every job matching auto_discovery.job_id_pattern has "
+                    '"Generate docs on run" turned off, and auto_discovery.require_generate_docs '
+                    "is enabled."
+                )
+            self.report.failure(
+                title="No dbt Cloud jobs discovered",
+                message=f"{message} Nothing was ingested.",
+                context=f"account_id={self.config.account_id}, "
+                f"project_id={self.config.project_id}, "
+                f"environment_id={production_env.id}, "
+                f"jobs_retrieved={len(all_jobs)}",
+            )
+
         logger.info(
             f"Auto-discovery completed: found {len(filtered_job_ids)} jobs to ingest for project {self.config.project_id}"
         )
         return filtered_job_ids
 
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+    def _fetch_nodes_and_exposures(self) -> Tuple[List[DBTNode], List[DBTExposure]]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
         # jobs that do a full / mostly full build of the project, and will
@@ -703,8 +735,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.info("Auto-discovery mode: discovering jobs for configured project")
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
-                logger.warning("No jobs discovered in auto-discovery mode")
-                return [], {}
+                return [], []
             run_id = None  # Always use latest run in auto-discovery
         else:
             assert self.config.job_id is not None
@@ -744,8 +775,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     else:
                         raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
+                    # A GraphQL failure here silently drops an entire node
+                    # type - every semantic model, say - so it must be
+                    # operator-visible in the report, not just in the log.
+                    self.report.warning(
+                        title="Failed to fetch dbt Cloud nodes",
+                        message="No metadata was ingested for this node type "
+                        "from this job. Ingestion continued with the other "
+                        "node types and jobs.",
+                        context=f"{node_type} from job {job_id}",
+                        exc=e,
                     )
                     continue
 
@@ -770,7 +809,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         break
 
         # Parse exposures
-        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+        exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
         # Track semantic model count
         semantic_model_count = sum(
@@ -782,11 +821,25 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Fetched {semantic_model_count} semantic models from dbt Cloud"
             )
 
-        additional_metadata: Dict[str, Optional[str]] = {
-            "account_id": str(self.config.account_id),
-        }
+        return nodes, exposures
 
-        return nodes, additional_metadata
+    def load_projects(self) -> Iterator[DBTProject]:
+        nodes, exposures = self._fetch_nodes_and_exposures()
+        yield DBTProject(
+            nodes=nodes,
+            exposures=exposures,
+            # dbt Cloud's Discovery API exposes no top-level metrics block;
+            # see report_metric_source_limitations.
+            metrics=DBTMetricsParse(),
+            platform_instance=self.config.platform_instance,
+            # No manifest metadata; the semantic-model path infers the project
+            # name from the nodes' packageName.
+            project_name=None,
+            manifest_path=None,
+            artifact_props={"account_id": str(self.config.account_id)},
+            catalog_generated_at=None,
+            manifest_generated_at=None,
+        )
 
     def _extract_code_fields(
         self, node: Dict, materialization: Optional[str]
@@ -860,6 +913,28 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 },
             )
         return test_info, test_result
+
+    def report_metric_source_limitations(self) -> None:
+        """dbt Cloud cannot supply top-level `metrics:` definitions.
+
+        The Discovery API does not expose the semantic graph - `metrics` is
+        listed in `_DBT_FIELDS_BY_TYPE` as an unsupported node type. Metric
+        definitions with their expressions and derivations live in the separate
+        Semantic Layer GraphQL API, which needs its own endpoint and a token
+        carrying the "Semantic Layer Only" permission set. Metrics from
+        `create_metric` measures are unaffected - those come from the
+        semanticModels query, which already selects `createMetric`.
+        """
+        # Only reached from behind the resolved gate, and only once the caller
+        # knows semantic-model entities will be emitted, so no config check
+        # here: checking the raw value would also fire when the gate refused.
+        self.report.info(
+            title="dbt Cloud does not ingest top-level metric definitions",
+            message="Metrics declared in a `metrics:` block are not ingested "
+            "from dbt Cloud, because the Discovery API does not expose them. "
+            "Metrics from measures with `create_metric: true` are ingested as "
+            "normal. Use the dbt Core source if you need the `metrics:` block.",
+        )
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
@@ -939,16 +1014,19 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
+        semantic_model_def: Optional[DBTSemanticModelDefinition] = None
         if resource_type == "semantic_model":
-            # For semantic models, convert entities/dimensions/measures to columns
-            entities = node.get("entities", [])
-            dimensions = node.get("dimensions", [])
-            measures = node.get("measures", [])
-            columns = convert_semantic_model_fields_to_columns(
-                entities=entities,
-                dimensions=dimensions,
-                measures=measures,
-            )
+            parsed = parse_semantic_model(node)
+            semantic_model_def = parsed.definition
+            if parsed.discarded:
+                self.report.warning(
+                    title="Could not read part of a dbt semantic model",
+                    message="Some entities, dimensions or measures were skipped "
+                    "because the Discovery API response did not have the "
+                    "expected shape. The emitted schema is incomplete.",
+                    context=f"{key}: {'; '.join(parsed.discarded)}",
+                )
+            columns = convert_semantic_model_fields_to_columns(semantic_model_def)
         elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -996,6 +1074,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
             freshness_info=freshness_info,
+            semantic_model_def=semantic_model_def,
         )
 
     def _parse_into_dbt_column(

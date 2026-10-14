@@ -1,8 +1,7 @@
-import { Typography } from 'antd';
+import { CodeBlock } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import DynamicPropertiesTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicPropertiesTab';
 import DynamicTabularTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTabularTab';
 
@@ -14,23 +13,12 @@ type Props = {
     renderSpec: AspectRenderSpec | undefined | null;
 };
 
-const QueryText = styled(Typography.Paragraph)`
+const QueryText = styled.div`
     margin: 20px;
-    &&& pre {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        border: none;
-    }
 `;
 
 const SYNTAX_LANGUAGE_JSON = 'json';
 const EMPTY_JSON_OBJECT = '{}';
-
-// NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
-// to the component, so there's no way around this
-const NestedSyntax = styled(StyledSyntaxHighlighter)`
-    background-color: transparent !important;
-    border: none !important;
-`;
 
 export default function DynamicTab({ renderSpec, payload, type }: Props) {
     if (type === 'tabular') {
@@ -42,14 +30,15 @@ export default function DynamicTab({ renderSpec, payload, type }: Props) {
 
     // Default fallback behavior
     return (
-        <>
-            <QueryText>
-                <pre>
-                    <NestedSyntax language={SYNTAX_LANGUAGE_JSON}>
-                        {JSON.stringify(JSON.parse(payload || EMPTY_JSON_OBJECT), null, 2)}
-                    </NestedSyntax>
-                </pre>
-            </QueryText>
-        </>
+        <QueryText>
+            <CodeBlock
+                code={JSON.stringify(JSON.parse(payload || EMPTY_JSON_OBJECT), null, 2)}
+                language={SYNTAX_LANGUAGE_JSON}
+                variant="embedded"
+                showHeader={false}
+                showCopy={false}
+                showFormat={false}
+            />
+        </QueryText>
     );
 }

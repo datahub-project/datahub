@@ -1,5 +1,5 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -66,6 +66,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     optionListTestId,
+    optionDataTestId,
     renderCustomOptionText,
     renderCustomSelectedValue,
     filterResultsByQuery = selectDefaults.filterResultsByQuery,
@@ -239,7 +240,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
-                                        data-testid={`option-${option.value}`}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => {
                                             const isOptionDisabled = !!disabledValues?.includes(option.value);
                                             if (!isOptionDisabled && !isMultiSelect) {

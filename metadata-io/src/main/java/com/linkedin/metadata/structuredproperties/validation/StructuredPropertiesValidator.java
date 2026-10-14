@@ -246,7 +246,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     } catch (Exception e) {
       // Skip here: value checks are best-effort on the canonical full-assignment add shape.
       // Non-canonical values are still rejected by applyPatch / schema when the patch is merged.
-      log.debug("Failed to parse structured property patch ADD value: {}", e.toString());
+      if (log.isDebugEnabled()) {
+        log.debug("Failed to parse structured property patch ADD value: {}", e.toString());
+      }
       return null;
     }
   }

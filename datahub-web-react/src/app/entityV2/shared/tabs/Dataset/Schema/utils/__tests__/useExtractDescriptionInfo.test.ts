@@ -33,6 +33,7 @@ describe('useExtractDescriptionInfo', () => {
         mockedGetFieldDescriptionDetails.mockReturnValue({
             displayedDescription: 'testDescription',
             isPropagated: false,
+            isInferred: false,
             sourceDetail: '',
         });
 

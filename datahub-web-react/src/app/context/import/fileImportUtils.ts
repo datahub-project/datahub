@@ -3,7 +3,7 @@ import { ImportUseCase } from '@app/context/import/import.types';
 import { DocumentImportUseCase } from '@types';
 
 export const TEXT_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.rst', '.csv', '.json', '.yaml', '.yml']);
-export const HTML_EXTENSIONS = new Set(['.html', '.htm']);
+const HTML_EXTENSIONS = new Set(['.html', '.htm']);
 
 export function getExtension(name: string): string {
     const dot = name.lastIndexOf('.');
