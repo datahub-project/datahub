@@ -883,6 +883,14 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForTagModification(
+                Mockito.eq(mockAuthSession),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any()));
   }
 
   /** Test that empty mcpItems collection returns empty stream without throwing exception. */
@@ -1392,6 +1400,14 @@ public class PrivilegeConstraintsValidatorTest {
                 mockAuthSession)
             .findAny()
             .isPresent());
+    // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForTagModification(
+                Mockito.eq(mockAuthSession),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any()));
   }
 
   /** Adds one element, keyed by fieldPath, to a keyed array via a generic JSON patch. */
