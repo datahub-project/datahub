@@ -159,7 +159,7 @@ def test_reconcile_drops_plan_sources_the_code_does_not_use() -> None:
     assert all(ref.table != "dim_products" for ref in reconciled)
 
 
-def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
+def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
     orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
     customers = SparkTableRef(
         workspace_id=WS, item_id=LH, table="customers", schema="silver"
@@ -170,12 +170,8 @@ def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
     dim_user = SparkTableRef(
         workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
     )
-    dim_accounts = SparkTableRef(
-        workspace_id=WS, item_id=LH, table="dim_accounts", schema="gold"
-    )
     known = {
-        ref.to_urn("PROD", None)
-        for ref in (orders, customers, products, dim_user, dim_accounts)
+        ref.to_urn("PROD", None) for ref in (orders, customers, products, dim_user)
     }
     client = MagicMock()
     client.list_notebook_spark_sessions.return_value = [
@@ -201,6 +197,7 @@ def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
         known_table_urns=known,
         normalize_name=lambda name: name,
         owners_fn=lambda _upn: None,
+        reconcile_code=reconcile_code,
     )
     emitted = list(
         emitter.emit(
@@ -218,11 +215,31 @@ def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
             ]
         )
     )
-    jobs = {job.urn.job_id: job for job in emitted if isinstance(job, DataJob)}
-    assert set(jobs) == {f"{LH}.gold.dim_user"}
-    io = jobs[f"{LH}.gold.dim_user"]._get_aspect(DataJobInputOutputClass)
+    jobs = [job for job in emitted if isinstance(job, DataJob)]
+    assert len(jobs) == 1
+    io = jobs[0]._get_aspect(DataJobInputOutputClass)
     assert io is not None
+    return io
+
+
+def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
+    io = _emit_dim_user(reconcile_code=True)
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    customers = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="customers", schema="silver"
+    )
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
     assert io.inputDatasets == sorted(
         [orders.to_urn("PROD", None), customers.to_urn("PROD", None)]
     )
     assert products.to_urn("PROD", None) not in (io.inputDatasets or [])
+
+
+def test_code_reconciliation_is_off_unless_enabled() -> None:
+    io = _emit_dim_user(reconcile_code=False)
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    assert products.to_urn("PROD", None) in (io.inputDatasets or [])

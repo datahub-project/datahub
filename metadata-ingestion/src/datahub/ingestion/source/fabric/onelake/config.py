@@ -74,6 +74,55 @@ class ShortcutsConfig(ConfigModel):
         return self
 
 
+class NotebookExecutionConfig(ConfigModel):
+    """Notebook pipeline lineage and run history from executed Spark plans."""
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Model each notebook as a pipeline (a DataFlow with one Spark-job "
+            "DataJob per table it writes) built from its run history over "
+            "`history_days`. This emits both: (1) table-level lineage derived "
+            "from each run's Spark physical plans, read via the Spark monitoring "
+            "API (`livySessions` + the Spark History Server SQL API) - grouped "
+            "per write so each output table gets its own precise upstreams, "
+            "accumulated across runs (which may each execute different cells), "
+            "keeping only edges to tables ingested in the same run; and (2) run "
+            "history as DataProcessInstances of the DataFlow from the Job "
+            "Scheduler API (`GET /workspaces/{id}/items/{id}/jobs/instances`). "
+            "Adds API calls per notebook run. Requires `include_notebooks=True`."
+        ),
+    )
+    history_days: int = Field(
+        default=7,
+        description=(
+            "How many days of notebook run history to scan when `enabled` "
+            "(Spark-plan lineage and run instances)."
+        ),
+        ge=1,
+        le=90,
+    )
+    reconcile_code: bool = Field(
+        default=False,
+        description=(
+            "Narrow Spark-plan lineage using the notebook source. Each write "
+            "keeps only the tables its dataframe actually uses, and a write that "
+            "exists only in a commented-out cell is dropped. The plans still "
+            "supply the resolved OneLake path. Off by default, so plan lineage "
+            "is emitted unchanged. Requires `enabled=True`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_reconcile_code_requires_enabled(self):
+        if self.reconcile_code and not self.enabled:
+            raise ValueError(
+                "notebook_execution.reconcile_code=True requires "
+                "notebook_execution.enabled=True."
+            )
+        return self
+
+
 class SqlEndpointConfig(ConfigModel):
     """Configuration for SQL Analytics Endpoint schema extraction.
 
@@ -294,32 +343,13 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    include_notebook_execution: bool = Field(
-        default=False,
+    notebook_execution: NotebookExecutionConfig = Field(
+        default_factory=NotebookExecutionConfig,
         description=(
-            "Model each notebook as a pipeline (a DataFlow with one Spark-job "
-            "DataJob per table it writes) built from its run history over "
-            "`notebook_execution_history_days`. This emits both: (1) table-level "
-            "lineage derived from each run's Spark physical plans, read via the "
-            "Spark monitoring API (`livySessions` + the Spark History Server SQL "
-            "API) - grouped per write so each output table gets its own precise "
-            "upstreams, accumulated across runs (which may each execute "
-            "different cells), keeping only edges to tables ingested in the same "
-            "run; and (2) run history as DataProcessInstances of the DataFlow "
-            "from the Job Scheduler API "
-            "(`GET /workspaces/{id}/items/{id}/jobs/instances`). Adds API calls "
-            "per notebook run. Requires `include_notebooks=True`."
+            "Notebook pipeline lineage and run history. Off by default. "
+            "Set `notebook_execution.reconcile_code` to narrow each write's "
+            "upstreams to the tables the notebook code actually uses."
         ),
-    )
-
-    notebook_execution_history_days: int = Field(
-        default=7,
-        description=(
-            "How many days of notebook run history to scan for "
-            "`include_notebook_execution` (Spark-plan lineage and run instances)."
-        ),
-        ge=1,
-        le=90,
     )
 
     extract_schemas: bool = Field(
@@ -384,9 +414,9 @@ class FabricOneLakeSourceConfig(
     @model_validator(mode="after")
     def validate_notebook_feature_dependencies(self):
         """Notebook execution (lineage + run history) requires notebook ingestion."""
-        if self.include_notebook_execution and not self.include_notebooks:
+        if self.notebook_execution.enabled and not self.include_notebooks:
             raise ValueError(
-                "include_notebook_execution=True requires include_notebooks=True."
+                "notebook_execution.enabled=True requires include_notebooks=True."
             )
         return self
 

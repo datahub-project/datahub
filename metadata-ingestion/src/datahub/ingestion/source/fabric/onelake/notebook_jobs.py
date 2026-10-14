@@ -105,6 +105,7 @@ class NotebookProcessEmitter:
         platform_instance: Optional[str],
         env: str,
         execution_history_days: int,
+        reconcile_code: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
@@ -114,6 +115,7 @@ class NotebookProcessEmitter:
         self._platform_instance = platform_instance
         self._env = env
         self._execution_history_days = execution_history_days
+        self._reconcile_code = reconcile_code
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
@@ -297,7 +299,7 @@ class NotebookProcessEmitter:
 
         # Plans credit every earlier read to the next write. The notebook
         # source says which of those reads each write actually uses.
-        if nb.content and nb.language in (None, "python"):
+        if self._reconcile_code and nb.content and nb.language in (None, "python"):
             code_lineage = extract_notebook_code_lineage(nb.content)
             if code_lineage:
                 reconciled = reconcile_spark_lineage(
