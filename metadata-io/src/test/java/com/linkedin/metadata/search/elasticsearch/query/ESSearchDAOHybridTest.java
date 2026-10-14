@@ -24,6 +24,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -135,6 +137,23 @@ public class ESSearchDAOHybridTest {
             anyLong());
     assertEquals(rows.getValue().size(), 100);
     verify(metrics).increment(ESSearchDAO.class, "hybridReadApplied", 1);
+  }
+
+  @Test
+  public void testTemplateKnnTakesPrecedenceOverDefaultHybridReranker() throws IOException {
+    ResolvedSearchTemplate resolved =
+        new ResolvedSearchTemplate("urn:li:searchTemplate:semantic", 1L, "fulltext", null);
+    resolved.setKnn(true, 1f, 1f, 100);
+    OperationContext templated = opContext.withResolvedSearchTemplate(resolved);
+
+    SearchResult result =
+        dao.finishTemplateHybrid(templated, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+
+    assertEquals(rowIds(result), range(10, 20));
+    assertEquals(result.getFrom().intValue(), 10);
+    assertEquals(result.getPageSize().intValue(), 10);
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
   }
 
   @Test
@@ -805,6 +824,18 @@ public class ESSearchDAOHybridTest {
         .thenReturn(
             new SearchHits(hits, new TotalHits(TOTAL_HITS, TotalHits.Relation.EQUAL_TO), count));
     return response;
+  }
+
+  private static SearchResult result(int count) {
+    SearchEntityArray entities = new SearchEntityArray();
+    IntStream.range(0, count)
+        .forEach(
+            i -> entities.add(new SearchEntity().setEntity(urn(i)).setScore((double) (count - i))));
+    return new SearchResult()
+        .setEntities(entities)
+        .setNumEntities((int) TOTAL_HITS)
+        .setFrom(0)
+        .setPageSize(count);
   }
 
   private static Urn urn(int id) {

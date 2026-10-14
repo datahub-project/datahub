@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataProductProperties",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -19,8 +19,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: optional string
 
@@ -30,7 +29,6 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
     "sanitizeRichText": true
   }
   description: optional string

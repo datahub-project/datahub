@@ -1,0 +1,131 @@
+{
+  "function_score" : {
+    "boost" : 1.0,
+    "boost_mode" : "multiply",
+    "functions" : [ {
+      "filter" : {
+        "match_all" : {
+          "boost" : 1.0
+        }
+      },
+      "weight" : 1.0
+    }, {
+      "filter" : {
+        "term" : {
+          "materialized" : {
+            "boost" : 1.0,
+            "value" : "true"
+          }
+        }
+      },
+      "weight" : 0.5
+    }, {
+      "filter" : {
+        "term" : {
+          "deprecated" : {
+            "boost" : 1.0,
+            "value" : "true"
+          }
+        }
+      },
+      "weight" : 0.5
+    } ],
+    "max_boost" : 3.4028235E38,
+    "query" : {
+      "bool" : {
+        "adjust_pure_negative" : true,
+        "boost" : 1.0,
+        "minimum_should_match" : "1",
+        "should" : [ {
+          "bool" : {
+            "adjust_pure_negative" : true,
+            "boost" : 1.0,
+            "minimum_should_match" : "1",
+            "should" : [ {
+              "query_string" : {
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "default_operator" : "and",
+                "enable_position_increments" : true,
+                "escape" : false,
+                "fields" : [ "applications^0.4", "columns.stemmed^0.2", "columns.text^0.4", "container^0.4", "customProperties.stemmed^0.2", "customProperties.text^0.4", "dataProduct^0.4", "description.stemmed^0.020000001", "description.text^0.040000003", "domains^0.4", "glossaryTerms^0.2", "name.text^4.0", "platform^0.4", "platformInstance^0.4", "qualifiedName.text^4.0", "tags^0.2", "urn.text^0.4" ],
+                "fuzziness" : "AUTO",
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "max_determinized_states" : 10000,
+                "phrase_slop" : 0,
+                "query" : "customer orders",
+                "type" : "best_fields"
+              }
+            }, {
+              "match_phrase_prefix" : {
+                "name.keyword" : {
+                  "boost" : 0.0,
+                  "max_expansions" : 50,
+                  "query" : "customer orders",
+                  "slop" : 0,
+                  "zero_terms_query" : "NONE"
+                }
+              }
+            }, {
+              "term" : {
+                "name.keyword" : {
+                  "boost" : 0.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
+              "term" : {
+                "urn" : {
+                  "_name" : "urn",
+                  "boost" : 0.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
+              "term" : {
+                "urn" : {
+                  "_name" : "urn",
+                  "boost" : 0.0,
+                  "value" : "customer orders"
+                }
+              }
+            } ]
+          }
+        }, {
+          "term" : {
+            "structuredProperties.certification_status.keyword" : {
+              "boost" : 3.0,
+              "value" : "customer orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string.keyword" : {
+              "boost" : 5.0,
+              "value" : "customer orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.owner_ref" : {
+              "boost" : 1.5,
+              "value" : "customer orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.summary_notes.keyword" : {
+              "boost" : 2.0,
+              "value" : "customer orders"
+            }
+          }
+        } ]
+      }
+    },
+    "score_mode" : "avg"
+  }
+}

@@ -8,7 +8,10 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SLASH_PATTERN_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.LENGTH;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
@@ -201,6 +204,32 @@ public class FieldTypeMapper {
    *
    * @return mapping configuration for URN structured property field
    */
+  /**
+   * Adds the shared-text analyzed form beside the keyword multi-field. The map returned by {@link
+   * #getMappingsForKeywordWithIgnoreAbove(int)} is mutable; its {@code fields} entry is not.
+   */
+  @Nonnull
+  private static Map<String, Object> withAnalyzedText(@Nonnull Map<String, Object> mapping) {
+    Map<String, Object> fields = new HashMap<>();
+    Object existing = mapping.get(FIELDS);
+    if (existing instanceof Map<?, ?> current) {
+      for (Map.Entry<?, ?> entry : current.entrySet()) {
+        fields.put(String.valueOf(entry.getKey()), entry.getValue());
+      }
+    }
+    fields.put(
+        "text",
+        Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            TEXT_ANALYZER,
+            SEARCH_ANALYZER,
+            TEXT_SEARCH_ANALYZER));
+    mapping.put(FIELDS, fields);
+    return mapping;
+  }
+
   @Nonnull
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
@@ -415,8 +444,10 @@ public class FieldTypeMapper {
       case RICH_TEXT:
         // ignore_above protects reindex from pre-existing values over the keyword limit;
         // StructuredPropertiesValidator rejects new oversized writes. .keyword multi-field
-        // matches usesKeywordSubfield query/facet resolution.
-        return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+        // matches usesKeywordSubfield query/facet resolution. .text is the analyzed form
+        // prefix and contains query. Exact stays on the keyword form. URN, date, and number
+        // do not get this field, and the value is not copied into a shared search field.
+        return withAnalyzedText(getMappingsForKeywordWithIgnoreAbove(keywordMaxLength));
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
       case URN:
@@ -474,8 +505,8 @@ public class FieldTypeMapper {
   /**
    * The root mapping of every text, word-gram and URN field: a normalized keyword, as V2 maps text
    * roots, with a {@code .keyword} subfield that keeps the stored casing for filters, facets and
-   * sorts. Full-text search and autocomplete read the shared {@code _search} fields instead (see
-   * {@link V3SearchFields}), so the root carries no analyzed subfields.
+   * sorts. Full-text search reads the shared {@code _search} fields instead (see {@link
+   * V3SearchFields}), so the root carries no analyzed subfields.
    */
   @Nonnull
   private static Map<String, Object> getMappingsForSearchText() {

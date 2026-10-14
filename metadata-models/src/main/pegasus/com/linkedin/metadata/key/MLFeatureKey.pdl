@@ -4,7 +4,8 @@ namespace com.linkedin.metadata.key
  * Key for an MLFeature
  */
 @Aspect = {
-  "name": "mlFeatureKey"
+  "name": "mlFeatureKey",
+  "schemaVersion": 2
 }
 record MLFeatureKey {
 
@@ -24,8 +25,7 @@ record MLFeatureKey {
     "enableAutocomplete": true,
     "boostScore": 8.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 }

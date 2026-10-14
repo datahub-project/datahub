@@ -60,8 +60,16 @@ import org.springframework.context.ConfigurableApplicationContext;
 @Slf4j
 public class UpgradeCliApplication {
 
+  /**
+   * Beats {@code application.yaml} and a shared {@code SEARCH_V3_TEMPLATES_SOURCE} env. System
+   * update always renders the templates that shipped with this build.
+   */
+  private static final String CLASSPATH_TEMPLATES =
+      "elasticsearch.search.v3.templates.source=classpath";
+
   public static void main(String[] args) {
     log.info("Starting UpgradeCli Application...");
+    System.setProperty("elasticsearch.search.v3.templates.source", "classpath");
 
     if (SqlSetupCondition.isSqlSetupEnabled()) {
       log.info("Starting SQL Setup Bootstrap Application...");
@@ -79,6 +87,7 @@ public class UpgradeCliApplication {
 
     // System Update (always run with original arguments)
     new SpringApplicationBuilder(UpgradeConfigurationSelector.class, UpgradeCli.class)
+        .properties(CLASSPATH_TEMPLATES)
         .web(WebApplicationType.NONE)
         .run(args);
   }
@@ -96,6 +105,7 @@ public class UpgradeCliApplication {
       String[] sqlSetupArgs = {"-u", "SqlSetup"};
       sqlSetupContext =
           new SpringApplicationBuilder(UpgradeConfigurationSelector.class)
+              .properties(CLASSPATH_TEMPLATES)
               .web(WebApplicationType.NONE)
               .run(sqlSetupArgs);
 

@@ -1,0 +1,665 @@
+# Search V3 query templates. Query bodies are Mustache for the search renderer.
+# BootstrapMCP also uses Mustache, so each body switches delimiters around its
+# {{tags}} so those tags are stored literally. {{&auditStamp}} stays a bootstrap tag.
+- entityUrn: urn:li:searchTemplate:search
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Search
+    description: "Router for one fulltext query. A URN or an s3, gs, or hdfs path uses identity. An empty query or * uses list. A quoted /q query uses structuredExact, and any other /q query uses structured. A quoted query uses exact. Any other query uses fulltext. Scroll, aggregation, and browse start here."
+    dialect: ELASTICSEARCH
+    editable: false
+    routes:
+      - queryRegex: "(?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^\\/q [\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+      - queryRegex: "^\\/q .*"
+        template: urn:li:searchTemplate:structured
+      - queryRegex: "^[\"'].+[\"']$"
+        template: urn:li:searchTemplate:exact
+    defaultRoute:
+      template: urn:li:searchTemplate:fulltext
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:searchLight
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Search light
+    description: "Same routes as search. An ordinary query starts on light and continues to fulltext when that first query does not stop. Search result pages start here."
+    dialect: ELASTICSEARCH
+    editable: false
+    parent: urn:li:searchTemplate:search
+    defaultRoute:
+      template: urn:li:searchTemplate:light
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:fulltext
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Fulltext
+    description: "Complete text query. Matches analyzed fields, a name prefix, and an exact name, and adds clauses for synonyms, identifiers, dotted names, and long phrases."
+    dialect: ELASTICSEARCH
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "dis_max": {
+          "tie_breaker": 0.01,
+          "queries": [
+            {
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "fields": {{&defaultQueryFieldsJson}}
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "simple_query_string": {
+                "query": "{{.}}",
+                "default_operator": "OR",
+                "fields": {{&defaultQueryFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/synonyms}}
+            {{#flags.alphanumericSplit}}
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "default_operator": "OR",
+                "fields": {{&defaultQueryFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/flags.alphanumericSplit}}
+            ,{
+              "match_phrase_prefix": {
+                "{{nameText}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{prefixFactor}}
+                }
+              }
+            }
+            ,{
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{unquoted}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{.}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{/synonyms}}
+            {{#wildcardTerm}}
+            ,{
+              "wildcard": {
+                "{{nameKeyword}}": {
+                  "value": "*{{wildcardTerm}}*",
+                  "case_insensitive": true,
+                  "boost": 0.3
+                }
+              }
+            }
+            {{/wildcardTerm}}
+            {{#multiWord}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&identityQueryFieldsJson}},
+                "boost": 3.0
+              }
+            }
+            {{/multiWord}}
+            {{#dotted}}
+            ,{
+              "match": {
+                "{{qualifiedNameText}}": {
+                  "query": "{{unquoted}}",
+                  "operator": "AND",
+                  "boost": 50.0
+                }
+              }
+            }
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true
+                }
+              }
+            }
+            {{/dotted}}
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            {{/longPhrase}}
+            {{#extraDisMaxQueries}}
+            ,{{&extraDisMaxQueries}}
+            {{/extraDisMaxQueries}}
+          ]
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    routes: []
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:light
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Light
+    description: "Cheaper text query for a relevance-sorted page that does not filter on a column. Keeps the result when it finds a hit, or when a spaceless identifier finds nothing. Otherwise continues to fulltext."
+    dialect: ELASTICSEARCH
+    editable: false
+    parent: urn:li:searchTemplate:fulltext
+    query: |
+      {{=<% %>=}}
+      {
+        "dis_max": {
+          "tie_breaker": 0.01,
+          "queries": [
+            {{^flags.alphanumericSplit}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&lightFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/flags.alphanumericSplit}}
+            {
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{unquoted}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "multi_match": {
+                "query": "{{.}}",
+                "type": "best_fields",
+                "fields": {{&lightFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            }
+            {{/synonyms}}
+            {{#wholeIdentifier}}
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "fields": {{&identityQueryFieldsJson}},
+                "default_operator": "AND"
+              }
+            }
+            {{/wholeIdentifier}}
+            {{#multiWord}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&identityQueryFieldsJson}},
+                "default_operator": "AND",
+                "boost": 3.0
+              }
+            }
+            {{/multiWord}}
+            {{#fullyQualifiedName}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fqnQuery}}",
+                "fields": ["{{qualifiedNameText}}"],
+                "default_operator": "AND",
+                "boost": 50.0
+              }
+            }
+            {{/fullyQualifiedName}}
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            {{/longPhrase}}
+          ]
+        }
+      }
+      <%={{ }}=%>
+    ladder:
+      select:
+        - scoreSort
+        - pageSize
+        - notColumnFilter
+      stop:
+        - minHits: 1
+        - emptyWhen: spacelessIdentifier
+      next: urn:li:searchTemplate:fulltext
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:list
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: List
+    description: "Matches every document for an empty query or *. Ranking comes from enrichment weights, not from query text."
+    dialect: ELASTICSEARCH
+    editable: false
+    query: '{ "match_all": {} }'
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    routes: []
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:exact
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Exact
+    description: "Quoted text query. Matches a name prefix, an exact name, and the URN, without the broader analyzed-text clauses."
+    dialect: ELASTICSEARCH
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {
+              "match_phrase_prefix": {
+                "{{entityNameField}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{prefixFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{entityNameField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}},
+                  "_name": "urn"
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": false,
+                  "boost": {{caseSensitivityFactor}},
+                  "_name": "urn"
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    routes: []
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:structured
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Structured
+    description: "Field query used when fulltext is off and for /q syntax. Matches with query_string using AND, plus a name prefix and an exact name and URN. A URN or storage path uses identity, an empty query or * uses list, and a quoted query uses structuredExact. Any other query stays here."
+    dialect: ELASTICSEARCH
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {
+              "query_string": {
+                "query": "{{raw}}",
+                "default_operator": "AND",
+                "fields": {{&defaultQueryFieldsJson}}
+              }
+            },
+            {
+              "match_phrase_prefix": {
+                "{{entityNameField}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{prefixFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{entityNameField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}},
+                  "_name": "urn"
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": false,
+                  "boost": {{caseSensitivityFactor}},
+                  "_name": "urn"
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    routes:
+      - queryRegex: "(?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^(?:\\/q )?[\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:structuredExact
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Structured exact
+    description: "Quoted field query. Runs the structured query and does not route again."
+    dialect: ELASTICSEARCH
+    editable: false
+    parent: urn:li:searchTemplate:structured
+    routes: []
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:lineage
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Lineage
+    description: "Text search over the entities a lineage graph walk already returned. Uses the fulltext query. A URN or storage path, an empty query or *, /q, and a quoted query route the same way as search. An ordinary query stays here. The graph walk is separate from this template."
+    dialect: ELASTICSEARCH
+    editable: false
+    parent: urn:li:searchTemplate:fulltext
+    routes:
+      - queryRegex: "(?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^\\/q [\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+      - queryRegex: "^\\/q .*"
+        template: urn:li:searchTemplate:structured
+      - queryRegex: "^[\"'].+[\"']$"
+        template: urn:li:searchTemplate:exact
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:searchTemplate:identity
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Identity
+    description: "Lookup for a URN or an s3, gs, or hdfs path. Prefers an exact URN, then a URN phrase, the qualified name, and the last path segment."
+    dialect: ELASTICSEARCH
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {
+              "term": {
+                "{{urnKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "boost": 100.0
+                }
+              }
+            },
+            {
+              "match_phrase": {
+                "{{urnKeyword}}": {
+                  "query": "{{unquoted}}",
+                  "boost": 50.0
+                }
+              }
+            },
+            {
+              "match_phrase": {
+                "{{qualifiedNameIdentity}}": {
+                  "query": "{{unquoted}}",
+                  "boost": 30.0
+                }
+              }
+            },
+            {
+              "term": {
+                "{{nameKeyword}}": {
+                  "value": "{{lastSegment}}",
+                  "case_insensitive": true,
+                  "boost": 20.0
+                }
+              }
+            }
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": 10.0
+                }
+              }
+            }
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "fields": {{&defaultQueryFieldsJson}},
+                "default_operator": "AND"
+              }
+            }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    routes: []
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

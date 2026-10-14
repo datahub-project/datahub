@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -678,15 +679,19 @@ public class ESBrowseDAO {
       @Nonnull String input) {
 
     final OperationContext finalOpContext =
-        opContext.withSearchFlags(
-            flags -> Optional.ofNullable(flags).orElse(new SearchFlags().setFulltext(true)));
+        SearchTemplates.bind(
+            opContext.withSearchFlags(
+                flags -> Optional.ofNullable(flags).orElse(new SearchFlags().setFulltext(true))),
+            input,
+            false,
+            List.of(entityName));
 
     final int browseDepthVal = getPathDepthV2(path);
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-    QueryBuilder query =
+    final QueryBuilder query =
         SearchRequestHandler.getBuilder(
                 opContext,
                 entitySpec,
@@ -727,13 +732,17 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input) {
     final OperationContext finalOpContext =
-        opContext.withSearchFlags(
-            flags -> Optional.ofNullable(flags).orElse(new SearchFlags().setFulltext(true)));
+        SearchTemplates.bind(
+            opContext.withSearchFlags(
+                flags -> Optional.ofNullable(flags).orElse(new SearchFlags().setFulltext(true))),
+            input,
+            false,
+            entitySpecs.stream().map(EntitySpec::getName).toList());
     final int browseDepthVal = getPathDepthV2(path);
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    QueryBuilder query =
+    final QueryBuilder query =
         SearchRequestHandler.getBuilder(
                 finalOpContext,
                 entitySpecs,

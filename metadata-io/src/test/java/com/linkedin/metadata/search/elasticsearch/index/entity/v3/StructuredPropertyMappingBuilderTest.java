@@ -255,12 +255,14 @@ public class StructuredPropertyMappingBuilderTest {
   @Test
   public void testStringValuesCopyToFullTextFieldUnlessExcluded() {
     for (String valueType : List.of("string", "rich_text", "urn")) {
-      assertEquals(
+      Map<String, Object> mapping =
           StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
-                  propertyOfType(valueType))
-              .get("copy_to"),
-          List.of("_search.structuredProperties"),
-          valueType);
+              propertyOfType(valueType));
+      assertFalse(mapping.containsKey("copy_to"), valueType + " " + mapping);
+      if ("string".equals(valueType) || "rich_text".equals(valueType)) {
+        assertTrue(
+            ((Map<?, ?>) mapping.get("fields")).containsKey("text"), valueType + " " + mapping);
+      }
     }
     for (String valueType : List.of("number", "date")) {
       assertFalse(

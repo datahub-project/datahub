@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
+import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -83,6 +85,14 @@ public class SearchFlagsInputMapper
     }
     if (searchFlags.getMinScore() != null) {
       result.setMinScore(searchFlags.getMinScore());
+    }
+    if (searchFlags.getSearchTemplate() != null) {
+      try {
+        result.setSearchTemplate(Urn.createFromString(searchFlags.getSearchTemplate()));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(
+            "Invalid searchTemplate URN: " + searchFlags.getSearchTemplate(), e);
+      }
     }
     return result;
   }

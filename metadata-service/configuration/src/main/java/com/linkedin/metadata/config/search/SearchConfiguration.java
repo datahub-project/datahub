@@ -35,4 +35,7 @@ public class SearchConfiguration {
   private EntityTypeListConfig prioritizedSourceEntityTypes;
 
   private EntityTypeListConfig prioritizedDatahubEntityTypes;
+
+  /** Search V3 query templates ({@code elasticsearch.search.v3.templates}). */
+  @Builder.Default private SearchV3Configuration v3 = new SearchV3Configuration();
 }

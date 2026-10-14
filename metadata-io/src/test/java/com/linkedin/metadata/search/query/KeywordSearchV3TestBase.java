@@ -255,8 +255,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
-    // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
-    engineV3MappingsBuilder = new MultiEntityMappingsBuilder(entityIndex, getSearchClient());
+    engineV3MappingsBuilder = new MultiEntityMappingsBuilder(entityIndex);
     // Both the document transformer and the filter resolver look the definition up
     StructuredPropertyDefinition retentionPolicy =
         new StructuredPropertyDefinition()
@@ -408,7 +407,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DatasetProperties()
                         .setName("customers")
                         .setDescription(CUSTOMERS_DESCRIPTION),
-                    // editedName has no searchTier
                     new EditableDatasetProperties().setName("quarterly ledger"),
                     // owners is not queried by default
                     new Ownership()
@@ -983,7 +981,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                   ENTITY_TYPES,
                   "orders",
                   null,
-                  List.of(new SortCriterion().setField("_entityName").setOrder(sort.getKey())),
+                  List.of(new SortCriterion().setField("name").setOrder(sort.getKey())),
                   0,
                   10)
               .getEntities()
@@ -1143,9 +1141,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     }
   }
 
-  /** Every field queried by default is searched, with or without a searchTier annotation. */
+  /** The edited name is part of the default full-text query. */
   @Test
-  public void testSearchFieldWithoutSearchTier() {
+  public void testSearchMatchesEditedName() {
     assertUrns(
         searchService
             .search(
@@ -1262,7 +1260,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isMatch());
     String explanation = explain.getExplanation().toString();
-    assertTrue(explanation.contains("_search.description.text:customer"), explanation);
+    assertTrue(explanation.contains("description.text:customer"), explanation);
     assertFalse(explanation.contains("description.keyword"), explanation);
   }
 
@@ -1708,7 +1706,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   /**
    * Root fields are normalized keywords for filters, facets and sorts, without V2's analyzed
    * subfields. Full text lives in the shared _search fields: a word and a stemmed subfield on every
-   * one, and ngrams only on autocomplete.
+   * one. Search V3 maps no autocomplete field.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -1746,11 +1744,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(entityName.keySet(), Set.of("text", "stemmed", "keyword"));
     // The name keeps its stored casing for case-sensitive exact match
     assertFalse(((Map<String, Object>) entityName.get("keyword")).containsKey("normalizer"));
-    assertEquals(
-        ((Map<String, Object>)
-                ((Map<String, Object>) searchFields.get("autocomplete")).get("fields"))
-            .keySet(),
-        Set.of("ngram"));
+    assertFalse(searchFields.containsKey("autocomplete"));
   }
 
   @Test
@@ -1826,66 +1820,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   @Test
-  public void testAutoComplete() {
-    // The suggestion is the first fetched autocomplete field that matches: here the name or the key
-    // id
-    AutoCompleteResult name =
-        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
-    assertEquals(urns(name), List.of(ORDERS));
-    assertTrue(ORDERS_VALUES.containsAll(name.getSuggestions()), name.getSuggestions().toString());
-
-    // Matches inside a value: only a later word of the title matches
-    AutoCompleteResult word =
-        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", null, null, 10);
-    assertEquals(urns(word), List.of(ORDERS_CHART));
-    assertEquals(word.getSuggestions(), List.of("Orders by region"));
-
-    // Only the dataset key id holds "sales"
-    AutoCompleteResult keyId =
-        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", null, null, 10);
-    assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
-    assertEqualsNoOrder(
-        keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
-    // As on V2, a urn request matches the default fields
-    assertEqualsNoOrder(
-        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", "urn", null, 10))
-            .toArray(),
-        new Urn[] {ORDERS, CUSTOMERS});
-
-    // Mixed-case input: the autocomplete field's analyzer lowercases it
-    AutoCompleteResult upperName =
-        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ORD", null, null, 10);
-    assertEquals(urns(upperName), List.of(ORDERS));
-    assertTrue(
-        ORDERS_VALUES.containsAll(upperName.getSuggestions()),
-        upperName.getSuggestions().toString());
-    AutoCompleteResult upperKeyId =
-        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "SALES", null, null, 10);
-    assertEqualsNoOrder(urns(upperKeyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
-    assertEqualsNoOrder(
-        upperKeyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
-
-    // A requested field is the only one matched, not the entity name
-    AutoCompleteResult tool =
-        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "look", "tool", null, 10);
-    assertEquals(urns(tool), List.of(ORDERS_CHART));
-    assertEquals(tool.getSuggestions(), List.of("looker"));
+  public void testAutoCompleteReturnsNothing() {
     assertEquals(
-        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "tool", null, 10)),
+        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)),
         List.of());
-    // A requested field matches a prefix of its whole value, not of a later word
-    AutoCompleteResult title =
-        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "title", null, 10);
-    assertEquals(urns(title), List.of(ORDERS_CHART));
-    assertEquals(title.getSuggestions(), List.of("Orders by region"));
     assertEquals(
-        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10)),
-        List.of());
-    // A requested field that holds no strings matches nothing
-    assertEquals(
-        urns(
-            searchService.autoComplete(
-                opContext, CHART_ENTITY_NAME, "2024", "lastModifiedAt", null, 10)),
+        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "title", null, 10)),
         List.of());
   }
 

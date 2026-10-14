@@ -6,7 +6,7 @@ import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
    "name": "propertyDefinition",
-   "schemaVersion": 2
+   "schemaVersion": 3
 }
 record StructuredPropertyDefinition {
     /**
@@ -14,7 +14,6 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "fieldType": "KEYWORD",
-      "searchTier": 1,
       "searchLabel": "qualifiedName"
     }
     qualifiedName: string
@@ -25,8 +24,7 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "enableAutocomplete": true,
       "fieldType": "WORD_GRAM",
-      "searchTier": 1,
-      "searchLabel": "entityName"
+      "searchLabel": "name"
       }
     displayName: optional string
 

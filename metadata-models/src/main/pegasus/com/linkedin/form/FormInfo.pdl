@@ -7,14 +7,15 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "formInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record FormInfo {
   /**
    * Display name of the form
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "searchLabel": "name"
   }
   name: string
 

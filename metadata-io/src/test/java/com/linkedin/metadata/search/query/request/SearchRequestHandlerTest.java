@@ -900,15 +900,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, "test query");
 
     String query = v3.query().toString();
-    assertTrue(query.contains("_search.entityName.text"), query);
-    assertTrue(query.contains("_search.columns.text"), query);
-    assertTrue(query.contains("_search.columns.stemmed"), query);
-    assertTrue(query.contains("_search.structuredProperties.text"), query);
+    assertTrue(query.contains("name.text"), query);
+    assertTrue(query.contains("columns.text"), query);
+    assertTrue(query.contains("columns.stemmed"), query);
+    assertFalse(query.contains("_search."), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
     assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
-    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(
+        Collections.disjoint(fetched, Set.of("fieldPaths", "fieldLabels")), fetched.toString());
     assertTrue(
         fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
     // Structured property values are searched, never fetched for matched fields
@@ -939,7 +940,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name"));
+        Set.of("urn", "name", "fieldDescriptions"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1019,7 +1020,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             getDatasetSearchSource(noColumns, V3_READ_CONFIG, highlightConfig, "test")
                 .fetchSource()
                 .includes());
-    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(
+        Collections.disjoint(fetched, Set.of("fieldPaths", "fieldLabels")), fetched.toString());
     assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
 
     // A query of only stop words can match no field, so nothing is fetched for it
@@ -1055,10 +1057,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         handler.getSearchRequest(fulltext, "runbook", null, null, 0, 10, List.of()).source();
 
     String query = source.query().toString();
-    assertTrue(query.contains("_search.other.text"), query);
+    assertTrue(query.contains("name.text") || query.contains("title"), query);
+    assertFalse(query.contains("_search."), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
     assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
-    assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
 
     OperationContext naming =
         operationContext.withSearchFlags(

@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
-import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.linkedin.common.urn.Urn;
@@ -85,22 +84,27 @@ public class StructuredPropertyMappingBuilder {
 
     // Add specific properties based on the value type
     Map<String, Object> properties =
-        FieldTypeMapper.getMappingsForLogicalValueType(logicalValueType);
+        new HashMap<>(FieldTypeMapper.getMappingsForLogicalValueType(logicalValueType));
+    if (isExcludedFromFullTextSearch(definition)
+        && properties.get("fields") instanceof Map<?, ?> fields) {
+      Map<String, Object> withoutText = new HashMap<>();
+      fields.forEach(
+          (key, value) -> {
+            if (!"text".equals(String.valueOf(key))) {
+              withoutText.put(String.valueOf(key), value);
+            }
+          });
+      if (withoutText.isEmpty()) {
+        properties.remove("fields");
+      } else {
+        properties.put("fields", withoutText);
+      }
+    }
     if (!properties.isEmpty()) {
       fieldMapping.putAll(properties);
     }
 
-    if (isFullTextEligible(logicalValueType) && !isExcludedFromFullTextSearch(definition)) {
-      fieldMapping.put(COPY_TO, List.of(V3SearchFields.path(V3SearchFields.STRUCTURED_PROPERTIES)));
-    }
-
     return fieldMapping;
-  }
-
-  private static boolean isFullTextEligible(@Nonnull LogicalValueType logicalType) {
-    return logicalType == LogicalValueType.STRING
-        || logicalType == LogicalValueType.RICH_TEXT
-        || logicalType == LogicalValueType.URN;
   }
 
   /**

@@ -337,6 +337,35 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return OperationContext.withReadPreference(this, readPreference);
   }
 
+  /** Tags the search surface used to select a query template. Does not select the template. */
+  @Nonnull
+  public OperationContext withSearchSurface(@Nullable String searchSurface) {
+    try {
+      return toBuilder()
+          .searchContext(getSearchContext().toBuilder().searchSurface(searchSurface).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Records the template chosen for this invocation. Selection does not read this field. Replaces
+   * any template recorded by a previous query on the copied context.
+   */
+  @Nonnull
+  public OperationContext withResolvedSearchTemplate(
+      @Nullable ResolvedSearchTemplate resolvedSearchTemplate) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().resolvedSearchTemplate(resolvedSearchTemplate).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public OperationContext asSession(
       @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
@@ -407,6 +436,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public Collection<Urn> getActorPeers() {
     return authorizationContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
+  }
+
+  /** Groups the session actor belongs to. */
+  public Collection<Urn> getActorGroups() {
+    return authorizationContext.getAuthorizer().getActorGroups(sessionActorContext.getActorUrn());
   }
 
   /**

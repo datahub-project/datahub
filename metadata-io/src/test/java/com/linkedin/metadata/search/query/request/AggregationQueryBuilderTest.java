@@ -196,7 +196,6 @@ public class AggregationQueryBuilderTest {
       boolean includeQueryEmptyAggregation,
       boolean includeSystemModifiedAt,
       Optional<String> systemModifiedAtFieldName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<Boolean> searchIndexed,
       Optional<String> entityFieldName,
@@ -219,7 +218,6 @@ public class AggregationQueryBuilderTest {
         includeQueryEmptyAggregation,
         includeSystemModifiedAt,
         systemModifiedAtFieldName,
-        searchTier,
         searchLabel,
         searchIndexed,
         entityFieldName,
@@ -246,7 +244,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -292,7 +289,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
@@ -331,7 +327,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -352,7 +347,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -596,7 +590,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -617,7 +610,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -684,7 +676,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -741,7 +732,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -762,7 +752,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -827,7 +816,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             true,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1045,7 +1033,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1066,7 +1053,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1128,7 +1114,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1153,7 +1138,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1174,7 +1158,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1235,7 +1218,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1260,7 +1242,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1316,7 +1297,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1341,7 +1321,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1397,7 +1376,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1422,7 +1400,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1479,7 +1456,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1504,7 +1480,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1580,7 +1555,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1605,7 +1579,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1630,7 +1603,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),

@@ -8,14 +8,15 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataHubIngestionSourceInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DataHubIngestionSourceInfo {
   /**
    * The display name of the ingestion source
    */
   @Searchable = {
-   "fieldType": "TEXT_PARTIAL"
+   "fieldType": "TEXT_PARTIAL",
+   "searchLabel": "name"
   }
   name: string
 

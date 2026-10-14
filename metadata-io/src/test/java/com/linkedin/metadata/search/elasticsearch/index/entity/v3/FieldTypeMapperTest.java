@@ -174,6 +174,31 @@ public class FieldTypeMapperTest {
   }
 
   @Test
+  public void testStringAndRichTextGainAnalyzedText() {
+    for (LogicalValueType type : List.of(LogicalValueType.STRING, LogicalValueType.RICH_TEXT)) {
+      Map<String, Object> mapping = FieldTypeMapper.getMappingsForLogicalValueType(type);
+      Map<String, Object> fields = getFields(mapping);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> text = (Map<String, Object>) fields.get("text");
+      assertNotNull(text, type.name());
+      assertEquals(text.get("type"), "text");
+      assertEquals(text.get("analyzer"), "word_delimited");
+      assertEquals(text.get("search_analyzer"), "query_word_delimited");
+      assertTrue(fields.containsKey("keyword"));
+      assertFalse(mapping.containsKey("copy_to"), type.name());
+    }
+    for (LogicalValueType type :
+        List.of(LogicalValueType.URN, LogicalValueType.DATE, LogicalValueType.NUMBER)) {
+      Map<String, Object> mapping = FieldTypeMapper.getMappingsForLogicalValueType(type);
+      Object fields = mapping.get("fields");
+      if (fields instanceof Map<?, ?> map) {
+        assertFalse(map.containsKey("text"), type.name());
+      }
+      assertFalse(mapping.containsKey("copy_to"), type.name());
+    }
+  }
+
+  @Test
   public void testBooleanFieldType() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.BOOLEAN);
     assertEquals(mapping.get("type"), "boolean");

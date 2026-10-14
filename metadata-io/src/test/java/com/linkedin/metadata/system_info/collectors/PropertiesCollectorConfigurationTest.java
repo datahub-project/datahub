@@ -200,6 +200,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.proxy.scheme",
           "elasticsearch.clusters.*.proxy.username",
           "elasticsearch.clusters.*.proxy.useSystemProxyProperties",
+          // Search V3 template URN slots vary by intent, surface, and search engine.
+          "elasticsearch.search.v3.templates.defaults.*.*",
+          "elasticsearch.search.v3.templates.surfaces.*.*.*",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
@@ -818,6 +821,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.prioritizedDatahubEntityTypes.value",
           "elasticsearch.search.prioritizedDatahubEntityTypes.add",
           "elasticsearch.search.prioritizedDatahubEntityTypes.remove",
+          "elasticsearch.search.v3.templates.concurrency.corePoolSize",
+          "elasticsearch.search.v3.templates.concurrency.keepAlive",
+          "elasticsearch.search.v3.templates.concurrency.maxPoolSize",
+          "elasticsearch.search.v3.templates.concurrency.queueSize",
+          "elasticsearch.search.v3.templates.maxLeafClauses",
+          "elasticsearch.search.v3.templates.source",
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",
