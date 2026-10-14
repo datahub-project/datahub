@@ -762,6 +762,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             custom_properties=custom_properties,
             view_definition=view_definition,
             parse_view_lineage=False,
+            # Notebook execution lineage belongs on its Fabric Spark Jobs.
+            # Emit an empty aspect to remove lineage retained from older runs.
+            upstreams=UpstreamLineageClass(upstreams=[]),
             owners=self._owners(notebook.owner_user_principal_name),
         )
 
