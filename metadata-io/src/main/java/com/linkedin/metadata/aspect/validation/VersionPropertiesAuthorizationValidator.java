@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,11 +107,10 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
       Urn demotedLatest = null;
       boolean writesVersionSet = versionSet == null;
       if (versionSet != null && !item.getUrn().equals(versionSet.getLatest())) {
-        // Mirrors VersionPropertiesSideEffect: a higher sortId becomes the new latest.
         VersionProperties previousLatest = latestVersions.get(versionSet.getLatest());
         if (previousLatest == null) {
           writesVersionSet = true;
-        } else if (proposed.getSortId().compareTo(previousLatest.getSortId()) > 0) {
+        } else if (VersionPropertiesSideEffect.supersedes(proposed, previousLatest)) {
           writesVersionSet = true;
           demotedLatest = versionSet.getLatest();
         }
@@ -144,21 +144,26 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
       @Nonnull BatchItem item,
       @Nullable VersionProperties current,
       @Nonnull AspectRetriever aspectRetriever) {
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      if (current == null) {
-        // Patching a missing versionProperties aspect fails downstream; nothing to authorize.
-        return null;
-      }
-      ProposedItem proposedItem = (ProposedItem) item;
-      return PatchItemImpl.builder()
-          .build(
-              proposedItem.getMetadataChangeProposal(),
-              proposedItem.getAuditStamp(),
-              aspectRetriever.getEntityRegistry())
-          .applyPatch(current, aspectRetriever)
-          .getAspect(VersionProperties.class);
+    if (!ChangeType.PATCH.equals(item.getChangeType())) {
+      return item.getAspect(VersionProperties.class);
     }
-    return item.getAspect(VersionProperties.class);
+    // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
+    // validation. Neither carries the resulting aspect, so apply it here. current may be null: a
+    // generic JSON patch can create the aspect from scratch.
+    PatchItemImpl patchItem =
+        item instanceof PatchItemImpl
+            ? (PatchItemImpl) item
+            : PatchItemImpl.builder()
+                .build(
+                    ((ProposedItem) item).getMetadataChangeProposal(),
+                    item.getAuditStamp(),
+                    aspectRetriever.getEntityRegistry());
+    try {
+      return patchItem.applyPatch(current, aspectRetriever).getAspect(VersionProperties.class);
+    } catch (RuntimeException e) {
+      // A patch that cannot be applied fails the write downstream; nothing to authorize.
+      return null;
+    }
   }
 
   @Nonnull

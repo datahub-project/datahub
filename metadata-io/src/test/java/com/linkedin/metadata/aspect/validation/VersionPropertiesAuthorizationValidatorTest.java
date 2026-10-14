@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -41,6 +42,7 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class VersionPropertiesAuthorizationValidatorTest {
@@ -153,29 +155,40 @@ public class VersionPropertiesAuthorizationValidatorTest {
     Assert.assertTrue(validate(upsert(OWN_VERSION_SET_URN, "v1", "aaa")).isEmpty());
   }
 
-  @Test
-  public void testPatchMovingToAnotherVersionSetIsChecked() {
+  // Under alternate MCP validation a PATCH arrives as a ProposedItem; otherwise (the default) as a
+  // PatchItemImpl. Both must be resolved before authorizing.
+  @DataProvider(name = "patchItemBuilders")
+  public Object[][] patchItemBuilders() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testPatchMovingToAnotherVersionSetIsChecked(boolean alternateValidation) {
     allowEdit(ENTITY_URN);
-    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
-    op.setOp("add");
-    op.setPath("/versionSet");
-    op.setValue(OTHER_VERSION_SET_URN.toString());
-    GenericJsonPatch.PatchOp sortOp = new GenericJsonPatch.PatchOp();
-    sortOp.setOp("add");
-    sortOp.setPath("/sortId");
-    sortOp.setValue("ccc");
-    MetadataChangeProposal mcp =
-        new MetadataChangeProposal()
-            .setEntityUrn(ENTITY_URN)
-            .setEntityType(ENTITY_URN.getEntityType())
-            .setAspectName(VERSION_PROPERTIES_ASPECT_NAME)
-            .setChangeType(ChangeType.PATCH)
-            .setAspect(
-                GenericRecordUtils.serializePatch(
-                    GenericJsonPatch.builder().patch(List.of(op, sortOp)).build(),
-                    new ObjectMapper()));
     BatchItem patch =
-        ProposedItem.builder().build(mcp, AuditStampUtils.createDefaultAuditStamp(), TEST_REGISTRY);
+        patch(
+            ENTITY_URN,
+            alternateValidation,
+            false,
+            patchOp("/versionSet", OTHER_VERSION_SET_URN.toString()),
+            patchOp("/sortId", "ccc"));
+    Assert.assertFalse(validate(patch).isEmpty());
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testPatchCreatingVersionPropertiesIsChecked(boolean alternateValidation) {
+    // SECOND_ENTITY_URN has no stored versionProperties. A template patch would be rejected, but a
+    // client can set forceGenericPatch, which builds the aspect from scratch.
+    allowEdit(SECOND_ENTITY_URN);
+    BatchItem patch =
+        patch(
+            SECOND_ENTITY_URN,
+            alternateValidation,
+            true,
+            patchOp("/versionSet", OTHER_VERSION_SET_URN.toString()),
+            patchOp("/versioningScheme", VersioningScheme.LEXICOGRAPHIC_STRING.name()),
+            patchOp("/version", Map.of("versionTag", "v2")),
+            patchOp("/sortId", "ccc"));
     Assert.assertFalse(validate(patch).isEmpty());
   }
 
@@ -213,6 +226,39 @@ public class VersionPropertiesAuthorizationValidatorTest {
         .validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY, List.of(item), retrieverContext, session)
         .toList();
+  }
+
+  private static GenericJsonPatch.PatchOp patchOp(String path, Object value) {
+    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+    op.setOp("add");
+    op.setPath(path);
+    op.setValue(value);
+    return op;
+  }
+
+  private static BatchItem patch(
+      Urn entity,
+      boolean alternateValidation,
+      boolean forceGenericPatch,
+      GenericJsonPatch.PatchOp... ops) {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(entity)
+            .setEntityType(entity.getEntityType())
+            .setAspectName(VERSION_PROPERTIES_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder()
+                        .patch(List.of(ops))
+                        .forceGenericPatch(forceGenericPatch)
+                        .build(),
+                    new ObjectMapper()));
+    return alternateValidation
+        ? ProposedItem.builder()
+            .build(mcp, AuditStampUtils.createDefaultAuditStamp(), TEST_REGISTRY)
+        : PatchItemImpl.builder()
+            .build(mcp, AuditStampUtils.createDefaultAuditStamp(), TEST_REGISTRY);
   }
 
   private static BatchItem upsert(Urn versionSet, String label, String sortId) {
