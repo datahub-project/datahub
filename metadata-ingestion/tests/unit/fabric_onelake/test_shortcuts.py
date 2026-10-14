@@ -6,6 +6,7 @@ from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.models import FabricColumn, FabricTable
 from datahub.ingestion.source.fabric.onelake.shortcuts import (
+    LakehouseTableShortcut,
     matching_column_pairs,
     parse_table_shortcut,
 )
@@ -235,7 +236,7 @@ def _table_dataset(
     schema_name: str,
     table_name: str,
     columns: list[FabricColumn],
-    shortcut: object = None,
+    shortcut: LakehouseTableShortcut | None = None,
 ) -> list:
     return list(
         FabricOneLakeSource._create_table_dataset(
@@ -381,10 +382,10 @@ def test_shortcut_column_lineage_when_origin_was_ingested() -> None:
     )
     assert lineage.fineGrainedLineages is not None
     assert len(lineage.fineGrainedLineages) == 2
-    downstreams = {
-        field.downstreams[0].rsplit(",", 1)[-1].rstrip(")")
-        for field in lineage.fineGrainedLineages
-    }
+    downstreams = set()
+    for field in lineage.fineGrainedLineages:
+        assert field.downstreams
+        downstreams.add(field.downstreams[0].rsplit(",", 1)[-1].rstrip(")"))
     assert downstreams == {"orderid", "amount"}
 
 
