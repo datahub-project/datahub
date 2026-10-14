@@ -11,7 +11,6 @@ import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -19,7 +18,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
@@ -144,22 +142,9 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
       @Nonnull BatchItem item,
       @Nullable VersionProperties current,
       @Nonnull AspectRetriever aspectRetriever) {
-    if (!ChangeType.PATCH.equals(item.getChangeType())) {
-      return item.getAspect(VersionProperties.class);
-    }
-    // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
-    // validation. Neither carries the resulting aspect, so apply it here. current may be null: a
-    // generic JSON patch can create the aspect from scratch.
-    PatchItemImpl patchItem =
-        item instanceof PatchItemImpl
-            ? (PatchItemImpl) item
-            : PatchItemImpl.builder()
-                .build(
-                    ((ProposedItem) item).getMetadataChangeProposal(),
-                    item.getAuditStamp(),
-                    aspectRetriever.getEntityRegistry());
     try {
-      return patchItem.applyPatch(current, aspectRetriever).getAspect(VersionProperties.class);
+      return PatchItemImpl.resolveProposedAspect(
+          item, current, aspectRetriever, VersionProperties.class);
     } catch (RuntimeException e) {
       // A patch that cannot be applied fails the write downstream; nothing to authorize.
       return null;
