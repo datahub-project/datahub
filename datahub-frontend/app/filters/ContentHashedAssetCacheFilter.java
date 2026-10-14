@@ -26,6 +26,10 @@ import play.mvc.Result;
  *
  * <p>Stable files belong in a subdirectory of {@code /assets/}. A file placed directly under {@code
  * /assets/} whose name happens to end in {@code -<8 base64url chars>.<ext>} is treated as hashed.
+ *
+ * <p>Source maps are not. Rollup names a map after the chunk ({@code <chunk>-<hash>.js.map}), so
+ * the hash is of the chunk rather than the map. A later build can change the map without changing
+ * that URL. Maps stay on the one-hour default.
  */
 @Singleton
 public class ContentHashedAssetCacheFilter extends EssentialFilter {
@@ -74,7 +78,18 @@ public class ContentHashedAssetCacheFilter extends EssentialFilter {
 
   static boolean isContentHashedAssetPath(String path, String httpContext, String basePath) {
     String fileName = assetFileName(path, httpContext, basePath);
-    return fileName != null && VITE_CONTENT_HASH.matcher(fileName).matches();
+    return fileName != null
+        && !isSourceMap(fileName)
+        && VITE_CONTENT_HASH.matcher(fileName).matches();
+  }
+
+  /**
+   * {@code .map.gz} and {@code .map.br} are the precompressed sidecars. Play usually negotiates
+   * those from the {@code .map} URL, but a direct request for the sidecar is the same bytes.
+   */
+  private static boolean isSourceMap(String fileName) {
+    String lower = fileName.toLowerCase(Locale.ROOT);
+    return lower.endsWith(".map") || lower.endsWith(".map.gz") || lower.endsWith(".map.br");
   }
 
   private static String assetFileName(String path, String httpContext, String basePath) {

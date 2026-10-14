@@ -26,7 +26,6 @@ class ContentHashedAssetCacheFilterTest {
     assertImmutable("/assets/index-K056Uwn8.js");
     assertImmutable("/assets/index-Byck28hc.css");
     assertImmutable("/assets/codicon-AbCdEf12.woff2");
-    assertImmutable("/assets/source-By3zWfCx.js.map");
     assertImmutable("/assets/source-By3zWfCx.js?unused=1");
     // Real Vite output: the hash itself may contain '-' or '_'.
     assertImmutable("/assets/pt-BR--e9KCM03.js");
@@ -37,6 +36,11 @@ class ContentHashedAssetCacheFilterTest {
 
   @Test
   void stableAssetUrls_keepTheOneHourDefault() {
+    // The hash in a source map's name belongs to the chunk, not the map.
+    assertRevalidates("/assets/source-By3zWfCx.js.map");
+    assertRevalidates("/assets/index-Byck28hc.css.map");
+    assertRevalidates("/assets/source-By3zWfCx.js.map.gz");
+    assertRevalidates("/assets/source-By3zWfCx.js.map.br");
     assertRevalidates("/assets/logo.png");
     assertRevalidates("/assets/platforms/snowflakelogo.png");
     assertRevalidates("/assets/platforms/incident-critical.svg");
