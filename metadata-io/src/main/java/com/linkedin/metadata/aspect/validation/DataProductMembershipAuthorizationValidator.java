@@ -201,16 +201,20 @@ public class DataProductMembershipAuthorizationValidator
       @Nonnull AspectRetriever aspectRetriever,
       @Nullable Aspect currentAspect) {
     DataProductProperties current = toProperties(currentAspect);
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      return patchItem.applyPatch(current, aspectRetriever).getAspect(DataProductProperties.class);
+    if (!ChangeType.PATCH.equals(item.getChangeType())) {
+      return item.getAspect(DataProductProperties.class);
     }
-    return item.getAspect(DataProductProperties.class);
+    // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
+    // validation. Neither carries the resulting aspect, so apply it here; otherwise the proposal
+    // reads as empty and the membership and rename checks see the wrong change.
+    PatchItemImpl patchItem =
+        item instanceof PatchItemImpl
+            ? (PatchItemImpl) item
+            : PatchItemImpl.builder()
+                .build(
+                    ((ProposedItem) item).getMetadataChangeProposal(),
+                    item.getAuditStamp(),
+                    aspectRetriever.getEntityRegistry());
+    return patchItem.applyPatch(current, aspectRetriever).getAspect(DataProductProperties.class);
   }
 }
