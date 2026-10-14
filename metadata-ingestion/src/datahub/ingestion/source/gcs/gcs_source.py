@@ -219,6 +219,19 @@ class GCSSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
+    enable_schema_inference: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer the schema from sampled files and emit a "
+            "`schemaMetadata` aspect. Set to `False` when another pipeline owns the "
+            "schema: no `schemaMetadata` is emitted for any dataset in this recipe, "
+            "and no files are opened for inference. Schemas already in DataHub are "
+            "left as they are and stop updating; new datasets get no schema unless "
+            "another pipeline writes one. Properties, partitions, containers, tags "
+            "and profiling are still emitted, and profiling still reads files."
+        ),
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="before")
@@ -423,6 +436,10 @@ class GCSSourceReport(DataLakeSourceReport):
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -446,6 +463,7 @@ class GCSSource(StatefulIngestionSourceBase):
             convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            enable_schema_inference=self.config.enable_schema_inference,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
             profile_patterns=self.config.profile_patterns,

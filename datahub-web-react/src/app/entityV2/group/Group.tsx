@@ -3,12 +3,14 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import GroupProfile from '@app/entityV2/group/GroupProfile';
 import { Preview } from '@app/entityV2/group/preview/Preview';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 
 import { CorpGroup, EntityType, SearchResult } from '@types';
+
+const GroupProfile = lazyProfileComponent('GroupProfile', () => import('@app/entityV2/group/GroupProfile'));
 
 /**
  * Definition of the DataHub CorpGroup entity.

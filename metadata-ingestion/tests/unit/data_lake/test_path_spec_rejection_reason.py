@@ -13,7 +13,7 @@ from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
         ("s3://my-bucket/other/events/part-0.parquet", "include"),
         ("s3://my-bucket/data/_tmp/part-0.parquet", "include_hidden_folders"),
         ("s3://my-bucket/data/scratch/part-0.parquet", "exclude"),
-        ("s3://my-bucket/data/events/part-0.txt", "file_types"),
+        ("s3://my-bucket/data/events/part-0.csv", "file_types"),
         ("s3://my-bucket/data/events/part-0", "default_extension"),
     ],
 )
@@ -29,6 +29,20 @@ def test_rejection_reason_names_the_rule_that_decided(
     )
     assert spec.rejection_reason(path) == reason
     assert spec.allowed(path) is (reason is None)
+
+
+def test_compression_off_keeps_default_extension_from_admitting_gz() -> None:
+    spec = PathSpec(
+        include="s3://my-bucket/data/*/*",
+        file_types=["parquet"],
+        default_extension="parquet",
+        enable_compression=False,
+    )
+    assert spec.rejection_reason("s3://my-bucket/data/events/part-0") is None
+    assert (
+        spec.rejection_reason("s3://my-bucket/data/events/part-0.gz")
+        == "enable_compression"
+    )
 
 
 def test_tables_filter_pattern_is_reported_by_name() -> None:

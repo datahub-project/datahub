@@ -1,4 +1,5 @@
-import { ApiOutlined, LinkOutlined } from '@ant-design/icons';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -79,16 +80,16 @@ export const ApiSummaryTab = () => {
             </FactsStrip>
 
             <SectionContainer>
-                <SummaryTabHeaderTitle icon={<ApiOutlined />} title={t('api.summary.signature')} />
+                <SummaryTabHeaderTitle icon={<Plugs />} title={t('api.summary.signature')} />
                 <SignatureTab />
             </SectionContainer>
 
             {externalUrl && (
                 <SectionContainer>
-                    <SummaryTabHeaderTitle icon={<LinkOutlined />} title={t('api.summary.reference')} />
+                    <SummaryTabHeaderTitle icon={<LinkIcon />} title={t('api.summary.reference')} />
                     <RefRow>
                         <RefLink href={safeUrl(externalUrl)} target="_blank" rel="noopener noreferrer">
-                            <LinkOutlined />
+                            <LinkIcon />
                             {t('api.summary.viewDocs')}
                         </RefLink>
                     </RefRow>

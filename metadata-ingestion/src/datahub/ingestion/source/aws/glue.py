@@ -759,6 +759,10 @@ class GlueViewDefinition:
         SourceCapabilityModifier.DATABASE,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GlueSource(StatefulIngestionSourceBase):
     """
     Source that extracts tables, databases, and jobs from AWS Glue Data Catalog.

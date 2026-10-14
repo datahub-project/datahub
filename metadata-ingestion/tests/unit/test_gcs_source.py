@@ -790,3 +790,27 @@ def test_equivalent_specs_match_what_the_source_ingests_with() -> None:
         s.include for s in source.s3_source.source_config.path_specs
     ]
     source.close()
+
+
+def test_gcs_enable_schema_inference_defaults_to_true():
+    config = GCSSourceConfig.model_validate(
+        {
+            "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        }
+    )
+    assert config.enable_schema_inference is True
+
+
+def test_gcs_enable_schema_inference_forwarded_to_s3_config():
+    """enable_schema_inference=False must be forwarded to the underlying S3 config."""
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
+
+    source = {
+        "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        "enable_schema_inference": False,
+    }
+    gcs_source = GCSSource.create(source, ctx)
+    assert gcs_source.s3_source.source_config.enable_schema_inference is False

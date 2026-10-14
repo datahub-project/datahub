@@ -77,8 +77,10 @@ public class V3MatchedFieldsTest {
         names(new V3MatchedFields("platform data", 0).find(source, List.of("name"))),
         List.of("name"));
     assertTrue(new V3MatchedFields("da", 3).find(source, List.of("name")).isEmpty());
-    // A word the query excludes does not match
-    assertTrue(new V3MatchedFields("orders -datasets", 0).find(source, List.of("name")).isEmpty());
+    // A minus is plain text, as in the query, so the word after it matches too
+    assertEquals(
+        names(new V3MatchedFields("orders -datasets", 0).find(source, List.of("name"))),
+        List.of("name"));
   }
 
   /**
@@ -94,6 +96,39 @@ public class V3MatchedFieldsTest {
     List<MatchedField> part =
         new V3MatchedFields("customers report", 3).find(source, List.of("fieldPaths"));
     assertEquals(part.get(0).getValue(), "customer_id");
+  }
+
+  /**
+   * Words fold as the analyzers fold them: ASCII folding keeps the vowel signs of an Indic word and
+   * turns ß into ss.
+   */
+  @Test
+  public void testWordsFoldAsTheAnalyzersFoldThem() {
+    V3MatchedFields indic = new V3MatchedFields("नाम", 3);
+    assertTrue(indic.hasQueryWords());
+    assertEquals(names(indic.find(Map.of("name", "ग्राहक नाम"), List.of("name"))), List.of("name"));
+    assertEquals(
+        names(new V3MatchedFields("strasse", 0).find(Map.of("name", "Straße"), List.of("name"))),
+        List.of("name"));
+    assertEquals(
+        names(new V3MatchedFields("Straße", 0).find(Map.of("name", "strasse"), List.of("name"))),
+        List.of("name"));
+  }
+
+  /**
+   * The stem overrides apply before stemming, as in the analyzers: customer does not stem to
+   * custom.
+   */
+  @Test
+  public void testStemOverridesApplyBeforeStemming() {
+    assertTrue(
+        new V3MatchedFields("customer", 0)
+            .find(Map.of("name", "Custom fields"), List.of("name"))
+            .isEmpty());
+    assertEquals(
+        names(
+            new V3MatchedFields("customers", 0).find(Map.of("name", "customer"), List.of("name"))),
+        List.of("name"));
   }
 
   /** A query of only stop words or short words has no word a field could match. */

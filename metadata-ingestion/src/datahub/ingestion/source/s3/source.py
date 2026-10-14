@@ -2,7 +2,6 @@ import dataclasses
 import functools
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
@@ -206,6 +205,10 @@ class TableData:
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -328,16 +331,7 @@ class S3Source(StatefulIngestionSourceBase):
             # capabilities of smart_open.
             file = smart_open(table_data.full_path, "rb")
 
-        extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
-
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+        extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
         inferrer = self._get_inferrer(extension, table_data.content_type)
@@ -463,8 +457,6 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
-
         # remove protocol and any leading or trailing slashes
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
@@ -489,7 +481,17 @@ class S3Source(StatefulIngestionSourceBase):
             )
             aspects.append(data_platform_instance)
 
-        customProperties = {"schema_inferred_from": str(table_data.full_path)}
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        customProperties: Dict[str, str] = {}
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
+            customProperties["schema_inferred_from"] = str(table_data.full_path)
 
         min_partition: Optional[Folder] = None
         max_partition: Optional[Folder] = None
@@ -531,7 +533,12 @@ class S3Source(StatefulIngestionSourceBase):
             externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 with PerfTimer() as schema_timer:
                     fields = self.get_fields(table_data, path_spec)
@@ -555,6 +562,9 @@ class S3Source(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"

@@ -418,9 +418,14 @@ entities_enabled:
 #### Multiple dbt projects
 
 In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
-DataHub supports this setup natively.
+DataHub supports this setup natively, and a `source()` in one project that points at another project's model is connected through the shared warehouse dataset.
 
-Each dbt project should have its own dbt ingestion recipe, and the `platform_instance` field in the recipe should be set to the dbt project name.
+There are two ways to ingest several dbt projects:
+
+- **One recipe per project.** Choose this when a project's identity in DataHub must not change if the project is renamed, when projects need different settings (`target_platform`, `git_info`, filters, schedules), or when the artifacts come from a dbt version older than 1.6.
+- **One recipe with a globbed `manifest_path`.** Choose this when there are many projects, new projects should be picked up without writing a new recipe, the artifacts share a common layout, and the projects can share one configuration. Each project's `platform_instance` is then its dbt project name. See [Multi-Project Ingestion (glob patterns)](#multi-project-ingestion-glob-patterns) for how it works and what a project rename or a duplicate project name means.
+
+With one recipe per project, set `platform_instance` in each recipe to the dbt project name. That is the value a glob recipe would derive, so you can switch between the two approaches without changing dataset, assertion or semantic model URNs. Query entities from `meta.queries` are the exception: under a glob their URNs also include the project name, so they are re-created on the switch.
 
 For example, if you have two dbt projects `analytics` and `data_mart`, you would have two ingestion recipes.
 If you have models in the `data_mart` project that are used as sources in the `analytics` project, the lineage will be automatically captured.
@@ -446,6 +451,17 @@ source:
     target_platform: postgres
     manifest_path: data_mart/target/manifest.json
     catalog_path: data_mart/target/catalog.json
+    # ... other configs
+```
+
+The same two projects with one recipe, assuming both write their artifacts under `dbt-artifacts/<project>/`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    target_platform: postgres
+    manifest_path: dbt-artifacts/*/manifest.json
     # ... other configs
 ```
 

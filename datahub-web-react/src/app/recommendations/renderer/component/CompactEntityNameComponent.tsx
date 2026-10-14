@@ -1,5 +1,5 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
 import { TooltipPlacement } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -20,7 +20,7 @@ const NameWrapper = styled.span<{ addMargin: boolean }>`
     ${(props) => props.addMargin && 'margin: 2px 0;'}
 `;
 
-const StyledArrow = styled(ArrowRightOutlined)`
+const StyledArrow = styled(ArrowRight)`
     color: ${(props) => props.theme.colors.textSecondary};
     margin: 0 4px;
 `;

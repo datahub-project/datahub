@@ -557,6 +557,10 @@ class TimescaleDBConfig(PostgresConfig):
     SourceCapability.LINEAGE_FINE,
     "Enabled for continuous aggregates via column-level lineage",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class TimescaleDBSource(PostgresSource):
     config: TimescaleDBConfig
     _timescaledb_metadata_cache: Dict[str, _SchemaMetadata]
