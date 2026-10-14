@@ -1371,6 +1371,8 @@ def test_ignore_resource_links(ignore_resource_links: bool) -> None:
     else:
         assert databases == [resource_link_database]
         assert tables == _expected_database_link_tables()
+    # An ignored resource link is never listed, so it is not reported as dropped.
+    assert list(source.report.databases.dropped_entities) == []
 
 
 @pytest.mark.parametrize(
