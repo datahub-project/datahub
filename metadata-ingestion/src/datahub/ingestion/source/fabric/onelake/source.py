@@ -119,6 +119,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
@@ -730,6 +731,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         if content:
             custom_properties["content"] = content
 
+        # The View Definition tab reads viewProperties, not custom properties.
+        view_definition = (
+            ViewPropertiesClass(
+                materialized=False,
+                viewLogic=content,
+                viewLanguage=language or "text",
+            )
+            if content
+            else None
+        )
+
         return Dataset(
             platform=PLATFORM,
             name=make_notebook_name(workspace.id, notebook.id),
@@ -748,6 +760,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 f"/synapsenotebooks/{notebook.id}"
             ),
             custom_properties=custom_properties,
+            view_definition=view_definition,
+            parse_view_lineage=False,
             owners=self._owners(notebook.owner_user_principal_name),
         )
 

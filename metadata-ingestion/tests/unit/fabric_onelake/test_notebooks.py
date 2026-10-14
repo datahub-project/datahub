@@ -151,6 +151,10 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
         "language": "python",
         "content": "print('hello')\n",
     }
+    assert dataset.view_definition is not None
+    assert dataset.view_definition.viewLogic == "print('hello')\n"
+    assert dataset.view_definition.viewLanguage == "python"
+    assert dataset.view_definition.materialized is False
     subtypes = dataset._get_aspect(SubTypesClass)
     assert subtypes is not None
     assert subtypes.typeNames == ["Notebook"]
