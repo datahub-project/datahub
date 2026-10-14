@@ -8,6 +8,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -24,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RequestOptions;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -140,8 +140,11 @@ public class PlatformEntityCounts {
     SearchResponse response;
     try {
       response =
-          SearchClients.forEntityIndices(opContext, request)
-              .search(opContext, request, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(
+              SearchClients.forEntityIndices(opContext, request),
+              opContext,
+              request,
+              "platformEntityCounts");
     } catch (OpenSearchStatusException e) {
       if (e.status() == RestStatus.NOT_FOUND) {
         log.debug("Entity index {} not found; returning empty platform counts", indexName);

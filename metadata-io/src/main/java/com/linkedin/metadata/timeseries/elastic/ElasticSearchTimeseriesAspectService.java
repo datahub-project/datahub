@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
@@ -486,7 +487,8 @@ public class ElasticSearchTimeseriesAspectService
           SearchHits hits;
           try {
             final SearchResponse searchResponse =
-                searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.search(
+                    searchClient, opContext, searchRequest, "timeseriesAspectValues", metricUtils);
             hits = searchResponse.getHits();
           } catch (Exception e) {
             log.error("Search query failed:", e);
@@ -621,7 +623,8 @@ public class ElasticSearchTimeseriesAspectService
       log.debug("Batch timeseries search request: {}", searchRequest);
       try {
         SearchResponse response =
-            searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+            SearchTookMetrics.search(
+                searchClient, opContext, searchRequest, "timeseriesBatchAspectValues", metricUtils);
         ParsedTerms terms = response.getAggregations().get("urn_buckets");
         for (Terms.Bucket bucket : terms.getBuckets()) {
           Urn urn = UrnUtils.getUrn(bucket.getKeyAsString());
@@ -1113,7 +1116,8 @@ public class ElasticSearchTimeseriesAspectService
 
             // Execute search
             SearchResponse searchResponse =
-                searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.search(
+                    searchClient, opContext, searchRequest, "timeseriesRaw", metricUtils);
             SearchHits hits = searchResponse.getHits();
 
             if (hits.getTotalHits() != null
@@ -1182,7 +1186,8 @@ public class ElasticSearchTimeseriesAspectService
         "scrollAspects_search",
         () -> {
           try {
-            return searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return SearchTookMetrics.search(
+                searchClient, opContext, searchRequest, "timeseriesScroll", metricUtils);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -179,7 +180,7 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(client, opContext, searchRequest, "systemMetadataFindByParams");
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -221,7 +222,7 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(client, opContext, searchRequest, "systemMetadataFindByParams");
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -260,7 +261,7 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexName(opContext));
 
     try {
-      return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.search(client, opContext, searchRequest, "systemMetadataScroll");
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
     }
@@ -295,7 +296,8 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexName(opContext));
 
     try {
-      SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      SearchResponse response =
+          SearchTookMetrics.search(client, opContext, searchRequest, "systemMetadataCount");
       if (response == null
           || response.getHits() == null
           || response.getHits().getTotalHits() == null) {
@@ -365,7 +367,7 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(client, opContext, searchRequest, "systemMetadataFindRuns");
       return searchResponse;
     } catch (IOException e) {
       e.printStackTrace();
@@ -390,7 +392,8 @@ public class ESSystemMetadataDAO {
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(
+              client, opContext, searchRequest, "systemMetadataCountByKeyAspect");
       return parseRemovalStatusFiltersAggregation(searchResponse);
     } catch (IOException e) {
       log.error("Key aspect count query failed for aspect {}", keyAspectName, e);
@@ -429,7 +432,8 @@ public class ESSystemMetadataDAO {
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(
+              client, opContext, searchRequest, "systemMetadataCountByKeyAspects");
       return parseKeyAspectTermsAggregation(searchResponse, keyAspectNames);
     } catch (IOException e) {
       log.error("Key aspect batch count query failed", e);

@@ -15,6 +15,7 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.timeseries.AggregationSpec;
@@ -41,7 +42,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -447,7 +447,8 @@ public class ESAggregatedStatsDAO {
 
     try {
       final SearchResponse searchResponse =
-          searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.search(
+              searchClient, opContext, searchRequest, "timeseriesAggregatedStats");
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
@@ -727,7 +728,9 @@ public class ESAggregatedStatsDAO {
 
     final SearchResponse searchResponse;
     try {
-      searchResponse = searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      searchResponse =
+          SearchTookMetrics.search(
+              searchClient, opContext, searchRequest, "timeseriesBatchAggregatedStats");
     } catch (Exception e) {
       log.error("Batch aggregated stats query failed: {}", e.getMessage());
       throw new ESQueryException("Batch aggregated stats query failed:", e);
