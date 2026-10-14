@@ -188,6 +188,46 @@ MC_METRIC_TO_AGG_VALUE: Set[str] = {
 # avoids three wasted API calls per TABLE monitor per ingestion.
 TABLE_METRICS_TO_FETCH: Set[str] = {"total_row_count"}
 
+# getTableMonitor returns AssetFilterInterface implementations with pycarlo
+# snake_cased keys. evaluateAssetSelection's AssetFilterUnionInput wants the
+# camelCase GraphQL input names. type / negated are copied separately.
+ASSET_FILTER_INPUT_FIELDS: Dict[str, str] = {
+    "table_name": "tableName",
+    "table_name_operator": "tableNameOperator",
+    "full_table_id": "fullTableId",
+    "table_type": "tableType",
+    "table_tags": "tableTags",
+    "table_tags_operator": "tableTagsOperator",
+    "read_days": "readDays",
+    "write_days": "writeDays",
+    "read_write_days": "readWriteDays",
+    "read_and_write_days": "readAndWriteDays",
+    "volume_change_days": "volumeChangeDays",
+    "read_activity_is_null": "readActivityIsNull",
+    "write_activity_is_null": "writeActivityIsNull",
+    "read_write_activity_is_null": "readWriteActivityIsNull",
+    "read_and_write_activity_is_null": "readAndWriteActivityIsNull",
+}
+
+# Default joiner when getTableMonitor omits filtersJoiner / exclusionsJoiner.
+# Matches Monte Carlo's documented default (OR = match any row).
+ASSET_FILTER_JOINER_OR = "OR"
+
+# getAlerts.type for schema-change incidents raised by TABLE monitors.
+# Catalog getSchemaChanges events are joined onto these alerts only — they
+# are not ingested as standalone assertions.
+ALERT_TYPE_SCHEMA_CHANGES = "SCHEMA_CHANGES"
+
+# Max |alert.createdTime - SchemaChange.startTime| when joining catalog
+# field diffs onto a SCHEMA_CHANGES alert. Live collection lands the
+# SchemaChange a few seconds before the alert; 2h covers collection lag
+# without picking an unrelated older DDL.
+SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS = 2 * 60 * 60
+
+# getSchemaChanges is per-table and newest-first. One page covers the
+# typical alerts_lookback_days window for a single table.
+SCHEMA_CHANGE_PAGE_SIZE = 50
+
 # Custom metric names (custom_value_based_metric_<uuid>) return zero points
 # from getMetricsV4 — custom metrics use a separate surface. Skip fetching
 # metrics for any comparison whose metric starts with this prefix.

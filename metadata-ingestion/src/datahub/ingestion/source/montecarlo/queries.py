@@ -10,10 +10,10 @@ query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) {
     name
     description
     monitorType
-    customSql
+    whereCondition
     entityMcons
     resourceId
-    severity
+    priority
     dataQualityDimension
     comparisons {
       comparisonType
@@ -88,6 +88,7 @@ query getAlerts($first: Int, $after: String, $createdTime: DateTimeRangeInput) {
         priority
         status
         createdTime
+        title
         monitorUuids
         assets {
           mcon
@@ -114,31 +115,137 @@ query getTable($mcon: String) {
 }
 """
 
-# TABLE-type monitors cover many tables via an asset_selection filter, so
-# getMonitors' entityMcons (scoped to single-entity METRIC monitors) is always
-# empty for them. getTableMonitor exposes the actual filter/exclusion
-# definition; only the FULL_TABLE_ID filter case is resolved here (a fixed,
-# explicit table list) — pattern-based filters (TABLE_NAME, TABLE_TAG,
-# activity filters) would need evaluateAssetSelection instead.
-TABLE_MONITOR_QUERY = """
-query getTableMonitor($monitorUuid: UUID!) {
-  getTableMonitor(monitorUuid: $monitorUuid) {
-    assetSelection {
-      filters {
+# Shared AssetFilterInterface selection for getTableMonitor filters and
+# exclusions. Interpolated twice so a new filter type cannot drift between lists.
+_ASSET_FILTER_SELECTION = """\
         type
+        negated
+        ... on AssetFilterTableName {
+          tableName
+          tableNameOperator
+        }
         ... on AssetFilterFullTableId {
           fullTableId
         }
-      }
-    }
+        ... on AssetFilterTableType {
+          tableType
+        }
+        ... on AssetFilterTableTag {
+          tableTags
+          tableTagsOperator
+        }
+        ... on AssetFilterActivityRead {
+          readDays
+        }
+        ... on AssetFilterActivityWrite {
+          writeDays
+        }
+        ... on AssetFilterActivityReadWrite {
+          readWriteDays
+        }
+        ... on AssetFilterActivityReadAndWrite {
+          readAndWriteDays
+        }
+        ... on AssetFilterActivityVolumeChange {
+          volumeChangeDays
+        }
+        ... on AssetFilterActivityReadIsNull {
+          readActivityIsNull
+        }
+        ... on AssetFilterActivityWriteIsNull {
+          writeActivityIsNull
+        }
+        ... on AssetFilterActivityReadWriteIsNull {
+          readWriteActivityIsNull
+        }
+        ... on AssetFilterActivityReadAndWriteIsNull {
+          readAndWriteActivityIsNull
+        }"""
+
+# TABLE-type monitors cover many tables via an asset_selection filter, so
+# getMonitors' entityMcons (scoped to single-entity METRIC monitors) is always
+# empty for them. getTableMonitor exposes the filter/exclusion definition;
+# evaluateAssetSelection then resolves that selection to concrete table MCONs.
+TABLE_MONITOR_QUERY = f"""
+query getTableMonitor($monitorUuid: UUID!) {{
+  getTableMonitor(monitorUuid: $monitorUuid) {{
+    warehouseUuid
+    assetSelection {{
+      filtersJoiner
+      exclusionsJoiner
+      databases {{
+        name
+        schemas
+      }}
+      filters {{
+{_ASSET_FILTER_SELECTION}
+      }}
+      exclusions {{
+{_ASSET_FILTER_SELECTION}
+      }}
+    }}
+  }}
+}}
+"""
+
+# Resolves a TABLE monitor's assetSelection to concrete table MCONs.
+# assetSelectionLevel is hardcoded to TABLE so results are tables, not
+# warehouse/database/schema rollups. Pagination is limit/offset (not Relay).
+EVALUATE_ASSET_SELECTION_QUERY = """
+query evaluateAssetSelection(
+  $warehouseUuid: UUID!
+  $assetSelection: AssetSelectionInput!
+  $monitorUuid: UUID
+  $limit: Int
+  $offset: Int
+) {
+  evaluateAssetSelection(
+    warehouseUuid: $warehouseUuid
+    assetSelection: $assetSelection
+    assetSelectionLevel: TABLE
+    monitorUuid: $monitorUuid
+    limit: $limit
+    offset: $offset
+  ) {
+    selected
+    mcon
   }
 }
 """
 
-GET_TABLE_BY_FULL_TABLE_ID_QUERY = """
-query getTable($dwId: UUID, $fullTableId: String) {
-  getTable(dwId: $dwId, fullTableId: $fullTableId) {
-    mcon
+# Per-table catalog schema history. Experimental, required mcon. Used only
+# to enrich SCHEMA_CHANGES alerts with fieldsAdded / fieldsRemoved /
+# fieldTypeChanges — not to invent assertions for unmonitored tables.
+GET_SCHEMA_CHANGES_QUERY = """
+query getSchemaChanges(
+  $mcon: String!
+  $startTime: DateTime
+  $endTime: DateTime
+  $first: Int
+) {
+  getSchemaChanges(
+    mcon: $mcon
+    startTime: $startTime
+    endTime: $endTime
+    first: $first
+  ) {
+    edges {
+      node {
+        mcon
+        startTime
+        fieldsAdded
+        fieldsRemoved
+        fieldTypeChanges {
+          fieldName
+          oldFieldType
+          newFieldType
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
   }
 }
 """

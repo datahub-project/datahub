@@ -36,6 +36,8 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     # alert with no ingested monitor (timing/filtering) without reading logs.
     monitors_dropped_no_mcons: int = 0
     monitors_dropped_unresolved: int = 0
+    table_monitors_scope_truncated: int = 0
+    schema_change_joins_missed: int = 0
     alerts_skipped_no_monitor: int = 0
     alerts_skipped_no_timestamp: int = 0
     # Operator-visible skip counters. The inherited `warnings` / `filtered`
@@ -87,6 +89,12 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
 
     def report_monitor_dropped_unresolved(self) -> None:
         self.monitors_dropped_unresolved += 1
+
+    def report_table_monitor_scope_truncated(self) -> None:
+        self.table_monitors_scope_truncated += 1
+
+    def report_schema_change_join_missed(self) -> None:
+        self.schema_change_joins_missed += 1
 
     def report_alert_skipped_no_monitor(self) -> None:
         self.alerts_skipped_no_monitor += 1
