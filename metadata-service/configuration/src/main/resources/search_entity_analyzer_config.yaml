@@ -15,7 +15,7 @@ entity_analyzer_config:
             tokenizer: unit_separator_path_tokenizer
           unit_separator_pattern:
             tokenizer: unit_separator_pattern_tokenizer
-          # Analyzers of the shared _search full-text fields, the only analyzed text of a V3 index.
+          # Analyzers of the shared _search fields, the only full-text fields of a V3 index.
           # They split on anything that is not a letter, a digit, a combining mark (the vowel
           # signs of Indic and Thai scripts are marks) or an underscore, in any script, fold case
           # and accents, add the parts of an identifier such as customer_id next to it (after

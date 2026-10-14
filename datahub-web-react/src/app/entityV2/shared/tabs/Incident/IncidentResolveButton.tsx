@@ -1,5 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { Loader, Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +74,7 @@ export const IncidentResolveButton = ({
 
     const showPopoverWithResolver = loading ? (
         <LoadingWrapper>
-            <LoadingOutlined />
+            <Loader size="xs" />
         </LoadingWrapper>
     ) : (
         <ResolverNameContainer>

@@ -193,6 +193,8 @@ You can set partition explicitly with `partition.partition_datetime` property if
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+- With `use_queries_v2: true`, temporary SQL functions defined in a job (`CREATE TEMP FUNCTION`) are removed before the query is parsed, so tables read only inside a function body are not reported as upstreams.
+
 #### Linked Dataset Caveats
 
 Lineage from a linked dataset points at the publisher's project, which introduces three conditions worth knowing:

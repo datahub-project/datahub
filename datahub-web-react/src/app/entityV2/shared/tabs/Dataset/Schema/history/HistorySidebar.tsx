@@ -1,4 +1,4 @@
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Drawer } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -464,7 +464,7 @@ const HistorySidebar = ({
                 <FieldHeaderWrapper>
                     {t('historySidebar.changeHistory')}
                     <CloseIcon data-testid="history-close-btn" onClick={() => onClose()}>
-                        <CloseOutlinedIcon />
+                        <X />
                     </CloseIcon>
                 </FieldHeaderWrapper>
 

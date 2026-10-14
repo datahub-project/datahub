@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -33,24 +32,21 @@ export default function UnlinkAssetVersionModal({ urn, entityType, closeModal, v
                     versionSetUrn,
                     entityType,
                 });
-                message.loading({
-                    content: t('unlinkVersion.loading'),
-                    duration: 2,
-                });
+                toast.loading(t('unlinkVersion.loading'), { duration: 2 });
 
                 setTimeout(() => {
                     refetch?.();
-                    message.success({
-                        content: t('unlinkVersion.success', {
+                    toast.success(
+                        t('unlinkVersion.success', {
                             entityName: entityRegistry.getEntityName(entityType),
                         }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                 }, 2000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('unlinkVersion.error', { errorMessage: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('unlinkVersion.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
     }
 
