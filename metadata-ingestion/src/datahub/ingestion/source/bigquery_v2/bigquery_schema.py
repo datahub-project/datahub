@@ -405,6 +405,17 @@ class BigQuerySchemaApi:
     def get_query_result(
         self, query: str, location: Optional[str] = None
     ) -> Iterator[Any]:
+        """Run a query and yield its rows.
+
+        The return value is a plain iterator, not
+        ``google.cloud.bigquery.table.RowIterator``. ``result()`` is consumed
+        here so page downloads can be logged separately from job completion.
+        Callers can only iterate the rows. ``RowIterator`` attributes such as
+        ``total_rows`` and ``schema`` are not available on the return value.
+        The row count is logged when the job completes, before the first page
+        is read.
+        """
+
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
