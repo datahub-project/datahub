@@ -1,15 +1,17 @@
 import json
 import time
 import unittest
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
@@ -60,6 +62,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 @pytest.fixture
@@ -1595,3 +1598,85 @@ class TestEnsureAspectSizeProcessorReport:
         assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
+
+
+def upstream_lineage_patch_workunit(num_columns: int) -> MetadataWorkUnit:
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
+    builder = DatasetPatchBuilder(downstream)
+    # Column lineage first, so table lineage surviving shows it is prioritized.
+    for i in range(num_columns):
+        builder.add_fine_grained_lineage(
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstream, f"col_{i}")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, f"col_{i}")],
+            )
+        )
+    builder.add_upstream_lineage(
+        UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+    )
+    (mcp,) = builder.build()
+    return MetadataWorkUnit(id="lineage-patch", mcp_raw=mcp)
+
+
+def patch_operations(wu: MetadataWorkUnit) -> list:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    payload = json.loads(wu.metadata.aspect.value)
+    return payload["patch"] if isinstance(payload, dict) else payload
+
+
+def test_oversized_upstream_lineage_patch_is_truncated(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=100)
+    operations = patch_operations(wu)
+    processor.payload_constraint = len(json.dumps(operations)) // 2
+    processor.schema_size_constraint = int(processor.payload_constraint * 0.985)
+
+    (result,) = processor.process([wu])
+
+    kept = patch_operations(result)
+    assert 1 < len(kept) < len(operations)
+    assert kept[0]["path"].startswith("/upstreams/")
+    assert all(op["path"].startswith("/fineGrainedLineages/") for op in kept[1:])
+    assert kept[1:] == operations[: len(kept) - 1]
+    assert (
+        len(json.dumps(pre_json_transform(result.metadata.to_obj())))
+        <= processor.payload_constraint
+    )
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.ctx.source_report.warnings
+
+
+def with_first_operation(
+    wu: MetadataWorkUnit, op: str, path: Optional[str] = None
+) -> MetadataWorkUnit:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    operations = patch_operations(wu)
+    operations[0]["op"] = op
+    if path is not None:
+        operations[0]["path"] = path
+    wu.metadata.aspect.value = json.dumps(operations).encode()
+    return wu
+
+
+def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(processor):
+    fitting = upstream_lineage_patch_workunit(num_columns=3)
+    with_remove = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "remove"
+    )
+    with_replace = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "add", "/fineGrainedLineages"
+    )
+    processor.schema_size_constraint = (
+        len(json.dumps(patch_operations(with_remove))) // 2
+    )
+    workunits = [fitting, with_remove, with_replace]
+    original = [patch_operations(wu) for wu in workunits]
+
+    results = list(processor.process(workunits))
+
+    assert [patch_operations(wu) for wu in results] == original
+    assert not processor.report.num_truncations_by_aspect
