@@ -379,6 +379,7 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
         for resolved in self._bounded_prefixes(
             prefix, listed_after=True, missing_bucket_skips=True
         ):
+            failures_before = len(self.failures)
             with self._storage_errors(
                 f"listing {self._display(resolved)}",
                 aborts_ingestion=True,
@@ -391,6 +392,10 @@ class S3CompatibleMetadataProbe(ProbeProviderBase):
                             0
                         ],
                     }
+            if len(self.failures) > failures_before:
+                # Ingestion's walk re-raises the denial, so it lists no
+                # prefix after this one.
+                return
 
     @probe_method(kind=DatasetContainerSubTypes.FOLDER, row_limit_param="limit")
     def path_spec_folders(self, path_spec: int = 0, limit: int = 200) -> List[str]:

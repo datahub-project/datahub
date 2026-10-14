@@ -310,6 +310,28 @@ def test_a_denied_deeper_listing_while_resolving_wildcards_is_a_failure(
     assert probe.failures and not probe.warnings
 
 
+def test_a_denied_table_prefix_stops_the_walk_as_ingestion_does(
+    bucket: None,
+) -> None:
+    # "*" before {table} resolves to data/ and raw/, in listing order.
+    probe = _probe("s3://my-bucket/*/{table}/*.csv")
+    real = object_store_probe.list_folders_path
+    listed: List[str] = []
+
+    def listing(uri: str, *args: Any, **kwargs: Any) -> Any:
+        listed.append(uri)
+        if uri == "s3://my-bucket/data/":
+            raise _client_error("AccessDenied", 403)
+        return real(uri, *args, **kwargs)
+
+    with mock.patch.object(
+        object_store_probe, "list_folders_path", side_effect=listing
+    ):
+        assert probe.datasets(limit=10) == []
+    assert listed == ["s3://my-bucket/data/"]
+    assert probe.failures and not probe.warnings
+
+
 def test_a_missing_bucket_under_a_table_spec_is_a_warning(bucket: None) -> None:
     # _process_templated_path reports "Missing bucket" as a warning and skips
     # the path_spec; it does not fail the run.
