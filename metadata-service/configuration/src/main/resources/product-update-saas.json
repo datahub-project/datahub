@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "id": "v2.3",
   "releaseMonth": "2026-10",
   "requiredVersion": null,
@@ -8,7 +8,7 @@
   "description": "Context, Evals, and Metrics that work in production",
   "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-oct2026.png",
   "ctaText": "Explore DataHub Cloud 2.3",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-2-3",
+  "ctaLink": "https://datahub.com/blog/datahub-cloud-v2-3",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
   "features": [],
