@@ -27,7 +27,6 @@ import pathlib
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
-from unittest import mock
 
 import boto3
 import pytest
@@ -38,6 +37,7 @@ from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.testing import mce_helpers
+from tests.test_helpers.object_store_probe_helpers import recording_s3_operations
 
 pytestmark = pytest.mark.integration
 
@@ -528,23 +528,13 @@ def test_probe_buckets_and_tags_against_the_emulator(s3_emulator: None) -> None:
 def test_probe_issues_only_metadata_operations_against_the_emulator(
     s3_emulator: None,
 ) -> None:
-    seen: List[str] = []
-    real_client = boto3.session.Session.client
-
-    def recording_client(self: Any, *args: Any, **kwargs: Any) -> Any:
-        client = real_client(self, *args, **kwargs)
-        client.meta.events.register(
-            "before-call.s3", lambda model, **_: seen.append(model.name)
-        )
-        return client
-
     config = _probe_source(
         (
             str(test_resources_dir / "sources/s3"),
             "bucket_wildcard_with_nested_table.json",
         )
     )
-    with mock.patch.object(boto3.session.Session, "client", recording_client):
+    with recording_s3_operations() as seen:
         for command, kwargs in [
             ("buckets", {}),
             ("folders", {"bucket": PRIMARY_BUCKET}),

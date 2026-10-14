@@ -17,6 +17,10 @@ from datahub.ingestion.source.data_lake_common.object_store_probe import (
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
 from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+from tests.test_helpers.object_store_probe_helpers import (
+    client_error,
+    recording_s3_operations,
+)
 
 KEYS = [
     "raw/a.csv",
@@ -38,24 +42,6 @@ def _aws() -> AwsConnectionConfig:
 def _probe(*includes: str) -> S3CompatibleMetadataProbe:
     specs = [PathSpec(include=i) for i in (includes or ("s3://my-bucket/raw/*.csv",))]
     return S3CompatibleMetadataProbe(_aws(), specs)
-
-
-def _client_error(
-    code: str, status: int, operation: str = "ListObjectsV2", message: str = ""
-) -> ClientError:
-    return ClientError(
-        {
-            "Error": {"Code": code, "Message": message},
-            "ResponseMetadata": {
-                "RequestId": "",
-                "HostId": "",
-                "HTTPStatusCode": status,
-                "HTTPHeaders": {},
-                "RetryAttempts": 0,
-            },
-        },
-        operation,
-    )
 
 
 @pytest.fixture
@@ -90,7 +76,7 @@ def test_a_denied_whole_listing_is_a_failure_not_an_empty_result() -> None:
     with mock.patch.object(
         object_store_probe,
         "list_objects_recursive_path",
-        side_effect=_client_error("AccessDenied", 403),
+        side_effect=client_error("AccessDenied", 403),
     ):
         assert probe.objects(bucket="my-bucket", limit=10) == []
     assert probe.failures and not probe.warnings
@@ -104,7 +90,7 @@ def test_a_denied_prefix_during_table_resolution_is_a_failure(bucket: None) -> N
     with mock.patch.object(
         object_store_probe,
         "list_folders_path",
-        side_effect=_client_error("AccessDenied", 403),
+        side_effect=client_error("AccessDenied", 403),
     ):
         assert probe.datasets(limit=10) == []
     assert probe.failures and not probe.warnings
@@ -174,15 +160,15 @@ def test_an_sts_refusal_is_a_connection_error_not_a_denied_listing() -> None:
     # aws_role is assumed inside get_session on the first listing, so STS's
     # AccessDenied arrives where a listing 403 would.
     with pytest.raises(ProbeConnectionError, match="credential rejected"):
-        _objects_raising(_client_error("AccessDenied", 403, operation="AssumeRole"))
+        _objects_raising(client_error("AccessDenied", 403, operation="AssumeRole"))
 
 
 def test_aws_error_text_never_reaches_the_output() -> None:
     with pytest.raises(ProbeConnectionError) as raised:
-        _objects_raising(_client_error("InternalError", 500, message=_ARN_MESSAGE))
+        _objects_raising(client_error("InternalError", 500, message=_ARN_MESSAGE))
     assert "123456789012" not in str(raised.value)
     assert "InternalError" in str(raised.value)
-    probe = _objects_raising(_client_error("AccessDenied", 403, message=_ARN_MESSAGE))
+    probe = _objects_raising(client_error("AccessDenied", 403, message=_ARN_MESSAGE))
     assert probe.failures
     assert not any("123456789012" in f for f in probe.failures + probe.warnings)
 
@@ -200,13 +186,13 @@ def test_client_side_failures_name_the_class_not_the_endpoint_or_profile() -> No
 
 
 def test_a_region_redirect_is_recorded_as_could_not_look() -> None:
-    probe = _objects_raising(_client_error("PermanentRedirect", 301))
+    probe = _objects_raising(client_error("PermanentRedirect", 301))
     assert any("aws_region" in f for f in probe.failures)
 
 
 def test_a_missing_key_is_a_caller_error() -> None:
     with pytest.raises(ValueError, match="no such object"):
-        _objects_raising(_client_error("NoSuchKey", 404))
+        _objects_raising(client_error("NoSuchKey", 404))
 
 
 def test_a_refusal_stops_every_command_before_any_request() -> None:
@@ -244,23 +230,13 @@ def test_wildcard_resolution_stops_listing_dead_ends(
     # resolves to no prefix, so a budget on resolved prefixes alone never trips
     # while one listing per folder goes on.
     monkeypatch.setattr(object_store_probe, "MAX_RESOLVED_PREFIXES", 5)
-    seen: List[str] = []
-    real_client = boto3.session.Session.client
-
-    def recording_client(self: boto3.session.Session, *args: Any, **kwargs: Any) -> Any:
-        client = real_client(self, *args, **kwargs)
-        client.meta.events.register(
-            "before-call.s3", lambda model, **_: seen.append(model.name)
-        )
-        return client
-
     with mock_aws():
         client = boto3.client("s3", region_name="us-east-1")
         client.create_bucket(Bucket="my-bucket")
         for i in range(40):
             client.put_object(Bucket="my-bucket", Key=f"top{i:02d}/x.csv", Body=b"a\n")
         probe = _probe("s3://my-bucket/*/*/{table}/*.csv")
-        with mock.patch.object(boto3.session.Session, "client", recording_client):
+        with recording_s3_operations() as seen:
             assert probe.datasets(limit=10) == []
     assert len(seen) <= 6
     assert any("narrow" in w for w in probe.warnings)
@@ -272,7 +248,7 @@ def test_a_denied_single_table_prefix_is_the_whole_answer(bucket: None) -> None:
     with mock.patch.object(
         object_store_probe,
         "list_folders_path",
-        side_effect=_client_error("AccessDenied", 403),
+        side_effect=client_error("AccessDenied", 403),
     ):
         assert probe.datasets(limit=10) == []
     assert probe.failures and not probe.warnings
@@ -284,7 +260,7 @@ def _deny_listing_under(prefix: str) -> Any:
 
     def listing(uri: str, *args: Any, **kwargs: Any) -> Any:
         if uri.startswith(prefix):
-            raise _client_error("AccessDenied", 403)
+            raise client_error("AccessDenied", 403)
         return real(uri, *args, **kwargs)
 
     return mock.patch.object(path_listing, "list_folders_path", side_effect=listing)
@@ -321,7 +297,7 @@ def test_a_denied_table_prefix_stops_the_walk_as_ingestion_does(
     def listing(uri: str, *args: Any, **kwargs: Any) -> Any:
         listed.append(uri)
         if uri == "s3://my-bucket/data/":
-            raise _client_error("AccessDenied", 403)
+            raise client_error("AccessDenied", 403)
         return real(uri, *args, **kwargs)
 
     with mock.patch.object(
@@ -352,9 +328,9 @@ def test_a_denied_first_listing_while_resolving_wildcards_is_a_failure(
 @pytest.mark.parametrize(
     "error, label",
     [
-        (_client_error("NoSuchBucket", 404, message=_ARN_MESSAGE), "NoSuchBucket"),
+        (client_error("NoSuchBucket", 404, message=_ARN_MESSAGE), "NoSuchBucket"),
         # S3 answers a HEAD request with the bare status as the code.
-        (_client_error("404", 404, operation="HeadObject"), "HTTP 404"),
+        (client_error("404", 404, operation="HeadObject"), "HTTP 404"),
     ],
     ids=["named", "head_status"],
 )

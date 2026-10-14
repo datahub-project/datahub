@@ -1,17 +1,20 @@
 import pathlib
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, Iterator, List
+from typing import Dict, Iterator, List
 from unittest import mock
 
 import boto3
 import pytest
-from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+from tests.test_helpers.object_store_probe_helpers import (
+    client_error,
+    recording_s3_operations,
+)
 
 AWS: Dict[str, object] = {
     "aws_access_key_id": "id",
@@ -42,35 +45,6 @@ def buckets() -> Iterator[None]:
             for key in KEYS:
                 client.put_object(Bucket=name, Key=key, Body=b"a,b\n1,2\n")
         yield
-
-
-def _denied(operation: str) -> ClientError:
-    return ClientError(
-        {
-            "Error": {"Code": "AccessDenied"},
-            "ResponseMetadata": {
-                "RequestId": "",
-                "HostId": "",
-                "HTTPStatusCode": 403,
-                "HTTPHeaders": {},
-                "RetryAttempts": 0,
-            },
-        },
-        operation,
-    )
-
-
-def _recording(seen: List[str]) -> Any:
-    real_client = boto3.session.Session.client
-
-    def recording_client(self: boto3.session.Session, *args: Any, **kwargs: Any) -> Any:
-        client = real_client(self, *args, **kwargs)
-        client.meta.events.register(
-            "before-call.s3", lambda model, **_: seen.append(model.name)
-        )
-        return client
-
-    return mock.patch.object(boto3.session.Session, "client", recording_client)
 
 
 def test_methods_advertise_the_s3_kinds() -> None:
@@ -106,7 +80,7 @@ def test_bucket_wildcard_datasets_span_buckets(buckets: None) -> None:
 
 
 def test_a_bucket_wildcard_without_list_buckets_is_a_failure(buckets: None) -> None:
-    denied = _denied("ListBuckets")
+    denied = client_error(operation="ListBuckets")
     with mock.patch(
         "datahub.ingestion.source.aws.s3_boto_utils.list_buckets", side_effect=denied
     ):
@@ -164,9 +138,8 @@ def test_legacy_bucket_names_are_accepted() -> None:
 
 def test_only_list_operations_reach_s3(buckets: None) -> None:
     """Metadata only, enforced by the code (and, for S3, by an IAM policy too)."""
-    seen: List[str] = []
     recipe = _recipe("s3://my-bucket/data/{table}/*/*.csv")
-    with _recording(seen):
+    with recording_s3_operations() as seen:
         for command, kwargs in [
             ("buckets", {}),
             ("folders", {"bucket": "my-bucket"}),
@@ -239,7 +212,7 @@ def test_a_missing_object_is_a_caller_error(buckets: None) -> None:
 
 def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
     # Ingestion does not catch this one: a denied GetObjectTagging fails the run.
-    denied = _denied("GetObjectTagging")
+    denied = client_error(operation="GetObjectTagging")
     with mock.patch(
         "datahub.ingestion.source.s3.s3_probe.get_object_tag_set", side_effect=denied
     ):
@@ -259,7 +232,7 @@ def test_a_denied_bucket_tag_read_warns_as_ingestion_carries_on(
     # bucket tags, so the run goes on; the probe must not fail the command.
     with mock.patch(
         "datahub.ingestion.source.s3.s3_probe.get_bucket_tag_set",
-        side_effect=_denied("GetBucketTagging"),
+        side_effect=client_error(operation="GetBucketTagging"),
     ):
         result = run_probe_method(
             "s3", _tag_recipe(use_s3_bucket_tags=True), "tags", {"bucket": "my-bucket"}
@@ -269,8 +242,7 @@ def test_a_denied_bucket_tag_read_warns_as_ingestion_carries_on(
 
 
 def test_tags_issues_only_tagging_reads(tagged: None) -> None:
-    seen: List[str] = []
-    with _recording(seen):
+    with recording_s3_operations() as seen:
         run_probe_method(
             "s3",
             _tag_recipe(use_s3_bucket_tags=True, use_s3_object_tags=True),
@@ -334,7 +306,7 @@ def test_a_listing_cut_at_the_limit_is_closed(buckets: None) -> None:
 def test_a_listing_denied_partway_keeps_what_it_listed(buckets: None) -> None:
     def listing(*_: object, **__: object) -> Iterator[SimpleNamespace]:
         yield _object("raw/a.csv")
-        raise _denied("ListObjectsV2")
+        raise client_error(operation="ListObjectsV2")
 
     with mock.patch(_LISTING, side_effect=listing):
         result = run_probe_method(

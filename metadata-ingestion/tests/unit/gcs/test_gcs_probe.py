@@ -3,7 +3,7 @@ import logging
 import pathlib
 import time
 import traceback
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
 import boto3
@@ -14,6 +14,7 @@ from botocore.exceptions import ClientError
 from click.testing import CliRunner
 from moto import mock_aws
 
+from datahub.cli import recipe_cli as recipe_cli_module
 from datahub.cli.recipe_cli import recipe as recipe_cli
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.probe_methods import (
@@ -28,6 +29,11 @@ from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
 from datahub.ingestion.source.gcs.gcs_source import (
     GCSSourceConfig,
     equivalent_s3_path_specs,
+)
+from datahub.masking.secret_registry import SecretRegistry
+from tests.test_helpers.object_store_probe_helpers import (
+    client_error,
+    recording_s3_operations,
 )
 
 HMAC: Dict[str, object] = {"hmac_access_id": "id", "hmac_access_secret": "secret"}
@@ -331,17 +337,7 @@ def test_an_unknown_bucket_is_a_caller_error(seeded_bucket: None) -> None:
 def test_only_list_operations_reach_storage(seeded_bucket: None) -> None:
     """Metadata only, enforced by the code rather than the credential."""
     recipe = _recipe("gs://my-bucket/data/{table}/*/*.parquet")
-    seen: List[str] = []
-    real_client = boto3.session.Session.client
-
-    def recording_client(self: boto3.session.Session, *args: Any, **kwargs: Any) -> Any:
-        client = real_client(self, *args, **kwargs)
-        client.meta.events.register(
-            "before-call.s3", lambda model, **_: seen.append(model.name)
-        )
-        return client
-
-    with mock.patch.object(boto3.session.Session, "client", recording_client):
+    with recording_s3_operations() as seen:
         for command, kwargs in [
             ("buckets", {}),
             ("folders", {"bucket": "my-bucket"}),
@@ -352,26 +348,17 @@ def test_only_list_operations_reach_storage(seeded_bucket: None) -> None:
     assert seen and set(seen) <= {"ListBuckets", "ListObjectsV2"}
 
 
-def _client_error(code: str, status: int) -> ClientError:
-    return ClientError(
-        {
-            "Error": {"Code": code, "Message": "principal some-account-detail"},
-            "ResponseMetadata": {
-                "RequestId": "",
-                "HostId": "",
-                "HTTPStatusCode": status,
-                "HTTPHeaders": {},
-                "RetryAttempts": 0,
-            },
-        },
-        "ListBuckets",
+def _listing_error(code: str, status: int) -> ClientError:
+    # The message stands in for account detail a test asserts never leaks.
+    return client_error(
+        code, status, operation="ListBuckets", message="principal some-account-detail"
     )
 
 
 def test_access_denied_on_the_whole_listing_is_a_failure(seeded_bucket: None) -> None:
     with mock.patch(
         "datahub.ingestion.source.data_lake_common.object_store_probe.list_buckets",
-        side_effect=_client_error("AccessDenied", 403),
+        side_effect=_listing_error("AccessDenied", 403),
     ):
         result = _run(_recipe("gs://my-bucket/raw/*.csv"), "buckets")
     assert result.result == [] and result.failures
@@ -383,7 +370,7 @@ def test_bad_signature_is_a_connection_error_without_the_error_text(
     with (
         mock.patch(
             "datahub.ingestion.source.data_lake_common.object_store_probe.list_buckets",
-            side_effect=_client_error("SignatureDoesNotMatch", 403),
+            side_effect=_listing_error("SignatureDoesNotMatch", 403),
         ),
         pytest.raises(ProbeConnectionError) as raised,
     ):
@@ -396,11 +383,8 @@ def isolated_secret_registry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """The masking registry is process-global; keep a test's secret out of
     later tests, as tests/unit/cli/test_recipe_probe_cli.py does -- cleared in
     place, before and after, so a failing assertion cannot leak it."""
-    import datahub.cli.recipe_cli as rc
-    from datahub.masking.secret_registry import SecretRegistry
-
     SecretRegistry.get_instance().clear()
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(recipe_cli_module, "_stdin_secrets", {}, raising=False)
     yield
     SecretRegistry.get_instance().clear()
 
