@@ -44,11 +44,22 @@ On each run the connector lists every configured folder, then compares each Doc'
 - `identity`: the account the recipe connects as and, when `delegated_user` is set, whether domain-wide delegation is in effect.
 - `roots`: each configured root's name and kind (My Drive folder, shared drive, or a folder in a shared drive), or why it cannot be opened and how to fix it.
 - `shared_drives`: the shared drives the account can see, with the ID to use in `root_folder_ids`.
+- `scope`: what a run would pick up, counted the way ingestion counts it: folders and Docs found, how many each pattern skips, and whether `max_documents` would stop the run.
+- `folders`: every folder under the roots, by the path `folder_pattern` is matched against, including folders the recipe skips.
+- `documents --folder <path>`: the Google Docs in one folder, by title, including Docs `document_pattern` skips.
+
+`datahub recipe probe filter` explains each verdict, and needs no connection. Folders are judged as `Folder` and Docs as `Google Doc`, together with the folders above them:
 
 ```shell
 datahub recipe probe methods --recipe google_drive_recipe.yml
 datahub recipe probe run roots --recipe google_drive_recipe.yml
+datahub recipe probe run folders --recipe google_drive_recipe.yml --report-to folders.json
+datahub recipe probe filter --recipe google_drive_recipe.yml --from-run folders.json
+datahub recipe probe filter --recipe google_drive_recipe.yml --kind "Google Doc" \
+  --parent "Handbook/Engineering" --name "Copy of Runbook"
 ```
+
+Whether a Doc is ingested also depends on its exported text (empty, shorter than `min_text_length`, or longer than `max_text_length`), which the probe does not read.
 
 When Google refuses a token, for example because domain-wide delegation is not authorized, the probe exits with code 3 and says what to change.
 

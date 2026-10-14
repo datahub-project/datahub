@@ -1,4 +1,4 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import pytest
 from google.auth.exceptions import RefreshError
@@ -6,8 +6,9 @@ from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 
 import datahub.ingestion.agent.probe_methods as pm
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import _iter_specs
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.google_drive.google_drive_config import (
     GoogleDriveSourceConfig,
 )
@@ -15,8 +16,11 @@ from datahub.ingestion.source.google_drive.google_drive_probe import (
     GoogleDriveMetadataProbe,
 )
 from tests.test_helpers.google_drive_fakes import (
+    ARCHIVE,
     CREDENTIAL,
     DOC_A1,
+    DOC_RUNBOOK,
+    ENG,
     ROOT_A,
     SHARED_B,
     TEAM,
@@ -186,14 +190,36 @@ def test_shared_drives_stop_paging_at_the_limit() -> None:
     assert len(svc.calls_for("drives.list")) == 1
 
 
-def test_no_command_takes_free_text_that_could_reach_a_drive_query() -> None:
-    # files.list's `q` accepts fullText searches, a content oracle. Every query is
-    # built from validated IDs, so no command may take a free-form parameter or
-    # offer a raw `api` passthrough.
+def test_no_raw_api_and_only_known_parameters() -> None:
+    # files.list's `q` accepts fullText searches, a content oracle, so there is no
+    # raw `api` passthrough. `folder` is the one free-text parameter; the next test
+    # shows it never reaches a query.
     specs = dict(_iter_specs(GoogleDriveMetadataProbe))
 
     assert "api" not in specs
-    assert {param.name for spec in specs.values() for param in spec.params} <= {"limit"}
+    assert {param.name for spec in specs.values() for param in spec.params} <= {
+        "limit",
+        "folder",
+    }
+
+
+@pytest.mark.parametrize(
+    "folder",
+    [
+        "Root A' or fullText contains 'secret",
+        "Root A/Eng' or fullText contains 'secret",
+    ],
+)
+def test_a_folder_path_is_matched_against_listed_names_never_queried(
+    folder: str,
+) -> None:
+    svc = build_fixture_service()
+
+    with pytest.raises(ProbeArgumentError):
+        make_probe(svc).documents(folder=folder)
+
+    # Only folders the listing itself returned were ever queried.
+    assert set(svc.calls_for("files.list")) <= set(svc.files_by_id)
 
 
 def test_probe_error_code_reads_googles_http_status() -> None:
@@ -222,3 +248,172 @@ def test_run_probe_method_opens_and_closes_the_drive_service(
         {"name": "Root A", "id": ROOT_A, "accessible": True, "kind": "my_drive_folder"}
     ]
     assert svc.closed
+
+
+def test_folders_lists_the_whole_tree_breadth_first_with_each_chain() -> None:
+    folders = make_probe(build_fixture_service()).folders(limit=100)
+
+    assert [(f["name"], f["depth"]) for f in folders] == [
+        ("Root A", 0),
+        ("Shared Drive B", 0),
+        ("Root A/Eng", 1),
+        ("Shared Drive B/Team", 1),
+        # Listed although the recipes below deny it: a skipped folder is
+        # reported so its verdict can be explained.
+        ("Root A/Eng/Archive", 2),
+        ("Root A/Eng/Specs", 2),
+    ]
+    archive = next(f for f in folders if f["name"] == "Root A/Eng/Archive")
+    assert archive["id"] == ARCHIVE
+    assert archive["ancestors"] == "Root A\nRoot A/Eng"
+
+
+def test_folders_stops_listing_at_the_limit() -> None:
+    svc = build_fixture_service()
+
+    folders = make_probe(svc).folders(limit=2)
+
+    assert [f["name"] for f in folders] == ["Root A", "Shared Drive B"]
+    assert svc.calls_for("files.list") == []
+
+
+def test_documents_lists_docs_in_one_folder_with_its_chain() -> None:
+    probe = make_probe(build_fixture_service())
+
+    in_root = probe.documents(folder="Root A")
+    in_eng = probe.documents(folder="Root A/Eng")
+
+    # The sheet, the shortcut and the trashed Doc are not Google Docs in scope.
+    assert [d["name"] for d in in_root] == ["Doc A1", "Copy of Doc A1", "Doc Empty"]
+    assert in_eng == [
+        {
+            "name": "Doc Runbook",
+            "id": DOC_RUNBOOK,
+            "modified_time": "2026-02-03T04:05:06+00:00",
+            "folders": "Root A\nRoot A/Eng",
+        }
+    ]
+    # Metadata only: no owners and no text.
+    assert not any("owners" in d for d in in_root)
+
+
+def test_documents_never_exports() -> None:
+    svc = build_fixture_service()
+
+    make_probe(svc).documents(folder="Root A/Eng/Specs")
+
+    assert svc.calls_for("files.export") == []
+
+
+def test_unknown_folder_path_is_the_callers_error() -> None:
+    with pytest.raises(ProbeArgumentError):
+        make_probe(build_fixture_service()).documents(folder="Root A/Nope")
+
+
+def test_unreadable_folder_is_a_failure_not_an_empty_listing() -> None:
+    svc = build_fixture_service()
+    svc.list_errors[ENG] = http_error(403, "insufficientFilePermissions")
+    probe = make_probe(svc)
+
+    folders = probe.folders(limit=100)
+
+    assert "Root A/Eng/Archive" not in [f["name"] for f in folders]
+    assert probe.failures == ["folder 'Root A/Eng' could not be listed (HTTP 403)"]
+
+
+def test_scope_counts_what_a_run_would_pick_up() -> None:
+    svc = build_fixture_service()
+
+    scope = make_probe(
+        svc,
+        folder_pattern={"deny": [".*/Archive$"]},
+        document_pattern={"deny": ["^Copy of "]},
+        max_documents=8,
+    ).scope()
+
+    assert scope == {
+        "roots": 2,
+        # Root A, Eng, Specs, Shared Drive B, Team; Archive is never entered.
+        "folders_in_scope": 5,
+        "folders_discovered": 4,
+        "folders_filtered": 1,
+        # Doc Old sits in Archive, so it is never discovered.
+        "documents_discovered": 9,
+        "documents_filtered": 1,
+        "documents_in_scope": 8,
+        "documents_unparseable": 0,
+        "shortcuts_skipped": 1,
+        "max_documents": 8,
+        "may_reach_max_documents": True,
+    }
+    assert svc.calls_for("files.export") == []
+
+
+def test_scope_reports_an_unreachable_root_as_a_failure() -> None:
+    probe = make_probe(build_fixture_service(), root_folder_ids=[ROOT_A, MISSING])
+
+    scope = probe.scope()
+
+    assert scope["roots"] == 1
+    assert probe.failures == [
+        f"root '{MISSING}' could not be opened (not_found_or_not_shared); "
+        "run `roots` for the fix"
+    ]
+
+
+def _judge(
+    kind: str,
+    names: List[str],
+    parent: Optional[str] = None,
+    **config_overrides: Any,
+) -> List[Tuple[bool, Optional[str]]]:
+    config_dict: Dict[str, object] = {
+        "root_folder_ids": [ROOT_A],
+        "folder_pattern": {"deny": [".*/Archive$"]},
+        "document_pattern": {"deny": ["^Copy of "]},
+    }
+    config_dict.update(config_overrides)
+    result = check_filters(
+        source_type="google-drive",
+        config_dict=config_dict,
+        kind=kind,
+        parent_path=[parent] if parent else [],
+        names=names,
+    )
+    return [(v.included, v.excluded_by) for v in result.results]
+
+
+def test_folder_verdicts_follow_the_walk() -> None:
+    assert _judge(
+        "Folder",
+        ["Root A", "Root A/Eng", "Root A/Eng/Archive", "Root A/Eng/Archive/Deep"],
+    ) == [
+        (True, None),
+        (True, None),
+        (False, "folder_pattern"),
+        # The pattern does not match this path, but the walk never enters Archive.
+        (False, "folder_pattern"),
+    ]
+
+
+def test_folder_verdicts_for_recursive_and_root_documents() -> None:
+    assert _judge("Folder", ["Root A", "Root A/Eng"], recursive=False) == [
+        (True, None),
+        (False, "recursive"),
+    ]
+    assert _judge("Folder", ["Root A"], create_root_documents=False) == [
+        (False, "create_root_documents")
+    ]
+
+
+def test_doc_verdicts_judge_the_folder_chain_then_the_title() -> None:
+    assert _judge("Google Doc", ["Doc A1", "Copy of Doc A1"], parent="Root A") == [
+        (True, None),
+        (False, "document_pattern"),
+    ]
+    assert _judge("Google Doc", ["Doc Old"], parent="Root A/Eng/Archive") == [
+        (False, "folder_pattern")
+    ]
+    assert _judge(
+        "Google Doc", ["Doc Runbook"], parent="Root A/Eng", recursive=False
+    ) == [(False, "recursive")]

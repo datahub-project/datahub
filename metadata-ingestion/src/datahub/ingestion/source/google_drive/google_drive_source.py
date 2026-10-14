@@ -85,6 +85,9 @@ from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    root_document_verdict,
+)
 from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
     DriveFile,
@@ -316,7 +319,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             folders = [
                 folder
                 for folder in tree.folders.values()
-                if self.config.create_root_documents or not folder.is_root
+                if not folder.is_root or root_document_verdict(self.config).included
             ]
             for start in range(0, len(folders), CHANGE_DETECTION_BATCH_SIZE):
                 folder_page = folders[start : start + CHANGE_DETECTION_BATCH_SIZE]

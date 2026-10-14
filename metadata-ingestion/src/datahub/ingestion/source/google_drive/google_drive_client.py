@@ -50,6 +50,11 @@ from datahub.ingestion.source.google_drive.google_drive_config import (
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    FOLDER_PATTERN,
+    document_title_verdict,
+    subfolder_verdict,
+)
 from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
     DriveFile,
@@ -320,7 +325,7 @@ class GoogleDriveClient:
                     if child.id in seen_documents:
                         continue
                     self.report.documents_discovered += 1
-                    if not self.config.document_pattern.allowed(child.name):
+                    if not document_title_verdict(self.config, child.name).included:
                         self.report.documents_filtered += 1
                         continue
                     seen_documents.add(child.id)
@@ -336,11 +341,13 @@ class GoogleDriveClient:
         visited: Set[str],
     ) -> None:
         self.report.folders_discovered += 1
-        if not self.config.recursive or child.id in visited:
+        if child.id in visited:
             return
         path = parent.path + FOLDER_PATH_SEPARATOR + child.name
-        if not self.config.folder_pattern.allowed(path):
-            self.report.folders_filtered += 1
+        verdict = subfolder_verdict(self.config, path)
+        if not verdict.included:
+            if verdict.excluded_by == FOLDER_PATTERN:
+                self.report.folders_filtered += 1
             return
         visited.add(child.id)
         node = FolderNode(

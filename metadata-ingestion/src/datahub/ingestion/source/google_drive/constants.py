@@ -112,6 +112,16 @@ RATE_LIMIT_REASONS = frozenset({"rateLimitExceeded", "userRateLimitExceeded"})
 OAUTH_UNAUTHORIZED_CLIENT = "unauthorized_client"
 OAUTH_INVALID_GRANT = "invalid_grant"
 
+# Docs carry no subtype, so the probe names their kind itself; folders use
+# DocumentSubTypes.FOLDER, as ingestion does.
+KIND_GOOGLE_DOC = "Google Doc"
+# Scalar facts on probe listing records, which `probe filter --from-run` hands back
+# to the verdict override: the folder paths above a folder, and the folder paths
+# down to a Doc's folder, root first and newline-separated (a Drive name has none).
+ATTR_ANCESTORS = "ancestors"
+ATTR_FOLDERS = "folders"
+CHAIN_SEPARATOR = "\n"
+
 ROOT_KIND_SHARED_DRIVE = "shared_drive"
 ROOT_KIND_SHARED_DRIVE_FOLDER = "shared_drive_folder"
 ROOT_KIND_MY_DRIVE_FOLDER = "my_drive_folder"

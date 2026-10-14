@@ -1,5 +1,7 @@
+from collections import deque
 from contextlib import contextmanager
-from typing import Dict, Iterator, List, Optional
+from dataclasses import dataclass
+from typing import Deque, Dict, Iterator, List, Optional, Sequence, Set
 
 from google.auth.exceptions import DefaultCredentialsError, RefreshError
 from googleapiclient.discovery import Resource
@@ -8,13 +10,24 @@ from googleapiclient.errors import HttpError
 from datahub.ingestion.agent.error_policy import http_status_code
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    Verdict,
+    VerdictContext,
+)
+from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.google_drive.constants import (
+    ATTR_ANCESTORS,
+    ATTR_FOLDERS,
+    CHAIN_SEPARATOR,
     CREDENTIAL_APPLICATION_DEFAULT,
     CREDENTIAL_SERVICE_ACCOUNT,
     DRIVE_SCOPES,
+    FOLDER_PATH_SEPARATOR,
     HTTP_FORBIDDEN,
     HTTP_NOT_FOUND,
+    KIND_GOOGLE_DOC,
     OAUTH_INVALID_GRANT,
     OAUTH_UNAUTHORIZED_CLIENT,
     RATE_LIMIT_REASONS,
@@ -37,7 +50,19 @@ from datahub.ingestion.source.google_drive.google_drive_config import (
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
-from datahub.ingestion.source.google_drive.models import FolderNode
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    DriveSelectionConfig,
+    folder_document_verdict,
+    google_doc_verdict,
+)
+from datahub.ingestion.source.google_drive.models import DriveFile, FolderNode
+
+KIND_FOLDER = str(DocumentSubTypes.FOLDER)
+_SPLIT_PATH_WARNING = (
+    "judged by splitting the folder path on '/', so a folder whose name contains "
+    "'/' may be judged wrongly; `probe filter --from-run` on a `folders` or "
+    "`documents` listing uses the exact folder chain"
+)
 
 
 def _oauth_error_code(error: RefreshError) -> Optional[str]:
@@ -59,6 +84,58 @@ def _root_kind(node: FolderNode) -> str:
     return ROOT_KIND_SHARED_DRIVE_FOLDER
 
 
+def _split_chain(path: str) -> List[str]:
+    parts = path.split(FOLDER_PATH_SEPARATOR)
+    return [FOLDER_PATH_SEPARATOR.join(parts[: i + 1]) for i in range(len(parts))]
+
+
+def _attribute_chain(ctx: VerdictContext, key: str) -> Optional[List[str]]:
+    if key not in ctx.attributes:
+        return None
+    value = ctx.attributes[key]
+    return value.split(CHAIN_SEPARATOR) if value else []
+
+
+def probe_verdict(
+    config: DriveSelectionConfig, ctx: VerdictContext
+) -> Optional[Verdict]:
+    """Ingestion's verdict for a folder (named by its path) or a Doc (named by its
+    title), judged on the whole folder chain: the walk never lists a denied folder,
+    so nothing beneath one is reached. The chain comes from the listing record's
+    facts, or from splitting the path when only a bare name was given."""
+    if ctx.kind == KIND_FOLDER:
+        ancestors = _attribute_chain(ctx, ATTR_ANCESTORS)
+        if ancestors is None:
+            ctx.warn(_SPLIT_PATH_WARNING)
+            return folder_document_verdict(config, _split_chain(ctx.name))
+        return folder_document_verdict(config, [*ancestors, ctx.name])
+    if ctx.kind == KIND_GOOGLE_DOC:
+        folders = _attribute_chain(ctx, ATTR_FOLDERS)
+        if folders is None and ctx.parent_path:
+            ctx.warn(_SPLIT_PATH_WARNING)
+            folders = _split_chain(ctx.parent_path[-1])
+        if not folders:
+            ctx.warn(
+                "no folder given, so only document_pattern was judged; pass the "
+                "Doc's folder path with --parent to judge folder_pattern and "
+                "recursive too"
+            )
+            return None
+        return google_doc_verdict(config, folders, ctx.target)
+    return None
+
+
+@dataclass(frozen=True)
+class _WalkedFolder:
+    node: FolderNode
+    # Folder paths above this one, root first.
+    ancestors: Sequence[str]
+
+    @property
+    def chain(self) -> List[str]:
+        return [*self.ancestors, self.node.path]
+
+
 class GoogleDriveMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over the Drive API, reusing GoogleDriveClient so calls are
     retried and counted as ingestion's are.
@@ -78,6 +155,7 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
         self._config = config
         self._service = service
         self._report = GoogleDriveSourceReport()
+        self.failures: List[str] = []
 
     @classmethod
     def for_config(cls, config: GoogleDriveSourceConfig) -> "GoogleDriveMetadataProbe":
@@ -150,6 +228,185 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
                 ),
                 limit,
             )
+
+    @probe_method(kind=KIND_FOLDER, row_limit_param="limit")
+    def folders(self, limit: int = 200) -> List[Dict[str, object]]:
+        """Folders under the configured roots, by the path folder_pattern is matched
+        against (the root's name first), including folders the recipe would skip:
+        a denied folder and everything beneath it are listed, not hidden, so
+        `probe filter --kind Folder` can explain them. Breadth first, so a small
+        limit shows the top of the tree. Lists every folder it returns, which a
+        large Drive makes slow."""
+        with self._source_access():
+            return take(
+                (
+                    {
+                        "name": folder.node.path,
+                        "id": folder.node.id,
+                        "depth": len(folder.ancestors),
+                        ATTR_ANCESTORS: CHAIN_SEPARATOR.join(folder.ancestors),
+                    }
+                    for folder in self._iter_folders()
+                ),
+                limit,
+            )
+
+    @probe_method(
+        kind=KIND_GOOGLE_DOC, row_limit_param="limit", parent_params=("folder",)
+    )
+    def documents(self, folder: str, limit: int = 200) -> List[Dict[str, object]]:
+        """Google Docs directly inside one folder, given by its path as `folders`
+        lists it, including Docs document_pattern would skip. Titles, IDs and
+        modified times only; never a Doc's text or owners. Whether a Doc is
+        ingested also depends on its exported text (empty, too short or too long),
+        which this does not read."""
+        with self._source_access():
+            walked = self._resolve_folder(folder)
+            return take(
+                (
+                    {
+                        "name": file.name,
+                        "id": file.id,
+                        "modified_time": file.modified_time.isoformat()
+                        if file.modified_time
+                        else None,
+                        ATTR_FOLDERS: CHAIN_SEPARATOR.join(walked.chain),
+                    }
+                    for file in self._children(walked)
+                    if file.is_document
+                ),
+                limit,
+            )
+
+    @probe_method()
+    def scope(self) -> Dict[str, object]:
+        """What a run would pick up, counted the way ingestion counts it: the same
+        folder walk and filters, without exporting any Doc. `documents_in_scope` is
+        an upper bound on what is ingested, since empty, too short and too long Docs
+        are skipped after export. Lists every folder in scope, as a run does."""
+        with self._source_access():
+            roots = [walked.node for walked in self._open_roots()]
+            tree = self._client().walk(roots)
+        report = self._report
+        max_documents = self._config.max_documents
+        return {
+            "roots": len(roots),
+            "folders_in_scope": len(tree.folders),
+            "folders_discovered": report.folders_discovered,
+            "folders_filtered": report.folders_filtered,
+            "documents_discovered": report.documents_discovered,
+            "documents_filtered": report.documents_filtered,
+            "documents_in_scope": len(tree.documents),
+            "documents_unparseable": report.documents_unparseable,
+            "shortcuts_skipped": report.shortcuts_skipped,
+            "max_documents": max_documents,
+            "may_reach_max_documents": max_documents > 0
+            and len(tree.documents) >= max_documents,
+        }
+
+    def _open_roots(self) -> List[_WalkedFolder]:
+        client = self._client()
+        roots: List[_WalkedFolder] = []
+        for root_id in self._config.root_folder_ids:
+            try:
+                node = client.get_root(root_id)
+            except HttpError as e:
+                problem = self._root_problem(e)
+                if problem is None:
+                    raise
+                self._unopened_root(root_id, problem)
+                continue
+            except NotAFolderError:
+                self._unopened_root(root_id, ROOT_PROBLEM_NOT_A_FOLDER)
+                continue
+            roots.append(_WalkedFolder(node=node, ancestors=()))
+        return roots
+
+    def _unopened_root(self, root_id: str, problem: str) -> None:
+        # A failure, not a warning: the tree under it is left unlisted.
+        self.failures.append(
+            f"root '{root_id}' could not be opened ({problem}); run `roots` for the fix"
+        )
+
+    def _children(self, folder: _WalkedFolder) -> List[DriveFile]:
+        try:
+            return list(self._client().list_children(folder.node.id, []))
+        except HttpError as e:
+            status = http_error_status(e)
+            if status not in (HTTP_FORBIDDEN, HTTP_NOT_FOUND):
+                raise
+            # As in ingestion, a folder that cannot be listed leaves the tree
+            # incomplete, so it is a failure rather than an empty folder.
+            self.failures.append(
+                f"folder '{folder.node.path}' could not be listed (HTTP {status})"
+            )
+            return []
+
+    def _child_folders(self, folder: _WalkedFolder) -> List[_WalkedFolder]:
+        return [
+            _WalkedFolder(
+                node=FolderNode(
+                    id=child.id,
+                    title=child.name,
+                    parent_id=folder.node.id,
+                    path=folder.node.path + FOLDER_PATH_SEPARATOR + child.name,
+                    drive_id=child.drive_id,
+                    web_view_link=child.web_view_link,
+                ),
+                ancestors=folder.chain,
+            )
+            for child in self._children(folder)
+            if child.is_folder
+        ]
+
+    def _iter_folders(self) -> Iterator[_WalkedFolder]:
+        # Unlike the ingestion walk, this descends into folders the recipe skips,
+        # so their verdicts can be explained.
+        # A folder is listed only once the caller wants more than is already
+        # queued, so a small limit costs no listing it does not use.
+        pending: Deque[_WalkedFolder] = deque(self._open_roots())
+        to_expand: Deque[_WalkedFolder] = deque()
+        seen: Set[str] = {folder.node.id for folder in pending}
+        while pending or to_expand:
+            if pending:
+                folder = pending.popleft()
+                yield folder
+                to_expand.append(folder)
+                continue
+            for child in self._child_folders(to_expand.popleft()):
+                if child.node.id not in seen:
+                    seen.add(child.node.id)
+                    pending.append(child)
+
+    def _resolve_folder(self, path: str) -> _WalkedFolder:
+        """The folder at `path`, found by name from the roots down. Names are
+        compared with the listed children, so the caller's text never reaches a
+        Drive query, and a name containing '/' still resolves."""
+        matches: List[_WalkedFolder] = []
+        for root in self._open_roots():
+            matches.extend(self._descend(root, path))
+        if not matches:
+            raise ProbeArgumentError(
+                f"no folder at '{path}' under the configured roots; list them with "
+                "`folders`"
+            )
+        if len({match.node.id for match in matches}) > 1:
+            raise ProbeArgumentError(
+                f"more than one folder is at '{path}'; Drive allows same-named "
+                "folders side by side, and the probe cannot tell them apart"
+            )
+        return matches[0]
+
+    def _descend(self, folder: _WalkedFolder, path: str) -> List[_WalkedFolder]:
+        own = folder.node.path
+        if path == own:
+            return [folder]
+        if not path.startswith(own + FOLDER_PATH_SEPARATOR):
+            return []
+        found: List[_WalkedFolder] = []
+        for child in self._child_folders(folder):
+            found.extend(self._descend(child, path))
+        return found
 
     def _client(self) -> GoogleDriveClient:
         return self._open_once(
