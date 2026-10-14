@@ -123,7 +123,7 @@ The `emit_siblings` option described under _Delta Lake External Tables_ above is
 `probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
 
 - `table_pattern` is matched against `catalog.schema.table`, and applies to views and metric views before `view_pattern` or `metric_view_pattern`. `metric_view_pattern` applies only while `include_metric_views` is on.
-- `catalog_pattern` and `schema_pattern` are matched against the full id, `catalog` or `catalog.schema`, prefixed with the metastore name when `include_metastore` is on. Pass the containing names with `--parent`; `probe run catalogs` names the metastore in a warning.
+- `catalog_pattern` and `schema_pattern` are matched against the full id, `catalog` or `catalog.schema`, prefixed with the metastore name when `include_metastore` is on. Pass the containing names with `--parent`, the metastore first; the catalog, schema and table listings name it in a warning. When no metastore is assigned to the workspace, they warn that ingestion would abort and suggest `include_metastore: false`.
 - With `catalogs` set, a catalog missing from that list is excluded.
 - Notebooks are matched by path against `notebook_pattern`, and are all excluded while `include_notebooks` is off.
 

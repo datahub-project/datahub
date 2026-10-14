@@ -157,6 +157,31 @@ def test_catalogs_names_the_metastore_the_patterns_are_prefixed_with() -> None:
     assert any("'my metastore'" in w and "--parent" in w for w in probe.warnings)
 
 
+@pytest.mark.parametrize("command", ["catalogs", "schemas"])
+def test_an_unassigned_metastore_warns_instead_of_failing_the_listing(
+    command: str,
+) -> None:
+    ws = _fake_ws()
+    ws.catalogs.list.return_value = [CatalogInfo(name="main")]
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.schemas.list.return_value = [SchemaInfo(name="analytics")]
+    ws.metastores.summary.side_effect = _not_found("METASTORE_DOES_NOT_EXIST")
+    probe = _probe(ws, include_metastore=True)
+    kwargs = {"limit": 10} if command == "catalogs" else {"catalog": "main"}
+    assert getattr(probe, command)(**kwargs)
+    assert any("include_metastore: false" in w for w in probe.warnings)
+
+
+def test_table_listings_name_the_metastore_for_the_parent_path() -> None:
+    ws = _tables_ws()
+    ws.metastores.summary.return_value = GetMetastoreSummaryResponse(
+        name="my metastore"
+    )
+    probe = _probe(ws, include_metastore=True)
+    assert probe.tables(catalog="main", schema="analytics")
+    assert any("'my metastore'" in w and "--parent" in w for w in probe.warnings)
+
+
 def test_catalogs_reads_no_metastore_when_it_is_not_part_of_the_id() -> None:
     ws = _fake_ws()
     ws.catalogs.list.return_value = [CatalogInfo(name="main")]

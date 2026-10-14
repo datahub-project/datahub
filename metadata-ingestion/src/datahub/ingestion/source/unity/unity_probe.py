@@ -336,12 +336,24 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         prefixed with the assigned metastore (source.py reads it through
         assigned_metastore), and a run record carries no metastore to pass on.
         Name it, so `probe filter` can be given it as the outermost --parent
-        instead of degrading to the bare name."""
+        instead of degrading to the bare name. Advisory only: a failure to
+        read it never fails the listing."""
         if not self._config.include_metastore:
             return
         with soft_listing(self._warn):
             with self._calling("reading the assigned metastore"):
-                metastore = self._proxy.assigned_metastore()
+                try:
+                    metastore = self._proxy.assigned_metastore()
+                except NotFound as exc:
+                    # process_metastores calls assigned_metastore without a
+                    # try, so on this 404 ingestion ends the run.
+                    self._warn(
+                        f"include_metastore is on but no metastore is assigned "
+                        f"to this workspace {name_foreign(exc, type(self))}; "
+                        f"ingestion would abort reading it (process_metastores). "
+                        f"Set include_metastore: false, or assign a metastore"
+                    )
+                    return
             if metastore is None:
                 self._warn(
                     "include_metastore is on but the workspace reports no "
@@ -352,8 +364,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             self._warn(
                 f"include_metastore is on, so catalog_pattern and schema_pattern "
                 f"match ids prefixed with the metastore '{metastore.name}'; pass "
-                f"it as the first --parent to `probe filter` for Catalog and "
-                f"Schema verdicts"
+                f"it as the first --parent to `probe filter`, ahead of the "
+                f"catalog and schema"
             )
 
     def _pinned_catalogs(self, pinned: List[str], limit: int) -> List[str]:
@@ -419,6 +431,9 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     def _table_like(
         self, catalog: str, schema: str, limit: int, keep: Callable[[Table], bool]
     ) -> List[str]:
+        # A run record's parent is [catalog, schema]; name the metastore so
+        # it can be passed as the outermost --parent.
+        self._note_metastore()
         if self._hive_via_warehouse(catalog):
             return []
         with soft_listing(self._warn):
