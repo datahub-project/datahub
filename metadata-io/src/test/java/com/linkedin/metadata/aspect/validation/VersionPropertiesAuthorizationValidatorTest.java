@@ -192,6 +192,42 @@ public class VersionPropertiesAuthorizationValidatorTest {
     Assert.assertFalse(validate(patch).isEmpty());
   }
 
+  // The write path applies a PATCH on top of an earlier item for the same aspect in the batch, so
+  // the validator must too: a low-sortId UPSERT followed by a sortId PATCH still demotes the
+  // latest.
+  @Test(dataProvider = "patchItemBuilders")
+  public void testSameBatchPatchOnNewEntityIsCheckedAgainstEarlierUpsert(
+      boolean alternateValidation) {
+    allowEdit(SECOND_ENTITY_URN, OTHER_VERSION_SET_URN);
+    List<BatchItem> batch =
+        List.of(
+            upsertFor(SECOND_ENTITY_URN, OTHER_VERSION_SET_URN, "v0", "aaa"),
+            patch(SECOND_ENTITY_URN, alternateValidation, false, patchOp("/sortId", "zzz")));
+    Assert.assertFalse(validate(batch).isEmpty());
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testSameBatchPatchOnExistingEntityIsCheckedAgainstEarlierUpsert(
+      boolean alternateValidation) {
+    // ENTITY_URN is stored as the latest of its own set; the batch moves it to OTHER_VERSION_SET
+    // with a low sortId, then raises the sortId past OTHER_LATEST_URN.
+    allowEdit(ENTITY_URN, OWN_VERSION_SET_URN, OTHER_VERSION_SET_URN);
+    List<BatchItem> batch =
+        List.of(
+            upsert(OTHER_VERSION_SET_URN, "v0", "aaa"),
+            patch(ENTITY_URN, alternateValidation, false, patchOp("/sortId", "zzz")));
+    Assert.assertFalse(validate(batch).isEmpty());
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testUnresolvablePatchIsDenied(boolean alternateValidation) {
+    // A template patch on an entity with no versionProperties cannot be applied.
+    allowEdit(SECOND_ENTITY_URN, OTHER_VERSION_SET_URN, OTHER_LATEST_URN);
+    BatchItem patch =
+        patch(SECOND_ENTITY_URN, alternateValidation, false, patchOp("/sortId", "zzz"));
+    Assert.assertFalse(validate(patch).isEmpty());
+  }
+
   @Test
   public void testBatchReadsDoNotScaleWithItemCount() {
     allowEdit(ENTITY_URN, SECOND_ENTITY_URN, OTHER_VERSION_SET_URN);
@@ -222,9 +258,13 @@ public class VersionPropertiesAuthorizationValidatorTest {
   }
 
   private List<AspectValidationException> validate(BatchItem item) {
+    return validate(List.of(item));
+  }
+
+  private List<AspectValidationException> validate(List<BatchItem> items) {
     return validator
         .validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY, List.of(item), retrieverContext, session)
+            OperationFingerprint.EMPTY, items, retrieverContext, session)
         .toList();
   }
 

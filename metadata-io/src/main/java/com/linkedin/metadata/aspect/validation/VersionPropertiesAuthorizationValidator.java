@@ -66,22 +66,40 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
             items.stream().map(BatchItem::getUrn).collect(Collectors.toSet()),
             VERSION_PROPERTIES_ASPECT_NAME,
             VersionProperties.class);
-    List<Map.Entry<BatchItem, VersionProperties>> proposals = new ArrayList<>();
+    // The write path applies each item on top of the previous one for the same entity in this
+    // batch (a PATCH after an UPSERT patches the UPSERT, not the stored aspect), so resolve the
+    // same way, or a low-sortId UPSERT followed by a sortId PATCH would escape the check.
+    Map<Urn, VersionProperties> proposedSoFar = new HashMap<>(stored);
+    List<Proposal> proposals = new ArrayList<>();
+    List<AspectValidationException> failures = new ArrayList<>();
     for (BatchItem item : items) {
-      VersionProperties proposed =
-          resolveProposed(item, stored.get(item.getUrn()), aspectRetriever);
-      if (proposed != null && proposed.hasVersionSet()) {
-        proposals.add(Map.entry(item, proposed));
+      VersionProperties before = proposedSoFar.get(item.getUrn());
+      VersionProperties proposed;
+      try {
+        proposed =
+            PatchItemImpl.resolveProposedAspect(
+                item, before, aspectRetriever, VersionProperties.class);
+      } catch (RuntimeException e) {
+        // The write path resolves from the same base, so this write cannot succeed either.
+        failures.add(
+            authFailure(item, "Unable to resolve versionProperties PATCH for authorization"));
+        continue;
+      }
+      if (proposed != null) {
+        proposedSoFar.put(item.getUrn(), proposed);
+        if (proposed.hasVersionSet()) {
+          proposals.add(new Proposal(item, before, proposed));
+        }
       }
     }
     if (proposals.isEmpty()) {
-      return List.of();
+      return failures;
     }
     Map<Urn, VersionSetProperties> versionSets =
         read(
             operationContext,
             aspectRetriever,
-            proposals.stream().map(e -> e.getValue().getVersionSet()).collect(Collectors.toSet()),
+            proposals.stream().map(p -> p.proposed().getVersionSet()).collect(Collectors.toSet()),
             VERSION_SET_PROPERTIES_ASPECT_NAME,
             VersionSetProperties.class);
     Map<Urn, VersionProperties> latestVersions =
@@ -94,11 +112,10 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
             VERSION_PROPERTIES_ASPECT_NAME,
             VersionProperties.class);
 
-    List<AspectValidationException> failures = new ArrayList<>();
-    for (Map.Entry<BatchItem, VersionProperties> entry : proposals) {
-      BatchItem item = entry.getKey();
-      VersionProperties proposed = entry.getValue();
-      VersionProperties current = stored.get(item.getUrn());
+    for (Proposal proposal : proposals) {
+      BatchItem item = proposal.item();
+      VersionProperties proposed = proposal.proposed();
+      VersionProperties current = proposal.before();
       Urn versionSetUrn = proposed.getVersionSet();
       VersionSetProperties versionSet = versionSets.get(versionSetUrn);
 
@@ -133,22 +150,13 @@ public class VersionPropertiesAuthorizationValidator extends AbstractAspectAutho
     return failures;
   }
 
+  private record Proposal(
+      @Nonnull BatchItem item,
+      @Nullable VersionProperties before,
+      @Nonnull VersionProperties proposed) {}
+
   private static boolean canEdit(@Nonnull AuthorizationSession session, @Nonnull Urn urn) {
     return AuthUtil.isAuthorizedEntityUrns(session, ApiOperation.UPDATE, Set.of(urn));
-  }
-
-  @Nullable
-  private static VersionProperties resolveProposed(
-      @Nonnull BatchItem item,
-      @Nullable VersionProperties current,
-      @Nonnull AspectRetriever aspectRetriever) {
-    try {
-      return PatchItemImpl.resolveProposedAspect(
-          item, current, aspectRetriever, VersionProperties.class);
-    } catch (RuntimeException e) {
-      // A patch that cannot be applied fails the write downstream; nothing to authorize.
-      return null;
-    }
   }
 
   @Nonnull
