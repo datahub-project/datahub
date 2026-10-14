@@ -388,8 +388,6 @@ describe('shouldCombineSiblings', () => {
     });
 
     it('skips a group larger than the siblings fetched', () => {
-        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE + 1 } }, false)).toBe(
-            false,
-        );
+        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE + 1 } }, false)).toBe(false);
     });
 });
