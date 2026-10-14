@@ -239,6 +239,10 @@ export class ApplicationsPage extends BasePage {
   }
 
   async verifyNoApplicationYetTextNotVisible(): Promise<void> {
+    // toBeHidden passes immediately when the node is not in the DOM. On the loading
+    // shell that returns before appConfig is fulfilled, then context teardown aborts
+    // the intercept and fails the test. Wait until the profile sidebar has rendered.
+    await expect(this.page.getByTestId('entity-profile-sidebar')).toBeVisible();
     await expect(this.noApplicationText).toBeHidden();
   }
 

@@ -1,9 +1,10 @@
-import { Editor, Modal } from '@components';
+import { Modal } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
 import { EditorProps } from '@components/components/Editor/types';
 import { ModalButton } from '@components/components/Modal/Modal';
 

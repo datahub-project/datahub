@@ -1,8 +1,9 @@
-import { Button, Editor } from '@components';
+import { Button } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
