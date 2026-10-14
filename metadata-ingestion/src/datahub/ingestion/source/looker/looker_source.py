@@ -179,6 +179,10 @@ def looker_folder_path(ancestor_names: Sequence[str], folder_name: str) -> str:
         SourceCapabilityModifier.LOOKER_FOLDER,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
     Source that extracts dashboards, explores, and charts from Looker via the Looker API.

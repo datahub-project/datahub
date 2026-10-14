@@ -2567,6 +2567,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
