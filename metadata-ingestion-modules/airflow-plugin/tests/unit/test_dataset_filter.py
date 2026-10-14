@@ -94,27 +94,96 @@ def test_allow_all_leaves_datajob_untouched() -> None:
     assert datajob.outlets == [OUTPUT]
 
 
-def test_bigquery_hidden_datasets_dropped_unless_captured() -> None:
-    hidden = [
-        DatasetUrn("bigquery", "my_project._6f2a9c.anon"),
-        DatasetUrn("bigquery", "my_project._script7a1.tmp"),
-        # Airflow Assets name BigQuery tables with slashes.
-        DatasetUrn("bigquery", "my_project/_6f2a9c/anon"),
-    ]
+# Airflow Assets name BigQuery tables with slashes, OpenLineage/SQL parsing with dots.
+HIDDEN = [
+    DatasetUrn("bigquery", "my_project._6f2a9c.anon"),
+    DatasetUrn("bigquery", "my_project._script7a1.tmp"),
+    DatasetUrn("bigquery", "my_project/_6f2a9c/anon"),
+]
+
+
+def test_bigquery_hidden_datasets_dropped() -> None:
     # A table whose own name starts with "_" is not in a hidden dataset.
     named = DatasetUrn("bigquery", "my_project.my_dataset._staging")
+    datajob = _datajob(inlets=[*HIDDEN, named, KEPT], outlets=[OUTPUT])
 
-    datajob = _datajob(inlets=[*hidden, named, KEPT], outlets=[OUTPUT])
     apply_dataset_filter(datajob, DENY)
+
     assert datajob.inlets == [named, KEPT]
 
-    # capture_bigquery_temp_datasets keeps them while the prefix stays set. Use
-    # a real pattern so the filter runs instead of short-circuiting as a no-op.
-    datajob = _datajob(inlets=[*hidden, KEPT, TMP_FILE], outlets=[OUTPUT])
-    keep_hidden = DatasetFilter(
-        pattern=AllowDenyPattern(deny=[r"file:.*"]),
-        bigquery_temp_table_dataset_prefix="_",
-        capture_bigquery_temp_datasets=True,
+
+def test_capture_bigquery_temp_datasets_keeps_hidden() -> None:
+    datajob = _datajob(inlets=[*HIDDEN, KEPT, TMP_FILE], outlets=[OUTPUT])
+
+    # TMP_FILE is the canary: its removal proves the filter ran instead of
+    # short-circuiting as a no-op, which capture=True + allow-all would be.
+    apply_dataset_filter(
+        datajob,
+        DatasetFilter(
+            pattern=AllowDenyPattern(deny=[r"file:.*"]),
+            bigquery_temp_table_dataset_prefix="_",
+            capture_bigquery_temp_datasets=True,
+        ),
     )
-    apply_dataset_filter(datajob, keep_hidden)
-    assert datajob.inlets == [*hidden, KEPT]
+
+    assert datajob.inlets == [*HIDDEN, KEPT]
+
+
+def test_allow_all_pattern_still_drops_bigquery_hidden_datasets() -> None:
+    # The shipped defaults, hard-coded so a change to them can't hide a broken
+    # `is_noop()`.
+    datajob = _datajob(inlets=[HIDDEN[0], KEPT], outlets=[OUTPUT])
+
+    apply_dataset_filter(
+        datajob,
+        DatasetFilter(
+            pattern=AllowDenyPattern.allow_all(),
+            bigquery_temp_table_dataset_prefix="_",
+        ),
+    )
+
+    assert datajob.inlets == [KEPT]
+    assert datajob.outlets == [OUTPUT]
+
+
+def test_platform_instance_is_part_of_the_pattern_key() -> None:
+    instanced = DatasetUrn("bigquery", "my_instance.my_project.my_dataset.events")
+    datajob = _datajob(inlets=[instanced, KEPT], outlets=[OUTPUT])
+
+    apply_dataset_filter(
+        datajob,
+        DatasetFilter(
+            pattern=AllowDenyPattern(deny=[r"bigquery:my_instance\..*"]),
+            bigquery_temp_table_dataset_prefix="_",
+        ),
+    )
+
+    assert datajob.inlets == [KEPT]
+
+
+def test_unparseable_fine_grained_lineage_urn_is_kept() -> None:
+    malformed = "urn:li:schemaField:(not-a-dataset-urn,a)"
+    datajob = _datajob(
+        inlets=[KEPT],
+        outlets=[OUTPUT],
+        fine_grained_lineages=[_fgl([malformed], [_field(OUTPUT, "a")])],
+    )
+
+    apply_dataset_filter(datajob, DENY)
+
+    assert len(datajob.fine_grained_lineages) == 1
+    assert datajob.fine_grained_lineages[0].upstreams == [malformed]
+
+
+def test_unset_fine_grained_lineage_side_stays_unset() -> None:
+    fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.NONE,
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[_field(OUTPUT, "a")],
+    )
+    datajob = _datajob(inlets=[KEPT], outlets=[OUTPUT], fine_grained_lineages=[fgl])
+
+    apply_dataset_filter(datajob, DENY)
+
+    assert datajob.fine_grained_lineages == [fgl]
+    assert fgl.upstreams is None

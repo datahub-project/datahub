@@ -1,5 +1,6 @@
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, List, Sequence
 
 # Conditional import for OpenLineage (may not be installed)
 try:
@@ -97,6 +98,30 @@ def _fs_dataset_name(location: str, name: str, is_file: bool) -> str:
     return path.lstrip("/")
 
 
+@dataclass(frozen=True)
+class _OlDatasetRef:
+    platform: str
+    name: str
+
+
+def _resolve_ol_dataset(
+    ol_uri: "OpenLineageDataset", normalize_object_storage: bool
+) -> _OlDatasetRef:
+    namespace = ol_uri.namespace
+    name = _sanitize_ol_dataset_name(ol_uri.name)
+
+    scheme, *rest = namespace.split("://", maxsplit=1)
+
+    fs_platform = OL_FS_SCHEME_TO_PLATFORM.get(scheme.lower())
+    if normalize_object_storage and rest and fs_platform:
+        return _OlDatasetRef(
+            platform=fs_platform,
+            name=_fs_dataset_name(rest[0], name, is_file=fs_platform == FILE_PLATFORM),
+        )
+
+    return _OlDatasetRef(platform=OL_SCHEME_TWEAKS.get(scheme, scheme), name=name)
+
+
 def translate_ol_to_datahub_urn(
     ol_uri: "OpenLineageDataset",
     env: str = builder.DEFAULT_ENV,
@@ -116,21 +141,29 @@ def translate_ol_to_datahub_urn(
     Returns:
         DataHub dataset URN string
     """
-    namespace = ol_uri.namespace
-    name = _sanitize_ol_dataset_name(ol_uri.name)
+    ref = _resolve_ol_dataset(ol_uri, normalize_object_storage)
+    return builder.make_dataset_urn(platform=ref.platform, name=ref.name, env=env)
 
-    scheme, *rest = namespace.split("://", maxsplit=1)
 
-    # A bare namespace such as `file` has no `://` and keeps the name as is,
-    # which is also what the Java converter does. URI schemes are
-    # case-insensitive (RFC 3986), so `GS://` maps like `gs://`.
-    fs_platform = OL_FS_SCHEME_TO_PLATFORM.get(scheme.lower())
-    if normalize_object_storage and rest and fs_platform:
-        return builder.make_dataset_urn(
-            platform=fs_platform,
-            name=_fs_dataset_name(rest[0], name, is_file=fs_platform == FILE_PLATFORM),
-            env=env,
+def translate_ol_datasets(
+    ol_datasets: Sequence["OpenLineageDataset"],
+    direction: str,
+    env: str,
+    normalize_object_storage: bool,
+    capture_file_datasets: bool,
+) -> List[str]:
+    """Translate an operator's OpenLineage inputs or outputs to DataHub URNs."""
+    urns: List[str] = []
+    for ol_dataset in ol_datasets:
+        ref = _resolve_ol_dataset(ol_dataset, normalize_object_storage)
+        urn = builder.make_dataset_urn(platform=ref.platform, name=ref.name, env=env)
+        # Operators report local scratch files (`/tmp/tmpab12/...`) on the worker.
+        # They change every run and never link two tasks, so skip them unless asked.
+        if not capture_file_datasets and ref.platform == FILE_PLATFORM:
+            logger.debug(f"  Skipped local file {direction.lower()}: {urn}")
+            continue
+        urns.append(urn)
+        logger.debug(
+            f"  {direction}: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
         )
-
-    platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
-    return builder.make_dataset_urn(platform=platform, name=name, env=env)
+    return urns

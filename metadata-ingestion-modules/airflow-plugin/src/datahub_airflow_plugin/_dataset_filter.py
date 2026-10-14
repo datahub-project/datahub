@@ -1,7 +1,6 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 from datahub.api.entities.datajob import DataJob
 from datahub.configuration.common import AllowDenyPattern
@@ -50,32 +49,34 @@ class DatasetFilter:
 
 
 def _allowed(urn: str, dataset_filter: DatasetFilter) -> bool:
-    # Fine-grained lineage endpoints are usually schemaField URNs; match them on
-    # their parent dataset. Anything unparseable is kept rather than silently lost.
     try:
         if urn.startswith("urn:li:schemaField:"):
             urn = SchemaFieldUrn.from_string(urn).parent
         return dataset_filter.allowed(DatasetUrn.from_string(urn))
     except InvalidUrnError:
+        logger.debug(f"Dataset filter keeping unparseable URN: {urn}")
         return True
 
 
-def _filter_fine_grained_lineage(
+def _prune_fine_grained_lineage(
     fgl: FineGrainedLineageClass, dataset_filter: DatasetFilter
-) -> Optional[FineGrainedLineageClass]:
+) -> bool:
+    """Prune denied endpoints in place; False means the edge must be dropped."""
     downstreams = [u for u in fgl.downstreams or [] if _allowed(u, dataset_filter)]
     if fgl.downstreams and not downstreams:
-        return None
+        return False
 
     upstreams = [u for u in fgl.upstreams or [] if _allowed(u, dataset_filter)]
     # An edge whose every source was filtered out would claim the column has no
     # upstream at all, which is wrong; drop it instead.
     if fgl.upstreams and not upstreams:
-        return None
+        return False
 
-    fgl.upstreams = upstreams
-    fgl.downstreams = downstreams
-    return fgl
+    if fgl.upstreams:
+        fgl.upstreams = upstreams
+    if fgl.downstreams:
+        fgl.downstreams = downstreams
+    return True
 
 
 def apply_dataset_filter(datajob: DataJob, dataset_filter: DatasetFilter) -> None:
@@ -83,11 +84,6 @@ def apply_dataset_filter(datajob: DataJob, dataset_filter: DatasetFilter) -> Non
 
     Patterns are matched against `<platform>:<name>` of each dataset; BigQuery
     tables in hidden (temp-prefixed) datasets are always rejected.
-
-    Applied once the task's lineage is fully assembled, so it covers every
-    source: OpenLineage, SQL parsing, manual inlets/outlets and Airflow Assets.
-    The run instance clones its inlets/outlets from the DataJob, so it is
-    filtered too.
     """
     if dataset_filter.is_noop():
         return
@@ -106,9 +102,8 @@ def apply_dataset_filter(datajob: DataJob, dataset_filter: DatasetFilter) -> Non
     datajob.inlets = inlets
     datajob.outlets = outlets
 
-    fine_grained: List[FineGrainedLineageClass] = []
-    for fgl in datajob.fine_grained_lineages:
-        kept = _filter_fine_grained_lineage(fgl, dataset_filter)
-        if kept is not None:
-            fine_grained.append(kept)
-    datajob.fine_grained_lineages = fine_grained
+    datajob.fine_grained_lineages = [
+        fgl
+        for fgl in datajob.fine_grained_lineages
+        if _prune_fine_grained_lineage(fgl, dataset_filter)
+    ]

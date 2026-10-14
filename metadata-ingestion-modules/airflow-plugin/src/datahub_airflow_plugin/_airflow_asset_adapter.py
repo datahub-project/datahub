@@ -15,8 +15,6 @@ from datahub_airflow_plugin.entities import _Entity
 
 logger = logging.getLogger(__name__)
 
-# URI scheme to DataHub platform mapping. Filesystem schemes come from the table
-# shared with the OpenLineage adapter so Assets and OpenLineage agree on platforms.
 URI_SCHEME_TO_PLATFORM = {
     **OL_FS_SCHEME_TO_PLATFORM,
     "hdfs": "hdfs",

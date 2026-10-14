@@ -22,6 +22,7 @@ from openlineage.client.run import Dataset as OpenLineageDataset
 from datahub_airflow_plugin import _datahub_ol_adapter as adapter
 from datahub_airflow_plugin._datahub_ol_adapter import (
     _sanitize_ol_dataset_name,
+    translate_ol_datasets,
     translate_ol_to_datahub_urn,
 )
 
@@ -310,7 +311,7 @@ class TestObjectStorageNormalization:
             ("s3://my-bucket/", "/key/a.csv", "s3,my-bucket/key/a.csv"),
             # The filesystem root must not lose the scheme delimiter (used to crash).
             ("file:///", "", "file,/"),
-            # Schemes are case-insensitive.
+            # Schemes are case-insensitive (RFC 3986).
             ("GS://my-bucket", "events", "gcs,my-bucket/events"),
         ],
     )
@@ -344,3 +345,37 @@ class TestObjectStorageNormalization:
             normalize_object_storage=False,
         )
         assert urn == "urn:li:dataset:(urn:li:dataPlatform:gs,foo/bar.avro,PROD)"
+
+
+class TestTranslateOlDatasets:
+    """OpenLineage `file` references are worker-local scratch paths by default."""
+
+    DATASETS = [
+        OpenLineageDataset(namespace="file", name="/tmp/tmpab12/out.csv"),
+        OpenLineageDataset(namespace="file:///", name="tmp/tmpab12/in.csv"),
+        OpenLineageDataset(namespace="gs://my-bucket", name="events/part-0.json"),
+    ]
+
+    def test_skips_file_references_by_default(self) -> None:
+        assert translate_ol_datasets(
+            self.DATASETS,
+            "Input",
+            env="PROD",
+            normalize_object_storage=True,
+            capture_file_datasets=False,
+        ) == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)"
+        ]
+
+    def test_keeps_file_references_when_enabled(self) -> None:
+        assert translate_ol_datasets(
+            self.DATASETS,
+            "Input",
+            env="PROD",
+            normalize_object_storage=True,
+            capture_file_datasets=True,
+        ) == [
+            "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/out.csv,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/in.csv,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)",
+        ]

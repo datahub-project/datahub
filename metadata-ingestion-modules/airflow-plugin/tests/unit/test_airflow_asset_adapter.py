@@ -4,7 +4,6 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub_airflow_plugin._airflow_asset_adapter import (
-    URI_SCHEME_TO_PLATFORM,
     extract_urns_from_iolets,
     extract_urns_from_resolved_alias_events,
     extract_urns_from_task_instance_outlet_events,
@@ -110,6 +109,16 @@ class TestTranslateAirflowAssetToUrn:
     def test_gcs_uri(self) -> None:
         class Asset:
             uri = "gs://my-bucket/path/to/data"
+
+        urn = translate_airflow_asset_to_urn(Asset())
+        assert (
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
+        )
+
+    def test_gcs_scheme_uri(self) -> None:
+        class Asset:
+            uri = "gcs://my-bucket/path/to/data"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
@@ -278,28 +287,6 @@ class TestTranslateAirflowAssetToUrn:
             side_effect=Exception("boom"),
         ):
             assert translate_airflow_asset_to_urn(Asset()) is None
-
-
-class TestUriSchemeToPlatform:
-    """Tests for the URI_SCHEME_TO_PLATFORM mapping."""
-
-    def test_s3_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["s3"] == "s3"
-        assert URI_SCHEME_TO_PLATFORM["s3a"] == "s3"
-
-    def test_gcs_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["gs"] == "gcs"
-        assert URI_SCHEME_TO_PLATFORM["gcs"] == "gcs"
-
-    def test_abs_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["abfs"] == "abs"
-        assert URI_SCHEME_TO_PLATFORM["abfss"] == "abs"
-
-    def test_database_schemes(self) -> None:
-        assert URI_SCHEME_TO_PLATFORM["postgresql"] == "postgres"
-        assert URI_SCHEME_TO_PLATFORM["mysql"] == "mysql"
-        assert URI_SCHEME_TO_PLATFORM["bigquery"] == "bigquery"
-        assert URI_SCHEME_TO_PLATFORM["snowflake"] == "snowflake"
 
 
 class TestIsAirflowAssetAlias:

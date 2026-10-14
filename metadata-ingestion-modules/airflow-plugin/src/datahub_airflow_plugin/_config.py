@@ -86,9 +86,6 @@ class DatahubLineageConfig(ConfigModel):
         description="regex patterns for DAGs to ingest",
     )
 
-    # Regex patterns matched against `<platform>:<name>` of every inlet and
-    # outlet. Denied datasets are dropped from the DataJob, its runs and column
-    # lineage.
     dataset_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="regex patterns for inlet/outlet datasets, as <platform>:<name>, to keep",
