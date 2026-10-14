@@ -5,13 +5,13 @@ import { hashString } from '@components/components/Avatar/utils';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
-import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@app/useAppConfig';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
@@ -219,18 +219,21 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnQuery(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+// These take the registry as an argument rather than importing globalEntityRegistryV2. That module
+// builds every entity, and entity profiles reach lineage through import(), so importing it here
+// closes an import cycle across that chunk boundary.
+export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.Query;
 }
 
-export function isUrnDataProcessInstance(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+export function isUrnDataProcessInstance(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.DataProcessInstance;
 }
 
-export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+export function isUrnTransformational(urn: string, rootType: EntityType, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return !!type && isTransformational({ urn, type }, rootType);
 }
 
