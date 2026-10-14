@@ -30,7 +30,8 @@ const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
         padding: 0;
     }
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0px 8px;
     }
 `;

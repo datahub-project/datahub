@@ -54,17 +54,38 @@ def _config(**extra: object) -> Dict[str, object]:
     }
 
 
+def _with_pytds_tls(config: Dict[str, object]) -> Dict[str, object]:
+    # pytds stays plaintext unless cafile is set, and forceencryption rejects
+    # that. cafile is the CA that signed the server cert; CN/SAN is localhost.
+    # pyodbc rejects these kwargs, so the mssql-odbc probe must not get them.
+    raw_options = config.get("options", {})
+    options: Dict[str, object] = (
+        dict(raw_options) if isinstance(raw_options, dict) else {}
+    )
+    raw_connect_args = options.get("connect_args", {})
+    connect_args: Dict[str, object] = (
+        dict(raw_connect_args) if isinstance(raw_connect_args, dict) else {}
+    )
+    connect_args.setdefault("cafile", os.environ["MSSQL_CAFILE"])
+    connect_args.setdefault("validate_host", True)
+    options["connect_args"] = connect_args
+    return {**config, "options": options}
+
+
 def _run(
     command: str,
     config: Optional[Dict[str, object]] = None,
     source_type: str = "mssql",
     **kwargs: object,
 ) -> Dict[str, object]:
+    resolved = dict(config) if config is not None else _config()
+    if source_type == "mssql":
+        resolved = _with_pytds_tls(resolved)
     return dict(
         run_probe_method(
             source_type=source_type,
             command=command,
-            config_dict=config if config is not None else _config(),
+            config_dict=resolved,
             kwargs=dict(kwargs),
         ).to_dict()
     )
@@ -294,9 +315,13 @@ _FILTERS: Dict[str, object] = {
 def test_multi_database_verdicts_match_ingestion(
     mssql_runner: object, tmp_path: Path
 ) -> None:
-    config = _config(
-        database_pattern={"allow": ["^DemoData$"]},
-        **_FILTERS,
+    # Parity runs a Pipeline, which does not go through _run, so the recipe
+    # itself has to carry the pytds CA. forceencryption rejects plaintext.
+    config = _with_pytds_tls(
+        _config(
+            database_pattern={"allow": ["^DemoData$"]},
+            **_FILTERS,
+        )
     )
     report = assert_probe_parity(
         "mssql",
@@ -332,7 +357,7 @@ def test_multi_database_verdicts_match_ingestion(
 def test_pinned_database_verdicts_match_ingestion(
     mssql_runner: object, tmp_path: Path
 ) -> None:
-    config = _config(database="DemoData", **_FILTERS)
+    config = _with_pytds_tls(_config(database="DemoData", **_FILTERS))
     report = assert_probe_parity(
         "mssql",
         config,
@@ -360,7 +385,9 @@ def test_a_quote_and_a_bracket_in_names_still_reach_their_procedures(
 ) -> None:
     """_get_stored_procedures binds the schema and bracket-quotes the
     database, so `Odd]Db`.`It's` is read rather than breaking the query."""
-    config = _config(database="Odd]Db", include_jobs=False, include_lineage=False)
+    config = _with_pytds_tls(
+        _config(database="Odd]Db", include_jobs=False, include_lineage=False)
+    )
     report = assert_probe_parity(
         "mssql",
         config,

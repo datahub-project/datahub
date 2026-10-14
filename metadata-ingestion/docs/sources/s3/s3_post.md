@@ -298,6 +298,51 @@ Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSke
 
 Enabling profiling will slow down ingestion runs.
 
+#### Checking path_specs before you ingest
+
+`datahub recipe probe` lists what your recipe can see and judges it with the same `path_specs`
+rules ingestion uses, without ingesting anything:
+
+```shell
+datahub recipe probe methods --recipe s3.yml
+datahub recipe probe run buckets --recipe s3.yml
+datahub recipe probe run folders --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run objects --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run datasets --recipe s3.yml --path-spec 0 --report-to datasets.json
+datahub recipe probe filter --recipe s3.yml --from-run datasets.json
+datahub recipe probe filter --recipe s3.yml --kind Table --name s3://my-bucket/data/events
+datahub recipe probe run path_spec_folders --recipe s3.yml --path-spec 1 --report-to folders.json
+datahub recipe probe filter --recipe s3.yml --kind Folder --from-run folders.json
+datahub recipe probe run tags --recipe s3.yml --bucket my-bucket --key data/a.csv
+```
+
+- The listing commands only list (`ListBuckets`, `ListObjectsV2`). They never read object
+  contents. `tags` is the one command beyond those two: it calls `GetBucketTagging` /
+  `GetObjectTagging`, and only the lookups your recipe turns on (`use_s3_bucket_tags`,
+  `use_s3_object_tags`). Use it to check that ingestion can read object tags: a denied
+  `GetObjectTagging` fails an ingestion run. A failed `GetBucketTagging` is a warning:
+  ingestion logs it and attaches no bucket tags.
+- A probe-only IAM identity needs `s3:ListAllMyBuckets` and `s3:ListBucket`. It does not need
+  `s3:GetObject`. Add `s3:GetBucketTagging` / `s3:GetObjectTagging` only to check tags.
+- `datasets` lists candidates, including the ones `path_specs` drop; `probe filter` says which
+  rule drops each one (for example `path_specs[0].tables_filter_pattern`).
+- For a `{table}` path_spec the verdict is decided at the table folder. `exclude`, `file_types`
+  and the files in the selected partitions are applied per file during ingestion, so a table
+  folder whose files all fail them is reported as included, with a warning.
+- `folders` lists the folders one level under a bucket and prefix, to write an include against.
+  For an `emit_folders_only` path_spec, `datasets` lists nothing: list its folders with
+  `path_spec_folders --path-spec N` and judge them with `probe filter --kind Folder`.
+- A listing denied while `datasets` or `path_spec_folders` walks a path_spec (resolving its
+  wildcards, or listing its table folders) is reported as a failure, at any depth: ingestion
+  stops the whole run on it, so later path_specs are not ingested either. The rows listed
+  before the denial are still returned. A missing bucket under a `{table}` path_spec is only a
+  warning, because ingestion warns "Missing bucket" and skips that path_spec.
+- With `use_s3_content_type: true`, file extensions are not checked, the same as in ingestion.
+- `buckets` needs `s3:ListAllMyBuckets`, and so does a path_spec whose bucket is a wildcard. A
+  credential scoped to named buckets reports a failure, not an empty list.
+- Recipes over local paths (platform `file`) cannot be probed, and a recipe without
+  `aws_config` is refused, as ingestion refuses it.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

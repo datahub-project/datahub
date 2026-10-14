@@ -21,6 +21,7 @@
     "deactivate": "Deaktivoi",
     "delete": "Poista",
     "disable": "Poista käytöstä",
+    "discard": "Hylkää",
     "disconnect": "Katkaise yhteys",
     "dismiss": "Sulje",
     "done": "Valmis",
@@ -83,5 +84,10 @@
     "viewAllCount": "Katso kaikki ({{count}})",
     "viewLess": "Katso vähemmän",
     "viewMore": "Katso lisää",
-    "yes": "Kyllä"
+    "yes": "Kyllä",
+    "documentationAdded": "Dokumentaatio lisätty",
+    "documentationRemoved": "Dokumentaatio poistettu",
+    "documentationUpdated": "Dokumentaatio päivitetty",
+    "showDiff": "näytä erot",
+    "hideDiff": "piilota erot"
 }

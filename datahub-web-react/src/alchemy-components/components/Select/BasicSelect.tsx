@@ -1,9 +1,9 @@
-import { Dropdown, Text } from '@components';
 import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
+import { Dropdown } from '@components/components/Dropdown';
 import {
     ActionButtonsContainer,
     Container,
@@ -28,6 +28,7 @@ import SelectLabelRenderer from '@components/components/Select/private/SelectLab
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
+import { Text } from '@components/components/Text';
 
 // Updated main component
 const selectDefaults: SelectProps = {

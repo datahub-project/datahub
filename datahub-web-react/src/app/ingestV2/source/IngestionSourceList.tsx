@@ -167,7 +167,7 @@ export const IngestionSourceList = ({
     // Last search string we actually queried for. The debounce used to depend on
     // usePrevious(searchInput). That value catches up on the next render, which resets
     // the timer, so the callback that finally ran saw "no change" and skipped the fetch.
-    // Any re-render during the debounce window was enough to trigger that skip.
+    // A lazy route mounts in a burst of renders, which made that skip reliable.
     const appliedSearchRef = useRef(searchInput);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();

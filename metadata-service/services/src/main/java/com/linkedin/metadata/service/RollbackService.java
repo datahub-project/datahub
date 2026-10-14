@@ -36,9 +36,11 @@ import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,14 +64,15 @@ public class RollbackService {
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataServiceConfig systemMetadataServiceConfig;
+  @Nullable private final IngestionRollbackDispatcher dispatcher;
 
   public List<AspectRowSummary> rollbackTargetAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
-    return systemMetadataService.findByRunId(
+    return systemMetadataService.findByRunIdAfter(
         opContext,
         runId,
         hardDelete,
-        0,
+        null,
         systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
   }
 
@@ -96,7 +99,10 @@ public class RollbackService {
                 TAG_OPERATION, OPERATION_TYPE, TAG_PHASE, dryRun ? PHASE_DRY_RUN : PHASE_EXECUTE));
 
     try {
-      if (!dryRun) {
+      // With a dispatcher the run is marked only when it rolls back here; a handed-off rollback is
+      // marked by the process that runs it, and a refused one (the same run already rolling back)
+      // leaves the running one's status alone.
+      if (!dryRun && dispatcher == null) {
         updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
       }
 
@@ -157,6 +163,11 @@ public class RollbackService {
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                 .keySet()
                 .size();
+        // Same as the execute path: a hard rollback keeps an entity another run wrote to (the
+        // unsafe ones), so it would delete only the rest. A soft rollback hides them all.
+        if (hardDelete) {
+          entitiesDeleted -= unsafeEntitiesCount;
+        }
 
         final List<UnsafeEntityInfo> unsafeEntityInfos =
             affectedAspectsList.stream()
@@ -184,6 +195,16 @@ public class RollbackService {
             .setAspectRowSummaries(rowSummaries);
       }
 
+      if (dispatcher != null) {
+        if (dispatcher.dispatch(opContext, runId, hardDelete)) {
+          // Not marked here: written after the hand-off, it could land after the other process's
+          // end status and leave the run ROLLING_BACK.
+          log.info("Rollback of run {} handed off; it runs in another process", runId);
+          return handedOff();
+        }
+        updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
+      }
+
       RollbackRunResult rollbackRunResult =
           entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
       final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
@@ -195,17 +216,18 @@ public class RollbackService {
       final List<AspectRowSummary> allKeyAspects = new ArrayList<>();
       aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).forEach(allKeyAspects::add);
 
-      // since elastic limits how many rows we can access at once, we need to iteratively
-      // delete
+      // Page through the run's rows once, in (urn, aspect) order, each page starting after the
+      // last row of the one before. Rows left in place (an entity kept because others wrote to it)
+      // keep this run's id in the index; re-reading from the start would return them forever.
       while (aspectRowsToDelete.size()
           >= systemMetadataServiceConfig.getLimit().getResults().getApiDefault()) {
-        sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
+        pauseBetweenPages();
         aspectRowsToDelete =
-            systemMetadataService.findByRunId(
+            systemMetadataService.findByRunIdAfter(
                 opContext,
                 runId,
                 hardDelete,
-                0,
+                aspectRowsToDelete.get(aspectRowsToDelete.size() - 1),
                 systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
@@ -235,7 +257,12 @@ public class RollbackService {
       // subtracting again would double-count to 0. Dry-run keeps the subtract below.
       int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
 
-      final long entitiesDeleted = allKeyAspects.size();
+      // A hard rollback can keep an entity others wrote to, so count the keys it removed. A soft
+      // rollback marks every key row's entity removed without rolling the key row back.
+      final long entitiesDeleted =
+          hardDelete
+              ? deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count()
+              : allKeyAspects.size();
       final long affectedEntities =
           deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
@@ -248,9 +275,17 @@ public class RollbackService {
 
       log.info("computing aspects affected by this rollback...");
       // Compute the aspects that exist referencing the key aspects we are deleting, across all
-      // pages visited.
+      // pages visited. A hard rollback deletes an entity only when no other run wrote to it, so
+      // only the entities it kept can have other runs' aspects; one lookup per deleted key would
+      // only slow down a large run. A soft rollback hides every key row's entity, so all count.
+      final Set<String> rolledBackKeys =
+          deletedRows.stream()
+              .filter(AspectRowSummary::isKeyAspect)
+              .map(AspectRowSummary::getUrn)
+              .collect(Collectors.toSet());
       final List<AspectRowSummary> affectedAspectsList =
           allKeyAspects.stream()
+              .filter(key -> !hardDelete || !rolledBackKeys.contains(key.getUrn()))
               .map(
                   (AspectRowSummary urn) ->
                       systemMetadataService.findByUrn(
@@ -383,11 +418,26 @@ public class RollbackService {
     }
   }
 
-  private static void sleep(int seconds) {
+  /** Nothing was rolled back in this process: the rollback was handed off. */
+  @Nonnull
+  private static RollbackResponse handedOff() {
+    return new RollbackResponse()
+        .setAspectRowSummaries(new AspectRowSummaryArray())
+        .setEntitiesAffected(0)
+        .setAspectsAffected(0)
+        .setEntitiesDeleted(0)
+        .setAspectsReverted(0)
+        .setUnsafeEntitiesCount(0)
+        .setUnsafeEntities(new UnsafeEntityInfoArray());
+  }
+
+  /** Spaces out the pages; an interrupt (the job was cancelled) stops the rollback. */
+  void pauseBetweenPages() {
     try {
-      TimeUnit.SECONDS.sleep(seconds);
+      TimeUnit.SECONDS.sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
     } catch (InterruptedException e) {
-      log.error("Rollback sleep exception", e);
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Rollback was interrupted between pages", e);
     }
   }
 }

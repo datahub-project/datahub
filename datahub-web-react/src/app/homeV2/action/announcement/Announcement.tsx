@@ -22,7 +22,8 @@ const Text = styled.div`
     align-items: start;
     flex-direction: column;
     padding: 0px;
-    &&&&& .remirror-editor.ProseMirror {
+    &&&&& .remirror-editor.ProseMirror,
+    &&&&& .datahub-editor-content {
         padding: 0px;
     }
 `;

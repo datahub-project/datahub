@@ -160,6 +160,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     SourceCapability.OWNERSHIP,
     "Optionally enabled via `extract_ownership`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
