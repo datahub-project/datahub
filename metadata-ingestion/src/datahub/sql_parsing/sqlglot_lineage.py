@@ -1289,19 +1289,23 @@ def _select_statement_cll(
 
             # Databricks folds the query's columns but preserves the declared casing,
             # so when the output table's schema doesn't name the column (e.g. a bare
-            # SELECT, as in a dbt model) it would come out folded. A column copied from
-            # a single upstream column of the same name keeps that column's casing.
-            # Other case-insensitive dialects keep the folded name; Snowflake's, for
-            # example, is the lowercase convention its source emits.
+            # SELECT, as in a dbt model) it would come out folded. If the upstream
+            # columns of the same name (one, or several in a UNION or COALESCE) agree
+            # on their casing, the output column takes it; if they disagree it stays
+            # folded. Other case-insensitive dialects keep the folded name; Snowflake's,
+            # for example, is the lowercase convention its source emits.
             if (
                 column_resolver.use_case_insensitive_cols
                 and is_dialect_instance(dialect, "databricks")
                 and not output_col_in_schema
-                and len(direct_resolved_col_upstreams) == 1
             ):
-                (upstream_col,) = direct_resolved_col_upstreams
-                if upstream_col.column.lower() == output_col.lower():
-                    output_col = upstream_col.column
+                same_named_upstream_cols = {
+                    upstream.column
+                    for upstream in direct_resolved_col_upstreams
+                    if upstream.column.lower() == output_col.lower()
+                }
+                if len(same_named_upstream_cols) == 1:
+                    (output_col,) = same_named_upstream_cols
 
             if not direct_resolved_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')

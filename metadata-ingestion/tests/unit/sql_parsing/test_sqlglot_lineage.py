@@ -844,6 +844,37 @@ JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
     )
 
 
+def test_databricks_multi_upstream_mixed_case_columns() -> None:
+    # A column fed by several upstream columns of the same name (UNION, COALESCE)
+    # takes their casing when they agree, as a single upstream column does.
+    assert_sql_result(
+        """
+SELECT COALESCE(o.orderId, p.orderId) AS orderId, o.customerId
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+UNION ALL
+SELECT orderId, customerId
+FROM my_catalog.my_schema.orders_archive
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_multi_upstream_mixed_case_columns.json",
+    )
+
+
 def test_snowflake_case_statement() -> None:
     assert_sql_result(
         """
