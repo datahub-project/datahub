@@ -3,6 +3,7 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getDocumentOverrideProperties } from '@app/entityV2/document/document.utils';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -129,18 +130,7 @@ export class DocumentEntity implements Entity<Document> {
         return data?.info?.title || data?.urn;
     };
 
-    getOverridePropertiesFromEntity = (data: Document) => {
-        const externalUrl = data.info?.source?.externalUrl;
-        return {
-            name: data.info?.title,
-            externalUrl,
-            lastIngested: data.lastIngested ?? undefined,
-            properties: {
-                name: data.info?.title,
-                externalUrl,
-            },
-        };
-    };
+    getOverridePropertiesFromEntity = getDocumentOverrideProperties;
 
     getGenericEntityProperties = (data: Document) => {
         return getDataForEntityType({
