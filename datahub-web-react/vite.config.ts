@@ -7,6 +7,7 @@ import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
@@ -44,6 +45,63 @@ export function stripDotSlashFromAssets() {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {
             return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
+// Records which JS files index.html loads before the app runs, and how many
+// catalog modules each of those files contains. A named vendor chunk is eager
+// as soon as the shell imports one module from it, so the file list — not a
+// filename glob — is the budget.
+export function eagerBudgetReport() {
+    const eagerFiles: string[] = [];
+    const moduleCounts = new Map<string, { phosphorModules: number; muiIconModules: number }>();
+    return {
+        name: 'eager-budget-report',
+        apply: 'build' as const,
+        // vite:build-html injects <script> tags inside its own generateBundle, and that
+        // hook runs after user plugins. Counting here and writing in closeBundle sees both.
+        generateBundle(
+            _options: unknown,
+            bundle: Record<string, { type: string; fileName: string; modules?: Record<string, unknown> }>,
+        ) {
+            Object.values(bundle).forEach((item) => {
+                if (item.type !== 'chunk') {
+                    return;
+                }
+                const moduleIds = Object.keys(item.modules || {});
+                moduleCounts.set(item.fileName, {
+                    phosphorModules: moduleIds.filter((id) => id.includes('phosphor-icons')).length,
+                    muiIconModules: moduleIds.filter((id) => id.includes('icons-material')).length,
+                });
+            });
+        },
+        transformIndexHtml: {
+            order: 'post' as const,
+            handler(html: string, ctx: { filename?: string; path?: string }) {
+                const filename = ctx.filename || ctx.path || '';
+                if (path.basename(filename) !== 'index.html') {
+                    return html;
+                }
+                const srcs = new Set<string>();
+                const add = (src: string) => srcs.add(src.replace(/^\.\//, '').replace(/^\//, ''));
+                Array.from(html.matchAll(/<script[^>]*\ssrc="([^"]+\.js)"/g)).forEach((match) => add(match[1]));
+                Array.from(html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)).forEach((match) => {
+                    const href = match[0].match(/href="([^"]+\.js)"/);
+                    if (href) add(href[1]);
+                });
+                eagerFiles.splice(0, eagerFiles.length, ...srcs);
+                return html;
+            },
+        },
+        closeBundle() {
+            const chunks = eagerFiles.map((file) => ({
+                file,
+                ...(moduleCounts.get(file) || { phosphorModules: 0, muiIconModules: 0 }),
+            }));
+            const outFile = path.resolve(__dirname, 'dist', 'eager-budget-report.json');
+            fs.mkdirSync(path.dirname(outFile), { recursive: true });
+            fs.writeFileSync(outFile, `${JSON.stringify({ chunks }, null, 2)}\n`);
         },
     };
 }
@@ -206,6 +264,7 @@ export default defineConfig(async ({ mode }) => {
                 gitService: 'github',
             }),
             stripDotSlashFromAssets(),
+            eagerBudgetReport(),
             // closeBundle order: 'post' — runs after vite-plugin-static-copy writes Monaco etc.
             precompressAssetsPlugin(),
         ],
@@ -266,6 +325,9 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         test: {
+            // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
+            // Vitest would otherwise collect it and fail with "No test suite found".
+            exclude: [...configDefaults.exclude, 'scripts/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',
