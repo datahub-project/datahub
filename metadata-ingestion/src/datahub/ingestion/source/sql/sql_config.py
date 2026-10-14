@@ -350,7 +350,7 @@ class SQLCommonConfig(
         return None
 
     @classmethod
-    def probe_provider_class(cls) -> type:
+    def probe_provider_class(cls) -> Optional[type]:
         # lazy: sqlalchemy_probe imports this module
         from datahub.ingestion.source.sql.sqlalchemy_probe import (
             SqlAlchemyMetadataProbe,

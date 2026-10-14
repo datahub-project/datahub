@@ -67,8 +67,11 @@ export function useSearchSummaryLineage({
     startTimeMillis,
     skip,
 }: SearchSummaryLineageArgs) {
-    const { searchResultLineage } = useContext(EntitySidebarContext);
+    const { searchResultLineage, searchResultLineageLoading } = useContext(EntitySidebarContext);
     const active = enabled && !skip;
+    // The page is about to attach counts for every visible result. Fetching this one now
+    // would duplicate that request and still leave the section empty until it returns.
+    const countsPending = searchResultLineageLoading === true;
 
     let cachedCounts: SearchResultLineageCounts | undefined;
     if (active && isLineageForUrn(searchResultLineage, urn)) {
@@ -80,7 +83,7 @@ export function useSearchSummaryLineage({
     const { data: networkCounts, loading } = useGetLineageCountsQuery({
         variables: { urn, separateSiblings, startTimeMillis },
         fetchPolicy: 'cache-first',
-        skip: !active || hasLineageCounts(cachedCounts),
+        skip: !active || hasLineageCounts(cachedCounts) || countsPending,
     });
 
     const { data: cachedTypeData } = useGetSearchAcrossLineageCountsQuery({
@@ -107,6 +110,6 @@ export function useSearchSummaryLineage({
             directDownstreamCount,
             getDirectDownstreamSummary,
         ),
-        loading: !hasLineageCounts(cachedCounts) && loading,
+        loading: countsPending || (!hasLineageCounts(cachedCounts) && loading),
     };
 }

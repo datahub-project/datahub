@@ -12,36 +12,48 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { Preview } from '@app/entityV2/dataJob/preview/Preview';
-import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarDataJobTransformationLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    RunsTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarQueryOperationsSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+} from '@app/entityV2/shared/profileChunks';
 import { SidebarTitleActionType, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
 import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
+
+const SidebarDataJobTransformationLogicSection = lazyProfileComponent('SidebarDataJobTransformationLogicSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection').then((module) => ({
+        default: module.SidebarDataJobTransformationLogicSection,
+    })),
+);
+const DataJobFlowTab = lazyProfileComponent('DataJobFlowTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/DataJobFlowTab').then((module) => ({
+        default: module.DataJobFlowTab,
+    })),
+);
 
 const getPlatformForDataJob = (data?: DataJob | null) => {
     return data?.platform || data?.dataFlow?.platform;

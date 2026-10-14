@@ -1,4 +1,4 @@
-import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -24,7 +24,7 @@ export default function EmbedPreview({ embedUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<HeaderIcon />} title={tc('preview')} />
+                <SummaryTabHeaderTitle icon={<Eye />} title={tc('preview')} />
             </SummaryTabHeaderWrapper>
             <StyledIframe src={safeUrl(embedUrl)} frameBorder={0} />
         </Wrapper>

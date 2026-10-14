@@ -4272,7 +4272,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.actor,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4298,7 +4298,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.actor,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4362,7 +4362,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.address,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4388,7 +4388,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.address,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4452,7 +4452,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.category,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4478,7 +4478,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.category,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "FAILURE",
@@ -4541,7 +4541,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.city,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4567,7 +4567,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.city,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4629,7 +4629,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.country,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4655,7 +4655,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.country,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4719,7 +4719,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.customer,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4745,7 +4745,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.customer,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4809,7 +4809,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_01,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4835,7 +4835,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_01,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4899,7 +4899,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_02,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -4925,7 +4925,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_02,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -4989,7 +4989,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_03,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -5015,7 +5015,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_03,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -5079,7 +5079,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_04,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -5105,7 +5105,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_04,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -5169,7 +5169,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_05,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -5195,7 +5195,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_05,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",
@@ -5259,7 +5259,7 @@
                 "type": "CUSTOM",
                 "customAssertion": {
                     "type": "dbt Freshness",
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_06,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)"
                 },
                 "source": {
                     "type": "EXTERNAL",
@@ -5285,7 +5285,7 @@
             "json": {
                 "timestampMillis": 1624036135925,
                 "runId": "just-some-random-id",
-                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_06,PROD)",
+                "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                 "status": "COMPLETE",
                 "result": {
                     "type": "SUCCESS",

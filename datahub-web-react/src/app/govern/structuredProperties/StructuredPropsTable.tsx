@@ -1,5 +1,6 @@
 import { Button, Menu, Pill, Table, Text, Tooltip, toast } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useRef, useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +36,6 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useBatchUpdateSoftDeletedMutation } from '@src/graphql/mutations.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import TableIcon from '@src/images/table-icon.svg?react';
 import { DataPlatform, Entity, EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 const LIST_SEPARATOR = ', ';
@@ -191,7 +191,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon color={theme.colors.iconBrand} />
+                            <TableIcon size={20} color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName title={getDisplayName(record)}>
