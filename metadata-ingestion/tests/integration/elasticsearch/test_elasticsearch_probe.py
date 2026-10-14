@@ -93,8 +93,31 @@ def _seed() -> None:
         if time.monotonic() > deadline:
             raise TimeoutError("the cluster did not become healthy")
         time.sleep(2)
+    _wait_for_builtin_templates(deadline)
     for path, body in _SEED_PUTS:
         requests.put(f"{_BASE_URL}/{path}", json=body, timeout=30).raise_for_status()
+
+
+def _template_names() -> Set[str]:
+    response = requests.get(f"{_BASE_URL}/_index_template", timeout=10)
+    response.raise_for_status()
+    return {t["name"] for t in response.json().get("index_templates", [])}
+
+
+def _wait_for_builtin_templates(deadline: float) -> None:
+    # Elasticsearch keeps installing its built-in templates (logs-otel@template
+    # and others) after the cluster turns yellow. Ingestion and the probe list
+    # them at different moments, so the defaults case would compare two
+    # different template sets. Wait until the set holds still for two polls.
+    previous: Set[str] = set()
+    unchanged = 0
+    while unchanged < 2:
+        if time.monotonic() > deadline:
+            raise TimeoutError("the built-in index templates did not settle")
+        time.sleep(5)
+        names = _template_names()
+        unchanged = unchanged + 1 if names and names == previous else 0
+        previous = names
 
 
 @pytest.fixture(scope="module")
