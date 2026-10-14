@@ -23,18 +23,17 @@ from datahub.ingestion.source.montecarlo.client import (
     MonteCarloMetricPoint,
     MonteCarloSchemaChange,
     ResolvedTable,
+    SchemaChangeHistoryCache,
     _parse_comparisons,
     closest_schema_change,
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
+from datahub.ingestion.source.montecarlo.constants import SCHEMA_CHANGE_PAGE_SIZE
 from datahub.ingestion.source.montecarlo.mcon_resolver import (
     MconResolver,
     parse_mcon,
 )
-from datahub.ingestion.source.montecarlo.query_builder import (
-    SchemaDrift,
-    StaticQueryBuilder,
-)
+from datahub.ingestion.source.montecarlo.query_builder import SchemaDrift
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.ingestion.source.montecarlo.source import MonteCarloSource
 from datahub.metadata.schema_classes import (
@@ -49,6 +48,7 @@ from datahub.metadata.schema_classes import (
     IncidentInfoClass,
 )
 from datahub.utilities.ratelimiter import DailyCallBudget, DailyCallBudgetExceeded
+from tests.unit.montecarlo.static_query_builder import StaticQueryBuilder
 
 
 def make_config(**overrides: Any) -> MonteCarloSourceConfig:
@@ -677,10 +677,8 @@ def test_resolver_rejects_malformed_full_table_id() -> None:
 def test_get_monitors_paginates_with_offset() -> None:
     # getMonitors returns a plain list, so the client must walk it with
     # limit/offset; verify monitors past the first page are still fetched.
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 2
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=2, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     pages: Dict[int, List[Dict[str, Any]]] = {
         0: [{"uuid": "m1"}, {"uuid": "m2"}],
         2: [{"uuid": "m3"}],
@@ -703,10 +701,8 @@ def test_get_monitors_reports_records_missing_uuid() -> None:
     # A record without a uuid is skipped and surfaced in the report, not silently
     # dropped to logs only.
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_monitors": [{"uuid": "m1"}, {"name": "no-uuid"}]
     }
@@ -790,7 +786,7 @@ def test_no_comparisons_keeps_only_monitor_uuid_in_custom_properties() -> None:
         monitor_type="FRESHNESS",
         entity_mcons=[mcon],
         resource_id="wh-2",
-        severity="SEV-2",
+        priority="SEV-2",
         data_quality_dimension="FRESHNESS",
     )
     info = _custom_assertion(builder, definition)
@@ -1444,10 +1440,8 @@ def test_custom_sql_monitor_carries_sql_in_logic() -> None:
 
 
 def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     calls = {"i": 0}
 
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
@@ -1457,10 +1451,6 @@ def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:
 
     client._client = None  # type: ignore[assignment]
     client._call = fake_call  # type: ignore[method-assign]
-    # Bypass live schema introspection: tests mock _call directly, so the
-    # query string is never sent to a real gateway. A StaticQueryBuilder
-    # returns the original hardcoded queries verbatim.
-    client.set_query_builder(StaticQueryBuilder())
     return client
 
 
@@ -1582,10 +1572,8 @@ def test_client_get_monitors_forwards_domain_ids() -> None:
         return {"get_monitors": []}
 
     cfg = make_config(domain_ids=["dom-1"])
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = cfg
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(cfg, page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
 
     list(client.get_monitors())
@@ -1595,10 +1583,8 @@ def test_client_get_monitors_forwards_domain_ids() -> None:
 def test_client_get_monitors_filters_by_type_pattern() -> None:
     """monitor_type_pattern filters monitors client-side by their monitorType."""
     cfg = make_config(monitor_type_pattern={"allow": ["FRESHNESS"]})
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = cfg
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(cfg, page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_monitors": [
             {"uuid": "m1", "monitor_type": "FRESHNESS"},
@@ -1661,10 +1647,8 @@ def test_client_get_monitors_resolves_table_monitor_entity_mcons() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
 
     monitors = list(client.get_monitors())
@@ -1733,10 +1717,8 @@ def test_client_get_monitors_resolves_pattern_scoped_table_monitor() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == [
@@ -1779,10 +1761,8 @@ def test_client_get_monitors_skips_empty_table_monitor_selection() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
@@ -1818,18 +1798,16 @@ def test_client_table_monitor_missing_warehouse_is_not_build_failure() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
     assert report.build_failures == 0
 
 
-def test_client_get_table_monitor_null_is_not_build_failure() -> None:
-    """A deleted TABLE monitor (null getTableMonitor) is not a fetch failure."""
+def test_client_get_table_monitor_null_is_build_failure() -> None:
+    """getMonitors listed the monitor but getTableMonitor returned null — lock."""
     report = MonteCarloSourceReport()
 
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
@@ -1847,14 +1825,142 @@ def test_client_get_table_monitor_null_is_not_build_failure() -> None:
             return {"get_table_monitor": None}
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
-    assert report.build_failures == 0
+    assert report.build_failures == 1
+
+
+def test_client_table_monitor_unreadable_filters_skips_evaluate() -> None:
+    """Unreadable filters must not widen scope or call evaluateAssetSelection."""
+    calls: List[str] = []
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            calls.append("getMonitors")
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            calls.append("getTableMonitor")
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG"}],
+                        "exclusions": [{"type": None}],
+                        "databases": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            calls.append("evaluateAssetSelection")
+            raise AssertionError("evaluateAssetSelection must not run")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+    assert calls == ["getMonitors", "getTableMonitor"]
+    assert any(
+        w.title and "Unreadable table monitor asset filter" in w.title
+        for w in report.warnings
+    )
+
+
+def test_client_evaluate_asset_selection_cap_is_stable_sorted() -> None:
+    """Over-cap TABLE monitors de-dupe and sort before capping, independent of
+    API page order."""
+    report = MonteCarloSourceReport()
+
+    def make_client(page_order: List[int]) -> MonteCarloClient:
+        pages = {
+            0: [
+                {"selected": True, "mcon": f"MCON++a++wh-1++table++t{i}"}
+                for i in page_order[:3]
+            ],
+            3: [
+                {"selected": True, "mcon": f"MCON++a++wh-1++table++t{i}"}
+                for i in page_order[3:]
+            ],
+        }
+
+        def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+            if "getMonitors" in query:
+                return {
+                    "get_monitors": [
+                        {
+                            "uuid": "m1",
+                            "monitor_type": "TABLE",
+                            "entity_mcons": [],
+                            "resource_id": "wh-1",
+                        }
+                    ]
+                }
+            if "getTableMonitor" in query:
+                return {
+                    "get_table_monitor": {
+                        "warehouse_uuid": "wh-1",
+                        "asset_selection": {
+                            "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                            "exclusions": [],
+                            "databases": [],
+                        },
+                    }
+                }
+            if "evaluateAssetSelection" in query:
+                offset = variables["offset"]
+                return {"evaluate_asset_selection": pages[offset]}
+            raise AssertionError(f"unexpected query: {query}")
+
+        client = MonteCarloClient(
+            make_config(table_monitor_max_assets=2), page_size=3, report=report
+        )
+        client.set_query_builder(StaticQueryBuilder())
+        client._call = fake_call  # type: ignore[method-assign]
+        return client
+
+    order_a = [2, 0, 4, 1, 3]
+    order_b = [4, 3, 2, 1, 0]
+    mcons_a = list(make_client(order_a).get_monitors())[0].entity_mcons
+    mcons_b = list(make_client(order_b).get_monitors())[0].entity_mcons
+    expected = [
+        "MCON++a++wh-1++table++t0",
+        "MCON++a++wh-1++table++t1",
+    ]
+    assert mcons_a == expected
+    assert mcons_b == expected
+
+
+def test_build_assertion_table_scope_empty_mcons_single_warning() -> None:
+    """TABLE monitors warned during scope resolution must not duplicate the
+    generic no-entity_mcons warning in build_assertion."""
+    report = MonteCarloSourceReport()
+    cfg = make_config()
+    resolver = MconResolver(cfg, FakeResolverClient({}), report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-tbl",
+        monitor_type="TABLE",
+        entity_mcons=[],
+        scope_from_asset_selection=True,
+    )
+    assert _build_assertion_workunits(builder, definition) == []
+    assert report.monitors_dropped_no_mcons == 1
+    assert report.warnings_count == 0
 
 
 def test_client_evaluate_asset_selection_empty_first_page_is_not_build_failure() -> (
@@ -1891,10 +1997,8 @@ def test_client_evaluate_asset_selection_empty_first_page_is_not_build_failure()
             return {"evaluate_asset_selection": []}
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
@@ -1926,12 +2030,9 @@ def test_get_workunits_get_table_monitor_failure_trips_stale_removal_interlock()
             raise RuntimeError("getTableMonitor unavailable")
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = source.config
-    client.page_size = 100
-    client.report = source.report
-    client._call = fake_call  # type: ignore[method-assign]
+    client = MonteCarloClient(source.config, page_size=100, report=source.report)
     client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
     client.check_schema_drift = lambda strict=False: SchemaDrift()  # type: ignore[method-assign]
     client.get_custom_rules = lambda: iter(())  # type: ignore[method-assign]
     source.client = client
@@ -1979,6 +2080,8 @@ def test_client_get_monitors_truncates_table_monitor_to_max_assets() -> None:
                 }
             }
         if "evaluateAssetSelection" in query:
+            if variables["offset"] > 0:
+                return {"evaluate_asset_selection": []}
             return {
                 "evaluate_asset_selection": [
                     {"selected": True, "mcon": f"MCON++a++wh-1++table++t{i}"}
@@ -1987,10 +2090,10 @@ def test_client_get_monitors_truncates_table_monitor_to_max_assets() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config(table_monitor_max_assets=2)
-    client.page_size = 5
-    client.report = report
+    client = MonteCarloClient(
+        make_config(table_monitor_max_assets=2), page_size=5, report=report
+    )
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert len(monitors[0].entity_mcons) == 2
@@ -2039,10 +2142,8 @@ def test_client_evaluate_asset_selection_paginates() -> None:
             return {"evaluate_asset_selection": pages[offset]}
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 2
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=2, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == [
@@ -2092,10 +2193,8 @@ def test_client_evaluate_asset_selection_mid_page_failure_keeps_partial() -> Non
             raise RuntimeError("page 2 failed")
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 2
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=2, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == [
@@ -2144,10 +2243,8 @@ def test_client_table_scope_first_call_failure_is_build_failure(
             raise RuntimeError("evaluateAssetSelection unavailable")
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
@@ -2188,10 +2285,8 @@ def test_client_evaluate_asset_selection_malformed_first_page_is_build_failure()
             return {"evaluate_asset_selection": {"not": "a list"}}
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
@@ -2205,10 +2300,8 @@ def test_client_get_monitors_table_monitor_auth_error_is_fatal(
     """A MonteCarloAuthError raised while resolving a TABLE monitor's scope
     (either getTableMonitor or evaluateAssetSelection) must propagate unwrapped,
     not be demoted to a per-monitor warning like a recoverable failure would be."""
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
 
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         if "getMonitors" in query:
@@ -2549,8 +2642,22 @@ def test_closest_schema_change_returns_none_outside_window() -> None:
     assert closest_schema_change([event], alert_time) is None
 
 
+def _join_schema_alert(
+    client: MonteCarloClient,
+    alert: MonteCarloAlert,
+    mcons: set[str],
+    cache: Optional[SchemaChangeHistoryCache] = None,
+) -> SchemaChangeHistoryCache:
+    schema_cache = cache if cache is not None else {}
+    window_start, window_end = client.alerts_fetch_window()
+    client.join_schema_changes_for_alert(
+        alert, mcons, schema_cache, window_start, window_end
+    )
+    return schema_cache
+
+
 def test_get_alerts_joins_schema_changes_onto_schema_alerts() -> None:
-    """SCHEMA_CHANGES alerts fetch getSchemaChanges once per asset MCON and
+    """SCHEMA_CHANGES alerts fetch getSchemaChanges once per target MCON and
     attach the closest catalog event's field names."""
     calls: List[str] = []
     mcon = "MCON++a++wh-1++table++alert_test_db:public.customers"
@@ -2605,17 +2712,66 @@ def test_get_alerts_joins_schema_changes_onto_schema_alerts() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     alerts = list(client.get_alerts())
     assert [a.uuid for a in alerts] == ["alert-sc", "alert-fresh"]
-    schema_alert = alerts[0]
-    assert schema_alert.schema_changes_by_mcon[mcon].fields_added == ["new_col"]
+    assert alerts[0].schema_changes_by_mcon == {}
     assert alerts[1].schema_changes_by_mcon == {}
+    assert calls == ["getAlerts"]
+    schema_alert = alerts[0]
+    _join_schema_alert(client, schema_alert, {mcon})
+    assert schema_alert.schema_changes_by_mcon[mcon].fields_added == ["new_col"]
     assert calls == ["getAlerts", "getSchemaChanges"]
+
+
+def test_skipped_schema_alert_does_not_fetch_schema_changes() -> None:
+    """Alerts with no ingested monitor must not call getSchemaChanges."""
+    from unittest.mock import MagicMock
+
+    calls: List[str] = []
+    mcon = "MCON++a++wh-1++table++alert_test_db:public.customers"
+    report = MonteCarloSourceReport()
+    builder = MonteCarloAssertionBuilder(make_config(), report, MagicMock())
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getAlerts" in query:
+            calls.append("getAlerts")
+            return {
+                "get_alerts": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "alert-sc",
+                                "type": "SCHEMA_CHANGES",
+                                "created_time": "2026-09-28T16:24:35+00:00",
+                                "monitor_uuids": ["mon-not-ingested"],
+                                "assets": [{"mcon": mcon}],
+                            }
+                        }
+                    ],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        if "getSchemaChanges" in query:
+            calls.append("getSchemaChanges")
+            raise AssertionError("getSchemaChanges must not run for skipped alerts")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    alert = list(client.get_alerts())[0]
+    targets = builder.run_event_targets_for(alert)
+    assert targets == []
+    cache: SchemaChangeHistoryCache = {}
+    window_start, window_end = client.alerts_fetch_window()
+    client.join_schema_changes_for_alert(
+        alert, {t.mcon for t in targets}, cache, window_start, window_end
+    )
+    assert calls == ["getAlerts"]
+    assert report.schema_change_joins_missed == 0
 
 
 def test_get_alerts_schema_change_fetch_failure_still_yields_alert() -> None:
@@ -2645,14 +2801,14 @@ def test_get_alerts_schema_change_fetch_failure_still_yields_alert() -> None:
             raise RuntimeError("catalog unavailable")
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     alerts = list(client.get_alerts())
     assert len(alerts) == 1
     assert alerts[0].uuid == "alert-sc"
+    assert alerts[0].schema_changes_by_mcon == {}
+    _join_schema_alert(client, alerts[0], {mcon})
     assert alerts[0].schema_changes_by_mcon == {}
     assert report.warnings_count >= 1
     assert report.schema_change_joins_missed == 0
@@ -2701,15 +2857,62 @@ def test_get_alerts_schema_change_join_miss_warns() -> None:
             }
         raise AssertionError(f"unexpected query: {query}")
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     alerts = list(client.get_alerts())
     assert len(alerts) == 1
     assert alerts[0].schema_changes_by_mcon == {}
+    _join_schema_alert(client, alerts[0], {mcon})
+    assert alerts[0].schema_changes_by_mcon == {}
     assert report.schema_change_joins_missed == 1
+
+
+def test_truncated_schema_history_join_miss_names_truncation() -> None:
+    """When history is truncated, a join miss blames the page limit, not the window."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++a++wh-1++table++alert_test_db:public.customers"
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getSchemaChanges" in query:
+            return {
+                "get_schema_changes": {
+                    "edges": [
+                        {
+                            "node": {
+                                "mcon": mcon,
+                                "start_time": "2026-09-01T00:00:00+00:00",
+                                "fields_added": ["ancient"],
+                                "fields_removed": [],
+                                "field_type_changes": [],
+                            }
+                        }
+                    ],
+                    "page_info": {"has_next_page": True},
+                }
+            }
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    alert = MonteCarloAlert(
+        uuid="alert-sc",
+        alert_type="SCHEMA_CHANGES",
+        created_time=datetime(2026, 9, 28, 16, 24, 35, tzinfo=timezone.utc),
+        monitor_uuids=["mon-tbl"],
+        asset_mcons=[mcon],
+    )
+    _join_schema_alert(client, alert, {mcon})
+    assert report.schema_change_joins_missed == 1
+    miss_warnings = [
+        w
+        for w in report.warnings
+        if w.title == "Schema-change alert has no matching catalog event"
+    ]
+    assert len(miss_warnings) == 1
+    assert str(SCHEMA_CHANGE_PAGE_SIZE) in miss_warnings[0].message
+    assert "match window" not in miss_warnings[0].message
 
 
 def test_emit_run_events_fetches_job_executions_once_per_table_monitor() -> None:
@@ -3097,9 +3300,8 @@ def test_call_retries_on_429_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> N
         status_code = 429
 
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = report
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     attempts = {"n": 0}
@@ -3133,9 +3335,8 @@ def test_call_gives_up_after_max_retries_on_persistent_429(
     class RateLimitedError(Exception):
         status_code = 429
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     attempts = {"n": 0}
@@ -3176,9 +3377,8 @@ def test_call_acquires_daily_budget_then_token_bucket_per_attempt(
     bucket = TrackingLimiter()
     bucket.name = "bucket"  # type: ignore[attr-defined]
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._daily_budget = daily  # type: ignore[assignment]
     client._token_bucket = bucket  # type: ignore[assignment]
     attempts = {"n": 0}
@@ -3209,9 +3409,8 @@ def test_call_daily_budget_exhaustion_mid_retry_is_not_masked_by_429_wrapper(
     class RateLimitedError(Exception):
         status_code = 429
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = DailyCallBudget(daily_limit=1)
     attempts = {"n": 0}
@@ -3235,9 +3434,8 @@ def test_call_does_not_retry_non_429_errors(monkeypatch: pytest.MonkeyPatch) -> 
     sleep_calls = []
     monkeypatch.setattr(time, "sleep", lambda seconds: sleep_calls.append(seconds))
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
 
@@ -3271,9 +3469,8 @@ def test_call_raises_auth_error_on_401_403(
     def raise_auth(query: str, variables: Optional[Dict[str, Any]] = None) -> None:
         raise AuthError()
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     client._client = raise_auth  # type: ignore[assignment]
@@ -3512,10 +3709,10 @@ def test_get_alerts_builds_lookback_window() -> None:
         captured.update(variables)
         return {"get_alerts": {"edges": [], "page_info": {"has_next_page": False}}}
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config(alerts_lookback_days=7)
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(
+        make_config(alerts_lookback_days=7), page_size=100, report=None
+    )
+    client.set_query_builder(StaticQueryBuilder())
     client._call = fake_call  # type: ignore[method-assign]
     with time_machine.travel("2026-06-15 00:00:00 +0000", tick=False):
         list(client.get_alerts())
@@ -3590,10 +3787,8 @@ def test_get_monitors_skips_malformed_row_and_continues() -> None:
     """A single malformed monitor row (one that raises during MonteCarloAssertionDef
     construction) must be skipped with a warning, not abort the whole phase."""
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
 
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_monitors": [
@@ -3629,10 +3824,8 @@ def test_get_monitors_skips_malformed_row_and_continues() -> None:
 def test_get_alerts_skips_malformed_row_and_continues() -> None:
     """A malformed alert row is skipped with a warning, not aborting the phase."""
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_alerts": {
             "edges": [
@@ -3669,10 +3862,10 @@ def test_get_alerts_skips_malformed_row_and_continues() -> None:
 def test_get_monitors_propagates_fatal_from_row_construction() -> None:
     """A run-level fatal (DailyCallBudgetExceeded) raised during row construction
     must propagate, not be demoted to a per-row warning."""
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = MonteCarloSourceReport()
+    client = MonteCarloClient(
+        make_config(), page_size=100, report=MonteCarloSourceReport()
+    )
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_monitors": [{"uuid": "m1", "monitor_type": "FRESHNESS"}]
     }
@@ -3694,10 +3887,8 @@ def test_get_job_executions_skips_malformed_row_and_continues() -> None:
     whole page — so one bad record doesn't drop every SUCCESS run for the
     monitor. Also covers the datetime coercer nulling a non-ISO start_time."""
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_job_executions": {
             "edges": [
@@ -3735,10 +3926,8 @@ def test_get_job_executions_coerces_malformed_timestamp_to_none() -> None:
     """A non-ISO start_time/end_time is coerced to None rather than raising a
     ValidationError that would drop the whole job-execution page."""
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config()
-    client.page_size = 100
-    client.report = report
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._call = lambda query, variables: {  # type: ignore[method-assign]
         "get_job_executions": {
             "edges": [
@@ -3772,9 +3961,8 @@ def test_call_retries_on_transient_network_error_then_succeeds(
         pass
 
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = report
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     attempts = {"n": 0}
@@ -3808,9 +3996,8 @@ def test_call_retries_when_network_error_wrapped(
         pass
 
     report = MonteCarloSourceReport()
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = report
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     attempts = {"n": 0}
@@ -3839,9 +4026,8 @@ def test_call_does_not_retry_permanent_error(
     propagates (wrapped as RuntimeError) on the first attempt."""
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
 
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.report = None
-    client.page_size = 100
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    client.set_query_builder(StaticQueryBuilder())
     client._token_bucket = None
     client._daily_budget = None
     attempts = {"n": 0}

@@ -129,11 +129,9 @@ def _effective_description(definition: MonteCarloAssertionDef) -> Optional[str]:
 
 def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
     """Native MC fields carried on nativeParameters for the UI to render.
-    severity falls back to priority (the renamed field on the current
-    Monitor/CustomRule schema). where_condition is the Monitor row-filter
-    WHERE clause — NOT the SQL body, so it lives here rather than in logic."""
+    where_condition is the Monitor row-filter WHERE clause — NOT the SQL body."""
     params: Dict[str, Any] = {
-        "severity": definition.severity or definition.priority,
+        "severity": definition.priority,
         "data_quality_dimension": definition.data_quality_dimension,
         "resource_id": definition.resource_id,
         "where_condition": definition.where_condition,
@@ -371,11 +369,12 @@ class MonteCarloAssertionBuilder:
         # out one assertion per table. getMonitors/getCustomRules lists keep
         # master's one-assertion, monitor_uuid-only URN.
         if not definition.entity_mcons:
-            self.report.warning(
-                title="Monitor has no monitored entities",
-                message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
-                context=f"monitor_uuid={definition.uuid}",
-            )
+            if not definition.scope_from_asset_selection:
+                self.report.warning(
+                    title="Monitor has no monitored entities",
+                    message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
+                    context=f"monitor_uuid={definition.uuid}",
+                )
             self.report.report_monitor_dropped_no_mcons()
             return
 
@@ -486,7 +485,20 @@ class MonteCarloAssertionBuilder:
             aspect=platform_instance,
         ).as_workunit()
 
-    def build_run_event(self, alert: MonteCarloAlert) -> Iterable[MetadataWorkUnit]:
+    def run_event_targets_for(self, alert: MonteCarloAlert) -> List[_IngestedAssertion]:
+        """Resolve assertion targets for an alert, or emit skip warnings and return []."""
+        return self._run_event_targets(alert)
+
+    def _run_event_targets(self, alert: MonteCarloAlert) -> List[_IngestedAssertion]:
+        if alert.created_time is None:
+            self.report.warning(
+                title="Alert skipped: missing timestamp",
+                message="Alert has no createdTime and cannot be emitted as a run event.",
+                context=f"alert_uuid={alert.uuid}",
+            )
+            self.report.report_alert_skipped_no_timestamp()
+            return []
+
         # An alert can reference multiple monitors; collect every assertion we
         # ingested for any of them. Storing only monitor_uuids[0] previously
         # dropped incidents whose first listed monitor was filtered out /
@@ -495,11 +507,6 @@ class MonteCarloAssertionBuilder:
         for monitor_uuid in alert.monitor_uuids:
             candidates.extend(self._ingested_by_monitor.get(monitor_uuid) or [])
         if not candidates:
-            # Alert references no monitor we ingested (all filtered out or
-            # unresolved assets). Report it so the drop is visible in the
-            # run report rather than silently lost. An alert with only
-            # asset_mcons (no monitor_uuids) cannot be wired today — the run
-            # event needs an assertion URN, which is keyed by monitor.
             self.report.warning(
                 title="Alert skipped: no ingested monitor",
                 message="Alert references no monitor that was ingested this run "
@@ -510,12 +517,8 @@ class MonteCarloAssertionBuilder:
                 f"asset_mcons={alert.asset_mcons}",
             )
             self.report.report_alert_skipped_no_monitor()
-            return
+            return []
 
-        # Pattern-scoped TABLE monitors need per-table matching so an alert lands
-        # on the table that fired. getMonitors/getCustomRules definitions keep
-        # master's single assertion and bind even when asset_mcons name another
-        # resolved table on the same monitor.
         alert_mcons = set(alert.asset_mcons)
         if alert_mcons:
             fan_out = [c for c in candidates if c.definition.scope_from_asset_selection]
@@ -535,17 +538,24 @@ class MonteCarloAssertionBuilder:
                     f"asset_mcons={alert.asset_mcons}",
                 )
                 self.report.report_alert_skipped_no_monitor()
-                return
+                return []
         else:
             targets = candidates[:1]
+        return targets
 
-        if alert.created_time is None:
-            self.report.warning(
-                title="Alert skipped: missing timestamp",
-                message="Alert has no createdTime and cannot be emitted as a run event.",
-                context=f"alert_uuid={alert.uuid}",
-            )
-            self.report.report_alert_skipped_no_timestamp()
+    def build_run_event(
+        self,
+        alert: MonteCarloAlert,
+        *,
+        targets: Optional[List[_IngestedAssertion]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        if targets is None:
+            targets = self._run_event_targets(alert)
+        elif not targets:
+            return
+
+        created_time = alert.created_time
+        if created_time is None:
             return
 
         native_results: Dict[str, str] = {}
@@ -564,7 +574,7 @@ class MonteCarloAssertionBuilder:
             if schema_change is not None:
                 result_native.update(_schema_change_native_results(schema_change))
             run_event = AssertionRunEvent(
-                timestampMillis=datetime_to_ts_millis(alert.created_time),
+                timestampMillis=datetime_to_ts_millis(created_time),
                 runId=alert.uuid,
                 asserteeUrn=ingested.dataset_urn,
                 status=AssertionRunStatus.COMPLETE,
@@ -584,7 +594,7 @@ class MonteCarloAssertionBuilder:
                 assertion_urn=ingested.assertion_urn,
                 dataset_urn=ingested.dataset_urn,
                 alert=alert,
-                ts_ms=datetime_to_ts_millis(alert.created_time),
+                ts_ms=datetime_to_ts_millis(created_time),
                 schema_change=schema_change,
             )
 

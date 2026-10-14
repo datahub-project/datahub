@@ -1,128 +1,359 @@
 import logging
+import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Protocol
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Protocol, Tuple
 
-from datahub.ingestion.source.montecarlo.queries import (
-    ALERTS_QUERY,
-    CUSTOM_RULES_QUERY,
-    MONITORS_QUERY,
-)
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
-# Desired field selections per Monte Carlo GraphQL type, in camelCase (the
-# casing the gateway expects; pycarlo snake_cases the response keys). A ``None``
-# value marks a scalar field; a nested ``dict`` marks an object field whose
-# sub-selection is itself a desired-field tree. The query builder intersects
-# this tree with the live introspected schema and emits only the fields the
-# gateway still exposes, so a removed field degrades gracefully (its
-# ``MonteCarloAssertionDef`` slot stays ``None``) instead of failing the whole
-# fetch with a 400. The drift gate diffs the same tree against the live schema
-# to surface what was dropped.
-DesiredFields = Dict[str, Optional[Any]]
 
-MONITOR_DESIRED_FIELDS: DesiredFields = {
-    "uuid": None,
-    "name": None,
-    "description": None,
-    "monitorType": None,
-    # customSql/severity were removed from the Monitor type and renamed: the
-    # SQL predicate is now top-level `whereCondition`, and `severity` is now
-    # `priority`. Both old and new names are requested so the connector adapts
-    # to either gateway version; assertion.py maps priority->severity and
-    # whereCondition->custom_sql as fallbacks (see client.MonteCarloAssertionDef).
-    "customSql": None,
-    "whereCondition": None,
-    "entityMcons": None,
-    "resourceId": None,
-    "severity": None,
-    "priority": None,
-    "dataQualityDimension": None,
-    "comparisons": {
-        "comparisonType": None,
-        "operator": None,
-        "metric": None,
-        "customMetric": {"uuid": None, "metricName": None},
-        "field": None,
-        "fields": None,
-        "threshold": None,
-        "upperThreshold": None,
-        "lowerThreshold": None,
-    },
+class MonteCarloGraphQLType(StrEnum):
+    MONITOR = "Monitor"
+    CUSTOM_RULE = "CustomRule"
+    ALERT = "Alert"
+    WAREHOUSE_TABLE = "WarehouseTable"
+    TABLE_MONITOR = "TableMonitor"
+    ASSET_SELECTION = "AssetSelection"
+    ASSET_SELECTION_RESULT = "AssetSelectionResult"
+    SCHEMA_CHANGE = "SchemaChange"
+    JOB_EXECUTION_HISTORY_LOG = "JobExecutionHistoryLog"
+    METRIC = "Metric"
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """One GraphQL field the connector may request and parse."""
+
+    name: str
+    aliases: Tuple[str, ...] = ()
+    critical: bool = False
+    impact: str = ""
+    in_fallback: bool = True
+    children: Tuple["FieldSpec", ...] = ()
+
+
+@dataclass(frozen=True)
+class TypeSpec:
+    type_name: MonteCarloGraphQLType
+    fields: Tuple[FieldSpec, ...]
+
+
+_CUSTOM_METRIC_FIELDS: Tuple[FieldSpec, ...] = (
+    FieldSpec(name="uuid"),
+    FieldSpec(name="metricName"),
+)
+
+COMPARISONS_FIELD = FieldSpec(
+    name="comparisons",
+    in_fallback=True,
+    children=(
+        FieldSpec(name="comparisonType"),
+        FieldSpec(name="operator"),
+        FieldSpec(name="metric"),
+        FieldSpec(
+            name="customMetric",
+            children=_CUSTOM_METRIC_FIELDS,
+        ),
+        FieldSpec(name="field"),
+        FieldSpec(name="fields"),
+        FieldSpec(name="threshold"),
+        FieldSpec(name="upperThreshold"),
+        FieldSpec(name="lowerThreshold"),
+    ),
+)
+
+MONITOR_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.MONITOR,
+    fields=(
+        # uuid and entityMcons are required to build assertions and attach datasets.
+        FieldSpec(name="uuid", critical=True),
+        FieldSpec(name="name"),
+        FieldSpec(name="description"),
+        FieldSpec(name="monitorType"),
+        FieldSpec(
+            name="whereCondition",
+            impact="row filter on nativeParameters",
+        ),
+        FieldSpec(name="entityMcons", critical=True),
+        FieldSpec(name="resourceId"),
+        FieldSpec(
+            name="priority",
+            aliases=("severity",),
+            impact="nativeParameters severity slot",
+        ),
+        FieldSpec(name="dataQualityDimension", in_fallback=True),
+        COMPARISONS_FIELD,
+    ),
+)
+
+CUSTOM_RULE_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.CUSTOM_RULE,
+    fields=(
+        FieldSpec(name="uuid", critical=True),
+        FieldSpec(name="ruleName"),
+        FieldSpec(name="ruleType"),
+        FieldSpec(name="description"),
+        FieldSpec(name="customSql"),
+        FieldSpec(name="entityMcons", critical=True),
+        FieldSpec(
+            name="priority",
+            aliases=("severity",),
+            impact="nativeParameters severity slot",
+        ),
+        COMPARISONS_FIELD,
+    ),
+)
+
+ALERT_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.ALERT,
+    fields=(
+        FieldSpec(name="id", critical=True),
+        FieldSpec(name="type"),
+        FieldSpec(name="subTypes"),
+        FieldSpec(name="severity"),
+        FieldSpec(name="priority"),
+        FieldSpec(name="status"),
+        # build_run_event cannot emit a run event without a timestamp.
+        FieldSpec(name="createdTime", critical=True),
+        FieldSpec(name="title"),
+        FieldSpec(name="monitorUuids", critical=True),
+        FieldSpec(
+            name="assets",
+            children=(FieldSpec(name="mcon"),),
+        ),
+    ),
+)
+
+_ASSET_FILTER_MEMBER_FIELDS: Tuple[FieldSpec, ...] = (
+    FieldSpec(name="type", critical=True),
+    FieldSpec(name="negated"),
+    FieldSpec(name="tableName"),
+    FieldSpec(name="tableNameOperator"),
+    FieldSpec(name="fullTableId"),
+    FieldSpec(name="tableType"),
+    FieldSpec(name="tableTags"),
+    FieldSpec(name="tableTagsOperator"),
+    FieldSpec(name="readDays"),
+    FieldSpec(name="writeDays"),
+    FieldSpec(name="readWriteDays"),
+    FieldSpec(name="readAndWriteDays"),
+    FieldSpec(name="volumeChangeDays"),
+    FieldSpec(name="readActivityIsNull"),
+    FieldSpec(name="writeActivityIsNull"),
+    FieldSpec(name="readWriteActivityIsNull"),
+    FieldSpec(name="readAndWriteActivityIsNull"),
+)
+
+ASSET_SELECTION_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.ASSET_SELECTION,
+    fields=(
+        FieldSpec(name="filtersJoiner"),
+        FieldSpec(name="exclusionsJoiner"),
+        FieldSpec(
+            name="databases",
+            children=(
+                FieldSpec(name="name"),
+                FieldSpec(name="schemas"),
+            ),
+        ),
+        FieldSpec(name="filters", children=_ASSET_FILTER_MEMBER_FIELDS),
+        FieldSpec(name="exclusions", children=_ASSET_FILTER_MEMBER_FIELDS),
+    ),
+)
+
+TABLE_MONITOR_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.TABLE_MONITOR,
+    fields=(
+        FieldSpec(name="warehouseUuid", critical=True),
+        FieldSpec(
+            name="assetSelection",
+            critical=True,
+            children=ASSET_SELECTION_TYPE_SPEC.fields,
+        ),
+    ),
+)
+
+WAREHOUSE_TABLE_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.WAREHOUSE_TABLE,
+    fields=(
+        FieldSpec(name="mcon"),
+        FieldSpec(name="fullTableId", critical=True),
+        FieldSpec(
+            name="warehouse",
+            children=(FieldSpec(name="connectionType"),),
+        ),
+    ),
+)
+
+ASSET_SELECTION_RESULT_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.ASSET_SELECTION_RESULT,
+    fields=(
+        FieldSpec(name="selected", critical=True),
+        FieldSpec(name="mcon", critical=True),
+    ),
+)
+
+SCHEMA_CHANGE_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.SCHEMA_CHANGE,
+    fields=(
+        FieldSpec(name="mcon", critical=True),
+        FieldSpec(name="startTime", critical=True),
+        FieldSpec(name="fieldsAdded"),
+        FieldSpec(name="fieldsRemoved"),
+        FieldSpec(
+            name="fieldTypeChanges",
+            children=(
+                FieldSpec(name="fieldName"),
+                FieldSpec(name="oldFieldType"),
+                FieldSpec(name="newFieldType"),
+            ),
+        ),
+    ),
+)
+
+JOB_EXECUTION_HISTORY_LOG_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG,
+    fields=(
+        FieldSpec(name="jobExecutionUuid", critical=True),
+        FieldSpec(name="startTime", critical=True),
+        FieldSpec(name="endTime"),
+        FieldSpec(name="status"),
+        FieldSpec(name="exceptions"),
+        FieldSpec(name="totalResultCount"),
+        FieldSpec(name="evaluatedRecordCount"),
+    ),
+)
+
+METRIC_TYPE_SPEC = TypeSpec(
+    type_name=MonteCarloGraphQLType.METRIC,
+    fields=(
+        FieldSpec(name="metric", critical=True),
+        FieldSpec(name="value", critical=True),
+        FieldSpec(name="field"),
+        FieldSpec(name="timestamp"),
+        FieldSpec(name="measurementTimestamp"),
+        FieldSpec(
+            name="thresholds",
+            children=(
+                FieldSpec(name="upper"),
+                FieldSpec(name="lower"),
+            ),
+        ),
+        FieldSpec(name="jobExecutionUuid"),
+    ),
+)
+
+TYPE_SPECS: Dict[MonteCarloGraphQLType, TypeSpec] = {
+    MonteCarloGraphQLType.MONITOR: MONITOR_TYPE_SPEC,
+    MonteCarloGraphQLType.CUSTOM_RULE: CUSTOM_RULE_TYPE_SPEC,
+    MonteCarloGraphQLType.ALERT: ALERT_TYPE_SPEC,
+    MonteCarloGraphQLType.WAREHOUSE_TABLE: WAREHOUSE_TABLE_TYPE_SPEC,
+    MonteCarloGraphQLType.TABLE_MONITOR: TABLE_MONITOR_TYPE_SPEC,
+    MonteCarloGraphQLType.ASSET_SELECTION: ASSET_SELECTION_TYPE_SPEC,
+    MonteCarloGraphQLType.ASSET_SELECTION_RESULT: ASSET_SELECTION_RESULT_TYPE_SPEC,
+    MonteCarloGraphQLType.SCHEMA_CHANGE: SCHEMA_CHANGE_TYPE_SPEC,
+    MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG: JOB_EXECUTION_HISTORY_LOG_TYPE_SPEC,
+    MonteCarloGraphQLType.METRIC: METRIC_TYPE_SPEC,
 }
 
-CUSTOM_RULE_DESIRED_FIELDS: DesiredFields = {
-    "uuid": None,
-    "ruleName": None,
-    "ruleType": None,
-    "description": None,
-    "customSql": None,
-    "entityMcons": None,
-    # severity was renamed to priority on CustomRule (customSql is still
-    # exposed). Request both so the connector adapts to either gateway version;
-    # assertion.py maps priority->severity as a fallback.
-    "severity": None,
-    "priority": None,
-    "comparisons": {
-        "comparisonType": None,
-        "operator": None,
-        "metric": None,
-        "customMetric": {"uuid": None, "metricName": None},
-        "field": None,
-        "fields": None,
-        "threshold": None,
-        "upperThreshold": None,
-        "lowerThreshold": None,
-    },
-}
 
-ALERT_DESIRED_FIELDS: DesiredFields = {
-    "id": None,
-    "type": None,
-    "subTypes": None,
-    "severity": None,
-    "priority": None,
-    "status": None,
-    "createdTime": None,
-    "title": None,
-    "monitorUuids": None,
-    "assets": {"mcon": None},
-}
+def type_spec_by_graphql_name(name: str) -> Optional[TypeSpec]:
+    try:
+        return TYPE_SPECS.get(MonteCarloGraphQLType(name))
+    except ValueError:
+        return None
 
-# Fields whose absence from the live schema means the connector cannot function
-# for that type: uuid/id is the item identity, entityMcons/monitorUuids attach
-# the item to a dataset/assertion. Missing any of these aborts the phase rather
-# than emitting malformed/empty records.
-MONITOR_CRITICAL_FIELDS = frozenset({"uuid", "entityMcons"})
-CUSTOM_RULE_CRITICAL_FIELDS = frozenset({"uuid", "entityMcons"})
-ALERT_CRITICAL_FIELDS = frozenset({"id", "monitorUuids"})
 
-# Minimal known-good selections used when introspection itself fails. These
-# request the renamed, stable fields (whereCondition/priority on Monitor,
-# customSql/priority on CustomRule) rather than the removed customSql/severity,
-# so the fallback never re-triggers a 400. TABLE monitor fields (resourceId,
-# comparisons) are stable and included so those monitors still resolve.
-_MONITOR_FALLBACK_SELECTION = (
-    "uuid\n    name\n    description\n    monitorType\n    whereCondition\n    "
-    "priority\n    entityMcons\n    resourceId\n"
-    "    comparisons {\n"
-    "      comparisonType\n      operator\n      metric\n      field\n      fields\n"
-    "      threshold\n      upperThreshold\n      lowerThreshold\n"
-    "      customMetric { uuid metricName }\n    }"
-)
-_CUSTOM_RULE_FALLBACK_SELECTION = (
-    "uuid\n    ruleName\n    ruleType\n    description\n    customSql\n    "
-    "priority\n    entityMcons\n"
-    "    comparisons {\n"
-    "      comparisonType\n      operator\n      metric\n      field\n      fields\n"
-    "      threshold\n      upperThreshold\n      lowerThreshold\n"
-    "      customMetric { uuid metricName }\n    }"
-)
-_ALERT_FALLBACK_SELECTION = (
-    "id\n    type\n    subTypes\n    severity\n    priority\n    status\n    "
-    "createdTime\n    title\n    monitorUuids\n    assets { mcon }"
-)
+_CAMEL_TO_SNAKE = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _camel_to_snake(name: str) -> str:
+    return _CAMEL_TO_SNAKE.sub("_", name).lower()
+
+
+def spec_value(raw: Optional[Dict[str, object]], spec: FieldSpec) -> object:
+    """Read a field from a pycarlo snake_cased row (canonical name, then aliases)."""
+    if not isinstance(raw, dict):
+        return None
+    for graphql_name in (spec.name, *spec.aliases):
+        key = _camel_to_snake(graphql_name)
+        if key in raw:
+            return raw[key]
+    return None
+
+
+def field_spec_by_name(type_spec: TypeSpec, name: str) -> FieldSpec:
+    for spec in type_spec.fields:
+        if spec.name == name:
+            return spec
+    raise KeyError(f"no FieldSpec named {name!r} on {type_spec.type_name}")
+
+
+def field_spec_at_path(type_spec: TypeSpec, dotted_path: str) -> Optional[FieldSpec]:
+    parts = dotted_path.split(".")
+    fields: Tuple[FieldSpec, ...] = type_spec.fields
+    spec: Optional[FieldSpec] = None
+    for part in parts:
+        spec = None
+        for candidate in fields:
+            if candidate.name == part:
+                spec = candidate
+                break
+        if spec is None:
+            return None
+        fields = spec.children
+    return spec
+
+
+def format_degraded_missing_message(
+    type_spec: TypeSpec, missing_paths: Iterable[str]
+) -> str:
+    lines: list = []
+    for path in missing_paths:
+        spec = field_spec_at_path(type_spec, path)
+        if spec is not None and spec.impact:
+            lines.append(f"{path} ({spec.impact})")
+        else:
+            lines.append(path)
+    return ", ".join(lines)
+
+
+def iter_leaf_field_specs(
+    fields: Tuple[FieldSpec, ...], prefix: str = ""
+) -> Iterable[Tuple[str, FieldSpec]]:
+    for spec in fields:
+        path = f"{prefix}.{spec.name}" if prefix else spec.name
+        if spec.children:
+            yield from iter_leaf_field_specs(spec.children, path)
+        else:
+            yield path, spec
+
+
+def _all_graphql_names(spec: FieldSpec) -> Tuple[str, ...]:
+    return (spec.name, *spec.aliases)
+
+
+def _live_graphql_name(
+    spec: FieldSpec, live_field_names: Mapping[str, Any]
+) -> Optional[str]:
+    for name in _all_graphql_names(spec):
+        if name in live_field_names:
+            return name
+    return None
+
+
+def _spec_graphql_names(type_spec: TypeSpec) -> frozenset:
+    names: set = set()
+
+    def walk(fields: Tuple[FieldSpec, ...]) -> None:
+        for spec in fields:
+            names.update(_all_graphql_names(spec))
+            if spec.children:
+                walk(spec.children)
+
+    walk(type_spec.fields)
+    return frozenset(names)
 
 
 class DriftVerdict(StrEnum):
@@ -154,6 +385,8 @@ class TypeDrift:
     missing: list = field(default_factory=list)
     critical_missing: list = field(default_factory=list)
     new_fields: list = field(default_factory=list)
+    type_absent: bool = False
+    introspection_failed: bool = False
 
     def summary(self) -> str:
         parts = [f"type={self.type_name}", f"verdict={self.verdict.value}"]
@@ -164,6 +397,22 @@ class TypeDrift:
         if self.new_fields:
             parts.append(f"new_uningested={','.join(self.new_fields)}")
         return ", ".join(parts)
+
+
+def drift_abort_title(type_drift: TypeDrift, strict: bool) -> str:
+    if type_drift.type_absent:
+        return (
+            f"Monte Carlo schema drift: type {type_drift.type_name} not found "
+            "in the Monte Carlo schema"
+        )
+    if type_drift.introspection_failed:
+        return "Monte Carlo schema drift: could not verify schema"
+    if type_drift.critical_missing:
+        fields = ", ".join(type_drift.critical_missing)
+        return f"Monte Carlo schema drift: critical fields missing ({fields})"
+    if strict and type_drift.missing:
+        return "Monte Carlo schema drift: strict mode: drift detected"
+    return "Monte Carlo schema drift: schema drift aborted ingestion"
 
 
 @dataclass
@@ -183,17 +432,16 @@ class SchemaDrift:
             return DriftVerdict.DEGRADED
         return DriftVerdict.PROCEED
 
-    def aborting_types(self) -> list:
-        return [t for t in self.per_type.values() if t.verdict == DriftVerdict.ABORT]
-
     def summary(self) -> str:
         return "; ".join(t.summary() for t in self.per_type.values())
 
 
-# Introspection query for one type. Uses an alias (mcType) so the response key
-# is snake_cased to ``mc_type`` by pycarlo, avoiding any dunder-key ambiguity
-# on ``__type``. Selects field name + the (unwrapped) type kind/name, recursing
-# one level into object fields' element types via a second introspection call.
+def type_drift_has_critical_abort(type_drift: TypeDrift) -> bool:
+    return type_drift.verdict == DriftVerdict.ABORT and bool(
+        type_drift.critical_missing
+    )
+
+
 _INTROSPECT_QUERY = """
 query mcIntrospect($name: String!) {
   mcType: __type(name: $name) {
@@ -224,29 +472,24 @@ class _TypeField:
 @dataclass
 class _TypeShape:
     fields: Dict[str, _TypeField] = field(default_factory=dict)
-    # True when the __type call raised (network/auth blip), not when the
-    # type exists and is empty. An empty successful shape means drop nested
-    # selections; a failed one means keep a known-good nested selection.
     introspection_failed: bool = False
+    type_absent: bool = False
 
 
-def _unwrap_type(type_dict: Optional[Dict[str, Any]]) -> tuple:
-    """Walk the ofType chain (NON_NULL/LIST wrappers) to the underlying type.
-    Returns (kind, name) where kind is OBJECT/SCALAR/ENUM and name is the type
-    name (non-None only for OBJECT/SCALAR/ENUM)."""
-    node = type_dict
+def _unwrap_type(type_dict: Optional[Dict[str, object]]) -> tuple:
+    node: Optional[Dict[str, object]] = type_dict
     while node is not None and node.get("kind") in ("NON_NULL", "LIST"):
-        node = node.get("of_type") or node.get("ofType")
+        next_node = node.get("of_type") or node.get("ofType")
+        if not isinstance(next_node, dict):
+            node = None
+            break
+        node = next_node
     if node is None:
         return ("SCALAR", None)
     return (node.get("kind"), node.get("name"))
 
 
-def _parse_type_shape(response: Dict[str, Any]) -> _TypeShape:
-    """Parse an introspection response (one __type call) into a _TypeShape.
-    Tolerates a missing/empty type (e.g. a name typo) by returning an empty
-    shape rather than raising, so the gate can report total drift instead of
-    crashing the run."""
+def _parse_type_shape(response: Dict[str, object]) -> _TypeShape:
     shape = _TypeShape()
     type_node = response.get("mc_type") or response.get("__type")
     if not isinstance(type_node, dict):
@@ -267,109 +510,131 @@ def _parse_type_shape(response: Dict[str, Any]) -> _TypeShape:
     return shape
 
 
-def _emit_desired_selection(desired: DesiredFields, indent: str) -> str:
-    """Emit a GraphQL selection from a desired-field tree without intersecting
-    against a live shape. Used when a nested type's introspection failed so
-    the parent field is still requested instead of being dropped."""
-    lines = []
-    for fname, sub in desired.items():
-        if sub is None:
-            lines.append(f"{indent}{fname}")
-        elif isinstance(sub, dict):
-            lines.append(f"{indent}{fname} {{")
-            lines.append(_emit_desired_selection(sub, indent + "    "))
+def _emit_fallback_selection(
+    fields: Tuple[FieldSpec, ...],
+    indent: str,
+) -> str:
+    lines: list = []
+    for spec in fields:
+        if not spec.in_fallback:
+            continue
+        if spec.children:
+            lines.append(f"{indent}{spec.name} {{")
+            lines.append(_emit_fallback_selection(spec.children, indent + "    "))
             lines.append(f"{indent}}}")
+        else:
+            lines.append(f"{indent}{spec.name}")
+    return "\n".join(lines)
+
+
+def _emit_desired_selection(
+    fields: Tuple[FieldSpec, ...],
+    indent: str,
+) -> str:
+    """Emit a GraphQL selection from the spec without intersecting a live shape."""
+    lines: list = []
+    for spec in fields:
+        if spec.children:
+            lines.append(f"{indent}{spec.name} {{")
+            lines.append(_emit_desired_selection(spec.children, indent + "    "))
+            lines.append(f"{indent}}}")
+        else:
+            lines.append(f"{indent}{spec.name}")
     return "\n".join(lines)
 
 
 def _build_selection_with_subshapes(
-    desired: DesiredFields,
+    fields: Tuple[FieldSpec, ...],
     shape: _TypeShape,
     object_shapes: Dict[str, _TypeShape],
     indent: str,
 ) -> str:
-    """Intersect the desired-field tree with the live type shape and emit a
-    GraphQL selection string (camelCase field names). Fields absent from the
-    live shape are silently dropped; object fields recurse into their element
-    type's shape (looked up from ``object_shapes``, keyed by object type name).
-    If a nested type's introspection failed, emit the desired sub-selection
-    rather than omitting the parent field."""
-    lines = []
-    for fname, sub in desired.items():
-        live = shape.fields.get(fname)
-        if live is None:
+    lines: list = []
+    for spec in fields:
+        live_name = _live_graphql_name(spec, shape.fields)
+        if live_name is None:
             continue
-        if sub is None:
-            lines.append(f"{indent}{fname}")
-        elif isinstance(sub, dict):
-            if not live.is_object or not live.object_type_name:
-                continue
-            sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
-            if sub_shape.introspection_failed:
-                sub_lines = _emit_desired_selection(sub, indent + "    ")
-            else:
-                sub_lines = _build_selection_with_subshapes(
-                    sub, sub_shape, object_shapes, indent + "    "
-                )
-            if not sub_lines.strip():
-                # Object field present but none of its desired sub-fields exist;
-                # request an empty selection would be invalid, so skip the field.
-                continue
-            lines.append(f"{indent}{fname} {{")
-            lines.append(sub_lines)
-            lines.append(f"{indent}}}")
+        live = shape.fields[live_name]
+        if not spec.children:
+            lines.append(f"{indent}{live_name}")
+            continue
+        if not live.is_object or not live.object_type_name:
+            continue
+        sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
+        if sub_shape.introspection_failed:
+            sub_lines = _emit_desired_selection(spec.children, indent + "    ")
+        else:
+            sub_lines = _build_selection_with_subshapes(
+                spec.children, sub_shape, object_shapes, indent + "    "
+            )
+        if not sub_lines.strip():
+            continue
+        lines.append(f"{indent}{live_name} {{")
+        lines.append(sub_lines)
+        lines.append(f"{indent}}}")
     return "\n".join(lines)
 
 
-def _field_or_nested_missing(
-    fname: str,
-    sub: Optional[Any],
+def _collect_missing_paths(
+    fields: Tuple[FieldSpec, ...],
     shape: _TypeShape,
     object_shapes: Dict[str, _TypeShape],
-) -> bool:
-    """True when a desired field is absent, or a desired object field's
-    successfully-introspected nested type is missing any desired sub-field.
-    A failed nested ``__type`` call is not drift — the builder keeps the
-    desired sub-selection and cannot assess that type."""
-    live = shape.fields.get(fname)
-    if live is None:
-        return True
-    if not isinstance(sub, dict):
-        return False
-    if not live.is_object or not live.object_type_name:
-        return True
-    sub_shape = object_shapes.get(live.object_type_name)
-    if sub_shape is None or sub_shape.introspection_failed:
-        return False
-    return any(
-        _field_or_nested_missing(nested_name, nested_sub, sub_shape, object_shapes)
-        for nested_name, nested_sub in sub.items()
-    )
+    prefix: str,
+    critical_only: bool,
+) -> Tuple[list, list]:
+    missing: list = []
+    critical_missing: list = []
+    for spec in fields:
+        path = f"{prefix}.{spec.name}" if prefix else spec.name
+        live_name = _live_graphql_name(spec, shape.fields)
+        if live_name is None:
+            if spec.critical or not critical_only:
+                missing.append(path)
+            if spec.critical:
+                critical_missing.append(path)
+            continue
+        if not spec.children:
+            continue
+        live = shape.fields[live_name]
+        if not live.is_object or not live.object_type_name:
+            if spec.critical or not critical_only:
+                missing.append(path)
+            if spec.critical:
+                critical_missing.append(path)
+            continue
+        sub_shape = object_shapes.get(live.object_type_name)
+        if sub_shape is None or sub_shape.introspection_failed:
+            continue
+        sub_missing, sub_critical = _collect_missing_paths(
+            spec.children,
+            sub_shape,
+            object_shapes,
+            path,
+            critical_only=False,
+        )
+        missing.extend(sub_missing)
+        critical_missing.extend(sub_critical)
+    return missing, critical_missing
 
 
 def _diff_drift(
-    type_name: str,
-    desired: DesiredFields,
+    type_spec: TypeSpec,
     shape: _TypeShape,
-    critical: frozenset,
     strict: bool,
     object_shapes: Optional[Dict[str, _TypeShape]] = None,
 ) -> TypeDrift:
-    """Diff a desired-field tree against a live type shape and produce a
-    TypeDrift verdict. missing = desired fields absent from the live shape,
-    or object fields whose successfully-introspected nested type is missing
-    desired sub-fields (reported under the parent field name). Failed nested
-    introspection is not treated as drift. new_fields = live fields the
-    connector does not request."""
+    if shape.type_absent:
+        return TypeDrift(
+            type_name=type_spec.type_name.value,
+            verdict=DriftVerdict.ABORT,
+            type_absent=True,
+        )
     shapes = object_shapes if object_shapes is not None else {}
-    missing = [
-        fname
-        for fname, sub in desired.items()
-        if _field_or_nested_missing(fname, sub, shape, shapes)
-    ]
-    critical_missing = [f for f in missing if f in critical]
-    desired_set = set(desired)
-    new_fields = [f for f in shape.fields if f not in desired_set]
+    missing, critical_missing = _collect_missing_paths(
+        type_spec.fields, shape, shapes, prefix="", critical_only=False
+    )
+    desired_names = _spec_graphql_names(type_spec)
+    new_fields = [f for f in shape.fields if f not in desired_names]
     if critical_missing or missing and strict:
         verdict = DriftVerdict.ABORT
     elif missing:
@@ -377,7 +642,7 @@ def _diff_drift(
     else:
         verdict = DriftVerdict.PROCEED
     return TypeDrift(
-        type_name=type_name,
+        type_name=type_spec.type_name.value,
         verdict=verdict,
         missing=missing,
         critical_missing=critical_missing,
@@ -386,24 +651,29 @@ def _diff_drift(
 
 
 class QueryBuilder(Protocol):
-    """Builds the GraphQL query strings the client sends for the three
-    drift-prone fetches (monitors, custom rules, alerts). Decoupled from the
-    client so tests can inject a StaticQueryBuilder and bypass introspection."""
-
     def monitors_query(self) -> str: ...
 
     def custom_rules_query(self) -> str: ...
 
     def alerts_query(self) -> str: ...
 
+    def get_table_query(self) -> str: ...
+
+    def table_monitor_query(self) -> str: ...
+
+    def evaluate_asset_selection_query(self) -> str: ...
+
+    def get_schema_changes_query(self) -> str: ...
+
+    def get_job_executions_query(self) -> str: ...
+
+    def get_metrics_v4_query(self) -> str: ...
+
     def check_drift(
         self, strict: bool = False, types: Optional[list] = None
     ) -> SchemaDrift: ...
 
 
-# Query envelopes (variable signatures) for the three fetches. The variable
-# signature does not drift the way field selections do, so the envelope is
-# fixed and only the selection set is built dynamically.
 _MONITORS_ENVELOPE = (
     "query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) "
     "{{\n  getMonitors(domainIds: $domainIds, limit: $limit, offset: $offset) {{\n"
@@ -422,61 +692,196 @@ _ALERTS_ENVELOPE = (
     "    pageInfo {{ hasNextPage endCursor }}\n  }}\n}}"
 )
 
+_GET_TABLE_ENVELOPE = "query getTable($mcon: String) {{\n  getTable(mcon: $mcon) {{\n    {selection}\n  }}\n}}"
+_TABLE_MONITOR_ENVELOPE = (
+    "query getTableMonitor($monitorUuid: UUID!) {{\n"
+    "  getTableMonitor(monitorUuid: $monitorUuid) {{\n    {selection}\n  }}\n}}"
+)
+_EVALUATE_ASSET_SELECTION_ENVELOPE = (
+    "query evaluateAssetSelection(\n"
+    "  $warehouseUuid: UUID!\n"
+    "  $assetSelection: AssetSelectionInput!\n"
+    "  $monitorUuid: UUID\n"
+    "  $limit: Int\n"
+    "  $offset: Int\n"
+    ") {{\n"
+    "  evaluateAssetSelection(\n"
+    "    warehouseUuid: $warehouseUuid\n"
+    "    assetSelection: $assetSelection\n"
+    "    assetSelectionLevel: TABLE\n"
+    "    monitorUuid: $monitorUuid\n"
+    "    limit: $limit\n"
+    "    offset: $offset\n"
+    "  ) {{\n    {selection}\n  }}\n}}"
+)
+_GET_SCHEMA_CHANGES_ENVELOPE = (
+    "query getSchemaChanges(\n"
+    "  $mcon: String!\n"
+    "  $startTime: DateTime\n"
+    "  $endTime: DateTime\n"
+    "  $first: Int\n"
+    ") {{\n"
+    "  getSchemaChanges(\n"
+    "    mcon: $mcon\n"
+    "    startTime: $startTime\n"
+    "    endTime: $endTime\n"
+    "    first: $first\n"
+    "  ) {{\n"
+    "    edges {{\n      node {{\n        {node_selection}\n      }}\n    }}\n"
+    "    pageInfo {{ hasNextPage endCursor }}\n  }}\n}}"
+)
+_GET_JOB_EXECUTIONS_ENVELOPE = (
+    "query getJobExecutions($monitorUuid: String, $historyDays: Int, $first: Int) {{\n"
+    "  getJobExecutions(monitorUuid: $monitorUuid, historyDays: $historyDays, "
+    "first: $first) {{\n"
+    "    edges {{\n      node {{\n        {node_selection}\n      }}\n    }}\n"
+    "    pageInfo {{ hasNextPage endCursor }}\n  }}\n}}"
+)
+_GET_METRICS_V4_ENVELOPE = (
+    "query getMetricsV4($metricName: String!, $metricsFilter: MetricsFilter!, "
+    "$startTime: DateTime!, $endTime: DateTime, $first: Int, "
+    "$deduplicateValues: Boolean) {{\n"
+    "  getMetricsV4(metricName: $metricName, metricsFilter: $metricsFilter, "
+    "startTime: $startTime, endTime: $endTime, first: $first, "
+    "deduplicateValues: $deduplicateValues) {{\n"
+    "    metrics {{\n      {metric_selection}\n    }}\n  }}\n}}"
+)
+
 
 def _wrap(envelope: str, selection: str) -> str:
     return envelope.format(selection=selection)
 
 
-class StaticQueryBuilder:
-    """Returns fixed query strings verbatim. Used by tests (which mock
-    ``client._call`` directly and never send the query) and as the fallback
-    when introspection fails. Holds the original hardcoded queries from
-    ``queries.py`` so existing behaviour is preserved exactly when introspection
-    is bypassed."""
+def monitors_fallback_query() -> str:
+    selection = _emit_fallback_selection(MONITOR_TYPE_SPEC.fields, "    ")
+    return _wrap(_MONITORS_ENVELOPE, selection)
 
-    def __init__(
-        self,
-        monitors_query: str = MONITORS_QUERY,
-        custom_rules_query: str = CUSTOM_RULES_QUERY,
-        alerts_query: str = ALERTS_QUERY,
-    ) -> None:
-        self._monitors = monitors_query
-        self._custom_rules = custom_rules_query
-        self._alerts = alerts_query
 
-    def monitors_query(self) -> str:
-        return self._monitors
+_MONITOR_SELECTION_INDENT = "        "
+_MONITOR_FALLBACK_INDENT = "    "
 
-    def custom_rules_query(self) -> str:
-        return self._custom_rules
 
-    def alerts_query(self) -> str:
-        return self._alerts
+def custom_rules_fallback_query() -> str:
+    selection = _emit_fallback_selection(CUSTOM_RULE_TYPE_SPEC.fields, "        ")
+    return _wrap(_CUSTOM_RULES_ENVELOPE, selection)
 
-    def check_drift(
-        self, strict: bool = False, types: Optional[list] = None
-    ) -> SchemaDrift:
-        # No introspection was performed, so drift cannot be assessed.
-        return SchemaDrift()
+
+def alerts_fallback_query() -> str:
+    selection = _emit_fallback_selection(ALERT_TYPE_SPEC.fields, "        ")
+    return _wrap(_ALERTS_ENVELOPE, selection)
+
+
+def get_table_fallback_query() -> str:
+    selection = _emit_fallback_selection(WAREHOUSE_TABLE_TYPE_SPEC.fields, "    ")
+    return _wrap(_GET_TABLE_ENVELOPE, selection)
+
+
+def evaluate_asset_selection_fallback_query() -> str:
+    selection = _emit_fallback_selection(
+        ASSET_SELECTION_RESULT_TYPE_SPEC.fields, "    "
+    )
+    return _wrap(_EVALUATE_ASSET_SELECTION_ENVELOPE, selection)
+
+
+def get_schema_changes_fallback_query() -> str:
+    node = _emit_fallback_selection(SCHEMA_CHANGE_TYPE_SPEC.fields, "        ")
+    return _GET_SCHEMA_CHANGES_ENVELOPE.format(node_selection=node)
+
+
+def get_job_executions_fallback_query() -> str:
+    node = _emit_fallback_selection(
+        JOB_EXECUTION_HISTORY_LOG_TYPE_SPEC.fields, "        "
+    )
+    return _GET_JOB_EXECUTIONS_ENVELOPE.format(node_selection=node)
+
+
+def get_metrics_v4_fallback_query() -> str:
+    metric = _emit_fallback_selection(METRIC_TYPE_SPEC.fields, "      ")
+    return _GET_METRICS_V4_ENVELOPE.format(metric_selection=metric)
+
+
+def _table_monitor_fallback_query() -> str:
+    from datahub.ingestion.source.montecarlo.queries import TABLE_MONITOR_QUERY
+
+    return TABLE_MONITOR_QUERY
+
+
+def _emit_asset_selection_selection(
+    shape: _TypeShape,
+    object_shapes: Dict[str, _TypeShape],
+    indent: str,
+    filter_inline: str,
+) -> str:
+    lines: list = []
+    for spec in ASSET_SELECTION_TYPE_SPEC.fields:
+        live_name = _live_graphql_name(spec, shape.fields)
+        if live_name is None:
+            continue
+        if spec.name in ("filters", "exclusions"):
+            lines.append(f"{indent}{live_name} {{")
+            lines.append(filter_inline.rstrip("\n"))
+            lines.append(f"{indent}}}")
+            continue
+        if not spec.children:
+            lines.append(f"{indent}{live_name}")
+            continue
+        live = shape.fields[live_name]
+        if not live.is_object or not live.object_type_name:
+            continue
+        sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
+        if spec.name == "databases":
+            sub_lines = _build_selection_with_subshapes(
+                spec.children, sub_shape, object_shapes, indent + "  "
+            )
+        else:
+            sub_lines = _build_selection_with_subshapes(
+                spec.children, sub_shape, object_shapes, indent + "  "
+            )
+        if not sub_lines.strip():
+            continue
+        lines.append(f"{indent}{live_name} {{")
+        lines.append(sub_lines)
+        lines.append(f"{indent}}}")
+    return "\n".join(lines)
+
+
+def _build_table_monitor_selection(
+    shape: _TypeShape,
+    object_shapes: Dict[str, _TypeShape],
+    filter_inline: str,
+    indent: str = "    ",
+) -> str:
+    lines: list = []
+    for spec in TABLE_MONITOR_TYPE_SPEC.fields:
+        live_name = _live_graphql_name(spec, shape.fields)
+        if live_name is None:
+            continue
+        if spec.name != "assetSelection":
+            lines.append(f"{indent}{live_name}")
+            continue
+        live = shape.fields[live_name]
+        if not live.is_object or not live.object_type_name:
+            continue
+        sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
+        inner = _emit_asset_selection_selection(
+            sub_shape, object_shapes, indent + "  ", filter_inline
+        )
+        if not inner.strip():
+            continue
+        lines.append(f"{indent}{live_name} {{")
+        lines.append(inner)
+        lines.append(f"{indent}}}")
+    return "\n".join(lines)
 
 
 class IntrospectingQueryBuilder:
     """Builds GraphQL queries dynamically from the live MCD schema, dropping
     fields the gateway no longer exposes so schema drift degrades gracefully
-    instead of failing the whole fetch with a 400. Introspects each type once
-    per run (cached) and resolves object sub-selections (e.g. ``comparisons``,
-    ``assets``) by introspecting their element types. On an introspection
-    failure (network/auth error on the ``__type`` call) falls back to a minimal
-    known-good selection and reports a warning via the injected ``warner``.
-
-    The ``call`` callable is the client's ``_call`` (so introspection inherits
-    auth, retry and daily-budget handling); ``warner`` is the client's ``_warn``
-    so fallback warnings surface in the ingestion report.
-    """
+    instead of failing the whole fetch with a 400."""
 
     def __init__(
         self,
-        call: "Callable[..., Dict[str, Any]]",
+        call: "Callable[..., Dict[str, object]]",
         warner: "Callable[..., None]",
         fatal_error_types: tuple = (),
     ) -> None:
@@ -484,9 +889,6 @@ class IntrospectingQueryBuilder:
         self._warner = warner
         self._fatal_error_types = fatal_error_types
         self._shapes: Dict[str, _TypeShape] = {}
-        # Per-type failure tracking: a failed __type call for one type must
-        # not poison the others.
-        self._failed_types: set = set()
 
     def _introspect(self, type_name: str) -> _TypeShape:
         if type_name in self._shapes:
@@ -494,12 +896,8 @@ class IntrospectingQueryBuilder:
         try:
             response = self._call(_INTROSPECT_QUERY, {"name": type_name})
         except self._fatal_error_types:
-            # Fatal run-level errors (exhausted daily budget, rejected
-            # credentials) must propagate, not be demoted to a per-introspection
-            # warning — a bad token must abort the run with a clear auth error.
             raise
         except Exception as e:
-            self._failed_types.add(type_name)
             self._warner(
                 title="Monte Carlo schema introspection failed",
                 message=(
@@ -512,46 +910,50 @@ class IntrospectingQueryBuilder:
             )
             self._shapes[type_name] = _TypeShape(introspection_failed=True)
             return self._shapes[type_name]
+        type_node = response.get("mc_type")
+        if type_node is None:
+            type_node = response.get("__type")
+        if type_node is None:
+            self._shapes[type_name] = _TypeShape(type_absent=True)
+            return self._shapes[type_name]
         shape = _parse_type_shape(response)
         self._shapes[type_name] = shape
-        # Nested element types are introspected on demand by
-        # _introspect_desired_subtypes (called from _build), not here —
-        # walking every object field would burn the daily budget on unused types.
         return shape
 
-    def _introspect_desired_subtypes(
-        self, desired: DesiredFields, shape: _TypeShape
+    def _introspect_spec_subtypes(
+        self, fields: Tuple[FieldSpec, ...], shape: _TypeShape
     ) -> None:
-        """Introspect only the object element types the connector requests."""
-        for fname, sub in desired.items():
-            if not isinstance(sub, dict):
+        for spec in fields:
+            if not spec.children:
                 continue
-            live = shape.fields.get(fname)
-            if live is None or not live.is_object or not live.object_type_name:
+            live_name = _live_graphql_name(spec, shape.fields)
+            if live_name is None:
+                continue
+            live = shape.fields[live_name]
+            if not live.is_object or not live.object_type_name:
                 continue
             sub_shape = self._introspect(live.object_type_name)
-            self._introspect_desired_subtypes(sub, sub_shape)
+            self._introspect_spec_subtypes(spec.children, sub_shape)
 
     def _object_shapes(self) -> Dict[str, _TypeShape]:
         return self._shapes
 
     def _build(
         self,
-        type_name: str,
-        desired: DesiredFields,
+        type_spec: TypeSpec,
         envelope: str,
-        fallback_selection: str,
+        selection_indent: str,
+        fallback_indent: Optional[str] = None,
     ) -> str:
+        type_name = type_spec.type_name.value
         shape = self._introspect(type_name)
-        # Only a failed __type call uses the hardcoded fallback. A successful
-        # empty shape is real drift (the type exists and exposes nothing we
-        # asked for); building it yields an empty selection and the
-        # no-requested-fields warning below. check_drift will ABORT.
-        if type_name in self._failed_types or shape.introspection_failed:
+        fb_indent = fallback_indent if fallback_indent is not None else selection_indent
+        fallback_selection = _emit_fallback_selection(type_spec.fields, fb_indent)
+        if shape.introspection_failed:
             return _wrap(envelope, fallback_selection)
-        self._introspect_desired_subtypes(desired, shape)
+        self._introspect_spec_subtypes(type_spec.fields, shape)
         selection = _build_selection_with_subshapes(
-            desired, shape, self._object_shapes(), "        "
+            type_spec.fields, shape, self._object_shapes(), selection_indent
         )
         if not selection.strip():
             self._warner(
@@ -567,62 +969,131 @@ class IntrospectingQueryBuilder:
 
     def monitors_query(self) -> str:
         return self._build(
-            "Monitor",
-            MONITOR_DESIRED_FIELDS,
+            MONITOR_TYPE_SPEC,
             _MONITORS_ENVELOPE,
-            _MONITOR_FALLBACK_SELECTION,
+            _MONITOR_SELECTION_INDENT,
+            fallback_indent=_MONITOR_FALLBACK_INDENT,
         )
 
     def custom_rules_query(self) -> str:
-        return self._build(
-            "CustomRule",
-            CUSTOM_RULE_DESIRED_FIELDS,
-            _CUSTOM_RULES_ENVELOPE,
-            _CUSTOM_RULE_FALLBACK_SELECTION,
-        )
+        return self._build(CUSTOM_RULE_TYPE_SPEC, _CUSTOM_RULES_ENVELOPE, "        ")
 
     def alerts_query(self) -> str:
-        return self._build(
-            "Alert",
-            ALERT_DESIRED_FIELDS,
-            _ALERTS_ENVELOPE,
-            _ALERT_FALLBACK_SELECTION,
+        return self._build(ALERT_TYPE_SPEC, _ALERTS_ENVELOPE, "        ")
+
+    def get_table_query(self) -> str:
+        return self._build(WAREHOUSE_TABLE_TYPE_SPEC, _GET_TABLE_ENVELOPE, "    ")
+
+    def table_monitor_query(self) -> str:
+        from datahub.ingestion.source.montecarlo.queries import (
+            ASSET_FILTER_INLINE_SELECTION,
         )
+
+        type_name = TABLE_MONITOR_TYPE_SPEC.type_name.value
+        shape = self._introspect(type_name)
+        fallback = _table_monitor_fallback_query()
+        if shape.introspection_failed:
+            return fallback
+        self._introspect_spec_subtypes(TABLE_MONITOR_TYPE_SPEC.fields, shape)
+        selection = _build_table_monitor_selection(
+            shape,
+            self._object_shapes(),
+            ASSET_FILTER_INLINE_SELECTION,
+        )
+        if not selection.strip():
+            return fallback
+        return _wrap(_TABLE_MONITOR_ENVELOPE, selection)
+
+    def evaluate_asset_selection_query(self) -> str:
+        return self._build(
+            ASSET_SELECTION_RESULT_TYPE_SPEC, _EVALUATE_ASSET_SELECTION_ENVELOPE, "    "
+        )
+
+    def get_schema_changes_query(self) -> str:
+        return self._build_connection_node_query(
+            SCHEMA_CHANGE_TYPE_SPEC, _GET_SCHEMA_CHANGES_ENVELOPE
+        )
+
+    def get_job_executions_query(self) -> str:
+        return self._build_connection_node_query(
+            JOB_EXECUTION_HISTORY_LOG_TYPE_SPEC, _GET_JOB_EXECUTIONS_ENVELOPE
+        )
+
+    def get_metrics_v4_query(self) -> str:
+        type_name = METRIC_TYPE_SPEC.type_name.value
+        shape = self._introspect(type_name)
+        fallback = get_metrics_v4_fallback_query()
+        if shape.introspection_failed:
+            return fallback
+        self._introspect_spec_subtypes(METRIC_TYPE_SPEC.fields, shape)
+        metric_selection = _build_selection_with_subshapes(
+            METRIC_TYPE_SPEC.fields,
+            shape,
+            self._object_shapes(),
+            "      ",
+        )
+        if not metric_selection.strip():
+            return fallback
+        return _GET_METRICS_V4_ENVELOPE.format(metric_selection=metric_selection)
+
+    def _build_connection_node_query(self, type_spec: TypeSpec, envelope: str) -> str:
+        type_name = type_spec.type_name.value
+        shape = self._introspect(type_name)
+        node_fallback = _emit_fallback_selection(type_spec.fields, "        ")
+        fallback = envelope.format(node_selection=node_fallback)
+        if shape.introspection_failed:
+            return fallback
+        self._introspect_spec_subtypes(type_spec.fields, shape)
+        node_selection = _build_selection_with_subshapes(
+            type_spec.fields, shape, self._object_shapes(), "        "
+        )
+        if not node_selection.strip():
+            return fallback
+        return envelope.format(node_selection=node_selection)
 
     def check_drift(
         self, strict: bool = False, types: Optional[list] = None
     ) -> SchemaDrift:
         drift = SchemaDrift()
-        specs = {
-            "Monitor": (MONITOR_DESIRED_FIELDS, MONITOR_CRITICAL_FIELDS),
-            "CustomRule": (
-                CUSTOM_RULE_DESIRED_FIELDS,
-                CUSTOM_RULE_CRITICAL_FIELDS,
-            ),
-            "Alert": (ALERT_DESIRED_FIELDS, ALERT_CRITICAL_FIELDS),
-        }
-        # Default to all three; callers can restrict to the types they ingest.
-        type_names = types if types is not None else list(specs)
+        default_types = [spec.type_name.value for spec in TYPE_SPECS.values()]
+        type_names = types if types is not None else default_types
         for type_name in type_names:
-            if type_name not in specs:
+            type_spec = type_spec_by_graphql_name(type_name)
+            if type_spec is None:
                 continue
-            desired, critical = specs[type_name]
             shape = self._introspect(type_name)
-            if type_name in self._failed_types or shape.introspection_failed:
-                # Failed __type: cannot assess this type's drift; do not
-                # fabricate an ABORT. A successful empty shape is not this
-                # path — _diff_drift reports total (critical) drift.
+            if shape.introspection_failed:
                 drift.per_type[type_name] = TypeDrift(
-                    type_name=type_name, verdict=DriftVerdict.PROCEED
+                    type_name=type_name,
+                    verdict=(DriftVerdict.ABORT if strict else DriftVerdict.PROCEED),
+                    introspection_failed=True,
                 )
                 continue
-            self._introspect_desired_subtypes(desired, shape)
+            self._introspect_spec_subtypes(type_spec.fields, shape)
+            if type_name in (
+                MonteCarloGraphQLType.TABLE_MONITOR.value,
+                MonteCarloGraphQLType.ASSET_SELECTION.value,
+            ):
+                self._introspect("AssetFilterInterface")
             drift.per_type[type_name] = _diff_drift(
-                type_name,
-                desired,
+                type_spec,
                 shape,
-                critical,
                 strict,
                 object_shapes=self._object_shapes(),
             )
         return drift
+
+
+def fallback_selection_for_type(type_spec: TypeSpec, indent: str) -> str:
+    return _emit_fallback_selection(type_spec.fields, indent)
+
+
+def dynamic_selection_for_shape(
+    type_spec: TypeSpec,
+    shape: _TypeShape,
+    object_shapes: Dict[str, _TypeShape],
+    indent: str,
+) -> str:
+    return _build_selection_with_subshapes(
+        type_spec.fields, shape, object_shapes, indent
+    )

@@ -1,107 +1,7 @@
 # GraphQL documents issued against the Monte Carlo Data Collector (MCD) gateway.
-# Field selections follow the pycarlo / MCD schema.
-#
-# getMonitors returns a plain list (walked by MonteCarloClient._paginate_offset);
-# the rest are Relay-style connections (edges/node/pageInfo, walked by ._paginate).
-MONITORS_QUERY = """
-query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) {
-  getMonitors(domainIds: $domainIds, limit: $limit, offset: $offset) {
-    uuid
-    name
-    description
-    monitorType
-    whereCondition
-    entityMcons
-    resourceId
-    priority
-    dataQualityDimension
-    comparisons {
-      comparisonType
-      operator
-      metric
-      customMetric {
-        uuid
-        metricName
-      }
-      field
-      fields
-      threshold
-      upperThreshold
-      lowerThreshold
-    }
-  }
-}
-"""
-
-CUSTOM_RULES_QUERY = """
-query getCustomRules($first: Int, $after: String) {
-  getCustomRules(first: $first, after: $after) {
-    edges {
-      node {
-        uuid
-        ruleName
-        ruleType
-        description
-        customSql
-        entityMcons
-        severity
-        comparisons {
-          comparisonType
-          operator
-          metric
-          customMetric {
-            uuid
-            metricName
-          }
-          field
-          fields
-          threshold
-          upperThreshold
-          lowerThreshold
-        }
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-"""
-
-# Monte Carlo surfaces both "alerts" and "incidents" through the same getAlerts
-# connection — an incident is an alert whose `type` field is incident-related
-# (e.g. "incident", "freshness_incident", "volume_anomaly"). There is no
-# separate getIncidents endpoint; the builder maps every entry to an
-# AssertionRunEvent failure regardless of its `type`, so this single query
-# covers both. The `type`/`subTypes` fields are carried on nativeResults so the
-# UI can distinguish an incident from a generic alert.
-ALERTS_QUERY = """
-query getAlerts($first: Int, $after: String, $createdTime: DateTimeRangeInput) {
-  getAlerts(first: $first, after: $after, createdTime: $createdTime) {
-    edges {
-      node {
-        id
-        type
-        subTypes
-        severity
-        priority
-        status
-        createdTime
-        title
-        monitorUuids
-        assets {
-          mcon
-        }
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-"""
+# Field selections for all operations are built in query_builder.py from the
+# FieldSpec registry. AssetFilterInterface inline fragments stay here as one
+# shared string interpolated into getTableMonitor.
 
 GET_TABLE_QUERY = """
 query getTable($mcon: String) {
@@ -117,7 +17,7 @@ query getTable($mcon: String) {
 
 # Shared AssetFilterInterface selection for getTableMonitor filters and
 # exclusions. Interpolated twice so a new filter type cannot drift between lists.
-_ASSET_FILTER_SELECTION = """\
+ASSET_FILTER_INLINE_SELECTION = """\
         type
         negated
         ... on AssetFilterTableName {
@@ -162,11 +62,13 @@ _ASSET_FILTER_SELECTION = """\
           readAndWriteActivityIsNull
         }"""
 
+
 # TABLE-type monitors cover many tables via an asset_selection filter, so
 # getMonitors' entityMcons (scoped to single-entity METRIC monitors) is always
 # empty for them. getTableMonitor exposes the filter/exclusion definition;
 # evaluateAssetSelection then resolves that selection to concrete table MCONs.
-TABLE_MONITOR_QUERY = f"""
+def _table_monitor_query_with_filter_selection(asset_filter_selection: str) -> str:
+    return f"""
 query getTableMonitor($monitorUuid: UUID!) {{
   getTableMonitor(monitorUuid: $monitorUuid) {{
     warehouseUuid
@@ -178,15 +80,20 @@ query getTableMonitor($monitorUuid: UUID!) {{
         schemas
       }}
       filters {{
-{_ASSET_FILTER_SELECTION}
+{asset_filter_selection}
       }}
       exclusions {{
-{_ASSET_FILTER_SELECTION}
+{asset_filter_selection}
       }}
     }}
   }}
 }}
 """
+
+
+TABLE_MONITOR_QUERY = _table_monitor_query_with_filter_selection(
+    ASSET_FILTER_INLINE_SELECTION
+)
 
 # Resolves a TABLE monitor's assetSelection to concrete table MCONs.
 # assetSelectionLevel is hardcoded to TABLE so results are tables, not

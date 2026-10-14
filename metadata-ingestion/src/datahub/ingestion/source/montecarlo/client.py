@@ -1,31 +1,29 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import tenacity
 from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.constants import (
-    ALERT_TYPE_SCHEMA_CHANGES,
     ASSET_FILTER_INPUT_FIELDS,
     ASSET_FILTER_JOINER_OR,
+    ASSET_FILTER_REQUIRED_VALUE_FIELDS,
     SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS,
     SCHEMA_CHANGE_PAGE_SIZE,
 )
-from datahub.ingestion.source.montecarlo.queries import (
-    EVALUATE_ASSET_SELECTION_QUERY,
-    GET_JOB_EXECUTIONS_QUERY,
-    GET_METRICS_V4_QUERY,
-    GET_SCHEMA_CHANGES_QUERY,
-    GET_TABLE_QUERY,
-    TABLE_MONITOR_QUERY,
-)
 from datahub.ingestion.source.montecarlo.query_builder import (
+    ALERT_TYPE_SPEC,
+    CUSTOM_RULE_TYPE_SPEC,
+    MONITOR_TYPE_SPEC,
+    DriftVerdict,
     IntrospectingQueryBuilder,
     QueryBuilder,
     SchemaDrift,
-    StaticQueryBuilder,
+    field_spec_by_name,
+    spec_value,
+    type_drift_has_critical_abort,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.utilities.ratelimiter import (
@@ -45,6 +43,14 @@ logger = logging.getLogger(__name__)
 _TRANSIENT_NETWORK_ERROR_NAMES = frozenset(
     {"ConnectionError", "ReadTimeout", "ConnectTimeout", "ReadTimeoutError"}
 )
+
+
+def _spec_value_str_list(value: object) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return [str(value)]
 
 
 def _is_transient_network_error(exception: Optional[BaseException]) -> bool:
@@ -195,9 +201,8 @@ class MonteCarloAssertionDef(BaseModel):
     # not flip GUID when a later run resolves more tables.
     scope_from_asset_selection: bool = False
     resource_id: Optional[str] = None
-    severity: Optional[str] = None
-    # priority is the renamed severity (removed from Monitor/CustomRule);
-    # assertion.py uses it as the severity fallback.
+    # Fed from priority or its severity alias on Monitor/CustomRule; written to
+    # nativeParameters["severity"] unchanged.
     priority: Optional[str] = None
     data_quality_dimension: Optional[str] = None
     comparisons: List[MonteCarloComparison] = Field(default_factory=list)
@@ -245,6 +250,14 @@ def _as_aware_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
+
+
+class SchemaChangeHistoryCacheEntry(NamedTuple):
+    events: Optional[List["MonteCarloSchemaChange"]]
+    truncated: bool
+
+
+SchemaChangeHistoryCache = Dict[str, SchemaChangeHistoryCacheEntry]
 
 
 def closest_schema_change(
@@ -395,42 +408,106 @@ class MonteCarloClient:
         self._daily_budget: Optional[DailyCallBudget] = None
         if config.rate_limit_daily:
             self._daily_budget = DailyCallBudget(config.rate_limit_daily)
-        # Builds the drift-prone queries (monitors/custom rules/alerts) dynamically
-        # from the live MCD schema so a removed field degrades gracefully instead
-        # of failing the whole fetch with a 400. Tests inject a StaticQueryBuilder
-        # (via set_query_builder) to bypass introspection; the default introspects
-        # once per type (cached). Stored on _query_builder_impl so the
-        # _query_builder property can fall back to a StaticQueryBuilder for tests
-        # that construct the client via __new__ (skipping __init__).
-        self._query_builder_impl: Optional[QueryBuilder] = IntrospectingQueryBuilder(
-            self._call, self._warn, fatal_error_types=_FATAL_RUN_ERRORS
+        # Lazy transport so tests can replace ``_call`` after construction and
+        # introspection still routes through the stub.
+        self._query_builder: QueryBuilder = IntrospectingQueryBuilder(
+            lambda query, variables: self._call(query, variables),
+            self._warn,
+            fatal_error_types=_FATAL_RUN_ERRORS,
         )
-
-    @property
-    def _query_builder(self) -> QueryBuilder:
-        builder = getattr(self, "_query_builder_impl", None)
-        if builder is None:
-            return StaticQueryBuilder()
-        return builder
+        self._schema_change_join_disabled = False
+        self._schema_change_join_warned = False
+        self._run_events_disabled = False
+        self._run_events_disabled_warned = False
+        self._table_scope_drift_checked = False
+        self._table_scope_drift_lock = False
 
     def set_query_builder(self, builder: QueryBuilder) -> None:
         """Inject a query builder (used by tests to bypass introspection)."""
-        self._query_builder_impl = builder
+        self._query_builder = builder
+
+    @property
+    def run_events_disabled(self) -> bool:
+        return self._run_events_disabled
 
     def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
-        """Introspect the live Monitor/CustomRule/Alert types and diff them
-        against the connector's desired field set. Returns a SchemaDrift whose
-        verdict is PROCEED/DEGRADED/ABORT. Introspection is cached for the run;
-        a transient introspection failure never fabricates an ABORT (it returns
-        PROCEED and a warning was already reported by the builder). Only the
-        types actually being ingested are checked (monitors/rules when
-        include_assertions, alerts when include_alerts)."""
+        """Introspect live GraphQL types and diff them against the connector
+        field specs. Returns per-type PROCEED/DEGRADED/ABORT verdicts.
+        Introspection is cached for the run. Types are checked lazily by phase:
+        WarehouseTable with assertions; SchemaChange with alerts; run-history
+        types only when run_events_lookback_days is set; TableMonitor types on
+        first TABLE-scope resolution."""
         types: list = []
         if self.config.include_assertions:
-            types.extend(["Monitor", "CustomRule"])
+            types.extend(["Monitor", "CustomRule", "WarehouseTable"])
         if self.config.include_alerts:
-            types.append("Alert")
-        return self._query_builder.check_drift(strict, types=types)
+            types.extend(["Alert", "SchemaChange"])
+        if self.config.run_events_lookback_days:
+            types.extend(["JobExecutionHistoryLog", "Metric"])
+        drift = self._query_builder.check_drift(strict, types=types)
+        schema_drift = drift.per_type.get("SchemaChange")
+        self._schema_change_join_disabled = schema_drift is not None and (
+            type_drift_has_critical_abort(schema_drift)
+        )
+        job_drift = drift.per_type.get("JobExecutionHistoryLog")
+        metric_drift = drift.per_type.get("Metric")
+        self._run_events_disabled = any(
+            td is not None and type_drift_has_critical_abort(td)
+            for td in (job_drift, metric_drift)
+        )
+        return drift
+
+    def _ensure_table_scope_drift_checked(self) -> None:
+        if self._table_scope_drift_checked:
+            return
+        self._table_scope_drift_checked = True
+        strict = self.config.strict_schema_drift
+        drift = self._query_builder.check_drift(
+            strict,
+            types=["TableMonitor", "AssetSelection", "AssetSelectionResult"],
+        )
+        self._table_scope_drift_lock = any(
+            type_drift_has_critical_abort(td) for td in drift.per_type.values()
+        )
+        for type_drift in drift.per_type.values():
+            if type_drift.verdict == DriftVerdict.DEGRADED:
+                self._warn(
+                    title=f"Monte Carlo schema drift ({type_drift.type_name})",
+                    message=(
+                        "TABLE monitor scope queries may omit fields no longer "
+                        "exposed by the live schema."
+                    ),
+                    context=type_drift.summary(),
+                )
+
+    def _warn_schema_change_join_disabled_once(self) -> None:
+        if not self._schema_change_join_disabled or self._schema_change_join_warned:
+            return
+        self._schema_change_join_warned = True
+        self._warn(
+            title="Schema-change catalog join disabled",
+            message=(
+                "The live Monte Carlo schema no longer exposes fields required "
+                "for getSchemaChanges. SCHEMA_CHANGES alerts will ingest without "
+                "field-level diffs until the connector is updated."
+            ),
+            context="type=SchemaChange",
+        )
+
+    def warn_run_events_disabled_once(self) -> None:
+        if not self._run_events_disabled or self._run_events_disabled_warned:
+            return
+        self._run_events_disabled_warned = True
+        if self.report is not None:
+            self.report.warning(
+                title="Monitor run events disabled",
+                message=(
+                    "The live Monte Carlo schema no longer exposes fields "
+                    "required for getJobExecutions or getMetricsV4. Measured "
+                    "run events will not be emitted this run."
+                ),
+                context="types=JobExecutionHistoryLog,Metric",
+            )
 
     def _warn(
         self,
@@ -620,36 +697,65 @@ class MonteCarloClient:
         for raw in self._paginate_offset(
             self._query_builder.monitors_query(), "get_monitors", variables
         ):
-            uuid = raw.get("uuid")
+            uuid = spec_value(raw, field_spec_by_name(MONITOR_TYPE_SPEC, "uuid"))
             if not uuid:
                 self._report_missing_id("monitor", raw)
                 continue
-            monitor_type = raw.get("monitor_type")
-            if not self.config.monitor_type_pattern.allowed(monitor_type or ""):
+            monitor_type = spec_value(
+                raw, field_spec_by_name(MONITOR_TYPE_SPEC, "monitorType")
+            )
+            if not self.config.monitor_type_pattern.allowed(str(monitor_type or "")):
                 continue
-            entity_mcons = raw.get("entity_mcons") or []
-            resource_id = raw.get("resource_id")
+            _entity_mcons = spec_value(
+                raw, field_spec_by_name(MONITOR_TYPE_SPEC, "entityMcons")
+            )
+            entity_mcons = (
+                list(_entity_mcons)
+                if isinstance(_entity_mcons, list)
+                else ([] if _entity_mcons is None else [str(_entity_mcons)])
+            )
+            resource_id = spec_value(
+                raw, field_spec_by_name(MONITOR_TYPE_SPEC, "resourceId")
+            )
             scope_from_asset_selection = False
-            if not entity_mcons and (monitor_type or "").upper() == "TABLE":
+            monitor_type_str = str(monitor_type or "")
+            if not entity_mcons and monitor_type_str.upper() == "TABLE":
+                resource_id_str = str(resource_id) if resource_id is not None else None
                 entity_mcons = self._resolve_table_monitor_entity_mcons(
-                    uuid, resource_id
+                    str(uuid), resource_id_str
                 )
                 scope_from_asset_selection = True
             try:
+                # Monitor has no customSql on the current gateway; assertion logic
+                # stays empty for monitors.
                 yield MonteCarloAssertionDef(
-                    uuid=uuid,
-                    name=raw.get("name"),
-                    description=raw.get("description"),
-                    monitor_type=monitor_type,
-                    custom_sql=raw.get("custom_sql"),
-                    where_condition=raw.get("where_condition"),
-                    entity_mcons=entity_mcons,
+                    uuid=str(uuid),
+                    name=spec_value(raw, field_spec_by_name(MONITOR_TYPE_SPEC, "name")),
+                    description=spec_value(
+                        raw, field_spec_by_name(MONITOR_TYPE_SPEC, "description")
+                    ),
+                    monitor_type=str(monitor_type)
+                    if monitor_type is not None
+                    else None,
+                    custom_sql=None,
+                    where_condition=spec_value(
+                        raw, field_spec_by_name(MONITOR_TYPE_SPEC, "whereCondition")
+                    ),
+                    entity_mcons=list(entity_mcons),
                     scope_from_asset_selection=scope_from_asset_selection,
-                    resource_id=resource_id,
-                    severity=raw.get("severity"),
-                    priority=raw.get("priority"),
-                    data_quality_dimension=raw.get("data_quality_dimension"),
-                    comparisons=_parse_comparisons(raw.get("comparisons")),
+                    resource_id=str(resource_id) if resource_id is not None else None,
+                    priority=spec_value(
+                        raw, field_spec_by_name(MONITOR_TYPE_SPEC, "priority")
+                    ),
+                    data_quality_dimension=spec_value(
+                        raw,
+                        field_spec_by_name(MONITOR_TYPE_SPEC, "dataQualityDimension"),
+                    ),
+                    comparisons=_parse_comparisons(
+                        spec_value(
+                            raw, field_spec_by_name(MONITOR_TYPE_SPEC, "comparisons")
+                        )
+                    ),
                 )
             except _FATAL_RUN_ERRORS:
                 raise
@@ -678,8 +784,12 @@ class MonteCarloClient:
         (DailyCallBudgetExceeded, MonteCarloAuthError) are demoted to a
         per-monitor warning via _safe_call.
         """
+        self._ensure_table_scope_drift_checked()
+        if self._table_scope_drift_lock:
+            self._mark_table_scope_unresolved()
+            return []
         response = self._safe_call(
-            TABLE_MONITOR_QUERY,
+            self._query_builder.table_monitor_query(),
             {"monitorUuid": monitor_uuid},
             title="Could not resolve table monitor scope",
             message="getTableMonitor call failed; this monitor's entities "
@@ -689,7 +799,11 @@ class MonteCarloClient:
         if response is None:
             self._mark_table_scope_unresolved()
             return []
-        monitor = response.get("get_table_monitor") or {}
+        monitor_raw = response.get("get_table_monitor")
+        if monitor_raw is None:
+            self._mark_table_scope_unresolved()
+            return []
+        monitor = monitor_raw if isinstance(monitor_raw, dict) else {}
         warehouse_uuid = resource_id or monitor.get("warehouse_uuid")
         if not warehouse_uuid:
             self._warn(
@@ -699,9 +813,20 @@ class MonteCarloClient:
                 context=f"monitor_uuid={monitor_uuid}",
             )
             return []
-        asset_selection = self._asset_selection_to_input(
+        asset_selection, unreadable = self._asset_selection_to_input(
             monitor.get("asset_selection") or {}
         )
+        if unreadable is not None:
+            filter_type, field = unreadable
+            self._warn(
+                title="Unreadable table monitor asset filter",
+                message="TABLE monitor has a filter or exclusion the connector "
+                f"cannot read (type={filter_type!r}, field={field!r}); "
+                "skipping this monitor.",
+                context=f"monitor_uuid={monitor_uuid}",
+            )
+            self._mark_table_scope_unresolved()
+            return []
         if asset_selection is None:
             self._warn(
                 title="Table monitor has empty asset selection",
@@ -718,12 +843,13 @@ class MonteCarloClient:
 
     def _asset_selection_to_input(
         self, raw: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[str, str]]]:
         """Convert getTableMonitor's snake_cased AssetSelection into the
         camelCase AssetSelectionInput evaluateAssetSelection expects.
 
-        Returns None when the selection is empty (no databases, filters, or
-        exclusions) so callers do not evaluate an unbounded warehouse query.
+        Returns (None, unreadable) when a filter or exclusion cannot be read.
+        Returns (None, None) when the selection is empty (no databases, filters,
+        or exclusions) so callers do not evaluate an unbounded warehouse query.
         """
         databases_in = [
             self._database_to_input(d)
@@ -731,33 +857,58 @@ class MonteCarloClient:
             if isinstance(d, dict)
         ]
         databases = [d for d in databases_in if d is not None]
-        filters = [
-            converted
-            for converted in (
-                self._filter_to_input(f)
-                for f in (raw.get("filters") or [])
-                if isinstance(f, dict)
-            )
-            if converted is not None
-        ]
-        exclusions = [
-            converted
-            for converted in (
-                self._filter_to_input(f)
-                for f in (raw.get("exclusions") or [])
-                if isinstance(f, dict)
-            )
-            if converted is not None
-        ]
+        filters, unreadable = self._asset_filters_to_input(raw.get("filters") or [])
+        if unreadable is not None:
+            return None, unreadable
+        exclusions, unreadable = self._asset_filters_to_input(
+            raw.get("exclusions") or []
+        )
+        if unreadable is not None:
+            return None, unreadable
         if not databases and not filters and not exclusions:
-            return None
-        return {
-            "databases": databases,
-            "filters": filters,
-            "filtersJoiner": raw.get("filters_joiner") or ASSET_FILTER_JOINER_OR,
-            "exclusions": exclusions,
-            "exclusionsJoiner": raw.get("exclusions_joiner") or ASSET_FILTER_JOINER_OR,
-        }
+            return None, None
+        return (
+            {
+                "databases": databases,
+                "filters": filters,
+                "filtersJoiner": raw.get("filters_joiner") or ASSET_FILTER_JOINER_OR,
+                "exclusions": exclusions,
+                "exclusionsJoiner": raw.get("exclusions_joiner")
+                or ASSET_FILTER_JOINER_OR,
+            },
+            None,
+        )
+
+    def _asset_filters_to_input(
+        self, entries: List[Any]
+    ) -> Tuple[List[Dict[str, Any]], Optional[Tuple[str, str]]]:
+        converted: List[Dict[str, Any]] = []
+        for raw in entries:
+            if not isinstance(raw, dict):
+                return [], ("unknown", "type")
+            unreadable = self._asset_filter_unreadable_detail(raw)
+            if unreadable is not None:
+                return [], unreadable
+            filt = self._filter_to_input(raw)
+            if filt is not None:
+                converted.append(filt)
+        return converted, None
+
+    @staticmethod
+    def _asset_filter_unreadable_detail(
+        raw: Dict[str, Any],
+    ) -> Optional[Tuple[str, str]]:
+        filter_type = raw.get("type")
+        if not filter_type:
+            return ("unknown", "type")
+        type_str = str(filter_type)
+        required = ASSET_FILTER_REQUIRED_VALUE_FIELDS.get(type_str)
+        if required is None:
+            return (type_str, "type")
+        for field in required:
+            if field not in raw or raw.get(field) is None:
+                return (type_str, field)
+        return None
 
     @staticmethod
     def _database_to_input(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -775,7 +926,7 @@ class MonteCarloClient:
         filter_type = raw.get("type")
         if not filter_type:
             return None
-        converted: Dict[str, Any] = {"type": filter_type}
+        converted: Dict[str, Any] = {"type": str(filter_type)}
         if raw.get("negated") is not None:
             converted["negated"] = raw["negated"]
         for snake_name, camel_name in ASSET_FILTER_INPUT_FIELDS.items():
@@ -784,23 +935,49 @@ class MonteCarloClient:
                 converted[camel_name] = value
         return converted
 
+    def _evaluate_asset_selection_page_failure(
+        self,
+        *,
+        monitor_uuid: str,
+        mcons: List[str],
+        page: Any,
+    ) -> bool:
+        """Handle a failed or malformed evaluateAssetSelection page.
+
+        Returns True when pagination should stop. When no MCONs were collected
+        yet, trips the stale-removal lock; otherwise flags incomplete coverage.
+        """
+        if page is None:
+            if not mcons:
+                self._mark_table_scope_unresolved()
+            return True
+        if not isinstance(page, list):
+            self._warn(
+                title="Malformed evaluateAssetSelection response",
+                message="Expected a list of asset selection results; "
+                "stopping pagination for this monitor.",
+                context=f"monitor_uuid={monitor_uuid}, got={type(page).__name__}",
+            )
+            if not mcons:
+                self._mark_table_scope_unresolved()
+            return True
+        return False
+
     def _evaluate_asset_selection_mcons(
         self,
         monitor_uuid: str,
         warehouse_uuid: str,
         asset_selection: Dict[str, Any],
     ) -> List[str]:
-        """Page evaluateAssetSelection and collect selected table MCONs, capped
-        by table_monitor_max_assets so a warehouse-wide TABLE monitor cannot
-        explode assertion count / API spend."""
+        """Page evaluateAssetSelection to completion, then de-dupe, sort, and
+        cap by table_monitor_max_assets for stable TABLE monitor coverage."""
         max_assets = self.config.table_monitor_max_assets
         mcons: List[str] = []
         offset = 0
-        truncated = False
         incomplete = False
-        while len(mcons) < max_assets:
+        while True:
             response = self._safe_call(
-                EVALUATE_ASSET_SELECTION_QUERY,
+                self._query_builder.evaluate_asset_selection_query(),
                 {
                     "warehouseUuid": warehouse_uuid,
                     "assetSelection": asset_selection,
@@ -816,53 +993,62 @@ class MonteCarloClient:
                 "already resolved; remaining pages were skipped.",
                 context=f"monitor_uuid={monitor_uuid}, offset={offset}",
             )
-            if response is None:
-                if not mcons:
-                    self._mark_table_scope_unresolved()
-                    return []
-                incomplete = True
-                break
-            page = response.get("evaluate_asset_selection")
-            if not isinstance(page, list):
-                self._warn(
-                    title="Malformed evaluateAssetSelection response",
-                    message="Expected a list of asset selection results; "
-                    "stopping pagination for this monitor.",
-                    context=f"monitor_uuid={monitor_uuid}, got={type(page).__name__}",
-                )
+            page = (
+                None if response is None else response.get("evaluate_asset_selection")
+            )
+            if self._evaluate_asset_selection_page_failure(
+                monitor_uuid=monitor_uuid, mcons=mcons, page=page
+            ):
                 if mcons:
                     incomplete = True
-                else:
-                    self._mark_table_scope_unresolved()
-                    return []
-                break
+                return (
+                    []
+                    if not mcons
+                    else self._finalize_table_monitor_mcons(
+                        monitor_uuid=monitor_uuid,
+                        mcons=mcons,
+                        max_assets=max_assets,
+                        incomplete=incomplete,
+                    )
+                )
             if not page:
                 break
-            selected_mcons: List[str] = []
             for row in page:
                 if not isinstance(row, dict) or row.get("selected") is False:
                     continue
                 mcon = row.get("mcon")
                 if isinstance(mcon, str) and mcon:
-                    selected_mcons.append(mcon)
-            remaining = max_assets - len(mcons)
-            if len(selected_mcons) > remaining:
-                truncated = True
-            mcons.extend(selected_mcons[:remaining])
-            if len(mcons) >= max_assets:
-                if len(page) == self.page_size:
-                    truncated = True
-                break
+                    mcons.append(mcon)
             if len(page) < self.page_size:
                 break
             offset += self.page_size
+        return self._finalize_table_monitor_mcons(
+            monitor_uuid=monitor_uuid,
+            mcons=mcons,
+            max_assets=max_assets,
+            incomplete=incomplete,
+        )
+
+    def _finalize_table_monitor_mcons(
+        self,
+        *,
+        monitor_uuid: str,
+        mcons: List[str],
+        max_assets: int,
+        incomplete: bool,
+    ) -> List[str]:
+        unique_sorted = sorted(dict.fromkeys(mcons))
+        total = len(unique_sorted)
+        truncated = total > max_assets
+        if truncated:
+            unique_sorted = unique_sorted[:max_assets]
         if truncated:
             self._warn(
                 title="Table monitor coverage truncated",
                 message="TABLE monitor covers more tables than "
                 "table_monitor_max_assets; remaining tables were skipped.",
                 context=f"monitor_uuid={monitor_uuid}, "
-                f"ingested={len(mcons)}, cap={max_assets}",
+                f"ingested={len(unique_sorted)}, cap={max_assets}, total={total}",
             )
             if self.report is not None:
                 self.report.report_table_monitor_scope_truncated()
@@ -871,32 +1057,51 @@ class MonteCarloClient:
                 title="Table monitor coverage incomplete",
                 message="evaluateAssetSelection failed mid-pagination; "
                 "only the tables resolved before the failure were ingested.",
-                context=f"monitor_uuid={monitor_uuid}, ingested={len(mcons)}",
+                context=f"monitor_uuid={monitor_uuid}, ingested={len(unique_sorted)}",
             )
             if self.report is not None:
                 self.report.report_build_failure()
                 self.report.report_table_monitor_scope_truncated()
-        return mcons
+        return unique_sorted
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
         for raw in self._paginate(
             self._query_builder.custom_rules_query(), "get_custom_rules", {}
         ):
-            uuid = raw.get("uuid")
+            uuid = spec_value(raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "uuid"))
             if not uuid:
                 self._report_missing_id("custom rule", raw)
                 continue
             try:
                 yield MonteCarloAssertionDef(
-                    uuid=uuid,
-                    name=raw.get("rule_name"),
-                    description=raw.get("description"),
-                    rule_type=raw.get("rule_type"),
-                    custom_sql=raw.get("custom_sql"),
-                    entity_mcons=raw.get("entity_mcons") or [],
-                    severity=raw.get("severity"),
-                    priority=raw.get("priority"),
-                    comparisons=_parse_comparisons(raw.get("comparisons")),
+                    uuid=str(uuid),
+                    name=spec_value(
+                        raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "ruleName")
+                    ),
+                    description=spec_value(
+                        raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "description")
+                    ),
+                    rule_type=spec_value(
+                        raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "ruleType")
+                    ),
+                    custom_sql=spec_value(
+                        raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "customSql")
+                    ),
+                    entity_mcons=_spec_value_str_list(
+                        spec_value(
+                            raw,
+                            field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "entityMcons"),
+                        )
+                    ),
+                    priority=spec_value(
+                        raw, field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "priority")
+                    ),
+                    comparisons=_parse_comparisons(
+                        spec_value(
+                            raw,
+                            field_spec_by_name(CUSTOM_RULE_TYPE_SPEC, "comparisons"),
+                        )
+                    ),
                 )
             except _FATAL_RUN_ERRORS:
                 raise
@@ -911,40 +1116,61 @@ class MonteCarloClient:
                     exc=e,
                 )
 
-    def get_alerts(self) -> Iterable[MonteCarloAlert]:
+    def alerts_fetch_window(self) -> Tuple[datetime, datetime]:
         now = datetime.now(tz=timezone.utc)
         start_time = now - timedelta(days=self.config.alerts_lookback_days)
+        return start_time, now
+
+    def get_alerts(self) -> Iterable[MonteCarloAlert]:
+        start_time, now = self.alerts_fetch_window()
         variables = {
             "createdTime": {"after": start_time.isoformat(), "before": now.isoformat()}
         }
-        # One getSchemaChanges call per unique SCHEMA_CHANGES asset MCON
-        # for the whole alerts lookback, then pick the closest event per alert.
-        schema_cache: Dict[str, Optional[List[MonteCarloSchemaChange]]] = {}
         for raw in self._paginate(
             self._query_builder.alerts_query(), "get_alerts", variables
         ):
-            alert_id = raw.get("id")
+            alert_id = spec_value(raw, field_spec_by_name(ALERT_TYPE_SPEC, "id"))
             if not alert_id:
                 self._report_missing_id("alert", raw)
                 continue
             try:
+                assets_spec = field_spec_by_name(ALERT_TYPE_SPEC, "assets")
+                mcon_spec = assets_spec.children[0]
+                raw_assets = spec_value(raw, assets_spec)
+                assets = raw_assets if isinstance(raw_assets, list) else []
                 asset_mcons = [
-                    mcon
-                    for a in (raw.get("assets") or [])
+                    str(mcon)
+                    for a in assets
                     if isinstance(a, dict)
-                    for mcon in [a.get("mcon")]
+                    for mcon in [spec_value(a, mcon_spec)]
                     if isinstance(mcon, str) and mcon
                 ]
                 alert = MonteCarloAlert(
-                    uuid=alert_id,
-                    alert_type=raw.get("type"),
-                    sub_types=raw.get("sub_types") or [],
-                    title=raw.get("title"),
-                    severity=raw.get("severity"),
-                    priority=raw.get("priority"),
-                    status=raw.get("status"),
-                    created_time=raw.get("created_time"),
-                    monitor_uuids=list(raw.get("monitor_uuids") or []),
+                    uuid=str(alert_id),
+                    alert_type=spec_value(
+                        raw, field_spec_by_name(ALERT_TYPE_SPEC, "type")
+                    ),
+                    sub_types=_spec_value_str_list(
+                        spec_value(raw, field_spec_by_name(ALERT_TYPE_SPEC, "subTypes"))
+                    ),
+                    title=spec_value(raw, field_spec_by_name(ALERT_TYPE_SPEC, "title")),
+                    severity=spec_value(
+                        raw, field_spec_by_name(ALERT_TYPE_SPEC, "severity")
+                    ),
+                    priority=spec_value(
+                        raw, field_spec_by_name(ALERT_TYPE_SPEC, "priority")
+                    ),
+                    status=spec_value(
+                        raw, field_spec_by_name(ALERT_TYPE_SPEC, "status")
+                    ),
+                    created_time=spec_value(
+                        raw, field_spec_by_name(ALERT_TYPE_SPEC, "createdTime")
+                    ),
+                    monitor_uuids=_spec_value_str_list(
+                        spec_value(
+                            raw, field_spec_by_name(ALERT_TYPE_SPEC, "monitorUuids")
+                        )
+                    ),
                     asset_mcons=asset_mcons,
                 )
             except _FATAL_RUN_ERRORS:
@@ -959,38 +1185,61 @@ class MonteCarloClient:
                     exc=e,
                 )
                 continue
-            if (alert.alert_type or "").upper() == ALERT_TYPE_SCHEMA_CHANGES:
-                alert.schema_changes_by_mcon = self._schema_changes_for_alert(
-                    alert, schema_cache, start_time, now
-                )
             yield alert
 
-    def _schema_changes_for_alert(
+    def join_schema_changes_for_alert(
         self,
         alert: MonteCarloAlert,
-        cache: Dict[str, Optional[List[MonteCarloSchemaChange]]],
+        mcons: Set[str],
+        cache: SchemaChangeHistoryCache,
+        window_start: datetime,
+        window_end: datetime,
+    ) -> None:
+        """Join getSchemaChanges for ``mcons`` onto a SCHEMA_CHANGES alert."""
+        if alert.created_time is None or not mcons:
+            return
+        alert.schema_changes_by_mcon = self._join_schema_changes_for_mcons(
+            alert, mcons, cache, window_start, window_end
+        )
+
+    def _join_schema_changes_for_mcons(
+        self,
+        alert: MonteCarloAlert,
+        mcons: Set[str],
+        cache: SchemaChangeHistoryCache,
         window_start: datetime,
         window_end: datetime,
     ) -> Dict[str, MonteCarloSchemaChange]:
-        """Join getSchemaChanges onto a SCHEMA_CHANGES alert by asset MCON."""
-        if alert.created_time is None:
-            return {}
         joined: Dict[str, MonteCarloSchemaChange] = {}
-        for mcon in alert.asset_mcons:
+        alert_time = alert.created_time
+        if alert_time is None:
+            return joined
+        for mcon in mcons:
             if mcon not in cache:
                 cache[mcon] = self._fetch_schema_changes(mcon, window_start, window_end)
-            events = cache[mcon]
-            if events is None:
+            entry = cache[mcon]
+            if entry.events is None:
                 continue
-            matched = closest_schema_change(events, alert.created_time)
+            matched = closest_schema_change(entry.events, alert_time)
             if matched is not None:
                 joined[mcon] = matched
             else:
+                if entry.truncated:
+                    message = (
+                        f"getSchemaChanges returned no matching event among the "
+                        f"first {SCHEMA_CHANGE_PAGE_SIZE} catalog events fetched "
+                        f"for this table; this SCHEMA_CHANGES alert will be ingested "
+                        f"without field-level diffs."
+                    )
+                else:
+                    message = (
+                        "getSchemaChanges returned no event within the "
+                        "match window; this SCHEMA_CHANGES alert will be ingested "
+                        "without field-level diffs."
+                    )
                 self._warn(
                     title="Schema-change alert has no matching catalog event",
-                    message="getSchemaChanges returned no event within the "
-                    "match window; this SCHEMA_CHANGES alert will be ingested "
-                    "without field-level diffs.",
+                    message=message,
                     context=f"alert_uuid={alert.uuid}, mcon={mcon}",
                 )
                 if self.report is not None:
@@ -1002,11 +1251,11 @@ class MonteCarloClient:
         mcon: str,
         start_time: datetime,
         end_time: datetime,
-    ) -> Optional[List[MonteCarloSchemaChange]]:
+    ) -> SchemaChangeHistoryCacheEntry:
         """One page of catalog schema history for ``mcon``. Returns None when
         the fetch fails so callers do not treat an empty page as a join miss."""
         response = self._safe_call(
-            GET_SCHEMA_CHANGES_QUERY,
+            self._query_builder.get_schema_changes_query(),
             {
                 "mcon": mcon,
                 "startTime": start_time.isoformat(),
@@ -1019,7 +1268,7 @@ class MonteCarloClient:
             context=f"mcon={mcon}",
         )
         if response is None:
-            return None
+            return SchemaChangeHistoryCacheEntry(events=None, truncated=False)
         connection = response.get("get_schema_changes")
         if not isinstance(connection, dict):
             self._warn(
@@ -1028,9 +1277,10 @@ class MonteCarloClient:
                 "alert will be ingested without field-level diffs.",
                 context=f"mcon={mcon}, got={type(connection).__name__}",
             )
-            return None
+            return SchemaChangeHistoryCacheEntry(events=None, truncated=False)
         page_info = connection.get("page_info") or {}
-        if isinstance(page_info, dict) and page_info.get("has_next_page"):
+        truncated = bool(isinstance(page_info, dict) and page_info.get("has_next_page"))
+        if truncated:
             self._warn(
                 title="Schema change history truncated",
                 message="getSchemaChanges has more pages than "
@@ -1048,7 +1298,7 @@ class MonteCarloClient:
             parsed = self._parse_schema_change(node, fallback_mcon=mcon)
             if parsed is not None:
                 events.append(parsed)
-        return events
+        return SchemaChangeHistoryCacheEntry(events=events, truncated=truncated)
 
     def _parse_schema_change(
         self, raw: Dict[str, Any], fallback_mcon: str
@@ -1098,7 +1348,9 @@ class MonteCarloClient:
             return None
 
     def get_table(self, mcon: str) -> Optional[ResolvedTable]:
-        table = self._call(GET_TABLE_QUERY, {"mcon": mcon}).get("get_table")
+        table = self._call(self._query_builder.get_table_query(), {"mcon": mcon}).get(
+            "get_table"
+        )
         if not table:
             return None
         full_table_id = table.get("full_table_id")
@@ -1125,7 +1377,7 @@ class MonteCarloClient:
         runs should set first=N. Returns all runs in the page (any status);
         the builder filters for SUCCESS."""
         response = self._safe_call(
-            GET_JOB_EXECUTIONS_QUERY,
+            self._query_builder.get_job_executions_query(),
             {
                 "monitorUuid": monitor_uuid,
                 "historyDays": history_days,
@@ -1189,7 +1441,7 @@ class MonteCarloClient:
         if field:
             metrics_filter["field"] = field
         response = self._safe_call(
-            GET_METRICS_V4_QUERY,
+            self._query_builder.get_metrics_v4_query(),
             {
                 "metricName": metric_name,
                 "metricsFilter": metrics_filter,

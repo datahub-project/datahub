@@ -238,14 +238,17 @@ class MonteCarloSourceConfig(
     )
     strict_schema_drift: bool = Field(
         default=False,
-        description="When enabled, abort the run if the Monte Carlo GraphQL schema has "
-        "drifted in any way from what the connector expects (any requested field is "
-        "missing), even non-critical ones. By default only the loss of a *critical* "
-        "field (uuid/entityMcons on monitors/rules, id/monitorUuids on alerts) aborts; "
-        "non-critical drift (e.g. a removed field the connector can substitute, "
-        "such as customSql/severity which fall back to whereCondition/priority) "
-        "degrades gracefully and is reported as a warning. Enable this in "
-        "environments that want zero silent degradation.",
+        description="When enabled, any missing GraphQL field the connector expects "
+        "aborts that ingestion phase (monitors, custom rules, or alerts), even if "
+        "the field is non-critical. When disabled, only the loss of a critical "
+        "field aborts a phase — for example uuid/entityMcons on monitors and "
+        "custom rules, id/monitorUuids/createdTime on alerts, or WarehouseTable "
+        "fields needed to resolve dataset URNs. Other missing fields are dropped "
+        "with a warning that names each field and what you lose (DEGRADED). A "
+        "phase ABORT skips that phase only; other phases still run, and the run "
+        "records a failure so stateful stale removal does not soft-delete "
+        "assertions from a partial ingest. Enable this when you want zero silent "
+        "degradation on optional fields.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

@@ -8,13 +8,25 @@ from datahub.ingestion.source.montecarlo.client import MonteCarloClient
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.mcon_resolver import MconResolver
 from datahub.ingestion.source.montecarlo.query_builder import (
+    ALERT_TYPE_SPEC,
+    COMPARISONS_FIELD,
+    CUSTOM_RULE_TYPE_SPEC,
+    MONITOR_TYPE_SPEC,
+    TYPE_SPECS,
     DriftVerdict,
+    FieldSpec,
     IntrospectingQueryBuilder,
-    StaticQueryBuilder,
     _parse_type_shape,
+    _TypeShape,
+    drift_abort_title,
+    dynamic_selection_for_shape,
+    fallback_selection_for_type,
+    iter_leaf_field_specs,
+    spec_value,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.ingestion.source.montecarlo.source import MonteCarloSource
+from tests.unit.montecarlo.static_query_builder import StaticQueryBuilder
 
 
 def make_config(**overrides: Any) -> MonteCarloSourceConfig:
@@ -51,46 +63,36 @@ def _introspect_response(fields_spec: Dict[str, str]) -> Dict[str, Any]:
 
 def _live_monitor_shape(
     *,
-    include_custom_sql: bool = True,
-    include_severity: bool = True,
     include_priority: bool = True,
+    include_severity_alias: bool = False,
     include_where_condition: bool = True,
+    include_description: bool = True,
+    include_data_quality_dimension: bool = True,
 ) -> Dict[str, str]:
-    """The live Monitor type's field set. customSql/severity were renamed to
-    whereCondition/priority on the current gateway; toggles simulate the drift
-    that caused the original 400 (customSql/severity dropped) while keeping the
-    replacement fields present by default."""
+    """Current-gateway Monitor fields (no customSql). Toggle fields to simulate drift."""
     shape: Dict[str, str] = {
         "uuid": "SCALAR:UUID",
         "name": "SCALAR:String",
-        "description": "SCALAR:String",
         "monitorType": "SCALAR:String",
         "entityMcons": "SCALAR:String",
         "resourceId": "SCALAR:UUID",
-        "dataQualityDimension": "SCALAR:String",
         "comparisons": "OBJECT:Comparison",
     }
-    if include_custom_sql:
-        shape["customSql"] = "SCALAR:String"
+    if include_description:
+        shape["description"] = "SCALAR:String"
     if include_where_condition:
         shape["whereCondition"] = "SCALAR:String"
-    if include_severity:
-        shape["severity"] = "SCALAR:String"
+    if include_data_quality_dimension:
+        shape["dataQualityDimension"] = "SCALAR:String"
     if include_priority:
         shape["priority"] = "SCALAR:String"
+    if include_severity_alias:
+        shape["severity"] = "SCALAR:String"
     return shape
 
 
-_COMPARISON_DESIRED_FIELDS = (
-    "comparisonType",
-    "operator",
-    "metric",
-    "customMetric",
-    "field",
-    "fields",
-    "threshold",
-    "upperThreshold",
-    "lowerThreshold",
+_COMPARISON_DESIRED_FIELDS = tuple(
+    child.name for child in COMPARISONS_FIELD.children or ()
 )
 
 
@@ -112,6 +114,14 @@ def _live_custom_metric_shape() -> Dict[str, str]:
     return {"uuid": "SCALAR:UUID", "metricName": "SCALAR:String"}
 
 
+def _live_warehouse_table_shape() -> Dict[str, str]:
+    return {
+        "mcon": "SCALAR:String",
+        "fullTableId": "SCALAR:String",
+        "warehouse": "OBJECT:Warehouse",
+    }
+
+
 def _full_nested_responses(
     **overrides: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
@@ -120,6 +130,8 @@ def _full_nested_responses(
     responses: Dict[str, Dict[str, Any]] = {
         "Comparison": _introspect_response(_live_comparison_shape()),
         "CustomMetric": _introspect_response(_live_custom_metric_shape()),
+        "WarehouseTable": _introspect_response(_live_warehouse_table_shape()),
+        "Warehouse": _introspect_response({"connectionType": "SCALAR:String"}),
     }
     responses.update(overrides)
     return responses
@@ -161,24 +173,20 @@ def test_parse_type_shape_unwraps_list_of_object() -> None:
     assert shape.fields["comparisons"].object_type_name == "Comparison"
 
 
-def test_builder_drops_removed_fields_from_query() -> None:
+def test_builder_current_gateway_selection() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(
-            Monitor=_introspect_response(
-                _live_monitor_shape(include_custom_sql=False, include_severity=False)
-            ),
+            Monitor=_introspect_response(_live_monitor_shape()),
         )
     )
     query = builder.monitors_query()
     assert "customSql" not in query
-    assert "severity" not in query
     assert "uuid" in query
     assert "entityMcons" in query
     assert "comparisons" in query
-    # The renamed replacement fields are present on the live schema and so are
-    # fetched even when customSql/severity were dropped.
     assert "whereCondition" in query
     assert "priority" in query
+    assert "dataQualityDimension" in query
 
 
 def test_builder_keeps_all_fields_when_no_drift() -> None:
@@ -188,47 +196,39 @@ def test_builder_keeps_all_fields_when_no_drift() -> None:
         )
     )
     query = builder.monitors_query()
-    assert "customSql" in query
-    assert "severity" in query
     assert "uuid" in query
     _assert_desired_comparison_tree(query)
 
 
-def test_drift_degraded_when_optional_fields_missing() -> None:
+def test_drift_proceed_on_current_gateway_shape() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(
-            Monitor=_introspect_response(
-                _live_monitor_shape(include_custom_sql=False, include_severity=False)
-            ),
+            Monitor=_introspect_response(_live_monitor_shape()),
         )
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
-    assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
-    assert "customSql" in drift.per_type["Monitor"].missing
-    assert "severity" in drift.per_type["Monitor"].missing
-    assert drift.per_type["Monitor"].critical_missing == []
-    assert drift.verdict == DriftVerdict.DEGRADED
+    for strict in (False, True):
+        drift = builder.check_drift(strict=strict, types=["Monitor"])
+        assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
+        assert drift.per_type["Monitor"].missing == []
+        assert drift.verdict == DriftVerdict.PROCEED
 
 
-def test_drift_abort_when_critical_field_missing() -> None:
-    shape = _live_monitor_shape()
-    del shape["uuid"]
+def test_drift_degraded_when_optional_fields_missing() -> None:
+    shape = _live_monitor_shape(include_description=False)
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
-    assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
-    assert "uuid" in drift.per_type["Monitor"].critical_missing
-    assert drift.verdict == DriftVerdict.ABORT
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
+    assert "description" in drift.per_type["Monitor"].missing
+    assert drift.per_type["Monitor"].critical_missing == []
+    assert drift.verdict == DriftVerdict.DEGRADED
 
 
 def test_drift_abort_when_strict_and_optional_missing() -> None:
+    shape = _live_monitor_shape(include_description=False)
     builder = _builder_with_introspection(
-        _full_nested_responses(
-            Monitor=_introspect_response(
-                _live_monitor_shape(include_custom_sql=False, include_severity=False)
-            ),
-        )
+        _full_nested_responses(Monitor=_introspect_response(shape))
     )
     drift = builder.check_drift(strict=True, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
@@ -248,12 +248,12 @@ def test_drift_proceed_when_no_drift() -> None:
 
 def test_drift_reports_new_uningested_fields() -> None:
     shape = _live_monitor_shape()
-    shape["customSqlRuleType"] = "SCALAR:String"
+    shape["monitorSqlBlocks"] = "SCALAR:String"
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
-    assert "customSqlRuleType" in drift.per_type["Monitor"].new_fields
+    assert "monitorSqlBlocks" in drift.per_type["Monitor"].new_fields
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
 
 
@@ -345,9 +345,7 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         type_name = variables.get("name", "")
         if type_name == "Monitor":
-            return _introspect_response(
-                _live_monitor_shape(include_custom_sql=False, include_severity=False)
-            )
+            return _introspect_response(_live_monitor_shape())
         if type_name == "Comparison":
             raise RuntimeError("transient blip on Comparison only")
         return {"mc_type": {"fields": []}}
@@ -359,17 +357,13 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
     assert "dataQualityDimension" in query
     assert "        comparisons" in query
     _assert_desired_comparison_tree(query)
-    # Parent Monitor was introspected successfully, so drifted fields stay
-    # dropped and the renamed replacements stay requested.
-    assert "customSql" not in query
-    assert "severity" not in query
     assert "whereCondition" in query
     assert "priority" in query
     assert "uuid" in query
-    # Failed nested introspection is not reported as drift.
     drift = builder.check_drift(strict=False, types=["Monitor"])
-    assert "comparisons" not in drift.per_type["Monitor"].missing
-    assert "customSql" in drift.per_type["Monitor"].missing
+    assert not any(
+        m.startswith("comparisons.") for m in drift.per_type["Monitor"].missing
+    )
 
 
 def test_custom_rule_keeps_comparisons_when_nested_introspection_fails() -> None:
@@ -431,7 +425,7 @@ def test_empty_comparison_drops_field_and_reports_nested_drift() -> None:
     assert "uuid" in query
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
-    assert "comparisons" in drift.per_type["Monitor"].missing
+    assert any(m.startswith("comparisons.") for m in drift.per_type["Monitor"].missing)
     assert drift.verdict == DriftVerdict.DEGRADED
 
 
@@ -453,7 +447,7 @@ def test_partial_comparison_reports_nested_drift() -> None:
     assert "metric" not in query
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
-    assert "comparisons" in drift.per_type["Monitor"].missing
+    assert "comparisons.metric" in drift.per_type["Monitor"].missing
 
 
 def test_builder_only_introspects_desired_nested_types() -> None:
@@ -496,6 +490,21 @@ def test_builder_propagates_fatal_introspection_errors() -> None:
         builder.monitors_query()
 
 
+def test_call_stub_after_construction_reaches_introspection() -> None:
+    client = MonteCarloClient(make_config(), page_size=100, report=None)
+    introspection_calls: List[str] = []
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "mcIntrospect" in query:
+            introspection_calls.append(query)
+            return {"mc_type": {"fields": []}}
+        raise AssertionError(f"unexpected query: {query[:80]!r}")
+
+    client._call = fake_call  # type: ignore[method-assign]
+    client.check_schema_drift(strict=False)
+    assert introspection_calls
+
+
 def test_static_query_builder_returns_verbatim_strings() -> None:
     builder = StaticQueryBuilder(
         monitors_query="MONITORS_STUB",
@@ -509,10 +518,9 @@ def test_static_query_builder_returns_verbatim_strings() -> None:
 
 
 def test_client_check_schema_drift_respects_config_flags() -> None:
-    client = MonteCarloClient.__new__(MonteCarloClient)
-    client.config = make_config(include_alerts=False)
-    client.page_size = 100
-    client.report = None
+    client = MonteCarloClient(
+        make_config(include_alerts=False), page_size=100, report=None
+    )
     builder = _builder_with_introspection(
         _full_nested_responses(
             Monitor=_introspect_response(_live_monitor_shape()),
@@ -544,10 +552,8 @@ def _build_source(cfg: MonteCarloSourceConfig) -> MonteCarloSource:
     source = MonteCarloSource.__new__(MonteCarloSource)
     source.config = cfg
     source.report = MonteCarloSourceReport()
-    source.client = MonteCarloClient.__new__(MonteCarloClient)
-    source.client.config = cfg
-    source.client.page_size = 100
-    source.client.report = source.report
+    source.client = MonteCarloClient(cfg, page_size=100, report=source.report)
+    source.client.set_query_builder(StaticQueryBuilder())
     source.client._client = None  # type: ignore[assignment]
 
     def _stub_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
@@ -579,49 +585,210 @@ def test_source_gate_aborts_on_critical_drift() -> None:
     del shape["uuid"]
     source.client.set_query_builder(
         _builder_with_introspection(
-            {
-                "Monitor": _introspect_response(shape),
-                "Comparison": _introspect_response(
+            _full_nested_responses(
+                Monitor=_introspect_response(shape),
+                Comparison=_introspect_response(
                     {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
                 ),
-                "CustomRule": _introspect_response(
+                CustomRule=_introspect_response(
                     {"uuid": "SCALAR:UUID", "entityMcons": "SCALAR:String"}
                 ),
-            }
+            )
         )
     )
-    wus = list(source.get_workunits_internal())
-    assert wus == []
+    list(source.get_workunits_internal())
+    assert source.report.monitors_scanned == 0
     assert len(source.report.failures) == 1
     assert "critical fields missing" in (source.report.failures[0].title or "")
+    assert "uuid" in (source.report.failures[0].title or "")
 
 
 def test_source_gate_proceeds_with_warning_on_degraded_drift() -> None:
     cfg = make_config(include_alerts=False)
     source = _build_source(cfg)
+    shape = _live_monitor_shape(include_description=False)
     source.client.set_query_builder(
         _builder_with_introspection(
-            {
-                "Monitor": _introspect_response(
-                    _live_monitor_shape(
-                        include_custom_sql=False, include_severity=False
-                    )
-                ),
-                "Comparison": _introspect_response(
+            _full_nested_responses(
+                Monitor=_introspect_response(shape),
+                Comparison=_introspect_response(
                     {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
                 ),
-                "CustomRule": _introspect_response(
+                CustomRule=_introspect_response(
                     {"uuid": "SCALAR:UUID", "entityMcons": "SCALAR:String"}
                 ),
-            }
+            )
         )
     )
     list(source.get_workunits_internal())
-    # Degraded drift → a warning naming the dropped fields, not a failure.
     assert len(source.report.failures) == 0
     assert source.report.warnings_count >= 1
     joined = " ".join(w.message for w in source.report.warnings)
-    assert "customSql" in joined and "severity" in joined
+    assert "description" in joined
+
+
+def test_drift_abort_when_strict_and_introspection_fails() -> None:
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        raise RuntimeError("transient introspection blip")
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    drift = builder.check_drift(strict=True, types=["Monitor"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
+    assert drift.per_type["Monitor"].introspection_failed
+
+
+def test_drift_type_absent_does_not_fake_critical_list() -> None:
+    builder = _builder_with_introspection({"Monitor": {"mc_type": None}})
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    td = drift.per_type["Monitor"]
+    assert td.verdict == DriftVerdict.ABORT
+    assert td.type_absent
+    assert td.critical_missing == []
+    title = drift_abort_title(td, strict=False)
+    assert "not found" in title
+    assert "uuid" not in title
+
+
+def test_degraded_message_includes_spec_impact() -> None:
+    shape = _live_monitor_shape(
+        include_where_condition=False, include_data_quality_dimension=False
+    )
+    builder = _builder_with_introspection(
+        _full_nested_responses(Monitor=_introspect_response(shape))
+    )
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    missing = drift.per_type["Monitor"].missing
+    assert "whereCondition" in missing
+    cfg = make_config(include_alerts=False)
+    source = _build_source(cfg)
+    source.client.set_query_builder(builder)
+    list(source.get_workunits_internal())
+    joined = " ".join(w.message for w in source.report.warnings)
+    assert "whereCondition (row filter on nativeParameters)" in joined
+
+
+def test_partial_comparison_drift_message_names_dotted_path() -> None:
+    builder = _builder_with_introspection(
+        _full_nested_responses(
+            Monitor=_introspect_response(_live_monitor_shape()),
+            Comparison=_introspect_response(
+                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
+            ),
+        )
+    )
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert "comparisons.customMetric" in drift.per_type["Monitor"].missing
+    cfg = make_config(include_alerts=False, strict_schema_drift=False)
+    source = _build_source(cfg)
+    source.client.set_query_builder(builder)
+    list(source.get_workunits_internal())
+    joined = " ".join(w.message for w in source.report.warnings)
+    assert "comparisons.customMetric" in joined
+
+
+def test_alert_schema_abort_still_runs_monitor_phase() -> None:
+    cfg = make_config(include_alerts=True, include_assertions=True)
+    source = _build_source(cfg)
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "Monitor":
+            return _introspect_response(_live_monitor_shape())
+        if type_name == "Comparison":
+            return _introspect_response(_live_comparison_shape())
+        if type_name == "CustomRule":
+            return _introspect_response(
+                {
+                    "uuid": "SCALAR:UUID",
+                    "ruleName": "SCALAR:String",
+                    "ruleType": "SCALAR:String",
+                    "customSql": "SCALAR:String",
+                    "entityMcons": "SCALAR:String",
+                    "priority": "SCALAR:String",
+                    "comparisons": "OBJECT:Comparison",
+                }
+            )
+        if type_name == "Alert":
+            alert_shape = {
+                "id": "SCALAR:UUID",
+                "createdTime": "SCALAR:DateTime",
+                "monitorUuids": "SCALAR:String",
+            }
+            del alert_shape["monitorUuids"]
+            return _introspect_response(alert_shape)
+        if type_name == "AlertAsset":
+            return _introspect_response({"mcon": "SCALAR:String"})
+        if type_name == "SchemaChange":
+            return _introspect_response(
+                {
+                    "mcon": "SCALAR:String",
+                    "startTime": "SCALAR:DateTime",
+                    "fieldsAdded": "SCALAR:String",
+                    "fieldsRemoved": "SCALAR:String",
+                    "fieldTypeChanges": "OBJECT:FieldTypeChange",
+                }
+            )
+        if type_name == "FieldTypeChange":
+            return _introspect_response(
+                {
+                    "fieldName": "SCALAR:String",
+                    "oldFieldType": "SCALAR:String",
+                    "newFieldType": "SCALAR:String",
+                }
+            )
+        if type_name == "WarehouseTable":
+            return _introspect_response(_live_warehouse_table_shape())
+        if type_name == "Warehouse":
+            return _introspect_response({"connectionType": "SCALAR:String"})
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "mon-1",
+                        "name": "m",
+                        "monitor_type": "METRIC",
+                        "entity_mcons": ["mcon:abc"],
+                    }
+                ]
+            }
+        if "getCustomRules" in query:
+            return {
+                "get_custom_rules": {
+                    "edges": [],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        if "getAlerts" in query:
+            return {
+                "get_alerts": {
+                    "edges": [],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        return {}
+
+    source.client.set_query_builder(
+        IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    )
+    source.client._call = fake_call  # type: ignore[method-assign]
+    list(source.get_workunits_internal())
+    assert any(
+        "no alerts were ingested because of schema drift" in (f.message or "").lower()
+        for f in source.report.failures
+    )
+    assert source.report.monitors_scanned == 1
+    assert source.report.alerts_scanned == 0
+
+
+def test_strict_without_critical_miss_title_not_critical_fields() -> None:
+    shape = _live_monitor_shape(include_description=False)
+    builder = _builder_with_introspection(
+        _full_nested_responses(Monitor=_introspect_response(shape))
+    )
+    drift = builder.check_drift(strict=True, types=["Monitor"])
+    title = drift_abort_title(drift.per_type["Monitor"], strict=True)
+    assert "strict mode" in title
+    assert "critical fields missing" not in title
 
 
 # --- Renamed-field fallback mapping (customSql->whereCondition, severity->priority) ---
@@ -639,18 +806,17 @@ def _definition(**kwargs: Any) -> "mc_assertion.MonteCarloAssertionDef":
     return MonteCarloAssertionDef(**base)
 
 
-def test_native_parameters_severity_falls_back_to_priority() -> None:
-    # severity removed from the live schema -> priority carries the value.
-    definition = _definition(severity=None, priority="HIGH")
+def test_native_parameters_maps_priority_to_severity_key() -> None:
+    definition = _definition(priority="HIGH")
     params = mc_assertion._native_parameters(definition)
     assert params["severity"] == "HIGH"
 
 
-def test_native_parameters_severity_preferred_over_priority() -> None:
-    # On a gateway that still exposes severity, it wins.
-    definition = _definition(severity="CRITICAL", priority="HIGH")
-    params = mc_assertion._native_parameters(definition)
-    assert params["severity"] == "CRITICAL"
+def test_spec_value_reads_severity_alias_as_priority() -> None:
+    raw: dict[str, object] = {"severity": "CRITICAL"}
+    assert (
+        spec_value(raw, FieldSpec(name="priority", aliases=("severity",))) == "CRITICAL"
+    )
 
 
 def test_native_parameters_includes_where_condition() -> None:
@@ -671,11 +837,11 @@ def test_native_parameters_omits_where_condition_when_absent() -> None:
 
 
 def test_custom_assertion_logic_omits_where_condition() -> None:
-    # whereCondition is a row-filter WHERE clause on metric/comparison
-    # monitors, NOT the monitor's SQL body. It must not be folded into logic
-    # (rendering a filter predicate as if it were the monitor SQL). With
-    # customSql removed from the Monitor type, the SQL is unrecoverable and
-    # logic stays None. The filter is preserved on nativeParameters instead.
+    # Row-level filters scope the table, not the executable statement behind
+    # an alert. When GraphQL no longer exposes recoverable runnable text,
+    # the builder must not promote the filter into the assertion's primary
+    # text slot; it keeps the filter on the sidecar map and leaves that slot
+    # empty.
     definition = _definition(
         custom_sql=None, where_condition="amount > 100", monitor_type="CUSTOM_SQL"
     )
@@ -701,3 +867,373 @@ def test_custom_assertion_logic_uses_custom_sql_when_present() -> None:
         definition=definition,
     )
     assert info.logic == "SELECT 1"
+
+
+def _shape_from_field_names(field_names: Dict[str, str]) -> _TypeShape:
+    return _parse_type_shape(_introspect_response(field_names))
+
+
+def test_drift_proceed_when_only_severity_alias_present() -> None:
+    shape = _live_monitor_shape(include_priority=False, include_severity_alias=True)
+    builder = _builder_with_introspection(
+        _full_nested_responses(Monitor=_introspect_response(shape))
+    )
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
+    query = builder.monitors_query()
+    assert "severity" in query
+    assert "priority" not in query
+
+
+@pytest.mark.parametrize(
+    ("type_name", "field_to_drop", "critical_path"),
+    [
+        ("Monitor", "uuid", "uuid"),
+        ("Monitor", "entityMcons", "entityMcons"),
+        ("CustomRule", "uuid", "uuid"),
+        ("CustomRule", "entityMcons", "entityMcons"),
+        ("Alert", "id", "id"),
+        ("Alert", "monitorUuids", "monitorUuids"),
+        ("Alert", "createdTime", "createdTime"),
+    ],
+)
+def test_drift_abort_when_critical_field_missing(
+    type_name: str, field_to_drop: str, critical_path: str
+) -> None:
+    if type_name == "Monitor":
+        shape = _live_monitor_shape()
+    elif type_name == "CustomRule":
+        shape = {
+            "uuid": "SCALAR:UUID",
+            "ruleName": "SCALAR:String",
+            "ruleType": "SCALAR:String",
+            "description": "SCALAR:String",
+            "customSql": "SCALAR:String",
+            "entityMcons": "SCALAR:String",
+            "priority": "SCALAR:String",
+            "comparisons": "OBJECT:Comparison",
+        }
+    else:
+        shape = {
+            "id": "SCALAR:UUID",
+            "type": "SCALAR:String",
+            "subTypes": "SCALAR:String",
+            "severity": "SCALAR:String",
+            "priority": "SCALAR:String",
+            "status": "SCALAR:String",
+            "createdTime": "SCALAR:DateTime",
+            "title": "SCALAR:String",
+            "monitorUuids": "SCALAR:String",
+            "assets": "OBJECT:AlertAsset",
+        }
+    del shape[field_to_drop]
+    responses = _full_nested_responses(**{type_name: _introspect_response(shape)})
+    if type_name == "Alert":
+        responses["AlertAsset"] = _introspect_response({"mcon": "SCALAR:String"})
+    builder = _builder_with_introspection(responses)
+    drift = builder.check_drift(strict=False, types=[type_name])
+    assert drift.per_type[type_name].verdict == DriftVerdict.ABORT
+    assert critical_path in drift.per_type[type_name].critical_missing
+
+
+def test_monitor_fallback_includes_data_quality_dimension() -> None:
+    from datahub.ingestion.source.montecarlo.query_builder import (
+        monitors_fallback_query,
+    )
+
+    query = monitors_fallback_query()
+    assert "dataQualityDimension" in query
+
+
+def _iter_in_fallback_graphql_names(fields: tuple) -> list:
+    names: list = []
+    for spec in fields:
+        if not spec.in_fallback:
+            continue
+        if spec.children:
+            names.append(spec.name)
+            names.extend(_iter_in_fallback_graphql_names(spec.children))
+        else:
+            names.append(spec.name)
+    return names
+
+
+def test_field_spec_consistency_with_selections() -> None:
+    nested_shapes = {
+        "Comparison": _shape_from_field_names(_live_comparison_shape()),
+        "CustomMetric": _shape_from_field_names(_live_custom_metric_shape()),
+        "AlertAsset": _shape_from_field_names({"mcon": "SCALAR:String"}),
+    }
+    for type_spec in TYPE_SPECS.values():
+        fallback = fallback_selection_for_type(type_spec, "")
+        for name in _iter_in_fallback_graphql_names(type_spec.fields):
+            assert name in fallback, (
+                f"{name} missing from {type_spec.type_name} fallback"
+            )
+
+        if type_spec.type_name.value == "Monitor":
+            live = _shape_from_field_names(_live_monitor_shape())
+        elif type_spec.type_name.value == "CustomRule":
+            live = _shape_from_field_names(
+                {
+                    "uuid": "SCALAR:UUID",
+                    "ruleName": "SCALAR:String",
+                    "ruleType": "SCALAR:String",
+                    "description": "SCALAR:String",
+                    "customSql": "SCALAR:String",
+                    "entityMcons": "SCALAR:String",
+                    "priority": "SCALAR:String",
+                    "comparisons": "OBJECT:Comparison",
+                }
+            )
+        else:
+            live = _shape_from_field_names(
+                {
+                    "id": "SCALAR:UUID",
+                    "type": "SCALAR:String",
+                    "subTypes": "SCALAR:String",
+                    "severity": "SCALAR:String",
+                    "priority": "SCALAR:String",
+                    "status": "SCALAR:String",
+                    "createdTime": "SCALAR:DateTime",
+                    "title": "SCALAR:String",
+                    "monitorUuids": "SCALAR:String",
+                    "assets": "OBJECT:AlertAsset",
+                }
+            )
+        dynamic = dynamic_selection_for_shape(type_spec, live, nested_shapes, indent="")
+        for spec in type_spec.fields:
+            if spec.children:
+                continue
+            for gql_name in (spec.name, *spec.aliases):
+                if gql_name in live.fields:
+                    assert gql_name in dynamic or (
+                        spec.name in dynamic or gql_name in dynamic
+                    )
+                    break
+
+    monitor_leaves = {
+        "uuid",
+        "name",
+        "description",
+        "monitorType",
+        "whereCondition",
+        "entityMcons",
+        "resourceId",
+        "priority",
+        "dataQualityDimension",
+    }
+    spec_leaves = {
+        spec.name for _, spec in iter_leaf_field_specs(MONITOR_TYPE_SPEC.fields)
+    }
+    assert monitor_leaves <= spec_leaves
+    rule_leaves = {
+        "uuid",
+        "ruleName",
+        "ruleType",
+        "description",
+        "customSql",
+        "entityMcons",
+        "priority",
+    }
+    spec_rule_leaves = {
+        spec.name for _, spec in iter_leaf_field_specs(CUSTOM_RULE_TYPE_SPEC.fields)
+    }
+    assert rule_leaves <= spec_rule_leaves
+    alert_leaves = {
+        "id",
+        "type",
+        "subTypes",
+        "severity",
+        "priority",
+        "status",
+        "createdTime",
+        "title",
+        "monitorUuids",
+        "mcon",
+    }
+    spec_alert_leaves = {
+        spec.name.split(".")[-1]
+        for path, spec in iter_leaf_field_specs(ALERT_TYPE_SPEC.fields)
+    }
+    assert alert_leaves <= spec_alert_leaves
+
+
+def _live_table_monitor_shape() -> Dict[str, str]:
+    return {
+        "warehouseUuid": "SCALAR:UUID",
+        "assetSelection": "OBJECT:AssetSelection",
+    }
+
+
+def _live_asset_selection_shape() -> Dict[str, str]:
+    return {
+        "filtersJoiner": "SCALAR:String",
+        "exclusionsJoiner": "SCALAR:String",
+        "databases": "OBJECT:AssetSelectionDatabase",
+        "filters": "OBJECT:AssetFilterInterface",
+        "exclusions": "OBJECT:AssetFilterInterface",
+    }
+
+
+def _live_asset_filter_shape() -> Dict[str, str]:
+    return {
+        "type": "SCALAR:String",
+        "negated": "SCALAR:Boolean",
+        "fullTableId": "SCALAR:String",
+    }
+
+
+def test_check_schema_drift_skips_run_event_types_without_lookback() -> None:
+    introspect_calls: List[str] = []
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "mcIntrospect" in query:
+            introspect_calls.append(variables.get("name", ""))
+            return {"mc_type": {"fields": []}}
+        return {}
+
+    client = MonteCarloClient(
+        make_config(include_alerts=False), page_size=100, report=None
+    )
+    client.set_query_builder(
+        IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    )
+    client.check_schema_drift(strict=False)
+    assert "JobExecutionHistoryLog" not in introspect_calls
+    assert "Metric" not in introspect_calls
+
+
+def test_warehouse_table_critical_miss_aborts_monitor_phase() -> None:
+    shape = _live_warehouse_table_shape()
+    del shape["fullTableId"]
+    cfg = make_config(include_alerts=False)
+    source = _build_source(cfg)
+    source.client.set_query_builder(
+        _builder_with_introspection(
+            {
+                "Monitor": _introspect_response(_live_monitor_shape()),
+                "Comparison": _introspect_response(_live_comparison_shape()),
+                "CustomRule": _introspect_response(
+                    {
+                        "uuid": "SCALAR:UUID",
+                        "entityMcons": "SCALAR:String",
+                        "comparisons": "OBJECT:Comparison",
+                    }
+                ),
+                "WarehouseTable": _introspect_response(shape),
+            }
+        )
+    )
+    list(source.get_workunits_internal())
+    assert source.report.monitors_scanned == 0
+    assert any(
+        "critical fields missing" in (f.title or "")
+        and "fullTableId" in (f.title or "")
+        for f in source.report.failures
+    )
+
+
+def test_schema_change_critical_miss_disables_join_with_one_warning() -> None:
+    shape = {
+        "mcon": "SCALAR:String",
+        "startTime": "SCALAR:DateTime",
+        "fieldsAdded": "SCALAR:String",
+        "fieldsRemoved": "SCALAR:String",
+        "fieldTypeChanges": "OBJECT:FieldTypeChange",
+    }
+    del shape["startTime"]
+    cfg = make_config(include_alerts=True, include_assertions=True)
+    source = _build_source(cfg)
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "Monitor":
+            return _introspect_response(_live_monitor_shape())
+        if type_name == "Comparison":
+            return _introspect_response(_live_comparison_shape())
+        if type_name == "CustomRule":
+            return _introspect_response(
+                {"uuid": "SCALAR:UUID", "entityMcons": "SCALAR:String"}
+            )
+        if type_name == "Alert":
+            return _introspect_response(
+                {
+                    "id": "SCALAR:UUID",
+                    "createdTime": "SCALAR:DateTime",
+                    "monitorUuids": "SCALAR:String",
+                    "assets": "OBJECT:AlertAsset",
+                }
+            )
+        if type_name == "AlertAsset":
+            return _introspect_response({"mcon": "SCALAR:String"})
+        if type_name == "SchemaChange":
+            return _introspect_response(shape)
+        if type_name == "WarehouseTable":
+            return _introspect_response(_live_warehouse_table_shape())
+        if type_name == "Warehouse":
+            return _introspect_response({"connectionType": "SCALAR:String"})
+        if "getAlerts" in query:
+            return {
+                "get_alerts": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "alert-1",
+                                "type": "SCHEMA_CHANGES",
+                                "created_time": "2024-01-01T00:00:00Z",
+                                "monitor_uuids": ["mon-1"],
+                                "assets": [{"mcon": "mcon:abc"}],
+                            }
+                        }
+                    ],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        if "getSchemaChanges" in query:
+            raise AssertionError("join should be disabled")
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    source.client.set_query_builder(builder)
+    source.client._call = fake_call  # type: ignore[method-assign]
+    list(source.get_workunits_internal())
+    join_warnings = [
+        w
+        for w in source.report.warnings
+        if "Schema-change catalog join disabled" in (w.title or "")
+    ]
+    assert len(join_warnings) == 1
+
+
+def test_table_scope_drift_locks_table_monitor_resolution() -> None:
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    table_monitor_shape = _live_table_monitor_shape()
+    del table_monitor_shape["warehouseUuid"]
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "TableMonitor":
+            return _introspect_response(table_monitor_shape)
+        if type_name == "AssetSelection":
+            return _introspect_response(_live_asset_selection_shape())
+        if type_name == "AssetSelectionResult":
+            return _introspect_response(
+                {"selected": "SCALAR:Boolean", "mcon": "SCALAR:String"}
+            )
+        if type_name == "AssetFilterInterface":
+            return _introspect_response(_live_asset_filter_shape())
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {"warehouse_uuid": "wh", "asset_selection": {}}
+            }
+        raise AssertionError(f"unexpected: {query[:60]!r}")
+
+    client.set_query_builder(
+        IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    )
+    client._call = fake_call  # type: ignore[method-assign]
+    mcons = client._resolve_table_monitor_entity_mcons("mon-tbl", None)
+    assert mcons == []
+    assert report.build_failures == 1
