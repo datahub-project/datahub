@@ -431,7 +431,7 @@ class BigQuerySchemaApi:
         logger.debug(
             "BigQuery job %s completed; results are ready to download (%s rows)",
             resp.job_id,
-            getattr(rows, "total_rows", None),
+            getattr(rows, "total_rows", None) or "unknown",
         )
         return _iter_bigquery_results(rows, resp.job_id)
 
