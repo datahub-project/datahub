@@ -146,6 +146,10 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class IcebergSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Iceberg tables via pyiceberg library.
