@@ -430,6 +430,29 @@ entityService:
     applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
   syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
+  semanticNoOp:
+    # upstreamLineage versions at most once a day. assertionInfo, assertionsSummary,
+    # datasetProperties, and dataJobInfo version at most once an hour when the only differences are
+    # the configured timestamps or the order of lineage edges. assertionsSummary is skipped until
+    # that aspect is in the registry.
+    enabled: ${ENTITY_SERVICE_SEMANTIC_NO_OP_ENABLED:true}
+    # A placeholder default cannot hold this JSON: the first } would end it. The env var replaces
+    # the whole list; [] compares strictly.
+    rulesJson: ${ENTITY_SERVICE_SEMANTIC_NO_OP_RULES_JSON:${entityService.semanticNoOp.defaultRulesJson}}
+    defaultRulesJson: >-
+      [{"aspect":"upstreamLineage","path":"/upstreams","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/upstreams/*/auditStamp/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000},
+      {"aspect":"upstreamLineage","path":"/upstreams/*/created/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":86400000},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages/*/upstreams","strategy":"UNORDERED"},
+      {"aspect":"upstreamLineage","path":"/fineGrainedLineages/*/downstreams","strategy":"UNORDERED"},
+      {"aspect":"assertionInfo","path":"/source/created/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"assertionInfo","path":"/lastUpdated/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"assertionsSummary","path":"/lastAssertionResultAt","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"assertionsSummary","path":"/passingAssertionDetails/*/lastResultAt","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"assertionsSummary","path":"/failingAssertionDetails/*/lastResultAt","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"datasetProperties","path":"/lastModified/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000},
+      {"aspect":"dataJobInfo","path":"/lastModified/time","strategy":"TIMESTAMP_WINDOW","maxDeltaMs":3600000}]
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -2234,6 +2257,8 @@ metadataChangeProposal:
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     aspectAuthorization:
+      corpUserCredentials:
+        enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
       domainWrite:
         enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
       privilegeGrant:
