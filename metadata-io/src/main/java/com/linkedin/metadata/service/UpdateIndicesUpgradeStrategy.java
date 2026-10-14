@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
  * alias to the next index, live writes are also applied to the OLD backing index so the alias can
  * be swapped back to it if the release is rolled back.
  *
- * <p>Targets come from {@link RollbackDualWriteTargets}, keyed by the V2 alias, so an event
+ * <p>Targets come from {@link IncrementalReindexWriteTargets}, keyed by the V2 alias, so an event
  * resolves its target from the index its entity writes to. V3 indices take full documents with
  * external versions and are dual-written by {@link UpdateIndicesV3Strategy} from the same targets;
  * a V2 alias never resolves to a V3 target, so nothing here needs to tell the generations apart.
@@ -40,20 +40,20 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
-  private final RollbackDualWriteTargets rollbackDualWriteTargets;
+  private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
 
   public UpdateIndicesUpgradeStrategy(
       @Nonnull final ElasticSearchService elasticSearchService,
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull final RollbackDualWriteTargets rollbackDualWriteTargets) {
+      @Nonnull final IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.rollbackDualWriteTargets = rollbackDualWriteTargets;
+    this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
   }
 
   @Override
   public boolean isEnabled() {
-    return rollbackDualWriteTargets.hasTargets(EntityIndexVersion.V2);
+    return incrementalReindexWriteTargets.hasRollbackTargets(EntityIndexVersion.V2);
   }
 
   @Override
@@ -80,7 +80,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processUpdateEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     final String indexName = v2IndexName(opContext, event);
-    final Optional<String> oldIndex = rollbackDualWriteTargets.oldBackingIndexFor(indexName);
+    final Optional<String> oldIndex = incrementalReindexWriteTargets.oldBackingIndexFor(indexName);
     if (oldIndex.isEmpty()) {
       return;
     }
@@ -105,7 +105,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
       elasticSearchService.upsertDocumentByIndexName(opContext, oldIndex.get(), document, docId);
 
-      rollbackDualWriteTargets.recordDualWriteStarted(indexName);
+      incrementalReindexWriteTargets.recordDualWriteStarted(indexName);
 
       log.debug(
           "Rollback dual-write: upserted doc to '{}' for index '{}', urn '{}'",
@@ -125,7 +125,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processDeleteEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     final String indexName = v2IndexName(opContext, event);
-    final Optional<String> oldIndex = rollbackDualWriteTargets.oldBackingIndexFor(indexName);
+    final Optional<String> oldIndex = incrementalReindexWriteTargets.oldBackingIndexFor(indexName);
     if (oldIndex.isEmpty()) {
       return;
     }

@@ -1920,7 +1920,78 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Points {@code aliasName} at {@code newBackingIndex}, leaving the index it pointed at in place.
+   * Copies the concrete index named by {@code indexState} into {@code retainedIndexName}, a
+   * physical index of its family, before an alias takes its name. A V3 index created before indices
+   * were aliased owns the convention name itself; the swap that gives that name to the alias has to
+   * delete the index, so the copy is what the alias can be swapped back to and what rollback
+   * dual-write keeps current. The copy takes the index's current mappings, so an index built under
+   * an earlier document-id scheme stays recognisable as such, and the configured settings. Writes
+   * that land on the index while the copy runs are not in it: catch-up replays them into the next
+   * index, and only rollback fidelity is affected.
+   */
+  public void retainIndexForRollback(
+      @Nonnull OperationContext opContext,
+      @Nonnull ReindexConfig indexState,
+      @Nonnull String retainedIndexName)
+      throws Exception {
+    String indexName = indexState.name();
+    @SuppressWarnings("unchecked")
+    Map<String, Object> configuredSettings =
+        (Map<String, Object>) indexState.targetSettings().get("index");
+    ReindexConfig retained =
+        buildReindexState(
+            opContext,
+            retainedIndexName,
+            getCurrentMappings(opContext, indexName),
+            configuredSettings);
+    createIndex(opContext, retainedIndexName, retained);
+    try {
+      long sourceDocCount = getSourceDocCount(opContext, indexName);
+      if (sourceDocCount == 0) {
+        log.info("Retained {} as {}: nothing to copy", indexName, retainedIndexName);
+        return;
+      }
+      int targetShards = extractTargetShards(retained);
+      Map<String, Object> reindexInfo =
+          submitReindex(
+              opContext,
+              new String[] {indexName},
+              retainedIndexName,
+              getReindexBatchSize(),
+              null,
+              null,
+              targetShards);
+      PollReindexResult poll =
+          pollReindexCompletion(
+              opContext,
+              indexName,
+              retainedIndexName,
+              () -> sourceDocCount,
+              targetShards,
+              reindexInfo,
+              (String) reindexInfo.get("taskId"));
+      if (!poll.completed()) {
+        throw new IllegalStateException(
+            "Copy of " + indexName + " into " + retainedIndexName + " did not complete");
+      }
+      undoReindexOptimalSettings(opContext, retainedIndexName, retained, poll.latestReindexInfo());
+      log.info(
+          "Retained {} as {} ({} documents) for rollback",
+          indexName,
+          retainedIndexName,
+          sourceDocCount);
+    } catch (Exception e) {
+      throw e;
+    } catch (Throwable t) {
+      throw new IllegalStateException(
+          "Copy of " + indexName + " into " + retainedIndexName + " failed", t);
+    }
+  }
+
+  /**
+   * Points {@code aliasName} at {@code newBackingIndex}. An index the alias pointed at is left in
+   * place. A concrete index that owns {@code aliasName} itself is removed, since the alias needs
+   * its name; a caller that must keep it retains a copy first, see {@link #retainIndexForRollback}.
    * Carries no document-count check; see {@link #validateAndSwapAlias} for when one is needed.
    */
   public void swapAlias(

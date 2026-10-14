@@ -42,8 +42,8 @@ import lombok.extern.slf4j.Slf4j;
  * write. Rows for one entity are contiguous in key order, so a page that fills its limit mid-entity
  * fetches the rest of that entity; every entity a page emits is whole. When the stream carries no
  * aspect or time filter, those events are stamped {@link
- * BackfillHeaders#COMPLETE_ENTITY_HEADER_NAME} so the writer can treat the batch as the entity's
- * stored state.
+ * BackfillHeaders#COMPLETE_ENTITY_HEADER_NAME} so a writer that replaces whole documents can take
+ * the batch as the entity's stored state.
  */
 @Slf4j
 public class AspectIndexLoader {

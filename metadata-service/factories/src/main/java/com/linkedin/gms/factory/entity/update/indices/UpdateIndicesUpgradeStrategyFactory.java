@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity.update.indices;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
@@ -10,7 +11,7 @@ import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.service.RollbackDualWriteTargets;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUpgradeStrategy;
 import com.linkedin.metadata.version.GitVersion;
@@ -39,17 +40,19 @@ public class UpdateIndicesUpgradeStrategyFactory {
    *
    * <p>One target set is shared by the V2 rollback strategy and the V3 update strategy, so both
    * generations stop dual-writing to an index at the same moment Phase 2 disables it.
+   *
+   * <p>The bean exists whether or not rollback dual-write is enabled: a live delete is mirrored
+   * into the index a rebuild is filling regardless, and the flag only decides whether rollback
+   * targets are loaded.
    */
-  @Bean("rollbackDualWriteTargets")
-  @ConditionalOnProperty(
-      name = "elasticsearch.buildIndices.rollbackDualWriteEnabled",
-      havingValue = "true")
+  @Bean("incrementalReindexWriteTargets")
   @Nonnull
-  protected RollbackDualWriteTargets createRollbackDualWriteTargets(
+  protected IncrementalReindexWriteTargets createIncrementalReindexWriteTargets(
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
-      @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
+      @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision,
+      final ConfigurationProvider configProvider) {
 
     final DataHubUpgradeResultStore upgradeResultStore =
         new EntityClientUpgradeResultStore(systemEntityClient);
@@ -59,11 +62,13 @@ public class UpdateIndicesUpgradeStrategyFactory {
         BootstrapStep.getUpgradeUrn(
             IncrementalReindexState.UPGRADE_ID_PREFIX + "_" + upgradeVersion);
 
-    return RollbackDualWriteTargets.fromUpgradeResult(
-        new RollbackDualWriteTargets.StateSource(systemOpContext, upgradeResultStore, upgradeIdUrn),
+    return IncrementalReindexWriteTargets.fromUpgradeResult(
+        new IncrementalReindexWriteTargets.StateSource(
+            systemOpContext, upgradeResultStore, upgradeIdUrn),
         (indexName, startTimeMillis) ->
             persistDualWriteStartTime(
-                upgradeResultStore, systemOpContext, upgradeIdUrn, indexName, startTimeMillis));
+                upgradeResultStore, systemOpContext, upgradeIdUrn, indexName, startTimeMillis),
+        configProvider.getElasticSearch().getBuildIndices().isRollbackDualWriteEnabled());
   }
 
   @Bean("updateIndicesUpgradeStrategy")
@@ -74,9 +79,10 @@ public class UpdateIndicesUpgradeStrategyFactory {
   protected UpdateIndicesStrategy createUpdateIndicesUpgradeStrategy(
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
-      @Qualifier("rollbackDualWriteTargets") RollbackDualWriteTargets rollbackDualWriteTargets) {
+      @Qualifier("incrementalReindexWriteTargets")
+          IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
     return new UpdateIndicesUpgradeStrategy(
-        elasticSearchService, searchDocumentTransformer, rollbackDualWriteTargets);
+        elasticSearchService, searchDocumentTransformer, incrementalReindexWriteTargets);
   }
 
   private void persistDualWriteStartTime(

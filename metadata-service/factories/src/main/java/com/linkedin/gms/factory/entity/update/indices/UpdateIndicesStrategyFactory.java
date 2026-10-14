@@ -12,7 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.service.RollbackDualWriteTargets;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
@@ -118,8 +118,8 @@ public class UpdateIndicesStrategyFactory {
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
-      @Qualifier("rollbackDualWriteTargets") @Nullable
-          RollbackDualWriteTargets rollbackDualWriteTargets) {
+      @Qualifier("incrementalReindexWriteTargets") @Nullable
+          IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
@@ -136,7 +136,7 @@ public class UpdateIndicesStrategyFactory {
         .v2Enabled(v2Enabled)
         .semanticSearchConfiguration(
             configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
-        .rollbackDualWriteTargets(rollbackDualWriteTargets)
+        .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
         .build();
   }
 }

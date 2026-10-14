@@ -944,7 +944,7 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testFilledIndexFromAnotherIdSchemeIsRebuiltIntoANextIndex() throws Throwable {
-    // Unstamped live mapping: every existing fork V3 index predates the stamp.
+    // Unstamped live mapping: a V3 index created before the stamp existed.
     ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, true);
     when(v3Config.currentMappings()).thenReturn(Map.of("properties", Map.of()));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
@@ -975,10 +975,14 @@ public class BuildIndicesIncrementalStepTest {
         IncrementalReindexState.get(
             state, V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
         Optional.of("primaryindex_v3_old"));
+    assertTrue(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
+        "the old index's ids are not the running hasher's: no live write may be mirrored into it");
   }
 
   @Test
   public void testEmptyCurrentSchemeFilledIndexIsFilledInPlace() throws Throwable {
+    // Current scheme, no documents, nothing to apply: the one case filled where it stands.
     ReindexConfig v3Config = currentSchemeV3Config(false);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
     when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
@@ -1013,6 +1017,71 @@ public class BuildIndicesIncrementalStepTest {
         .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
     verify(indexBuilder, never())
         .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+  }
+
+  @Test
+  public void testEmptyIndexWithMappingChangeIsRebuiltIntoANextIndex() throws Throwable {
+    // Empty is the steady state of an entity type nobody has ingested. Filled where it stands, the
+    // index would receive documents under a mapping Phase 1 still has to change, and the in-place
+    // apply pass never reaches an index with a fill row.
+    ReindexConfig v3Config = currentSchemeV3Config(true);
+    when(v3Config.requiresApplyMappings()).thenReturn(true);
+
+    assertEmptyIndexIsRebuiltIntoANextIndex(v3Config);
+  }
+
+  @Test
+  public void testEmptyIndexWithAdditiveMappingChangeIsRebuiltIntoANextIndex() throws Throwable {
+    ReindexConfig v3Config = currentSchemeV3Config(false);
+    when(v3Config.requiresApplyMappings()).thenReturn(true);
+    when(v3Config.isPureMappingsAddition()).thenReturn(true);
+
+    assertEmptyIndexIsRebuiltIntoANextIndex(v3Config);
+  }
+
+  @Test
+  public void testEmptyIndexWithSettingsChangeIsRebuiltIntoANextIndex() throws Throwable {
+    ReindexConfig v3Config = currentSchemeV3Config(false);
+    when(v3Config.requiresApplySettings()).thenReturn(true);
+
+    assertEmptyIndexIsRebuiltIntoANextIndex(v3Config);
+  }
+
+  private void assertEmptyIndexIsRebuiltIntoANextIndex(ReindexConfig v3Config) throws Throwable {
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
+        .thenReturn(Set.of("primaryindex_v3_old"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<String> next = ArgumentCaptor.forClass(String.class);
+    verify(indexBuilder).createIndex(any(OperationContext.class), next.capture(), eq(v3Config));
+    assertTrue(next.getValue().startsWith(V3_INDEX_NAME + "_"));
+    // Neither the empty-source _reindex swap, which would complete the row with no fill, nor an
+    // in-place apply touches the live index.
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), eq(v3Config));
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
+        Optional.of(next.getValue()));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of("primaryindex_v3_old"));
+    assertFalse(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
+        "the old index's ids are current, so rollback writes may reach it");
   }
 
   @Test

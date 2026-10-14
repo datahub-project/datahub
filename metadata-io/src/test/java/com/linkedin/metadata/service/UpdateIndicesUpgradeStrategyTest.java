@@ -86,14 +86,16 @@ public class UpdateIndicesUpgradeStrategyTest {
     assertFalse(strategy(targets(Map.of())).isEnabled());
     assertTrue(strategy(targets(Map.of(DATASET_INDEX, DATASET_OLD_BACKING))).isEnabled());
 
-    RollbackDualWriteTargets v3Only =
-        new RollbackDualWriteTargets(
+    IncrementalReindexWriteTargets v3Only =
+        new IncrementalReindexWriteTargets(
             Map.of(
                 "primaryindex_v3",
-                new RollbackDualWriteTargets.Target(
+                new IncrementalReindexWriteTargets.RollbackTarget(
                     "primaryindex_v3", "primaryindex_v3_1779165194703", EntityIndexVersion.V3)),
+            Map.of(),
             null,
-            null);
+            null,
+            true);
     assertFalse(strategy(v3Only).isEnabled());
   }
 
@@ -202,14 +204,16 @@ public class UpdateIndicesUpgradeStrategyTest {
   public void testDualWriteStartRecordedForTheAliasOnce() throws Exception {
     AtomicLong capturedTime = new AtomicLong(0);
     AtomicReference<String> capturedIndex = new AtomicReference<>();
-    RollbackDualWriteTargets targets =
-        new RollbackDualWriteTargets(
+    IncrementalReindexWriteTargets targets =
+        new IncrementalReindexWriteTargets(
             Map.of(DATASET_INDEX, v2Target(DATASET_INDEX, DATASET_OLD_BACKING)),
+            Map.of(),
             (indexName, startTime) -> {
               capturedIndex.set(indexName);
               capturedTime.set(startTime);
             },
-            null);
+            null,
+            true);
     UpdateIndicesUpgradeStrategy strategy = strategy(targets);
     ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
     searchDoc.put("urn", testUrn.toString());
@@ -239,20 +243,22 @@ public class UpdateIndicesUpgradeStrategyTest {
             any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
-  private UpdateIndicesUpgradeStrategy strategy(RollbackDualWriteTargets targets) {
+  private UpdateIndicesUpgradeStrategy strategy(IncrementalReindexWriteTargets targets) {
     return new UpdateIndicesUpgradeStrategy(
         elasticSearchService, searchDocumentTransformer, targets);
   }
 
-  private static RollbackDualWriteTargets targets(Map<String, String> oldBackingByAlias) {
-    Map<String, RollbackDualWriteTargets.Target> targets = new LinkedHashMap<>();
+  private static IncrementalReindexWriteTargets targets(Map<String, String> oldBackingByAlias) {
+    Map<String, IncrementalReindexWriteTargets.RollbackTarget> targets = new LinkedHashMap<>();
     oldBackingByAlias.forEach(
         (alias, oldBacking) -> targets.put(alias, v2Target(alias, oldBacking)));
-    return new RollbackDualWriteTargets(targets, null, null);
+    return new IncrementalReindexWriteTargets(targets, Map.of(), null, null, true);
   }
 
-  private static RollbackDualWriteTargets.Target v2Target(String alias, String oldBacking) {
-    return new RollbackDualWriteTargets.Target(alias, oldBacking, EntityIndexVersion.V2);
+  private static IncrementalReindexWriteTargets.RollbackTarget v2Target(
+      String alias, String oldBacking) {
+    return new IncrementalReindexWriteTargets.RollbackTarget(
+        alias, oldBacking, EntityIndexVersion.V2);
   }
 
   private static Map<Urn, List<MCLItem>> events(Urn urn, MCLItem event) {

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -61,6 +63,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
@@ -134,6 +137,9 @@ public class BackfillEntityIndicesStepTest {
     when(indexBuilder.resumedReindexMatchesTarget(
             any(OperationContext.class), any(ReindexConfig.class), anyString()))
         .thenReturn(true);
+    // The live name is an alias with a backing index unless a test says otherwise.
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), anyString()))
+        .thenReturn(Set.of(alias + "_backing"));
 
     when(loader.load(any(), any(), any(), any(), any())).thenAnswer(this::fakeLoad);
   }
@@ -327,6 +333,49 @@ public class BackfillEntityIndicesStepTest {
             .containsKey(
                 IncrementalReindexState.key(
                     alias, IncrementalReindexState.BACKFILL_COMPLETE_TIME)));
+  }
+
+  @Test
+  public void testRebuildOfAConcreteIndexRetainsItBeforeTheSwap() throws Exception {
+    // A V3 index created before indices were aliased owns the convention name; the swap must
+    // delete it to give the alias the name, so a copy is kept and recorded for rollback first.
+    String next = alias + "_0_14_0-0_1679000000000";
+    seedPhase1(IncrementalReindexState.setBackfillPending(null, alias, next, 1000L));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(alias)))
+        .thenReturn(Set.of());
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<String> retained = ArgumentCaptor.forClass(String.class);
+    InOrder inOrder = inOrder(indexBuilder);
+    inOrder
+        .verify(indexBuilder)
+        .retainIndexForRollback(eq(opContext), any(ReindexConfig.class), retained.capture());
+    inOrder.verify(indexBuilder).swapAlias(opContext, alias, next);
+    assertTrue(retained.getValue().startsWith(alias + "_"), "a physical index of the family");
+    assertNotEquals(retained.getValue(), next);
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.get(state, alias, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of(retained.getValue()));
+    assertEquals(
+        IncrementalReindexState.getStatus(state, alias),
+        Optional.of(IncrementalReindexState.Status.COMPLETED));
+  }
+
+  @Test
+  public void testRebuildOfAnAliasedIndexIsNotCopied() throws Exception {
+    // Phase 1 recorded the aliased index's old backing index; the swap leaves it in place.
+    String next = alias + "_0_14_0-0_1679000000000";
+    seedPhase1(IncrementalReindexState.setBackfillPending(null, alias, next, 1000L));
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never())
+        .retainIndexForRollback(any(OperationContext.class), any(ReindexConfig.class), anyString());
+    verify(indexBuilder).swapAlias(opContext, alias, next);
   }
 
   @Test

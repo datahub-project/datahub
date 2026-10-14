@@ -69,7 +69,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
-  @Nullable private final RollbackDualWriteTargets rollbackDualWriteTargets;
+  @Nullable private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
+  private final CatchUpBatchRebuilder catchUpBatchRebuilder = new CatchUpBatchRebuilder();
 
   /**
    * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
@@ -87,7 +88,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nullable List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled,
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
-      @Nullable RollbackDualWriteTargets rollbackDualWriteTargets) {
+      @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
@@ -101,7 +102,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
-    this.rollbackDualWriteTargets = rollbackDualWriteTargets;
+    this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -128,8 +129,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
 
+    Map<Urn, List<MCLItem>> batches = catchUpBatchRebuilder.rebuild(opContext, groupedEvents);
     // Process each group of events for the same URN
-    for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
+    for (Map.Entry<Urn, List<MCLItem>> entry : batches.entrySet()) {
       Urn urn = entry.getKey();
       List<MCLItem> urnEvents = entry.getValue();
 
@@ -324,6 +326,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           indexKey,
           oldBackingIndex ->
               elasticSearchService.deleteDocumentByIndexName(opContext, oldBackingIndex, docId));
+      if (fillTarget == null) {
+        mirrorIntoFillTarget(
+            opContext,
+            indexKey,
+            target -> elasticSearchService.deleteDocumentByIndexName(opContext, target, docId));
+      }
       return;
     }
 
@@ -392,6 +400,18 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       }
     }
 
+    // A removed aspect reaches the index a rebuild is filling the same way a removed entity does:
+    // the fill may already have written the aspect, and nothing replays its removal.
+    if (fillTarget == null
+        && events.stream().anyMatch(event -> event.getChangeType() == ChangeType.DELETE)) {
+      mirrorIntoFillTarget(
+          opContext,
+          indexKey,
+          target ->
+              elasticSearchService.upsertDocumentByIndexName(
+                  opContext, target, finalDocument, docId));
+    }
+
     rollbackCopy(
         opContext,
         indexKey,
@@ -414,21 +434,52 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull String indexKey,
       @Nonnull Consumer<String> write) {
-    if (rollbackDualWriteTargets == null) {
+    if (incrementalReindexWriteTargets == null) {
       return;
     }
     String alias =
         opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
-    rollbackDualWriteTargets
+    incrementalReindexWriteTargets
         .oldBackingIndexFor(alias)
         .ifPresent(
             oldBackingIndex -> {
               try {
                 write.accept(oldBackingIndex);
-                rollbackDualWriteTargets.recordDualWriteStarted(alias);
+                incrementalReindexWriteTargets.recordDualWriteStarted(alias);
               } catch (RuntimeException e) {
                 log.error(
                     "Rollback dual-write to '{}' failed for index '{}'", oldBackingIndex, alias, e);
+              }
+            });
+  }
+
+  /**
+   * Repeats a delete on the index a rebuild is filling for {@code indexKey}'s alias while that fill
+   * is in flight: the alias still serves the old index, and catch-up re-derives its window from
+   * primary storage, which holds nothing for a removed entity or aspect. The mirror never fails the
+   * live write.
+   */
+  private void mirrorIntoFillTarget(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexKey,
+      @Nonnull Consumer<String> write) {
+    if (incrementalReindexWriteTargets == null) {
+      return;
+    }
+    String alias =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
+    incrementalReindexWriteTargets
+        .fillTargetFor(alias)
+        .ifPresent(
+            target -> {
+              try {
+                write.accept(target);
+              } catch (RuntimeException e) {
+                log.error(
+                    "Mirroring a delete into fill target '{}' failed for index '{}'",
+                    target,
+                    alias,
+                    e);
               }
             });
   }
@@ -617,7 +668,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    *
    * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
    * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
-   * applied after their ingested base aspect, as the fork does when it rebuilds a document.
+   * applied after their ingested base aspect.
    */
   @Nonnull
   private static List<CoalescedAspectEvent> coalesceAspectEvents(@Nonnull List<MCLItem> events) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.Upgrade;
@@ -60,7 +61,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.service.RollbackDualWriteTargets;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -92,6 +93,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -176,6 +178,8 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   static final String SECONDARY_INDEX_PREFIX = "tenant";
   private static final int HTTP_PORT = 9200;
   private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(5);
+  private static final Duration CLIENT_CONNECT_TIMEOUT = Duration.ofSeconds(60);
+  private static final long CLIENT_CONNECT_RETRY_MILLIS = 500;
   private static final Duration SYNC_TIMEOUT = Duration.ofMinutes(1);
   private static final IndicesOptions LENIENT = IndicesOptions.fromOptions(true, true, true, false);
   private static final String URN_FIELD = "urn";
@@ -424,7 +428,8 @@ final class SearchV3MigrationHarness implements AutoCloseable {
     return new AspectIndexLoader(aspectDao, updateIndicesService);
   }
 
-  private UpdateIndicesStrategy v3Strategy(@Nullable RollbackDualWriteTargets rollbackTargets) {
+  private UpdateIndicesStrategy v3Strategy(
+      @Nullable IncrementalReindexWriteTargets rollbackTargets) {
     return UpdateIndicesV3Strategy.builder()
         .v3Config(config.getEntityIndex().getV3())
         .elasticSearchService(searchService)
@@ -433,7 +438,7 @@ final class SearchV3MigrationHarness implements AutoCloseable {
         .entityDocumentIdHasher(documentIdHasher)
         .documentContributors(List.of())
         .v2Enabled(v2Strategy != null)
-        .rollbackDualWriteTargets(rollbackTargets)
+        .incrementalReindexWriteTargets(rollbackTargets)
         .build();
   }
 
@@ -468,13 +473,14 @@ final class SearchV3MigrationHarness implements AutoCloseable {
    * it records, so the alias can be swapped back without losing what arrived since.
    */
   void restartDualWritingConsumers(@Nonnull String upgradeVersion) {
-    RollbackDualWriteTargets rollbackTargets =
-        RollbackDualWriteTargets.fromUpgradeResult(
-            new RollbackDualWriteTargets.StateSource(
+    IncrementalReindexWriteTargets rollbackTargets =
+        IncrementalReindexWriteTargets.fromUpgradeResult(
+            new IncrementalReindexWriteTargets.StateSource(
                 opContext,
                 upgradeResultStore(),
                 upgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX, upgradeVersion)),
-            null);
+            null,
+            true);
     producer.deliverTo(updateIndices(enabledStrategies(v3Strategy(rollbackTargets))));
   }
 
@@ -559,7 +565,9 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   /**
    * Replaces whatever backs {@code alias} with {@code legacyIndex}: the current target mapping
    * without the document-id scheme stamp, holding the same documents under URL-encoded URN ids.
-   * That is a V3 index built before document ids were hashed.
+   * That is a V3 index built before document ids were hashed. When {@code legacyIndex} is the alias
+   * name itself, the index takes that name directly, as a V3 index created before indices were
+   * aliased did.
    */
   void replaceWithLegacyIdIndex(@Nonnull String alias, @Nonnull String legacyIndex)
       throws Exception {
@@ -581,12 +589,14 @@ final class SearchV3MigrationHarness implements AutoCloseable {
         opContext,
         legacyIndex,
         v3IndexBuilder.buildReindexState(opContext, legacyIndex, unstamped, settings));
-    v3Client.updateIndexAliases(
-        opContext,
-        new IndicesAliasesRequest()
-            .addAliasAction(
-                IndicesAliasesRequest.AliasActions.add().index(legacyIndex).alias(alias)),
-        RequestOptions.DEFAULT);
+    if (!legacyIndex.equals(alias)) {
+      v3Client.updateIndexAliases(
+          opContext,
+          new IndicesAliasesRequest()
+              .addAliasAction(
+                  IndicesAliasesRequest.AliasActions.add().index(legacyIndex).alias(alias)),
+          RequestOptions.DEFAULT);
+    }
     for (SearchHit document : documents) {
       String urn = urnOf(document);
       v3BulkProcessor.add(
@@ -700,16 +710,56 @@ final class SearchV3MigrationHarness implements AutoCloseable {
     return "http://" + container.getHost() + ":" + container.getMappedPort(HTTP_PORT);
   }
 
+  /**
+   * Right after a container starts, a connection to its mapped port from this JVM can be refused
+   * even though the library's own HTTP wait connected to it just before; under heavy load the
+   * refusal has been seen to outlast a minute. The shim's engine detection probes once and does not
+   * retry, so the harness retries it for a bounded time and otherwise fails with the probe's error.
+   */
   private static SearchClientShim<?> client(GenericContainer<?> container) throws IOException {
-    return SearchClientShimUtil.createShimWithAutoDetection(
+    SearchClientShim.ShimConfiguration configuration =
         new SearchClientShimUtil.ShimConfigurationBuilder()
             .withHost(container.getHost())
             .withSSL(false)
             .withPort(container.getMappedPort(HTTP_PORT))
             .withThreadCount(1)
             .withConnectionRequestTimeout(30000)
-            .build(),
-        new ObjectMapper());
+            .build();
+    Instant deadline = Instant.now().plus(CLIENT_CONNECT_TIMEOUT);
+    while (true) {
+      try {
+        return SearchClientShimUtil.createShimWithAutoDetection(configuration, new ObjectMapper());
+      } catch (IOException e) {
+        // A container that is no longer running never answers; say so, with the exit state the
+        // engine recorded, instead of retrying against it.
+        if (!container.isRunning()) {
+          InspectContainerResponse.ContainerState state =
+              container.getCurrentContainerInfo().getState();
+          throw new IOException(
+              "Container for "
+                  + configuration.getHost()
+                  + ":"
+                  + configuration.getPort()
+                  + " is not running (status="
+                  + state.getStatus()
+                  + ", exitCode="
+                  + state.getExitCodeLong()
+                  + ", oomKilled="
+                  + state.getOOMKilled()
+                  + ")",
+              e);
+        }
+        if (Instant.now().isAfter(deadline)) {
+          throw e;
+        }
+        try {
+          Thread.sleep(CLIENT_CONNECT_RETRY_MILLIS);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw e;
+        }
+      }
+    }
   }
 
   private static ESBulkProcessor bulkProcessor(SearchClientShim<?> client) {

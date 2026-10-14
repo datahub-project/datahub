@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -35,7 +36,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -55,6 +59,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -1828,7 +1833,7 @@ public class UpdateIndicesV3StrategyTest {
   @Test
   public void testRollbackCopyRepeatsTheWriteOnTheSwappedOutBackingIndex() throws Exception {
     stubTransformedDocument();
-    RollbackDualWriteTargets targets = mock(RollbackDualWriteTargets.class);
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
     String alias =
         operationContext
             .getSearchContext()
@@ -1843,7 +1848,7 @@ public class UpdateIndicesV3StrategyTest {
             .timeseriesAspectService(timeseriesAspectService)
             .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
             .documentContributors(List.of())
-            .rollbackDualWriteTargets(targets)
+            .incrementalReindexWriteTargets(targets)
             .build();
 
     dualWriting.processBatch(
@@ -1887,9 +1892,174 @@ public class UpdateIndicesV3StrategyTest {
     // A replay: nothing comes back for the URN it drops, so the failure must reach the caller.
     when(mockEvent.getMetadataChangeLog())
         .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(storedDataset("stored"));
     RuntimeException thrown =
         expectThrows(
-            RuntimeException.class, () -> dualWriting.processBatch(operationContext, batch, true));
+            RuntimeException.class, () -> dualWriting.processBatch(replayContext, batch, true));
     assertEquals(thrown.getMessage(), "write failed");
+  }
+
+  @Test
+  public void testCatchUpReplayRebuildsTheDocumentFromStoredAspects() throws Exception {
+    // The replayed row is a snapshot; the document is rebuilt from what primary storage holds when
+    // the event is processed, so a value changed since the read is not overlaid with the stale row.
+    stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    Map<String, SystemAspect> stored = storedDataset("stored");
+    OperationContext replayContext = contextWithStoredAspects(stored);
+
+    strategy.processBatch(
+        replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    ArgumentCaptor<RecordTemplate> projected = ArgumentCaptor.forClass(RecordTemplate.class);
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(any(), any(), projected.capture(), any(), anyBoolean(), any());
+    assertTrue(
+        projected.getAllValues().stream()
+            .anyMatch(
+                record ->
+                    record
+                        .data()
+                        .equals(
+                            stored.get(DATASET_PROPERTIES_ASPECT_NAME).getRecordTemplate().data())),
+        "the stored value is projected");
+    assertFalse(projected.getAllValues().contains(mockAspect), "the replayed row value is not");
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(replayContext),
+            eq("dataset"),
+            anyString(),
+            eq(DigestUtils.sha256Hex(testUrn.toString())));
+    verify(elasticSearchService, never())
+        .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+  }
+
+  @Test
+  public void testCatchUpReplayDeletesTheDocumentOfAnEntityGoneFromStorage() throws Exception {
+    // A row read before a hard delete must not come back as a bare document: without the key
+    // aspect in storage the entity is gone, whatever the replayed row says.
+    stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(Map.of());
+
+    strategy.processBatch(
+        replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(elasticSearchService)
+        .deleteDocumentBySearchGroup(
+            eq(replayContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testLiveDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
+    // A rebuild writes a next index while the alias still serves the old one; catch-up cannot
+    // replay a hard delete, so the live delete must reach the next index itself.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    mirroring.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    verify(elasticSearchService)
+        .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), eq(expectedDocId));
+    verify(elasticSearchService)
+        .deleteDocumentByIndexName(eq(operationContext), eq(next), eq(expectedDocId));
+  }
+
+  @Test
+  public void testLiveAspectDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
+    // A removed aspect has no row to replay either: the partial document that clears its fields
+    // on the alias is repeated on the next index.
+    stubTransformedDocument();
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    mirroring.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<String> live = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> mirrored = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), live.capture(), eq(expectedDocId));
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(next), mirrored.capture(), eq(expectedDocId));
+    assertEquals(mirrored.getValue(), live.getValue());
+  }
+
+  /** A context whose primary storage holds {@code storedAspects} for the test entity. */
+  private OperationContext contextWithStoredAspects(Map<String, SystemAspect> storedAspects) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(
+        storedAspectsRetriever(storedAspects));
+  }
+
+  private AspectRetriever storedAspectsRetriever(Map<String, SystemAspect> storedAspects) {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getEntityRegistry()).thenReturn(operationContext.getEntityRegistry());
+    when(retriever.getLatestSystemAspects(any(), any()))
+        .thenReturn(storedAspects.isEmpty() ? Map.of() : Map.of(testUrn, storedAspects));
+    return retriever;
+  }
+
+  private Map<String, SystemAspect> storedDataset(String name) {
+    EntitySpec datasetSpec =
+        operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME);
+    return Map.of(
+        "datasetKey",
+        storedAspect(EntityKeyUtils.convertUrnToEntityKey(testUrn, datasetSpec.getKeyAspectSpec())),
+        DATASET_PROPERTIES_ASPECT_NAME,
+        storedAspect(new DatasetProperties().setName(name)));
+  }
+
+  private static SystemAspect storedAspect(RecordTemplate record) {
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(record);
+    when(stored.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("stored-run"));
+    when(stored.getAuditStamp())
+        .thenReturn(
+            new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")));
+    return stored;
   }
 }

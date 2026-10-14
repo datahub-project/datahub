@@ -589,11 +589,15 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   enum Fill {
     /** The index does not exist: create it empty behind its alias; the fill writes to the alias. */
     CREATE_ALIASED,
-    /** The index exists but holds no documents: the fill writes into it in place. */
+    /**
+     * The index exists, holds no documents, and already has the target mappings and settings: the
+     * fill writes into it in place.
+     */
     IN_PLACE,
     /**
-     * The index exists with documents from another id scheme: create a next physical index for the
-     * fill to write into; the alias moves to it once the fill completes.
+     * The index exists with documents from another id scheme, or holds no documents and differs
+     * from the target mappings or settings: create a next physical index for the fill to write
+     * into; the alias moves to it once the fill completes.
      */
     REBUILD_INTO_NEXT
   }
@@ -615,13 +619,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       } else if (docIdScheme.requiresDocumentRebuild(config.currentMappings())) {
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       } else if (requireIndexBuilder(config.name()).getCount(opContext, config.name()) == 0) {
-        fills.put(config.name(), Fill.IN_PLACE);
+        // Empty is the steady state of an entity type nobody has ingested. Filled where it
+        // stands, the index would receive documents under a mapping Phase 1 still has to change,
+        // and the in-place apply pass below never reaches an index with a fill row.
+        fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
       }
     }
     if (!fills.isEmpty()) {
       log.info("Indices to fill from primary storage: {}", fills);
     }
     return fills;
+  }
+
+  /** Whether an existing index already carries the target mappings and settings. */
+  private static boolean matchesTarget(ReindexConfig config) {
+    return !config.requiresReindex()
+        && !config.requiresApplyMappings()
+        && !config.requiresApplySettings();
   }
 
   /**
@@ -640,6 +654,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     final String physicalIndex;
     final String fillTarget;
     String oldBackingIndexName = null;
+    boolean oldIdSchemeStale = false;
     switch (fill) {
       case CREATE_ALIASED -> {
         physicalIndex =
@@ -648,6 +663,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         fillTarget = config.name();
       }
       case REBUILD_INTO_NEXT -> {
+        // The live index's documents stay under ids the running hasher does not produce, so after
+        // the swap no live write may be mirrored into it; the row records that for the consumers.
+        oldIdSchemeStale = docIdScheme.requiresDocumentRebuild(config.currentMappings());
         Set<String> oldBackingIndices = indexBuilder.getBackingIndices(opContext, config.name());
         oldBackingIndexName =
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
@@ -686,6 +704,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     upgradeState =
         IncrementalReindexState.setIndexVersion(
             upgradeState, config.name(), indexVersionOf(config.name()));
+    if (oldIdSchemeStale) {
+      upgradeState =
+          IncrementalReindexState.setOldBackingIndexIdSchemeStale(upgradeState, config.name());
+    }
     checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;
   }

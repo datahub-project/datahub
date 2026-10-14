@@ -4,7 +4,7 @@ import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNotNull;
 import static org.testng.AssertJUnit.assertTrue;
 
-import com.linkedin.metadata.service.RollbackDualWriteTargets;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUpgradeStrategy;
@@ -37,8 +37,9 @@ public abstract class AbstractDualWriteEnabledSpringTest extends AbstractTestNGS
         bean instanceof UpdateIndicesUpgradeStrategy);
     assertTrue("dual-write should be active for the completed Phase 1 index", bean.isEnabled());
 
-    final RollbackDualWriteTargets targets =
-        applicationContext.getBean("rollbackDualWriteTargets", RollbackDualWriteTargets.class);
+    final IncrementalReindexWriteTargets targets =
+        applicationContext.getBean(
+            "incrementalReindexWriteTargets", IncrementalReindexWriteTargets.class);
     assertEquals(
         "the dataset alias should map to the recorded old backing index",
         Optional.of(DualWriteTestSupport.OLD_BACKING_INDEX),

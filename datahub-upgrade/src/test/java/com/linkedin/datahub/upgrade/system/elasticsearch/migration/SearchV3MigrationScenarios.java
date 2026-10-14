@@ -67,6 +67,7 @@ abstract class SearchV3MigrationScenarios {
   private static final String ID_REBUILD_DEPLOY = "0.0.0-split-3";
   private static final String CLUSTER_MOVE_DEPLOY = "0.0.0-split-4";
   private static final String UNCHANGED_DEPLOY = "0.0.0-split-5";
+  private static final String CONCRETE_REBUILD_DEPLOY = "0.0.0-split-6";
 
   private static final List<String> SEEDED_ENTITY_TYPES = List.of("container", "dataset", "tag");
   private static final Urn LIVE_DATASET =
@@ -511,6 +512,26 @@ abstract class SearchV3MigrationScenarios {
     assertEquals(
         harness.backingIndices(datasetAlias), Set.of(legacyIndex), "no swap before completion");
 
+    // A hard delete while the rebuild is in flight. The live writer deletes from the alias, which
+    // still serves the old index, and catch-up cannot replay what storage no longer holds; the
+    // consumers that read this deploy's state also delete from the index the fill is building.
+    Urn deletedDataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.d1,PROD)");
+    assertEquals(
+        harness.count(
+            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        1L,
+        "the interrupted run wrote the entity about to be deleted");
+    harness.restartDualWritingConsumers(ID_REBUILD_DEPLOY);
+    harness.entityService.deleteUrn(harness.opContext, deletedDataset);
+    harness.syncWrites();
+    // The alias still serves the legacy index, whose documents carry the old ids a live delete
+    // cannot address; what the swap must not bring back is the copy the fill wrote.
+    assertEquals(
+        harness.count(
+            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        0L,
+        "the live delete reached the index the fill is building");
+
     UpgradeStepResult fillResult = run(fill(ID_REBUILD_DEPLOY, harness.aspectIndexLoader()));
     harness.syncWrites();
 
@@ -522,6 +543,9 @@ abstract class SearchV3MigrationScenarios {
     assertTrue(
         harness.indexExists(harness.v3Client, legacyIndex),
         "the swapped-out index is kept for rollback");
+    assertTrue(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(completed, datasetAlias),
+        "its documents keep the old ids, so live writes stay out of it after the swap");
 
     // The rebuild re-derives the corpus from primary storage: every dataset V2 knows, hashed ids.
     long expected = harness.count(harness.v2Client, harness.v2Index("dataset"));
@@ -532,9 +556,124 @@ abstract class SearchV3MigrationScenarios {
       assertEquals(hit.getId(), harness.hashedDocumentId(UrnUtils.getUrn(urn)));
       assertNotEquals(hit.getId(), SearchV3MigrationHarness.legacyDocumentId(urn));
     }
+    assertEquals(
+        harness.count(
+            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        0L,
+        "the resumed fill did not bring the deleted entity back");
+
+    UpgradeStepResult catchUpResult = run(catchUp(ID_REBUILD_DEPLOY));
+    harness.syncWrites();
+
+    assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(
+        harness.count(
+            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        0L,
+        "catch-up re-derives its window from storage, where the entity no longer exists");
   }
 
   @Test(dependsOnMethods = "indexBuiltBeforeIdHashingIsRebuiltIntoANextIndex")
+  public void concreteNamedIndexIsRetainedForRollbackWhenRebuilt() throws Exception {
+    harness.deliverToUpgradedConsumers();
+    // A V3 index created before indices were aliased owns the convention name itself. The alias
+    // needs that name and nothing renames an index in place, so the swap has to delete it; the
+    // fill first copies it to a physical name the rollback dual-write can keep current.
+    long legacyDocuments = harness.count(harness.v3Client, datasetAlias);
+    harness.replaceWithLegacyIdIndex(datasetAlias, datasetAlias);
+    assertEquals(
+        harness.backingIndices(datasetAlias), Set.of(), "the live name is an index, not an alias");
+    assertEquals(harness.count(harness.v3Client, datasetAlias), legacyDocuments);
+
+    UpgradeStepResult phase1Result = run(phase1(CONCRETE_REBUILD_DEPLOY));
+
+    assertEquals(phase1Result.result(), DataHubUpgradeState.SUCCEEDED);
+    Map<String, String> pending = harness.phase1State(CONCRETE_REBUILD_DEPLOY);
+    assertEquals(
+        IncrementalReindexState.getStatus(pending, datasetAlias),
+        Optional.of(Status.BACKFILL_PENDING));
+    String nextIndex =
+        IncrementalReindexState.get(
+                pending, datasetAlias, IncrementalReindexState.BACKFILL_TARGET_INDEX)
+            .orElseThrow();
+    assertEquals(
+        IncrementalReindexState.get(
+            pending, datasetAlias, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.empty(),
+        "a concrete index has no backing index to record yet");
+
+    // A live write during the fill lands on the concrete index; the retained copy must carry it.
+    Urn writtenDuringRebuild =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.retained,PROD)");
+    harness.ingest(
+        writtenDuringRebuild,
+        "datasetProperties",
+        new DatasetProperties().setName("written during the rebuild"));
+    harness.syncWrites();
+    assertEquals(
+        harness.count(
+            harness.v3Client,
+            datasetAlias,
+            QueryBuilders.termQuery("urn", writtenDuringRebuild.toString())),
+        1L);
+
+    UpgradeStepResult fillResult = run(fill(CONCRETE_REBUILD_DEPLOY, harness.aspectIndexLoader()));
+    harness.syncWrites();
+
+    assertEquals(fillResult.result(), DataHubUpgradeState.SUCCEEDED);
+    Map<String, String> completed = harness.phase1State(CONCRETE_REBUILD_DEPLOY);
+    assertEquals(
+        IncrementalReindexState.getStatus(completed, datasetAlias), Optional.of(Status.COMPLETED));
+    String retained =
+        IncrementalReindexState.get(
+                completed, datasetAlias, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+            .orElseThrow();
+    assertNotEquals(retained, datasetAlias);
+    assertTrue(
+        retained.startsWith(datasetAlias + "_"), "the copy is a physical index of the family");
+    assertEquals(harness.backingIndices(datasetAlias), Set.of(nextIndex));
+    assertTrue(
+        harness.indexExists(harness.v3Client, retained),
+        "the swap keeps the copy the alias can be swapped back to");
+    assertEquals(
+        harness.count(harness.v3Client, retained),
+        legacyDocuments + 1,
+        "the copy holds the legacy documents and the write that arrived during the fill");
+    assertEquals(
+        harness.count(
+            harness.v3Client,
+            retained,
+            QueryBuilders.termQuery("urn", writtenDuringRebuild.toString())),
+        1L);
+
+    // The copy holds each entity under the id scheme the rebuild replaced. Consumers brought up
+    // after the swap leave it alone: a mirrored write would sit next to the old copy and a
+    // mirrored delete would miss it. A rollback to it returns to its pre-swap content.
+    assertTrue(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(completed, datasetAlias),
+        "the row records why the copy must not receive live writes");
+    harness.restartDualWritingConsumers(CONCRETE_REBUILD_DEPLOY);
+    Urn afterSwap =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.postretain,PROD)");
+    harness.ingest(
+        afterSwap, "datasetProperties", new DatasetProperties().setName("after the swap"));
+    harness.syncWrites();
+    assertEquals(
+        harness.count(
+            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", afterSwap.toString())),
+        1L);
+    assertEquals(
+        harness.count(
+            harness.v3Client, retained, QueryBuilders.termQuery("urn", afterSwap.toString())),
+        0L,
+        "no live write reaches an index whose ids the running hasher does not produce");
+    assertEquals(
+        harness.count(harness.v3Client, retained),
+        legacyDocuments + 1,
+        "the retained copy keeps its pre-swap content");
+  }
+
+  @Test(dependsOnMethods = "concreteNamedIndexIsRetainedForRollbackWhenRebuilt")
   public void movingV3ToAnotherClusterFillsItThereAndLeavesTheOldClusterAlone() throws Exception {
     SearchV3MigrationHarness before = harness;
     SearchClientShim<?> clusterV3Leaves = before.v3Client;

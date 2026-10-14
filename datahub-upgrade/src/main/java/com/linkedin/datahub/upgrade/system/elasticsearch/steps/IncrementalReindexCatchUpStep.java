@@ -69,7 +69,7 @@ import org.opensearch.tasks.TaskInfo;
  * of diff mode optimizations. Every replayed change log is also marked as a catch-up in its headers
  * ({@link BackfillHeaders#MODE_HEADER_NAME}), which tells the V3 writer to rebuild the document
  * from primary storage as it stands when the event is processed, ignoring the row value carried by
- * the event, and to tombstone the entity when it no longer exists there; see {@link
+ * the event, and to remove the entity from the index when it no longer exists there; see {@link
  * #catchUpChangeLog}.
  */
 @Slf4j

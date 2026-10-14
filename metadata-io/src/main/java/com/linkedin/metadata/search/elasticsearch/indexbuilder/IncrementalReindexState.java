@@ -37,6 +37,14 @@ public final class IncrementalReindexState {
   /** Physical name of the old backing index that the alias pointed to before the Phase 1 swap. */
   public static final String OLD_BACKING_INDEX_NAME = "oldBackingIndexName";
 
+  /**
+   * Set when the index was rebuilt because its documents were written under another document-id
+   * scheme: the old backing index stores each entity under an id the running hasher does not
+   * produce, so live writes cannot be mirrored into it and a rollback to it returns to its pre-swap
+   * content.
+   */
+  public static final String OLD_BACKING_INDEX_ID_SCHEME_STALE = "oldBackingIndexIdSchemeStale";
+
   /** Epoch millis when the ES _reindex task was submitted (T0). */
   public static final String REINDEX_START_TIME = "reindexStartTime";
 
@@ -105,6 +113,7 @@ public final class IncrementalReindexState {
       List.of(
           NEXT_INDEX_NAME,
           OLD_BACKING_INDEX_NAME,
+          OLD_BACKING_INDEX_ID_SCHEME_STALE,
           REINDEX_START_TIME,
           REINDEX_COMPLETE_TIME,
           STATUS,
@@ -196,6 +205,31 @@ public final class IncrementalReindexState {
     return get(resultMap, indexName, INDEX_VERSION)
         .map(EntityIndexVersion::valueOf)
         .orElse(EntityIndexVersion.V2);
+  }
+
+  /** Marks {@code indexName}'s old backing index as holding documents under another id scheme. */
+  public static Map<String, String> setOldBackingIndexIdSchemeStale(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, OLD_BACKING_INDEX_ID_SCHEME_STALE), Boolean.TRUE.toString());
+    return result;
+  }
+
+  /** Whether live writes must stay out of {@code indexName}'s old backing index; see the key. */
+  public static boolean isOldBackingIndexIdSchemeStale(
+      @Nullable Map<String, String> state, @Nonnull String indexName) {
+    return state != null
+        && Boolean.parseBoolean(state.get(key(indexName, OLD_BACKING_INDEX_ID_SCHEME_STALE)));
+  }
+
+  /** Records the physical index the alias of {@code indexName} can be swapped back to. */
+  public static Map<String, String> setOldBackingIndexName(
+      @Nonnull Map<String, String> existing,
+      @Nonnull String indexName,
+      @Nonnull String oldBackingIndexName) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, OLD_BACKING_INDEX_NAME), oldBackingIndexName);
+    return result;
   }
 
   public static Map<String, String> setIndexVersion(

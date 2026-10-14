@@ -324,8 +324,18 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
       // dynamic mapping under the first bulk write that follows, which a document count would take
       // for a populated index and this check does not.
       requireTargetMappings(indexBuilder, config, indexName, target);
+      phase1State = retainConcreteLiveIndex(phase1State, indexBuilder, config, indexName);
       indexBuilder.swapAlias(opContext, indexName, target);
       log.info("Alias swapped after fill: {} -> {}", indexName, target);
+      if (IncrementalReindexState.isOldBackingIndexIdSchemeStale(phase1State, indexName)) {
+        log.info(
+            "Index {} was rebuilt under a new document-id scheme: live writes are not mirrored into"
+                + " {}, so a rollback to it returns to its pre-swap content",
+            indexName,
+            IncrementalReindexState.get(
+                    phase1State, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+                .orElse("its old backing index"));
+      }
     }
     final long completeTime = System.currentTimeMillis();
     phase1State =
@@ -342,6 +352,35 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
                 "Filled %s: %d aspects, %d entities read%s",
                 indexName, rowsSoFar, urnsSoFar, rebuild ? ", alias swapped to " + target : ""));
     return phase1State;
+  }
+
+  /**
+   * A V3 index created before indices were aliased owns the convention name itself. The alias needs
+   * that name and nothing renames an index in place, so the swap has to delete it; the index is
+   * first copied to a physical name of its family and that copy recorded as the old backing index,
+   * so rollback dual-write keeps it current and the alias can be swapped back to it. An aliased
+   * index has its old backing index recorded by Phase 1 and is left alone.
+   */
+  private Map<String, String> retainConcreteLiveIndex(
+      Map<String, String> phase1State,
+      ESIndexBuilder indexBuilder,
+      ReindexConfig config,
+      String indexName)
+      throws Exception {
+    if (!indexBuilder.getBackingIndices(opContext, indexName).isEmpty()) {
+      return phase1State;
+    }
+    final String retained =
+        ESIndexBuilder.getIncrementalNextIndexName(
+            indexName, upgradeVersion, System.currentTimeMillis());
+    log.info(
+        "Index {} owns its name directly; retaining it as {} before the alias takes the name",
+        indexName,
+        retained);
+    indexBuilder.retainIndexForRollback(opContext, config, retained);
+    return persistPhase1(
+        phase1State,
+        state -> IncrementalReindexState.setOldBackingIndexName(state, indexName, retained));
   }
 
   /**
