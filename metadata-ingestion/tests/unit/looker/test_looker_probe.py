@@ -669,3 +669,39 @@ def test_the_standalone_look_trace_stops_at_the_read_bound_too() -> None:
     used = {r["name"]: r["used"] for r in _rows(run)}
     assert used["orders"] is True
     assert used["unused"] is None
+
+
+def test_a_look_on_an_unread_dashboard_does_not_make_its_explore_certain() -> None:
+    # Dashboard 6 holds look 105 as a tile. With that read refused, the trace
+    # sees 105 as standalone; ingestion reads it as the tile, whose query can
+    # differ, so the explore only 105's saved query names stays undetermined.
+    client = install(mock.MagicMock())
+    by_id = {"6": sdk_error(403)}
+    real_dashboard = client.dashboard.side_effect
+
+    def dashboard(dashboard_id: str, **kwargs: Any) -> Any:
+        if dashboard_id in by_id:
+            raise by_id[dashboard_id]
+        return real_dashboard(dashboard_id, **kwargs)
+
+    real_look = client.look.side_effect
+
+    def look(look_id: str, **kwargs: Any) -> Any:
+        if look_id == "105":
+            return LookWithQuery(
+                query=Query(model="sales", view="unused", fields=["unused.id"])
+            )
+        return real_look(look_id, **kwargs)
+
+    client.dashboard.side_effect = dashboard
+    client.look.side_effect = look
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method(
+            "looker",
+            recipe(**_LOOKS_ON),
+            "explores",
+            {"model": "sales", "trace_charts": True},
+        )
+    used = {r["name"]: r["used"] for r in _rows(run)}
+    assert used["orders"] is True
+    assert used["unused"] is None

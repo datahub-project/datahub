@@ -228,7 +228,13 @@ class _Reachability:
     """What ingestion's reachable_explores and reachable_look_registry would
     hold, as far as one bounded trace could tell."""
 
+    # Explores kept dashboard charts query.
     explores: Set[_ExploreRef] = field(default_factory=set)
+    # Explores only standalone looks query. A look on a dashboard the walk did
+    # not read is traced as standalone, but ingestion reads it as that
+    # dashboard's tile, whose query can differ: these count only when the
+    # dashboard walk was complete.
+    look_explores: Set[_ExploreRef] = field(default_factory=set)
     looks: Set[str] = field(default_factory=set)
     # Every dashboard ingestion reads was read, so a look or explore not
     # found on one is not on one.
@@ -239,15 +245,18 @@ class _Reachability:
     capped: bool = False
     reads: int = 0
 
-    def explore_used(self, model: str, explore: str) -> Optional[bool]:
-        if (model, explore) in self.explores:
+    def _used(self, found: Callable[[Set[_ExploreRef]], bool]) -> Optional[bool]:
+        if found(self.explores):
+            return True
+        if found(self.look_explores) and self.dashboards_complete:
             return True
         return False if self.dashboards_complete and self.looks_complete else None
 
+    def explore_used(self, model: str, explore: str) -> Optional[bool]:
+        return self._used(lambda refs: (model, explore) in refs)
+
     def model_used(self, model: str) -> Optional[bool]:
-        if any(used_model == model for used_model, _ in self.explores):
-            return True
-        return False if self.dashboards_complete and self.looks_complete else None
+        return self._used(lambda refs: any(m == model for m, _ in refs))
 
     def on_kept_dashboard(self, look_id: str) -> Optional[bool]:
         if look_id in self.looks:
@@ -905,7 +914,7 @@ class LookerMetadataProbe(ProbeProviderBase):
             elif (
                 query is not None and query.model is not None and query.view is not None
             ):
-                reach.explores.add((query.model, query.view))
+                reach.look_explores.add((query.model, query.view))
         self._warn_counted(
             failures,
             "look read(s) for the chart trace",
