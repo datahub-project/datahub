@@ -92,6 +92,17 @@ export function sizeLimitJson(totalGzip) {
     return [{ size: totalGzip }];
 }
 
+// --json feeds the Pages bundle-size comment. That step runs under GitHub
+// Actions' default `bash -eo pipefail` and never sets `shell:`. An exit 1
+// from either the PR or the base rebuild aborts the step before `gh pr comment`.
+// The hard gate stays the non-json run in build-and-test.yml.
+export function budgetExitCode(json, errors) {
+    if (json || errors.length === 0) {
+        return 0;
+    }
+    return 1;
+}
+
 function main() {
     const json = process.argv.includes('--json');
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -112,7 +123,10 @@ function main() {
     }
     if (errors.length) {
         console.error(errors.join('\n'));
-        process.exit(1);
+    }
+    const exitCode = budgetExitCode(json, errors);
+    if (exitCode !== 0) {
+        process.exit(exitCode);
     }
 }
 
