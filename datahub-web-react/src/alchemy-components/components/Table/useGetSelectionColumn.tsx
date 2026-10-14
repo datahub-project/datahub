@@ -1,6 +1,6 @@
-import { Checkbox } from '@components';
 import React from 'react';
 
+import { Checkbox } from '@components/components/Checkbox';
 import { CheckboxWrapper } from '@components/components/Table/components';
 import { Column, RowSelectionProps } from '@components/components/Table/types';
 import { useRowSelection } from '@components/components/Table/useRowSelection';

@@ -7,6 +7,10 @@ import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { EntitySidebarSection } from '@app/entity/shared/types';
 
+function sidebarComponentKey(component: { displayName?: string; name: string }) {
+    return component.displayName || component.name;
+}
+
 const ContentContainer = styled.div`
     position: relative;
 
@@ -69,7 +73,12 @@ export const EntitySidebar = <T,>({ sidebarSections, topSection, loading }: Prop
 
     return (
         <>
-            {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
+            {topSection && (
+                <topSection.component
+                    key={sidebarComponentKey(topSection.component)}
+                    properties={topSection.properties}
+                />
+            )}
             {!!entityData?.lastIngested && (
                 <LastIngestedSection>
                     <LastIngested lastIngested={entityData.lastIngested} />
@@ -78,7 +87,12 @@ export const EntitySidebar = <T,>({ sidebarSections, topSection, loading }: Prop
             <ContentContainer>
                 {sidebarSections?.map((section) => {
                     if (section.display?.visible(entityData, baseEntity) !== true) return null;
-                    return <section.component key={`${section.component}`} properties={section.properties} />;
+                    return (
+                        <section.component
+                            key={sidebarComponentKey(section.component)}
+                            properties={section.properties}
+                        />
+                    );
                 })}
             </ContentContainer>
         </>

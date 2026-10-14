@@ -312,6 +312,8 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
+          node --test datahub-web-react/scripts/eager-budget.test.mjs
+          node datahub-web-react/scripts/eager-budget.mjs
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Ensure codegen is updated

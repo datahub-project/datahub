@@ -200,6 +200,10 @@ public class KeyAspectEntityCountCacheTest {
     claimant.start();
     assertTrue(loaderStarted.await(5, java.util.concurrent.TimeUnit.SECONDS));
     waiter.start();
+    // Hold the claim across a poll interval so the waiter has to observe it.
+    // Releasing immediately lets the waiter miss the cache and claim after publish.
+    Thread.sleep(200L);
+    assertEquals(loads.get(), 1);
     releaseLoader.countDown();
     claimant.join(5_000);
     waiter.join(5_000);

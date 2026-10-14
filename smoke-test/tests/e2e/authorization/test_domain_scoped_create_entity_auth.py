@@ -8,6 +8,7 @@ Scenario (single class / module fixture):
   - Two domains (allowed vs other)
   - Restricted user with CREATE_ENTITY (+ optional EDIT) scoped only to the allowed domain
   - Matrix: OpenAPI sync, OpenAPI async (+ write-trace confirmation on allow), Rest.li sync
+  - Instance-scoped EDIT grant: an existing container's first domains write (Rest.li sync)
 
 OpenAPI async allows return 202 with a trace id; we poll /openapi/v1/trace/write/{id}
 (admin session — READ required) until primary storage is ACTIVE_STATE. Auth denials still
@@ -31,6 +32,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    ContainerPropertiesClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DomainPropertiesClass,
     DomainsClass,
@@ -779,3 +782,118 @@ class TestDomainScopedCreateEntityAuth:
                 description=f"{tid} deny overwrite with CREATE_ENTITY-only",
             )
             _assert_auth_denied(status, detail, api=api)
+
+
+def _create_instance_scoped_container_edit_policy(
+    admin_session, *, name: str, instance_urn: str
+) -> str:
+    """Active EDIT_ENTITY policy on containers whose stored platform instance is ``instance_urn``."""
+    response = admin_session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={
+            "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+                createPolicy(input: $input) }""",
+            "variables": {
+                "input": {
+                    "type": "METADATA",
+                    "name": name,
+                    "description": f"{name} ({_UNIQUE})",
+                    "state": "ACTIVE",
+                    "resources": {
+                        "allResources": False,
+                        "filter": {
+                            "criteria": [
+                                {
+                                    "field": "TYPE",
+                                    "values": ["container"],
+                                    "condition": "EQUALS",
+                                },
+                                {
+                                    "field": "DATA_PLATFORM_INSTANCE",
+                                    "values": [instance_urn],
+                                    "condition": "EQUALS",
+                                },
+                            ]
+                        },
+                    },
+                    "privileges": ["EDIT_ENTITY"],
+                    "actors": {
+                        "users": [TEST_USER_URN],
+                        "resourceOwners": False,
+                        "allUsers": False,
+                        "allGroups": False,
+                    },
+                }
+            },
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    assert payload.get("data") and payload["data"].get("createPolicy"), (
+        f"createPolicy (instance-scoped) failed: {payload}"
+    )
+    wait_for_writes_to_sync()
+    return payload["data"]["createPolicy"]
+
+
+def test_first_domain_on_instance_scoped_container_succeeds(
+    domain_create_auth_setup, graph_client
+):
+    """A container's first domains write is judged with its stored platform instance.
+
+    The user's only grant is EDIT_ENTITY on containers in one platform instance. Adding the
+    container's first domain must be allowed: the proposed domains are evaluated alongside the
+    stored instance, not instead of it.
+    """
+    setup = domain_create_auth_setup
+    admin_session = setup["admin_session"]
+    instance_urn = (
+        "urn:li:dataPlatformInstance:"
+        f"(urn:li:dataPlatform:mysql,domain_first_{_UNIQUE})"
+    )
+    container_urn = _track_urn(setup, f"urn:li:container:domain-first-{_UNIQUE}")
+    for aspect in (
+        ContainerPropertiesClass(name=f"domain-first-{_UNIQUE}"),
+        DataPlatformInstanceClass(
+            platform="urn:li:dataPlatform:mysql", instance=instance_urn
+        ),
+    ):
+        graph_client.emit_mcp(
+            MetadataChangeProposalWrapper(entityUrn=container_urn, aspect=aspect)
+        )
+    wait_for_writes_to_sync()
+
+    policy_urn = _create_instance_scoped_container_edit_policy(
+        admin_session,
+        name=f"{POLICY_PREFIX} instance-scoped container edit",
+        instance_urn=instance_urn,
+    )
+    try:
+
+        def _attempt() -> tuple[bool, Optional[int], str]:
+            try:
+                setup["rest_emitter"].emit_mcp(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=container_urn,
+                        aspect=DomainsClass(domains=[DOMAIN_A_URN]),
+                    )
+                )
+                return True, 200, "restli ok"
+            except OperationalError as exc:
+                return False, exc.info.get("status"), f"restli body={exc.message}"
+            except HTTPError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                return False, status, f"restli status={status}"
+
+        _, detail = _wait_until(
+            _attempt,
+            want_allowed=True,
+            description="first domains write on instance-scoped container",
+        )
+        logger.info("first domains on instance-scoped container: %s", detail)
+        wait_for_writes_to_sync()
+        domains = graph_client.get_aspect(container_urn, DomainsClass)
+        assert domains is not None
+        assert DOMAIN_A_URN in [str(d) for d in (domains.domains or [])]
+    finally:
+        remove_policy(policy_urn, admin_session)
