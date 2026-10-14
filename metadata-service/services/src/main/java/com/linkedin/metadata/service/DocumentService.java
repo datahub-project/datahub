@@ -27,6 +27,7 @@ import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -1169,21 +1170,84 @@ public class DocumentService {
       int start,
       int count)
       throws Exception {
+    return searchDocuments(opContext, query, filter, sortCriterion, start, count, null, null);
+  }
+
+  /**
+   * Searches for documents with filters and optional facet aggregations.
+   *
+   * <p>When {@code facets} is non-empty, uses {@code searchAcrossEntities} so callers can request
+   * specific aggregations (and pair with {@code SearchFlags.maxAggValues} / {@code
+   * includeDefaultFacets=false}) — same pattern as Metrics / document filter sidebars.
+   *
+   * @param facets optional facet fields to aggregate; null/empty keeps the default single-entity
+   *     search path
+   * @param searchFlags optional flags (e.g. maxAggValues); fulltext is always enabled
+   */
+  @Nonnull
+  public SearchResult searchDocuments(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nullable List<String> facets,
+      @Nullable SearchFlags searchFlags)
+      throws Exception {
 
     final SortCriterion sort =
         sortCriterion != null
             ? sortCriterion
             : new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING);
+    final List<SortCriterion> sortCriteria = Collections.singletonList(sort);
+    final boolean hasExplicitFacets = facets != null && !facets.isEmpty();
+    final OperationContext searchContext =
+        opContext.withSearchFlags(
+            flags -> {
+              if (searchFlags != null) {
+                if (searchFlags.hasMaxAggValues()) {
+                  flags.setMaxAggValues(searchFlags.getMaxAggValues());
+                }
+                if (searchFlags.hasSkipCache()) {
+                  flags.setSkipCache(searchFlags.isSkipCache());
+                }
+                if (searchFlags.hasSkipAggregates()) {
+                  flags.setSkipAggregates(searchFlags.isSkipAggregates());
+                }
+                if (searchFlags.hasSkipHighlighting()) {
+                  flags.setSkipHighlighting(searchFlags.isSkipHighlighting());
+                }
+              }
+              flags.setFulltext(true);
+              // Skip default facets when the caller requested specific aggregations.
+              flags.setIncludeDefaultFacets(!hasExplicitFacets);
+              return flags;
+            });
 
-    SearchResult result =
-        entityClient.search(
-            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-            Constants.DOCUMENT_ENTITY_NAME,
-            query,
-            filter,
-            Collections.singletonList(sort),
-            start,
-            count);
+    final SearchResult result;
+    if (hasExplicitFacets) {
+      result =
+          entityClient.searchAcrossEntities(
+              searchContext,
+              List.of(Constants.DOCUMENT_ENTITY_NAME),
+              query,
+              filter,
+              start,
+              count,
+              sortCriteria,
+              facets);
+    } else {
+      result =
+          entityClient.search(
+              searchContext,
+              Constants.DOCUMENT_ENTITY_NAME,
+              query,
+              filter,
+              sortCriteria,
+              start,
+              count);
+    }
     // Filter unauthorized hits rather than failing the whole page: GraphQL search callers expect
     // mixed-access result sets, and bridge inheritance can authorize only a subset of documents.
     result.setEntities(

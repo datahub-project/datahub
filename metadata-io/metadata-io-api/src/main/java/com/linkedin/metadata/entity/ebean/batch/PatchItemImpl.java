@@ -112,6 +112,33 @@ public class PatchItemImpl implements PatchMCP {
     }
   }
 
+  /**
+   * The aspect {@code item} would write, for validators that run before the transaction. A PATCH
+   * arrives as a {@link PatchItemImpl} by default, or as a {@code ProposedItem} under alternate MCP
+   * validation; neither carries the resulting aspect, so the patch is applied to {@code current}
+   * here. {@code current} may be null: a generic JSON patch can create the aspect from scratch.
+   * Throws if the patch cannot be applied; callers choose whether that fails closed.
+   */
+  @Nullable
+  public static <T extends RecordTemplate> T resolveProposedAspect(
+      @Nonnull BatchItem item,
+      @Nullable T current,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Class<T> clazz) {
+    if (!ChangeType.PATCH.equals(item.getChangeType()) || !(item instanceof MCPItem)) {
+      return item.getAspect(clazz);
+    }
+    PatchItemImpl patchItem =
+        item instanceof PatchItemImpl
+            ? (PatchItemImpl) item
+            : PatchItemImpl.builder()
+                .build(
+                    ((MCPItem) item).getMetadataChangeProposal(),
+                    item.getAuditStamp(),
+                    aspectRetriever.getEntityRegistry());
+    return patchItem.applyPatch(current, aspectRetriever).getAspect(clazz);
+  }
+
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     warnOnOversizedPatchContent();
     if (genericJsonPatch != null) {

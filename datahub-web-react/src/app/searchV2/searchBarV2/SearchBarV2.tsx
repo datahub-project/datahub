@@ -88,6 +88,8 @@ export const SearchBarV2 = ({
     // State for what is actually used to fetch search results. Updates only when stable.
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isSearchInputFocused, setIsSearchInputFocused] = useState(false);
+    const [hasUserTyped, setHasUserTyped] = useState(false);
     const [isViewsDropdownOpened, setIsViewsDropdownOpened] = useState(false);
     const filtersFromQueryParams = useFiltersMapFromQueryParams();
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
@@ -98,7 +100,11 @@ export const SearchBarV2 = ({
         facets,
         loading: isDataLoading,
         searchAPIVariant,
-    } = useSearchBarData(searchQuery, appliedFilters);
+    } = useSearchBarData(searchQuery, appliedFilters, {
+        isActive: isSearchInputFocused || isDropdownVisible,
+        initialQuery: initialQuery || '',
+        hasUserTyped,
+    });
 
     const searchInputRef = useRef(null);
     useFocusElementByCommandK(searchInputRef, !showCommandK);
@@ -161,6 +167,7 @@ export const SearchBarV2 = ({
             // If not composing, also update the stable search query
             if (!isComposingRef.current) {
                 setSearchQuery(filteredQuery);
+                setHasUserTyped(true);
             }
             if (filteredQuery === '') {
                 clear();
@@ -179,9 +186,20 @@ export const SearchBarV2 = ({
         const finalValue = event.currentTarget.value;
         const filteredQuery = filterSearchQuery(finalValue);
         setSearchQuery(filteredQuery);
+        setHasUserTyped(true);
     }, []);
 
     const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
+
+    const onFocusHandler = useCallback(() => {
+        setIsSearchInputFocused(true);
+        onFocus?.();
+    }, [onFocus]);
+
+    const onBlurHandler = useCallback(() => {
+        setIsSearchInputFocused(false);
+        onBlur?.();
+    }, [onBlur]);
 
     const onClearFiltersAndSelectedViewHandler = useCallback(() => {
         clear();
@@ -258,8 +276,8 @@ export const SearchBarV2 = ({
                             defaultValue={initialQuery || undefined}
                             placeholder={resolvedPlaceholder}
                             onSearch={onSearchHandler}
-                            onFocus={onFocus}
-                            onBlur={onBlur}
+                            onFocus={onFocusHandler}
+                            onBlur={onBlurHandler}
                             onViewsClick={onViewsClickHandler}
                             onClear={clearQueryAndFilters}
                             ref={searchInputRef}

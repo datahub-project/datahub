@@ -7,8 +7,8 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
-import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
@@ -54,7 +54,14 @@ const Sections = styled.div`
     width: 100%;
 `;
 
+// Plain text, not CompactMarkdownViewer. That viewer imports Editor, and the
+// mention chip inside Editor renders this card, so the Editor import closes a
+// cycle across Editor's dynamic import of EditorImpl.
 const Description = styled.div`
+    display: -webkit-box;
+    -webkit-line-clamp: ${DESCRIPTION_MAX_LINES};
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     overflow-wrap: anywhere;
 `;
 
@@ -199,14 +206,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
                 <Sections>
                     {description && (
                         <HoverCardSection title={t('documentation')}>
-                            <Description>
-                                <CompactMarkdownViewer
-                                    content={description}
-                                    lineLimit={DESCRIPTION_MAX_LINES}
-                                    scrollableY={false}
-                                    hideShowMore
-                                />
-                            </Description>
+                            <Description>{removeMarkdown(description, { preserveNewlines: true })}</Description>
                         </HoverCardSection>
                     )}
                     {ownershipRole && (

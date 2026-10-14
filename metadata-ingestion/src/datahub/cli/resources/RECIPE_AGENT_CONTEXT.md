@@ -93,6 +93,9 @@ guess the real name; ask the operator, or change the secret so it no longer equa
 
 ## Exploring a source
 
+First check that the source can be probed: `recipe describe` lists `Probe` among its
+capabilities when it can. Without it, `probe methods` lists nothing and `probe run` is refused.
+
 Two ways in, depending on the connector. Always start with `probe methods`, which is
 connection-free and tells you what this source offers:
 

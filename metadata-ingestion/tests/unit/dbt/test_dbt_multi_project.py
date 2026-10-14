@@ -25,10 +25,15 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionRunEventClass,
     DatasetPropertiesClass,
     UpstreamLineageClass,
 )
 from datahub.utilities.time import datetime_to_ts_millis
+from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
+    make_freshness_info,
+)
 
 
 def _make_source(**config_overrides: Any) -> DBTCoreSource:
@@ -1237,6 +1242,31 @@ def test_assertion_urns_carry_the_current_projects_instance() -> None:
     b = assertion_urns("project_b")
     assert a and b
     assert a.isdisjoint(b)
+
+
+@pytest.mark.parametrize("target_platform_instance", [None, "warehouse"])
+def test_freshness_assertions_assert_on_the_warehouse_instance_not_the_project(
+    target_platform_instance: Optional[str],
+) -> None:
+    source = _make_source(target_platform_instance=target_platform_instance)
+    source_node = _node("source.project_a.raw.users", database="db", schema="raw")
+    source_node.freshness_info = make_freshness_info()
+
+    source._current_project = _project(platform_instance="project_a")
+    try:
+        mcps = list(source.create_freshness_assertion_mcps([source_node]))
+    finally:
+        source._current_project = None
+
+    warehouse_urn = make_dataset_urn_with_platform_instance(
+        "postgres", "db.raw.users", target_platform_instance, "PROD"
+    )
+    infos = [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+    events = [m.aspect for m in mcps if isinstance(m.aspect, AssertionRunEventClass)]
+    assert len(infos) == 1 and len(events) == 1
+    assert infos[0].customAssertion is not None
+    assert infos[0].customAssertion.entity == warehouse_urn
+    assert events[0].asserteeUrn == warehouse_urn
 
 
 def test_each_project_gets_its_project_name_as_platform_instance(

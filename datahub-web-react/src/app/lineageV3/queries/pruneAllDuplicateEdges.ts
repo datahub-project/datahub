@@ -5,6 +5,7 @@ import {
     isUrnDataProcessInstance,
     isUrnTransformational,
 } from '@app/lineageV3/common';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -13,9 +14,13 @@ enum HideOption {
     DATA_PROCESS_INSTANCES = 'dataProcessInstances',
 }
 
-const hideOptionIncludeUrnFunctions: Record<HideOption, (urn: string, rootType: EntityType) => boolean> = {
+const hideOptionIncludeUrnFunctions: Record<
+    HideOption,
+    (urn: string, rootType: EntityType, entityRegistry: EntityRegistry) => boolean
+> = {
     [HideOption.TRANSFORMATIONS]: isUrnTransformational,
-    [HideOption.DATA_PROCESS_INSTANCES]: isUrnDataProcessInstance,
+    [HideOption.DATA_PROCESS_INSTANCES]: (urn, _rootType, entityRegistry) =>
+        isUrnDataProcessInstance(urn, entityRegistry),
 };
 
 /**
@@ -25,15 +30,17 @@ const hideOptionIncludeUrnFunctions: Record<HideOption, (urn: string, rootType: 
  * @param urn Urn for which to remove parent edges.
  * @param direction Direction to look for parents.
  * @param context Lineage node context.
+ * @param entityRegistry Resolves urns to entity types, to find transformations and data process instances.
  */
 export default function pruneAllDuplicateEdges(
     urn: string,
     direction: LineageDirection | null,
     context: Pick<NodeContext, 'adjacencyList' | 'edges' | 'setDisplayVersion' | 'rootType'>,
+    entityRegistry: EntityRegistry,
 ) {
     let changed = false;
     Object.values(HideOption).forEach((hideOption) => {
-        changed ||= pruneDuplicateEdges(urn, direction, hideOption, context);
+        changed ||= pruneDuplicateEdges(urn, direction, hideOption, context, entityRegistry);
     });
     if (changed) {
         context.setDisplayVersion(([version, nodes]) => [version + 1, nodes]);
@@ -48,6 +55,7 @@ function pruneDuplicateEdges(
     direction: LineageDirection | null,
     hideOption: HideOption,
     context: Pick<NodeContext, 'adjacencyList' | 'edges' | 'rootType'>,
+    entityRegistry: EntityRegistry,
 ): boolean {
     const { edges, rootType } = context;
     const neighbors: Record<LineageDirection, Set<string>> = {
@@ -55,7 +63,7 @@ function pruneDuplicateEdges(
         [LineageDirection.Upstream]: new Set(),
     };
 
-    const includeUrn = hideOptionIncludeUrnFunctions[hideOption];
+    const includeUrn = (u: string, rt: EntityType) => hideOptionIncludeUrnFunctions[hideOption](u, rt, entityRegistry);
     const isUrnIncluded = includeUrn(urn, rootType);
 
     function getNeighbors(d: LineageDirection) {

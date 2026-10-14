@@ -122,8 +122,7 @@ export class SourcesV2Tab extends SourcesBaseTab {
     if (displayName) {
       await this.searchIfNotVisible(displayName);
     }
-    await this.openMoreOptions(displayName!);
-    await this.clickDropdownItem('Edit');
+    await this.selectMoreOption(displayName!, 'Edit');
     await expect(this.editDataSourceHeading).toBeVisible();
 
     if (verifyForm) {
