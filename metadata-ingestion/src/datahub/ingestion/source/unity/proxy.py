@@ -9,7 +9,17 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -1720,6 +1730,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         except Exception as e:
             self._report_sql_query_failure(e, query, params)
             return []
+
+    def run_sql_query(self, query: str) -> List[Row]:
+        # Unlike _execute_sql_query, this raises on failure instead of returning an
+        # empty list, so the data-quality extractor can tell a query error (missing
+        # SELECT grant, wrong table) apart from a scan window with no rows.
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+        with (
+            connect(**sql_connection_params) as connection,
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(query)
+            return cursor.fetchall()
 
     def _execute_sql_query_streaming(
         self,

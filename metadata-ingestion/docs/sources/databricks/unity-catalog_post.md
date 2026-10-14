@@ -72,6 +72,30 @@ The default preparsed path emits table-level usage only (no column `fieldCounts`
 
 :::
 
+#### Data Quality Monitoring (assertions)
+
+DataHub ingests [Databricks anomaly detection](https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-quality-monitoring/anomaly-detection/results) results as DataHub **assertions**. When `data_quality.enabled: true`, DataHub reads the `system.data_quality_monitoring.table_results` system table and, for each ingested table, publishes one assertion per anomaly-detection check with a run event per scan. The pass/fail/error verdict is Databricks' own (`status`) — DataHub does not derive its own threshold.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    warehouse_id: "<your-warehouse-id>"
+    data_quality:
+      enabled: true
+      # Optional: widen or narrow how many days of scans are published.
+      max_window_days: 7
+```
+
+Behavior:
+
+- Three checks are published per table: **commit freshness** (`freshness.commit_freshness`), **daily row count** (`completeness.daily_row_count`), and **total row count** (`completeness.total_row_count`). Each is a separate assertion keyed on the dataset and check (not the scan time), so re-ingestion appends run events rather than duplicating assertions.
+- Assertions are emitted as `CUSTOM` / `EXTERNAL` with the operator `_NATIVE_`, categorized as **Databricks Lakehouse Monitor**. Databricks' `Healthy`/`Unhealthy`/`Error` statuses map to `SUCCESS`/`FAILURE`/`ERROR`; `Training` and `Unknown` scans are not a pass/fail verdict and are skipped, as are the table-level and per-group status rollups (so a failure is not counted twice).
+- For the row-count checks the observed `last_value` is reported as the assertion's actual aggregate value, and the per-scan predicted band (`min_predicted_value`/`max_predicted_value`) is attached to the run's `nativeResults`. The commit-freshness `last_value`/`predicted_value` are timestamps, so they are reported on `nativeResults` rather than as an aggregate.
+- `max_window_days` bounds how far back scans are published relative to the ingestion `end_time` (default: the most recent 7 days), so each run reports the latest scans rather than replaying all history.
+
+Permissions: the results system table is read over SQL, so a running SQL warehouse (`warehouse_id`) is required. `system.data_quality_monitoring.table_results` is **account-admin only** by default, is **metastore-wide**, and contains **sample values** from every catalog, so an account admin must grant the ingesting principal an explicit `SELECT` on it — share it only with principals authorized to see metastore-wide results.
+
 #### Delta Lake External Tables
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
