@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 
@@ -7,9 +8,11 @@ import TestPageContainer from '@utils/test-utils/TestPageContainer';
 describe('VideoSlide', () => {
     it('keeps the poster video mounted when its source becomes available', () => {
         const { container, rerender } = render(
-            <TestPageContainer>
-                <VideoSlide posterSrc="/poster.webp" width="620px" />
-            </TestPageContainer>,
+            <MockedProvider>
+                <TestPageContainer>
+                    <VideoSlide posterSrc="/poster.webp" width="620px" />
+                </TestPageContainer>
+            </MockedProvider>,
         );
         const video = container.querySelector('video');
 
@@ -17,9 +20,11 @@ describe('VideoSlide', () => {
         expect(video?.querySelector('source')).not.toBeInTheDocument();
 
         rerender(
-            <TestPageContainer>
-                <VideoSlide posterSrc="/poster.webp" videoSrc="/video.mp4" width="620px" />
-            </TestPageContainer>,
+            <MockedProvider>
+                <TestPageContainer>
+                    <VideoSlide posterSrc="/poster.webp" videoSrc="/video.mp4" width="620px" />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(container.querySelector('video')).toBe(video);
