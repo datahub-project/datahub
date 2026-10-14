@@ -7,35 +7,25 @@ looker_selection's, which ingestion calls too; this module turns a listing's
 attributes into that module's facts, and warns when a fact is missing.
 """
 
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import Mapping, Optional
 
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
-from datahub.ingestion.source.common.subtypes import (
-    BIAssetSubTypes,
-    BIContainerSubTypes,
-    DatasetSubTypes,
-)
+from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_selection import (
+    DASHBOARD_KIND,
+    EXPLORE_KIND,
+    LOOK_KIND,
+    MODEL_KIND,
+    UNKNOWN,
     DashboardFacts,
     ElementFacts,
     LookFacts,
+    MaybeBool,
     dashboard_id_verdict,
     dashboard_verdict,
     element_verdict,
     standalone_look_verdict,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.looker.looker_config import (
-        LookerDashboardSourceConfig,
-    )
-
-DASHBOARD_KIND = str(BIAssetSubTypes.DASHBOARD)
-# Every Looker chart is emitted with this subtype, a dashboard element and a
-# standalone look alike (_make_chart_entities), so both listings share it.
-LOOK_KIND = str(BIAssetSubTypes.LOOKER_LOOK)
-MODEL_KIND = str(BIContainerSubTypes.LOOKML_MODEL)
-EXPLORE_KIND = str(DatasetSubTypes.LOOKER_EXPLORE)
 
 ATTR_DELETED = "deleted"
 ATTR_FOLDER_PATH = "folder_path"
@@ -55,6 +45,9 @@ ATTR_DASHBOARD_FOLDER_PATH_ALLOWED = "dashboard_folder_path_allowed"
 # settle the question; absent means undetermined.
 ATTR_USED = "used"
 ATTR_ON_KEPT_DASHBOARD = "on_kept_dashboard"
+# Written on every row of a `looks --trace-charts` listing, so a missing
+# on_kept_dashboard can be told apart: not traced, or traced and unsettled.
+ATTR_TRACED = "traced"
 
 # excluded_by values for rules only the probe applies; ingestion's own are in
 # looker_selection.
@@ -98,6 +91,18 @@ _ON_A_DASHBOARD_NOT_JUDGED = (
     "be emitted only as dashboard charts. Save `probe run looks --trace-charts "
     "--report-to` and pass it with `probe filter --from-run` to judge it"
 )
+_ON_A_DASHBOARD_UNDETERMINED = (
+    "a look that is also on a dashboard ingestion reads is emitted as that "
+    "dashboard's chart instead of as a standalone look; the chart trace could "
+    "not settle that for some looks (it hit its read bound, or a read failed: "
+    "see that listing's warnings), so some reported included may be emitted "
+    "only as dashboard charts"
+)
+_FOLDER_PATH_UNDETERMINED = (
+    "some dashboards' folder paths could not be read when they were listed "
+    "(see that listing's warnings), so folder_path_pattern was not judged for "
+    "them; re-run the listing once the read succeeds"
+)
 _USED_EXPLORES_UNDETERMINED = (
     "emit_used_explores_only is true (the default), so ingestion emits an "
     "explore, and its LookML model, only when a dashboard chart or standalone "
@@ -116,11 +121,11 @@ def _flag(attributes: Mapping[str, str], key: str) -> bool:
     return attributes.get(key) == "true"
 
 
-def _bool_or_none(attributes: Mapping[str, str], key: str) -> Optional[bool]:
-    """A listed bool, or None when the listing did not write it."""
+def _fact(attributes: Mapping[str, str], key: str) -> MaybeBool:
+    """A listed bool, or UNKNOWN when the listing did not write it."""
     value = attributes.get(key)
     if value is None:
-        return None
+        return UNKNOWN
     return value == "true"
 
 
@@ -142,22 +147,32 @@ def _dashboard_facts(
         deleted=_flag(attributes, deleted_key),
         personal=_flag(attributes, personal_key),
         folder_path=attributes.get(path_key),
-        folder_path_allowed=_bool_or_none(attributes, allowed_key),
+        folder_path_allowed=_fact(attributes, allowed_key),
     )
 
 
+def _warn_if_folder_undetermined(
+    ctx: VerdictContext, path_key: str, allowed_key: str
+) -> None:
+    # A dashboard with no folder is written allowed; only an unreadable
+    # folder path leaves both out.
+    if path_key not in ctx.attributes and allowed_key not in ctx.attributes:
+        ctx.warn(_FOLDER_PATH_UNDETERMINED)
+
+
 def _dashboard(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
     attributes = ctx.attributes
     if ATTR_DELETED not in attributes:
         ctx.warn(_NO_DASHBOARD_FACTS)
         return None
+    _warn_if_folder_undetermined(ctx, ATTR_FOLDER_PATH, ATTR_FOLDER_PATH_ALLOWED)
     return dashboard_verdict(config, _dashboard_facts(ctx.target, attributes))
 
 
 def _parent_dashboard(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
     """dashboard_verdict for the chart's own dashboard, from the facts `charts`
     stamped on the chart. None: it is kept."""
@@ -169,6 +184,9 @@ def _parent_dashboard(
             return by_id
         ctx.warn(_NO_ELEMENT_FACTS)
         return None
+    _warn_if_folder_undetermined(
+        ctx, ATTR_DASHBOARD_FOLDER_PATH, ATTR_DASHBOARD_FOLDER_PATH_ALLOWED
+    )
     verdict = dashboard_verdict(
         config,
         _dashboard_facts(
@@ -184,44 +202,52 @@ def _parent_dashboard(
 
 
 def _dashboard_element(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
     dropped_with_dashboard = _parent_dashboard(config, ctx)
     if dropped_with_dashboard is not None:
         return dropped_with_dashboard
     attributes = ctx.attributes
+    # `charts` always writes has_query, so on a record that carries it a
+    # missing type is a null one (a saved run drops nulls), which the vis
+    # rule excludes; on a bare name it is unknown.
+    listed = ATTR_HAS_QUERY in attributes
     verdict = element_verdict(
         config,
         ElementFacts(
             element_id=ctx.target,
-            element_type=attributes.get(ATTR_TYPE),
-            has_query=_bool_or_none(attributes, ATTR_HAS_QUERY),
+            element_type=attributes.get(ATTR_TYPE) if listed else UNKNOWN,
+            has_query=_fact(attributes, ATTR_HAS_QUERY),
         ),
     )
-    if verdict.included and ATTR_TYPE not in attributes:
+    if verdict.included and not listed:
         ctx.warn(_NO_ELEMENT_FACTS)
         return None
     return verdict
 
 
 def _standalone_look(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Verdict:
     attributes = ctx.attributes
     verdict = standalone_look_verdict(
         config,
         LookFacts(
-            deleted=_bool_or_none(attributes, ATTR_DELETED),
-            on_kept_dashboard=_bool_or_none(attributes, ATTR_ON_KEPT_DASHBOARD),
-            has_query=_bool_or_none(attributes, ATTR_HAS_QUERY),
             personal=_flag(attributes, ATTR_FOLDER_PERSONAL),
+            deleted=_fact(attributes, ATTR_DELETED),
+            on_kept_dashboard=_fact(attributes, ATTR_ON_KEPT_DASHBOARD),
+            has_query=_fact(attributes, ATTR_HAS_QUERY),
         ),
     )
     if not config.extract_independent_looks:
         return verdict
     ctx.warn(_CHART_PATTERN_NOT_APPLIED)
     if ATTR_ON_KEPT_DASHBOARD not in attributes:
-        ctx.warn(_ON_A_DASHBOARD_NOT_JUDGED)
+        ctx.warn(
+            _ON_A_DASHBOARD_UNDETERMINED
+            if _flag(attributes, ATTR_TRACED)
+            else _ON_A_DASHBOARD_NOT_JUDGED
+        )
     # Before the deleted check: an exclusion decided by a fact the listing
     # did write (no query, on a kept dashboard, personal folder) stands
     # whether or not `deleted` was written.
@@ -239,7 +265,7 @@ def _standalone_look(
 
 
 def _used_explores_rule(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Verdict:
     if config.emit_used_explores_only:
         used = ctx.attributes.get(ATTR_USED)
@@ -256,7 +282,7 @@ def _used_explores_rule(
 
 
 def looker_verdict(
-    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+    config: LookerDashboardSourceConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
     """LookerDashboardSourceConfig.probe_verdict_override's body.
 

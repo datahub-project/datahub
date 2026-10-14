@@ -6,12 +6,26 @@ same order for `probe filter` by looker_probe_verdicts.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from enum import Enum
+from typing import Literal, Optional, Protocol, Sequence, Union
 
 from looker_sdk.sdk.api40.models import DashboardElement, FolderBase
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import Verdict
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
+
+# The kinds `probe filter` judges for Looker.
+DASHBOARD_KIND = str(BIAssetSubTypes.DASHBOARD)
+# Every Looker chart is emitted with this subtype, a dashboard element and a
+# standalone look alike (_make_chart_entities), so both listings share it.
+LOOK_KIND = str(BIAssetSubTypes.LOOKER_LOOK)
+MODEL_KIND = str(BIContainerSubTypes.LOOKML_MODEL)
+EXPLORE_KIND = str(DatasetSubTypes.LOOKER_EXPLORE)
 
 # excluded_by values that name a rule rather than a config field.
 NOT_A_VIS_ELEMENT = "element_type"
@@ -19,6 +33,18 @@ ELEMENT_HAS_NO_QUERY = "element_has_no_query"
 LOOK_HAS_NO_QUERY = "look_has_no_query"
 ON_A_KEPT_DASHBOARD = "on_a_kept_dashboard"
 SKIP_PERSONAL_FOLDERS = "skip_personal_folders"
+
+
+class _Unknown(Enum):
+    UNKNOWN = "unknown"
+
+
+# A fact `probe filter` was not given: the rule it decides is skipped, and the
+# caller warns. Not None, because None is a value Looker can return (a null
+# element type), and ingestion judges it.
+UNKNOWN: Literal[_Unknown.UNKNOWN] = _Unknown.UNKNOWN
+# A fact that is either known or UNKNOWN.
+MaybeBool = Union[bool, _Unknown]
 
 
 class LookerSelectionConfig(Protocol):
@@ -48,6 +74,12 @@ def is_personal_folder(folder: Optional[FolderBase]) -> bool:
     return folder is not None and bool(
         folder.is_personal or folder.is_personal_descendant
     )
+
+
+def looker_folder_path(ancestor_names: Sequence[str], folder_name: str) -> str:
+    """The string folder_path_pattern is matched against: the names of the
+    folder's ancestors and its own, joined with '/' (Shared/Sales)."""
+    return "/".join([*ancestor_names, folder_name])
 
 
 def element_has_query(element: DashboardElement) -> bool:
@@ -86,16 +118,22 @@ def personal_folder_verdict(config: LookerSelectionConfig, personal: bool) -> Ve
     return Verdict.include()
 
 
+def skips_personal_folder(
+    config: LookerSelectionConfig, folder: Optional[FolderBase]
+) -> bool:
+    return not personal_folder_verdict(config, is_personal_folder(folder)).included
+
+
 def folder_path_verdict(
     config: LookerSelectionConfig,
     folder_path: Optional[str],
     *,
-    path_allowed: Optional[bool] = None,
+    path_allowed: MaybeBool = UNKNOWN,
 ) -> Verdict:
     """folder_path_pattern on the joined path. No folder means no rule.
 
     The probe withholds a path that may name a user and passes the flag it
-    computed at listing time instead.
+    computed at listing time instead; UNKNOWN skips the rule.
     """
     if folder_path is not None:
         allowed = config.folder_path_pattern.allowed(folder_path)
@@ -122,7 +160,9 @@ class DashboardFacts:
     deleted: bool
     personal: bool
     folder_path: Optional[str]
-    folder_path_allowed: Optional[bool] = None
+    # The listing's verdict when the path is withheld; UNKNOWN when it could
+    # not be decided.
+    folder_path_allowed: MaybeBool = UNKNOWN
 
 
 def dashboard_verdict(config: LookerSelectionConfig, facts: DashboardFacts) -> Verdict:
@@ -144,9 +184,10 @@ def dashboard_verdict(config: LookerSelectionConfig, facts: DashboardFacts) -> V
 @dataclass(frozen=True)
 class ElementFacts:
     element_id: str
-    # None: the listing did not say; that rule is skipped.
-    element_type: Optional[str]
-    has_query: Optional[bool]
+    # UNKNOWN: the listing did not say, and that rule is skipped. A null type
+    # is a real value, which the vis rule excludes.
+    element_type: Union[Optional[str], _Unknown] = UNKNOWN
+    has_query: MaybeBool = UNKNOWN
 
 
 def element_verdict(config: LookerSelectionConfig, facts: ElementFacts) -> Verdict:
@@ -157,19 +198,19 @@ def element_verdict(config: LookerSelectionConfig, facts: ElementFacts) -> Verdi
         return by_id
     if facts.has_query is False:
         return Verdict.exclude(ELEMENT_HAS_NO_QUERY)
-    if facts.element_type is not None:
+    if facts.element_type is not UNKNOWN:
         return element_type_verdict(facts.element_type)
     return Verdict.include()
 
 
 @dataclass(frozen=True)
 class LookFacts:
-    # None: not judged here (ingestion's all_looks already chose by
-    # include_deleted, or the probe was not told).
-    deleted: Optional[bool]
-    on_kept_dashboard: Optional[bool]
-    has_query: Optional[bool]
     personal: bool
+    # UNKNOWN: not judged here (ingestion's all_looks already chose by
+    # include_deleted, or the probe was not told).
+    deleted: MaybeBool = UNKNOWN
+    on_kept_dashboard: MaybeBool = UNKNOWN
+    has_query: MaybeBool = UNKNOWN
 
 
 def standalone_look_verdict(config: LookerSelectionConfig, facts: LookFacts) -> Verdict:
@@ -177,11 +218,11 @@ def standalone_look_verdict(config: LookerSelectionConfig, facts: LookFacts) -> 
     reachable_look_registry, query_id is None, then the personal folder."""
     if not config.extract_independent_looks:
         return Verdict.exclude("extract_independent_looks")
-    if facts.deleted is not None:
+    if facts.deleted is not UNKNOWN:
         by_deleted = deleted_verdict(config, facts.deleted)
         if not by_deleted.included:
             return by_deleted
-    if facts.on_kept_dashboard:
+    if facts.on_kept_dashboard is True:
         return Verdict.exclude(ON_A_KEPT_DASHBOARD)
     if facts.has_query is False:
         return Verdict.exclude(LOOK_HAS_NO_QUERY)

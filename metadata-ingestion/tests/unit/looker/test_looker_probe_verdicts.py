@@ -337,3 +337,22 @@ def test_charts_of_a_dashboard_ingestion_drops_are_excluded_by_its_rule() -> Non
         assert _reasons(result) == {"11": reason}, name
         # The listing carried the dashboard's facts, so nothing is undetermined.
         assert result.warnings == [], name
+
+
+def test_a_listed_chart_with_a_null_type_is_not_a_vis() -> None:
+    # A saved run drops the null type; has_query beside it marks a listed
+    # record, so the absence reads as null, which ingestion's vis rule drops.
+    # A bare name carries neither, so the type is unknown and not judged.
+    listed = _judge(
+        "Look",
+        ["7", "8"],
+        parent=["1"],
+        attributes=[
+            {"has_query": "true", "dashboard_deleted": "false"},
+            {"has_query": "true", "type": "vis", "dashboard_deleted": "false"},
+        ],
+    )
+    assert _reasons(listed) == {"7": "element_type", "8": None}
+    bare = _judge("Look", ["7"], parent=["1"])
+    assert _reasons(bare) == {"7": None}
+    assert bare.warnings

@@ -22,7 +22,8 @@ Explore usage is attached only to explores that were actually ingested in the sa
 `datahub recipe probe` lists what this recipe's credential can see and judges
 it the way ingestion will, before you run an ingestion. Probe output is
 metadata only: no owners, user emails, personal-folder names, query filters or
-SQL.
+SQL. Under `skip_personal_folders`, dashboards and looks in personal folders are
+listed by id with their title withheld, since ingestion does not emit them.
 
 | Command                   | Lists                                    | Judge with `probe filter`   |
 | ------------------------- | ---------------------------------------- | --------------------------- |
@@ -54,8 +55,13 @@ under `skip_personal_folders`, as ingestion does. It does not apply
 it drops the dashboard by folder. For `explores` and `models` with
 `extract_independent_looks`, it also reads each standalone look's query.
 Besides the listing calls, that is one read per dashboard plus one per
-standalone look, and it stops after 1000 reads; whatever it could not read is
-left undetermined.
+standalone look, up to a fixed bound; whatever it could not read is left
+undetermined, and the result says whether the bound or a failed read stopped it.
+
+A read Looker refuses (HTTP 403 or 404) comes back empty with a warning, and a
+look or dashboard read it refuses is counted in one warning per kind of
+failure. Any other error ends the command, as does a Looker that cannot be
+reached.
 
 ```shell
 datahub recipe probe run explores --model <model> --trace-charts --recipe looker.yml --report-to explores.json

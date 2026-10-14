@@ -1,7 +1,7 @@
 import re
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import partial
 from typing import (
     Callable,
     Dict,
@@ -17,7 +17,6 @@ from typing import (
 from urllib.parse import urlparse
 
 import looker_sdk.rtl.requests_transport as looker_requests_transport
-import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
@@ -26,12 +25,19 @@ from looker_sdk.sdk.api40.models import (
     DashboardElement,
     FolderBase,
     Look,
+    LookmlModel,
     Query,
 )
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import MAX_PROBE_ITEMS, probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    echoed,
+    resolve_name,
+    soft_listing,
+    take,
+)
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -39,7 +45,11 @@ from datahub.ingestion.agent.verdicts import (
     ProbeSoftError,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
-from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    BASIC_INGEST_REQUIRED_PERMISSIONS,
+    USAGE_INGEST_REQUIRED_PERMISSIONS,
+    LookerAPI,
+)
 from datahub.ingestion.source.looker.looker_probe_verdicts import (
     ATTR_DASHBOARD_DELETED,
     ATTR_DASHBOARD_FOLDER_PATH,
@@ -52,22 +62,23 @@ from datahub.ingestion.source.looker.looker_probe_verdicts import (
     ATTR_FOLDER_PERSONAL,
     ATTR_HAS_QUERY,
     ATTR_ON_KEPT_DASHBOARD,
+    ATTR_TRACED,
     ATTR_TYPE,
     ATTR_USED,
+)
+from datahub.ingestion.source.looker.looker_selection import (
     DASHBOARD_KIND,
     EXPLORE_KIND,
     LOOK_KIND,
     MODEL_KIND,
-)
-from datahub.ingestion.source.looker.looker_selection import (
+    LookFacts,
+    chart_id_verdict,
+    dashboard_id_verdict,
     element_has_query,
     is_personal_folder,
-    personal_folder_verdict,
-)
-from datahub.ingestion.source.looker.looker_source import (
-    BASIC_INGEST_REQUIRED_PERMISSIONS,
-    USAGE_INGEST_REQUIRED_PERMISSIONS,
     looker_folder_path,
+    skips_personal_folder,
+    standalone_look_verdict,
 )
 
 _T = TypeVar("_T")
@@ -96,6 +107,11 @@ _ANCESTORS_UNREADABLE = (
     "user's, so those paths are withheld and folder_path_allowed carries the "
     "verdict"
 )
+_ANCESTORS_UNDETERMINED = (
+    "some folders' ancestors could not be read (Looker failed or rate-limited "
+    "the read), so their folder path is undetermined and folder_path_pattern "
+    "is not judged for their dashboards; a healthy ingestion run reads it"
+)
 
 
 @dataclass(frozen=True)
@@ -103,11 +119,14 @@ class _FolderFacts:
     # None for a personal folder: Looker names it after its user.
     path: Optional[str]
     personal: bool
-    # folder_path_pattern's verdict on the real path; None with no folder.
+    # folder_path_pattern's verdict on the real path; None when it could not
+    # be decided (the record then leaves it out).
     path_allowed: Optional[bool]
 
 
-_NO_FOLDER = _FolderFacts(path=None, personal=False, path_allowed=None)
+# No folder, no folder_path_pattern rule: written as allowed, so a missing
+# flag on a record always means undetermined.
+_NO_FOLDER = _FolderFacts(path=None, personal=False, path_allowed=True)
 
 # dashboard_elements carries each element's query; user fields are not read.
 _CHART_DASHBOARD_FIELDS = ["id", "deleted", _FOLDER_FIELDS, "dashboard_elements"]
@@ -125,17 +144,20 @@ def _element_query(element: DashboardElement) -> Optional[Query]:
 
 
 def _element_record(
-    element: DashboardElement, dashboard_deleted: bool, folder: _FolderFacts
+    element: DashboardElement,
+    dashboard_deleted: bool,
+    folder: _FolderFacts,
+    withhold_title: bool,
 ) -> Dict[str, object]:
     query = _element_query(element)
     # Model and explore only: query.filters holds filter values, which are
     # row values, and dynamic_fields holds expressions.
     return {
         "name": element.id,
-        "title": element.title,
-        # "" rather than None so the attribute survives --report-to: ingestion
-        # emits only type == "vis", and a missing type is not "vis".
-        ATTR_TYPE: element.type or "",
+        "title": None if withhold_title else element.title,
+        # A null type is dropped from a saved run; next to has_query, which is
+        # always written, the verdict reads its absence as null.
+        ATTR_TYPE: element.type,
         ATTR_HAS_QUERY: element_has_query(element),
         "look_id": element.look_id,
         "model": query.model if query is not None else None,
@@ -152,10 +174,10 @@ def _element_record(
 _LOOK_LIST_FIELDS = ["id", "title", "query_id", _FOLDER_FIELDS]
 
 
-def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
+def _look_record(look: Look, deleted: bool, withhold_title: bool) -> Dict[str, object]:
     return {
         "name": look.id,
-        "title": look.title,
+        "title": None if withhold_title else look.title,
         ATTR_DELETED: deleted,
         ATTR_HAS_QUERY: look.query_id is not None,
         ATTR_FOLDER_PERSONAL: is_personal_folder(look.folder),
@@ -171,10 +193,15 @@ _TRACE_DASHBOARD_FIELDS = ["id", _FOLDER_FIELDS, "dashboard_elements"]
 # The folder flags let the trace skip what skip_personal_folders discards
 # without spending a dashboard read on it.
 _TRACE_LIST_FIELDS = ["id", "folder(id,is_personal,is_personal_descendant)"]
+_TRACE_CAPPED = (
+    "the chart trace stopped after {limit} reads, before reading everything "
+    "ingestion would, so what it did not find in use is left undetermined "
+    "(null)"
+)
 _TRACE_INCOMPLETE = (
-    "the chart trace did not read everything ingestion would (a read was "
-    "refused or failed, see above, or it stopped after {limit} reads), so "
-    "what it did not find in use is left undetermined (null)"
+    "the chart trace could not read everything ingestion would (a read was "
+    "refused or failed, see above), so what it did not find in use is left "
+    "undetermined (null)"
 )
 
 _ExploreRef = Tuple[str, str]
@@ -184,21 +211,15 @@ def _element_explores(element: DashboardElement) -> List[_ExploreRef]:
     """The (model, explore) pairs _get_looker_dashboard_element records with
     add_reachable_explore, with the same precedence: query, else look, else
     result_maker (its query and its filterables)."""
-    queries: List[Optional[Query]] = []
     pairs: List[_ExploreRef] = []
-    if element.query is not None:
-        queries.append(element.query)
-    elif element.look is not None:
-        queries.append(element.look.query)
-    elif element.result_maker is not None:
-        queries.append(element.result_maker.query)
+    if element.query is None and element.look is None and element.result_maker:
         for filterable in element.result_maker.filterables or []:
             if filterable.model is not None and filterable.view is not None:
                 pairs.append((filterable.model, filterable.view))
-    for query in queries:
-        # A pair without a model names no explore any listing holds.
-        if query is not None and query.model is not None and query.view is not None:
-            pairs.append((query.model, query.view))
+    query = _element_query(element)
+    # A pair without a model names no explore any listing holds.
+    if query is not None and query.model is not None and query.view is not None:
+        pairs.append((query.model, query.view))
     return pairs
 
 
@@ -214,6 +235,8 @@ class _Reachability:
     dashboards_complete: bool = True
     # Every standalone look ingestion reads was read (or none are read).
     looks_complete: bool = True
+    # The read bound stopped the trace (as opposed to a refused read).
+    capped: bool = False
     reads: int = 0
 
     def explore_used(self, model: str, explore: str) -> Optional[bool]:
@@ -250,35 +273,60 @@ def sdk_error_status(exc: SDKError) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
+class _Refused(ProbeSoftError):
+    """A 403/404 on one read. `outcome` names it without the object, so a
+    caller reading many objects can count them in one warning."""
+
+    def __init__(self, context: str, outcome: str) -> None:
+        super().__init__(f"{context} {outcome}; treating it as empty.")
+        self.outcome = outcome
+
+
+class _Failed(ProbeReadFailed):
+    """Any other failed read, with the same object-free `outcome`."""
+
+    def __init__(self, context: str, outcome: str) -> None:
+        super().__init__(f"{context} {outcome}")
+        self.outcome = outcome
+
+
+def _is_transport_failure(exc: SDKError) -> bool:
+    """looker_sdk's RequestsTransport turns any IOError -- every
+    requests.RequestException, a dropped connection included -- into a non-ok
+    response carrying str(exc), which APIMethods._return raises as a bare
+    SDKError: no documentation link, no error details, no status."""
+    return (
+        sdk_error_status(exc) is None and not exc.documentation_url and not exc.errors
+    )
+
+
 @contextmanager
 def _looker_call(context: str, not_found: Optional[str] = None) -> Iterator[None]:
     """Run one Looker read, translating its failure into the probe's terms.
 
-    Never formats the original: an SDKError renders the response body and a
-    requests error the URL. `from None` keeps them out of any traceback a
+    Never formats the original: an SDKError renders the response body, or a
+    transport error's URL. `from None` keeps them out of any traceback a
     caller logs too. 403/404 degrade (ProbeSoftError), except a 404 on the
-    object the caller named, which is a bad argument (`not_found`).
+    object the caller named, which is a bad argument (`not_found`). A Looker
+    that cannot be reached ends the command.
     """
     try:
         yield
     except SDKError as exc:
+        if _is_transport_failure(exc):
+            raise ProbeConnectionError(
+                f"{context} failed: Looker could not be reached (SDKError with "
+                f"no Looker response)"
+            ) from None
         status = sdk_error_status(exc)
         if status == 404 and not_found is not None:
             raise ProbeArgumentError(not_found) from None
         if status in (403, 404):
-            raise ProbeSoftError(
-                f"{context} returned HTTP {status}; treating it as empty."
-            ) from None
+            raise _Refused(context, f"returned HTTP {status}") from None
         reason = f"HTTP {status}" if status is not None else "an unrecognised error"
-        raise ProbeReadFailed(f"{context} failed: Looker returned {reason}") from None
+        raise _Failed(context, f"failed: Looker returned {reason}") from None
     except DeserializeError:
-        raise ProbeReadFailed(
-            f"{context} failed: Looker's response could not be read"
-        ) from None
-    except requests.exceptions.RequestException as exc:
-        raise ProbeConnectionError(
-            f"{context} failed: Looker could not be reached ({type(exc).__name__})"
-        ) from None
+        raise _Failed(context, "failed: Looker's response could not be read") from None
 
 
 def _open_looker(config: LookerDashboardSourceConfig) -> LookerAPI:
@@ -296,14 +344,15 @@ def _open_looker(config: LookerDashboardSourceConfig) -> LookerAPI:
     try:
         return LookerAPI(config)
     except ConfigurationError:
-        # LookerAPI raises this from me() for any SDKError: refused
-        # credentials, a server error, or a base_url that is not a Looker API.
+        # LookerAPI raises this from me() for any SDKError, a transport
+        # failure included: refused credentials, a server error, an instance
+        # that is down, or a base_url that is not a Looker API.
         raise ProbeConnectionError(
             f"Looker at {host} refused or did not answer the credential check; "
             f"check client_id, client_secret and base_url, and that the "
             f"instance is up"
         ) from None
-    except (SDKError, DeserializeError, requests.exceptions.RequestException) as exc:
+    except (SDKError, DeserializeError) as exc:
         raise ProbeConnectionError(
             f"could not reach Looker at {host} ({type(exc).__name__})"
         ) from None
@@ -336,21 +385,22 @@ class LookerMetadataProbe(ProbeProviderBase):
             "looker", lambda: _open_looker(self._config), close=_close_session
         )
 
-    def _degrading(self, fetch: Callable[[], _T], empty: _T) -> _T:
-        """`empty` plus a warning when the read was refused (403/404), so an
-        empty result says "could not look" rather than "nothing here"."""
-        try:
-            return fetch()
-        except ProbeSoftError as exc:
-            self._warn(str(exc))
-            return empty
+    def _listing(self, context: str, call: Callable[[], Sequence[_T]]) -> List[_T]:
+        """One listing read; a refused one is empty with a warning, so empty
+        says "could not look" rather than "nothing here"."""
+        with soft_listing(self._warn), _looker_call(context):
+            return list(call())
+        return []
 
-    def _fetch(self, context: str, call: Callable[[], Sequence[_T]]) -> List[_T]:
-        def run() -> List[_T]:
-            with _looker_call(context):
-                return list(call())
+    def _withholds_title(self, folder: Optional[FolderBase]) -> bool:
+        # A title in a personal folder is user-written, and ingestion does not
+        # emit the object under skip_personal_folders: list it by id only.
+        return skips_personal_folder(self._config, folder)
 
-        return self._degrading(run, [])
+    def _warn_counted(self, failures: "Counter[str]", what: str, then: str) -> None:
+        """One warning per kind of failure, not one per object."""
+        for outcome, count in sorted(failures.items()):
+            self._warn(f"{count} {what} {outcome}; {then}")
 
     @probe_method()
     def permissions(self) -> Dict[str, object]:
@@ -361,41 +411,22 @@ class LookerMetadataProbe(ProbeProviderBase):
         only, never the API user's id or email. All three are null, with a
         warning, when the credential cannot read its own roles."""
         api = self._api()
-
-        def fetch() -> Optional[Set[str]]:
-            with _looker_call("role lookup for the API user"):
-                return api.get_available_permissions()
-
-        granted = self._degrading(fetch, None)
-        if granted is None:
+        with soft_listing(self._warn), _looker_call("role lookup for the API user"):
+            granted = api.get_available_permissions()
             return {
-                "granted": None,
-                "missing_for_metadata": None,
-                "missing_for_usage": None,
+                "granted": sorted(granted),
+                "missing_for_metadata": sorted(
+                    BASIC_INGEST_REQUIRED_PERMISSIONS - granted
+                ),
+                "missing_for_usage": sorted(
+                    USAGE_INGEST_REQUIRED_PERMISSIONS - granted
+                ),
             }
         return {
-            "granted": sorted(granted),
-            "missing_for_metadata": sorted(BASIC_INGEST_REQUIRED_PERMISSIONS - granted),
-            "missing_for_usage": sorted(USAGE_INGEST_REQUIRED_PERMISSIONS - granted),
+            "granted": None,
+            "missing_for_metadata": None,
+            "missing_for_usage": None,
         }
-
-    def _ancestor_names(self, folder_id: str) -> Optional[List[str]]:
-        """The folder's ancestors' names, or None when they could not be read."""
-        api = self._api()
-        try:
-            with _looker_call("folder ancestor lookup"):
-                ancestors = api.client.folder_ancestors(
-                    folder_id,
-                    _FOLDER_ANCESTOR_FIELDS,
-                    transport_options=api.transport_options,
-                )
-        except (ProbeSoftError, ProbeReadFailed):
-            # LookerAPI.folder_ancestors, which ingestion calls, swallows every
-            # SDKError and returns no ancestors. The SDK is called directly here
-            # only so that degrade can be reported instead of silent.
-            self._warn(_ANCESTORS_UNREADABLE)
-            return None
-        return [ancestor.name for ancestor in ancestors]
 
     def _folder_facts(self, folder: Optional[FolderBase]) -> _FolderFacts:
         """What _should_skip_personal_folder_dashboard and
@@ -406,7 +437,29 @@ class LookerMetadataProbe(ProbeProviderBase):
         if cached is not None:
             return cached
         personal = is_personal_folder(folder)
-        ancestors = self._ancestor_names(folder.id)
+        api = self._api()
+        ancestors: Optional[List[str]]
+        try:
+            with _looker_call("folder ancestor lookup"):
+                ancestors = [
+                    ancestor.name
+                    for ancestor in api.client.folder_ancestors(
+                        folder.id,
+                        _FOLDER_ANCESTOR_FIELDS,
+                        transport_options=api.transport_options,
+                    )
+                ]
+        except ProbeSoftError:
+            # A refusal persists: LookerAPI.folder_ancestors, which ingestion
+            # calls, swallows it too and matches the bare name. The SDK is
+            # called directly here only so the degrade is reported.
+            self._warn(_ANCESTORS_UNREADABLE)
+            ancestors = None
+        except ProbeReadFailed:
+            # A 5xx or rate limit says nothing about what a healthy run reads:
+            # undetermined, and not cached, so a later record may read it.
+            self._warn(_ANCESTORS_UNDETERMINED)
+            return _FolderFacts(path=None, personal=personal, path_allowed=None)
         path = looker_folder_path(ancestors or [], folder.name)
         # Withheld past the flags too: a path under a user root, or a nested
         # folder's bare name when its ancestors are unknown, may name a user.
@@ -432,7 +485,9 @@ class LookerMetadataProbe(ProbeProviderBase):
         folder = self._folder_facts(dashboard.folder)
         return {
             "name": dashboard.id,
-            "title": dashboard.title,
+            "title": None
+            if self._withholds_title(dashboard.folder)
+            else dashboard.title,
             ATTR_DELETED: deleted,
             ATTR_FOLDER_PATH: folder.path,
             ATTR_FOLDER_PERSONAL: folder.personal,
@@ -442,50 +497,45 @@ class LookerMetadataProbe(ProbeProviderBase):
     @probe_method(kind=DASHBOARD_KIND, row_limit_param="limit")
     def dashboards(self, limit: int = 200) -> List[Dict[str, object]]:
         """Dashboards this credential can see, by id -- the string
-        dashboard_pattern matches -- including ones the recipe would drop: a
-        dropped dashboard is reported, not hidden. Deleted dashboards are
-        listed too (`deleted: true`); ingestion reads them only with
-        include_deleted. Each record carries what ingestion also filters on:
-        `folder_path` (what folder_path_pattern matches), `folder_personal`
-        (what skip_personal_folders drops) and `folder_path_allowed`. A
-        personal folder's path is withheld, because Looker names it after its
-        user; `folder_path_allowed` is folder_path_pattern's verdict on it,
-        computed from this recipe at run time. Save this with `--report-to` and
-        judge it with `probe filter --kind Dashboard --from-run <report>`.
-        Metadata only: no owners, users or usage counts."""
+        dashboard_pattern matches -- including ones the recipe would drop.
+        Deleted ones are listed too (`deleted: true`); ingestion reads them
+        only with include_deleted. Each record carries what ingestion also
+        filters on: `folder_path` (what folder_path_pattern matches),
+        `folder_personal` (what skip_personal_folders drops) and
+        `folder_path_allowed`, folder_path_pattern's verdict computed at run
+        time. A personal folder's path is withheld, because Looker names it
+        after its user, and so is the title of a dashboard
+        skip_personal_folders drops. Judge with `probe filter --kind Dashboard
+        --from-run <report>`. Metadata only: no owners, users or usage
+        counts."""
+        return take(self._dashboard_rows(), limit)
+
+    def _dashboard_rows(self) -> Iterator[Dict[str, object]]:
+        # Live first, then deleted, as get_workunits_internal orders them.
+        # Lazy, so a limit the live ones reach leaves folder lookups and the
+        # deleted listing unrequested.
         api = self._api()
-        rows: List[Dict[str, object]] = []
-        # Live first, then deleted, as get_workunits_internal orders them. The
-        # framework asks for limit+1; stopping there keeps folder lookups and
-        # the deleted listing from being requested at all.
-        live = self._fetch(
-            "dashboard listing",
-            lambda: api.all_dashboards(fields=_DASHBOARD_LIST_FIELDS),
-        )
-        self._extend_dashboards(rows, live, deleted=False, limit=limit)
-        if len(rows) < limit:
-            deleted = self._fetch(
+        listings: Sequence[
+            Tuple[bool, str, Callable[[], Sequence[Union[Dashboard, DashboardBase]]]]
+        ] = (
+            (
+                False,
+                "dashboard listing",
+                lambda: api.all_dashboards(fields=_DASHBOARD_LIST_FIELDS),
+            ),
+            (
+                True,
                 "deleted dashboard listing",
                 lambda: api.search_dashboards(
                     fields=_DASHBOARD_LIST_FIELDS, deleted="true"
                 ),
-            )
-            self._extend_dashboards(rows, deleted, deleted=True, limit=limit)
-        return rows
-
-    def _extend_dashboards(
-        self,
-        rows: List[Dict[str, object]],
-        dashboards: Sequence[Union[Dashboard, DashboardBase]],
-        deleted: bool,
-        limit: int,
-    ) -> None:
-        for dashboard in dashboards:
-            if len(rows) >= limit:
-                return
-            record = self._dashboard_record(dashboard, deleted=deleted)
-            if record is not None:
-                rows.append(record)
+            ),
+        )
+        for deleted, context, call in listings:
+            for dashboard in self._listing(context, call):
+                record = self._dashboard_record(dashboard, deleted=deleted)
+                if record is not None:
+                    yield record
 
     @probe_method(kind=LOOK_KIND, parent_params=("dashboard",))
     def charts(self, dashboard: str) -> List[Dict[str, object]]:
@@ -494,42 +544,40 @@ class LookerMetadataProbe(ProbeProviderBase):
         subtype Look, and only an element whose `type` is `vis` and
         `has_query` is true; `model` and `explore` are the explore it queries,
         which is what emit_used_explores_only keeps. Each record also carries
-        its dashboard's facts (`dashboard_deleted`, `dashboard_folder_*`, the
-        path withheld for a personal folder), because ingestion reads none of
-        a dashboard's charts when it drops the dashboard itself (deleted,
-        personal folder, or folder_path_pattern); this warns when it does,
-        and `probe filter` applies those rules. Judge with
+        its dashboard's facts (`dashboard_deleted`, `dashboard_folder_*`),
+        because ingestion reads none of a dashboard's charts when it drops the
+        dashboard itself; `probe filter` applies those rules. Judge with
         `probe filter --kind Look --from-run <report>`. Metadata only: no
         query filters, fields or SQL."""
         api = self._api()
-
-        def fetch() -> Optional[Dashboard]:
-            with _looker_call(
-                f"dashboard '{dashboard}'",
+        shown = echoed(dashboard)
+        with (
+            soft_listing(self._warn),
+            _looker_call(
+                f"dashboard {shown}",
                 not_found=(
-                    f"no dashboard with id '{dashboard}'; pass an id from the "
-                    f"`dashboards` listing"
+                    f"no dashboard with id {shown}; pass an id from the `dashboards` "
+                    f"listing"
                 ),
-            ):
-                return api.dashboard(
-                    dashboard_id=dashboard, fields=_CHART_DASHBOARD_FIELDS
-                )
-
-        detail = self._degrading(fetch, None)
-        if detail is None:
-            return []
-        self._note_parent_dashboard(detail)
-        folder = self._folder_facts(detail.folder)
-        return [
-            _element_record(element, bool(detail.deleted), folder)
-            for element in detail.dashboard_elements or []
-            if element.id is not None
-        ]
+            ),
+        ):
+            detail = api.dashboard(
+                dashboard_id=dashboard, fields=_CHART_DASHBOARD_FIELDS
+            )
+            self._note_parent_dashboard(detail)
+            folder = self._folder_facts(detail.folder)
+            withhold = self._withholds_title(detail.folder)
+            return [
+                _element_record(element, bool(detail.deleted), folder, withhold)
+                for element in detail.dashboard_elements or []
+                if element.id is not None
+            ]
+        return []
 
     def _note_parent_dashboard(self, detail: Dashboard) -> None:
         """`probe filter --parent` judges a dashboard by id only; say when one
         of ingestion's other dashboard rules drops it (process_dashboard)."""
-        label = f"dashboard '{detail.id}'"
+        label = f"dashboard {echoed(str(detail.id))}"
         if detail.deleted and not self._config.include_deleted:
             self._warn(
                 f"{label} is deleted and include_deleted is false, so ingestion "
@@ -542,7 +590,9 @@ class LookerMetadataProbe(ProbeProviderBase):
                 f"set, so ingestion reads none of its charts"
             )
         elif folder.path_allowed is False:
-            where = f"folder '{folder.path}'" if folder.path else "a personal folder"
+            where = (
+                f"folder {echoed(folder.path)}" if folder.path else "a personal folder"
+            )
             self._warn(
                 f"{label} is in {where}, which folder_path_pattern denies, so "
                 f"ingestion reads none of its charts"
@@ -554,19 +604,19 @@ class LookerMetadataProbe(ProbeProviderBase):
     ) -> List[Dict[str, object]]:
         """Saved looks, by look id, as extract_independent_looks reads them:
         live ones, and deleted ones (`deleted: true`), which it reads only with
-        include_deleted. Ingestion emits a look as a standalone chart only when
-        extract_independent_looks is true, it has a query (`has_query`: a
-        query id, and a query when the look is read back, as ingestion reads
-        it -- one read per look; null when that read failed, which `probe
-        filter` reports excluded, as ingestion skips such a look), and,
-        under skip_personal_folders, it is not in a personal folder
-        (`folder_personal`). chart_pattern does not apply to these. A look that
-        is also on a dashboard ingestion reads is emitted as that dashboard's
-        chart instead; only `trace_charts` tells that: it reads every
-        dashboard dashboard_pattern keeps, less those skip_personal_folders
-        discards, as ingestion does (bounded), and
-        sets `on_kept_dashboard`, computed from this recipe at run time (null
-        when the trace could not settle it).
+        include_deleted. chart_pattern does not apply to these.
+
+        Ingestion emits a look as a standalone chart only when
+        extract_independent_looks is true, the look has a query (`has_query`,
+        read back once per look as ingestion reads it; null when that read
+        failed), and, under skip_personal_folders, it is not in a personal
+        folder (`folder_personal`; such a look's title is withheld).
+
+        A look that is also on a dashboard ingestion reads is emitted as that
+        dashboard's chart instead. Only `trace_charts` tells that: it reads the
+        dashboards ingestion reads (bounded) and sets `on_kept_dashboard`,
+        null when the trace could not settle it.
+
         Judge with `probe filter --kind Look --from-run <report>` and no
         --parent. Metadata only: no owners and no folder names."""
         if not self._config.extract_independent_looks:
@@ -575,47 +625,52 @@ class LookerMetadataProbe(ProbeProviderBase):
                 "these as standalone charts; looks on dashboards are listed by "
                 "`charts`"
             )
-        api = self._api()
-        rows: List[Dict[str, object]] = []
-        seen: Set[str] = set()
-        live = self._fetch(
-            "look listing",
-            lambda: api.all_looks(fields=_LOOK_LIST_FIELDS, soft_deleted=False),
-        )
-        self._extend_looks(rows, seen, live, deleted=False, limit=limit)
-        if len(rows) < limit:
-            deleted = self._fetch(
-                "deleted look listing",
-                lambda: api.search_looks(fields=_LOOK_LIST_FIELDS, deleted=True),
-            )
-            self._extend_looks(rows, seen, deleted, deleted=True, limit=limit)
+        rows = take(self._look_rows(), limit)
+        failures: Counter[str] = Counter()
         for row in rows:
             if row[ATTR_HAS_QUERY] is True:
-                read, query = self._read_look_query(str(row["name"]), "look")
+                read, query = self._read_look_query(str(row["name"]), failures)
                 # Unread: undetermined, not "no query".
                 row[ATTR_HAS_QUERY] = (query is not None) if read else None
+        self._warn_counted(
+            failures, "look read(s)", "their has_query is null (undetermined)"
+        )
         if trace_charts:
             reach = self._trace(with_standalone_looks=False)
             for row in rows:
+                row[ATTR_TRACED] = True
                 row[ATTR_ON_KEPT_DASHBOARD] = reach.on_kept_dashboard(str(row["name"]))
         return rows
 
-    @staticmethod
-    def _extend_looks(
-        rows: List[Dict[str, object]],
-        seen: Set[str],
-        looks: Sequence[Look],
-        deleted: bool,
-        limit: int,
-    ) -> None:
-        for look in looks:
-            if len(rows) >= limit:
-                return
-            # extract_independent_looks skips a look without an id.
-            if look.id is None or look.id in seen:
-                continue
-            seen.add(look.id)
-            rows.append(_look_record(look, deleted=deleted))
+    def _look_rows(self) -> Iterator[Dict[str, object]]:
+        api = self._api()
+        seen: Set[str] = set()
+        listings: Sequence[Tuple[bool, str, Callable[[], Sequence[Look]]]] = (
+            (
+                False,
+                "look listing",
+                lambda: api.all_looks(fields=_LOOK_LIST_FIELDS, soft_deleted=False),
+            ),
+            (
+                True,
+                "deleted look listing",
+                lambda: api.search_looks(fields=_LOOK_LIST_FIELDS, deleted=True),
+            ),
+        )
+        for deleted, context, call in listings:
+            for look in self._listing(context, call):
+                # extract_independent_looks skips a look without an id.
+                if look.id is None or look.id in seen:
+                    continue
+                seen.add(look.id)
+                yield _look_record(
+                    look,
+                    deleted=deleted,
+                    withhold_title=self._withholds_title(look.folder),
+                )
+
+    def _lookml_models(self) -> List[LookmlModel]:
+        return self._listing("LookML model listing", self._api().all_lookml_models)
 
     @probe_method(kind=MODEL_KIND)
     def models(self, trace_charts: bool = False) -> List[Dict[str, object]]:
@@ -628,7 +683,6 @@ class LookerMetadataProbe(ProbeProviderBase):
         ingestion reads to find them (see `explores`) and sets `used`,
         computed from this recipe at run time (null when the trace could not
         settle it). Metadata only."""
-        api = self._api()
         rows: List[Dict[str, object]] = [
             {
                 "name": model.name,
@@ -638,7 +692,7 @@ class LookerMetadataProbe(ProbeProviderBase):
                     1 for explore in model.explores or [] if explore.name is not None
                 ),
             }
-            for model in self._fetch("LookML model listing", api.all_lookml_models)
+            for model in self._lookml_models()
             if model.name is not None
         ]
         if trace_charts:
@@ -657,51 +711,52 @@ class LookerMetadataProbe(ProbeProviderBase):
         emits only those a kept chart or look queries; `trace_charts` finds
         them as ingestion does -- it reads every dashboard dashboard_pattern
         keeps and, with extract_independent_looks, every standalone look's
-        query (bounded) -- and sets `used`, computed from this recipe at run
-        time (null when the trace could not settle it). It costs one read per
-        kept dashboard plus one per standalone look, at most 1000 reads.
-        Without it, `charts` shows the explore each chart of one dashboard
-        uses. Metadata only."""
-        api = self._api()
-        for lookml_model in self._fetch("LookML model listing", api.all_lookml_models):
-            if lookml_model.name == model:
-                rows: List[Dict[str, object]] = [
-                    {"name": explore.name, "hidden": bool(explore.hidden)}
-                    for explore in lookml_model.explores or []
-                    if explore.name is not None
-                ]
-                if trace_charts:
-                    reach = self._trace(with_standalone_looks=True)
-                    for row in rows:
-                        row[ATTR_USED] = reach.explore_used(model, str(row["name"]))
-                return rows
-        if self.warnings:
+        query -- and sets `used`, computed from this recipe at run time (null
+        when the trace could not settle it). It costs one read per kept
+        dashboard plus one per standalone look, up to a bound. Without it,
+        `charts` shows the explore each chart of one dashboard uses. Metadata
+        only."""
+        models = self._lookml_models()
+        if not models and self.warnings:
             # The listing was refused and the warning says so; "no such model"
             # would blame the caller for what is a permissions gap.
             return []
-        raise ProbeArgumentError(
-            f"no LookML model named '{model}'; pass a name from the `models` listing"
-        )
+        lookml_model = resolve_name(
+            model,
+            [m for m in models if m.name is not None],
+            key=lambda m: str(m.name),
+            kind="LookML model",
+            list_command="probe run models",
+            distinguish=lambda m: m.project_name,
+        ).record
+        rows: List[Dict[str, object]] = [
+            {"name": explore.name, "hidden": bool(explore.hidden)}
+            for explore in lookml_model.explores or []
+            if explore.name is not None
+        ]
+        if trace_charts:
+            reach = self._trace(with_standalone_looks=True)
+            for row in rows:
+                row[ATTR_USED] = reach.explore_used(model, str(row["name"]))
+        return rows
 
-    def _read_look_query(self, look_id: str, what: str) -> Tuple[bool, Optional[Query]]:
+    def _read_look_query(
+        self, look_id: str, failures: "Counter[str]"
+    ) -> Tuple[bool, Optional[Query]]:
         """(read, query) for one look, as extract_independent_looks reads it.
 
-        Like ingestion, which skips a look whose read raises anything, a
-        failure here is a warning, not the command's failure: read is False
-        and the caller treats the look as undetermined. Only the exception's
-        type is reported. An unreachable Looker still raises.
+        Ingestion skips a look whose read fails and carries on; here a refused
+        or failed read is counted in `failures` (the caller warns once per
+        kind) and read is False, so the caller treats the look as
+        undetermined. An unreachable Looker still ends the command, and
+        anything else is a defect that propagates.
         """
         api = self._api()
-        context = f"{what} '{look_id}'"
         try:
-            with _looker_call(context):
+            with _looker_call("look read"):
                 return True, api.get_look(look_id, fields=["query"]).query
-        except (ProbeSoftError, ProbeReadFailed) as exc:
-            self._warn(str(exc))
-        except ProbeConnectionError:
-            raise
-        except Exception as exc:
-            self._warn(f"{context} could not be read ({type(exc).__name__})")
+        except (_Refused, _Failed) as exc:
+            failures[exc.outcome] += 1
         return False, None
 
     def _trace(self, with_standalone_looks: bool) -> _Reachability:
@@ -715,100 +770,97 @@ class LookerMetadataProbe(ProbeProviderBase):
         `probe filter` against a recipe that changes them.
 
         A refused or failed read leaves the trace undetermined; a Looker that
-        cannot be reached at all (ProbeConnectionError) aborts the listing,
+        cannot be reached at all (ProbeConnectionError) ends the command,
         since nothing it would report could be trusted."""
         reach = _Reachability()
         api = self._api()
+        failures: Counter[str] = Counter()
         for dashboard_id in self._traced_dashboard_ids(reach):
             if reach.reads >= _TRACE_FETCH_LIMIT:
                 reach.dashboards_complete = False
+                reach.capped = True
                 break
             reach.reads += 1
-            detail = self._trace_read(
-                reach,
-                f"dashboard '{dashboard_id}' for the chart trace",
-                partial(
-                    api.dashboard,
-                    dashboard_id=dashboard_id,
-                    fields=_TRACE_DASHBOARD_FIELDS,
-                ),
-            )
-            if detail is not None:
-                self._trace_dashboard(reach, detail)
+            try:
+                with _looker_call("dashboard read for the chart trace"):
+                    detail = api.dashboard(
+                        dashboard_id=dashboard_id, fields=_TRACE_DASHBOARD_FIELDS
+                    )
+            except (_Refused, _Failed) as exc:
+                failures[exc.outcome] += 1
+                reach.dashboards_complete = False
+                continue
+            self._trace_dashboard(reach, detail)
+        self._warn_counted(
+            failures,
+            "dashboard read(s) for the chart trace",
+            "what they hold is undetermined",
+        )
         if with_standalone_looks and self._config.extract_independent_looks:
             self._trace_standalone_looks(reach)
-        if not (reach.dashboards_complete and reach.looks_complete):
-            self._warn(_TRACE_INCOMPLETE.format(limit=_TRACE_FETCH_LIMIT))
+        if reach.capped:
+            self._warn(_TRACE_CAPPED.format(limit=_TRACE_FETCH_LIMIT))
+        elif not (reach.dashboards_complete and reach.looks_complete):
+            self._warn(_TRACE_INCOMPLETE)
         return reach
 
-    def _trace_read(
-        self,
-        reach: _Reachability,
-        context: str,
-        call: Callable[[], _T],
-        looks: bool = False,
-    ) -> Optional[_T]:
-        """One trace read. A refused or failed one leaves the trace
+    def _trace_listing(
+        self, reach: _Reachability, context: str, call: Callable[[], Sequence[_T]]
+    ) -> List[_T]:
+        """One trace listing. A refused or failed one leaves the trace
         incomplete instead of failing the listing it decorates."""
         try:
             with _looker_call(context):
-                return call()
+                return list(call())
         except (ProbeSoftError, ProbeReadFailed) as exc:
             self._warn(str(exc))
-            if looks:
-                reach.looks_complete = False
-            else:
-                reach.dashboards_complete = False
-            return None
+            reach.dashboards_complete = False
+            return []
 
     def _traced_dashboard_ids(self, reach: _Reachability) -> List[str]:
         """get_workunits_internal's dashboard ids: live, deleted ones only
         under include_deleted, then dashboard_pattern on the id."""
         api = self._api()
         listed: List[Union[Dashboard, DashboardBase]] = list(
-            self._trace_read(
+            self._trace_listing(
                 reach,
                 "dashboard listing for the chart trace",
                 lambda: api.all_dashboards(fields=_TRACE_LIST_FIELDS),
             )
-            or []
         )
         if self._config.include_deleted:
             listed.extend(
-                self._trace_read(
+                self._trace_listing(
                     reach,
                     "deleted dashboard listing for the chart trace",
                     lambda: api.search_dashboards(
                         fields=_TRACE_LIST_FIELDS, deleted="true"
                     ),
                 )
-                or []
             )
         return [
             dashboard.id
             for dashboard in listed
             if dashboard.id is not None
-            and self._config.dashboard_pattern.allowed(dashboard.id)
+            and dashboard_id_verdict(self._config, dashboard.id).included
             # Ingestion reads these and then discards them; skipping them here
             # keeps them from spending the read bound. _trace_dashboard still
             # checks the read folder, for a listing that lacked the flags.
-            and not self._skipped_as_personal(dashboard.folder)
+            and not skips_personal_folder(self._config, dashboard.folder)
         ]
-
-    def _skipped_as_personal(self, folder: Optional[FolderBase]) -> bool:
-        return not personal_folder_verdict(
-            self._config, is_personal_folder(folder)
-        ).included
 
     def _trace_dashboard(self, reach: _Reachability, detail: Dashboard) -> None:
         """What process_dashboard records for one dashboard. folder_path_pattern
         is deliberately not applied: process_dashboard checks it only after
         _get_looker_dashboard has recorded the dashboard's looks and explores,
         so a dashboard it drops still makes them reachable."""
-        if self._skipped_as_personal(detail.folder):
+        if skips_personal_folder(self._config, detail.folder):
             return
         for element in detail.dashboard_elements or []:
-            if element.id is None or not self._config.chart_pattern.allowed(element.id):
+            if (
+                element.id is None
+                or not chart_id_verdict(self._config, element.id).included
+            ):
                 continue
             if element.look_id is not None:
                 reach.looks.add(element.look_id)
@@ -817,32 +869,45 @@ class LookerMetadataProbe(ProbeProviderBase):
     def _trace_standalone_looks(self, reach: _Reachability) -> None:
         """The explores extract_independent_looks records, with its skips."""
         api = self._api()
-        looks = (
-            self._trace_read(
-                reach,
-                "look listing for the chart trace",
-                lambda: api.all_looks(
+        try:
+            with _looker_call("look listing for the chart trace"):
+                looks: Sequence[Look] = api.all_looks(
                     fields=_LOOK_LIST_FIELDS,
                     soft_deleted=self._config.include_deleted,
-                ),
-                looks=True,
-            )
-            or []
-        )
+                )
+        except (ProbeSoftError, ProbeReadFailed) as exc:
+            self._warn(str(exc))
+            reach.looks_complete = False
+            return
+        failures: Counter[str] = Counter()
         for look in looks:
-            look_id = look.id
-            if look_id is None or look_id in reach.looks or look.query_id is None:
+            if look.id is None:
                 continue
-            if self._skipped_as_personal(look.folder):
+            # The verdict ingestion applies to each look; one call, so a rule
+            # added to it reaches the trace too.
+            if not standalone_look_verdict(
+                self._config,
+                LookFacts(
+                    personal=is_personal_folder(look.folder),
+                    on_kept_dashboard=look.id in reach.looks,
+                    has_query=look.query_id is not None,
+                ),
+            ).included:
                 continue
             if reach.reads >= _TRACE_FETCH_LIMIT:
                 reach.looks_complete = False
-                return
+                reach.capped = True
+                break
             reach.reads += 1
-            read, query = self._read_look_query(look_id, "look for the chart trace")
+            read, query = self._read_look_query(look.id, failures)
             if not read:
                 reach.looks_complete = False
             elif (
                 query is not None and query.model is not None and query.view is not None
             ):
                 reach.explores.add((query.model, query.view))
+        self._warn_counted(
+            failures,
+            "look read(s) for the chart trace",
+            "the explores they query are undetermined",
+        )

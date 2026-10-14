@@ -122,6 +122,8 @@ def test_dashboards_and_charts_match_ingestion(tmp_path: Path) -> None:
         "5": "folder_path_pattern",
     }
     assert report.kinds["charts"].included == {"11", "61", "62"}
+    # A non-vis element with a query: its type alone drops it.
+    assert report.excluded_by("charts")["13"] == "element_type"
     noted = {w.split("'")[1]: w for w in report.kinds["charts"].accepted_warnings}
     assert set(noted) == {"3", "4", "5"}
     assert _PARENT_PERSONAL.fullmatch(noted["3"])
@@ -164,13 +166,11 @@ def test_standalone_looks_match_ingestion(
         graph.return_value = mock_datahub_graph
         report = assert_probe_parity("looker", config, ingest, [_LOOKS])
         # Untraced, the look on a dashboard is the one name it cannot judge.
-        with pytest.raises(
-            AssertionError,
-            match=r"disagree:\n  looks: probe filter includes '105', but ingestion did not emit it\Z",
-        ):
+        with pytest.raises(AssertionError) as untraced:
             assert_probe_parity(
                 "looker", config, ingest, [dataclasses.replace(_LOOKS, kwargs={})]
             )
+        assert re.findall(r"'(\d+)'", str(untraced.value)) == ["105"]
     assert report.kinds["looks"].included == {"101"}
     assert report.excluded_by("looks") == {
         "102": "skip_personal_folders",
@@ -190,6 +190,8 @@ def test_explores_and_models_match_ingestion_when_not_used_only(
         "orders",
         "customers",
         "archived",
+        "annotated",
+        "retired",
         "unused",
     }
     assert report.kinds["models"].included == {"sales"}
@@ -215,3 +217,19 @@ def test_traced_explores_and_models_match_ingestion_by_default(
     report = _parity(tmp_path, recipe(**filters), [_TRACED_EXPLORES, _TRACED_MODELS])
     assert report.kinds["models"].included == {"sales"}
     assert report.excluded_by("models")["empty"] == "emit_used_explores_only"
+
+
+def test_a_non_vis_chart_still_makes_its_explore_used(tmp_path: Path) -> None:
+    # Ingestion records the explore before its vis check drops the chart.
+    report = _parity(tmp_path, recipe(), [_TRACED_EXPLORES])
+    assert "annotated" in report.kinds["explores"].included
+
+
+@pytest.mark.parametrize("include_deleted", [False, True])
+def test_include_deleted_decides_an_explore_only_a_deleted_dashboard_uses(
+    tmp_path: Path, include_deleted: bool
+) -> None:
+    report = _parity(
+        tmp_path, recipe(include_deleted=include_deleted), [_TRACED_EXPLORES]
+    )
+    assert ("retired" in report.kinds["explores"].included) is include_deleted

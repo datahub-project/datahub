@@ -7,7 +7,6 @@ from typing import (
     AbstractSet,
     Any,
     Dict,
-    FrozenSet,
     Iterable,
     List,
     MutableMapping,
@@ -74,7 +73,11 @@ from datahub.ingestion.source.looker.looker_common import (
     get_urn_looker_element_id,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
-from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    BASIC_INGEST_REQUIRED_PERMISSIONS,
+    USAGE_INGEST_REQUIRED_PERMISSIONS,
+    LookerAPI,
+)
 from datahub.ingestion.source.looker.looker_selection import (
     LOOK_HAS_NO_QUERY,
     ON_A_KEPT_DASHBOARD,
@@ -85,6 +88,7 @@ from datahub.ingestion.source.looker.looker_selection import (
     element_type_verdict,
     folder_path_verdict,
     is_personal_folder,
+    looker_folder_path,
     personal_folder_verdict,
     standalone_look_verdict,
 )
@@ -122,35 +126,6 @@ class DashboardProcessingResult:
     dashboard_id: str
     start_time: datetime.datetime
     end_time: datetime.datetime
-
-
-# What test_connection checks, at module level so the probe's `permissions`
-# command reports against the same sets.
-BASIC_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset(
-    {
-        # TODO: Make this a bit more granular.
-        "access_data",
-        "explore",
-        "manage_models",
-        "see_datagroups",
-        "see_lookml",
-        "see_lookml_dashboards",
-        "see_looks",
-        "see_pdts",
-        "see_queries",
-        "see_schedules",
-        "see_sql",
-        "see_user_dashboards",
-        "see_users",
-    }
-)
-USAGE_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset({"see_system_activity"})
-
-
-def looker_folder_path(ancestor_names: Sequence[str], folder_name: str) -> str:
-    """The string folder_path_pattern is matched against: the names of the
-    folder's ancestors and its own, joined with '/' (Shared/Sales)."""
-    return "/".join([*ancestor_names, folder_name])
 
 
 @platform_name("Looker")
@@ -1502,7 +1477,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         for look in all_looks:
-            # Skip looks that are already referenced from a dashboard
             if look.id is None:
                 logger.warning("Encountered Look with no ID, skipping.")
                 continue
@@ -1510,12 +1484,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             verdict = standalone_look_verdict(
                 self.source_config,
                 LookFacts(
-                    deleted=None,
                     on_kept_dashboard=look.id in self.reachable_look_registry,
                     has_query=look.query_id is not None,
                     personal=is_personal_folder(look.folder),
                 ),
             )
+            # Skip looks that are already referenced from a dashboard
             if verdict.excluded_by == ON_A_KEPT_DASHBOARD:
                 continue
 
@@ -1536,6 +1510,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # Unreachable today (the switch is on here and deleted is not
             # judged); a rule added to standalone_look_verdict still drops.
             if not verdict.included:
+                self.reporter.info(
+                    title="Dropped Look",
+                    message=f"Dropped by {verdict.excluded_by}",
+                    context=f"Look ID: {look.id}",
+                )
                 self.reporter.report_charts_dropped(look.id)
                 continue
 

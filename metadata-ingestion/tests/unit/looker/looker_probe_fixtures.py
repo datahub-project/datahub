@@ -107,6 +107,15 @@ LIVE_DASHBOARDS: List[Dashboard] = [
         [
             _vis("11", "orders"),
             DashboardElement(id="12", type="text", title="notes"),
+            # Not a vis, but it has a query on an explore nothing else uses:
+            # ingestion records the explore before its vis check drops the
+            # chart, so the element type alone decides the chart.
+            DashboardElement(
+                id="13",
+                type="text",
+                title="annotated",
+                query=Query(model="sales", view="annotated", fields=["annotated.id"]),
+            ),
             _vis("14", "orders"),
         ],
     ),
@@ -139,7 +148,8 @@ LIVE_DASHBOARDS: List[Dashboard] = [
     ),
 ]
 DELETED_DASHBOARDS: List[Dashboard] = [
-    _dashboard("4", "Deleted", SALES, [_vis("41", "orders")], deleted=True)
+    # The only user of the `retired` explore, so include_deleted decides it.
+    _dashboard("4", "Deleted", SALES, [_vis("41", "retired")], deleted=True)
 ]
 LIVE_LOOKS: List[Look] = [
     Look(id="101", title="Shared look", query_id="q-101", folder=SALES),
@@ -162,6 +172,8 @@ MODELS: List[LookmlModel] = [
             LookmlModelNavExplore(name="orders"),
             LookmlModelNavExplore(name="customers"),
             LookmlModelNavExplore(name="archived"),
+            LookmlModelNavExplore(name="annotated"),
+            LookmlModelNavExplore(name="retired"),
             LookmlModelNavExplore(name="unused", hidden=True),
         ],
     ),
