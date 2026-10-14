@@ -1649,6 +1649,20 @@ def test_oversized_upstream_lineage_patch_is_truncated(processor):
     assert processor.ctx.source_report.warnings
 
 
+def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata.aspect, GenericAspectClass)
+    raw_value = wu.metadata.aspect.value
+    processor.schema_size_constraint = len(raw_value) + 1
+    assert len(json.dumps(raw_value.decode())) >= processor.schema_size_constraint
+
+    (result,) = processor.process([wu])
+
+    assert len(patch_operations(result)) < len(json.loads(raw_value))
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+
+
 def with_first_operation(
     wu: MetadataWorkUnit, op: str, path: Optional[str] = None
 ) -> MetadataWorkUnit:
