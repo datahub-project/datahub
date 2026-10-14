@@ -40,6 +40,10 @@ from datahub.ingestion.source.fabric.common.utils import (
     parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
+    extract_notebook_code_lineage,
+    reconcile_spark_lineage,
+)
 from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
     SparkTableRef,
     extract_spark_lineage,
@@ -290,6 +294,22 @@ class NotebookProcessEmitter:
                 continue
             for output, inputs in extract_spark_lineage(plans).items():
                 raw.setdefault(output, set()).update(inputs)
+
+        # Plans credit every earlier read to the next write. The notebook
+        # source says which of those reads each write actually uses.
+        if nb.content and nb.language in (None, "python"):
+            code_lineage = extract_notebook_code_lineage(nb.content)
+            if code_lineage:
+                reconciled = reconcile_spark_lineage(
+                    code_lineage, raw, self._normalize_name
+                )
+                if reconciled:
+                    logger.debug(
+                        "Reconciled notebook %s lineage from source text (%s output table(s))",
+                        nb.display_name,
+                        len(reconciled),
+                    )
+                    raw = reconciled
 
         known = self._known_table_urns
         # Case/space variants of one output table normalize to a single URN and
