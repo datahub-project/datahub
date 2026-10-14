@@ -17,7 +17,7 @@ import {
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
@@ -52,7 +52,7 @@ export default function useSearchAcrossLineage(
     processed: boolean;
 } {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { nodes, edges, adjacencyList, rootUrn, rootType, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
