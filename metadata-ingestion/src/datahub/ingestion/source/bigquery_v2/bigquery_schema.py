@@ -72,16 +72,15 @@ def _iter_bigquery_results(rows: RowIterator, job_id: str) -> Iterator[Any]:
     last_progress = time.perf_counter()
     try:
         for page in rows.pages:
-            page_rows = list(page)
             pages += 1
             logger.debug(
                 "BigQuery job %s returned page %s to DataHub (%s rows on this page, %s rows in the job)",
                 job_id,
                 pages,
-                len(page_rows),
+                page.num_items,
                 total_rows if total_rows is not None else "unknown",
             )
-            for row in page_rows:
+            for row in page:
                 yield row
                 read += 1
                 now = time.perf_counter()

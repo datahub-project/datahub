@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List
+from typing import Any, Iterator
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +11,17 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 
 
+class _Page:
+    """Stand-in for a BigQuery result page, which exposes num_items without copying rows."""
+
+    def __init__(self, items: list[str]) -> None:
+        self.num_items = len(items)
+        self._items = items
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._items)
+
+
 def test_query_result_logs_completion_before_downloading_pages(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -18,7 +29,7 @@ def test_query_result_logs_completion_before_downloading_pages(
     job.job_id = "job_1"
     rows = MagicMock()
     rows.total_rows = 2
-    rows.pages = [["a", "b"]]
+    rows.pages = [_Page(["a", "b"])]
     job.result.return_value = rows
 
     schema_api = BigQuerySchemaApi.__new__(BigQuerySchemaApi)
@@ -54,7 +65,7 @@ def test_query_result_logs_unknown_when_total_rows_unavailable(
     job.job_id = "job_missing_count"
     rows = MagicMock()
     rows.total_rows = None
-    rows.pages = [[]]
+    rows.pages = [_Page([])]
     job.result.return_value = rows
 
     schema_api = BigQuerySchemaApi.__new__(BigQuerySchemaApi)
@@ -79,8 +90,8 @@ def test_query_result_logs_read_progress(
         total_rows = 2
 
         @property
-        def pages(self) -> List[List[str]]:
-            return [["a", "b"]]
+        def pages(self) -> list[_Page]:
+            return [_Page(["a", "b"])]
 
     with caplog.at_level(logging.DEBUG):
         rows: Any = _Rows()
