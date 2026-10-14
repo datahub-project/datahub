@@ -47,13 +47,17 @@ from typing_extensions import assert_never
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
-from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.identifier_helper import (
+    quote_databricks_identifier,
+    split_databricks_identifier,
+)
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -1726,6 +1730,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         query: str,
         params: Sequence[Any] = (),
         batch_size: int = 10000,
+        *,
+        raise_on_error: bool = False,
     ) -> Generator[Row, None, None]:
         """Execute a SQL query and yield rows in batches.
 
@@ -1733,8 +1739,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         exchange for a longer-held connection. Callers must fully consume or close the
         generator to release the connection.
         On failure, reports a warning, increments num_usage_query_fetch_failures, and
-        yields nothing (does not raise). Consumer errors propagate cleanly because yield
-        is never inside a try/except.
+        yields nothing (does not raise) — unless raise_on_error is set, for callers
+        that persist progress and must tell an empty result from a failed query.
+        Consumer errors propagate cleanly because yield is never inside a try/except.
         """
         logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
         if logger.isEnabledFor(logging.DEBUG):
@@ -1742,6 +1749,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if params:
                 logger.debug(f"Query parameters: {params}")
 
+        if raise_on_error and not self.warehouse_id:
+            raise RuntimeError("warehouse_id is not configured")
         if not self._check_warehouse_configured():
             return
 
@@ -1750,6 +1759,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             connection = connect(**sql_connection_params)
         except Exception as e:
+            if raise_on_error:
+                raise
             self._report_sql_query_failure(
                 e, query, params, count_as_fetch_failure=True
             )
@@ -1759,6 +1770,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 cursor = connection.cursor()
                 cursor.execute(query, list(params))
             except Exception as e:
+                if raise_on_error:
+                    raise
                 self._report_sql_query_failure(
                     e, query, params, count_as_fetch_failure=True
                 )
@@ -1768,6 +1781,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     try:
                         batch = cursor.fetchmany(batch_size)
                     except Exception as e:
+                        if raise_on_error:
+                            raise
                         self._report_sql_query_failure(
                             e, query, params, count_as_fetch_failure=True
                         )
@@ -1775,6 +1790,26 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     if not batch:
                         break
                     yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
+
+    def describe_table_columns(
+        self, catalog: str, schema: str, table: str
+    ) -> List[PhysicalColumn]:
+        query = f"""
+            SELECT column_name, full_data_type, ordinal_position
+            FROM {quote_databricks_identifier(catalog)}.information_schema.columns
+            WHERE lower(table_schema) = lower(%s) AND lower(table_name) = lower(%s)
+            ORDER BY ordinal_position
+        """
+        return [
+            PhysicalColumn(
+                name=row["column_name"],
+                data_type=row["full_data_type"],
+                position=int(row["ordinal_position"]),
+            )
+            for row in self._execute_sql_query_streaming(
+                query, [schema, table], raise_on_error=True
+            )
+        ]
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
