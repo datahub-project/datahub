@@ -29,6 +29,11 @@ def _pipeline(name: str = "test_pipeline", tmp_path: Optional[Any] = None) -> Pi
     )
 
 
+def _mock(value: Any) -> MagicMock:
+    assert isinstance(value, MagicMock)
+    return value
+
+
 @pytest.fixture(autouse=True)
 def _clear_registry() -> Any:
     # pipeline_registry is declared on the class, not the instance, so state
@@ -38,23 +43,36 @@ def _clear_registry() -> Any:
     PipelineManager.pipeline_registry.clear()
 
 
-def test_stop_closes_failed_events_fd_before_the_worker_is_joined(
-    tmp_path: Any,
-) -> None:
-    """`stop()` closes the failed-events file while the worker thread is still live.
+def test_close_retries_only_the_resource_that_failed(tmp_path: Any) -> None:
+    pipeline = _pipeline(tmp_path=tmp_path)
+    source = _mock(pipeline.source)
+    action = _mock(pipeline.action)
+    source.close.side_effect = [RuntimeError("source"), None]
 
-    `Pipeline.stop()` runs on the signal-handler thread and closes
-    `_failed_events_fd` before `PipelineManager.stop_pipeline()` joins the worker.
-    A failed event arriving in that window cannot be recorded, and
-    `_append_failed_event_to_file` converts the closed-file error into a
-    PipelineException -- destroying the event it exists to preserve.
+    with pytest.raises(PipelineException, match="Failed to close"):
+        pipeline.close()
+
+    action.close.assert_called_once()
+    action.close.reset_mock()
+
+    pipeline.close()
+
+    assert source.close.call_count == 2
+    action.close.assert_not_called()
+
+
+def test_stop_leaves_the_failed_events_file_open_until_close(tmp_path: Any) -> None:
+    """`stop()` only signals the worker. The failed-events file stays writable
+    until `close()`, which runs after the worker has been joined.
     """
     pipeline = _pipeline(tmp_path=tmp_path)
     pipeline.stop()
 
     event = MagicMock()
     event.as_json.return_value = '{"eventType": "test"}'
+    pipeline._append_failed_event_to_file(event)
 
+    pipeline.close()
     with pytest.raises(PipelineException, match="Failed to log failed event to file"):
         pipeline._append_failed_event_to_file(event)
 
@@ -82,6 +100,8 @@ def test_stop_all_abandons_remaining_pipelines_when_one_fails_to_stop(
         manager.stop_all()
 
     surviving.stop.assert_not_called()
+    _mock(failing.source).close.assert_called_once()
+    _mock(surviving.source).close.assert_not_called()
     assert "surviving" in manager.pipeline_registry
 
 
@@ -157,3 +177,33 @@ def test_start_pipeline_registers_before_starting_the_worker(tmp_path: Any) -> N
     assert registered_when_started == [True], (
         "pipeline was not in the registry at the moment its worker started"
     )
+
+
+def test_stop_failure_marks_the_pipeline_failed(tmp_path: Any) -> None:
+    """A stop() error inside the worker must still set spec.failed.
+
+    run_and_record used to assign spec.failed from run_pipeline's return value.
+    When stop() raised, that assignment never ran, so has_failed_pipelines()
+    stayed false and the process looked healthy.
+    """
+    manager = PipelineManager()
+    pipeline = _pipeline("stopping", tmp_path)
+    pipeline.run = MagicMock(side_effect=RuntimeError("source failed"))  # type: ignore[method-assign]
+    pipeline.stop = MagicMock(side_effect=RuntimeError("stop failed"))  # type: ignore[method-assign]
+
+    manager.start_pipeline("stopping", pipeline)
+    manager.pipeline_registry["stopping"].thread.join(timeout=5)
+
+    assert manager.pipeline_registry["stopping"].failed is True
+    _mock(pipeline.source).close.assert_called_once()
+    _mock(pipeline.action).close.assert_called_once()
+
+
+def test_start_pipeline_refuses_to_start_while_shutting_down(tmp_path: Any) -> None:
+    manager = PipelineManager()
+    manager.stop_all()
+
+    with pytest.raises(Exception, match="shutting down"):
+        manager.start_pipeline("late", _pipeline("late", tmp_path))
+
+    assert "late" not in manager.pipeline_registry

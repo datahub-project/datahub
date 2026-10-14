@@ -1,5 +1,8 @@
-import { ConsoleSqlOutlined, EyeOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -32,28 +35,28 @@ const Insight = styled.div`
     }
 `;
 
-const StyledEyeOutlined = styled(EyeOutlined)`
+const StyledEyeOutlined = styled(Eye)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledConsoleSqlOutlined = styled(ConsoleSqlOutlined)`
+const StyledConsoleSqlOutlined = styled(TerminalWindow)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledUserOutlined = styled(UserOutlined)`
+const StyledUserOutlined = styled(User)`
     && {
         font-size: 20px;
         margin-right: 12px;
     }
 `;
 
-const StyledToolOutlined = styled(ToolOutlined)`
+const StyledToolOutlined = styled(Wrench)`
     && {
         font-size: 20px;
         margin-right: 12px;

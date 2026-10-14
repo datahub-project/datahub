@@ -1,7 +1,7 @@
-import { Pill } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { Pill } from '@components/components/Pills';
 import {
     ActionButtonsContainer,
     DescriptionContainer,

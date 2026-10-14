@@ -1,6 +1,8 @@
-import { Button, CodeBlock } from '@components';
+import { Button } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -49,10 +51,15 @@ export function SidebarDataJobTransformationLogicSection() {
     );
 }
 
+type QuerySidebarEntity = QueryEntity & {
+    privileges?: { canViewQueries?: boolean | null } | null;
+};
+
 export function SidebarQueryLogicSection() {
     const { t } = useTranslation('entity.shared.containers');
-    const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
+    const baseEntity = useBaseEntity<{ entity: QuerySidebarEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
+    const canViewQueries = baseEntity?.entity?.privileges?.canViewQueries ?? false;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Query, baseEntity?.entity?.urn || '');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
@@ -61,7 +68,7 @@ export function SidebarQueryLogicSection() {
         [fineGrainedOperations],
     );
 
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection
