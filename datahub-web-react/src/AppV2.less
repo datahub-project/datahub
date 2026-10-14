@@ -4,23 +4,9 @@
 @import './conf/theme/global-overrides.less';
 @import './conf/theme/global-overrides-v2.less';
 
-// Overrides are measured against the Noto Sans face selected from the fallback
-// stack, so the first paint and the webfont swap share a line box.
-@font-face {
-    font-family: 'Manrope Fallback';
-    font-style: normal;
-    font-display: swap;
-    src: local('Noto Sans Regular');
-    size-adjust: 99.52%;
-    ascent-override: 106.9%;
-    descent-override: 29.3%;
-    line-gap-override: 0%;
-}
-
 @font-face {
     font-family: 'Manrope';
     font-style: normal;
-    font-display: swap;
     src:
         local('Manrope'),
         url('./fonts/manrope.woff2') format('woff2');
@@ -30,7 +16,6 @@
     font-family: 'Mulish';
     font-style: normal;
     font-weight: 400; // Regular weight
-    font-display: swap;
     src: url('./fonts/Mulish-Regular.woff2') format('woff2');
 }
 
@@ -38,7 +23,6 @@
     font-family: 'Mulish';
     font-style: normal;
     font-weight: 500; // Medium weight
-    font-display: swap;
     src: url('./fonts/Mulish-Medium.woff2') format('woff2');
 }
 
@@ -46,7 +30,6 @@
     font-family: 'Mulish';
     font-style: normal;
     font-weight: 600; // Semi-bold weight
-    font-display: swap;
     src: url('./fonts/Mulish-SemiBold.woff2') format('woff2');
 }
 
@@ -54,7 +37,6 @@
     font-family: 'Mulish';
     font-style: normal;
     font-weight: 700; // Bold weight
-    font-display: swap;
     src: url('./fonts/Mulish-Bold.woff2') format('woff2');
 }
 
@@ -62,7 +44,6 @@
     font-family: 'Mulish';
     font-style: italic;
     font-weight: 400; // Regular Italic
-    font-display: swap;
     src: url('./fonts/Mulish-Italic.woff2') format('woff2');
 }
 
@@ -70,80 +51,7 @@
     font-family: 'Mulish';
     font-style: italic;
     font-weight: 700; // Bold Italic
-    font-display: swap;
     src: url('./fonts/Mulish-BoldItalic.woff2') format('woff2');
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: local('Noto Sans Regular');
-    size-adjust: 99.73%;
-    ascent-override: 100.5%;
-    descent-override: 25%;
-    line-gap-override: 0%;
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: normal;
-    font-weight: 500;
-    font-display: swap;
-    src: local('Noto Sans Regular');
-    size-adjust: 100.35%;
-    ascent-override: 100.5%;
-    descent-override: 25%;
-    line-gap-override: 0%;
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: normal;
-    font-weight: 600;
-    font-display: swap;
-    src: local('Noto Sans Bold');
-    size-adjust: 96.34%;
-    ascent-override: 103%;
-    descent-override: 25%;
-    line-gap-override: 0%;
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: normal;
-    font-weight: 700;
-    font-display: swap;
-    src: local('Noto Sans Bold');
-    size-adjust: 97.77%;
-    ascent-override: 100.5%;
-    descent-override: 25%;
-    line-gap-override: 0%;
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: italic;
-    font-weight: 400;
-    font-display: swap;
-    src: local('Noto Sans Italic');
-    size-adjust: 105.73%;
-    ascent-override: 95%;
-    descent-override: 25%;
-    line-gap-override: 0%;
-}
-
-@font-face {
-    font-family: 'Mulish Fallback';
-    font-style: italic;
-    font-weight: 700;
-    font-display: swap;
-    src: local('Noto Sans Bold Italic');
-    size-adjust: 103.16%;
-    ascent-override: 95%;
-    descent-override: 25%;
-    line-gap-override: 0%;
 }
 
 .themeV2 * {

@@ -4,23 +4,9 @@
 // Note that theme variables are also applied via an override in the
 // less preprocessor configuration.
 
-// Tuned to Noto Sans Regular, the face this fallback stack resolves to here.
-// The adjustment keeps a cold swap on the same line box as Manrope.
-@font-face {
-    font-family: 'Manrope Fallback';
-    font-style: normal;
-    font-display: swap;
-    src: local('Noto Sans Regular');
-    size-adjust: 99.52%;
-    ascent-override: 106.9%;
-    descent-override: 29.3%;
-    line-gap-override: 0%;
-}
-
 @font-face {
     font-family: 'Manrope';
     font-style: normal;
-    font-display: swap;
     src:
         local('Manrope'),
         url('./fonts/manrope.woff2') format('woff2');
