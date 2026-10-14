@@ -4,7 +4,6 @@ import static com.datahub.authorization.AuthUtil.*;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -378,10 +377,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_INGEST), authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            CREATE,
-            List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedUpsertUrns(opContext, List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
     }
@@ -427,9 +423,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                 .withUsageQuantity(entities.length),
             authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            CREATE, urns)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedUpsertUrns(opContext, urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
     }
