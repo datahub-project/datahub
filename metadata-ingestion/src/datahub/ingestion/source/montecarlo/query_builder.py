@@ -436,12 +436,6 @@ class SchemaDrift:
         return "; ".join(t.summary() for t in self.per_type.values())
 
 
-def type_drift_has_critical_abort(type_drift: TypeDrift) -> bool:
-    return type_drift.verdict == DriftVerdict.ABORT and bool(
-        type_drift.critical_missing
-    )
-
-
 _INTROSPECT_QUERY = """
 query mcIntrospect($name: String!) {
   mcType: __type(name: $name) {

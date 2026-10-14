@@ -23,7 +23,6 @@ from datahub.ingestion.source.montecarlo.query_builder import (
     SchemaDrift,
     field_spec_by_name,
     spec_value,
-    type_drift_has_critical_abort,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.utilities.ratelimiter import (
@@ -446,13 +445,13 @@ class MonteCarloClient:
             types.extend(["JobExecutionHistoryLog", "Metric"])
         drift = self._query_builder.check_drift(strict, types=types)
         schema_drift = drift.per_type.get("SchemaChange")
-        self._schema_change_join_disabled = schema_drift is not None and (
-            type_drift_has_critical_abort(schema_drift)
+        self._schema_change_join_disabled = (
+            schema_drift is not None and schema_drift.verdict == DriftVerdict.ABORT
         )
         job_drift = drift.per_type.get("JobExecutionHistoryLog")
         metric_drift = drift.per_type.get("Metric")
         self._run_events_disabled = any(
-            td is not None and type_drift_has_critical_abort(td)
+            td is not None and td.verdict == DriftVerdict.ABORT
             for td in (job_drift, metric_drift)
         )
         return drift
@@ -467,7 +466,7 @@ class MonteCarloClient:
             types=["TableMonitor", "AssetSelection", "AssetSelectionResult"],
         )
         self._table_scope_drift_lock = any(
-            type_drift_has_critical_abort(td) for td in drift.per_type.values()
+            td.verdict == DriftVerdict.ABORT for td in drift.per_type.values()
         )
         for type_drift in drift.per_type.values():
             if type_drift.verdict == DriftVerdict.DEGRADED:

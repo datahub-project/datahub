@@ -122,6 +122,29 @@ def _live_warehouse_table_shape() -> Dict[str, str]:
     }
 
 
+def _live_job_execution_history_log_shape() -> Dict[str, str]:
+    return {
+        "jobExecutionUuid": "SCALAR:UUID",
+        "startTime": "SCALAR:DateTime",
+        "endTime": "SCALAR:DateTime",
+        "status": "SCALAR:String",
+        "exceptions": "SCALAR:String",
+        "totalResultCount": "SCALAR:Int",
+        "evaluatedRecordCount": "SCALAR:Int",
+    }
+
+
+def _live_metric_shape() -> Dict[str, str]:
+    return {
+        "metric": "SCALAR:String",
+        "value": "SCALAR:Float",
+        "field": "SCALAR:String",
+        "timestamp": "SCALAR:DateTime",
+        "measurementTimestamp": "SCALAR:DateTime",
+        "jobExecutionUuid": "SCALAR:UUID",
+    }
+
+
 def _full_nested_responses(
     **overrides: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
@@ -1134,6 +1157,70 @@ def test_warehouse_table_critical_miss_aborts_monitor_phase() -> None:
     )
 
 
+def test_schema_change_type_absent_disables_join_with_one_warning() -> None:
+    cfg = make_config(include_alerts=True, include_assertions=True)
+    source = _build_source(cfg)
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "Monitor":
+            return _introspect_response(_live_monitor_shape())
+        if type_name == "Comparison":
+            return _introspect_response(_live_comparison_shape())
+        if type_name == "CustomRule":
+            return _introspect_response(
+                {"uuid": "SCALAR:UUID", "entityMcons": "SCALAR:String"}
+            )
+        if type_name == "Alert":
+            return _introspect_response(
+                {
+                    "id": "SCALAR:UUID",
+                    "createdTime": "SCALAR:DateTime",
+                    "monitorUuids": "SCALAR:String",
+                    "assets": "OBJECT:AlertAsset",
+                }
+            )
+        if type_name == "AlertAsset":
+            return _introspect_response({"mcon": "SCALAR:String"})
+        if type_name == "SchemaChange":
+            return {"mc_type": None}
+        if type_name == "WarehouseTable":
+            return _introspect_response(_live_warehouse_table_shape())
+        if type_name == "Warehouse":
+            return _introspect_response({"connectionType": "SCALAR:String"})
+        if "getAlerts" in query:
+            return {
+                "get_alerts": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "alert-1",
+                                "type": "SCHEMA_CHANGES",
+                                "created_time": "2024-01-01T00:00:00Z",
+                                "monitor_uuids": ["mon-1"],
+                                "assets": [{"mcon": "mcon:abc"}],
+                            }
+                        }
+                    ],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        if "getSchemaChanges" in query:
+            raise AssertionError("join should be disabled")
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    source.client.set_query_builder(builder)
+    source.client._call = fake_call  # type: ignore[method-assign]
+    list(source.get_workunits_internal())
+    join_warnings = [
+        w
+        for w in source.report.warnings
+        if "Schema-change catalog join disabled" in (w.title or "")
+    ]
+    assert len(join_warnings) == 1
+
+
 def test_schema_change_critical_miss_disables_join_with_one_warning() -> None:
     shape = {
         "mcon": "SCALAR:String",
@@ -1204,6 +1291,68 @@ def test_schema_change_critical_miss_disables_join_with_one_warning() -> None:
         if "Schema-change catalog join disabled" in (w.title or "")
     ]
     assert len(join_warnings) == 1
+
+
+@pytest.mark.parametrize(
+    "drift_type,field_to_drop",
+    [
+        ("JobExecutionHistoryLog", "jobExecutionUuid"),
+        ("Metric", "metric"),
+    ],
+)
+def test_run_events_type_critical_miss_disables_with_one_warning(
+    drift_type: str, field_to_drop: str
+) -> None:
+    job_shape = _live_job_execution_history_log_shape()
+    metric_shape = _live_metric_shape()
+    if drift_type == "JobExecutionHistoryLog":
+        del job_shape[field_to_drop]
+    else:
+        del metric_shape[field_to_drop]
+
+    cfg = make_config(include_alerts=False, run_events_lookback_days=7)
+    source = _build_source(cfg)
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "Monitor":
+            return _introspect_response(_live_monitor_shape())
+        if type_name == "Comparison":
+            return _introspect_response(_live_comparison_shape())
+        if type_name == "CustomRule":
+            return _introspect_response(
+                {"uuid": "SCALAR:UUID", "entityMcons": "SCALAR:String"}
+            )
+        if type_name == "WarehouseTable":
+            return _introspect_response(_live_warehouse_table_shape())
+        if type_name == "Warehouse":
+            return _introspect_response({"connectionType": "SCALAR:String"})
+        if type_name == "JobExecutionHistoryLog":
+            return _introspect_response(job_shape)
+        if type_name == "Metric":
+            return _introspect_response(metric_shape)
+        if "getJobExecutions" in query or "getMetricsV4" in query:
+            raise AssertionError("run events should be disabled")
+        if "getMonitors" in query:
+            return {"get_monitors": []}
+        if "getCustomRules" in query:
+            return {
+                "get_custom_rules": {
+                    "edges": [],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    source.client.set_query_builder(builder)
+    source.client._call = fake_call  # type: ignore[method-assign]
+    list(source.get_workunits_internal())
+    assert source.client.run_events_disabled
+    run_event_warnings = [
+        w for w in source.report.warnings if w.title == "Monitor run events disabled"
+    ]
+    assert len(run_event_warnings) == 1
 
 
 def test_table_scope_drift_locks_table_monitor_resolution() -> None:
