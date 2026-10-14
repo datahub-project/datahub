@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional
 
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -15,10 +16,13 @@ from datahub.ingestion.api.workunit_processor import (
 )
 from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
+    ChangeTypeClass,
     DatasetProfileClass,
     EspressoSchemaClass,
+    GenericAspectClass,
     KafkaSchemaClass,
     KeyValueSchemaClass,
+    MetadataChangeProposalClass,
     MySqlDDLClass,
     OracleDDLClass,
     OrcSchemaClass,
@@ -113,6 +117,14 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
+            if (
+                isinstance(wu.metadata, MetadataChangeProposalClass)
+                and wu.metadata.changeType == ChangeTypeClass.PATCH
+                and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+                and wu.metadata.aspect is not None
+                and wu.metadata.aspect.contentType == JSON_PATCH_CONTENT_TYPE
+            ):
+                self.ensure_upstream_lineage_patch_size(urn, wu.metadata.aspect)
             yield wu
 
     def ensure_dataset_profile_size(
@@ -467,6 +479,56 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         upstream_lineage.fineGrainedLineages = (
             accepted_fine_grained_lineages if accepted_fine_grained_lineages else None
         )
+
+    def ensure_upstream_lineage_patch_size(
+        self, entity_urn: str, patch_aspect: GenericAspectClass
+    ) -> None:
+        payload = json.loads(patch_aspect.value)
+        operations = payload["patch"] if isinstance(payload, dict) else payload
+        # The patch is sent as an escaped JSON string inside the MCP, so measure it that
+        # way; the 2 quote characters cover the ", " separator between operations.
+        sizes = [len(json.dumps(json.dumps(operation))) for operation in operations]
+        # Skip patches with removes or whole-list replaces: dropping one would keep
+        # lineage the source deleted.
+        if sum(sizes) < self.schema_size_constraint or any(
+            operation.get("op") != "add"
+            or operation.get("path") in ("/upstreams", "/fineGrainedLineages")
+            for operation in operations
+        ):
+            return
+
+        # Table-level upstreams before column-level lineage. Adds to different fields
+        # are independent, so reordering them is safe.
+        def is_upstream(operation: Dict[str, object]) -> bool:
+            return str(operation["path"]).startswith("/upstreams")
+
+        accepted = []
+        total_size = 0
+        for i in sorted(
+            range(len(operations)), key=lambda i: not is_upstream(operations[i])
+        ):
+            if total_size + sizes[i] >= self.schema_size_constraint:
+                break
+            accepted.append(operations[i])
+            total_size += sizes[i]
+
+        num_upstreams = sum(map(is_upstream, operations))
+        num_accepted_upstreams = sum(map(is_upstream, accepted))
+        self._maybe_warn_upstream_lineage(
+            entity_urn, num_upstreams - num_accepted_upstreams, "upstream datasets"
+        )
+        self._maybe_warn_upstream_lineage(
+            entity_urn,
+            len(operations) - len(accepted) - num_upstreams + num_accepted_upstreams,
+            "fine-grained lineage edges",
+        )
+        self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
+
+        if isinstance(payload, dict):
+            payload["patch"] = accepted
+        else:
+            payload = accepted
+        patch_aspect.value = json.dumps(payload).encode()
 
     def _query_properties_serialized_size(
         self, query_properties: QueryPropertiesClass
