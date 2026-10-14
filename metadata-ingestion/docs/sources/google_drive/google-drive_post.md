@@ -59,9 +59,9 @@ datahub recipe probe filter --recipe google_drive_recipe.yml --kind "Google Doc"
   --parent "Handbook/Engineering" --name "Copy of Runbook"
 ```
 
-- `explain --document <ID or URL>`: whether one file would be ingested, and if not, which rule decides. It applies the folder and title rules first, then exports the Doc to check the text-length rules (empty, shorter than `min_text_length`, or longer than `max_text_length`). It reports the text's length, never the text.
+- `explain --document <ID or URL>`: whether one file would be ingested, and if not, which rule decides. It applies the folder and title rules first, then exports the Doc to check the text-length rules (empty, shorter than `min_text_length`, or longer than `max_text_length`). It reports the text's length, never the text, and names the file only when it is under a configured root.
 
-`explain` is the only command that exports a Doc. The listings and `probe filter` judge folders and titles only, so a Doc they keep can still be skipped for its text.
+`explain` is the only command that exports a Doc. The listings and `probe filter` judge folders and titles only, so a Doc they keep can still be skipped for its text. None of them account for `max_documents`, which stops a run once that many Docs are embedded; `scope` says whether a run can reach it.
 
 When Google refuses a token, for example because domain-wide delegation is not authorized, the probe exits with code 3 and says what to change.
 

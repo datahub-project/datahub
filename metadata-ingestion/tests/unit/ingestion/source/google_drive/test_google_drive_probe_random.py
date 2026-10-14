@@ -189,6 +189,5 @@ def test_explain_matches_ingestion_on_random_drives(seed: int, tmp_path: Path) -
 
     ingested = {make_document_urn(i) for i, r in explained.items() if r["ingested"]}
     assert ingested == emitted, {
-        explained[urn.rsplit(".", 1)[-1]]["name"]: explained[urn.rsplit(".", 1)[-1]]
-        for urn in ingested ^ emitted
+        urn: explained.get(urn.rsplit(".", 1)[-1]) for urn in ingested ^ emitted
     }

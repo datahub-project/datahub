@@ -9,7 +9,7 @@ from googleapiclient.errors import HttpError
 
 from datahub.ingestion.agent.error_policy import http_status_code
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, take
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed, take
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -284,10 +284,12 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
     )
     def documents(self, folder: str, limit: int = 200) -> List[Dict[str, object]]:
         """Google Docs directly inside the folder at a path as `folders` lists it
-        (every such folder, since Drive allows same-named siblings), including Docs document_pattern would skip. Titles, IDs and
-        modified times only; never a Doc's text or owners. Whether a Doc is
-        ingested also depends on its exported text (empty, too short or too long),
-        which this does not read."""
+        (every such folder, since Drive allows same-named siblings), including Docs
+        document_pattern would skip. Titles, IDs and modified times only; never a
+        Doc's text or owners. Whether a Doc is ingested also depends on its
+        exported text (empty, too short or too long), which this does not read,
+        and on max_documents, which stops a run that embeds that many Docs; `scope`
+        says whether a run can reach it."""
         with self._source_access():
             return take(
                 (
@@ -338,16 +340,15 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
         given its Drive ID or a Docs or Drive URL. Climbs from the file to a
         configured root and applies the folder and title rules ingestion applies;
         only when those pass does it export the Doc, to check the text-length
-        rules, and it reports the length, never the text. Owners are included only
-        when extract_owners is on, since only then does ingestion emit them."""
+        rules, and it reports the length, never the text. The file's name is given
+        only once it is under a configured root, and owners only when
+        extract_owners is on, since only then does ingestion emit them.
+        `ingested: true` also assumes the run reaches the Doc: a run stops once
+        max_documents Docs are embedded, which `scope` checks."""
         file_id = self._file_id(document)
         with self._source_access():
             file = self._get_visible_file(file_id)
-            result: Dict[str, object] = {
-                "name": file.name,
-                "id": file.id,
-                "mime_type": file.mime_type,
-            }
+            result: Dict[str, object] = {"id": file.id, "mime_type": file.mime_type}
             if not file.is_document:
                 return self._explained(result, NOT_A_GOOGLE_DOC)
             if file.trashed:
@@ -355,6 +356,9 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
             folders = self._folder_chain(file)
             if folders is None:
                 return self._explained(result, OUTSIDE_ROOTS)
+            # Named only once it is under a configured root: the credential can
+            # see far more of Drive than the recipe ingests.
+            result["name"] = file.name
             result["folder"] = folders[-1]
             verdict = google_doc_verdict(self._config, folders, file.name)
             if not verdict.included:
@@ -375,6 +379,7 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
             assert text_verdict.excluded_by is not None
             return self._explained(result, text_verdict.excluded_by)
         result["ingested"] = True
+        result["max_documents"] = self._config.max_documents
         return result
 
     @staticmethod
@@ -392,7 +397,7 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
             candidate = match.group(1)
         if not DRIVE_ID_RE.match(candidate):
             raise ProbeArgumentError(
-                f"'{document}' is not a Drive file ID or a Docs or Drive file URL"
+                f"{echoed(document)} is not a Drive file ID or a Docs or Drive file URL"
             )
         return candidate
 
@@ -426,7 +431,9 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
             try:
                 parent = self._client().get_file(parent_id)
             except HttpError as e:
-                if http_error_status(e) not in (HTTP_FORBIDDEN, HTTP_NOT_FOUND):
+                # A rate limit or 5xx says nothing about access: raise, rather
+                # than answer "outside the roots".
+                if self._root_problem(e) is None:
                     raise
                 # A folder the account cannot see: the walk could not pass it.
                 return None
@@ -473,9 +480,10 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
         try:
             return list(self._client().list_children(folder.node.id, []))
         except HttpError as e:
-            status = http_error_status(e)
-            if status not in (HTTP_FORBIDDEN, HTTP_NOT_FOUND):
+            # Rate limits and 5xx raise; only an access refusal is a gap.
+            if self._root_problem(e) is None:
                 raise
+            status = http_error_status(e)
             # As in ingestion, a folder that cannot be listed leaves the tree
             # incomplete, so it is a failure rather than an empty folder.
             self.failures.append(

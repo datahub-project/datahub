@@ -327,7 +327,21 @@ def test_unreadable_folder_is_a_failure_not_an_empty_listing() -> None:
     folders = probe.folders(limit=100)
 
     assert "Root A/Eng/Archive" not in [f["name"] for f in folders]
-    assert probe.failures == ["folder 'Root A/Eng' could not be listed (HTTP 403)"]
+    assert len(probe.failures) == 1
+    assert "Root A/Eng" in probe.failures[0] and "403" in probe.failures[0]
+
+
+@pytest.mark.parametrize(
+    "error", [http_error(403, "userRateLimitExceeded"), http_error(500)]
+)
+def test_a_rate_limited_listing_raises_rather_than_reading_as_access(
+    error: HttpError,
+) -> None:
+    svc = build_fixture_service()
+    svc.list_errors[ENG] = error
+
+    with pytest.raises(HttpError):
+        make_probe(svc).folders(limit=100)
 
 
 def test_scope_counts_what_a_run_would_pick_up() -> None:
@@ -450,6 +464,7 @@ def test_explain_an_ingested_doc_reports_length_and_owners_never_text() -> None:
             "# Runbook\n\n1. Check the dashboard.\n2. Page the secondary."
         ),
         "ingested": True,
+        "max_documents": 10_000,
     }
     assert "Check the dashboard" not in str(explained)
 
@@ -494,6 +509,33 @@ def test_explain_decides_before_exporting(
     assert explained["excluded_by"] == excluded_by
     assert explained["explanation"]
     assert svc.calls_for("files.export") == []
+
+
+@pytest.mark.parametrize(
+    "file_id, overrides",
+    [(SHEET, {}), (DOC_TRASHED, {}), (DOC_A1, {"root_folder_ids": [SHARED_B]})],
+)
+def test_explain_names_a_file_only_under_a_configured_root(
+    file_id: str, overrides: Dict[str, Any]
+) -> None:
+    explained = make_probe(build_fixture_service(), **overrides).explain(
+        document=file_id
+    )
+
+    assert "name" not in explained
+
+
+@pytest.mark.parametrize(
+    "error", [http_error(403, "userRateLimitExceeded"), http_error(500)]
+)
+def test_explain_raises_when_a_folder_above_is_rate_limited(
+    error: HttpError,
+) -> None:
+    svc = build_fixture_service()
+    svc.get_errors[ENG] = error
+
+    with pytest.raises(HttpError):
+        make_probe(svc).explain(document=DOC_RUNBOOK)
 
 
 def test_explain_names_the_folder_that_decided() -> None:
