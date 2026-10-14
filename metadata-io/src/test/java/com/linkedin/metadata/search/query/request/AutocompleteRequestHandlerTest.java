@@ -796,6 +796,59 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(result.getEntities().size(), 4);
   }
 
+  /**
+   * An autocomplete input matches whole, as the autocomplete analyzer keeps it: the "i" of order_i
+   * or order-i is not a prefix of its own, so the hit is suggested by the id the input starts, not
+   * its name.
+   */
+  @Test
+  public void testV3SuggestionMatchesAnIdentifierInputWhole() {
+    assertEquals(
+        v3Suggestions(
+            Map.of("name", "Inventory snapshot", "id", "warehouse.order_items"), "order_i"),
+        List.of("warehouse.order_items"));
+    assertEquals(
+        v3Suggestions(
+            Map.of("name", "Inventory snapshot", "id", "warehouse.order-items"), "order-i"),
+        List.of("warehouse.order-items"));
+  }
+
+  /**
+   * Values are read as the autocomplete analyzer indexes them, whole and unstemmed: neither a part
+   * of order_items nor the stem of orders makes the name the suggestion.
+   */
+  @Test
+  public void testV3SuggestionReadsValueWordsWhole() {
+    assertEquals(
+        v3Suggestions(Map.of("name", "order_items", "id", "warehouse.items_daily"), "items"),
+        List.of("warehouse.items_daily"));
+    assertEquals(
+        v3Suggestions(Map.of("name", "Order history", "id", "warehouse.orders_daily"), "orders"),
+        List.of("warehouse.orders_daily"));
+  }
+
+  /**
+   * The autocomplete analyzer keeps stop words, so an input such as "the" still picks the value it
+   * starts.
+   */
+  @Test
+  public void testV3SuggestionKeepsAStopWordInput() {
+    assertEquals(
+        v3Suggestions(Map.of("name", "Inventory snapshot", "id", "theater.ticket_sales"), "the"),
+        List.of("theater.ticket_sales"));
+  }
+
+  /** The V3 suggestions for one hit with these fields. */
+  private List<String> v3Suggestions(Map<String, Object> fields, String input) {
+    SearchHit[] hits = {suggestionHit("a", fields)};
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits())
+        .thenReturn(new SearchHits(hits, new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1.0f));
+    return getCachedDatasetHandler(TEST_V3_QUERY_CONFIG)
+        .extractResult(nonMockOpContext, response, input)
+        .getSuggestions();
+  }
+
   private static SearchHit suggestionHit(String name, Map<String, Object> fields) {
     Map<String, Object> source = new HashMap<>(fields);
     source.put("urn", "urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");

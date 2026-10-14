@@ -843,6 +843,54 @@ public class EbeanAspectDaoTest {
         String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
   }
 
+  /**
+   * The delete's up-front check must hold until the transaction ends, so under optimistic locking
+   * {@code getLatestAspectsLocked} still takes the row locks; asserted on the lock flag the DAO
+   * hands the query builder, which is what decides whether FOR UPDATE is issued.
+   */
+  @Test
+  public void testGetLatestAspectsLockedTakesRowLocksEvenWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspectsLocked(
+              opContext, Map.of("urn:li:corpuser:testOptLockLocked", Set.of("status")));
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertTrue(lockFlagHandedToQuery(spyDao), "expected row locks to be taken");
+  }
+
+  @Test
+  public void testGetLatestAspectsForUpdateStillDoesNotLockRowsWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspects(
+              opContext, Map.of("urn:li:corpuser:testOptLockPlain", Set.of("status")), true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertFalse(lockFlagHandedToQuery(spyDao), "expected no row locks to be taken");
+  }
+
+  /** The {@code lockRows} flag of the one batch-get query the spied DAO ran. */
+  private static boolean lockFlagHandedToQuery(EbeanAspectDao spyDao) {
+    final ArgumentCaptor<Boolean> lockRows = ArgumentCaptor.forClass(Boolean.class);
+    verify(spyDao)
+        .batchGetSelectString(
+            any(), anyList(), anyInt(), anyInt(), lockRows.capture(), anyBoolean());
+    return lockRows.getValue();
+  }
+
   @Test
   public void testBatchGetSkipsForUpdateWhenOptimisticLockingOn() {
     EbeanAspectDao optimisticDao = newOptimisticDao();

@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, Tag, message } from 'antd';
 import debounce from 'lodash/debounce';
 import React, { useMemo, useRef, useState } from 'react';
@@ -16,7 +15,7 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, Text } from '@src/alchemy-components';
+import { Loader, Modal, Text } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
@@ -224,7 +223,7 @@ export default function SetDataProductModal({
     const loadingOption = {
         label: (
             <LoadingWrapper>
-                <LoadingOutlined />
+                <Loader size="xs" />
             </LoadingWrapper>
         ),
         value: 'loading',

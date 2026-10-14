@@ -1,5 +1,5 @@
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -77,7 +77,7 @@ export default function DrawerFooter({
         <HeaderWrapper>
             <ButtonsWrapper>
                 <StyledIcon onClick={selectPreviousField}>
-                    <KeyboardArrowUpIcon />
+                    <CaretUp />
                 </StyledIcon>
                 <FieldIndexText>
                     {t('fieldDrawer.fieldNavigation', {
@@ -87,7 +87,7 @@ export default function DrawerFooter({
                     })}
                 </FieldIndexText>
                 <StyledIcon onClick={selectNextField}>
-                    <KeyboardArrowDownIcon />
+                    <CaretDown />
                 </StyledIcon>
             </ButtonsWrapper>
         </HeaderWrapper>

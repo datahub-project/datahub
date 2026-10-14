@@ -66,7 +66,24 @@ _CASES: List[Tuple[str, str]] = [
 # itself, keyed by source type, with the commands it overrides. Each entry is
 # a reviewed decision, not an exemption: its resolver must pass only
 # catalog-listed strings to reflection.
-_RESOLVES_ITS_OWN: Dict[str, FrozenSet[str]] = {}
+_RESOLVES_ITS_OWN: Dict[str, FrozenSet[str]] = {
+    # Reviewed: every database/schema/table/view reaches the dialect only as
+    # the server-listed string mssql_probe._server_spelling returns. It accepts
+    # a case-only match (SQL Server's default collation is case-insensitive)
+    # where the base resolver refuses one, and warns with the server spelling.
+    "mssql": frozenset(
+        {
+            "columns",
+            "foreign_keys",
+            "indexes",
+            "primary_key",
+            "table_comment",
+            "tables",
+            "view_definition",
+            "views",
+        }
+    ),
+}
 
 
 @pytest.fixture

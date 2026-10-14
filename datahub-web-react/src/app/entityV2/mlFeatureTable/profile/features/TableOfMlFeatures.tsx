@@ -1,4 +1,4 @@
-import { CheckSquareOutlined } from '@ant-design/icons';
+import { CheckSquare } from '@phosphor-icons/react/dist/csr/CheckSquare';
 import { Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useState } from 'react';
@@ -140,7 +140,7 @@ export default function TableOfMlFeatures({ features }: Props) {
         dataIndex: 'primaryKey',
         key: 'primaryKey',
         render: (_: any, record: MlFeature | MlPrimaryKey) =>
-            record.__typename === 'MLPrimaryKey' ? <CheckSquareOutlined /> : null,
+            record.__typename === 'MLPrimaryKey' ? <CheckSquare /> : null,
         width: 50,
     };
 
