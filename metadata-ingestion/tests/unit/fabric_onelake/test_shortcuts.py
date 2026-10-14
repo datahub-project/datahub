@@ -64,6 +64,19 @@ def test_schemas_disabled_shortcut_defaults_schema_to_dbo() -> None:
     assert shortcut.upstream_schema_name == "dbo"
 
 
+def test_nested_tables_path_is_not_a_table_shortcut() -> None:
+    assert (
+        parse_table_shortcut(
+            {
+                "path": "Tables/schema/subdir",
+                "name": "customers",
+                "target": {"type": "AmazonS3"},
+            }
+        )
+        is None
+    )
+
+
 def test_file_shortcut_is_ignored() -> None:
     assert (
         parse_table_shortcut(
