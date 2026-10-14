@@ -111,6 +111,10 @@ class CatalogLineageResult:
     "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
     supported=True,
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
