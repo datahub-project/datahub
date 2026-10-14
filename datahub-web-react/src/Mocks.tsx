@@ -221,6 +221,7 @@ const user2 = {
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
+        locale: null,
     },
     editableInfo: null,
 };
@@ -3510,6 +3511,7 @@ export const mocks = [
                         manageHomePageTemplates: true,
                         manageDocuments: true,
                         createDocuments: true,
+                        manageServiceAccounts: true,
                     },
                 },
             },

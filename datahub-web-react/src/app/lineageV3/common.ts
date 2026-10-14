@@ -7,6 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
+import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
@@ -14,6 +15,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
+
+export { LINEAGE_HANDLE_OFFSET };
 
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
@@ -40,8 +43,6 @@ export const BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES: ReadonlySet<EntityType
 
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
-export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
-
 export const VERTICAL_HANDLE = 'vertical';
 
 type Urn = string;
