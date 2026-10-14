@@ -77,6 +77,7 @@ WHERE {
     ?s ?p ?o .
     FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/"))
 }""",
+            "include_referenced_entities": False,
         }
         config = RDFSourceConfig.model_validate(config_dict)
         source = RDFSource(config, ctx)
@@ -103,6 +104,7 @@ WHERE {
         STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FND/")
     )
 }""",
+            "include_referenced_entities": False,
         }
         config = RDFSourceConfig.model_validate(config_dict)
         source = RDFSource(config, ctx)
@@ -146,6 +148,7 @@ WHERE {
     ?s ?p ?o .
     FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/"))
 }""",
+                "include_referenced_entities": False,
             }
         )
         source_with_filter = RDFSource(config_with_filter, ctx)
@@ -386,3 +389,99 @@ ex:Term a skos:Concept ; skos:prefLabel "Term" .
                     "unsupported" in error_message
                     or "askquery" in error_message.lower()
                 )
+
+    def test_sparql_filter_includes_referenced_superclass_when_enabled(
+        self, ctx, tmp_path
+    ):
+        """include_referenced_entities=true pulls in rdfs:subClassOf superclasses."""
+        ttl = """
+@prefix sec: <https://spec.edmcouncil.org/fibo/ontology/SEC/> .
+@prefix fbc: <https://spec.edmcouncil.org/fibo/ontology/FBC/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+fbc:FinancialInstrument a owl:Class ; rdfs:label "Financial Instrument" .
+sec:Security a owl:Class ; rdfs:label "Security" ; rdfs:subClassOf fbc:FinancialInstrument .
+"""
+        test_file = tmp_path / "module_slice.ttl"
+        test_file.write_text(ttl)
+
+        config = RDFSourceConfig.model_validate(
+            {
+                "source": str(test_file),
+                "dialect": "fibo",
+                "include_referenced_entities": True,
+                "sparql_filter": """CONSTRUCT { ?s ?p ?o }
+WHERE {
+    ?s ?p ?o .
+    FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/SEC/"))
+}""",
+            }
+        )
+        source = RDFSource(config, ctx)
+        list(source.get_workunits_internal())
+        assert source.report.num_glossary_terms == 2
+
+    def test_sparql_filter_excludes_referenced_superclass_by_default(
+        self, ctx, tmp_path
+    ):
+        """By default, sparql_filter keeps strict subject-only filtering."""
+        ttl = """
+@prefix sec: <https://spec.edmcouncil.org/fibo/ontology/SEC/> .
+@prefix fbc: <https://spec.edmcouncil.org/fibo/ontology/FBC/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+fbc:FinancialInstrument a owl:Class ; rdfs:label "Financial Instrument" .
+sec:Security a owl:Class ; rdfs:label "Security" ; rdfs:subClassOf fbc:FinancialInstrument .
+"""
+        test_file = tmp_path / "module_slice.ttl"
+        test_file.write_text(ttl)
+
+        config = RDFSourceConfig.model_validate(
+            {
+                "source": str(test_file),
+                "dialect": "fibo",
+                "sparql_filter": """CONSTRUCT { ?s ?p ?o }
+WHERE {
+    ?s ?p ?o .
+    FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/SEC/"))
+}""",
+            }
+        )
+        source = RDFSource(config, ctx)
+        list(source.get_workunits_internal())
+        assert source.report.num_glossary_terms == 1
+
+    def test_sparql_filter_materializes_external_commons_superclass(
+        self, ctx, tmp_path
+    ):
+        """External OMG Commons classes referenced only via subClassOf are imported."""
+        ttl = """
+@prefix sec: <https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/> .
+@prefix cmns: <https://www.omg.org/spec/Commons/DatesAndTimes/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+sec:FirstRegularCouponDate a owl:Class ;
+    rdfs:label "first regular coupon date" ;
+    rdfs:subClassOf cmns:ExplicitDate .
+"""
+        test_file = tmp_path / "commons_ref.ttl"
+        test_file.write_text(ttl)
+
+        config = RDFSourceConfig.model_validate(
+            {
+                "source": str(test_file),
+                "dialect": "fibo",
+                "include_referenced_entities": True,
+                "sparql_filter": """CONSTRUCT { ?s ?p ?o }
+WHERE {
+    ?s ?p ?o .
+    FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/SEC/"))
+}""",
+            }
+        )
+        source = RDFSource(config, ctx)
+        list(source.get_workunits_internal())
+        assert source.report.num_glossary_terms == 2

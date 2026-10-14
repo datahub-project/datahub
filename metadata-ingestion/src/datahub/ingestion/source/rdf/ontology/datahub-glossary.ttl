@@ -1,0 +1,40 @@
+@prefix dh:    <https://datahubproject.io/ontology/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+
+# Native DataHub glossary relationships (from GlossaryRelatedTerms PDL @Relationship names)
+
+dh:IsA a dh:NativeRelationship ;
+    rdfs:label "Inherits" ;
+    dh:aspect "glossaryRelatedTerms" ;
+    dh:field "isRelatedTerms" ;
+    dh:entityType "glossaryTerm" .
+
+dh:IsRelatedTo a dh:NativeRelationship ;
+    rdfs:label "Related to" ;
+    dh:aspect "glossaryRelatedTerms" ;
+    dh:field "relatedTerms" ;
+    dh:entityType "glossaryTerm" .
+
+# Explicit alignments — external predicates promoted to native only when declared here
+
+dh:align_skos_broader a dh:PredicateAlignment ;
+    dh:predicate skos:broader ;
+    dh:mapsTo dh:IsA ;
+    dh:direction "subject_to_object" .
+
+dh:align_skos_narrower a dh:PredicateAlignment ;
+    dh:predicate skos:narrower ;
+    dh:mapsTo dh:IsA ;
+    dh:direction "object_to_subject" .
+
+dh:align_skos_related a dh:PredicateAlignment ;
+    dh:predicate skos:related ;
+    dh:mapsTo dh:IsRelatedTo ;
+    dh:direction "subject_to_object" .
+
+dh:align_rdfs_subClassOf a dh:PredicateAlignment ;
+    dh:predicate rdfs:subClassOf ;
+    dh:mapsTo dh:IsA ;
+    dh:direction "subject_to_object" .

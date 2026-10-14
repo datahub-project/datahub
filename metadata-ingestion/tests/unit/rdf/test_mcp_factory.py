@@ -13,10 +13,6 @@ from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
 from datahub.ingestion.source.rdf.entities.glossary_term.mcp_builder import (
     GlossaryTermMCPBuilder,
 )
-from datahub.ingestion.source.rdf.entities.relationship.ast import (
-    DataHubRelationship,
-    RelationshipType,
-)
 from datahub.ingestion.source.rdf.entities.relationship.mcp_builder import (
     RelationshipMCPBuilder,
 )
@@ -115,16 +111,19 @@ class TestMCPFactory(unittest.TestCase):
     # Only BROADER and NARROWER relationship types are supported
 
     def test_create_relationship_mcp_broader(self):
-        """Test creating relationship MCP for BROADER."""
-        relationship = DataHubRelationship(
+        """Test creating relationship MCP for aligned IsA."""
+        from datahub.ingestion.source.rdf.entities.relationship.ast import (
+            DataHubNativeRelationship,
+        )
+
+        relationship = DataHubNativeRelationship(
             source_urn="urn:li:glossaryTerm:term1",
             target_urn="urn:li:glossaryTerm:term2",
-            relationship_type=RelationshipType.BROADER,
+            field="isRelatedTerms",
+            maps_to="IsA",
         )
 
         mcp_builder = RelationshipMCPBuilder()
-        # build_mcps returns empty for single relationships (needs aggregation)
-        # Use build_all_mcps instead
         mcps = mcp_builder.build_all_mcps([relationship])
         mcp = mcps[0] if mcps else None
 
