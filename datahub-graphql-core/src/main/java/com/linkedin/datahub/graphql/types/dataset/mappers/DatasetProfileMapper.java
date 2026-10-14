@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.PartitionSpec;
 import com.linkedin.datahub.graphql.generated.PartitionType;
 import com.linkedin.datahub.graphql.generated.TimeWindow;
 import com.linkedin.datahub.graphql.types.common.mappers.util.TimeWindowUtils;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
@@ -61,8 +62,10 @@ public class DatasetProfileMapper
     if (partitionSpec.hasPartition()) {
       result.setPartition(partitionSpec.getPartition());
     }
-    // GraphQL type is non-null; getType() falls back to the PDL default (PARTITION) when unset.
-    result.setType(PartitionType.valueOf(partitionSpec.getType().toString()));
+    // GraphQL type is non-null; getType() falls back to the PDL default (PARTITION) when unset,
+    // and PdlEnumMapper maps an unrecognized value ($UNKNOWN) to the same default.
+    result.setType(
+        PdlEnumMapper.map(PartitionType.class, partitionSpec.getType(), PartitionType.PARTITION));
     if (partitionSpec.hasTimePartition()) {
       result.setTimePartition(mapTimePartition(partitionSpec.getTimePartition()));
     }
