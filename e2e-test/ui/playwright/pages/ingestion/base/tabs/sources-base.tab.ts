@@ -202,13 +202,16 @@ export abstract class SourcesBaseTab extends BaseTab {
     await modal.confirm();
   }
 
-  async openMoreOptions(sourceName: string): Promise<void> {
-    this.logger?.step('open more options', { sourceName });
-    await this.getMoreOptionsButton(sourceName).click();
-  }
-
-  async clickDropdownItem(label: string): Promise<void> {
-    await this.getDropdownMenuItem(label).click();
+  async selectMoreOption(sourceName: string, label: string): Promise<void> {
+    this.logger?.step('select more option', { sourceName, label });
+    // A list re-render (debounced search, polling) can detach the open menu, so
+    // reopen it and retry the click instead of waiting on a detached item.
+    await expect(async () => {
+      if (!(await this.getDropdownMenuItem(label).isVisible())) {
+        await this.getMoreOptionsButton(sourceName).click();
+      }
+      await this.getDropdownMenuItem(label).click({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
   }
 
   async selectTypeFilter(value: string): Promise<void> {
@@ -224,22 +227,25 @@ export abstract class SourcesBaseTab extends BaseTab {
 
   async clearSearch(): Promise<void> {
     this.logger?.step('clear search');
-    const inputValue = await this.sourcesSearchInput.inputValue();
-    if (inputValue) {
-      const responsePromise = this.graphql.waitForGraphQLResponse('listIngestionSources');
+    if (await this.sourcesSearchInput.inputValue()) {
       await this.sourcesSearchInput.clear();
-      await responsePromise;
-    } else {
-      await this.sourcesSearchInput.clear();
+      await expect(this.sourcesSearchInput).toHaveValue('');
     }
   }
 
   async search(sourceName: string): Promise<void> {
     this.logger?.step('search', { sourceName });
     await expect(this.sourcesSearchInput).toBeVisible();
-    const responsePromise = this.graphql.waitForGraphQLResponse('listIngestionSources');
-    await this.sourcesSearchInput.fill(sourceName);
-    await responsePromise;
+    if ((await this.sourcesSearchInput.inputValue()) !== sourceName) {
+      await this.sourcesSearchInput.fill(sourceName);
+      // The search is debounced and the matching row may already be visible in the
+      // unfiltered list. Wait for the debounce to apply the query (it writes it to
+      // the URL) so the table does not re-render under the next interaction.
+      await expect(this.page).toHaveURL((url) => url.searchParams.get('query') === sourceName);
+    }
+    // The list query is debounced and may be served from the Apollo cache, so a
+    // network wait for this exact query does not always see a response.
+    await this.expectSourceVisible(sourceName);
   }
 
   async expectSchedule(sourceName: string, scheduleText: string): Promise<void> {
@@ -412,8 +418,7 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.logger?.step('delete ingestion source', { sourceUrn });
     await this.cancelRunningExecution(sourceName);
     await this.searchIfNotVisible(sourceName);
-    await this.openMoreOptions(sourceName);
-    await this.clickDropdownItem('Delete');
+    await this.selectMoreOption(sourceName, 'Delete');
     const modal = new ConfirmationModalComponent(this.page);
     await modal.waitForOpening();
     await modal.confirm();

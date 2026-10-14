@@ -1,0 +1,1287 @@
+[
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.rootAAAAAAAA",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "rootAAAAAAAA",
+                "drive_mime_type": "application/vnd.google-apps.folder",
+                "drive_folder_path": "Root A",
+                "drive_parent_id": "",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2"
+            },
+            "title": "Root A",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/rootAAAAAAAA",
+                "externalId": "rootAAAAAAAA"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.rootAAAAAAAA",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.rootAAAAAAAA",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.rootAAAAAAAA",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.sharedBBBBBBB",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "sharedBBBBBBB",
+                "drive_mime_type": "application/vnd.google-apps.folder",
+                "drive_folder_path": "Shared Drive B",
+                "drive_parent_id": "",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "drive_id": "sharedBBBBBBB"
+            },
+            "title": "Shared Drive B",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/sharedBBBBBBB",
+                "externalId": "sharedBBBBBBB"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.sharedBBBBBBB",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.sharedBBBBBBB",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.sharedBBBBBBB",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderEngEng01",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "folderEngEng01",
+                "drive_mime_type": "application/vnd.google-apps.folder",
+                "drive_folder_path": "Root A/Eng",
+                "drive_parent_id": "rootAAAAAAAA",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2"
+            },
+            "title": "Eng",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/folderEngEng01",
+                "externalId": "folderEngEng01"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.rootAAAAAAAA"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderEngEng01",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderEngEng01",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderEngEng01",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderEngEng01",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderTeam0001",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "folderTeam0001",
+                "drive_mime_type": "application/vnd.google-apps.folder",
+                "drive_folder_path": "Shared Drive B/Team",
+                "drive_parent_id": "sharedBBBBBBB",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "drive_id": "sharedBBBBBBB"
+            },
+            "title": "Team",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/folderTeam0001",
+                "externalId": "folderTeam0001"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.sharedBBBBBBB"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderTeam0001",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderTeam0001",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderTeam0001",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderTeam0001",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Shared Drive B",
+                    "urn": "urn:li:document:google_drive.sharedBBBBBBB"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderSpecs001",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "folderSpecs001",
+                "drive_mime_type": "application/vnd.google-apps.folder",
+                "drive_folder_path": "Root A/Eng/Specs",
+                "drive_parent_id": "folderEngEng01",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2"
+            },
+            "title": "Specs",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/folderSpecs001",
+                "externalId": "folderSpecs001"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.folderEngEng01"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderSpecs001",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderSpecs001",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderSpecs001",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.folderSpecs001",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                },
+                {
+                    "id": "Eng",
+                    "urn": "urn:li:document:google_drive.folderEngEng01"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docA1xxxxxxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Root A",
+                "drive_parent_id": "rootAAAAAAAA",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "2e239c9ebad32abaaff700134dc462b76ae9cb04bff4176a144b5b4577b3b46d",
+                "extraction_algo_version": "2",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc A1",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docA1xxxxxxxx",
+                "externalId": "docA1xxxxxxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Doc A1\n\nHello from **A1**."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.rootAAAAAAAA"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docA1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docB1xxxxxxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Shared Drive B",
+                "drive_parent_id": "sharedBBBBBBB",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "ec1180a046af53c5bf1762849523662bd99789d1d0557bc1c215f52d8ad70461",
+                "extraction_algo_version": "2",
+                "drive_id": "sharedBBBBBBB",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc B1",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docB1xxxxxxxx",
+                "externalId": "docB1xxxxxxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# B1\n\nShared drive document."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.sharedBBBBBBB"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB1xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Shared Drive B",
+                    "urn": "urn:li:document:google_drive.sharedBBBBBBB"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docRunbookxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Root A/Eng",
+                "drive_parent_id": "folderEngEng01",
+                "drive_version": "7",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "ecb79fb9010bdba52fb56d2b82e91d16fd562874edbdd561f5561bc51a458cab",
+                "extraction_algo_version": "2",
+                "drive_size_bytes": "8290",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc Runbook",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docRunbookxxx",
+                "externalId": "docRunbookxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Runbook\n\n1. Check the dashboard.\n2. Page the secondary."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.folderEngEng01"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
+                },
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:bob@example.com/TECHNICAL_OWNER//urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                    "value": {
+                        "owner": "urn:li:corpuser:bob@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1770091506000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)",
+                            "sourceDetail": {}
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docRunbookxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                },
+                {
+                    "id": "Eng",
+                    "urn": "urn:li:document:google_drive.folderEngEng01"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB2xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docB2xxxxxxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Shared Drive B/Team",
+                "drive_parent_id": "folderTeam0001",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "0c5d9249e2e3c43a841da6a58494e0bece3a745895929b174c98416ecc2b5c44",
+                "extraction_algo_version": "2",
+                "drive_id": "sharedBBBBBBB",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc B2",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docB2xxxxxxxx",
+                "externalId": "docB2xxxxxxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# B2\n\nNested shared drive document."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.folderTeam0001"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB2xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB2xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docB2xxxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Shared Drive B",
+                    "urn": "urn:li:document:google_drive.sharedBBBBBBB"
+                },
+                {
+                    "id": "Team",
+                    "urn": "urn:li:document:google_drive.folderTeam0001"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docImagesxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docImagesxxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Root A/Eng/Specs",
+                "drive_parent_id": "folderSpecs001",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "891b3f8e2758d7494a0b03101b5a670bc06c086ae2685ebc05bdbc14f2193778",
+                "extraction_algo_version": "2",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc Spec Images",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docImagesxxxx",
+                "externalId": "docImagesxxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Spec with images\n\nIntro.\n\n*[Image: Blue diagram]*\n\nBetween.\n\n*[Image]*\n\nEnd."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.folderSpecs001"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docImagesxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docImagesxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docImagesxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                },
+                {
+                    "id": "Eng",
+                    "urn": "urn:li:document:google_drive.folderEngEng01"
+                },
+                {
+                    "id": "Specs",
+                    "urn": "urn:li:document:google_drive.folderSpecs001"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docHtmlxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "drive_file_id": "docHtmlxxxxxx",
+                "drive_mime_type": "application/vnd.google-apps.document",
+                "drive_folder_path": "Root A/Eng/Specs",
+                "drive_parent_id": "folderSpecs001",
+                "drive_version": "1",
+                "drive_ingest_fingerprint": "77c19442f3b68ac2",
+                "content_hash": "89499bea4a261d6524a31351993006eae046933fffb1e7e86aa9bf5d658412b2",
+                "extraction_algo_version": "2",
+                "last_modifying_user": "editor@example.com"
+            },
+            "title": "Doc Spec Html",
+            "source": {
+                "sourceType": "EXTERNAL",
+                "externalUrl": "https://docs.example.com/docHtmlxxxxxx",
+                "externalId": "docHtmlxxxxxx"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Html Spec\n\nConverted via **fallback**."
+            },
+            "created": {
+                "time": 1767323045000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1770091506000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:google_drive.folderSpecs001"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docHtmlxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:google_drive",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:google_drive,test-workspace)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docHtmlxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:google_drive.docHtmlxxxxxx",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Root A",
+                    "urn": "urn:li:document:google_drive.rootAAAAAAAA"
+                },
+                {
+                    "id": "Eng",
+                    "urn": "urn:li:document:google_drive.folderEngEng01"
+                },
+                {
+                    "id": "Specs",
+                    "urn": "urn:li:document:google_drive.folderSpecs001"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772366400000,
+        "runId": "google-drive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

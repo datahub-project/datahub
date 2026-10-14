@@ -1,5 +1,5 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -20,7 +20,6 @@ const LoadingWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 85vh;
-    font-size: 50px;
 `;
 
 const SidebarWrapper = styled.div`
@@ -87,7 +86,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         >
             {loading && (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader size="xl" />
                 </LoadingWrapper>
             )}
             {!loading && entityData && entityData.type && (

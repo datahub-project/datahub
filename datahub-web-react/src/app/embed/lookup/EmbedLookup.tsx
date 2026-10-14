@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React, { useEffect } from 'react';
 import { useHistory, useParams } from 'react-router';
 import styled from 'styled-components';
@@ -13,10 +13,6 @@ const PageContainer = styled.div`
     align-items: center;
     justify-content: center;
     height: 85vh;
-`;
-
-const LookupLoading = styled(LoadingOutlined)`
-    font-size: 50px;
 `;
 
 type RouteParams = {
@@ -37,7 +33,7 @@ const EmbedLookup = () => {
         if (error) return <ErrorSection />;
         if (notFound) return <LookupNotFound url={encodedUrl} />;
         if (foundMultiple) return <LookupFoundMultiple url={encodedUrl} />;
-        return <LookupLoading />;
+        return <Loader size="xl" />;
     };
 
     return <PageContainer>{getContent()}</PageContainer>;

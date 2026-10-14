@@ -316,6 +316,13 @@ class HiveMetastore(
                 )
         return self
 
+    @classmethod
+    def probe_provider_class(cls) -> Optional[type]:
+        # The inherited SQL provider would connect to the metastore's backing
+        # database and list its internal tables (TBLS, DBS, ...), not Hive's;
+        # in thrift mode it can't connect at all.
+        return None
+
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:

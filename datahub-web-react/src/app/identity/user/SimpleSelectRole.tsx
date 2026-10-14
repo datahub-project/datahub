@@ -1,9 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, SimpleSelect, Text, Tooltip } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { User } from '@phosphor-icons/react/dist/csr/User';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
 
@@ -12,6 +12,14 @@ import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 
 import { DataHubRole } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 const PlaceholderContainer = styled.div`
     display: flex;
     align-items: center;
@@ -98,7 +106,7 @@ export default function SimpleSelectRole({
             options.push({
                 value: LOAD_MORE_VALUE,
                 label: t('users.loadingMoreRolesSentinel'),
-                icon: <LoadingOutlined />,
+                icon: <SpinningCircleNotch />,
             });
         }
 
@@ -122,7 +130,7 @@ export default function SimpleSelectRole({
         if (option.value === LOAD_MORE_VALUE) {
             return (
                 <LoadMoreContainer ref={observerRef}>
-                    <LoadingOutlined />
+                    <SpinningCircleNotch />
                     <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
                         {t('users.loadingMoreRoles')}
                     </Text>
