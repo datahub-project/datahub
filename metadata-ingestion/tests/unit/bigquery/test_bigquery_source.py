@@ -576,6 +576,24 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
+class _Page:
+    """Stand-in for a BigQuery result page, which exposes num_items without copying rows."""
+
+    def __init__(self, items: list[Any]) -> None:
+        self.num_items = len(items)
+        self._items = items
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._items)
+
+
+def _query_result(items: list[Any]) -> MagicMock:
+    rows = MagicMock()
+    rows.total_rows = len(items)
+    rows.pages = [_Page(items)]
+    return rows
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -623,11 +641,11 @@ def test_get_datasets_for_project_id_with_timestamps(
     def mock_query(query, location=None, job_retry=None):
         mock_job = MagicMock()
         if location == "US":
-            mock_job.result.return_value = [mock_row_dataset1]
+            mock_job.result.return_value = _query_result([mock_row_dataset1])
         elif location == "EU":
-            mock_job.result.return_value = [mock_row_dataset2]
+            mock_job.result.return_value = _query_result([mock_row_dataset2])
         else:
-            mock_job.result.return_value = []
+            mock_job.result.return_value = _query_result([])
         return mock_job
 
     mock_bq_client.query.side_effect = mock_query
