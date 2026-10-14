@@ -1657,34 +1657,24 @@ def _link_schema(
     return schemas[0] if schemas else None
 
 
-def test_database_resource_link_schema_resolved_from_datahub() -> None:
-    # The owner account is already ingested: the schemaless link copies the owner's schema from
-    # DataHub, looked up by the owner's URN, with no cross-account Glue call.
+@pytest.mark.parametrize("owner_in_datahub", [True, False])
+def test_database_resource_link_schema_resolved_from_owner(
+    owner_in_datahub: bool,
+) -> None:
+    # A schemaless link copies the owner's schema: from DataHub (looked up by the owner's URN,
+    # no Glue call) when the owner is already ingested, otherwise from a cross-account
+    # get_table. That stub only matches the owner's catalog and database name, so the Glue
+    # case fails if the synthesized TargetTable carried the link's database name instead.
     graph = MagicMock()
     graph.get_schema_metadata.return_value = _owner_schema()
 
     source, _, wus = _ingest_database_resource_link(
         {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
         tables_response=_schemaless_database_link_tables(),
-        graph=graph,
-    )
-
-    schema = _link_schema(wus, DB_LINK_URN)
-    assert schema is not None
-    assert [f.fieldPath for f in schema.fields] == ["txn_id"]
-    assert schema.schemaName == "resource-link-test-database.transactions"
-    graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
-    assert source.report.num_resource_link_schema_from_datahub == 1
-
-
-def test_database_resource_link_schema_resolved_from_owner_glue_table() -> None:
-    # Without DataHub, the schema comes from a cross-account get_table. The stub only matches
-    # the owner's catalog and database name, so this fails if the synthesized TargetTable
-    # carried the link's database name instead.
-    source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
-        tables_response=_schemaless_database_link_tables(),
-        owner_get_table_response={
+        graph=graph if owner_in_datahub else None,
+        owner_get_table_response=None
+        if owner_in_datahub
+        else {
             "Table": {
                 "Name": "transactions",
                 "DatabaseName": "test-database",
@@ -1700,8 +1690,15 @@ def test_database_resource_link_schema_resolved_from_owner_glue_table() -> None:
 
     schema = _link_schema(wus, DB_LINK_URN)
     assert schema is not None
-    assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
-    assert source.report.num_resource_link_schema_from_glue == 1
+    assert schema.schemaName == "resource-link-test-database.transactions"
+    fields = {f.fieldPath.split(".")[-1] for f in schema.fields}
+    if owner_in_datahub:
+        assert fields == {"txn_id"}
+        graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
+        assert source.report.num_resource_link_schema_from_datahub == 1
+    else:
+        assert fields == {"txn_id", "amount"}
+        assert source.report.num_resource_link_schema_from_glue == 1
 
 
 def test_database_resource_link_table_placed_in_link_database_container() -> None:
