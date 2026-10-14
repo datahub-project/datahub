@@ -45,6 +45,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1182,6 +1183,22 @@ public class GroupServiceTest {
   }
 
   @Test
+  public void testConditionalSweepReadsTheBatchAndTheRereadFromPrimary() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    pendingAdds.put(USER_URN, 1);
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            opContext.withReadPreference(ReadPreference.READ), _groupUrn, List.of(USER_URN));
+
+    // A lagging replica can hide the deleted group from a member, so both reads must use primary.
+    assertEquals(
+        readPreferencesOfMembershipReads(),
+        List.of(ReadPreference.PRIMARY, ReadPreference.PRIMARY));
+  }
+
+  @Test
   public void testConditionalSweepStopsAtOnceWhenAThrownWriteFailsWithoutTheAspectMoving()
       throws Exception {
     storeMembership(USER_URN, _groupUrn);
@@ -1255,6 +1272,27 @@ public class GroupServiceTest {
     verify(_entityClient, never())
         .ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+  }
+
+  @Test
+  public void testWithTheFlagOffTheBatchReadKeepsTheCallersReadPreference() throws Exception {
+    mockNativeGroupMembershipReads(_groupUrn);
+    GroupService unconditional =
+        new GroupService(_entityClient, _entityService, _graphClient, _graphService, false, 3);
+
+    unconditional.removeStaleNativeGroupMembership(
+        opContext.withReadPreference(ReadPreference.READ), _groupUrn, List.of(USER_URN));
+
+    assertEquals(readPreferencesOfMembershipReads(), List.of(ReadPreference.READ));
+  }
+
+  private List<ReadPreference> readPreferencesOfMembershipReads() throws Exception {
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    verify(_entityClient, atLeastOnce())
+        .batchGetV2NoCache(contexts.capture(), eq(CORP_USER_ENTITY_NAME), any(), any());
+    return contexts.getAllValues().stream()
+        .map(context -> context.getPrimaryStorageContext().getReadPreference())
+        .collect(Collectors.toList());
   }
 
   private GroupService conditionalGroupService() {

@@ -264,17 +264,6 @@ public class DeleteEntityUtils {
   @Nullable
   public static MetadataChangeProposal removeFormFromFormsAspect(
       @Nonnull Forms formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
-    final Forms updatedAspect = removeFormFromForms(formsAspect, deletedUrn);
-    if (!formsAspect.equals(updatedAspect)) {
-      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect);
-    }
-    return null;
-  }
-
-  // remove the deleted form's assignments and verifications; the input is left as it was
-  @Nonnull
-  public static Forms removeFormFromForms(
-      @Nonnull Forms formsAspect, @Nonnull final Urn deletedUrn) {
     final AtomicReference<Forms> updatedAspect;
     try {
       updatedAspect = new AtomicReference<>(formsAspect.copy());
@@ -299,7 +288,10 @@ public class DeleteEntityUtils {
     updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
     updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
 
-    return updatedAspect.get();
+    if (!formsAspect.equals(updatedAspect.get())) {
+      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
+    }
+    return null;
   }
 
   // all assets that could have a form associated with them

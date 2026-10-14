@@ -10,7 +10,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
@@ -992,7 +991,7 @@ public class DeleteEntityService {
       @Nonnull final Urn deletedUrn,
       @Nullable final CascadeOperationContext cascade) {
     if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
-      deleteReferencingEntity(opContext, assetUrn);
+      deleteReferencingEntity(opContext, assetUrn, cascade);
     }
 
     List<MetadataChangeProposal> mcps = new ArrayList<>();
@@ -1000,16 +999,12 @@ public class DeleteEntityService {
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
-            // The formInfo and forms rewrites are conditional; any other search-reference rewrite
-            // is still an unconditional async ingest.
+            // Only formInfo is rewritten conditionally. forms is rewritten whole and async, since a
+            // safe conditional version needs a patch template that OSS does not have yet.
             if (_conditionalReferenceWrites
                 && aspectName.equals("formInfo")
                 && deletedUrn.getEntityType().equals("structuredProperty")) {
               removePromptsIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
-              return;
-            }
-            if (_conditionalReferenceWrites && aspectName.equals("forms")) {
-              removeFormIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
               return;
             }
             MetadataChangeProposal mcp =
@@ -1042,64 +1037,24 @@ public class DeleteEntityService {
       @Nonnull final Urn deletedUrn,
       @Nonnull final String aspectName,
       @Nonnull final CascadeOperationContext cascade) {
-    rewriteIfUnchanged(
-        opContext,
-        assetUrn,
-        aspectName,
-        aspect ->
-            DeleteEntityUtils.removePromptsFromFormInfoAspect(
-                    new FormInfo(aspect.data()), deletedUrn)
-                .data(),
-        cascade);
-  }
-
-  /**
-   * Removes the deleted form's assignments and verifications from an asset's {@code forms} only if
-   * it is still at the version read, so a form assigned or completed meanwhile is kept. Synchronous
-   * for the same reason as {@link #removePromptsIfUnchanged}.
-   */
-  private void removeFormIfUnchanged(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn assetUrn,
-      @Nonnull final Urn deletedUrn,
-      @Nonnull final String aspectName,
-      @Nonnull final CascadeOperationContext cascade) {
-    rewriteIfUnchanged(
-        opContext,
-        assetUrn,
-        aspectName,
-        aspect ->
-            DeleteEntityUtils.removeFormFromForms(new Forms(aspect.data()), deletedUrn).data(),
-        cascade);
-  }
-
-  /**
-   * Reads the aspect with its version and rewrites it through {@link #writeIfUnchanged}, applying
-   * {@code edit} to what is stored, again after every conflict. Nothing is written when the edit
-   * changes nothing.
-   */
-  private void rewriteIfUnchanged(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn assetUrn,
-      @Nonnull final String aspectName,
-      @Nonnull final Function<Aspect, DataMap> edit,
-      @Nonnull final CascadeOperationContext cascade) {
     final AspectSpec aspectSpec =
         opContext
             .getEntityRegistry()
             .getEntitySpec(assetUrn.getEntityType())
             .getAspectSpec(aspectName);
-    // An asset can be of a type that does not have the aspect, such as a test of a deleted form.
-    if (aspectSpec == null) {
-      return;
-    }
     final EnvelopedAspect read = readLatestAspect(opContext, assetUrn, aspectName, aspectSpec);
     if (read == null) {
       return;
     }
-    final Function<Aspect, AtomicReference<Aspect>> editAspect =
-        aspect -> new AtomicReference<>(new Aspect(edit.apply(aspect)));
-    final Aspect updated = editAspect.apply(read.getValue()).get();
+    // Applied to what is stored, again after every conflict.
+    final Function<Aspect, AtomicReference<Aspect>> removePrompts =
+        aspect ->
+            new AtomicReference<>(
+                new Aspect(
+                    DeleteEntityUtils.removePromptsFromFormInfoAspect(
+                            new FormInfo(aspect.data()), deletedUrn)
+                        .data()));
+    final Aspect updated = removePrompts.apply(read.getValue()).get();
     if (read.getValue().equals(updated)) {
       return;
     }
@@ -1112,7 +1067,7 @@ public class DeleteEntityService {
         ConditionalWriteValidator.resolveAspectVersion(read),
         hasStoredVersion(read),
         updated,
-        editAspect,
+        removePrompts,
         cascade);
   }
 
@@ -1120,16 +1075,22 @@ public class DeleteEntityService {
    * Hard-deletes an entity that only exists for the deleted one. With conditional reference writes
    * on, the versions of its aspects are captured first and the key is deleted only if nothing was
    * written since. Otherwise the entity stays with its newer rows and only the captured aspects are
-   * removed. It is skipped silently when there is no key row.
+   * removed. A kept entity, or one with no key row, is logged and counted as an error.
    */
   private void deleteReferencingEntity(
-      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nullable final CascadeOperationContext cascade) {
     if (!_conditionalReferenceWrites) {
       _entityService.deleteUrn(opContext, urn);
       return;
     }
     final Optional<DeleteCeiling> ceiling = _entityService.captureDeleteCeiling(opContext, urn);
     if (ceiling.isEmpty()) {
+      log.warn("Reference cleanup did not delete {}: it has no key row to capture", urn);
+      if (cascade != null) {
+        cascade.recordError("referencing_entity_missing");
+      }
       return;
     }
     final RollbackRunResult deleted = _entityService.deleteUrn(opContext, urn, ceiling.get());
@@ -1142,6 +1103,9 @@ public class DeleteEntityService {
           "Reference cleanup kept {}: it was written to after its versions were captured, so only"
               + " what it had then was deleted",
           urn);
+      if (cascade != null) {
+        cascade.recordError("referencing_entity_kept");
+      }
     }
   }
 

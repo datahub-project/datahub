@@ -595,8 +595,14 @@ public class GroupService implements ActorGroupMembershipService {
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> batch) {
     try {
+      // A lagging replica can hide the deleted group from a member, so the conditional cleanup
+      // would skip them; the per-member re-read is pinned to primary for the same reason.
       return batchGetUserAspectsNoCache(
-          opContext, new LinkedHashSet<>(batch), Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+          _conditionalMembershipCleanup
+              ? opContext.withReadPreference(ReadPreference.PRIMARY)
+              : opContext,
+          new LinkedHashSet<>(batch),
+          Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
     } catch (Exception e) {
       log.error(
           "Failed to read nativeGroupMembership for {} member(s) of deleted group {}; leaving this"
@@ -683,13 +689,21 @@ public class GroupService implements ActorGroupMembershipService {
         rejection = e;
       }
 
-      final EnvelopedAspect latest =
-          nativeGroupMembershipAspect(
-              batchGetUserAspectsNoCache(
-                      opContext.withReadPreference(ReadPreference.PRIMARY),
-                      Set.of(userUrn),
-                      Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
-                  .get(userUrn));
+      final EnvelopedAspect latest;
+      try {
+        latest =
+            nativeGroupMembershipAspect(
+                batchGetUserAspectsNoCache(
+                        opContext.withReadPreference(ReadPreference.PRIMARY),
+                        Set.of(userUrn),
+                        Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
+                    .get(userUrn));
+      } catch (Exception e) {
+        if (rejection != null) {
+          e.addSuppressed(rejection);
+        }
+        throw e;
+      }
       if (withoutGroup(latest, groupUrn) == null) {
         return true;
       }
