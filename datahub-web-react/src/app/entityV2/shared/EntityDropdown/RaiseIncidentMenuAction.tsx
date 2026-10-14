@@ -10,7 +10,7 @@ import {
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';

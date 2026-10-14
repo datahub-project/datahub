@@ -389,6 +389,10 @@ _DEFAULT_SCOPE_REVIEWED = frozenset(
         "starrocks",
         "tidb",
         "trino",
+        # Databricks: information_schema is reserved per catalog (users cannot
+        # create a lookalike), and holds object shape, tags and DDL only. Query
+        # text lives in system.query.history and identity in system.access.*,
+        # both outside this scope.
         "unity-catalog",
         "vertica",
     }
@@ -621,7 +625,9 @@ def test_a_mysql_protocol_probe_refuses_session_text(
         run_probe_method(source_type, config, "sql", {"query": query})
 
 
-@pytest.mark.parametrize("source_type", ["postgres", "redshift", "mssql", "clickhouse"])
+# Not redshift: its provider dials host_port through redshift_connector, as
+# ingestion does, and never the sqlalchemy_uri.
+@pytest.mark.parametrize("source_type", ["postgres", "mssql", "clickhouse"])
 def test_a_config_declaring_its_own_scope_withholds_session_text_on_a_mysql_url(
     monkeypatch: pytest.MonkeyPatch, source_type: str
 ) -> None:

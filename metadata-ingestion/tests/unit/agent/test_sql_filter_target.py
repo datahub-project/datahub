@@ -388,9 +388,10 @@ def test_the_shim_gives_get_identifier_the_config_and_nothing_else(monkeypatch):
         (("salesdb", "dbo"), None, "salesdb.dbo.orders"),
         (("dbo",), "pinned", "pinned.dbo.orders"),
         (("dbo",), None, "dbo.orders"),
-        # The database the node lives under wins over the recipe's, as
-        # current_database does during ingestion.
-        (("salesdb", "dbo"), "pinned", "salesdb.dbo.orders"),
+        # A pinned recipe never sets current_database (get_inspectors' single
+        # branch), so a --parent database does not reach the identifier; the
+        # Database verdict excludes a node under another database.
+        (("salesdb", "dbo"), "pinned", "pinned.dbo.orders"),
     ],
 )
 def test_mssql_qualifies_a_table_with_the_database_ingestion_is_reading(

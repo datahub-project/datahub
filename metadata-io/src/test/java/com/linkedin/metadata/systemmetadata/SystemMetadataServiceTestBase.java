@@ -19,6 +19,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -168,6 +169,58 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
+  }
+
+  @Test
+  public void testFindByRunIdAfterPagesThroughEveryRowOnceInUrnAspectOrder() throws Exception {
+    SystemMetadata pagedRun = new SystemMetadata();
+    pagedRun.setRunId("abc-paged");
+    pagedRun.setLastObserved(Long.valueOf(120L));
+
+    SystemMetadata otherRun = new SystemMetadata();
+    otherRun.setRunId("abc-other");
+    otherRun.setLastObserved(Long.valueOf(240L));
+
+    // Five rows for the paged run across three urns and two aspects, inserted out of order.
+    _client.insert(operationContext, pagedRun, "urn:li:chart:3", "chartKey");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, otherRun, "urn:li:chart:2", "ChartInfo");
+
+    syncAfterWrite(getBulkProcessor());
+
+    final int pageSize = 2;
+    final List<List<AspectRowSummary>> pages = new ArrayList<>();
+    AspectRowSummary after = null;
+    List<AspectRowSummary> page;
+    do {
+      page = _client.findByRunIdAfter(operationContext, "abc-paged", false, after, pageSize);
+      pages.add(page);
+      if (!page.isEmpty()) {
+        after = page.get(page.size() - 1);
+      }
+    } while (page.size() == pageSize && pages.size() < 10);
+
+    final List<String> seen = new ArrayList<>();
+    pages.forEach(
+        p ->
+            p.forEach(
+                row -> {
+                  assertEquals(row.getRunId(), "abc-paged");
+                  seen.add(row.getUrn() + " " + row.getAspectName());
+                }));
+    assertEquals(
+        seen,
+        Arrays.asList(
+            "urn:li:chart:1 Ownership",
+            "urn:li:chart:1 chartKey",
+            "urn:li:chart:2 Ownership",
+            "urn:li:chart:2 chartKey",
+            "urn:li:chart:3 chartKey"));
+    assertEquals(pages.size(), 3);
+    assertTrue(pages.get(pages.size() - 1).size() < pageSize);
   }
 
   @Test

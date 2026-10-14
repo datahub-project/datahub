@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -33,10 +35,21 @@ public class EntityPrivilegesResolverTest {
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
   final String businessAttributeUrn = "urn:li:businessAttribute:testBusinessAttribute";
+  final String documentUrn = "urn:li:document:test-document";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getSource()).thenReturn(entity);
+    return mockEnv;
+  }
+
+  private DataFetchingEnvironment setUpTestWithResourcePrivilege(Entity entity, String privilege) {
+    QueryContext mockContext =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test", privilege, UrnUtils.getUrn(entity.getUrn()));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(entity);
@@ -140,6 +153,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanEditQueries());
     assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanDeleteEntity());
   }
 
   @Test
@@ -155,6 +169,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanEditQueries());
     assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanDeleteEntity());
   }
 
   @Test
@@ -239,6 +254,46 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanEditLineage());
+  }
+
+  @Test
+  public void testGetDocumentPrivileges() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithPermissions(document)).get();
+    assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanDeleteEntity());
+
+    result =
+        new EntityPrivilegesResolver(mockClient).get(setUpTestWithoutPermissions(document)).get();
+    assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDocumentPrivilegesSeparatesDeleteFromMove() throws Exception {
+    final Document document = new Document();
+    document.setUrn(documentUrn);
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    // Document owners get DELETE_ENTITY only, via the default document-owner delete policy.
+    EntityPrivileges result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "DELETE_ENTITY"))
+            .get();
+    assertTrue(result.getCanDeleteEntity());
+    assertFalse(result.getCanManageEntity());
+
+    // Editors get EDIT_ENTITY only, so they can move but not delete.
+    result =
+        new EntityPrivilegesResolver(mockClient)
+            .get(setUpTestWithResourcePrivilege(document, "EDIT_ENTITY"))
+            .get();
+    assertTrue(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
   }
 
   @Test

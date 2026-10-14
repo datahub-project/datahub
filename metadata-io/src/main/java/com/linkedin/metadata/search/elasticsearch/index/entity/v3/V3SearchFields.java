@@ -58,10 +58,11 @@ import javax.annotation.Nonnull;
  *       feeds it, so every index maps it and every search reads it.
  * </ul>
  *
- * <p>Only these shared fields are analyzed. Root fields and the {@code _aspects} copies stay
- * keywords and typed values for filters, facets and sorts. A shared field is a full-text field when
- * at least one string field queried by default feeds it in the index; otherwise it stays a plain
- * keyword, as the dates and other labels do.
+ * <p>These shared fields are the only full-text fields. Root fields and the {@code _aspects} copies
+ * stay keywords and typed values for filters, facets and sorts, except the root browse paths, which
+ * keep their path analyzers. A shared field is a full-text field when at least one string field
+ * queried by default feeds it in the index; otherwise it stays a plain keyword, as the dates and
+ * other labels do.
  *
  * <p>Several root fields feeding one shared field are a union: every value is searchable, rebuilt
  * from the whole document on each write. When two aspects write the same root field, the value that
