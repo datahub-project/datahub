@@ -148,7 +148,8 @@ const NoteTitle = styled.div`
 const NoteDescriptionContainer = styled.div`
     flex: 1;
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         font-size: 12px;
         padding: 0;
         max-width: 400px;

@@ -27,6 +27,29 @@ vi.mock('@app/entityV2/document/summary/DocumentSummaryTab', () => ({
     DocumentSummaryTab: () => <EditableContent documentUrn={DOCUMENT_URN} initialContent="hello" />,
 }));
 
+vi.mock('@components/components/Editor', () => ({
+    Editor: ({
+        content,
+        onChange,
+        belowToolbar,
+        ...rest
+    }: {
+        content?: string;
+        onChange?: (value: string) => void;
+        belowToolbar?: React.ReactNode;
+        'data-testid'?: string;
+    }) => (
+        <>
+            <textarea
+                data-testid={rest['data-testid']}
+                value={content ?? ''}
+                onChange={(event) => onChange?.(event.target.value)}
+            />
+            {belowToolbar}
+        </>
+    ),
+}));
+
 vi.mock('@components', async () => {
     const actual = await vi.importActual<typeof import('@components')>('@components');
     return {

@@ -1,7 +1,7 @@
+import { Button, Text, toast } from '@components';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
-import { Button, Typography, message } from 'antd';
 import debounce from 'lodash/debounce';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -118,6 +118,14 @@ export const SearchSelect = ({
         },
     });
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('embeddedSearch.searchError', { message: error?.message }), {
+                key: 'search-select-error',
+            });
+        }
+    }, [error, t]);
+
     const searchAcrossEntities = data?.searchAcrossEntities;
     const searchResultEntities =
         searchAcrossEntities?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) ||
@@ -167,11 +175,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                    <Funnel />
-                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
+                <Button
+                    variant="text"
+                    color="gray"
+                    onClick={onToggleFilters}
+                    data-testid="toggle-filters-button"
+                    icon={{ icon: Funnel }}
+                >
+                    <Text type="span">{t('embeddedSearch.filters')}</Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
