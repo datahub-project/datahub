@@ -860,6 +860,13 @@ def test_sql_over_either_information_schema_reaches_the_warehouse(
             ServerOperationError("[INTERNAL_ERROR] s3cr3t"),
             ProbeConnectionError,
         ),
+        # A missing grant: rewriting the query won't help, so not exit 2.
+        (
+            ServerOperationError(
+                "[INSUFFICIENT_PERMISSIONS] User s3cr3t does not have SELECT"
+            ),
+            ProbeConnectionError,
+        ),
         (ServerOperationError("s3cr3t without a class"), ProbeConnectionError),
         (
             RequestError("Error during request to server: Bearer s3cr3t"),
@@ -885,6 +892,25 @@ def test_warehouse_failures_are_labelled_and_their_text_never_shown(
     assert type(raised.value) is expected
     assert "s3cr3t" not in str(raised.value)
     assert type(error).__name__ in str(raised.value)
+
+
+def test_a_missing_grant_on_sql_names_the_privileges_to_grant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _fake_connection([])
+    conn.cursor.return_value.__enter__.return_value.execute.side_effect = (
+        ServerOperationError("[INSUFFICIENT_PERMISSIONS] User lacks SELECT")
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.connect",
+        lambda **kwargs: conn,
+    )
+    probe = _probe(_sql_ws(), warehouse_id="w1")
+    with pytest.raises(ProbeConnectionError) as raised:
+        probe.execute_catalog_query(
+            "SELECT table_name FROM main.information_schema.tables", 2
+        )
+    assert "SELECT" in str(raised.value) and "CAN USE" in str(raised.value)
 
 
 def _principal(name: str, app_id: str) -> SdkServicePrincipal:

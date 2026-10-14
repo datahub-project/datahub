@@ -70,13 +70,15 @@ _SPARK_ERROR_CLASS = re.compile(r"\[([A-Z][A-Z0-9_]{0,31}(?:\.[A-Z0-9_]{1,31})?)
 # it helps (exit 2). Any other class, or none -- the probe's own
 # STATEMENT_TIMEOUT, INTERNAL_ERROR, a warehouse that is stopping -- is the
 # warehouse's (exit 3). Matched on the class before any dotted subclass.
+# INSUFFICIENT_PERMISSIONS is deliberately not here: rewriting the query won't
+# grant the privilege, so it stays exit 3, as permission failures do in every
+# probe, with a hint naming the grants instead.
 _CALLER_SPARK_CLASSES: FrozenSet[str] = frozenset(
     {
         "AMBIGUOUS_COLUMN_OR_FIELD",
         "AMBIGUOUS_REFERENCE",
         "CAST_INVALID_INPUT",
         "DATATYPE_MISMATCH",
-        "INSUFFICIENT_PERMISSIONS",
         "MISSING_AGGREGATION",
         "MISSING_GROUP_BY",
         "PARSE_EMPTY_STATEMENT",
@@ -94,6 +96,12 @@ _CALLER_SPARK_CLASSES: FrozenSet[str] = frozenset(
 # revoked token, a principal without workspace access, or an IP access list
 # block, whose HTML page leaves the SDK only the HTTP reason ("FORBIDDEN").
 _OBJECT_PERMISSION_DENIED = "PERMISSION_DENIED"
+_SPARK_PERMISSION_CLASS = "INSUFFICIENT_PERMISSIONS"
+_SQL_GRANT_HINT = (
+    "the principal lacks a privilege the query needs; grant it USE CATALOG and "
+    "USE SCHEMA on the parents and SELECT on the queried object, and CAN USE on "
+    "the warehouse"
+)
 _SESSION_REFUSED_HINT = (
     "the workspace refused this session, not one object; check that the "
     "token or service principal is valid and not revoked, that the principal "
@@ -336,8 +344,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         prefixed with the assigned metastore (source.py reads it through
         assigned_metastore), and a run record carries no metastore to pass on.
         Name it, so `probe filter` can be given it as the outermost --parent
-        instead of degrading to the bare name. Advisory only: a failure to
-        read it never fails the listing."""
+        instead of degrading to the bare name. Advisory: an unassigned
+        metastore or a missing privilege only warns; other failures propagate."""
         if not self._config.include_metastore:
             return
         with soft_listing(self._warn):
@@ -639,6 +647,11 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 # cell value ("The value '...' cannot be cast").
                 raise ProbeArgumentError(
                     f"the warehouse rejected the query {label}; correct the query"
+                ) from None
+            if spark_class and spark_class.split(".")[0] == _SPARK_PERMISSION_CLASS:
+                raise ProbeConnectionError(
+                    f"the query failed on warehouse "
+                    f"'{self._config.warehouse_id}' {label}: {_SQL_GRANT_HINT}"
                 ) from None
             raise ProbeConnectionError(
                 f"the query failed on warehouse '{self._config.warehouse_id}' {label}"
