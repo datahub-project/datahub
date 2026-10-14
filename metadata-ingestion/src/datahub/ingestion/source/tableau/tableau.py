@@ -140,12 +140,13 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_tds_bytes,
 )
 from datahub.ingestion.source.tableau.tableau_selection import (
-    ACTIVE_SITE_STATE,
+    SiteFacts,
     is_project_allowed,
-    is_project_denied,
+    is_readmitted,
     probe_project_verdict,
     probe_site_verdict,
     project_segments,
+    site_verdict,
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
@@ -786,8 +787,9 @@ class TableauConfig(
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """Project: both project patterns plus extract_project_hierarchy
-        re-admission (tableau_selection.project_selection, which ingestion
-        also calls). Site: site_name_pattern applies only with
+        re-admission (tableau_selection.project_selection, over the same
+        is_project_allowed and is_readmitted ingestion's registry calls).
+        Site: site_verdict, which ingestion also calls, applies only with
         ingest_multiple_sites (get_workunits_internal)."""
         if ctx.kind == BIContainerSubTypes.TABLEAU_PROJECT:
             return probe_project_verdict(self, ctx.name, ctx.parent_path, ctx.warn)
@@ -1211,10 +1213,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             if self.config.ingest_multiple_sites:
                 for site in list(TSC.Pager(self.server.sites)):
-                    if (
-                        site.state != ACTIVE_SITE_STATE
-                        or not self.config.site_name_pattern.allowed(site.name)
-                    ):
+                    if not site_verdict(
+                        self.config, SiteFacts(site.name, site.state)
+                    ).included:
                         logger.info(
                             f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive."
                         )
@@ -1503,13 +1504,6 @@ class TableauSiteSource:
             )
         return is_allowed
 
-    def _is_denied_project(self, project: TableauProject) -> bool:
-        # See is_project_denied for why this is an explicit deny check rather
-        # than `not allowed`.
-        return is_project_denied(
-            self.config, project.name, self._get_project_path(project)
-        )
-
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
         projects_to_ingest = {}
@@ -1523,25 +1517,20 @@ class TableauSiteSource:
             logger.debug(f"Project {project.name} is added in project registry")
             projects_to_ingest[project.id] = project
 
-        if self.config.extract_project_hierarchy is False:
-            logger.debug(
-                "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
-                "disabled"
-            )
-        else:
-            logger.debug(
-                "Reevaluating projects as extract_project_hierarchy is enabled"
-            )
-
-            for project in list_of_skip_projects:
-                if (
-                    project.parent_id in projects_to_ingest
-                    and not self._is_denied_project(project)
-                ):
-                    logger.debug(
-                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
-                    )
-                    projects_to_ingest[project.id] = project
+        # One pass in listing order: a project re-admitted under a parent that
+        # is itself only re-admitted depends on that order (project_selection's
+        # depends_on_rescued_parent).
+        for project in list_of_skip_projects:
+            if is_readmitted(
+                self.config,
+                project.name,
+                self._get_project_path(project),
+                parent_included=project.parent_id in projects_to_ingest,
+            ):
+                logger.debug(
+                    f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
+                )
+                projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
         # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.

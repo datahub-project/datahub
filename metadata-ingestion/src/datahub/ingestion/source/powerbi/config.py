@@ -36,11 +36,8 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
 )
 from datahub.ingestion.source.powerbi.powerbi_selection import (
-    UNKNOWN,
-    WORKSPACE_ID_PATTERN,
-    WORKSPACE_NAME_PATTERN,
-    WorkspaceFacts,
-    workspace_verdict,
+    ACTIVE_WORKSPACE_STATE,
+    probe_workspace_verdict,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -159,7 +156,7 @@ class Constant:
     ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
     APP_SUB_TYPE = "App"
     STATE = "state"
-    ACTIVE = "Active"
+    ACTIVE = ACTIVE_WORKSPACE_STATE
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
     M_QUERY_NULL = '"null"'
@@ -513,12 +510,6 @@ NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
 )
 
 
-# ReportType.PaginatedReport.value: the subtype a paginated report is emitted
-# with. Restated because data_classes imports this module, so importing
-# ReportType here would be circular.
-_PAGINATED_REPORT_KIND = "PaginatedReport"
-
-
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -697,7 +688,7 @@ class PowerBiDashboardSourceConfig(
     extract_reports: Annotated[
         bool,
         Enables(BIAssetSubTypes.REPORT),
-        Enables(_PAGINATED_REPORT_KIND),
+        Enables(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
     ] = pydantic.Field(default=True, description="Whether reports should be ingested")
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
@@ -873,7 +864,7 @@ class PowerBiDashboardSourceConfig(
         only in get_allowed_workspaces)."""
         return {
             str(BIAssetSubTypes.REPORT),
-            _PAGINATED_REPORT_KIND,
+            str(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
             str(BIAssetSubTypes.DASHBOARD),
         }
 
@@ -888,82 +879,13 @@ class PowerBiDashboardSourceConfig(
             self.probe_unfiltered_kinds(),
         )
 
-    def _workspace_child_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """A report or dashboard inherits its workspace's verdict. The
-        framework judges the --parent workspace on its name; a saved
-        `reports`/`dashboards` run also stamps the workspace's id and type on
-        each record, so the other two rules apply here."""
-        if not ctx.parent_path:
-            # No pattern names a report or dashboard, so without its workspace
-            # the include the framework returns decides nothing.
-            ctx.warn(
-                f"no --parent workspace given, so this {ctx.kind} was judged "
-                f"without its workspace: ingestion keeps it exactly when its "
-                f"workspace is kept. Pass --parent <workspace>, or judge a "
-                f"`probe run` listing of them with --from-run"
-            )
-            return None
-        verdict = workspace_verdict(
-            self,
-            WorkspaceFacts(
-                ctx.parent_path[-1],
-                ctx.attributes.get("workspace_id", UNKNOWN),
-                ctx.attributes.get("workspace_type", UNKNOWN),
-            ),
-        )
-        return None if verdict.included else verdict
-
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """get_allowed_workspaces also requires workspace_id_pattern on the id
-        and `type in workspace_type_filter`, and the scan drops a workspace
-        whose state is not Active. None is knowable from a name, so they are
-        judged from the per-name attributes the probe's `workspaces` listing
-        emits; a missing id or type is warned about rather than passed
-        silently."""
-        if ctx.structural is not None:
-            return None
-        if ctx.kind in self.probe_unfiltered_kinds():
-            return self._workspace_child_verdict(ctx)
-        if ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE:
-            return None
-        # A saved run drops a null field, so a missing attribute is unknown.
-        facts = WorkspaceFacts(
-            ctx.target,
-            ctx.attributes.get("id", UNKNOWN),
-            ctx.attributes.get("type", UNKNOWN),
+        return probe_workspace_verdict(
+            self,
+            ctx,
+            workspace_kind=str(BIContainerSubTypes.POWERBI_WORKSPACE),
+            child_kinds=self.probe_unfiltered_kinds(),
         )
-        verdict = workspace_verdict(self, facts)
-        if verdict.excluded_by == WORKSPACE_NAME_PATTERN:
-            # Ingestion drops it on the name; that stays the reported reason.
-            return verdict
-        # Worded to hold also when this is the --parent of a report or
-        # dashboard: the framework judges that parent by name alone, and these
-        # notes reach the child, whose own stamped facts the rule did judge.
-        if facts.workspace_id is UNKNOWN:
-            ctx.warn(
-                f"no workspace id for '{ctx.name}' here: workspace_id_pattern is "
-                "judged only from a record that carries the id, which a saved "
-                "`probe run workspaces`, `reports` or `dashboards` run does; pass "
-                "one with `probe filter --from-run`"
-            )
-        if verdict.excluded_by == WORKSPACE_ID_PATTERN:
-            return verdict
-        if facts.workspace_type is UNKNOWN:
-            ctx.warn(
-                f"no workspace type for '{ctx.name}' here: workspace_type_filter "
-                "is judged only from a record that carries the type, which a "
-                "saved `probe run workspaces`, `reports` or `dashboards` run "
-                "does; pass one with `probe filter --from-run`"
-            )
-        if not verdict.included:
-            return verdict
-        # Only the admin API reports a state, so its absence says nothing.
-        # The scan drops every workspace that is not Active
-        # (PowerBiAPI.fill_metadata_from_scan_result).
-        state = ctx.attributes.get("state")
-        if state is not None and state != Constant.ACTIVE:
-            return Verdict.exclude("workspace_state")
-        return Verdict.include()
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":

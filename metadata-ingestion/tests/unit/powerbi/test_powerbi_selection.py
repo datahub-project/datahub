@@ -39,6 +39,27 @@ def test_ingestion_excludes_a_workspace_whose_type_is_null() -> None:
     )
     kept: List[Workspace] = source.get_allowed_workspaces()
     assert [ws.name for ws in kept] == ["Sales"]
-    assert list(source.reporter.filtered_workspace_types) == [
-        "ws-2 - Untyped (type = None)"
+    assert [e.split(" ")[0] for e in source.reporter.filtered_workspace_types] == [
+        "ws-2"
     ]
+
+
+def test_ingestion_reports_name_and_id_exclusions_apart_from_type_ones() -> None:
+    source = _source(
+        [
+            {"id": "ws-1", "name": "Sales", "type": "Workspace"},
+            {"id": "ws-2", "name": "Scratch", "type": "Workspace"},
+            {"id": "ws-3", "name": "Finance", "type": "Workspace"},
+            {"id": "ws-4", "name": "Admin", "type": "AdminWorkspace"},
+        ]
+    )
+    source.source_config.workspace_name_pattern.deny = ["^Scratch$"]
+    source.source_config.workspace_id_pattern.deny = ["^ws-3$"]
+    kept = source.get_allowed_workspaces()
+    assert [ws.name for ws in kept] == ["Sales"]
+    reporter = source.reporter
+    assert [e.split(" ")[0] for e in reporter.filtered_workspace_names] == [
+        "ws-2",
+        "ws-3",
+    ]
+    assert [e.split(" ")[0] for e in reporter.filtered_workspace_types] == ["ws-4"]

@@ -137,6 +137,15 @@ class TableauMetadataProbe(ProbeProviderBase):
         with _tsc_soft_statuses("projects listing"):
             return self._site._get_all_project()
 
+    def _note_one_site(self) -> None:
+        # The probe signs in to the recipe's `site` only.
+        if self._config.ingest_multiple_sites:
+            self._warn(
+                f"this lists only site {echoed(self._config.site)}, the one the "
+                "recipe signs in to; with ingest_multiple_sites ingestion reads "
+                "every Active site site_name_pattern allows (see `probe run sites`)"
+            )
+
     def _path(self, project: TableauProject) -> str:
         return self._config.project_path_separator.join(project.path)
 
@@ -193,6 +202,7 @@ class TableauMetadataProbe(ProbeProviderBase):
         needs every ancestor. A project whose parent this credential cannot see
         is reported at the root, as ingestion treats it, and the result says so
         in its warnings. Owners and descriptions are withheld."""
+        self._note_one_site()
         with soft_listing(self._warn):
             return sorted(self._path(p) for p in self._all_projects().values())[:limit]
         return []
@@ -213,6 +223,7 @@ class TableauMetadataProbe(ProbeProviderBase):
         exactly when its project is, so judge with `probe filter --kind
         Workbook --parent <project_path>`. Resolved by the project's LUID,
         because project names repeat across parents."""
+        self._note_one_site()
         # _project_or_raise runs inside the block, so a 403 on the projects
         # listing degrades rather than reading as a bad argument.
         with soft_listing(self._warn):

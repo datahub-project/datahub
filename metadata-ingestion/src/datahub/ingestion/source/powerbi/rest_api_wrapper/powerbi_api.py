@@ -470,11 +470,10 @@ class PowerBiAPI:
             modified_workspace_ids = self.get_modified_workspaces()
 
         groups: List[dict] = []
-        filter_: Dict[str, str] = {}
         try:
-            filter_ = groups_filter(modified_workspace_ids)
-
-            groups = self._get_resolver().get_groups(filter_=filter_)
+            groups = self._get_resolver().get_groups(
+                filter_=groups_filter(modified_workspace_ids)
+            )
 
         except Exception:
             self.log_http_error(message="Unable to fetch list of workspaces")

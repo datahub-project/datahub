@@ -69,7 +69,7 @@ datahub recipe probe run workbooks --recipe recipe.yml --project-path "Sales/EME
 - Projects are addressed and matched by their path, such as `Sales/EMEA`, not by their bare name. `project_path_pattern` is matched against that path.
 - With `extract_project_hierarchy` (the default), a child of a selected project is included unless a deny pattern names it, even if no allow pattern matches it. Exclusion does not pass down: with `allow: ["^Sales/EMEA$"]`, `Sales` is excluded and `Sales/EMEA` is included.
 - An excluded parent project can still appear in DataHub as an empty container, because an included project below it needs it for its browse path. Its workbooks are not ingested.
-- Sites are judged by content URL against the recipe's `site` when `ingest_multiple_sites` is off. With it on, `site_name_pattern` is matched on the site name, and a site whose state is not `Active` is excluded. Pass a saved `probe run sites` output with `probe filter --from-run` so the verdict sees each site's content URL and state.
+- Sites are judged by content URL against the recipe's `site` when `ingest_multiple_sites` is off. With it on, `site_name_pattern` is matched on the site name, and a site whose state is not `Active` is excluded. Pass a saved `probe run sites` output with `probe filter --from-run` so the verdict sees each site's content URL and state. The probe signs in to the recipe's `site` only, so with `ingest_multiple_sites` on, `projects` and `workbooks` list that one site and say so in a warning.
 
 `database_servers` lists the ids and host names that `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are keyed on. It needs the Metadata API to be enabled.
 

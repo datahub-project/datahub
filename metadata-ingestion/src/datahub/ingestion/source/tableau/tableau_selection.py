@@ -1,21 +1,25 @@
-"""Which Tableau projects ingestion selects, as pure functions of the recipe.
+"""Which Tableau sites and projects ingestion selects, as pure functions of
+the recipe.
 
-Shared by TableauSiteSource (ingestion) and TableauConfig's probe hooks
-(`probe filter`, which has no connection). The two must never disagree, so
-neither restates the rule.
+Shared by ingestion (TableauSource.get_workunits_internal calls site_verdict,
+TableauSiteSource._init_tableau_project_registry calls is_project_allowed and
+is_readmitted) and TableauConfig's probe hooks (`probe filter`, which has no
+connection). Ingestion applies the project rules in two passes over the API
+listing; project_selection walks the same two predicates down one path.
 """
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Protocol, Sequence
+from enum import Enum
+from typing import Callable, List, Literal, Optional, Protocol, Sequence, Union
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     Verdict,
     VerdictContext,
-    pattern_verdict,
 )
 
+SITE_NAME_PATTERN = "site_name_pattern"
 PROJECT_PATTERN = "project_pattern"
 PROJECT_PATH_PATTERN = "project_path_pattern"
 INGEST_MULTIPLE_SITES = "ingest_multiple_sites"
@@ -71,6 +75,43 @@ def is_project_denied(config: ProjectFilterConfig, name: str, path: str) -> bool
     )
 
 
+def is_readmitted(
+    config: ProjectFilterConfig, name: str, path: str, *, parent_included: bool
+) -> bool:
+    """extract_project_hierarchy's second chance for a project that is not
+    allowed on its own: kept under an included parent unless denied outright."""
+    return (
+        config.extract_project_hierarchy
+        and parent_included
+        and not is_project_denied(config, name, path)
+    )
+
+
+class _Unknown(Enum):
+    UNKNOWN = "unknown"
+
+
+# A fact `probe filter` was not given: that rule is skipped, with a warning.
+UNKNOWN: Literal[_Unknown.UNKNOWN] = _Unknown.UNKNOWN
+
+
+@dataclass(frozen=True)
+class SiteFacts:
+    name: str
+    state: Union[Optional[str], _Unknown] = UNKNOWN
+
+
+def site_verdict(config: SiteFilterConfig, facts: SiteFacts) -> Verdict:
+    """With ingest_multiple_sites, whether ingestion reads a site: one
+    site_name_pattern allows and that is Active. The name first, since a
+    caller fixing the recipe can see it."""
+    if not config.site_name_pattern.allowed(facts.name):
+        return Verdict.exclude(SITE_NAME_PATTERN)
+    if facts.state is not UNKNOWN and facts.state != ACTIVE_SITE_STATE:
+        return Verdict.exclude(SITE_STATE)
+    return Verdict.include()
+
+
 def project_segments(
     config: ProjectFilterConfig, name: str, parent_path: Sequence[str]
 ) -> List[str]:
@@ -111,11 +152,7 @@ def project_selection(
         path = separator.join(segments[:depth])
         if is_project_allowed(config, name, path):
             included, rescued = True, False
-        elif (
-            config.extract_project_hierarchy
-            and parent_included
-            and not is_project_denied(config, name, path)
-        ):
+        elif is_readmitted(config, name, path, parent_included=parent_included):
             included, rescued = True, True
         else:
             included, rescued = False, False
@@ -147,10 +184,11 @@ def probe_project_verdict(
         # Splitting on the separator is right for the documented usage
         # (`--name Sales/EMEA`), and then both readings agree on the path
         # pattern. They part only through the per-segment rules: the hierarchy
-        # re-admission and project_pattern's bare-name match. Warn just then,
-        # so the warning is never noise an agent learns to skip.
+        # re-admission and project_pattern's bare-name match. repr, as
+        # provider_helpers.echoed quotes a name (not imported: ingestion loads
+        # this module, and that one pulls in the probe framework).
         warn(
-            f"read '{config.project_path_separator}' in '{name}' as the project "
+            f"read '{config.project_path_separator}' in {name!r} as the project "
             "path separator; this only matters if a project name itself "
             f"contains '{config.project_path_separator}', and here it changes "
             "the verdict. Set project_path_separator to a character no project "
@@ -188,27 +226,23 @@ def probe_project_verdict(
 def probe_site_verdict(
     config: SiteFilterConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
-    """site_name_pattern applies only with ingest_multiple_sites, and then
-    only to Active sites; without it ingestion reads the recipe's one site,
-    chosen by content URL (TableauSource.get_workunits_internal). A saved
-    `probe run sites` supplies each site's content_url and state."""
+    """site_verdict when ingest_multiple_sites is on; without it ingestion
+    reads the recipe's one site, chosen by content URL
+    (TableauSource.get_workunits_internal). A saved `probe run sites` supplies
+    each site's content_url and state."""
     if config.ingest_multiple_sites:
         if ctx.structural is not None:
             return None
-        by_name = pattern_verdict(config, ctx.pattern_field, ctx.target)
-        if not by_name.included:
-            return by_name
-        state = ctx.attributes.get("state")
-        if state is None:
+        if "state" not in ctx.attributes:
             ctx.warn(
                 "sites whose state is not Active are skipped whatever "
                 "site_name_pattern says, and no state was given here; save "
                 "`probe run sites --report-to` and pass it with `probe filter "
                 "--from-run` to judge it"
             )
-        elif state != ACTIVE_SITE_STATE:
-            return Verdict.exclude(SITE_STATE)
-        return by_name
+        return site_verdict(
+            config, SiteFacts(ctx.target, ctx.attributes.get("state", UNKNOWN))
+        )
     content_url = ctx.attributes.get("content_url")
     if content_url is None:
         ctx.warn(

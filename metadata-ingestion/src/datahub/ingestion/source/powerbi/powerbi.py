@@ -63,6 +63,7 @@ from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.powerbi_selection import (
     WORKSPACE_ID_PATTERN,
     WORKSPACE_NAME_PATTERN,
+    WORKSPACE_TYPE_FILTER,
     WorkspaceFacts,
     workspace_verdict,
 )
@@ -1808,11 +1809,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     f"{workspace.id} - {workspace.name}"
                 )
                 continue
-            if not verdict.included:
+            if verdict.excluded_by == WORKSPACE_TYPE_FILTER:
                 self.reporter.filtered_workspace_types.append(
                     f"{workspace.id} - {workspace.name} (type = {workspace.type})"
                 )
                 continue
+            # A rule added to workspace_verdict needs its own report list.
+            assert verdict.included, f"unreported exclusion {verdict.excluded_by}"
             allowed_workspaces.append(workspace)
 
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")

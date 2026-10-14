@@ -1,15 +1,5 @@
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-)
-from urllib.parse import urlparse
+from typing import Dict, Iterator, List, Optional, Tuple, Type, TypeVar
+from urllib.parse import unquote, urlparse
 
 import requests
 
@@ -17,6 +7,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     PersonalWithholding,
+    echoed,
     resolve_name,
     soft_listing,
     take,
@@ -32,6 +23,17 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
 )
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    ACTIVE_WORKSPACE_STATE,
+    WORKSPACE_ID_FACT,
+    WORKSPACE_ID_PATTERN,
+    WORKSPACE_NAME_PATTERN,
+    WORKSPACE_STATE_FACT,
+    WORKSPACE_TYPE_FACT,
+    WORKSPACE_TYPE_FILTER,
+    WorkspaceFacts,
+    workspace_verdict,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Workspace
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -39,12 +41,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     RegularAPIResolver,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
+    R,
     groups_filter,
     make_resolver,
     workspace_from_group,
 )
 
-_R = TypeVar("_R", bound=DataResolverBase)
+_T = TypeVar("_T")
 
 
 class PowerBiMetadataProbe(RestApiPassthrough):
@@ -94,7 +97,10 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         )
         response.raise_for_status()
         body = response.json()
-        if urlparse(url).path.rstrip("/") == self._groups_path:
+        # The path that was sent, not the caller's spelling: the gate refuses
+        # a spelling the client would rewrite, and this holds even if it
+        # did not.
+        if unquote(urlparse(response.url).path).rstrip("/") == self._groups_path:
             return self._without_withheld_groups(body)
         return body
 
@@ -118,19 +124,23 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         # `api` route would hand back the owner names that command keeps out.
         if not isinstance(body, dict) or not isinstance(body.get("value"), list):
             return body
+        # Fails closed: a record that is not an object, or carries no type,
+        # may be a personal workspace, so it is withheld unless ingested.
         withholding = PersonalWithholding[object](
             is_personal=lambda g: (
-                isinstance(g, dict) and self._is_personal_type(g.get("type"))
+                not isinstance(g, dict)
+                or g.get("type") is None
+                or self._is_personal_type(g.get("type"))
             ),
             would_ingest=lambda g: (
                 isinstance(g, dict) and self._ingests_type(g.get("type"))
             ),
         )
         kept = [group for group in body["value"] if withholding.keep(group)]
-        self._note_withheld(withholding)
+        self._warn_withheld(withholding)
         return {**body, "value": kept}
 
-    def _resolver(self, resolver_cls: Type[_R]) -> _R:
+    def _resolver(self, resolver_cls: Type[R]) -> R:
         # Built lazily: DataResolverBase.__init__ fetches an MSAL token, and a
         # command is where a bad credential should surface, not construction.
         return self._open_once(
@@ -206,36 +216,29 @@ class PowerBiMetadataProbe(RestApiPassthrough):
                     continue
                 yield workspace, group.get(Constant.STATE)
 
-    def _note_withheld(
-        self,
-        withholding: Optional[PersonalWithholding[Any]] = None,
-        *,
-        stopped_early: bool = False,
+    def _note_withheld(self, *, stopped_early: bool = False) -> None:
+        self._warn_withheld(self._withholding, stopped_early=stopped_early)
+
+    def _warn_withheld(
+        self, withholding: PersonalWithholding[_T], *, stopped_early: bool = False
     ) -> None:
-        w = self._withholding if withholding is None else withholding
-        if w.withheld:
+        if withholding.withheld:
             self._warn(
-                f"{w.count_text(stopped_early=stopped_early)} personal "
-                f"workspace(s) seen and not listed: their type is not in workspace_type_filter, so "
-                f"ingestion skips them, and a personal workspace is named after "
-                f"its owner"
+                f"{withholding.count_text(stopped_early=stopped_early)} personal "
+                f"workspace(s) seen and not listed: their type is not in "
+                f"workspace_type_filter, so ingestion skips them, and a personal "
+                f"workspace is named after its owner"
             )
 
     @probe_method(kind=BIContainerSubTypes.POWERBI_WORKSPACE, row_limit_param="limit")
     def workspaces(self, limit: int = 200) -> List[Dict[str, object]]:
-        """Workspaces this recipe's credential lists -- the regular API's
-        member workspaces, or the whole tenant with admin_apis_only --
-        including ones the recipe's workspace filters would exclude. A
-        workspace must pass workspace_name_pattern, workspace_id_pattern and
-        workspace_type_filter together: save this listing with `--report-to`
-        and judge it with `probe filter --kind Workspace --from-run <report>`,
-        which applies all three, and also excludes a workspace whose `state`
-        is not Active, as ingestion's scan does. `type_allowed` is the
-        workspace_type_filter verdict per record. `state` is set by the admin
-        API only. Narrowed by
-        modified_since exactly as ingestion narrows it. Personal workspaces
-        the recipe does not ingest are counted in a warning, not listed.
-        Metadata only."""
+        """Workspaces this recipe's credential lists (the whole tenant with
+        admin_apis_only), narrowed by modified_since as ingestion narrows it,
+        including ones the workspace filters exclude. Judge a saved listing
+        with `probe filter --kind Workspace --from-run`: it applies the name,
+        id and type rules, and drops a non-Active `state` (admin API only) as
+        the scan does. Personal workspaces the recipe does not ingest are
+        counted in a warning, not listed."""
         # The framework asks for limit+1; take stopping there is what keeps
         # the remaining $top=1000 pages from being requested at all.
         visible = take(self._visible_workspaces(), limit)
@@ -244,7 +247,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
                 "name": workspace.name,
                 "id": workspace.id,
                 "type": workspace.type,
-                "type_allowed": workspace.type in self._config.workspace_type_filter,
+                "type_allowed": self._ingests_type(workspace.type),
                 "state": state,
             }
             for workspace, state in visible
@@ -252,16 +255,17 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         self._note_withheld(stopped_early=len(visible) >= limit)
         return rows
 
-    def _workspace_or_raise(self, name: str) -> Workspace:
-        """Resolve a workspace name with one groups sweep. Names, not ids,
-        because the name is what workspace_name_pattern and --parent carry."""
+    def _workspace_or_raise(self, name: str) -> Tuple[Workspace, Optional[str]]:
+        """Resolve a workspace name with one groups sweep, as (workspace,
+        state). Names, not ids, because the name is what
+        workspace_name_pattern and --parent carry."""
         # The records are the withheld-filtered sweep, so a "did you mean"
         # hint can never print a personal workspace's (owner's) name.
-        workspace = resolve_name(
+        workspace, state = resolve_name(
             name,
-            (ws for ws, _ in self._visible_workspaces()),
-            key=lambda ws: ws.name,
-            distinguish=lambda ws: ws.id,
+            self._visible_workspaces(),
+            key=lambda record: record[0].name,
+            distinguish=lambda record: record[0].id,
             kind="workspace",
             where="listed for this recipe",
             list_command="probe run workspaces",
@@ -271,63 +275,71 @@ class PowerBiMetadataProbe(RestApiPassthrough):
             # Only here: a withheld personal workspace may be the one named.
             on_miss=self._note_withheld,
         ).record
-        # probe filter judges --parent on workspace_name_pattern only, since
-        # --parent carries no id or type; get_allowed_workspaces also requires
-        # these two, so say when either drops the workspace.
-        if not self._config.workspace_id_pattern.allowed(workspace.id):
-            self._warn(
-                f"workspace '{name}' (id {workspace.id}) is excluded by "
-                f"workspace_id_pattern, so ingestion reads nothing in it"
+        self._warn_if_not_ingested(workspace, state)
+        return workspace, state
+
+    def _warn_if_not_ingested(self, workspace: Workspace, state: Optional[str]) -> None:
+        # The listing below is what the workspace holds; say when ingestion
+        # would read none of it. The rule is get_allowed_workspaces' own.
+        shown = echoed(workspace.name)
+        reason = workspace_verdict(
+            self._config, WorkspaceFacts(workspace.name, workspace.id, workspace.type)
+        ).excluded_by
+        if reason == WORKSPACE_NAME_PATTERN:
+            detail = "is excluded by workspace_name_pattern"
+        elif reason == WORKSPACE_ID_PATTERN:
+            detail = f"(id {workspace.id}) is excluded by workspace_id_pattern"
+        elif reason == WORKSPACE_TYPE_FILTER:
+            detail = (
+                f"has type {workspace.type!r}, which workspace_type_filter excludes"
             )
-        if workspace.type not in self._config.workspace_type_filter:
-            self._warn(
-                f"workspace '{name}' has type '{workspace.type}', which "
-                f"workspace_type_filter excludes, so ingestion reads nothing in it"
-            )
-        return workspace
+        elif state is not None and state != ACTIVE_WORKSPACE_STATE:
+            detail = f"is in state {state!r}, not Active, and the scan drops it"
+        else:
+            return
+        self._warn(f"workspace {shown} {detail}, so ingestion reads nothing in it")
 
     @staticmethod
-    def _workspace_facts(workspace: Workspace) -> Dict[str, object]:
+    def _workspace_facts(
+        workspace: Workspace, state: Optional[str]
+    ) -> Dict[str, object]:
         # `probe filter` judges a --parent workspace by name only; with these
-        # a saved run lets it apply the id and type rules too. The id and the
-        # type, never the name: a personal workspace is named after its owner.
-        return {"workspace_id": workspace.id, "workspace_type": workspace.type}
-
-    def _scoped(
-        self, fetch: Callable[[], List[Dict[str, object]]], context: str
-    ) -> List[Dict[str, object]]:
-        # 403/404 on one workspace's listing degrades; auth and 5xx raise.
-        with soft_listing(self._warn, 403, 404, context=context):
-            return fetch()
-        return []
+        # a saved run lets it apply the id, type and state rules too. Never
+        # the name: a personal workspace is named after its owner.
+        return {
+            WORKSPACE_ID_FACT: workspace.id,
+            WORKSPACE_TYPE_FACT: workspace.type,
+            WORKSPACE_STATE_FACT: state,
+        }
 
     @probe_method(kind=BIAssetSubTypes.REPORT, parent_params=("workspace",))
     def reports(self, workspace: str) -> List[Dict[str, object]]:
-        """Reports in one workspace, by workspace name. `type` is Report or
-        PaginatedReport, the subtype ingestion emits. Both kinds share one
-        verdict (their workspace's, and the extract_reports switch), so a
-        saved listing judged with `probe filter --from-run` as Report answers
-        for the paginated rows too. App-published duplicates are dropped as
-        ingestion drops them. Read from the workspace's report listing;
-        ingestion can also see objects through the admin scan, so a shorter
-        list here can point at the credential's workspace membership. Nothing
-        filters reports themselves -- their workspace's verdict decides.
-        Metadata only."""
-        ws = self._workspace_or_raise(workspace)
+        """Reports in one workspace, by workspace name, with app-published
+        duplicates dropped as ingestion drops them. `type` is Report or
+        PaginatedReport, the subtype ingestion emits; both share their
+        workspace's verdict, so `probe filter --from-run` as Report answers
+        for either. Nothing filters reports themselves. Ingestion also sees
+        objects through the admin scan, so a shorter list here can point at
+        the credential's workspace membership."""
+        ws, state = self._workspace_or_raise(workspace)
         if not self._config.extract_reports:
             self._warn("extract_reports is false, so ingestion emits none of these")
-        return self._scoped(
-            lambda: [
+        with soft_listing(
+            self._warn,
+            403,
+            404,
+            context=f"reports listing for workspace {echoed(workspace)}",
+        ):
+            return [
                 {
                     "name": r.name,
                     "id": r.id,
                     "type": r.type.value,
-                    **self._workspace_facts(ws),
+                    **self._workspace_facts(ws, state),
                 }
                 for r in self._listing_resolver().get_reports(ws)
-            ],
-            context=f"reports listing for workspace '{workspace}'",
-        )
+            ]
+        return []
 
     # Kind "Dashboard": PowerBI dashboards are emitted with no SubTypes
     # aspect, so the entity type is the only name a caller has for them.
@@ -336,46 +348,49 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         """Dashboards in one workspace, by workspace name, with app-published
         duplicates dropped as ingestion drops them. Nothing filters dashboards
         themselves -- their workspace's verdict decides. Metadata only."""
-        ws = self._workspace_or_raise(workspace)
+        ws, state = self._workspace_or_raise(workspace)
         if not self._config.extract_dashboards:
             self._warn("extract_dashboards is false, so ingestion emits none of these")
-        return self._scoped(
-            lambda: [
-                {"name": d.displayName, "id": d.id, **self._workspace_facts(ws)}
+        with soft_listing(
+            self._warn,
+            403,
+            404,
+            context=f"dashboards listing for workspace {echoed(workspace)}",
+        ):
+            return [
+                {
+                    "name": d.displayName,
+                    "id": d.id,
+                    **self._workspace_facts(ws, state),
+                }
                 for d in self._listing_resolver().get_dashboards(ws)
-            ],
-            context=f"dashboards listing for workspace '{workspace}'",
-        )
+            ]
+        return []
 
     @probe_method()
     def admin_api_access(self) -> Dict[str, object]:
-        """Whether this credential can call PowerBI's read-only admin APIs.
-        Ingestion always uses them for the workspace scan -- scan-derived
-        lineage, endorsements, apps -- even without admin_apis_only, and on
-        "denied" it still runs without those; paginated-report datasource
-        lineage still comes through the regular API. Checked with one single-row
-        admin workspace listing; the scanner itself is never called, so
-        "granted" is a strong signal rather than proof the scan will
-        succeed."""
+        """Whether this credential can call PowerBI's read-only admin APIs,
+        checked with one single-row admin workspace listing. Ingestion's
+        workspace scan (scan-derived lineage, endorsements, apps) needs them
+        even without admin_apis_only, and runs without those on "denied". The
+        scanner itself is not called, so "granted" is a strong signal, not
+        proof."""
         resolver = self._resolver(AdminAPIResolver)
         pages = resolver.itr_pages(
             endpoint=resolver.get_groups_endpoint(), parameter_override={"$top": 1}
         )
+        access, status = "granted", 200
         try:
             # First page only: advancing further would page the whole tenant
             # one row at a time.
             next(pages, None)
         except requests.exceptions.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else None
-            if status in (401, 403):
-                return {
-                    "admin_api": "denied",
-                    "status": status,
-                    "admin_apis_only": self._config.admin_apis_only,
-                }
-            raise
+            code = exc.response.status_code if exc.response is not None else None
+            if code not in (401, 403):
+                raise
+            access, status = "denied", code
         return {
-            "admin_api": "granted",
-            "status": 200,
+            "admin_api": access,
+            "status": status,
             "admin_apis_only": self._config.admin_apis_only,
         }

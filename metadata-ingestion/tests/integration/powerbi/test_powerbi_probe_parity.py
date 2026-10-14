@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from datahub.metadata.urns import DashboardUrn
-from tests.integration.powerbi.test_powerbi import (
+from tests.integration.powerbi.powerbi_mocks import (
     default_source_config,
     mock_msal_cca,
     read_mock_data,
@@ -88,13 +88,10 @@ def _nothing_in_workspace_2(requests_mock: Any, listing: str) -> None:
     requests_mock.get(f"{_GROUPS}/{_WORKSPACE_2}/{listing}", json={"value": []})
 
 
-# powerbi_probe.py, `_workspace_or_raise`: `dashboards --workspace` warns on
-# every run under a workspace workspace_id_pattern drops. A note on the
-# parent's verdict, not a degraded fetch.
-_ID_DENIED_PARENT = re.compile(
-    r"workspace '[^']+' \(id [0-9A-Fa-f-]+\) is excluded by workspace_id_pattern, "
-    r"so ingestion reads nothing in it"
-)
+# powerbi_probe.py, `_warn_if_not_ingested`: `reports`/`dashboards --workspace`
+# warn on every run under a workspace the recipe drops. A note on the parent's
+# verdict, not a degraded fetch.
+_PARENT_DROPPED = re.compile(r"workspace '[^']+' .+, so ingestion reads nothing in it")
 # powerbi_probe.py, `reports` and `dashboards`: each says so on every run with
 # its switch off. A note on the recipe, not a degraded fetch.
 _REPORTS_OFF = "extract_reports is false, so ingestion emits none of these"
@@ -133,7 +130,7 @@ def test_workspace_and_dashboard_id_verdicts_match_ingestion(
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
     _nothing_in_workspace_2(requests_mock, "dashboards")
-    dashboards = _in_every_workspace("dashboards", _DASHBOARD_PREFIX, _ID_DENIED_PARENT)
+    dashboards = _in_every_workspace("dashboards", _DASHBOARD_PREFIX, _PARENT_DROPPED)
     report = assert_probe_parity(
         "powerbi",
         _recipe(
@@ -153,10 +150,15 @@ def test_workspace_and_dashboard_id_verdicts_match_ingestion(
     }
     # Every workspace record carries its id and type, so nothing went unjudged.
     assert report.kinds["workspaces"].warnings == ()
-    assert report.kinds["dashboards"].accepted_warnings == (
-        f"workspace 'second-demo-workspace' (id {_SECOND}) is excluded by "
-        f"workspace_id_pattern, so ingestion reads nothing in it",
-    )
+    # One note per dropped parent: Workspace 2 on its name, the second demo
+    # workspace on its id.
+    notes = report.kinds["dashboards"].accepted_warnings
+    assert sorted(
+        rule
+        for n in notes
+        for rule in ("name", "id")
+        if f"workspace_{rule}_pattern" in n
+    ) == ["id", "name"]
 
 
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
@@ -228,7 +230,11 @@ def test_report_switch_matches_ingestion(
         [
             _WORKSPACES,
             _in_every_workspace(
-                "reports", _REPORT_PREFIX, _REPORTS_OFF, expect_empty=True
+                "reports",
+                _REPORT_PREFIX,
+                _REPORTS_OFF,
+                _PARENT_DROPPED,
+                expect_empty=True,
             ),
         ],
     )
@@ -238,7 +244,7 @@ def test_report_switch_matches_ingestion(
         "5b218778-e7a5-4d73-8187-f10824047715": "extract_reports",
         "e9fd6b0b-d8c8-4265-8c44-67e183aebf97": "extract_reports",
     }
-    assert report.kinds["reports"].accepted_warnings == (_REPORTS_OFF,)
+    assert _REPORTS_OFF in report.kinds["reports"].accepted_warnings
 
 
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
@@ -260,7 +266,11 @@ def test_dashboard_switch_matches_ingestion(
         [
             _WORKSPACES,
             _in_every_workspace(
-                "dashboards", _DASHBOARD_PREFIX, _DASHBOARDS_OFF, expect_empty=True
+                "dashboards",
+                _DASHBOARD_PREFIX,
+                _DASHBOARDS_OFF,
+                _PARENT_DROPPED,
+                expect_empty=True,
             ),
         ],
     )
@@ -268,4 +278,4 @@ def test_dashboard_switch_matches_ingestion(
         "7D668CAD-7FFC-4505-9215-655BCA5BEBAE": "extract_dashboards",
         "7D668CAD-8FFC-4505-9215-655BCA5BEBAE": "extract_dashboards",
     }
-    assert report.kinds["dashboards"].accepted_warnings == (_DASHBOARDS_OFF,)
+    assert _DASHBOARDS_OFF in report.kinds["dashboards"].accepted_warnings

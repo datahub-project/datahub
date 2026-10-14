@@ -50,6 +50,11 @@ def _framework_modules_loaded_by(module: str) -> List[str]:
         "datahub.ingestion.source.sql.postgres.source",
         "datahub.ingestion.source.sql.mysql",
         "datahub.ingestion.source.snowflake.snowflake_config",
+        # BI sources: their configs hold probe hooks, and their selection
+        # modules are shared with the probe, but import only agent.verdicts.
+        "datahub.ingestion.source.tableau.tableau",
+        "datahub.ingestion.source.powerbi.config",
+        "datahub.ingestion.source.powerbi.powerbi",
     ],
 )
 def test_sql_source_import_leaves_out_the_probe_framework(module: str) -> None:

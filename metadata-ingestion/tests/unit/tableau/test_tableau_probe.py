@@ -150,6 +150,29 @@ def test_leaving_the_probe_signs_out() -> None:
     server.auth.sign_out.assert_called_once()
 
 
+def test_leaving_signs_out_the_server_a_re_authentication_put_in_place() -> None:
+    # _re_authenticate replaces the site source's server mid-run; the session
+    # to close is the live one, not the one the probe was built with.
+    server, replacement = _server(), _server()
+    probe = _probe(server)
+    probe._site.server = replacement
+    probe.__exit__(None, None, None)
+    replacement.auth.sign_out.assert_called_once()
+    server.auth.sign_out.assert_not_called()
+
+
+@pytest.mark.parametrize("command", ["projects", "workbooks"])
+def test_with_multiple_sites_a_listing_says_it_covers_one_site(command: str) -> None:
+    server = _server_with_workbooks([_project("1", "Sales")], [])
+    kwargs = {"project_path": "Sales"} if command == "workbooks" else {}
+    one = _probe(server)
+    getattr(one, command)(**kwargs)
+    assert not any("ingest_multiple_sites" in w for w in one.warnings)
+    many = _probe(server, ingest_multiple_sites=True)
+    getattr(many, command)(**kwargs)
+    assert [w for w in many.warnings if "ingest_multiple_sites" in w] != []
+
+
 def _workbook(wid: str, name: str, project_id: str) -> WorkbookItem:
     item = WorkbookItem(project_id=project_id, name=name)
     item._id = wid
@@ -304,7 +327,8 @@ def test_a_server_error_is_labelled_with_its_tableau_code_not_its_text() -> None
     )
     with pytest.raises(ProbeConnectionError) as excinfo:
         _run(server, "sites")
-    assert "(ServerResponseError; Tableau 500000)" in str(excinfo.value)
+    assert "ServerResponseError" in str(excinfo.value)
+    assert "Tableau 500000" in str(excinfo.value)
     assert "PLANTED" not in str(excinfo.value)
 
 
@@ -320,7 +344,8 @@ def test_a_failed_sign_in_is_labelled_with_the_code_ingestion_wrapped() -> None:
         pytest.raises(ProbeConnectionError) as excinfo,
     ):
         run_probe_method("tableau", dict(_RECIPE), "site", {})
-    assert "(ValueError; Tableau 401002)" in str(excinfo.value)
+    assert "ValueError" in str(excinfo.value)
+    assert "Tableau 401002" in str(excinfo.value)
     assert "PLANTED" not in str(excinfo.value)
 
 

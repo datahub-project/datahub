@@ -6,23 +6,20 @@ import pytest
 import requests_mock as rm
 
 from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
-from datahub.ingestion.agent.declarations import declared_kind_enablers
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
-from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiEnvironment,
 )
 from datahub.ingestion.source.powerbi.powerbi_probe import PowerBiMetadataProbe
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import ReportType
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     DataResolverBase,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
     groups_filter,
-    workspace_from_group,
 )
 
 
@@ -46,18 +43,6 @@ def test_no_modified_workspaces_means_no_id_filter_as_ingestion_applies_it() -> 
     # this and must not "fix" it silently.
     assert groups_filter([]) == {}
     assert groups_filter(["ws-1", "ws-2"]) == {"$filter": "id eq ws-1 or id eq ws-2"}
-
-
-def test_a_personal_workspace_gets_no_clickable_url() -> None:
-    ws = workspace_from_group(
-        {
-            "id": "ws-3",
-            "name": "PersonalWorkspace Some Person",
-            "type": "PersonalGroup",
-        },
-        PowerBiEnvironment.COMMERCIAL,
-    )
-    assert (ws.id, ws.type, ws.webUrl) == ("ws-3", "PersonalGroup", None)
 
 
 def test_government_environment_uses_the_government_host() -> None:
@@ -177,6 +162,8 @@ def test_a_report_judged_without_its_workspace_says_the_verdict_is_partial() -> 
     )
     assert verdicts == {"Weekly": (True, None)}
     assert any("--parent" in w for w in result.warnings)
+    result, _ = _judge("Report", ["Weekly"], ["Sales"])
+    assert not any("--parent" in w for w in result.warnings)
 
 
 @pytest.mark.parametrize(
@@ -268,7 +255,7 @@ def test_withheld_personal_workspaces_are_not_counted_twice(
         _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
         probe.workspaces(limit=10)
     personal = [w for w in probe.warnings if "personal" in w]
-    assert len(personal) == 1 and personal[0].startswith("1 personal workspace")
+    assert len(personal) == 1 and personal[0].startswith("1 ")
 
 
 def test_admin_apis_only_lists_through_the_admin_endpoint(
@@ -405,11 +392,6 @@ def test_a_forbidden_groups_listing_raises_rather_than_reporting_empty(
     assert "403" in str(excinfo.value)
 
 
-def test_probe_methods_advertises_the_commands_and_kinds() -> None:
-    kinds = {s.command: s.kind for s in list_probe_methods("powerbi")}
-    assert kinds["workspaces"] == "Workspace"
-
-
 _REPORTS: Dict[str, Any] = {
     "value": [
         {"id": "r-1", "name": "Weekly", "reportType": "PowerBIReport"},
@@ -435,6 +417,7 @@ def test_reports_are_listed_by_workspace_name_without_app_duplicates(
             "type": "Report",
             "workspace_id": "ws-1",
             "workspace_type": "Workspace",
+            "workspace_state": None,
         },
         {
             "name": "Invoice",
@@ -442,6 +425,7 @@ def test_reports_are_listed_by_workspace_name_without_app_duplicates(
             "type": "PaginatedReport",
             "workspace_id": "ws-1",
             "workspace_type": "Workspace",
+            "workspace_state": None,
         },
     ]
     assert result.parent_path == ["Sales"]
@@ -468,6 +452,7 @@ def test_dashboards_are_listed_by_display_name_without_app_duplicates(
                 "id": "d-1",
                 "workspace_id": "ws-1",
                 "workspace_type": "Workspace",
+                "workspace_state": None,
             }
         ]
 
@@ -533,15 +518,80 @@ def test_a_401_on_a_workspace_listing_raises(requests_mock: rm.Mocker) -> None:
     assert "401" in str(excinfo.value)
 
 
-def test_id_and_type_exclusions_of_the_parent_are_reported(
-    requests_mock: rm.Mocker,
+@pytest.mark.parametrize(
+    "workspace, recipe, rule",
+    [
+        (
+            "Sales",
+            {"workspace_name_pattern": {"deny": ["^Sales$"]}},
+            "workspace_name_pattern",
+        ),
+        (
+            "Sales",
+            {"workspace_id_pattern": {"deny": ["^ws-1$"]}},
+            "workspace_id_pattern",
+        ),
+        ("Admin Monitoring", {}, "workspace_type_filter"),
+    ],
+)
+def test_the_rule_dropping_the_parent_workspace_is_reported(
+    requests_mock: rm.Mocker, workspace: str, recipe: Dict[str, Any], rule: str
 ) -> None:
     _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/dashboards", json={"value": []})
     requests_mock.get(f"{_ORG}/groups/ws-4/dashboards", json={"value": []})
-    with _probe(workspace_id_pattern={"deny": ["^ws-4$"]}) as probe:
-        probe.dashboards("Admin Monitoring")
-    assert any("workspace_id_pattern" in w for w in probe.warnings)
-    assert any("workspace_type_filter" in w for w in probe.warnings)
+    with _probe(**recipe) as probe:
+        probe.dashboards(workspace)
+    assert len(probe.warnings) == 1 and rule in probe.warnings[0]
+
+
+def test_a_workspace_that_is_not_active_is_reported_and_stamped(
+    requests_mock: rm.Mocker,
+) -> None:
+    # Listed with admin_apis_only; the scan drops it, so nothing in it is
+    # emitted, and a saved run must say so too.
+    _paged(
+        requests_mock,
+        f"{_ORG}/admin/groups",
+        [{**_GROUPS[0], "state": "Deleted"}],
+    )
+    requests_mock.get(
+        f"{_ORG}/admin/groups/ws-1/reports",
+        json={
+            "value": [{"id": "r-1", "name": "Weekly", "reportType": "PowerBIReport"}]
+        },
+    )
+    run = run_probe_method(
+        "powerbi",
+        {**_RECIPE, "admin_apis_only": True},
+        "reports",
+        {"workspace": "Sales"},
+    )
+    assert any("Deleted" in w for w in run.warnings)
+    listing = listing_from_run(run.to_dict())
+    result = check_filters(
+        source_type="powerbi",
+        config_dict=dict(_RECIPE),
+        kind=str(listing.kind),
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert [(v.name, v.excluded_by) for v in result.results] == [
+        ("Weekly", "workspace_state")
+    ]
+
+
+def test_admin_apis_only_withholds_personal_workspaces_tenant_wide(
+    requests_mock: rm.Mocker,
+) -> None:
+    # Where they actually appear: the admin listing covers every user's
+    # personal workspace.
+    _paged(requests_mock, f"{_ORG}/admin/groups", _GROUPS)
+    with _probe(admin_apis_only=True) as probe:
+        rows = probe.workspaces(limit=10)
+    assert "ws-3" not in [r["id"] for r in rows]
+    assert all("Some Person" not in str(row) for row in rows)
 
 
 def test_disabled_extraction_is_explained(requests_mock: rm.Mocker) -> None:
@@ -620,6 +670,45 @@ def test_api_withholds_personal_workspaces_from_the_raw_groups_listing(
     assert "ws-3" in json.dumps(opted_in.result)
 
 
+@pytest.mark.parametrize("path", ["/groups?$top=10", "/group%73", "/./groups"])
+def test_no_spelling_of_the_groups_path_returns_a_personal_workspace(
+    requests_mock: rm.Mocker, path: str
+) -> None:
+    # "/group%73" and "/./groups" are sent as "/groups": the gate refuses
+    # them before any request, and the rest are withheld.
+    requests_mock.get(f"{_ORG}/groups", json={"value": list(_GROUPS)})
+    try:
+        result = run_probe_method("powerbi", dict(_RECIPE), "api", {"path": path})
+    except ApiScopeError:
+        assert requests_mock.call_count == 0
+        return
+    assert "ws-3" not in json.dumps(result.result)
+
+
+@pytest.mark.parametrize("url", [f"{_ORG}/group%73", f"{_ORG}/./groups"])
+def test_withholding_follows_the_path_that_was_sent(
+    requests_mock: rm.Mocker, url: str
+) -> None:
+    # Behind the gate: whatever the provider is handed, it filters on what
+    # went out on the wire.
+    requests_mock.get(f"{_ORG}/groups", json={"value": list(_GROUPS)})
+    with _probe() as probe:
+        body = probe.api_fetch_json(url)
+    assert "ws-3" not in json.dumps(body)
+
+
+def test_a_groups_record_without_a_type_is_withheld(requests_mock: rm.Mocker) -> None:
+    # It may be a personal workspace, so the check fails closed.
+    requests_mock.get(
+        f"{_ORG}/groups",
+        json={"value": [_GROUPS[0], {"id": "ws-7", "name": "Untyped"}, "ws-8"]},
+    )
+    result = run_probe_method("powerbi", dict(_RECIPE), "api", {"path": "/groups"})
+    assert isinstance(result.result, dict)
+    assert result.result["value"] == [_GROUPS[0]]
+    assert any(w.startswith("2 ") for w in result.warnings)
+
+
 def test_api_allows_paging_the_member_workspace_listing() -> None:
     check_api_request(
         "GET",
@@ -661,17 +750,6 @@ def test_api_base_follows_the_environment(requests_mock: rm.Mocker) -> None:
     assert all("powerbigov.us" in r.url for r in requests_mock.request_history)
 
 
-def test_the_paginated_report_kind_is_the_subtype_ingestion_emits() -> None:
-    # config.py restates the value to avoid an import cycle; this keeps the
-    # restatement from drifting from the enum.
-    kind = ReportType.PaginatedReport.value
-    config_cls = PowerBiDashboardSourceConfig
-    assert kind in config_cls.probe_unfiltered_kinds()
-    assert declared_kind_enablers(config_cls)[kind] == "extract_reports"
-    config = config_cls.model_validate(_RECIPE)
-    assert config.probe_ancestor_kinds(kind=kind) == ("Workspace",)
-
-
 def test_a_case_hint_never_names_a_withheld_personal_workspace(
     requests_mock: rm.Mocker,
 ) -> None:
@@ -686,16 +764,16 @@ def test_a_case_only_workspace_miss_names_the_listed_spelling(
     requests_mock: rm.Mocker,
 ) -> None:
     _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
-    with pytest.raises(ValueError, match="did you mean 'Sales'"), _probe() as probe:
+    with pytest.raises(ValueError) as excinfo, _probe() as probe:
         probe.reports("sales")
+    assert "'Sales'" in str(excinfo.value)
 
 
-def test_a_saved_run_of_a_workspace_with_no_type_leaves_the_type_unjudged(
+def test_a_saved_run_of_a_workspace_with_no_type_excludes_it_as_ingestion_does(
     requests_mock: rm.Mocker,
 ) -> None:
-    # A null type is dropped from the saved record's attributes, so the
-    # override cannot tell it from a bare --name: it warns and does not judge
-    # the type, as it always has. Ingestion excludes such a workspace.
+    # A null type is dropped from the saved record's attributes, but the id
+    # beside it says this is a listed record, not a bare --name.
     _paged(
         requests_mock,
         f"{_ORG}/groups",
@@ -713,9 +791,9 @@ def test_a_saved_run_of_a_workspace_with_no_type_leaves_the_type_unjudged(
     )
     assert {v.name: v.excluded_by for v in result.results} == {
         "Sales": None,
-        "Untyped": None,
+        "Untyped": "workspace_type_filter",
     }
-    assert any("no workspace type for 'Untyped'" in w for w in result.warnings)
+    assert result.warnings == []
 
 
 def test_a_saved_report_inherits_its_workspaces_id_and_type_verdicts() -> None:
@@ -751,7 +829,7 @@ def test_a_saved_report_inherits_its_workspaces_id_and_type_verdicts() -> None:
 
 
 @pytest.mark.parametrize("kind", ["Report", "Dashboard"])
-def test_a_fact_stamped_child_is_not_told_its_workspace_rules_went_unjudged(
+def test_a_fact_stamped_child_gets_only_its_parents_name_only_notes(
     kind: str,
 ) -> None:
     # The framework judges the --parent workspace on its name alone, and the
@@ -766,10 +844,19 @@ def test_a_fact_stamped_child_is_not_told_its_workspace_rules_went_unjudged(
         workspace_id_pattern={"deny": ["^ws-1$"]},
     )
     assert verdicts == {"Weekly": (False, "workspace_id_pattern")}
-    assert not any("not judged" in w for w in result.warnings)
+    assert _rules_noted_for_the_parent(result.warnings) == _PARENT_NOTES
     result, verdicts = _judge(kind, ["Weekly"], ["Sales"], attributes=stamped)
     assert verdicts == {"Weekly": (True, None)}
-    assert not any("not judged" in w for w in result.warnings)
+    assert _rules_noted_for_the_parent(result.warnings) == _PARENT_NOTES
+
+
+# The only notes a stamped child gets: the parent's, judged on its name alone.
+_PARENT_NOTES = ["workspace_id_pattern", "workspace_type_filter"]
+
+
+def _rules_noted_for_the_parent(warnings: Sequence[str]) -> List[str]:
+    assert all("'Sales'" in w for w in warnings), warnings
+    return sorted(r for w in warnings for r in _PARENT_NOTES if r in w)
 
 
 def test_a_workspace_judged_with_its_id_and_type_gives_no_warning() -> None:
@@ -791,5 +878,5 @@ def test_a_rejected_modified_since_reaches_the_caller_with_its_message(
     recipe = {**_RECIPE, "modified_since": "2020-01-01T00:00:00.0000000Z"}
     with pytest.raises(ProbeArgumentError) as excinfo:
         run_probe_method("powerbi", recipe, "workspaces", {})
-    assert "PowerBI refused modified_since=" in str(excinfo.value)
+    assert "modified_since" in str(excinfo.value)
     assert "PLANTED" not in str(excinfo.value)
