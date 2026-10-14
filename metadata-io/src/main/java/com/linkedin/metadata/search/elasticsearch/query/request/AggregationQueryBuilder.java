@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -152,10 +153,12 @@ public class AggregationQueryBuilder {
       @Nonnull OperationContext opContext, final String inputFacet) {
     List<String> facets = List.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
     AggregationBuilder lastAggBuilder = null;
-    int maxTermBuckets =
-        Math.min(
-            opContext.getSearchContext().getSearchFlags().getMaxAggValues(),
-            configs.getMaxTermBucketSize());
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    int requestedMaxAggValues =
+        searchFlags.hasMaxAggValues()
+            ? searchFlags.getMaxAggValues()
+            : configs.getDefaultMaxAggValues();
+    int maxTermBuckets = Math.min(requestedMaxAggValues, configs.getMaxTermBucketSize());
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
 

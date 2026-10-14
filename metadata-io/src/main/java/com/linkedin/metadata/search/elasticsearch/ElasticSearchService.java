@@ -66,7 +66,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
           .setFulltext(false)
-          .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false)
