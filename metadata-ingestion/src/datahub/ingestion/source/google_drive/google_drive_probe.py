@@ -283,13 +283,12 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
         kind=KIND_GOOGLE_DOC, row_limit_param="limit", parent_params=("folder",)
     )
     def documents(self, folder: str, limit: int = 200) -> List[Dict[str, object]]:
-        """Google Docs directly inside one folder, given by its path as `folders`
-        lists it, including Docs document_pattern would skip. Titles, IDs and
+        """Google Docs directly inside the folder at a path as `folders` lists it
+        (every such folder, since Drive allows same-named siblings), including Docs document_pattern would skip. Titles, IDs and
         modified times only; never a Doc's text or owners. Whether a Doc is
         ingested also depends on its exported text (empty, too short or too long),
         which this does not read."""
         with self._source_access():
-            walked = self._resolve_folder(folder)
             return take(
                 (
                     {
@@ -300,6 +299,7 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
                         else None,
                         ATTR_FOLDERS: CHAIN_SEPARATOR.join(walked.chain),
                     }
+                    for walked in self._resolve_folders(folder)
                     for file in self._children(walked)
                     if file.is_document
                 ),
@@ -519,24 +519,21 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
                     seen.add(child.node.id)
                     pending.append(child)
 
-    def _resolve_folder(self, path: str) -> _WalkedFolder:
-        """The folder at `path`, found by name from the roots down. Names are
-        compared with the listed children, so the caller's text never reaches a
-        Drive query, and a name containing '/' still resolves."""
-        matches: List[_WalkedFolder] = []
+    def _resolve_folders(self, path: str) -> List[_WalkedFolder]:
+        """Every folder at `path`, found by name from the roots down: Drive allows
+        same-named folders side by side, and ingestion walks each of them. Names
+        are compared with the listed children, so the caller's text never reaches
+        a Drive query, and a name containing '/' still resolves."""
+        matches: Dict[str, _WalkedFolder] = {}
         for root in self._open_roots():
-            matches.extend(self._descend(root, path))
+            for match in self._descend(root, path):
+                matches.setdefault(match.node.id, match)
         if not matches:
             raise ProbeArgumentError(
                 f"no folder at '{path}' under the configured roots; list them with "
                 "`folders`"
             )
-        if len({match.node.id for match in matches}) > 1:
-            raise ProbeArgumentError(
-                f"more than one folder is at '{path}'; Drive allows same-named "
-                "folders side by side, and the probe cannot tell them apart"
-            )
-        return matches[0]
+        return list(matches.values())
 
     def _descend(self, folder: _WalkedFolder, path: str) -> List[_WalkedFolder]:
         own = folder.node.path

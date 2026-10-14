@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict
 from unittest import mock
 
 import pytest
@@ -13,7 +13,6 @@ from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
 from datahub.ingestion.source.google_drive.google_drive_probe import (
     GoogleDriveMetadataProbe,
 )
-from datahub.metadata.schema_classes import DocumentInfoClass, SubTypesClass
 from tests.test_helpers.google_drive_fakes import (
     ARCHIVE,
     DOC_B2,
@@ -32,20 +31,12 @@ from tests.test_helpers.google_drive_fakes import (
     FakeDriveService,
     build_fixture_service,
 )
-from tests.test_helpers.probe_parity import (
-    EmittedIndex,
-    FanOut,
-    JudgedRecord,
-    ParityListing,
-    assert_probe_parity,
-    pipeline_ingestion,
+from tests.test_helpers.google_drive_probe_parity import (
+    BUILD_DRIVE_SERVICE,
+    LISTINGS,
+    emitted_documents,
 )
-
-BUILD_DRIVE_SERVICE = (
-    "datahub.ingestion.source.google_drive.google_drive_client.build_drive_service"
-)
-FOLDER = "Folder"
-LIMIT = {"limit": 1000}
+from tests.test_helpers.probe_parity import assert_probe_parity, pipeline_ingestion
 
 
 def parity_service() -> FakeDriveService:
@@ -56,41 +47,6 @@ def parity_service() -> FakeDriveService:
     svc.children[SHARED_B].remove(DOC_HUGE)
     return svc
 
-
-def emitted_documents(index: EmittedIndex, *, folders: bool) -> Set[str]:
-    found: Set[str] = set()
-    for urn, aspects in index.aspects.items():
-        if not any(isinstance(a, DocumentInfoClass) for a in aspects):
-            continue
-        is_folder = any(
-            isinstance(a, SubTypesClass) and FOLDER in a.typeNames for a in aspects
-        )
-        if is_folder == folders:
-            found.add(urn)
-    return found
-
-
-def by_drive_id(record: JudgedRecord) -> str:
-    return make_document_urn(record.attributes["id"])
-
-
-LISTINGS: List[ParityListing] = [
-    ParityListing(
-        label="folders",
-        command="folders",
-        kwargs=LIMIT,
-        emitted=lambda index: emitted_documents(index, folders=True),
-        identity=by_drive_id,
-    ),
-    ParityListing(
-        label="google docs",
-        command="documents",
-        kwargs=LIMIT,
-        fan_out=FanOut("folders", "folder", parent_kwargs=LIMIT),
-        emitted=lambda index: emitted_documents(index, folders=False),
-        identity=by_drive_id,
-    ),
-]
 
 BASE_RECIPE: Dict[str, object] = {
     "root_folder_ids": [ROOT_A, SHARED_B],
