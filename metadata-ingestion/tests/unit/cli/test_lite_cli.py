@@ -22,9 +22,7 @@ def test_get_lite_config_defaults_without_config(config_path: Path) -> None:
     lite_config = lite_cli.get_lite_config()
 
     assert lite_config.type == "sqlite"
-    assert lite_config.config["file"] == str(
-        config_path.parent / "lite" / "datahub.db"
-    )
+    assert lite_config.config["file"] == str(config_path.parent / "lite" / "datahub.db")
 
 
 def test_get_lite_config_reads_lite_only_config(config_path: Path) -> None:
@@ -41,9 +39,7 @@ def test_get_lite_config_reads_lite_only_config(config_path: Path) -> None:
 def test_get_lite_config_uses_default_for_gms_only_config(
     config_path: Path,
 ) -> None:
-    config_path.write_text(
-        yaml.safe_dump({"gms": {"server": "http://localhost:8080"}})
-    )
+    config_path.write_text(yaml.safe_dump({"gms": {"server": "http://localhost:8080"}}))
 
     assert lite_cli.get_lite_config().type == "sqlite"
 
