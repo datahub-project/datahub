@@ -73,8 +73,8 @@ def parse_table_shortcut(raw: dict) -> Optional[LakehouseTableShortcut]:
     """Return a table shortcut, or None when the shortcut is not a lakehouse table.
 
     A table shortcut's `path` is the parent folder under `Tables` and `name` is
-    the table name. `Tables` alone is the schemas-disabled layout (schema `dbo`).
-    `Tables/<schema>` is the schemas-enabled layout.
+    the table name. Fabric only uses `Tables` (schemas disabled, schema `dbo`)
+    or `Tables/<schema>` (one schema folder). Deeper paths are not table shortcuts.
     """
     name = str(raw.get("name") or "").strip()
     local = _local_table(str(raw.get("path") or ""), name)
@@ -101,7 +101,12 @@ def _local_table(path: str, name: str) -> Optional[tuple[str, str]]:
     if not parts or parts[0].lower() != _TABLES_ROOT:
         return None
     folders = parts[1:]
-    schema_name = folders[-1] if folders else FABRIC_SQL_DEFAULT_SCHEMA
+    # Fabric table shortcuts are only `Tables` or `Tables/<schema>`.
+    # `Tables/schema/subdir` is not a table parent, so the last segment must
+    # not be treated as the schema name.
+    if len(folders) > 1:
+        return None
+    schema_name = folders[0] if folders else FABRIC_SQL_DEFAULT_SCHEMA
     return schema_name, name
 
 
