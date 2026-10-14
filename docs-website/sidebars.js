@@ -700,13 +700,23 @@ module.exports = {
         },
         {
           label: "Metrics & Semantic Models",
-          type: "doc",
-          id: "docs/features/feature-guides/metrics-and-semantic-models",
-        },
-        {
-          label: "Ossie Compatibility",
-          type: "doc",
-          id: "docs/features/feature-guides/ossie-compatibility",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/metrics-and-semantic-models",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models",
+            },
+            {
+              label: "Ossie Compatibility",
+              type: "doc",
+              id: "docs/features/feature-guides/ossie-compatibility",
+            },
+          ],
         },
         {
           label: "MCP Server",
