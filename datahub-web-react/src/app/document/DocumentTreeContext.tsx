@@ -1,6 +1,7 @@
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { mergeServerChildNode } from '@app/document/utils/documentTreeNodeMerge';
+import { LocalRootPlacement, mergeInitializedRootUrns } from '@app/document/utils/documentTreeRoots';
 
 import { DataPlatform, EntityType } from '@types';
 
@@ -101,6 +102,9 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const [nodes, setNodes] = useState<Map<string, DocumentTreeNode>>(new Map());
     const [rootUrns, setRootUrns] = useState<string[]>([]);
     const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
+    // Roots added in the client (create, move-to-root, reveal stub). Page-0 reloads
+    // keep these and drop previously paged server roots from the prior sort.
+    const localRootPlacementsRef = useRef<Map<string, LocalRootPlacement>>(new Map());
 
     // Query: Get a single node
     const getNode = useCallback(
@@ -196,10 +200,12 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 const isNowRoot = newParentUrn === null;
 
                 if (wasRoot && !isNowRoot) {
+                    localRootPlacementsRef.current.delete(urn);
                     // Removed from root
                     return prev.filter((u) => u !== urn);
                 }
                 if (!wasRoot && isNowRoot) {
+                    localRootPlacementsRef.current.set(urn, 'start');
                     // Added to root (at top)
                     return [urn, ...prev];
                 }
@@ -234,6 +240,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return updated;
         });
 
+        localRootPlacementsRef.current.delete(urn);
         // Update rootUrns if it was a root node
         setRootUrns((prev) => prev.filter((u) => u !== urn));
     }, []);
@@ -274,6 +281,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Roots: create uses `start` (newest first with last-modified default).
         // Deep-link reveal stubs use `end` so they do not jump the sorted window.
         if (node.parentUrn === null) {
+            localRootPlacementsRef.current.set(node.urn, placement);
             setRootUrns((prev) => {
                 const without = prev.filter((u) => u !== node.urn);
                 return placement === 'start' ? [node.urn, ...without] : [...without, node.urn];
@@ -343,6 +351,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Append additional root nodes (used by infinite-scroll pagination of the root list).
     // Dedupes against current rootUrns to avoid double-rendering when a refetch overlaps.
     const appendRootNodes = useCallback((newNodes: DocumentTreeNode[]) => {
+        newNodes.forEach((node) => localRootPlacementsRef.current.delete(node.urn));
         setRootUrns((prev) => {
             const existingSet = new Set(prev);
             const newUrns = newNodes.filter((n) => !existingSet.has(n.urn)).map((n) => n.urn);
@@ -376,22 +385,18 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
-    // Batch initialization (page 0 / sort remount).
-    // If nodes is empty, clear the tree completely (used for view/sort changes).
-    // If nodes is non-empty, merge with existing to preserve optimistic creates.
+    // Page 0 replaces the root list. Locally added roots stay; roots that only
+    // existed because an earlier page was scrolled in do not.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
         if (rootNodes.length === 0) {
-            // Clear: used when switching views/sorts to start fresh
+            localRootPlacementsRef.current.clear();
             setRootUrns([]);
             setNodes(new Map());
         } else {
-            // Merge: preserve optimistic creates and local renames
-            setRootUrns((prev) => {
-                const serverUrns = rootNodes.map((n) => n.urn);
-                const serverSet = new Set(serverUrns);
-                const localOnly = prev.filter((urn) => !serverSet.has(urn));
-                return [...serverUrns, ...localOnly];
-            });
+            const serverUrns = rootNodes.map((node) => node.urn);
+            serverUrns.forEach((urn) => localRootPlacementsRef.current.delete(urn));
+            const localRoots = new Map(localRootPlacementsRef.current);
+            setRootUrns((prev) => mergeInitializedRootUrns(prev, serverUrns, localRoots));
             setNodes((prev) => {
                 const updated = new Map(prev);
                 rootNodes.forEach((serverNode) => {

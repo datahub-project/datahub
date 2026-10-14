@@ -1,6 +1,6 @@
 import { EmptyState } from '@components';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -9,9 +9,11 @@ import useDocumentGroupRoots from '@app/document/hooks/useDocumentGroupRoots';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import {
     resolveActiveDocumentDomainGroup,
+    shouldRefetchDocumentDomainGroups,
     toDocumentGroupingEntityData,
 } from '@app/document/utils/documentSidebarGrouping';
 import { DocumentSidebarSortValue } from '@app/document/utils/documentSidebarSort';
+import Loading from '@app/shared/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
@@ -66,7 +68,16 @@ export default function GroupedDocumentsTree({
         [entityRegistry, selectedDocument, selectedUrn, t],
     );
 
-    const { groups, loading } = useDocumentGroupRoots(t('context.groupBy.unassigned'), activeGroup, viewUrn);
+    const { groups, loading, refetch } = useDocumentGroupRoots(t('context.groupBy.unassigned'), activeGroup, viewUrn);
+    const previousActiveGroupKeyRef = useRef<string | null | undefined>(undefined);
+
+    useEffect(() => {
+        const nextKey = activeGroup?.key ?? null;
+        const previousKey = previousActiveGroupKeyRef.current;
+        previousActiveGroupKeyRef.current = nextKey;
+        if (!shouldRefetchDocumentDomainGroups(previousKey, nextKey)) return;
+        refetch();
+    }, [activeGroup, refetch]);
 
     /**
      * Groups start collapsed: each expanded group runs its own paginated search,
@@ -80,6 +91,10 @@ export default function GroupedDocumentsTree({
             return new Set(current).add(activeGroup.key);
         });
     }, [activeGroup]);
+
+    if (loading && groups.length === 0) {
+        return <Loading height={16} marginTop={0} />;
+    }
 
     if (!loading && groups.length === 0) {
         return (
