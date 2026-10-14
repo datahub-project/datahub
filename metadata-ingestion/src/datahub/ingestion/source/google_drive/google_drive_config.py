@@ -190,3 +190,12 @@ class GoogleDriveSourceConfig(
                 f"max_text_length ({self.max_text_length})"
             )
         return self
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Lazy, so ingestion never loads the probe module.
+        from datahub.ingestion.source.google_drive.google_drive_probe import (
+            GoogleDriveMetadataProbe,
+        )
+
+        return GoogleDriveMetadataProbe

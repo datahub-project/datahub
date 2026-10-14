@@ -37,6 +37,21 @@ source:
 
 On each run the connector lists every configured folder, then compares each Doc's Drive version, title, parent folder, and the connector settings that shape its output with what DataHub already stores. Unchanged Docs are not exported again, which keeps re-runs cheap. Docs that were deleted, trashed, moved out of scope, or newly filtered out are soft-deleted when stateful ingestion is enabled.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against Google Drive without running ingestion. It reads metadata only and never exports a Doc.
+
+- `identity`: the account the recipe connects as and, when `delegated_user` is set, whether domain-wide delegation is in effect.
+- `roots`: each configured root's name and kind (My Drive folder, shared drive, or a folder in a shared drive), or why it cannot be opened and how to fix it.
+- `shared_drives`: the shared drives the account can see, with the ID to use in `root_folder_ids`.
+
+```shell
+datahub recipe probe methods --recipe google_drive_recipe.yml
+datahub recipe probe run roots --recipe google_drive_recipe.yml
+```
+
+When Google refuses a token, for example because domain-wide delegation is not authorized, the probe exits with code 3 and says what to change.
+
 ### Limitations
 
 - Only Google Docs are ingested. Sheets, Slides, PDFs, uploaded files, and shortcuts are skipped.
@@ -62,7 +77,7 @@ Either the ID is wrong or the source cannot see the folder.
 - Check that the ID or URL in `root_folder_ids` points to a folder or shared drive, not a file.
 - Share the folder with the account the source authenticates as: the service account's `client_email` when you set `credential`, or the Application Default Credentials account otherwise. Alternatively, set `delegated_user` to a user who can open it.
 
-Run `datahub check source-connection` to see which roots fail.
+Run `datahub check source-connection` to see which roots fail, or `datahub recipe probe run roots --recipe <recipe>` to see why each one fails and how to fix it.
 
 When any root or folder fails, the run reports a failure and stale-entity removal is skipped for that run, so nothing is soft-deleted because of a partial listing.
 

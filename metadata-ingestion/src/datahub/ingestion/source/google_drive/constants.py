@@ -39,6 +39,9 @@ FILE_FIELDS = (
 LIST_FIELDS = f"nextPageToken,files({FILE_FIELDS})"
 ABOUT_FIELDS = "user(emailAddress)"
 DRIVE_FIELDS = "id,name,createdTime"
+DRIVES_LIST_FIELDS = f"nextPageToken,drives({DRIVE_FIELDS})"
+# The largest page drives.list accepts.
+DRIVES_PAGE_SIZE = 100
 ORDER_BY = "folder,name"
 
 CHILDREN_QUERY_TEMPLATE = (
@@ -51,6 +54,7 @@ API_FILES_LIST = "files.list"
 API_FILES_GET = "files.get"
 API_FILES_EXPORT = "files.export"
 API_DRIVES_GET = "drives.get"
+API_DRIVES_LIST = "drives.list"
 API_ABOUT_GET = "about.get"
 
 PROP_FILE_ID = "drive_file_id"
@@ -98,4 +102,21 @@ IMAGE_PLACEHOLDER_WITH_ALT = "*[Image: {alt}]*"
 EXCESS_BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 EXPORT_TOO_LARGE_REASON = "exportSizeLimitExceeded"
+HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
+# Drive answers quota exhaustion with 403 too; that is not an access problem.
+RATE_LIMIT_REASONS = frozenset({"rateLimitExceeded", "userRateLimitExceeded"})
+
+# OAuth token-endpoint error codes (RFC 6749 section 5.2) that a service account
+# hits during setup.
+OAUTH_UNAUTHORIZED_CLIENT = "unauthorized_client"
+OAUTH_INVALID_GRANT = "invalid_grant"
+
+ROOT_KIND_SHARED_DRIVE = "shared_drive"
+ROOT_KIND_SHARED_DRIVE_FOLDER = "shared_drive_folder"
+ROOT_KIND_MY_DRIVE_FOLDER = "my_drive_folder"
+ROOT_PROBLEM_NOT_FOUND = "not_found_or_not_shared"
+ROOT_PROBLEM_FORBIDDEN = "forbidden"
+ROOT_PROBLEM_NOT_A_FOLDER = "not_a_folder"
+CREDENTIAL_SERVICE_ACCOUNT = "service_account"
+CREDENTIAL_APPLICATION_DEFAULT = "application_default"
