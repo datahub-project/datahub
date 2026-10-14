@@ -41,6 +41,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -61,6 +63,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DocumentServiceTest {
@@ -680,6 +683,70 @@ public class DocumentServiceTest {
             any(List.class),
             eq(0),
             eq(10));
+  }
+
+  @DataProvider(name = "relevanceRankedQueries")
+  public Object[][] relevanceRankedQueries() {
+    // "foo*" pins the boundary: it carries a wildcard character but is still a real query with
+    // meaningful scores, so it must not fall into the recency branch.
+    return new Object[][] {{"Average Order Value"}, {"foo*"}};
+  }
+
+  @Test(dataProvider = "relevanceRankedQueries")
+  public void testSearchDocumentsRanksTextQueryByRelevance(String query) throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, query, null, null, 0, 10);
+
+    // An empty sort list lets Elasticsearch rank by score. A createdAt sort here would bury exact
+    // title matches beneath whatever was ingested most recently.
+    Assert.assertTrue(captureSortCriteria(mockClient).isEmpty());
+  }
+
+  @DataProvider(name = "browseStyleQueries")
+  public Object[][] browseStyleQueries() {
+    return new Object[][] {{"*"}, {""}, {"   "}};
+  }
+
+  @Test(dataProvider = "browseStyleQueries")
+  public void testSearchDocumentsRanksBrowseStyleQueryByRecency(String query) throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, query, null, null, 0, 10);
+
+    final List<SortCriterion> sortCriteria = captureSortCriteria(mockClient);
+    Assert.assertEquals(sortCriteria.size(), 1);
+    Assert.assertEquals(sortCriteria.get(0).getField(), "createdAt");
+    Assert.assertEquals(sortCriteria.get(0).getOrder(), SortOrder.DESCENDING);
+  }
+
+  @Test
+  public void testSearchDocumentsHonorsExplicitSort() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+    final SortCriterion explicitSort =
+        new SortCriterion().setField("lastModifiedAt").setOrder(SortOrder.DESCENDING);
+
+    service.searchDocuments(opContext, "Average Order Value", null, explicitSort, 0, 10);
+
+    Assert.assertEquals(captureSortCriteria(mockClient), List.of(explicitSort));
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<SortCriterion> captureSortCriteria(SystemEntityClient mockClient) throws Exception {
+    final ArgumentCaptor<List<SortCriterion>> captor = ArgumentCaptor.forClass(List.class);
+    verify(mockClient)
+        .search(
+            any(OperationContext.class),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            any(String.class),
+            any(),
+            captor.capture(),
+            eq(0),
+            eq(10));
+    return captor.getValue();
   }
 
   // Helper methods to create mock EntityClients

@@ -71,6 +71,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DocumentService {
 
+  private static final String CREATED_AT_FIELD = "createdAt";
   private static final String WILDCARD_QUERY = "*";
   private static final String PARENT_DOCUMENT_FIELD = "parentDocument";
 
@@ -1155,7 +1156,8 @@ public class DocumentService {
    * @param opContext the operation context
    * @param query search query
    * @param filter optional filter
-   * @param sortCriterion optional sort criterion
+   * @param sortCriterion optional sort criterion. When null, a real text query is ranked by
+   *     relevance and a browse-style wildcard query falls back to newest-first.
    * @param start offset
    * @param count number of results
    * @return search result
@@ -1196,11 +1198,21 @@ public class DocumentService {
       @Nullable SearchFlags searchFlags)
       throws Exception {
 
-    final SortCriterion sort =
-        sortCriterion != null
-            ? sortCriterion
-            : new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING);
-    final List<SortCriterion> sortCriteria = Collections.singletonList(sort);
+    // An empty sort list tells Elasticsearch to rank by relevance score. Defaulting to createdAt
+    // for a real text query buries exact title matches under whatever was ingested most recently
+    // (e.g. searching "Average Order Value" would rank the doc of that exact name 40th), so the
+    // recency default only applies to browse-style wildcard queries, where there is no score to
+    // rank by.
+    final List<SortCriterion> sortCriteria;
+    if (sortCriterion != null) {
+      sortCriteria = Collections.singletonList(sortCriterion);
+    } else if (isWildcardQuery(query)) {
+      sortCriteria =
+          Collections.singletonList(
+              new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
+    } else {
+      sortCriteria = Collections.emptyList();
+    }
     final boolean hasExplicitFacets = facets != null && !facets.isEmpty();
     final OperationContext searchContext =
         opContext.withSearchFlags(
@@ -1259,6 +1271,15 @@ public class DocumentService {
                             opContext, READ, entity.getEntity()))
                 .toList()));
     return result;
+  }
+
+  /**
+   * A wildcard or blank query is a "list everything" browse, not a relevance search — every hit
+   * scores the same, so there is nothing meaningful to rank by.
+   */
+  private static boolean isWildcardQuery(@Nonnull final String query) {
+    final String trimmed = query.trim();
+    return trimmed.isEmpty() || WILDCARD_QUERY.equals(trimmed);
   }
 
   @Nonnull
