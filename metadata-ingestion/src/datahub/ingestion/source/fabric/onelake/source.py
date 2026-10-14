@@ -751,10 +751,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                             )
                         )
                     shortcut = None
-                    if shortcuts:
+                    # None means shortcut detection was not run. {} means it ran
+                    # and this lakehouse has no table shortcuts.
+                    if shortcuts is not None:
                         shortcut = shortcuts.get(
                             (schema_name.lower(), table.name.lower())
                         )
+                    # A shortcut with table-level lineage is not yielded here. It is
+                    # stashed and emitted after every workspace has been scanned.
                     yield from self._create_table_dataset(
                         workspace,
                         item_id,
@@ -884,10 +888,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _load_lakehouse_shortcuts(
         self, workspace_id: str, lakehouse_id: str
-    ) -> dict[tuple[str, str], LakehouseTableShortcut]:
-        """Map `(schema, table)` to shortcut metadata for one lakehouse."""
+    ) -> Optional[dict[tuple[str, str], LakehouseTableShortcut]]:
+        """Map `(schema, table)` to shortcut metadata for one lakehouse.
+
+        Returns None when shortcut detection is disabled, so callers can tell
+        that apart from a lakehouse that was checked and has no table shortcuts
+        (an empty dict). A listing failure also returns an empty dict: tables
+        are ingested without shortcut tags.
+        """
         if not self.config.shortcuts.enabled:
-            return {}
+            return None
         try:
             payloads = list(self.client.list_shortcuts(workspace_id, lakehouse_id))
         except Exception as e:
