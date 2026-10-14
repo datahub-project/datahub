@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { evaluateEagerBudget, sizeLimitJson } from './eager-budget.mjs';
+import { budgetExitCode, evaluateEagerBudget, sizeLimitJson } from './eager-budget.mjs';
 
 const baseline = { totalGzip: 2_500_000, maxPhosphorModules: 80 };
 
@@ -61,6 +61,13 @@ test('json output is the size the bundle-size comment reads', () => {
     const payload = sizeLimitJson(2_540_980);
     assert.equal(payload[0].size, 2_540_980);
     assert.equal(JSON.parse(JSON.stringify(payload))[0].size, 2_540_980);
+});
+
+test('--json still exits 0 when the budget fails so the comment can post', () => {
+    const errors = ['over'];
+    assert.equal(budgetExitCode(true, errors), 0);
+    assert.equal(budgetExitCode(false, errors), 1);
+    assert.equal(budgetExitCode(false, []), 0);
 });
 
 test('fails when the baseline omits totalGzip', () => {
