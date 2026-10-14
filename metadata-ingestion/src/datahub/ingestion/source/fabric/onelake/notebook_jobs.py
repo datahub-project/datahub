@@ -40,6 +40,10 @@ from datahub.ingestion.source.fabric.common.utils import (
     parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
+    extract_notebook_code_lineage,
+    reconcile_spark_lineage,
+)
 from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
     SparkTableRef,
     extract_spark_lineage,
@@ -101,6 +105,7 @@ class NotebookProcessEmitter:
         platform_instance: Optional[str],
         env: str,
         execution_history_days: int,
+        reconcile_code: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
@@ -110,6 +115,7 @@ class NotebookProcessEmitter:
         self._platform_instance = platform_instance
         self._env = env
         self._execution_history_days = execution_history_days
+        self._reconcile_code = reconcile_code
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
@@ -290,6 +296,22 @@ class NotebookProcessEmitter:
                 continue
             for output, inputs in extract_spark_lineage(plans).items():
                 raw.setdefault(output, set()).update(inputs)
+
+        # Plans credit every earlier read to the next write. The notebook
+        # source says which of those reads each write actually uses.
+        if self._reconcile_code and nb.content and nb.language in (None, "python"):
+            code_lineage = extract_notebook_code_lineage(nb.content)
+            if code_lineage:
+                reconciled = reconcile_spark_lineage(
+                    code_lineage, raw, self._normalize_name
+                )
+                if reconciled:
+                    logger.debug(
+                        "Reconciled notebook %s lineage from source text (%s output table(s))",
+                        nb.display_name,
+                        len(reconciled),
+                    )
+                    raw = reconciled
 
         known = self._known_table_urns
         # Case/space variants of one output table normalize to a single URN and

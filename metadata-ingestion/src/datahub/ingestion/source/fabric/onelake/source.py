@@ -212,7 +212,7 @@ class WarehouseSchemaKey(WarehouseKey):
     SourceCapability.LINEAGE_COARSE,
     "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut "
     "target is emitted as an upstream of the shortcut table. When "
-    "`include_notebook_execution` is enabled, each notebook is modelled as a "
+    "`notebook_execution.enabled` is set, each notebook is modelled as a "
     "pipeline (DataFlow) with one Spark-job DataJob per table it writes, whose "
     "input tables are recovered from each run's Spark physical plans and "
     "resolved against ingested tables.",
@@ -356,7 +356,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Record the GUID-based URN of every ingested table so a notebook's
         # Spark-plan lineage can validate its GUID-built URNs against the set and
         # drop edges to tables not ingested in this run.
-        if not self.config.include_notebook_execution:
+        if not self.config.notebook_execution.enabled:
             return
         urn = make_onelake_urn(
             workspace_id=workspace_id,
@@ -412,7 +412,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         """Re-emit dataJobInputOutput as a patch when `incremental_lineage` is on.
 
         A notebook's lineage is accumulated only over the runs within
-        `notebook_execution_history_days`. A full upsert would drop any edge from a
+        `notebook_execution.history_days`. A full upsert would drop any edge from a
         run that has since aged out of that window (and any manually added edge). A
         patch only adds the parsed edges, so lineage accumulates across ingestions.
 
@@ -701,7 +701,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # Defer the process view (DataFlow/DataJob/lineage/runs) until every
             # workspace is scanned so table references resolve against the full
             # registry (mirrors the deferred shortcut-dataset pass).
-            if self.config.include_notebook_execution:
+            if self.config.notebook_execution.enabled:
                 self._pending_notebooks.append(
                     PendingNotebook(
                         workspace_id=workspace.id,
@@ -1345,7 +1345,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         emitter = NotebookProcessEmitter(
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            execution_history_days=self.config.notebook_execution_history_days,
+            execution_history_days=self.config.notebook_execution.history_days,
+            reconcile_code=self.config.notebook_execution.reconcile_code,
             report=self.report,
             client=self.client,
             known_table_urns=self._notebook_known_table_urns,
