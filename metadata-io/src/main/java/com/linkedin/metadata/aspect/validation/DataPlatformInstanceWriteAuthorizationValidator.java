@@ -2,7 +2,6 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
@@ -19,6 +18,8 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.authorization.DomainWriteAuthorizationUtils;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -43,19 +45,19 @@ import lombok.extern.slf4j.Slf4j;
  * instance, while ingest authorization only checks the URN. Without this check, a writer could move
  * an entity into an instance it has no rights on.
  *
- * <p>When the instance changes, the writer must be allowed to edit the entity as it is now (stored
- * or earlier-in-batch instance) and as it would be with the proposed instance. The proposed value
- * is evaluated through a request-scoped {@code DATA_PLATFORM_INSTANCE} field override, which is
- * removed again after the check.
+ * <p>When the instance changes, the writer must be allowed to write the entity as it is now (stored
+ * or earlier-in-batch instance), if it has one, and as it would be with the proposed instance, if
+ * one is set. The privilege is Create or Edit Entity depending on whether the entity exists, as for
+ * domains. The proposed value is evaluated through a request-scoped {@code DATA_PLATFORM_INSTANCE}
+ * field override, which is removed again after the check.
  *
  * <ul>
  *   <li>Unchanged instance: no authorization calls.
- *   <li>No current instance (first write, including entity creation): exempt. The URN-level
- *       create/edit check already applies, and there is no instance scope to leave.
- *   <li>Removing the instance: requires rights on the current instance only. It moves the entity
- *       into no other scope, and requiring a match on "no instance" would stop instance-scoped
- *       owners from ever clearing it. After removal, instance-scoped grants no longer cover the
- *       entity, so the writer cannot use the first-write exemption to re-home it.
+ *   <li>Setting a first instance (including on entity creation): checked against the proposed
+ *       instance only.
+ *   <li>Removing the instance: checked against the current instance only. Requiring a match on "no
+ *       instance" would stop instance-scoped owners from ever clearing it.
+ *   <li>A proposed value that cannot be resolved (e.g. a PATCH that does not apply): denied.
  * </ul>
  */
 @Slf4j
@@ -83,26 +85,17 @@ public class DataPlatformInstanceWriteAuthorizationValidator
     }
 
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+    Set<Urn> urns = instanceItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
     // Updated in batch order so a later item is judged against an earlier one for the same URN.
-    Map<Urn, DataPlatformInstance> current =
-        loadStored(
-            operationContext,
-            aspectRetriever,
-            instanceItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet()));
+    Map<Urn, DataPlatformInstance> current = loadStored(operationContext, aspectRetriever, urns);
 
+    // Read only once an item actually changes the instance; most ingestion re-writes the same one.
+    Map<Urn, Boolean> entityExists = null;
     List<AspectValidationException> failures = new ArrayList<>();
     for (BatchItem item : instanceItems) {
       Urn urn = item.getUrn();
       DataPlatformInstance before = current.get(urn);
       DataPlatformInstance after = resolveProposed(item, aspectRetriever, before);
-      if (after != null) {
-        current.put(urn, after);
-      }
-
-      Urn beforeInstance = before == null ? null : before.getInstance();
-      if (beforeInstance == null) {
-        continue;
-      }
       if (after == null) {
         failures.add(
             authFailure(
@@ -112,30 +105,47 @@ public class DataPlatformInstanceWriteAuthorizationValidator
                     + " (could not resolve the proposed value)"));
         continue;
       }
+      current.put(urn, after);
+
+      Urn beforeInstance = before == null ? null : before.getInstance();
       Urn afterInstance = after.getInstance();
-      if (beforeInstance.equals(afterInstance)) {
+      if (Objects.equals(beforeInstance, afterInstance)) {
         continue;
       }
-      if (!isAuthorizedWithInstance(session, urn, beforeInstance)
-          || (afterInstance != null && !isAuthorizedWithInstance(session, urn, afterInstance))) {
+      if (entityExists == null) {
+        entityExists =
+            DomainWriteAuthorizationUtils.resolveEntityExists(
+                operationContext, aspectRetriever, urns);
+      }
+      ApiOperation operation =
+          DomainWriteAuthorizationUtils.resolveApiOperation(
+              item.getChangeType(), Boolean.TRUE.equals(entityExists.get(urn)));
+      if ((beforeInstance != null
+              && !isAuthorizedWithInstance(session, urn, beforeInstance, operation))
+          || (afterInstance != null
+              && !isAuthorizedWithInstance(session, urn, afterInstance, operation))) {
         failures.add(
             authFailure(
                 item,
                 "Unauthorized to change dataPlatformInstance on entity "
                     + urn
-                    + " (requires EDIT_ENTITY for both the current and the proposed instance)"));
+                    + " (requires CREATE_ENTITY or EDIT_ENTITY for both the current and the"
+                    + " proposed instance)"));
       }
     }
     return failures;
   }
 
   /**
-   * Evaluates the entity write privilege as if the entity had {@code instance}. Other stored fields
-   * (domains, container, tags, ...) still apply; any override already recorded for the resource,
-   * such as proposed domains, is kept and restored afterwards.
+   * Evaluates the entity {@code operation} privilege as if the entity had {@code instance}. Other
+   * stored fields (domains, container, tags, ...) still apply; any override already recorded for
+   * the resource, such as proposed domains, is kept and restored afterwards.
    */
   private static boolean isAuthorizedWithInstance(
-      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nonnull Urn instance) {
+      @Nonnull AuthorizationSession session,
+      @Nonnull Urn urn,
+      @Nonnull Urn instance,
+      @Nonnull ApiOperation operation) {
     if (!(session instanceof OperationContext)) {
       // A proposed instance can only be evaluated through a request context; fail closed.
       return false;
@@ -156,7 +166,7 @@ public class DataPlatformInstanceWriteAuthorizationValidator
       return AuthUtil.isAuthorized(
           session,
           AuthUtil.buildDisjunctivePrivilegeGroup(
-              AuthUtil.lookupAPIPrivilege(ENTITY, UPDATE, urn.getEntityType())),
+              AuthUtil.lookupAPIPrivilege(ENTITY, operation, urn.getEntityType())),
           resourceSpec);
     } finally {
       if (previous == null) {
