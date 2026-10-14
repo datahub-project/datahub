@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 import { VideoSlide } from '@app/onboarding/WelcomeToDataHubModal.components';
-import { TestPageContainer } from '@utils/test-utils/TestPageContainer';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('VideoSlide', () => {
     it('keeps the poster video mounted when its source becomes available', () => {
