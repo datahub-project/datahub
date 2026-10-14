@@ -180,9 +180,11 @@ public class SearchUtils {
     if (!finalSearchFlags.hasSkipAggregates() || finalSearchFlags.isSkipAggregates() == null) {
       finalSearchFlags.setSkipAggregates(defaultFlags.isSkipAggregates());
     }
-    if (!finalSearchFlags.hasMaxAggValues() || finalSearchFlags.getMaxAggValues() == null) {
-      finalSearchFlags.setMaxAggValues(defaultFlags.getMaxAggValues());
-    }
+    // maxAggValues is intentionally NOT defaulted here -- unlike the other flags, it's not
+    // resolved by the caller. Leaving it unset lets
+    // AggregationQueryBuilder.facetToAggregationBuilder,
+    // the sole consumer of the flag, apply SearchConfiguration.defaultMaxAggValues uniformly across
+    // every entrypoint instead of only the ones that route through this method.
     if (!finalSearchFlags.hasSkipCache() || finalSearchFlags.isSkipCache() == null) {
       finalSearchFlags.setSkipCache(defaultFlags.isSkipCache());
     }

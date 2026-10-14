@@ -769,6 +769,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.custom.enabled",
           "elasticsearch.search.custom.file",
           "elasticsearch.search.custom.searchFieldConfigDefault",
+          "elasticsearch.search.defaultMaxAggValues",
           "elasticsearch.search.exactMatch.caseSensitivityFactor",
           "elasticsearch.search.exactMatch.enableStructured",
           "elasticsearch.search.exactMatch.exactFactor",
