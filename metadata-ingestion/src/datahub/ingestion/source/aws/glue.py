@@ -685,7 +685,6 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_dataset_invalid_delta_schema: int = 0
     num_dataset_valid_delta_schema: int = 0
     num_resource_link_database_tables: int = 0
-    num_resource_link_database_missing_catalog_id: int = 0
     num_resource_link_missing_target: int = 0
     num_resource_link_self_referential: int = 0
     num_resource_link_schema_from_datahub: int = 0
@@ -1900,21 +1899,6 @@ class GlueSource(StatefulIngestionSourceBase):
             else database.get("TargetDatabase")
         )
         link_catalog_id = database.get("CatalogId") or self.source_config.catalog_id
-        if target_database and not link_catalog_id:
-            # The tables keep the owner's CatalogId, so if the owner is mapped in
-            # catalog_to_platform_instance the links are named with the owner's instance
-            # (and can collide with the owner's datasets when the database names match).
-            self.report.num_resource_link_database_missing_catalog_id += 1
-            self.report.warning(
-                title="Resource link database missing catalog ID",
-                message="Glue returned a database-level Lake Formation resource link "
-                "without a CatalogId, so its tables keep the owning catalog's ID. If "
-                "the owning account is mapped in catalog_to_platform_instance, they are "
-                "named with the owner's platform_instance and can collide with the "
-                "owner's own datasets. Set catalog_id in the recipe to the ingesting AWS "
-                "account ID.",
-                context=database_name,
-            )
 
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
@@ -2330,8 +2314,8 @@ class GlueSource(StatefulIngestionSourceBase):
                     log=False,
                 )
         domain_urn = self._gen_domain_urn(database["Name"])
-        # Glue normally returns CatalogId, but a database-level resource link without one is
-        # still ingested (see get_tables_from_database), so don't let it abort the run here.
+        # GetDatabases returns CatalogId in practice; don't let a database without one abort
+        # the run over its container ARN.
         catalog_id = database.get("CatalogId") or self.source_config.catalog_id
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
