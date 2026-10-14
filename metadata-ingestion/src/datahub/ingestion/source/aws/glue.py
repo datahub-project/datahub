@@ -361,7 +361,10 @@ class GlueSourceConfig(
     )
     ignore_resource_links: Optional[bool] = Field(
         default=False,
-        description="If set to True, ignore database resource links.",
+        description="If set to True, ignore Lake Formation resource links, both database-level "
+        "links and table-level links. When False, tables reached through a resource link are "
+        "ingested under the local link name and get an upstream edge to the shared table in the "
+        "owning catalog.",
     )
     use_s3_bucket_tags: Optional[bool] = Field(
         default=False,
@@ -458,6 +461,9 @@ class GlueSourceConfig(
             "Use this for cross-account catalogs (e.g. ingesting another account via `catalog_id`, "
             "or Lake Formation shared tables) so each table's URN matches the one the owning "
             "account's own Glue ingestion produces, instead of the ingestion account's instance. "
+            "Lake Formation resource links (database-level and table-level) are ingested under the "
+            "ingesting catalog's instance and get an upstream edge to the shared table, stamped "
+            "with the instance mapped here for the owning account. "
             "The key is account + region — account alone is not unique across regions — and matches "
             "the key used by the Spark/OpenLineage `connections` map. The partition must match the "
             "region as resolved by boto3 — `aws` for commercial, `aws-us-gov` for GovCloud, "
@@ -678,6 +684,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_dataset_to_dataset_edges_in_job: int = 0
     num_dataset_invalid_delta_schema: int = 0
     num_dataset_valid_delta_schema: int = 0
+    num_resource_link_database_tables: int = 0
     num_resource_link_missing_target: int = 0
     num_resource_link_self_referential: int = 0
     num_resource_link_schema_from_datahub: int = 0
@@ -1000,11 +1007,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def _resource_link_owner_urn(self, target: Dict) -> Optional[str]:
         """URN of the table a resource link points at, stamped with the owning catalog's instance."""
+        catalog_id = target.get("CatalogId")
         database_name = target.get("DatabaseName")
         name = target.get("Name")
-        if not database_name or not name:
+        # Without the owning CatalogId the owner's instance can't be resolved (it would silently
+        # fall back to our own) and a cross-account glue:GetTable would fail parameter validation.
+        if not catalog_id or not database_name or not name:
             return None
-        owner = self._resolve_platform_instance(target.get("CatalogId"))
+        owner = self._resolve_platform_instance(catalog_id)
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=f"{database_name}.{name}",
@@ -1034,22 +1044,29 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_resource_link_missing_target += 1
             self.report.warning(
                 title="Resource link missing target identifiers",
-                message="A Lake Formation resource link's TargetTable is missing its database or "
-                "table name, so its cross-account upstream edge could not be built. The shared "
-                "table will be ingested without lineage back to its owner.",
+                message="A Lake Formation resource link's TargetTable is missing its catalog ID, "
+                "database or table name, so its cross-account upstream edge could not be built. "
+                "The shared table will be ingested without lineage back to its owner.",
                 context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
             )
             return []
 
         if owner_urn == dataset_urn:
-            # No catalog mapping resolved the owner to a distinct instance and the link/target names
-            # coincide, so the owner URN is the dataset's own URN — a self-upstream edge is
-            # meaningless. Counted so an operator can see cross-account links that produced no
-            # lineage because their owning catalog wasn't mapped in catalog_to_platform_instance.
+            # The owner resolves to the link's own URN, so a self-upstream edge would be
+            # meaningless. A database-level link hits this for every table it exposes; the
+            # warning is grouped by title/message.
             self.report.num_resource_link_self_referential += 1
-            logger.debug(
-                f"Skipping self-referential resource-link lineage for {dataset_urn} "
-                f"(no catalog mapping for target {target.get('CatalogId')})"
+            self.report.warning(
+                title="Resource link owner catalog not mapped",
+                message="A Lake Formation resource link's owning catalog is not in "
+                "catalog_to_platform_instance, or is mapped to the same platform_instance/env as "
+                "the ingesting catalog, so the shared table resolves to the link's own URN and no "
+                "upstream lineage or owner schema is emitted for it. Map the owning account "
+                "(arn:<partition>:glue:<region>:<account_id>) in catalog_to_platform_instance to "
+                "the platform_instance/env its own Glue ingestion uses. If both ingestions use "
+                "the same instance and env, give one of them a distinct platform_instance or "
+                "rename the link.",
+                context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
             return []
 
@@ -1871,6 +1888,18 @@ class GlueSource(StatefulIngestionSourceBase):
             **glue_catalog_kwargs(self.source_config.catalog_id),
         )
 
+        # Tables reached through a database-level resource link carry no TargetTable; Glue
+        # returns them with the owning catalog's CatalogId and DatabaseName. Re-key them to
+        # the local link (so the URN, ARN and container use the ingesting catalog) and
+        # synthesize a TargetTable so they get the same owner lineage and schema handling
+        # as table-level links.
+        target_database = (
+            None
+            if self.source_config.ignore_resource_links
+            else database.get("TargetDatabase")
+        )
+        link_catalog_id = database.get("CatalogId") or self.source_config.catalog_id
+
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
             # resource links (table has a TargetTable pointing at the shared table).
@@ -1885,14 +1914,26 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            # When ingesting resource-link databases (ignore_resource_links=False),
-            # rewrite DatabaseName to the local alias so downstream URN construction
-            # uses the catalog-local name instead of the target catalog's name.
-            if (
-                not self.source_config.ignore_resource_links
-                and "TargetDatabase" in database
-            ):
+            if target_database:
+                # Capture the owner identity before the table is re-keyed below: the table's own
+                # CatalogId/DatabaseName are the owner's and are the fallback when TargetDatabase
+                # omits them.
+                owner_catalog_id = target_database.get("CatalogId") or table.get(
+                    "CatalogId"
+                )
+                owner_database_name = target_database.get("DatabaseName") or table.get(
+                    "DatabaseName"
+                )
+                if "TargetTable" not in table:
+                    table["TargetTable"] = {
+                        "CatalogId": owner_catalog_id,
+                        "DatabaseName": owner_database_name,
+                        "Name": table["Name"],
+                    }
                 table["DatabaseName"] = database["Name"]
+                if link_catalog_id:
+                    table["CatalogId"] = link_catalog_id
+                self.report.num_resource_link_database_tables += 1
             yield table
 
     def get_all_databases_and_tables(
@@ -2273,6 +2314,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     log=False,
                 )
         domain_urn = self._gen_domain_urn(database["Name"])
+        # GetDatabases returns CatalogId in practice; don't let a database without one abort
+        # the run over its container ARN.
+        catalog_id = database.get("CatalogId") or self.source_config.catalog_id
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
         if database.get("LocationUri") is not None:
@@ -2286,8 +2330,10 @@ class GlueSource(StatefulIngestionSourceBase):
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
             description=database.get("Description"),
-            qualified_name=self.get_glue_arn(
-                account_id=database["CatalogId"], database=database["Name"]
+            qualified_name=(
+                self.get_glue_arn(account_id=catalog_id, database=database["Name"])
+                if catalog_id
+                else None
             ),
             tags=container_tags,
             extra_properties=parameters,
