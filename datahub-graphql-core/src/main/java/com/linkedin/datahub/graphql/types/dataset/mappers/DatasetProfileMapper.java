@@ -1,6 +1,10 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PartitionSpec;
+import com.linkedin.datahub.graphql.generated.PartitionType;
+import com.linkedin.datahub.graphql.generated.TimeWindow;
+import com.linkedin.datahub.graphql.types.common.mappers.util.TimeWindowUtils;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
@@ -39,6 +43,9 @@ public class DatasetProfileMapper
     result.setColumnCount(gmsProfile.getColumnCount());
     result.setSizeInBytes(gmsProfile.getSizeInBytes());
     result.setTimestampMillis(gmsProfile.getTimestampMillis());
+    if (gmsProfile.hasPartitionSpec()) {
+      result.setPartitionSpec(mapPartitionSpec(gmsProfile.getPartitionSpec()));
+    }
     if (gmsProfile.hasFieldProfiles()) {
       result.setFieldProfiles(
           gmsProfile.getFieldProfiles().stream()
@@ -46,6 +53,35 @@ public class DatasetProfileMapper
               .collect(Collectors.toList()));
     }
 
+    return result;
+  }
+
+  private PartitionSpec mapPartitionSpec(com.linkedin.timeseries.PartitionSpec partitionSpec) {
+    final PartitionSpec result = new PartitionSpec();
+    if (partitionSpec.hasPartition()) {
+      result.setPartition(partitionSpec.getPartition());
+    }
+    // GraphQL type is non-null; getType() falls back to the PDL default (PARTITION) when unset.
+    result.setType(PartitionType.valueOf(partitionSpec.getType().toString()));
+    if (partitionSpec.hasTimePartition()) {
+      result.setTimePartition(mapTimePartition(partitionSpec.getTimePartition()));
+    }
+    return result;
+  }
+
+  /**
+   * GraphQL TimeWindow requires both startTimeMillis and durationMillis, so the window is omitted
+   * when its end cannot be resolved (missing start, length or unit, or an unknown unit).
+   */
+  @Nullable
+  private static TimeWindow mapTimePartition(com.linkedin.timeseries.TimeWindow timePartition) {
+    final Long endTimeMillis = TimeWindowUtils.getEndTimeMillis(timePartition);
+    if (endTimeMillis == null) {
+      return null;
+    }
+    final TimeWindow result = new TimeWindow();
+    result.setStartTimeMillis(timePartition.getStartTimeMillis());
+    result.setDurationMillis(endTimeMillis - timePartition.getStartTimeMillis());
     return result;
   }
 
