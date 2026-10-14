@@ -63,6 +63,7 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_con
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_datasets
 from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
+from datahub_airflow_plugin._path_specs import DatasetPathMapper
 from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
@@ -427,6 +428,8 @@ class DataHubListener:
             bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
             capture_bigquery_temp_datasets=config.capture_bigquery_temp_datasets,
         )
+
+        self._path_mapper = DatasetPathMapper(config.path_specs)
 
     def _get_emitter(self):
         """
@@ -1091,6 +1094,8 @@ class DataHubListener:
 
         # Filter here, once every lineage source (OpenLineage, SQL parsing, manual
         # inlets/outlets, Assets) has been merged, rather than in each extractor.
+        # Collapse first so the filter sees the table names users write patterns for.
+        self._path_mapper.apply(datajob)
         apply_dataset_filter(datajob, self._dataset_filter)
 
         # Write all other OL facets as DataHub properties
