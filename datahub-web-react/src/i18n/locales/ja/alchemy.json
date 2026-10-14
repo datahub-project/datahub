@@ -16,7 +16,7 @@
     "codeBlock.syntaxInvalid": "このコードには構文の問題があります。",
     "codeBlock.truncated": "このコードは最大長を超えたため省略されました。",
     "codeBlock.validate": "検証",
-    "codeBlock.validateSuccess": "有効なようです",
+    "codeBlock.validateSuccess": "コードに問題は見当たりません",
     "colorPicker.invalidHex.error": "有効な16進数カラーコードを入力してください",
     "datePicker.placeholder": "日付を選択",
     "editor.addImage.altLabel": "代替テキスト",
