@@ -319,19 +319,6 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
-        // getAssertionType categorizes CUSTOM assertions by what they check (e.g. a column-scoped
-        // dbt test resolves to FIELD). When that differs from CUSTOM, also count the Custom
-        // ASSERTION_INFO bucket. Skip when type is already CUSTOM to avoid double-counting.
-        if (assertion.info?.type === AssertionType.Custom) {
-            if (type !== AssertionType.Custom) {
-                filterGroupCounts.type[AssertionType.Custom] = (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
-            }
-            const customIndex = remainingAssertionTypes.indexOf(AssertionType.Custom);
-            if (customIndex > -1) {
-                remainingAssertionTypes.splice(customIndex, 1);
-            }
-        }
-
         // filter out tracked statuses
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
@@ -525,19 +512,11 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     return assertionRawData;
 };
 
-/**
- * Type filter matching. `getAssertionType` may resolve a CUSTOM assertion to a structural
- * category (e.g. FIELD), so selecting Custom must also match any assertion whose top-level type is CUSTOM.
- */
 export const assertionMatchesTypeFilter = (assertion: Assertion, selectedTypes: AssertionType[]): boolean => {
     if (selectedTypes.length === 0) {
         return true;
     }
-    const resolvedType = getAssertionType(assertion) as AssertionType;
-    if (selectedTypes.includes(resolvedType)) {
-        return true;
-    }
-    return selectedTypes.includes(AssertionType.Custom) && assertion.info?.type === AssertionType.Custom;
+    return selectedTypes.includes(getAssertionType(assertion) as AssertionType);
 };
 
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
