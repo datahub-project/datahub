@@ -11,7 +11,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -19,7 +18,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -201,20 +199,7 @@ public class DataProductMembershipAuthorizationValidator
       @Nonnull AspectRetriever aspectRetriever,
       @Nullable Aspect currentAspect) {
     DataProductProperties current = toProperties(currentAspect);
-    if (!ChangeType.PATCH.equals(item.getChangeType())) {
-      return item.getAspect(DataProductProperties.class);
-    }
-    // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
-    // validation. Neither carries the resulting aspect, so apply it here; otherwise the proposal
-    // reads as empty and the membership and rename checks see the wrong change.
-    PatchItemImpl patchItem =
-        item instanceof PatchItemImpl
-            ? (PatchItemImpl) item
-            : PatchItemImpl.builder()
-                .build(
-                    ((ProposedItem) item).getMetadataChangeProposal(),
-                    item.getAuditStamp(),
-                    aspectRetriever.getEntityRegistry());
-    return patchItem.applyPatch(current, aspectRetriever).getAspect(DataProductProperties.class);
+    return PatchItemImpl.resolveProposedAspect(
+        item, current, aspectRetriever, DataProductProperties.class);
   }
 }
