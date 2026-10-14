@@ -602,6 +602,10 @@ class SalesforceApi:
         SourceCapabilityModifier.SALESFORCE_STANDARD_OBJECT,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SalesforceSource(StatefulIngestionSourceBase):
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)

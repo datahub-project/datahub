@@ -492,6 +492,10 @@ def get_filter_name(filter_obj):
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(SourceCapability.TAGS, "Supported by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

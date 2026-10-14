@@ -32,9 +32,14 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    support_status,
+)
 from datahub.ingestion.api.report import Report
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -1184,6 +1189,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
 @support_status(SupportStatus.GA)
 @config_class(SnowflakeQueriesSourceConfig)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
         self.ctx = ctx

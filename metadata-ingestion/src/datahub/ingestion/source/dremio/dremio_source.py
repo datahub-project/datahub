@@ -228,6 +228,10 @@ class DremioSourceMapEntry:
     "Enabled by default via stateful ingestion",
     supported=True,
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.

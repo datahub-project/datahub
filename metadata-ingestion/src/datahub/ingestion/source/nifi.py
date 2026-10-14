@@ -544,6 +544,10 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
     report: NifiSourceReport

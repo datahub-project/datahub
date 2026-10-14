@@ -85,6 +85,10 @@ class PresetConfig(SupersetConfig):
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class PresetSource(SupersetSource):
     """
     Variation of the Superset plugin that works with Preset.io (Apache Superset SaaS).

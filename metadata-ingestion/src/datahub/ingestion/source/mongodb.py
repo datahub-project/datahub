@@ -406,6 +406,10 @@ def construct_schema_pymongo(
     ],
 )
 @dataclass
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class MongoDBSource(StatefulIngestionSourceBase):
     """
     Source that extracts databases and collections from MongoDB with inferred schemas.

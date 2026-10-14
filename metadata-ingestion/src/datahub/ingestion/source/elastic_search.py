@@ -454,6 +454,10 @@ def create_elasticsearch_client(config: ElasticsearchSourceConfig) -> OpenSearch
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class ElasticsearchSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

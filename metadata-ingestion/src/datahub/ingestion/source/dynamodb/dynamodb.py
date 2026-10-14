@@ -199,6 +199,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.TAGS,
     "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

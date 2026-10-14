@@ -76,6 +76,10 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.TAGS, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GrafanaSource(StatefulIngestionSourceBase):
     """
     Source that extracts dashboards, charts, and datasources from Grafana via REST API.

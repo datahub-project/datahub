@@ -397,6 +397,10 @@ class _CustomSqlRegistration:
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
