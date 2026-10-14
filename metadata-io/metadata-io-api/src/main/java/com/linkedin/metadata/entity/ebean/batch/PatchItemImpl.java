@@ -1,9 +1,12 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -28,9 +31,14 @@ import jakarta.json.JsonPatch;
 import jakarta.json.JsonString;
 import jakarta.json.JsonValue;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -137,6 +145,36 @@ public class PatchItemImpl implements PatchMCP {
                     item.getAuditStamp(),
                     aspectRetriever.getEntityRegistry());
     return patchItem.applyPatch(current, aspectRetriever).getAspect(clazz);
+  }
+
+  /**
+   * Stored values of {@code aspectName} for the PATCH items in {@code items}, read in one batched
+   * lookup, as the base for {@link #resolveProposedAspect}. Non-PATCH items carry their own aspect,
+   * so writes without a PATCH cost no read.
+   */
+  @Nonnull
+  public static <T extends RecordTemplate> Map<Urn, T> readStoredForPatches(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<? extends BatchItem> items,
+      @Nonnull String aspectName,
+      @Nonnull Class<T> clazz) {
+    Set<Urn> patchUrns =
+        items.stream()
+            .filter(item -> ChangeType.PATCH.equals(item.getChangeType()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    Map<Urn, T> stored = new HashMap<>();
+    AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+            aspectRetriever, operationContext, patchUrns, Set.of(aspectName))
+        .forEach(
+            (urn, aspects) -> {
+              Aspect aspect = aspects.get(aspectName);
+              if (aspect != null) {
+                stored.put(urn, RecordUtils.toRecordTemplate(clazz, aspect.data()));
+              }
+            });
+    return stored;
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {

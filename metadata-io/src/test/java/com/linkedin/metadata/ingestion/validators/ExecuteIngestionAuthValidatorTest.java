@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
@@ -20,21 +21,29 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class ExecuteIngestionAuthValidatorTest {
@@ -84,6 +93,71 @@ public class ExecuteIngestionAuthValidatorTest {
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  // A forceGenericPatch PATCH can create executionRequestInput from scratch; the source it names
+  // must still be checked, whether the PATCH arrives as a PatchItemImpl or a ProposedItem.
+  @DataProvider(name = "patchItemShapes")
+  public Object[][] patchItemShapes() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchCreatingRequestIsDeniedWithoutExecute(boolean alternateValidation) {
+    AuthorizationResult deny = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(deny.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    when(mockSession.authorize(any(), any(), anyCollection())).thenReturn(deny);
+
+    List<GenericJsonPatch.PatchOp> ops =
+        List.of(
+            addOp("/task", "RUN_INGEST"),
+            addOp("/args", Map.of()),
+            addOp("/executorId", "default"),
+            addOp("/requestedAt", 0),
+            addOp(
+                "/source",
+                Map.of(
+                    "type",
+                    "MANUAL_INGESTION_SOURCE",
+                    "ingestionSource",
+                    INGESTION_SOURCE_URN_STRING)));
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(EXECUTION_REQUEST_URN)
+            .setEntityType(EXECUTION_REQUEST_ENTITY_NAME)
+            .setAspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder().patch(ops).forceGenericPatch(true).build(),
+                    new ObjectMapper()));
+    BatchItem item =
+        alternateValidation
+            ? ProposedItem.builder()
+                .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry)
+            : PatchItemImpl.builder()
+                .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry);
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(item), mockRetrieverContext, mockSession)
+            .count(),
+        1);
+    // The denial must come from checking the source the patch names, not from failing to resolve.
+    Mockito.verify(mockSession, Mockito.atLeastOnce())
+        .authorize(
+            any(),
+            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
+            anyCollection());
+  }
+
+  private static GenericJsonPatch.PatchOp addOp(String path, Object value) {
+    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+    op.setOp("add");
+    op.setPath(path);
+    op.setValue(value);
+    return op;
   }
 
   @Test
