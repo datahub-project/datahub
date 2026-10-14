@@ -77,6 +77,20 @@ def test_nested_tables_path_is_not_a_table_shortcut() -> None:
     )
 
 
+def test_disabled_shortcut_detection_is_not_an_empty_result() -> None:
+    src = MagicMock()
+    src.config.shortcuts.enabled = False
+    assert FabricOneLakeSource._load_lakehouse_shortcuts(src, "ws-1", "lh-1") is None
+    src.client.list_shortcuts.assert_not_called()
+
+
+def test_lakehouse_with_no_table_shortcuts_returns_an_empty_dict() -> None:
+    src = MagicMock()
+    src.config.shortcuts.enabled = True
+    src.client.list_shortcuts.return_value = []
+    assert FabricOneLakeSource._load_lakehouse_shortcuts(src, "ws-1", "lh-1") == {}
+
+
 def test_file_shortcut_is_ignored() -> None:
     assert (
         parse_table_shortcut(
