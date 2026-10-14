@@ -800,6 +800,10 @@ class ClickHouseSourceReport(SQLSourceReport):
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_log_operations`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.

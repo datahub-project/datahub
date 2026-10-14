@@ -2,8 +2,10 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import OptionalTooltip from '@app/sharedV2/OptionalTooltip';
-import { Button, Editor } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 const ELLIPSIS = '...';
@@ -48,7 +50,8 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
         max-width: 100%;
     }
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
             font-size: 1.4em;
@@ -81,7 +84,8 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
 `;
 
 const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSProperties }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         * {
             line-height: ${LINE_HEIGHT};
             font-size: 1em !important;
