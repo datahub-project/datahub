@@ -14,11 +14,9 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -169,38 +167,15 @@ public class DataPlatformInstanceWriteAuthorizationValidator
     }
   }
 
-  /**
-   * Proposed value for one item. PATCH is applied to {@code current}; {@link
-   * BatchItem#getRecordTemplate()} must not be read for PATCH (it may hold a JSON patch).
-   */
+  /** Proposed value for one item, with PATCH applied to {@code current}; null if unresolvable. */
   @Nullable
   private static DataPlatformInstance resolveProposed(
       @Nonnull BatchItem item,
       @Nonnull AspectRetriever aspectRetriever,
       @Nullable DataPlatformInstance current) {
     try {
-      if (ChangeType.PATCH.equals(item.getChangeType())) {
-        if (!(item instanceof MCPItem)) {
-          return null;
-        }
-        MCPItem mcpItem = (MCPItem) item;
-        PatchItemImpl patchItem =
-            item instanceof PatchItemImpl
-                ? (PatchItemImpl) item
-                : PatchItemImpl.builder()
-                    .build(
-                        mcpItem.getMetadataChangeProposal(),
-                        mcpItem.getAuditStamp(),
-                        aspectRetriever.getEntityRegistry());
-        return patchItem.applyPatch(current, aspectRetriever).getAspect(DataPlatformInstance.class);
-      }
-      DataPlatformInstance proposed = item.getAspect(DataPlatformInstance.class);
-      if (proposed == null && item.getRecordTemplate() != null) {
-        proposed =
-            RecordUtils.toRecordTemplate(
-                DataPlatformInstance.class, item.getRecordTemplate().data());
-      }
-      return proposed;
+      return PatchItemImpl.resolveProposedAspect(
+          item, current, aspectRetriever, DataPlatformInstance.class);
     } catch (Exception e) {
       log.warn(
           "Failed to resolve proposed dataPlatformInstance for urn={}: {}",
