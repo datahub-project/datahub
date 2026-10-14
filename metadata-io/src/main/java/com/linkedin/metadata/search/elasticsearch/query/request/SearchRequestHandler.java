@@ -17,6 +17,7 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
@@ -128,6 +129,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
+  private final SearchConfiguration searchConfiguration;
 
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
@@ -182,6 +184,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.entityIndexConfiguration = configs.getEntityIndex();
+    this.searchConfiguration = configs.getSearch();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
             .build();
@@ -256,13 +259,16 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(
-        opContext,
-        this.entityNames,
+    return ESUtils.filterNonPrimarySiblings(
         filter,
-        searchableFieldTypes,
-        queryFilterRewriteChain,
-        entityIndexConfiguration);
+        getFilterQuery(
+            opContext,
+            this.entityNames,
+            filter,
+            searchableFieldTypes,
+            queryFilterRewriteChain,
+            entityIndexConfiguration),
+        searchConfiguration);
   }
 
   public static BoolQueryBuilder getFilterQuery(

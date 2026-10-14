@@ -592,6 +592,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
           "elasticsearch.search.pointInTimeCreationEnabled",
+          "elasticsearch.search.hideNonPrimarySiblings",
           "featureFlags.preProcessHooks.reprocessEnabled",
           "featureFlags.preProcessHooks.uiEnabled",
           "featureFlags.readOnlyModeEnabled",

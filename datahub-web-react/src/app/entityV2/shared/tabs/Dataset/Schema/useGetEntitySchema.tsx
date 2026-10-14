@@ -83,11 +83,29 @@ async function runSchemaQuery<T>(
     }
 }
 
+/**
+ * Siblings the schema queries fetch per dataset (the `count` on `siblingsSearch` in dataset.graphql).
+ * A group larger than this cannot be merged completely, so it is not merged at all: merging an
+ * arbitrary subset of a large group is slow on wide tables and shows columns from unrelated members.
+ */
+export const MAX_SIBLINGS_TO_COMBINE = 5;
+
+/** Combine a dataset's schema with its siblings only when siblings are shown merged and the whole group was fetched. */
+export function shouldCombineSiblings(
+    dataset: { siblingsSearch?: { total?: number | null } | null } | null | undefined,
+    isHideSiblingMode: boolean,
+): boolean {
+    if (isHideSiblingMode) return false;
+    return (dataset?.siblingsSearch?.total ?? 0) <= MAX_SIBLINGS_TO_COMBINE;
+}
+
 /** Take ownership of a response's dataset, combined with its siblings unless they are shown separately. */
 function adoptDataset<T extends { dataset?: SchemaDataset | null }>(data: T, isHideSiblingMode: boolean) {
     // combineEntityDataWithSiblings walks and rebuilds the tree; give it a private copy so a
     // frozen or shared response can never be mutated. The original is dropped right after.
-    const combined = isHideSiblingMode ? data : combineEntityDataWithSiblings(cloneDeep(data));
+    const combined = shouldCombineSiblings(data.dataset, isHideSiblingMode)
+        ? combineEntityDataWithSiblings(cloneDeep(data))
+        : data;
     return combined.dataset as SchemaDataset;
 }
 
