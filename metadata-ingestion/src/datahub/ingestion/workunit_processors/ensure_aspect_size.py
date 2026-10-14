@@ -483,24 +483,23 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def ensure_upstream_lineage_patch_size(
         self, entity_urn: str, patch_aspect: GenericAspectClass
     ) -> None:
-        payload = json.loads(patch_aspect.value)
-        operations = payload["patch"] if isinstance(payload, dict) else payload
-        # The patch is sent as an escaped JSON string inside the MCP, so measure it that
-        # way; the 2 quote characters cover the ", " separator between operations.
-        sizes = [len(json.dumps(json.dumps(operation))) for operation in operations]
-        # Skip patches with removes or whole-list replaces: dropping one would keep
-        # lineage the source deleted.
-        if sum(sizes) < self.schema_size_constraint or any(
+        # The patch is sent as an escaped JSON string inside the MCP; measure it that way.
+        if len(json.dumps(patch_aspect.value.decode())) < self.schema_size_constraint:
+            return
+        operations = json.loads(patch_aspect.value)
+        # Skip removes, whole-list replaces and wrapped patches: dropping an operation
+        # would keep lineage the source deleted.
+        if not isinstance(operations, list) or any(
             operation.get("op") != "add"
             or operation.get("path") in ("/upstreams", "/fineGrainedLineages")
             for operation in operations
         ):
             return
+        sizes = [len(json.dumps(json.dumps(operation))) for operation in operations]
 
-        # Table-level upstreams before column-level lineage. Adds to different fields
-        # are independent, so reordering them is safe.
+        # Adds to different fields are independent, so reordering them is safe.
         def is_upstream(operation: Dict[str, object]) -> bool:
-            return str(operation["path"]).startswith("/upstreams")
+            return str(operation.get("path", "")).startswith("/upstreams")
 
         accepted = []
         total_size = 0
@@ -524,11 +523,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
 
-        if isinstance(payload, dict):
-            payload["patch"] = accepted
-        else:
-            payload = accepted
-        patch_aspect.value = json.dumps(payload).encode()
+        patch_aspect.value = json.dumps(accepted).encode()
 
     def _query_properties_serialized_size(
         self, query_properties: QueryPropertiesClass
