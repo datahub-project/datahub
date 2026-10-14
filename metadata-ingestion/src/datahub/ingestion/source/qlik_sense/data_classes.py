@@ -61,6 +61,7 @@ class SpaceType(Enum):
     SHARED = "shared"
     MANAGED = "managed"
     DATA = "data"
+    STREAM = "stream"  # Qlik Sense Enterprise stream
 
 
 # Qlik table box type
