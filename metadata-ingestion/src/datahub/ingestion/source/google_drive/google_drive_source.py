@@ -201,6 +201,10 @@ def to_stored_document(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `extract_owners`")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     """Ingest Google Docs from Google Drive folders and shared drives as DataHub
     Document entities, preserving the folder hierarchy."""
