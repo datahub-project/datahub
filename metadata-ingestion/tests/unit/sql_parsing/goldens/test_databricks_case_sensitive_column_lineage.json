@@ -10,7 +10,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "betstatusid",
+                "column": "betStatusId",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -32,7 +32,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "channelid",
+                "column": "channelId",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}

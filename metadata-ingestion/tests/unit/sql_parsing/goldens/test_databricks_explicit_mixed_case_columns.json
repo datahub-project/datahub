@@ -11,7 +11,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "orderid",
+                "column": "orderId",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -33,7 +33,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "customerid",
+                "column": "customerId",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -55,7 +55,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "amountusd",
+                "column": "amountUsd",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -88,11 +88,11 @@
             "columns_involved": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
-                    "column": "orderid"
+                    "column": "orderId"
                 },
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)",
-                    "column": "orderid"
+                    "column": "orderId"
                 }
             ]
         }

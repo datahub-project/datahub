@@ -775,16 +775,34 @@ FROM staged
     )
 
 
-def test_databricks_case_sensitive_column_lineage() -> None:
-    # Regression guard for case-insensitive dialects (Databricks/Spark/Hive/Redshift/
-    # Trino/...). Unlike Snowflake, these fold identifiers *even when quoted*. A
-    # SELECT * over a schema with mixed-case columns expands to the columns' real
-    # casing (betStatusId), so the lineage lookup must not be re-folded. Passing the
+def test_hive_select_star_mixed_case_column_lineage() -> None:
+    # Regression guard for dialects that fold identifiers *even when quoted*
+    # (Spark/Hive/Redshift/Trino/...) and aren't in DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    # so their schema keeps its mixed case. A SELECT * expands to the columns' real
+    # casing (eventId), so the lineage lookup must not be re-folded. Passing the
     # lookup column as quoted=True alone is not enough here -- it case-folds
-    # "betStatusId" to "betstatusid", the column is no longer found, and the upstream
-    # edge is silently dropped. Marking the identifier case_sensitive keeps it
-    # verbatim. This mirrors the Unity Catalog view-lineage path. See
-    # https://github.com/tobymao/sqlglot/issues/7733.
+    # "eventId" to "eventid", the column is no longer found, and the upstream edge
+    # is silently dropped. Marking the identifier case_sensitive keeps it verbatim.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM my_schema.events",
+        dialect="hive",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)": {
+                "eventId": "BIGINT",
+                "userId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_hive_select_star_mixed_case_column_lineage.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Databricks matches columns case-insensitively, so the schema is folded before
+    # the SELECT * expansion. With no output table, the output columns still take
+    # their upstream column's declared casing (betStatusId). This mirrors the Unity
+    # Catalog view-lineage path and a dbt model compiled to a bare SELECT.
     assert_sql_result(
         "SELECT * FROM hive_metastore.bronze_kambi.bet",
         dialect="databricks",

@@ -998,6 +998,14 @@ class _ColumnResolver:
         else:
             return default_col_name
 
+    def is_schema_column(
+        self, table: Optional[_TableName], sqlglot_column: str
+    ) -> bool:
+        return (
+            table is not None
+            and sqlglot_column in self.table_schema_normalized_mapping.get(table, {})
+        )
+
 
 def _prepare_query_columns(
     statement: sqlglot.exp.Expression,
@@ -1256,6 +1264,9 @@ def _select_statement_cll(
                 # the best way to do it.
                 output_col = original_col_expression.this.sql(dialect=dialect)
 
+            output_col_in_schema = column_resolver.is_schema_column(
+                output_table, output_col
+            )
             output_col = column_resolver.schema_aware_fuzzy_column_resolve(
                 output_table, output_col
             )
@@ -1275,6 +1286,22 @@ def _select_statement_cll(
                 )
                 for edge in direct_raw_col_upstreams
             }
+
+            # Databricks folds the query's columns but preserves the declared casing,
+            # so when the output table's schema doesn't name the column (e.g. a bare
+            # SELECT, as in a dbt model) it would come out folded. A column copied from
+            # a single upstream column of the same name keeps that column's casing.
+            # Other case-insensitive dialects keep the folded name; Snowflake's, for
+            # example, is the lowercase convention its source emits.
+            if (
+                column_resolver.use_case_insensitive_cols
+                and is_dialect_instance(dialect, "databricks")
+                and not output_col_in_schema
+                and len(direct_resolved_col_upstreams) == 1
+            ):
+                (upstream_col,) = direct_resolved_col_upstreams
+                if upstream_col.column.lower() == output_col.lower():
+                    output_col = upstream_col.column
 
             if not direct_resolved_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
@@ -1385,7 +1412,9 @@ def _column_level_lineage(
     joins: Optional[List[_JoinInfo]] = None
     if not get_sql_agg_skip_joins():
         try:
-            joins = _list_joins(dialect=dialect, root_scope=root_scope)
+            joins = _list_joins(
+                dialect=dialect, root_scope=root_scope, column_resolver=column_resolver
+            )
             if logger.getEffectiveLevel() <= logging.DEBUG:
                 logger.debug("Joins: %s", joins)
         except Exception as e:
@@ -1686,8 +1715,14 @@ def _get_raw_col_upstreams_for_expression(
 def _list_joins(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
+    column_resolver: _ColumnResolver,
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
+
+    # Databricks folds the query's columns but preserves the declared casing, so join
+    # columns are matched to the schema's casing like the column lineage upstreams.
+    # Other dialects keep the folded names that their existing join output relies on.
+    resolve_join_column_case = is_dialect_instance(dialect, "databricks")
 
     joins: List[_JoinInfo] = []
 
@@ -1783,6 +1818,16 @@ def _list_joins(
             joined_columns = OrderedSet(
                 col for col in joined_columns if not _is_unnamed_table(col.table)
             )
+            if resolve_join_column_case:
+                joined_columns = OrderedSet(
+                    _ColumnRef(
+                        table=col.table,
+                        column=column_resolver.schema_aware_fuzzy_column_resolve(
+                            col.table, col.column
+                        ),
+                    )
+                    for col in joined_columns
+                )
 
             joins.append(
                 _JoinInfo(
