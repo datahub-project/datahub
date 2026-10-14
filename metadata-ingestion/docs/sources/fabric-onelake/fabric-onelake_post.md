@@ -367,7 +367,7 @@ Notebook ingestion is off by default. Set `include_notebooks: true` to ingest ea
 
 `notebook_pattern` filters on the notebook path. The path is `/<folder>/.../<name>`, built from the workspace folder listing and the notebook display name. A notebook in the workspace root is `/<name>`. Example: `^/Shared/.*`.
 
-For each notebook that passes the pattern, the connector calls `POST /workspaces/{workspaceId}/notebooks/{notebookId}/getDefinition?format=fabricGitSource`. The decoded source is stored as the dataset view definition, so it shows on the View Definition tab, and in the `content` custom property. The language (`python`, `sql`, `scala`, or `r`) is stored in `language` when the content file suffix identifies it. `path` is always set. If the definition request fails, the notebook is still ingested without contents.
+For each notebook that passes the pattern, the connector calls `POST /workspaces/{workspaceId}/notebooks/{notebookId}/getDefinition?format=fabricGitSource`. The decoded source is stored in the `content` custom property, and the language (`python`, `sql`, `scala`, or `r`) is stored in `language` when the content file suffix identifies it. `path` is always set. If the definition request fails, the notebook is still ingested without contents.
 
 The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
