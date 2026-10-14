@@ -37,6 +37,9 @@ FILE_FIELDS = (
     "webViewLink,owners(emailAddress),lastModifyingUser(emailAddress)"
 )
 LIST_FIELDS = f"nextPageToken,files({FILE_FIELDS})"
+FILE_WITH_PARENTS_FIELDS = f"{FILE_FIELDS},parents,trashed"
+# Folder levels `explain` climbs from a Doc looking for a configured root.
+MAX_FOLDER_DEPTH = 100
 ABOUT_FIELDS = "user(emailAddress)"
 DRIVE_FIELDS = "id,name,createdTime"
 DRIVES_LIST_FIELDS = f"nextPageToken,drives({DRIVE_FIELDS})"
@@ -85,6 +88,8 @@ FAILURE_EXPORT_FAILED = "export_failed"
 
 DRIVE_URL_FOLDER_ID_RE = re.compile(r"/folders/([A-Za-z0-9_-]+)")
 DRIVE_URL_QUERY_ID_RE = re.compile(r"[?&]id=([A-Za-z0-9_-]+)")
+# https://docs.google.com/document/d/<id>/edit and https://drive.google.com/file/d/<id>
+DRIVE_URL_FILE_ID_RE = re.compile(r"/d/([A-Za-z0-9_-]+)")
 DRIVE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,}$")
 PLATFORM_INSTANCE_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 

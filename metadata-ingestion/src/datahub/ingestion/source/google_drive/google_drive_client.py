@@ -34,6 +34,7 @@ from datahub.ingestion.source.google_drive.constants import (
     FAILURE_NOT_FOUND,
     FAILURE_TOO_LARGE,
     FILE_FIELDS,
+    FILE_WITH_PARENTS_FIELDS,
     FOLDER_PATH_SEPARATOR,
     HTTP_NOT_FOUND,
     LIST_FIELDS,
@@ -182,6 +183,21 @@ class GoogleDriveClient:
             .execute(num_retries=API_MAX_RETRIES)
         )
         return SharedDrive.model_validate(raw)
+
+    def get_file(self, file_id: str) -> DriveFile:
+        """One file with its parents and trash state. Raises HttpError when the
+        account cannot see it."""
+        if not DRIVE_ID_RE.match(file_id):
+            raise ValueError(f"Refusing to fetch unexpected file id '{file_id}'")
+        self.report.report_api_call(API_FILES_GET)
+        raw = (
+            self._service.files()
+            .get(
+                fileId=file_id, fields=FILE_WITH_PARENTS_FIELDS, supportsAllDrives=True
+            )
+            .execute(num_retries=API_MAX_RETRIES)
+        )
+        return DriveFile.model_validate(raw)
 
     def iter_shared_drives(self) -> Iterator[SharedDrive]:
         """Shared drives the authenticated account is a member of."""

@@ -19,10 +19,17 @@ from tests.test_helpers.google_drive_fakes import (
     ARCHIVE,
     CREDENTIAL,
     DOC_A1,
+    DOC_COPY,
+    DOC_EMPTY,
+    DOC_HUGE,
+    DOC_OLD,
     DOC_RUNBOOK,
+    DOC_TRASHED,
     ENG,
+    MIME_DOC,
     ROOT_A,
     SHARED_B,
+    SHEET,
     TEAM,
     FakeDriveService,
     build_fixture_service,
@@ -192,14 +199,16 @@ def test_shared_drives_stop_paging_at_the_limit() -> None:
 
 def test_no_raw_api_and_only_known_parameters() -> None:
     # files.list's `q` accepts fullText searches, a content oracle, so there is no
-    # raw `api` passthrough. `folder` is the one free-text parameter; the next test
-    # shows it never reaches a query.
+    # raw `api` passthrough. `folder` is matched against listed names (next test)
+    # and `document` must be a Drive ID before it is used
+    # (test_explain_refuses_what_it_cannot_find); neither reaches a query.
     specs = dict(_iter_specs(GoogleDriveMetadataProbe))
 
     assert "api" not in specs
     assert {param.name for spec in specs.values() for param in spec.params} <= {
         "limit",
         "folder",
+        "document",
     }
 
 
@@ -417,3 +426,105 @@ def test_doc_verdicts_judge_the_folder_chain_then_the_title() -> None:
     assert _judge(
         "Google Doc", ["Doc Runbook"], parent="Root A/Eng", recursive=False
     ) == [(False, "recursive")]
+
+
+PATTERNS: Dict[str, Any] = {
+    "folder_pattern": {"deny": [".*/Archive$"]},
+    "document_pattern": {"deny": ["^Copy of "]},
+}
+
+
+def test_explain_an_ingested_doc_reports_length_and_owners_never_text() -> None:
+    explained = make_probe(build_fixture_service(), **PATTERNS).explain(
+        document=DOC_RUNBOOK
+    )
+
+    assert explained == {
+        "name": "Doc Runbook",
+        "id": DOC_RUNBOOK,
+        "mime_type": MIME_DOC,
+        "folder": "Root A/Eng",
+        "owners": ["alice@example.com", "bob@example.com"],
+        "used_html_fallback": False,
+        "text_length": len(
+            "# Runbook\n\n1. Check the dashboard.\n2. Page the secondary."
+        ),
+        "ingested": True,
+    }
+    assert "Check the dashboard" not in str(explained)
+
+
+def test_explain_accepts_a_docs_url() -> None:
+    explained = make_probe(build_fixture_service()).explain(
+        document=f"https://docs.google.com/document/d/{DOC_A1}/edit?tab=t.0"
+    )
+
+    assert explained["id"] == DOC_A1
+    assert explained["ingested"] is True
+
+
+def test_explain_withholds_owners_when_ingestion_would_not_emit_them() -> None:
+    explained = make_probe(build_fixture_service(), extract_owners=False).explain(
+        document=DOC_RUNBOOK
+    )
+
+    assert "owners" not in explained
+    assert explained["owners_withheld"] == 2
+
+
+@pytest.mark.parametrize(
+    "file_id, overrides, excluded_by",
+    [
+        (SHEET, {}, "not_a_google_doc"),
+        (DOC_TRASHED, {}, "trashed"),
+        (DOC_COPY, PATTERNS, "document_pattern"),
+        (DOC_OLD, PATTERNS, "folder_pattern"),
+        (DOC_RUNBOOK, {"recursive": False}, "recursive"),
+        (DOC_A1, {"root_folder_ids": [SHARED_B]}, "outside_roots"),
+    ],
+)
+def test_explain_decides_before_exporting(
+    file_id: str, overrides: Dict[str, Any], excluded_by: str
+) -> None:
+    svc = build_fixture_service()
+
+    explained = make_probe(svc, **overrides).explain(document=file_id)
+
+    assert explained["ingested"] is False
+    assert explained["excluded_by"] == excluded_by
+    assert explained["explanation"]
+    assert svc.calls_for("files.export") == []
+
+
+def test_explain_names_the_folder_that_decided() -> None:
+    explained = make_probe(build_fixture_service(), **PATTERNS).explain(
+        document=DOC_OLD
+    )
+
+    assert explained["decided_by_folder"] == "Root A/Eng/Archive"
+
+
+@pytest.mark.parametrize(
+    "file_id, overrides, excluded_by",
+    [
+        (DOC_EMPTY, {}, "skip_empty_documents"),
+        (DOC_A1, {"min_text_length": 500}, "min_text_length"),
+        (DOC_A1, {"max_text_length": 5}, "max_text_length"),
+        (DOC_HUGE, {}, "too_large"),
+    ],
+)
+def test_explain_applies_the_text_rules_after_exporting(
+    file_id: str, overrides: Dict[str, Any], excluded_by: str
+) -> None:
+    explained = make_probe(build_fixture_service(), **overrides).explain(
+        document=file_id
+    )
+
+    assert explained["ingested"] is False
+    assert explained["excluded_by"] == excluded_by
+
+
+@pytest.mark.parametrize("document", ["not an id", "missingFile0001"])
+def test_explain_refuses_what_it_cannot_find(document: str) -> None:
+    with pytest.raises(ProbeArgumentError):
+        make_probe(build_fixture_service()).explain(document=document)

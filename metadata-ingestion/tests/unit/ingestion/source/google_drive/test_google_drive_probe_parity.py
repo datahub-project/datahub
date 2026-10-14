@@ -4,8 +4,14 @@ from unittest import mock
 
 import pytest
 
+from datahub.ingestion.source.google_drive.google_drive_config import (
+    GoogleDriveSourceConfig,
+)
 from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
     make_document_urn,
+)
+from datahub.ingestion.source.google_drive.google_drive_probe import (
+    GoogleDriveMetadataProbe,
 )
 from datahub.metadata.schema_classes import DocumentInfoClass, SubTypesClass
 from tests.test_helpers.google_drive_fakes import (
@@ -18,6 +24,7 @@ from tests.test_helpers.google_drive_fakes import (
     DOC_OLD,
     DOC_RUNBOOK,
     ENG,
+    MIME_FOLDER,
     ROOT_A,
     SHARED_B,
     SPECS,
@@ -165,3 +172,46 @@ def test_probe_verdicts_match_ingestion(
         assert report.excluded_by(label) == {
             make_document_urn(file_id): reason for file_id, reason in expected.items()
         }
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param(
+            {
+                "folder_pattern": {"deny": [".*/Archive$"]},
+                "document_pattern": {"deny": ["^Copy of "]},
+            },
+            id="patterns",
+        ),
+        pytest.param({"recursive": False, "max_text_length": 30}, id="text-rules"),
+    ],
+)
+def test_explain_agrees_with_ingestion_for_every_doc(
+    tmp_path: Path, overrides: Dict[str, object]
+) -> None:
+    # The whole fixture, including the Docs dropped after export (empty, too
+    # large, too long), which only `explain` judges.
+    svc = build_fixture_service()
+    recipe: Dict[str, object] = {"root_folder_ids": [ROOT_A, SHARED_B], **overrides}
+
+    with mock.patch(BUILD_DRIVE_SERVICE, return_value=svc):
+        emitted = emitted_documents(
+            pipeline_ingestion("google-drive", tmp_path)(recipe), folders=False
+        )
+        config = GoogleDriveSourceConfig.model_validate(recipe)
+        with GoogleDriveMetadataProbe(config) as probe:
+            explained = {
+                file_id: probe.explain(document=file_id)
+                for file_id, raw in svc.files_by_id.items()
+                if raw["mimeType"] != MIME_FOLDER
+            }
+
+    ingested = {
+        make_document_urn(file_id)
+        for file_id, result in explained.items()
+        if result["ingested"]
+    }
+    assert ingested == emitted
+    # Every outcome came from a named rule, not a fallthrough.
+    assert all(r["ingested"] or r["explanation"] for r in explained.values())

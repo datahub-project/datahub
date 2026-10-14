@@ -39,7 +39,7 @@ On each run the connector lists every configured folder, then compares each Doc'
 
 #### Probe support
 
-`datahub recipe probe` checks a recipe against Google Drive without running ingestion. It reads metadata only and never exports a Doc.
+`datahub recipe probe` checks a recipe against Google Drive without running ingestion. It returns metadata only, never a Doc's text.
 
 - `identity`: the account the recipe connects as and, when `delegated_user` is set, whether domain-wide delegation is in effect.
 - `roots`: each configured root's name and kind (My Drive folder, shared drive, or a folder in a shared drive), or why it cannot be opened and how to fix it.
@@ -59,7 +59,9 @@ datahub recipe probe filter --recipe google_drive_recipe.yml --kind "Google Doc"
   --parent "Handbook/Engineering" --name "Copy of Runbook"
 ```
 
-Whether a Doc is ingested also depends on its exported text (empty, shorter than `min_text_length`, or longer than `max_text_length`), which the probe does not read.
+- `explain --document <ID or URL>`: whether one file would be ingested, and if not, which rule decides. It applies the folder and title rules first, then exports the Doc to check the text-length rules (empty, shorter than `min_text_length`, or longer than `max_text_length`). It reports the text's length, never the text.
+
+`explain` is the only command that exports a Doc. The listings and `probe filter` judge folders and titles only, so a Doc they keep can still be skipped for its text.
 
 When Google refuses a token, for example because domain-wide delegation is not authorized, the probe exits with code 3 and says what to change.
 

@@ -86,6 +86,10 @@ from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
 from datahub.ingestion.source.google_drive.google_drive_selection import (
+    MAX_TEXT_LENGTH,
+    MIN_TEXT_LENGTH,
+    SKIP_EMPTY_DOCUMENTS,
+    exported_text_verdict,
     root_document_verdict,
 )
 from datahub.ingestion.source.google_drive.models import (
@@ -523,12 +527,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         text = clean_markdown(result.text)
-        if (self.config.skip_empty_documents and not text) or len(
-            text
-        ) < self.config.min_text_length:
+        text_verdict = exported_text_verdict(self.config, len(text))
+        if text_verdict.excluded_by in (SKIP_EMPTY_DOCUMENTS, MIN_TEXT_LENGTH):
             self.report.documents_skipped_empty += 1
             return
-        if self.config.max_text_length and len(text) > self.config.max_text_length:
+        if text_verdict.excluded_by == MAX_TEXT_LENGTH:
             self.report.documents_skipped_too_long += 1
             # Not registered in state, so a previously ingested copy is soft-deleted.
             self.report.warning(

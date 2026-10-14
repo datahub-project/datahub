@@ -23,11 +23,14 @@ from datahub.ingestion.source.google_drive.constants import (
     CHAIN_SEPARATOR,
     CREDENTIAL_APPLICATION_DEFAULT,
     CREDENTIAL_SERVICE_ACCOUNT,
+    DRIVE_ID_RE,
     DRIVE_SCOPES,
+    DRIVE_URL_FILE_ID_RE,
     FOLDER_PATH_SEPARATOR,
     HTTP_FORBIDDEN,
     HTTP_NOT_FOUND,
     KIND_GOOGLE_DOC,
+    MAX_FOLDER_DEPTH,
     OAUTH_INVALID_GRANT,
     OAUTH_UNAUTHORIZED_CLIENT,
     RATE_LIMIT_REASONS,
@@ -52,12 +55,37 @@ from datahub.ingestion.source.google_drive.google_drive_report import (
 )
 from datahub.ingestion.source.google_drive.google_drive_selection import (
     DriveSelectionConfig,
+    exported_text_verdict,
     folder_document_verdict,
     google_doc_verdict,
 )
+from datahub.ingestion.source.google_drive.google_drive_source import clean_markdown
 from datahub.ingestion.source.google_drive.models import DriveFile, FolderNode
 
 KIND_FOLDER = str(DocumentSubTypes.FOLDER)
+# Why `explain` says a Doc is not ingested, beyond the config rule names
+# google_drive_selection returns and the export failures ExportResult carries.
+NOT_A_GOOGLE_DOC = "not_a_google_doc"
+TRASHED = "trashed"
+OUTSIDE_ROOTS = "outside_roots"
+_EXPLANATIONS = {
+    NOT_A_GOOGLE_DOC: "Only Google Docs are ingested.",
+    TRASHED: "It is in the trash.",
+    OUTSIDE_ROOTS: "It is not under any configured root, or the account cannot "
+    "see a folder between it and one.",
+    "folder_pattern": "folder_pattern skips a folder above it, so the walk never "
+    "lists it.",
+    "recursive": "It is below a subfolder and recursive is false.",
+    "document_pattern": "document_pattern skips its title.",
+    "skip_empty_documents": "Its exported text is empty.",
+    "min_text_length": "Its exported text is shorter than min_text_length.",
+    "max_text_length": "Its exported text is longer than max_text_length; the run "
+    "warns and skips it.",
+    "not_found": "Google Drive could not export it.",
+    "too_large": "Google Drive refuses to export Docs over 10 MB.",
+    "export_failed": "Google Drive could not export it; the run reports a failure "
+    "and retries it next time.",
+}
 _SPLIT_PATH_WARNING = (
     "judged by splitting the folder path on '/', so a folder whose name contains "
     "'/' may be judged wrongly; `probe filter --from-run` on a `folders` or "
@@ -303,6 +331,119 @@ class GoogleDriveMetadataProbe(ProbeProviderBase):
             "may_reach_max_documents": max_documents > 0
             and len(tree.documents) >= max_documents,
         }
+
+    @probe_method()
+    def explain(self, document: str) -> Dict[str, object]:
+        """Whether one file would be ingested, and if not, which rule decides,
+        given its Drive ID or a Docs or Drive URL. Climbs from the file to a
+        configured root and applies the folder and title rules ingestion applies;
+        only when those pass does it export the Doc, to check the text-length
+        rules, and it reports the length, never the text. Owners are included only
+        when extract_owners is on, since only then does ingestion emit them."""
+        file_id = self._file_id(document)
+        with self._source_access():
+            file = self._get_visible_file(file_id)
+            result: Dict[str, object] = {
+                "name": file.name,
+                "id": file.id,
+                "mime_type": file.mime_type,
+            }
+            if not file.is_document:
+                return self._explained(result, NOT_A_GOOGLE_DOC)
+            if file.trashed:
+                return self._explained(result, TRASHED)
+            folders = self._folder_chain(file)
+            if folders is None:
+                return self._explained(result, OUTSIDE_ROOTS)
+            result["folder"] = folders[-1]
+            verdict = google_doc_verdict(self._config, folders, file.name)
+            if not verdict.included:
+                assert verdict.excluded_by is not None
+                if verdict.matched_target:
+                    result["decided_by_folder"] = verdict.matched_target
+                return self._explained(result, verdict.excluded_by)
+            self._add_owners(result, file)
+            export = self._client().export_markdown(file.id)
+        result["used_html_fallback"] = export.used_html_fallback
+        if export.text is None:
+            assert export.failure_reason is not None
+            return self._explained(result, export.failure_reason)
+        text_length = len(clean_markdown(export.text))
+        result["text_length"] = text_length
+        text_verdict = exported_text_verdict(self._config, text_length)
+        if not text_verdict.included:
+            assert text_verdict.excluded_by is not None
+            return self._explained(result, text_verdict.excluded_by)
+        result["ingested"] = True
+        return result
+
+    @staticmethod
+    def _explained(result: Dict[str, object], reason: str) -> Dict[str, object]:
+        result["ingested"] = False
+        result["excluded_by"] = reason
+        result["explanation"] = _EXPLANATIONS[reason]
+        return result
+
+    @staticmethod
+    def _file_id(document: str) -> str:
+        candidate = document.strip()
+        match = DRIVE_URL_FILE_ID_RE.search(candidate)
+        if match:
+            candidate = match.group(1)
+        if not DRIVE_ID_RE.match(candidate):
+            raise ProbeArgumentError(
+                f"'{document}' is not a Drive file ID or a Docs or Drive file URL"
+            )
+        return candidate
+
+    def _get_visible_file(self, file_id: str) -> DriveFile:
+        try:
+            return self._client().get_file(file_id)
+        except HttpError as e:
+            if http_error_status(e) != HTTP_NOT_FOUND:
+                raise
+            raise ProbeArgumentError(
+                f"no file '{file_id}' that {self._account_hint()} can see"
+            ) from e
+
+    def _folder_chain(self, file: DriveFile) -> Optional[List[str]]:
+        """The folder paths from a configured root down to the file's folder, root
+        first, as the ingestion walk would build them; None when no configured root
+        is above it. Follows the first parent, as Drive gives each item one."""
+        roots = {walked.node.id: walked.node for walked in self._open_roots()}
+        names: List[str] = []
+        parents = file.parents
+        for _ in range(MAX_FOLDER_DEPTH):
+            if not parents:
+                return None
+            parent_id = parents[0]
+            root = roots.get(parent_id)
+            if root is not None:
+                chain = [root.path]
+                for name in reversed(names):
+                    chain.append(chain[-1] + FOLDER_PATH_SEPARATOR + name)
+                return chain
+            try:
+                parent = self._client().get_file(parent_id)
+            except HttpError as e:
+                if http_error_status(e) not in (HTTP_FORBIDDEN, HTTP_NOT_FOUND):
+                    raise
+                # A folder the account cannot see: the walk could not pass it.
+                return None
+            names.append(parent.name)
+            parents = parent.parents
+        return None
+
+    def _add_owners(self, result: Dict[str, object], file: DriveFile) -> None:
+        emails: List[str] = []
+        for owner in file.owners:
+            if owner.email_address and owner.email_address not in emails:
+                emails.append(owner.email_address)
+        if self._config.extract_owners:
+            result["owners"] = emails
+        else:
+            # Withheld: ingestion does not emit owners with extract_owners off.
+            result["owners_withheld"] = len(emails)
 
     def _open_roots(self) -> List[_WalkedFolder]:
         client = self._client()
