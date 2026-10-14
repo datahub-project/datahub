@@ -81,6 +81,29 @@ def test_query_result_logs_unknown_when_total_rows_unavailable(
     )
 
 
+def test_query_result_logs_zero_rows_when_result_is_empty(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    job = MagicMock()
+    job.job_id = "job_empty"
+    rows = MagicMock()
+    rows.total_rows = 0
+    rows.pages = [_Page([])]
+    job.result.return_value = rows
+
+    schema_api = BigQuerySchemaApi.__new__(BigQuerySchemaApi)
+    schema_api.bq_client = MagicMock()
+    schema_api.bq_client.query.return_value = job
+
+    with caplog.at_level(logging.DEBUG):
+        assert list(schema_api.get_query_result("select 1")) == []
+
+    assert (
+        "BigQuery job job_empty completed; results are ready to download (0 rows)"
+        in [record.message for record in caplog.records]
+    )
+
+
 def test_query_result_logs_read_progress(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

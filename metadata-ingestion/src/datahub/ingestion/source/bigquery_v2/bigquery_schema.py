@@ -427,10 +427,11 @@ class BigQuerySchemaApi:
         # BigQuery marks it complete; it does not download the rows.
         logger.debug("Submitted BigQuery job %s; waiting for completion", resp.job_id)
         rows = resp.result()
+        total_rows = getattr(rows, "total_rows", None)
         logger.debug(
             "BigQuery job %s completed; results are ready to download (%s rows)",
             resp.job_id,
-            getattr(rows, "total_rows", None) or "unknown",
+            total_rows if total_rows is not None else "unknown",
         )
         return _iter_bigquery_results(rows, resp.job_id)
 
