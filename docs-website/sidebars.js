@@ -707,11 +707,6 @@ module.exports = {
           },
           items: [
             {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/metrics-and-semantic-models",
-            },
-            {
               label: "Ossie Compatibility",
               type: "doc",
               id: "docs/features/feature-guides/ossie-compatibility",
