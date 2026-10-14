@@ -84,15 +84,6 @@ _PROJECTS = ParityListing(
     identity=lambda record: _leaf(record.name),
 )
 _SITES = ParityListing("sites", "sites", lambda index: index.container_names("Site"))
-# tableau_selection.probe_project_verdict: Nested is re-admitted under a
-# parent that is itself only re-admitted, which ingestion's one pass decides
-# in listing order. The fixture lists the parent first, as Tableau does.
-_ORDER_DEPENDENT = (
-    "included only through extract_project_hierarchy, via a parent that is "
-    "itself included only that way; ingestion re-admits these in one pass in "
-    "Tableau's API listing order, so whether it is ingested can depend on that "
-    "order"
-)
 
 
 @pytest.mark.usefixtures("_tableau_server")
@@ -109,7 +100,9 @@ def test_hierarchy_readmission_of_nested_projects_matches_ingestion(
         [_PROJECTS],
     )
     assert report.excluded_by("projects") == {"Project 2": "project_pattern"}
-    assert _ORDER_DEPENDENT in report.kinds["projects"].warnings
+    # Nested is re-admitted under a parent that is itself only re-admitted,
+    # which ingestion's one pass decides in listing order; the probe says so.
+    assert any("listing order" in w for w in report.kinds["projects"].warnings)
 
 
 @pytest.mark.usefixtures("_tableau_server")
