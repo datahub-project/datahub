@@ -26,6 +26,8 @@ class UnityCatalogReport(SQLSourceReport):
         type="ml_model_version"
     )
     metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
+    volumes: EntityFilterReport = EntityFilterReport.field(type="volume")
+    volume_files: EntityFilterReport = EntityFilterReport.field(type="volume file")
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -70,6 +72,22 @@ class UnityCatalogReport(SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_volumes_missing_name: int = 0
+    num_volumes_list_failed: int = 0
+    num_volumes_parse_failed: int = 0
+    num_volume_files_list_failed: int = 0
+    # Volume-file entries skipped because their path/name couldn't be resolved.
+    num_volume_file_entries_unresolvable: int = 0
+    # Volumes whose file walk stopped at volume_file_max_results (counts volumes,
+    # not skipped files).
+    num_volumes_file_limit_reached: int = 0
+    num_volume_folders_emitted: int = 0
+    num_volume_file_schemas_inferred: int = 0
+    num_volume_file_schema_inference_failed: int = 0
+    # Files skipped for schema inference because their extension is unsupported.
+    num_volume_file_schema_skipped: int = 0
+    # Files skipped for schema inference because they exceed volume_file_schema_max_bytes.
+    num_volume_file_schema_too_large: int = 0
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0

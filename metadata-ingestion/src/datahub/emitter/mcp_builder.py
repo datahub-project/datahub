@@ -161,12 +161,28 @@ class UnitySchemaKeyWithMetastore(CatalogKeyWithMetastore):
     unity_schema: str
 
 
+class UnityVolumeKeyWithMetastore(UnitySchemaKeyWithMetastore):
+    volume: str
+
+
+class UnityVolumeFolderKeyWithMetastore(UnityVolumeKeyWithMetastore):
+    folder_path: str
+
+
 class CatalogKey(ContainerKey):
     catalog: str
 
 
 class UnitySchemaKey(CatalogKey):
     unity_schema: str
+
+
+class UnityVolumeKey(UnitySchemaKey):
+    volume: str
+
+
+class UnityVolumeFolderKey(UnityVolumeKey):
+    folder_path: str
 
 
 class BigQueryDatasetKey(ProjectIdKey):

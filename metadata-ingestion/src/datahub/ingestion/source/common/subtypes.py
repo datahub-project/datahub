@@ -56,6 +56,7 @@ class DatasetSubTypes(StrEnum):
     SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    DATABRICKS_VOLUME_FILE = "Volume File"
     CUBE = "Cube"
 
     # TODO: Create separate entity...
@@ -84,6 +85,7 @@ class DatasetContainerSubTypes(StrEnum):
     # A BigQuery Sharing linked dataset: a read-only pointer into another project.
     BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
+    DATABRICKS_VOLUME = "Volume"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"

@@ -42,6 +42,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
   - One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
   - One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
   - Ownership of or `SELECT` privilege on any tables and views you want to ingest
+  - Ownership of or `READ VOLUME` privilege on any volumes you want to ingest (`include_volumes`, enabled by default). The same privilege is used to list files inside a volume when `include_volume_files` is enabled (off by default).
   - [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
   - [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
 - To ingest legacy hive_metastore catalog (`include_hive_metastore` - enabled by default), your service principal must have all of the following:

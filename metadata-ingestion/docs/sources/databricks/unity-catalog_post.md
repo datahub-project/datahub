@@ -48,6 +48,71 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+#### Volumes
+
+[Unity Catalog Volumes](https://docs.databricks.com/aws/en/volumes/) are named storage locations (managed or external) under a catalog and schema, used for non-tabular files. DataHub ingests each volume as a **container** with subtype `Volume` (`include_volumes: true` by default), mirroring how a volume actually contains files rather than being a dataset itself.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_volumes: true
+    volume_pattern:
+      allow:
+        - my_catalog\.analytics\..*
+```
+
+Each volume emits:
+
+- A `Volume` subtype container so it is distinguishable from tables and views.
+- Container properties: comment, owner, `volume_type` (`MANAGED` or `EXTERNAL`), `storage_location`, volume id, and created/updated timestamps.
+- Nesting under the parent schema container (the same browse path as tables and views).
+
+Files and directories inside a volume are **not** ingested unless you set `include_volume_files: true`. Hive Metastore catalogs have no volumes and are skipped. Listing requires `READ VOLUME` on the volume plus `USE CATALOG` / `USE SCHEMA` on the parent; a list failure is reported and that schema's volumes are skipped without failing the rest of ingestion. Set `include_volumes: false` to skip the extra `volumes.list` call per schema.
+
+When `include_volume_files` is enabled, the volume's contents are modelled as a nested browse tree:
+
+- Each **file** is emitted as a dataset with subtype `Volume File`, parented to its immediate folder (or the volume itself for top-level files), with `catalog.schema.volume/relative/path` as the qualified name.
+- Each intermediate **subfolder** in a file's path is emitted as a container with subtype `Folder`, nested under the volume (or the folder above it), so the file's directory structure is navigable in the UI.
+
+Cap listing with `volume_file_max_results` (default 1000 per volume) and filter with `volume_file_pattern`.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_volumes: true
+    include_volume_files: true
+    volume_file_max_results: 500
+    volume_file_pattern:
+      allow:
+        - my_catalog\.analytics\.landing/.*\.parquet
+```
+
+##### Volume-file schema inference
+
+Set `include_volume_file_schemas: true` (off by default; requires `include_volume_files: true`) to infer and attach a `SchemaMetadata` aspect to each volume-file dataset for supported formats — `parquet`, `csv`, `tsv`, `json`, `jsonl`, and `avro`. DataHub downloads the file contents via the Databricks Files API and reuses the same schema inferrers as the data-lake sources.
+
+Because file bytes are pulled and buffered in memory, this is opt-in and bounded:
+
+- `volume_file_schema_max_rows` (default 100) — rows sampled per file for csv/tsv/json inference.
+- `volume_file_schema_max_bytes` (default 100 MiB) — files larger than this are skipped for inference (and counted in the report); the file dataset is still emitted, just without a schema.
+
+Files whose extension is unsupported are skipped for inference. Download or inference failures are reported and the file is emitted without a schema rather than failing the run.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_volumes: true
+    include_volume_files: true
+    include_volume_file_schemas: true
+    volume_file_schema_max_rows: 100
+    volume_file_pattern:
+      allow:
+        - my_catalog\.analytics\.landing/.*\.parquet
+```
+
 #### Usage statistics
 
 Usage is enabled by default (`include_usage_statistics: true`). Choose how query history is read with `usage_data_source`:
@@ -128,6 +193,9 @@ To ingest Unity Catalog information schema
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- Unity Catalog Volumes are ingested as containers under the parent schema, with files (subtype `Volume File`) and subfolders (subtype `Folder`) nested underneath when `include_volume_files` is enabled. File schemas are inferred only when `include_volume_file_schemas` is enabled, for supported formats (parquet/csv/tsv/json/jsonl/avro) and within the configured byte cap.
+- Volume tags and volume-to-table lineage are not extracted.
 
 ### Troubleshooting
 

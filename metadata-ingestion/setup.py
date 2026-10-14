@@ -479,6 +479,12 @@ databricks_common = {
 
 databricks = {
     "requests<3.0.0",
+    # Volume-file schema inference reuses the data-lake inferrers. avro/ijson are in
+    # base requirements; pyarrow (parquet), ujson (json/jsonl) and tableschema
+    # (csv/tsv) are not, so declare them here to match the s3 extra.
+    *pyarrow_common,
+    "ujson>=5.12.1,<6.0.0",
+    "tableschema>=1.20.2,<2.0.0",
 }
 
 # [rsa] pulls cryptography, needed for MySQL 8 caching_sha2_password full auth.
