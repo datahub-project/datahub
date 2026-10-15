@@ -6,8 +6,8 @@ import styled from 'styled-components';
 import { SelectOption } from '@components/components/Select/types';
 
 import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entity/shared/utils';
-import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import useDebouncedCallback from '@app/sharedV2/hooks/useDebouncedCallback';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
 
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, Tag } from '@types';

@@ -12,9 +12,9 @@ import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStack
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import { OwnerLabel } from '@app/sharedV2/OwnerLabel';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@src/graphql/mutations.generated';

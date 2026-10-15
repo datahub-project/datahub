@@ -20,12 +20,12 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import { Message } from '@app/shared/Message';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { Message } from '@app/sharedV2/Message';
+import { RoutedTabs } from '@app/sharedV2/RoutedTabs';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 

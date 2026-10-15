@@ -19,7 +19,7 @@ import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/ut
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
 // Section id for the built-in "DataHub" (native docs) group. Platform groups use

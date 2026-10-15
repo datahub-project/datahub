@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import dayjs from '@utils/dayjs';
 
 const PropertyContainer = styled.div`

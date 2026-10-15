@@ -5,11 +5,11 @@ import styled from 'styled-components';
 
 import { usePropagationDetails } from '@app/entity/shared/propagation/utils';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { parsePropagationContext } from '@app/sharedV2/propagation/utils';
 import { usePropagationContextEntities } from '@app/sharedV2/tags/usePropagationContextEntities';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 const DetailsWrapper = styled.div<{ $addMargin?: boolean }>`
     ${({ $addMargin }) => $addMargin && 'margin-top: 8px;'}

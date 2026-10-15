@@ -12,7 +12,7 @@ import {
     SummaryTabWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 import { GetApiQuery } from '@graphql/api.generated';
 

@@ -24,8 +24,8 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/search/utils/constants';
-import AddTagsModal from '@app/shared/tags/AddTagsModal';
-import AddTermsModal from '@app/shared/tags/AddTermsModal';
+import AddTagsModal from '@app/sharedV2/tags/AddTagsModal';
+import AddTermsModal from '@app/sharedV2/tags/AddTermsModal';
 
 import { FacetMetadata } from '@types';
 

@@ -31,7 +31,7 @@ vi.mock('@app/domainV2/useScrollDomains', () => ({
     default: mockUseScrollDomains,
 }));
 
-vi.mock('@app/shared/useToggle', () => ({
+vi.mock('@app/sharedV2/useToggle', () => ({
     default: mockUseToggle,
 }));
 
@@ -52,11 +52,11 @@ vi.mock('@app/sharedV2/sidebar/components', () => ({
     RotatingTriangle: () => null,
 }));
 
-vi.mock('@app/shared/Loading', () => ({
+vi.mock('@app/sharedV2/Loading', () => ({
     default: () => null,
 }));
 
-vi.mock('@app/shared/components', () => ({
+vi.mock('@app/sharedV2/components', () => ({
     BodyContainer: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     BodyGridExpander: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));

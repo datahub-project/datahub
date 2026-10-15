@@ -18,8 +18,8 @@ import {
     updateSecretInListSecretsCache,
 } from '@app/ingestV2/secret/cacheUtils';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
-import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import {
     useCreateSecretMutation,

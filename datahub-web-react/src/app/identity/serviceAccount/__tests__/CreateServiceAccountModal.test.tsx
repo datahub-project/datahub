@@ -34,7 +34,7 @@ vi.mock('@graphql/auth.generated', async (importOriginal) => {
 });
 
 // Mock the useEnterKeyListener hook
-vi.mock('@app/shared/useEnterKeyListener', () => ({
+vi.mock('@app/sharedV2/useEnterKeyListener', () => ({
     useEnterKeyListener: vi.fn(),
 }));
 

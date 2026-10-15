@@ -1,8 +1,8 @@
 import React, { Suspense } from 'react';
 import { Route } from 'react-router-dom';
 
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault } from '@app/shared/lazyPage';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault } from '@app/sharedV2/lazyPage';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 

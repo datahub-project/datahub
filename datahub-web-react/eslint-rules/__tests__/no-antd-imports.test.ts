@@ -68,4 +68,17 @@ describe('no-antd-imports', () => {
             lint("import { Button } from 'antd';", { baselineRef: 'refs/does-not-exist-antd-test' }, filename),
         ).toHaveLength(0);
     });
+
+    it('reads renamed files from git diff --name-status output', () => {
+        const output = [
+            'R095\tsrc/app/shared/Message.tsx\tsrc/app/sharedV2/Message.tsx',
+            'M\tsrc/app/sharedV2/Loading.tsx',
+            'R100\tsrc/app/shared/a.ts\tsrc/app/sharedV2/a.ts',
+            '',
+        ].join('\n');
+        expect(rule.parseRenamedFiles(output)).toEqual([
+            ['src/app/shared/Message.tsx', 'src/app/sharedV2/Message.tsx'],
+            ['src/app/shared/a.ts', 'src/app/sharedV2/a.ts'],
+        ]);
+    });
 });

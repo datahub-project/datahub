@@ -10,7 +10,7 @@ import CreatePostModal from '@app/settingsV2/posts/CreatePostModal';
 import { PostEntry, PostListMenuColumn } from '@app/settingsV2/posts/PostsListColumns';
 import { POST_TYPE_TO_DISPLAY_TEXT } from '@app/settingsV2/posts/constants';
 import { addToListPostCache, removeFromListPostCache } from '@app/settingsV2/posts/utils';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { Alert, EmptyState, OverflowText, Pagination, Pill, SearchBar, Table } from '@src/alchemy-components';
 import { Column } from '@src/alchemy-components/components/Table/types';

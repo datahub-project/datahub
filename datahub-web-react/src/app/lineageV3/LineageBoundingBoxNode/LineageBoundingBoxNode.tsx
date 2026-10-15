@@ -18,7 +18,7 @@ import {
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';

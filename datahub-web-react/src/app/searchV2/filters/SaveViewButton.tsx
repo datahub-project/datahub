@@ -9,7 +9,7 @@ import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { TextButton } from '@app/searchV2/filters/styledComponents';
 import { canCreateViewFromFilters } from '@app/searchV2/filters/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 
 import { FacetFilterInput } from '@types';
 

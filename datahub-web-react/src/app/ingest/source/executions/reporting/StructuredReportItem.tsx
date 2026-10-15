@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportItemContext } from '@app/ingest/source/executions/reporting/StructuredReportItemContext';
 import { StructuredReportLogEntry } from '@app/ingest/source/types';
-import { applyOpacity } from '@app/shared/styleUtils';
+import { applyOpacity } from '@app/sharedV2/styleUtils';
 
 const StyledCollapse = styled(Collapse)<{ color: string }>`
     background-color: ${(props) => applyOpacity(props.color, 8)};

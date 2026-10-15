@@ -14,7 +14,7 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { ModalButtonContainer } from '@app/sharedV2/button/styledComponents';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 

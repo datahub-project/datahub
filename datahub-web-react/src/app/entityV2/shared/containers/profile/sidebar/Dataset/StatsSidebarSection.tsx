@@ -7,7 +7,7 @@ import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import UsageFacepile from '@app/entityV2/dataset/profile/UsageFacepile';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
 import { SidebarHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeader';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { Operation, UsageQueryResult } from '@types';

@@ -25,7 +25,7 @@ import {
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';

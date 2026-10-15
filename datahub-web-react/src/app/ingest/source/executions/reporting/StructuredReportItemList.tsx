@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import { StructuredReportItem } from '@app/ingest/source/executions/reporting/StructuredReportItem';
 import { StructuredReportLogEntry } from '@app/ingest/source/types';
-import { ShowMoreSection } from '@app/shared/ShowMoreSection';
+import { ShowMoreSection } from '@app/sharedV2/ShowMoreSection';
 
 const ItemList = styled.div`
     display: flex;

@@ -17,8 +17,8 @@ import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListDomainsQuery } from '@graphql/domain.generated';

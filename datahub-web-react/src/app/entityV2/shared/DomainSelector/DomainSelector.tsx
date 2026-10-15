@@ -14,7 +14,7 @@ import {
     isEntityResolutionRequired,
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { CustomOptionRenderer } from '@src/alchemy-components/components/Select/types';

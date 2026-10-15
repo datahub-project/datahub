@@ -36,8 +36,8 @@ import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 

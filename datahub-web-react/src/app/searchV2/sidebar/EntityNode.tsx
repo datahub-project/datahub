@@ -17,8 +17,8 @@ import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import useToggle from '@app/shared/useToggle';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Count = styled(Typography.Text)`

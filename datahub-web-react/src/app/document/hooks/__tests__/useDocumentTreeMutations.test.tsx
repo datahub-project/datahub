@@ -14,7 +14,7 @@ import {
     useMoveDocumentTreeMutation,
     useUpdateDocumentTitleMutation,
 } from '@app/document/hooks/useDocumentTreeMutations';
-import { ErrorCodes } from '@app/shared/constants';
+import { ErrorCodes } from '@app/sharedV2/constants';
 
 import {
     CreateDocumentDocument,

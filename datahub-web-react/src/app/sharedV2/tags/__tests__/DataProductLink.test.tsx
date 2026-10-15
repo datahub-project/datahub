@@ -16,7 +16,7 @@ vi.mock('@app/useEntityRegistry', () => ({
     }),
 }));
 
-vi.mock('@app/shared/useEmbeddedProfileLinkProps', () => ({
+vi.mock('@app/sharedV2/useEmbeddedProfileLinkProps', () => ({
     useEmbeddedProfileLinkProps: () => ({}),
 }));
 

@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { Entity, IconStyleType } from '@app/entityV2/Entity';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
-import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
+import { TYPE_ICON_CLASS_NAME } from '@src/app/sharedV2/constants';
 import { DataContract, EntityType } from '@src/types.generated';
 
 /**

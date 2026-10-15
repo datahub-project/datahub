@@ -20,8 +20,8 @@ import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useBrowsePagination from '@app/searchV2/sidebar/useBrowsePagination';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
-import { formatNumber } from '@app/shared/formatNumber';
-import useToggle from '@app/shared/useToggle';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import useToggle from '@app/sharedV2/useToggle';
 
 import { EntityType } from '@types';
 

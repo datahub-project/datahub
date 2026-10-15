@@ -7,7 +7,7 @@ import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import i18next from 'i18next';
 
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
-import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/sharedV2/constants';
 
 import { SummaryElementType } from '@types';
 

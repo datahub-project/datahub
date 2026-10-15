@@ -11,8 +11,8 @@ import styled, { useTheme } from 'styled-components/macro';
 import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span<{ color: string }>`

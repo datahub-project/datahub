@@ -37,7 +37,7 @@ import {
     ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { EntityType } from '@types';
 

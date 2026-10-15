@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
-import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/sharedV2/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 

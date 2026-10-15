@@ -7,7 +7,7 @@ import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/En
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
 import { getInitialValues } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
 

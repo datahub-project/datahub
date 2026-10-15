@@ -5,7 +5,7 @@ import Cron from 'react-js-cron';
 import styled from 'styled-components';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
-import { cronBuilderStyles } from '@app/shared/cron/cronBuilderStyles';
+import { cronBuilderStyles } from '@app/sharedV2/cron/cronBuilderStyles';
 
 const CronText = styled.div`
     margin-top: 8px;

@@ -19,8 +19,8 @@ import {
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
 import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
-import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
-import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
+import { useIsGlossaryBasedPoliciesEnabled } from '@app/sharedV2/hooks/useIsGlossaryBasedPoliciesEnabled';
+import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/sharedV2/hooks/useIsStructuredPropertiesInPoliciesEnabled';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';

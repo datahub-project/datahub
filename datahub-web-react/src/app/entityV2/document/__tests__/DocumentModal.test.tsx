@@ -88,7 +88,7 @@ vi.mock('@app/document/hooks/useUpdateDocument', () => ({
     }),
 }));
 
-vi.mock('@app/shared/hooks/useFileUpload', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUpload', () => ({
     default: () => ({ uploadFile: vi.fn() }),
 }));
 

@@ -12,8 +12,8 @@ import {
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '@app/settings/posts/constants';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';

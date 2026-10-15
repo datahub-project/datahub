@@ -11,7 +11,7 @@ import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContain
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
-import { PreviewSection } from '@app/shared/MatchesContext';
+import { PreviewSection } from '@app/sharedV2/MatchesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 

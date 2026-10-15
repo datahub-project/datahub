@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
+import { DomainLink } from '@app/businessAttribute/tags/DomainLink';
 import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { ParentWrapper } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { IconStyleType } from '@app/entityV2/Entity';
@@ -13,9 +14,8 @@ import ParentEntities from '@app/search/filters/ParentEntities';
 import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
 import { getParentEntities } from '@app/search/filters/utils';
 import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/search/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import { DomainLink } from '@app/shared/tags/DomainLink';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {

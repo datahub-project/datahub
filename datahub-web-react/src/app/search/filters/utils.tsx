@@ -18,9 +18,9 @@ import {
     STRUCTURED_PROPERTIES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { DATE_TYPE_URN } from '@src/app/sharedV2/constants';
 import dayjs from '@utils/dayjs';
 
 import {

@@ -4,7 +4,7 @@ import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 
-import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
+import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/sharedV2/components';
 
 const Layout = styled.div`
     margin-left: 8px;

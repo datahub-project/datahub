@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 
 import { Editor } from '@components/components/Editor';
 
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { Post } from '@types';
 

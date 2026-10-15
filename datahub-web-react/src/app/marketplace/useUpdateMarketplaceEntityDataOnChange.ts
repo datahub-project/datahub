@@ -6,7 +6,7 @@ import {
     MarketplaceEntityData,
     useMaybeMarketplaceEntityContext,
 } from '@app/marketplace/context/MarketplaceEntityContext';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { EntityType } from '@types';
 

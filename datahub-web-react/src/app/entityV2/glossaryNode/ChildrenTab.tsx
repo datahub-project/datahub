@@ -12,7 +12,7 @@ import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, SearchBar, Tooltip } from '@src/alchemy-components';
-import Loading from '@src/app/shared/Loading';
+import Loading from '@src/app/sharedV2/Loading';
 
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 

@@ -12,8 +12,6 @@ import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import HoverCardEntityRow from '@app/sharedV2/hoverCard/HoverCardEntityRow';
 import HoverCardFooter from '@app/sharedV2/hoverCard/HoverCardFooter';
 import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
@@ -25,6 +23,8 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@src/utils/runtimeBasePath';

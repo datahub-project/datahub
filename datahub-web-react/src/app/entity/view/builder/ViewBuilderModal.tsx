@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { ViewBuilderForm } from '@app/entity/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entity/view/types';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { Button } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 

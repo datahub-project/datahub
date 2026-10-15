@@ -75,8 +75,7 @@ import aliases are common culprits.
 - An alchemy component is generalized and reusable anywhere: it must not depend on DataHub
   aspects, data structures, or GraphQL types.
 - Reusable DataHub-specific components (which may take GraphQL types as props) go under
-  `src/app/sharedV2/` (or legacy `src/app/shared/` — follow the location of the code you
-  are extending).
+  `src/app/sharedV2/`.
 - Err on the side of more, smaller components: break out a new component when JSX gets
   large or complex, or for any logical/reusable chunk. Same rule for extracting hooks from
   component logic.

@@ -9,7 +9,7 @@ import styled from 'styled-components';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
-import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
+import { formatDetailedDuration } from '@src/app/sharedV2/time/timeUtils';
 
 import { GetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { DataProcessInstanceRunResultType, MlHyperParam, MlMetric } from '@types';

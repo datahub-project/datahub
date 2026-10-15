@@ -9,7 +9,7 @@ import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Data
 import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
 import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
 import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
-import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '@app/shared/time/timeUtils';
+import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@graphql/dataset.generated';
 import { Operation, UsageQueryResult } from '@types';

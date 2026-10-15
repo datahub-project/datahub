@@ -7,7 +7,7 @@ import { useHistory } from 'react-router-dom';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import CompactContext from '@src/app/shared/CompactContext';
+import CompactContext from '@src/app/sharedV2/CompactContext';
 
 export const ExploreLineageAction = () => {
     const { t } = useTranslation('entity.shared.containers');

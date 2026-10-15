@@ -45,11 +45,11 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import TabFullsizeContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TabFullsizeContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';

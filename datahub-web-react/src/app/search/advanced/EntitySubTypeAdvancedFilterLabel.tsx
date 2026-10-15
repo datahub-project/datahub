@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import AdvancedFilterCloseButton from '@app/search/advanced/AdvancedFilterCloseButton';
 import { FilterContainer } from '@app/search/advanced/styles';
 import { FILTER_DELIMITER } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, FacetFilterInput } from '@types';

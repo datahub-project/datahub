@@ -2,7 +2,7 @@ import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import { useTheme } from 'styled-components';
 
-import { RotatingButton } from '@app/shared/components';
+import { RotatingButton } from '@app/sharedV2/components';
 
 export function RotatingTriangle({
     isOpen,

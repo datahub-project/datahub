@@ -8,7 +8,7 @@ import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/e
 import { SubType } from '@app/entityV2/shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
