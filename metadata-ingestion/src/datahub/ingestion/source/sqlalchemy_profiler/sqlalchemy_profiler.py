@@ -933,38 +933,38 @@ class SQLAlchemyProfiler:
             **request.batch_kwargs,
         )
 
-    def _profile_row_count(
+    def _uses_row_count_estimate(self, adapter: PlatformAdapter) -> bool:
+        return (
+            self.config.profile_table_row_count_estimate_only
+            and adapter.supports_row_count_estimation()
+        )
+
+    def _schedule_row_count(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> FutureResult[int]:
+        use_estimation = self._uses_row_count_estimate(adapter)
+        logger.debug(
+            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
+        )
+        return batch.get_row_count(sql_table, use_estimation=use_estimation)
+
+    def _extract_row_count(
+        self,
+        row_count_future: FutureResult[int],
         profile: DatasetProfileClass,
         context: ProfilingContext,
         pretty_name: str,
-        adapter: PlatformAdapter,
     ) -> Optional[int]:
         """
-        Stage 1: Profile row count.
-
-        Schedules, flushes, and extracts row count. Updates partition spec if sampling was applied.
+        Extract the row count and update the partition spec if sampling was applied.
 
         Returns:
             Row count (or None if unavailable)
         """
-        use_estimation = (
-            self.config.profile_table_row_count_estimate_only
-            and adapter.supports_row_count_estimation()
-        )
-        logger.debug(
-            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
-        )
-
-        # Stage 1: row count. Executes on exit from the batch block.
-        logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
-        with runner.batch() as batch:
-            row_count_future = batch.get_row_count(
-                sql_table, use_estimation=use_estimation
-            )
-
         # Extract row count result with exception handling
         try:
             profile.rowCount = row_count_future.result()
@@ -1112,55 +1112,65 @@ class SQLAlchemyProfiler:
 
     def _schedule_cardinality_queries(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
-        columns_to_profile_set: set,
+        column_types: Dict[str, ProfilerDataType],
         pretty_name: str,
     ) -> Dict[str, Dict[str, FutureResult[Any]]]:
         """
-        Stage 2a: Schedule cardinality queries.
-
-        Schedules non-null and unique count queries for all columns to profile.
-        Query combiner will batch them into ONE SQL statement on flush.
+        Schedule non-null and unique count queries for all columns to profile.
 
         Returns:
             Dict mapping column name to dict of FutureResults
         """
         cardinality_futures = {}
-        with runner.batch() as batch:
-            for column in sql_table.columns:
-                col_name = column.name
+        for col_name in column_types:
+            cardinality_futures[col_name] = {
+                "non_null": batch.get_column_non_null_count(sql_table, col_name)
+            }
 
-                if col_name not in columns_to_profile_set:
-                    continue
+            if self.config.include_field_distinct_count:
+                cardinality_futures[col_name]["unique"] = batch.get_column_unique_count(
+                    sql_table, col_name
+                )
 
-                # Schedule non-null count (returns FutureResult)
-                cardinality_futures[col_name] = {
-                    "non_null": batch.get_column_non_null_count(sql_table, col_name)
-                }
-
-                # Schedule unique count if needed (returns FutureResult)
-                if self.config.include_field_distinct_count:
-                    cardinality_futures[col_name]["unique"] = (
-                        batch.get_column_unique_count(sql_table, col_name)
-                    )
-
-        # Stage 2 executed every cardinality query in ONE batch on block exit.
         logger.debug(
-            f"profiling {pretty_name}: flushed stage 2 "
-            f"({len(cardinality_futures)} columns - cardinality)"
+            f"profiling {pretty_name}: scheduled cardinality "
+            f"({len(cardinality_futures)} columns)"
         )
 
         return cardinality_futures
 
-    def _extract_cardinality_results(
+    def _resolve_column_types(
         self,
         sql_table: sa.Table,
+        columns_to_profile_set: Set[str],
+        platform: str,
+    ) -> Dict[str, ProfilerDataType]:
+        """
+        Map each profiled column to its profiler type, from the schema alone.
+
+        Every batch-2 helper walks this mapping, so they all cover the same
+        columns in the same order.
+        """
+        column_types: Dict[str, ProfilerDataType] = {}
+        for column in sql_table.columns:
+            if column.name not in columns_to_profile_set:
+                continue
+            col_type = get_column_profiler_type(column.type, platform)
+            if col_type == ProfilerDataType.UNKNOWN:
+                col_type = resolve_profiler_type_with_fallback(
+                    column.type, platform, str(column.type)
+                )
+            column_types[column.name] = col_type
+        return column_types
+
+    def _extract_cardinality_results(
+        self,
         field_profiles: List[DatasetFieldProfileClass],
         cardinality_futures: Dict[str, Dict[str, FutureResult[Any]]],
-        columns_to_profile_set: set,
+        column_types: Dict[str, ProfilerDataType],
         row_count: Optional[int],
-        platform: str,
         pretty_name: str,
     ) -> Dict[
         str,
@@ -1172,35 +1182,23 @@ class SQLAlchemyProfiler:
         ],
     ]:
         """
-        Stage 2b: Extract cardinality results.
+        Extract cardinality results.
 
-        Extracts non-null and unique counts, calculates null counts and proportions,
-        and prepares column metadata for Stage 3.
+        Extracts non-null and unique counts, calculates null counts and
+        proportions, and prepares column metadata for the per-column queries.
 
         Returns:
             Dict mapping column name to (column_profile, col_type, cardinality, non_null_count)
         """
         columns_with_types = {}
 
-        for column in sql_table.columns:
-            col_name = column.name
-
-            if col_name not in columns_to_profile_set:
-                continue
-
+        for col_name, col_type in column_types.items():
             # Find the corresponding column_profile we created
             column_profile: Optional[DatasetFieldProfileClass] = next(
                 (p for p in field_profiles if p.fieldPath == col_name), None
             )
             if column_profile is None:
                 continue
-
-            # Get column type
-            col_type = get_column_profiler_type(column.type, platform)
-            if col_type == ProfilerDataType.UNKNOWN:
-                col_type = resolve_profiler_type_with_fallback(
-                    column.type, platform, str(column.type)
-                )
 
             # Extract non-null count from FutureResult with exception handling
             try:
@@ -1261,7 +1259,7 @@ class SQLAlchemyProfiler:
                     else None,
                 )
 
-            # Store metadata for Stage 3
+            # Store metadata for the per-column queries
             columns_with_types[col_name] = (
                 column_profile,
                 col_type,
@@ -1273,88 +1271,70 @@ class SQLAlchemyProfiler:
 
     def _schedule_numeric_queries(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
-        columns_with_types: Dict[
-            str,
-            Tuple[
-                DatasetFieldProfileClass,
-                ProfilerDataType,
-                Optional[Cardinality],
-                Optional[int],
-            ],
-        ],
+        column_types: Dict[str, ProfilerDataType],
         ignore_table_sampling: bool,
         columns_list_to_ignore_sampling: List[str],
         pretty_name: str,
     ) -> Dict[str, Dict[str, FutureResult[Any]]]:
         """
-        Stage 3a: Schedule numeric stats queries.
-
-        Schedules min/max/mean/stdev/median queries for numeric and datetime columns.
-        Query combiner will batch them into ONE SQL statement on flush.
+        Schedule min/max/mean/stdev/median queries for numeric and datetime columns.
 
         Returns:
             Dict mapping column name to dict of FutureResults
         """
         numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
-        with runner.batch() as batch:
-            for col_name, (
-                _column_profile,
-                col_type,
-                _cardinality,
-                _non_null_count,
-            ) in columns_with_types.items():
-                # Only calculate stats if not ignoring sampling for this column
-                if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
-                    continue
+        for col_name, col_type in column_types.items():
+            # Only calculate stats if not ignoring sampling for this column
+            if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
+                continue
 
-                # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
-                # All three numeric types get the same statistics
-                if col_type in (
-                    ProfilerDataType.INT,
-                    ProfilerDataType.FLOAT,
-                    ProfilerDataType.NUMERIC,
-                ):
-                    numeric_stats_futures[col_name] = {}
-                    if self.config.include_field_min_value:
-                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_max_value:
-                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_mean_value:
-                        numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_stddev_value:
-                        numeric_stats_futures[col_name]["stdev"] = (
-                            batch.get_column_stdev(sql_table, col_name)
-                        )
-                    if self.config.include_field_median_value:
-                        numeric_stats_futures[col_name]["median"] = (
-                            batch.get_column_median(sql_table, col_name)
-                        )
+            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+            # All three numeric types get the same statistics
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
+                numeric_stats_futures[col_name] = {}
+                if self.config.include_field_min_value:
+                    numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_max_value:
+                    numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_mean_value:
+                    numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_stddev_value:
+                    numeric_stats_futures[col_name]["stdev"] = batch.get_column_stdev(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_median_value:
+                    numeric_stats_futures[col_name]["median"] = batch.get_column_median(
+                        sql_table, col_name
+                    )
 
-                # Schedule min/max for datetime columns
-                elif col_type == ProfilerDataType.DATETIME:
-                    numeric_stats_futures[col_name] = {}
-                    if self.config.include_field_min_value:
-                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_max_value:
-                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
-                            sql_table, col_name
-                        )
+            # Schedule min/max for datetime columns
+            elif col_type == ProfilerDataType.DATETIME:
+                numeric_stats_futures[col_name] = {}
+                if self.config.include_field_min_value:
+                    numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_max_value:
+                    numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                        sql_table, col_name
+                    )
 
-        # Stage 3 executed every numeric stats query in ONE batch on block exit.
         if numeric_stats_futures:
             logger.debug(
-                f"profiling {pretty_name}: flushed stage 3 "
-                f"({len(numeric_stats_futures)} columns - numeric stats)"
+                f"profiling {pretty_name}: scheduled numeric stats "
+                f"({len(numeric_stats_futures)} columns)"
             )
 
         return numeric_stats_futures
@@ -1379,7 +1359,7 @@ class SQLAlchemyProfiler:
         pretty_name: str,
     ) -> None:
         """
-        Stage 3b: Extract numeric stats and process column stats.
+        Extract numeric stats and process column stats.
 
         Extracts min/max/mean/stdev/median from FutureResults and runs
         non-batchable complex queries (sample values, histograms, frequencies).
@@ -1556,6 +1536,7 @@ class SQLAlchemyProfiler:
                             self._isolation_level_warning_logged = True
                             if not self.config.catch_exceptions:
                                 raise
+
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     # Takes the real Connection: setup does DDL and reflection
@@ -1615,66 +1596,58 @@ class SQLAlchemyProfiler:
                         )
 
                     # ================================================================
-                    # 3-STAGE QUERY BATCHING PATTERN
+                    # QUERY BATCHING PATTERN
                     # ================================================================
-                    # To maximize query batching efficiency, we use 3 strategic flush points:
+                    # Each flush is a round trip, and with flattening on it is
+                    # also a table scan, so there are as few as the data
+                    # dependencies allow:
                     #
-                    # STAGE 1: Row Count
-                    #   Helper: _profile_row_count()
-                    #   - Schedules row count query
-                    #   - Flushes and extracts result
-                    #   - Updates partition spec if sampling was applied
+                    # BATCH 1: row count. Alone and first, because a zero or
+                    #   failed count skips everything below, including the setup.
                     #
-                    # SETUP: Field Profiles
-                    #   Helper: _create_field_profiles()
-                    #   - Creates empty field profiles for all columns
-                    #   - These profiles are populated by Stages 2 and 3
+                    # SETUP: columns to profile, their types, empty field
+                    #   profiles. All from the schema, so no queries.
                     #
-                    # STAGE 2: Column Cardinality
-                    #   Helper: _schedule_cardinality_queries() + _extract_cardinality_results()
-                    #   - Schedules non-null + unique count for ALL columns
-                    #   - Flushes and batches all cardinality queries into ONE SQL statement
-                    #   - Extracts results and calculates null counts, proportions, cardinality
-                    #   - Prepares column metadata for Stage 3
+                    # BATCH 2: null and distinct counts, plus the numeric stats.
+                    #   One batch, not two: which stats a column needs follows
+                    #   from its schema type, not from the counts.
                     #
-                    # STAGE 3: Numeric Stats + Complex Queries
-                    #   Helper: _schedule_numeric_queries() + _extract_and_process_stats()
-                    #   - Schedules min/max/mean/stdev/median for numeric/datetime columns
-                    #   - Flushes and batches all numeric queries into ONE SQL statement
-                    #   - Extracts results and runs non-batchable complex queries
-                    #     (sample values, histograms, frequencies)
-                    #
-                    # Performance: Reduces 50-100+ queries down to 3-5 queries per table!
+                    # PER-COLUMN QUERIES: not batched -- value frequencies need
+                    #   cardinality, histograms need min/max, and sample values
+                    #   return many rows.
                     # ================================================================
 
                     # ----------------------------------------------------------------
-                    # STAGE 1: Row Count
+                    # BATCH 1: Row count
                     # ----------------------------------------------------------------
-                    row_count = self._profile_row_count(
-                        runner=runner,
-                        sql_table=sql_table,
+                    # First and alone: a zero or failed count means none of the
+                    # setup below, and none of the column queries, need to happen.
+                    with runner.batch() as batch:
+                        row_count_future = self._schedule_row_count(
+                            batch=batch,
+                            sql_table=sql_table,
+                            adapter=adapter,
+                            pretty_name=pretty_name,
+                        )
+                    row_count = self._extract_row_count(
+                        row_count_future=row_count_future,
                         profile=profile,
                         context=context,
                         pretty_name=pretty_name,
-                        adapter=adapter,
                     )
 
-                    # Skip column profiling when row_count tells us there's no data to profile:
-                    # - row_count is None: row count query failed (permission error etc.)
-                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    # Skip the column queries when the row count says there is no
+                    # data to profile:
+                    # - row_count is None: the query failed (permission error etc.)
+                    # - row_count == 0 AND the count was EXACT: genuinely empty.
                     #
-                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
-                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
-                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
-                    # recently-modified tables that actually have data — never analyzed yet, or
-                    # stats not refreshed. Treating that 0 as "skip column profiling" would
-                    # silently drop fieldProfiles for non-empty tables, so we still
-                    # proceed to column-level queries when using estimation.
-                    use_estimation = (
-                        self.config.profile_table_row_count_estimate_only
-                        and adapter.supports_row_count_estimation()
-                    )
-                    if row_count is None or (row_count == 0 and not use_estimation):
+                    # With profile_table_row_count_estimate_only the count comes from
+                    # the catalog, which can report 0 for a table that has rows --
+                    # never analyzed, or stale statistics -- so an estimate of 0 must
+                    # not drop the column profiles.
+                    if row_count is None or (
+                        row_count == 0 and not self._uses_row_count_estimate(adapter)
+                    ):
                         reason = (
                             "empty table (rowCount=0)"
                             if row_count == 0
@@ -1683,7 +1656,6 @@ class SQLAlchemyProfiler:
                         logger.info(
                             f"Skipping column profiling for {pretty_name}: {reason}"
                         )
-                        # Return profile with basic table-level metadata but no field profiles
                         return profile
 
                     # ----------------------------------------------------------------
@@ -1717,37 +1689,41 @@ class SQLAlchemyProfiler:
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 2: Column Cardinality
+                    # BATCH 2: Column counts + numeric stats
                     # ----------------------------------------------------------------
-                    cardinality_futures = self._schedule_cardinality_queries(
-                        runner=runner,
+                    column_types = self._resolve_column_types(
                         sql_table=sql_table,
                         columns_to_profile_set=columns_to_profile_set,
-                        pretty_name=pretty_name,
+                        platform=platform,
                     )
+
+                    with runner.batch() as batch:
+                        cardinality_futures = self._schedule_cardinality_queries(
+                            batch=batch,
+                            sql_table=sql_table,
+                            column_types=column_types,
+                            pretty_name=pretty_name,
+                        )
+                        numeric_stats_futures = self._schedule_numeric_queries(
+                            batch=batch,
+                            sql_table=sql_table,
+                            column_types=column_types,
+                            ignore_table_sampling=ignore_table_sampling,
+                            columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
+                            pretty_name=pretty_name,
+                        )
 
                     columns_with_types = self._extract_cardinality_results(
-                        sql_table=sql_table,
                         field_profiles=field_profiles,
                         cardinality_futures=cardinality_futures,
-                        columns_to_profile_set=columns_to_profile_set,
+                        column_types=column_types,
                         row_count=row_count,
-                        platform=platform,
                         pretty_name=pretty_name,
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 3: Numeric Stats + Complex Queries
+                    # PER-COLUMN QUERIES (not batched; need batch 2's results)
                     # ----------------------------------------------------------------
-                    numeric_stats_futures = self._schedule_numeric_queries(
-                        runner=runner,
-                        sql_table=sql_table,
-                        columns_with_types=columns_with_types,
-                        ignore_table_sampling=ignore_table_sampling,
-                        columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
-                        pretty_name=pretty_name,
-                    )
-
                     self._extract_and_process_stats(
                         runner=runner,
                         sql_table=sql_table,

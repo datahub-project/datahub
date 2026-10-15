@@ -1,7 +1,9 @@
-import { Editor, Modal, toast } from '@components';
+import { Modal, toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Editor } from '@components/components/Editor';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';

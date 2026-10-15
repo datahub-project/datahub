@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -20,8 +21,6 @@ const InfoRow = styled.div`
 `;
 
 const INFO_ITEM_WIDTH_PX = '150px';
-// eslint-disable-next-line i18next/no-literal-string -- route tab name identifier, not UI text
-const VIEW_DEFINITION_TAB = 'View Definition';
 
 export const SidebarViewDefinitionSection = () => {
     const { t } = useTranslation('entity.shared.containers');
@@ -49,7 +48,11 @@ export const SidebarViewDefinitionSection = () => {
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <Button variant="link" color="primary" onClick={() => routeToTab({ tabName: VIEW_DEFINITION_TAB })}>
+                    <Button
+                        variant="link"
+                        color="primary"
+                        onClick={() => routeToTab({ tabName: EntityTabPath.VIEW_DEFINITION })}
+                    >
                         {t('sidebar.viewDefinition.viewFullDefinitionLink')}
                     </Button>
                 </>

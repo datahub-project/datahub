@@ -1,9 +1,11 @@
 import { FetchResult } from '@apollo/client';
-import { Button, Editor, Icon, Text, Tooltip, toast } from '@components';
+import { Button, Icon, Text, Tooltip, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';

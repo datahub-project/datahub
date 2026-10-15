@@ -106,7 +106,7 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
       prevLatestVersionProperties =
           RecordUtils.toRecordTemplate(
               VersionProperties.class, prevLatestVersionPropertiesAspect.data());
-      if (versionProperties.getSortId().compareTo(prevLatestVersionProperties.getSortId()) <= 0) {
+      if (!supersedes(versionProperties, prevLatestVersionProperties)) {
         return Stream.empty();
       }
     }
@@ -114,6 +114,16 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
     // New version properties is the new latest
     return updateVersionSetLatest(
         versionProperties, prevLatestVersionProperties, prevLatest, changeMCP, retrieverContext);
+  }
+
+  /**
+   * Whether {@code proposed} becomes the version set's new latest over {@code previousLatest}.
+   * Shared with {@code VersionPropertiesAuthorizationValidator} so authorization tracks exactly the
+   * entities this side effect rewrites.
+   */
+  public static boolean supersedes(
+      @Nonnull VersionProperties proposed, @Nonnull VersionProperties previousLatest) {
+    return proposed.getSortId().compareTo(previousLatest.getSortId()) > 0;
   }
 
   private static Stream<ChangeMCP> createVersionSet(
