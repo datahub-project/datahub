@@ -636,8 +636,10 @@ class TestDynamoDBS3ExportLineage:
             dataset_name="us-west-2.x",
         )
         workunits = list(source._emit_s3_export_lineage())
+        mcp = workunits[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
         assert (
-            workunits[0].metadata.entityUrn
+            mcp.entityUrn
             == "urn:li:dataset:(urn:li:dataPlatform:s3,lake.bucket/prefix,PROD)"
         )
 
@@ -751,6 +753,7 @@ class TestDynamoDBS3ExportLineage:
         assert len(lineage_wus) == 1
         lineage_wu = lineage_wus[0]
         assert lineage_wu.is_primary_source is False
+        assert isinstance(lineage_wu.metadata, MetadataChangeProposalWrapper)
         aspect = lineage_wu.metadata.aspect
         assert isinstance(aspect, UpstreamLineageClass)
         ddb_urn = (
