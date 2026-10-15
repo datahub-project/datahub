@@ -1,3 +1,4 @@
+import copy
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
@@ -5,6 +6,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine, inspect
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -19,6 +21,11 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -27,6 +34,48 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# Timeseries workunit ids are urn + aspect + timestampMillis, and do not include
+# the partition. The full-table copy needs its own timestamp or it collides with
+# the partition profile and one of them is dropped.
+_FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS = 1
+
+
+def full_table_profile_copying_partition_field_profiles(
+    profile: DatasetProfileClass,
+) -> Optional[DatasetProfileClass]:
+    """Full-table profile carrying this partition profile's column stats.
+
+    Returns None when `profile` is not a partition profile, or it has no
+    fieldProfiles to copy. Column stats on the result still describe the
+    profiled partition; rowCount, columnCount, and size are the table totals
+    already stored on the partition profile.
+    """
+    spec = profile.partitionSpec
+    if spec is None or not profile.fieldProfiles:
+        return None
+    if spec.type == PartitionTypeClass.FULL_TABLE:
+        return None
+    partition = spec.partition or ""
+    if partition.startswith("FULL_TABLE_SNAPSHOT") or partition.startswith("SAMPLE"):
+        return None
+    # Limit/offset and other query-scoped profiles are not partition profiles.
+    if spec.type not in (PartitionTypeClass.PARTITION, None):
+        return None
+
+    full_table = DatasetProfileClass(
+        timestampMillis=profile.timestampMillis
+        + _FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS,
+        rowCount=profile.rowCount,
+        columnCount=profile.columnCount,
+        sizeInBytes=profile.sizeInBytes,
+        fieldProfiles=copy.deepcopy(profile.fieldProfiles),
+        partitionSpec=PartitionSpecClass(
+            type=PartitionTypeClass.FULL_TABLE,
+            partition="FULL_TABLE_SNAPSHOT",
+        ),
+    )
+    return full_table
 
 
 class BigqueryProfiler(GenericProfiler):
@@ -204,6 +253,42 @@ WHERE
             return table.max_shard_id, None
 
         return None, None
+
+    def generate_profile_workunits(
+        self,
+        requests: List[TableProfilerRequest],
+        *,
+        max_workers: int,
+        db_name: Optional[str] = None,
+        platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        copy_field_profiles = (
+            self.config.profiling.copy_partition_field_profiles_to_full_table_profile
+        )
+        for workunit in super().generate_profile_workunits(
+            requests,
+            max_workers=max_workers,
+            db_name=db_name,
+            platform=platform,
+            profiler_args=profiler_args,
+        ):
+            yield workunit
+            if not copy_field_profiles:
+                continue
+            metadata = workunit.metadata
+            if not isinstance(metadata, MetadataChangeProposalWrapper):
+                continue
+            profile = metadata.aspect
+            if not isinstance(profile, DatasetProfileClass):
+                continue
+            copied = full_table_profile_copying_partition_field_profiles(profile)
+            if copied is None:
+                continue
+            yield MetadataChangeProposalWrapper(
+                entityUrn=metadata.entityUrn,
+                aspect=copied,
+            ).as_workunit()
 
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
