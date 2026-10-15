@@ -1,3 +1,4 @@
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { Entity, EntityType, GlossaryTerm } from '@types';
@@ -15,7 +16,7 @@ export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: strin
 
 export function getRelatedAssetsUrl(entityRegistry: EntityRegistry, urn: string) {
     /* untranslated-text -- URL path segment (route fragment), not user-visible */
-    return `${entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}/${encodeURIComponent('Related Assets')}`;
+    return `${entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}/${encodeURIComponent(EntityTabPath.RELATED_ASSETS)}`;
 }
 
 export function isGlossaryTerm(entity?: Entity | null | undefined): entity is GlossaryTerm {

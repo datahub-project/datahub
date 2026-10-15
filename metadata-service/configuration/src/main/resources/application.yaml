@@ -2263,6 +2263,8 @@ metadataChangeProposal:
         enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
       privilegeGrant:
         enabled: ${MCP_VALIDATION_PRIVILEGE_GRANT:true}
+      versionProperties:
+        enabled: ${MCP_VALIDATION_VERSION_PROPERTIES:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:
