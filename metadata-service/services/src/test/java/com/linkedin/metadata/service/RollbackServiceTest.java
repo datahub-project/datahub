@@ -195,6 +195,7 @@ public class RollbackServiceTest {
 
     assertEquals(response.getEntitiesDeleted(), 2);
     assertEquals(response.getEntitiesAffected(), 2);
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(1));
   }
 
   @Test
@@ -224,6 +225,46 @@ public class RollbackServiceTest {
     // The four known rows of two entities are reverted; the unknown key row stays in place.
     assertEquals(response.getAspectsReverted(), 4);
     assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(1));
+  }
+
+  @Test
+  public void testRollbackReportsRowsLeftInPlace() throws AuthenticationException {
+    // The run is still marked rolled back, so the response says how many rows it left for the
+    // newer version.
+    List<AspectRowSummary> knownRows = createTestAspectRows(true);
+    List<AspectRowSummary> rows = new ArrayList<>(knownRows);
+    AspectRowSummary unknownAspect = new AspectRowSummary();
+    unknownAspect.setUrn(TEST_URN_1);
+    unknownAspect.setAspectName("aspectFromNewerBuild");
+    unknownAspect.setRunId(TEST_RUN_ID);
+    unknownAspect.setKeyAspect(false);
+    rows.add(unknownAspect);
+    when(mockSystemMetadataService.findByRunIdAfter(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            isNull(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(rows);
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(
+            new RollbackRunResult(new ArrayList<>(knownRows), 0, new ArrayList<>()),
+            new RollbackRunResult(new ArrayList<>(), 0, new ArrayList<>()));
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
+
+    assertEquals(response.getAspectsReverted(), 4);
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(1));
   }
 
   @Test
@@ -308,6 +349,7 @@ public class RollbackServiceTest {
 
     assertEquals(response.getEntitiesAffected(), 2);
     assertEquals(response.getAspectsReverted(), 9); // 4 from aspects + 5 from timeseries
+    assertFalse(response.hasAspectsLeftInPlace());
 
     // Verify the results were processed correctly
     assertNotNull(response.getAspectRowSummaries());
