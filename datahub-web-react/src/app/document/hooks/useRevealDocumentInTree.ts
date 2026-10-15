@@ -23,6 +23,10 @@ interface RevealLoaders {
  * load its ancestor path in the sidebar tree so the selected row can mount — but only
  * if that path's root is already in the loaded sorted window. Never pages the root
  * list to chase the open doc (that broke Name A–Z and scrolled users to the bottom).
+ *
+ * Page-0 can clear its spinner before missing source-platform roots are appended.
+ * Reveal waits until the open doc's root ancestor is actually in the tree so a
+ * late Confluence/Notion section still gets expanded once it lands.
  */
 export function useRevealDocumentInTree({
     loadChildren,
@@ -55,6 +59,14 @@ export function useRevealDocumentInTree({
         fetchPolicy: 'cache-first',
     });
 
+    // Parent API order is direct-parent first; the sidebar root is last.
+    const parents = data?.document?.parentDocuments?.documents;
+    const rootAncestorUrn =
+        data?.document?.urn === documentUrn && parents?.length ? parents[parents.length - 1]?.urn : undefined;
+    // Root docs need no ancestor. Nested docs wait until their root is in context
+    // (including roots appended after page 0 by missing-platform prefetch).
+    const rootAncestorReady = !rootAncestorUrn || !!getNode(rootAncestorUrn);
+
     useEffect(() => {
         if (skip || !documentUrn || rootsLoading || documentLoading || !data?.document) {
             return undefined;
@@ -65,10 +77,14 @@ export function useRevealDocumentInTree({
             return undefined;
         }
 
+        if (!rootAncestorReady) {
+            return undefined;
+        }
+
         let cancelled = false;
 
         const run = async () => {
-            const parents = (data.document?.parentDocuments?.documents || []).map((parent) => ({
+            const parentDocs = (data.document?.parentDocuments?.documents || []).map((parent) => ({
                 urn: parent.urn,
                 title: parent.info?.title,
             }));
@@ -77,7 +93,7 @@ export function useRevealDocumentInTree({
                 await revealDocumentInTree({
                     documentUrn,
                     documentTitle: data.document?.info?.title,
-                    parentDocuments: parents,
+                    parentDocuments: parentDocs,
                     documentMeta: {
                         platform: data.document?.platform ?? null,
                         isExternal: isExternalDocument(data.document),
@@ -109,5 +125,5 @@ export function useRevealDocumentInTree({
         return () => {
             cancelled = true;
         };
-    }, [skip, documentUrn, rootsLoading, documentLoading, data]);
+    }, [skip, documentUrn, rootsLoading, documentLoading, data, rootAncestorReady]);
 }
