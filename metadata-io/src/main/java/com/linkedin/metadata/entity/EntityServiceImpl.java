@@ -3731,13 +3731,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
   private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
     return handling()
-        .admit(
+        .admitEvent(
             UNKNOWN_READ,
             opContext.getEntityRegistry(),
             opContext.getMetricUtils(),
+            urn,
             urn.getEntityType(),
-            null,
-            urn);
+            null);
   }
 
   @Override

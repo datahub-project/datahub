@@ -8,6 +8,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryFit;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -127,14 +128,25 @@ public final class UnknownDataGuard {
     return true;
   }
 
-  /** As {@link #admit}, for a urn string that may be null or unparseable. */
+  /**
+   * As {@link #admitEvent}, for a urn string that may be null or unparseable. Such a string is
+   * admitted, so validation still reports it.
+   */
   public boolean admitUrn(
       @Nonnull final EntityRegistry registry,
       @Nonnull final Optional<MetricUtils> metricUtils,
       @Nullable final String urn,
       @Nullable final String aspectName) {
-    final RegistryFit fit = RegistryKnowledge.classifyUrn(registry, urn, aspectName);
-    return admit(fit, metricUtils, RegistryKnowledge.entityTypeOf(urn), aspectName, urn);
+    if (urn == null) {
+      return true;
+    }
+    final Urn parsed;
+    try {
+      parsed = Urn.createFromString(urn);
+    } catch (URISyntaxException | IllegalArgumentException e) {
+      return true;
+    }
+    return admitEvent(registry, metricUtils, parsed, parsed.getEntityType(), aspectName);
   }
 
   /**

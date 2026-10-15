@@ -120,4 +120,25 @@ public class UnknownDataGuardTest {
             "status"));
     verify(metricUtils).increment(UnknownDataGuardTest.class, UnknownDataGuard.SKIPPED_METRIC, 1);
   }
+
+  @Test
+  public void testAdmitUrnAlsoChecksTheKey() {
+    EntitySpec schemaField = mock(EntitySpec.class);
+    when(schemaField.getAspectSpec("status")).thenReturn(mock(AspectSpec.class));
+    when(registry.findEntitySpec("schemaField")).thenReturn(Optional.of(schemaField));
+
+    assertFalse(
+        guard.admitUrn(
+            registry,
+            Optional.of(metricUtils),
+            "urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)",
+            "status"));
+    assertTrue(
+        guard.admitUrn(
+            registry,
+            Optional.of(metricUtils),
+            "urn:li:schemaField:(urn:li:dataset:d,col)",
+            "status"));
+    assertTrue(guard.admitUrn(registry, Optional.of(metricUtils), "not-a-urn", "status"));
+  }
 }

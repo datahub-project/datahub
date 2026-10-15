@@ -634,4 +634,25 @@ public class CDCProcessorTest {
 
     assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
   }
+
+  @Test
+  public void testRecordWhoseUrnKeyReferencesAnUnknownTypeIsSkippedBeforeDeserializing()
+      throws Exception {
+    // A schema field of an entity type only a newer version has: the outer type and aspect are
+    // known, but the urn key isn't. It is skipped before its (invalid) metadata is parsed.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)\","
+                + " \"aspect\": \"status\", \"version\": 0, \"metadata\": \"{not json\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    com.linkedin.metadata.models.EntitySpec schemaField =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    when(schemaField.getAspectSpec("status"))
+        .thenReturn(mock(com.linkedin.metadata.models.AspectSpec.class));
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(java.util.Optional.empty());
+    when(mockEntityRegistry.findEntitySpec("schemaField"))
+        .thenReturn(java.util.Optional.of(schemaField));
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
+  }
 }

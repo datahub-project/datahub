@@ -228,6 +228,68 @@ public class EntityUtilsTest {
                 opContext, opContext.getRetrieverContext(), List.of(unknownEntity)));
   }
 
+  @Test
+  public void testToSystemAspects_SkipsUrnsWhoseKeyReferencesAnUnknownType() {
+    EntityAspect nestedUnknown =
+        aspectRow(
+            "urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col_a)",
+            STATUS_ASPECT_NAME,
+            "{\"removed\":false}");
+    EntityAspect known =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
+            STATUS_ASPECT_NAME,
+            "{\"removed\":false}");
+
+    List<SystemAspect> result =
+        EntityUtils.toSystemAspects(
+            opContext, opContext.getRetrieverContext(), List.of(nestedUnknown, known));
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn().toString(), known.getUrn());
+  }
+
+  @Test
+  public void testToSystemAspects_SkipsOnlyUnreadableRowsWrittenByANewerSchema() {
+    EntityAspect unreadableFromNewer =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/newer,PROD)",
+            STATUS_ASPECT_NAME,
+            "{not json");
+    unreadableFromNewer.setSystemMetadata("{\"schemaVersion\":999}");
+    EntityAspect known =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
+            STATUS_ASPECT_NAME,
+            "{\"removed\":false}");
+
+    List<SystemAspect> result =
+        EntityUtils.toSystemAspects(
+            opContext, opContext.getRetrieverContext(), List.of(unreadableFromNewer, known));
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn().toString(), known.getUrn());
+
+    // Unreadable without a newer schema version is still an error.
+    EntityAspect unreadable =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/broken,PROD)",
+            STATUS_ASPECT_NAME,
+            "{not json");
+    expectThrows(
+        RuntimeException.class,
+        () ->
+            EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(unreadable)));
+
+    // Without tolerance even a newer-schema row fails the read, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    expectThrows(
+        RuntimeException.class,
+        () ->
+            EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(unreadableFromNewer)));
+  }
+
   private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {
     EntityAspect row = new EntityAspect();
     row.setUrn(urn);
