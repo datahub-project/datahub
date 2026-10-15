@@ -1,3 +1,5 @@
+import signal
+import threading
 import time
 
 import pytest
@@ -38,6 +40,29 @@ def test_interrupt_on_cooperative_deadline_stops_a_call_that_never_cooperates():
     ):
         time.sleep(5)
     assert time.perf_counter() - started < 2
+
+
+def test_interrupt_restores_a_preexisting_timer():
+    if (
+        not hasattr(signal, "setitimer")
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        pytest.skip("ITIMER_REAL is only available on the main thread")
+
+    def _handler(signum: int, frame: object) -> None:
+        return None
+
+    previous_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, 30)
+    try:
+        with cooperative_timeout(1), interrupt_on_cooperative_deadline():
+            pass
+        delay, interval = signal.getitimer(signal.ITIMER_REAL)
+        assert interval == 0
+        assert 25 < delay <= 30
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 def test_interrupt_without_deadline_does_not_fire():
