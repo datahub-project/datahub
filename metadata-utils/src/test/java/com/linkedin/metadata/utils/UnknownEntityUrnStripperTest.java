@@ -67,6 +67,29 @@ public class UnknownEntityUrnStripperTest {
   }
 
   @Test
+  public void testUrnsNestingAnUnknownEntityTypeInTheirKeyAreRemoved() {
+    // Nested urns start a key part, at any depth; text inside a key part that merely contains
+    // "urn:li:" is not a reference.
+    DataMap data =
+        new DataMap(
+            Map.of(
+                "owner",
+                KNOWN,
+                "byName",
+                new DataMap(
+                    Map.of(
+                        "known", "urn:li:dataset:(urn:li:dataset:(urn:li:dataset:d,a),col)",
+                        "deep",
+                            "urn:li:dataset:(urn:li:dataset:(urn:li:entityFromNewerBuild:x,a),col)",
+                        "second", "urn:li:dataset:(urn:li:dataset:d,urn:li:entityFromNewerBuild:x)",
+                        "text",
+                            "urn:li:dataset:(urn:li:dataset:d,see urn:li:entityFromNewerBuild:x)"))));
+
+    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 2);
+    assertEquals(data.getDataMap("byName").keySet(), java.util.Set.of("known", "text"));
+  }
+
+  @Test
   public void testRequiredUrnUpToTheRootIsLeftForValidation() {
     DataMap data = new DataMap(Map.of("owner", UNKNOWN));
 
