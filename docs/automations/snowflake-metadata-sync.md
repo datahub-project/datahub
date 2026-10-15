@@ -138,6 +138,20 @@ Tags and glossary terms will appear as Snowflake tags on your tables and columns
 
 DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
 
+Descriptions written in DataHub come first. If someone wrote a description in DataHub, in the UI or through the API, that is what Snowflake gets, even when ingestion later brings in different text. If nobody wrote one, Snowflake gets the description DataHub has from ingestion or from a YAML file applied with `datahub dataset upsert`.
+
+When you delete a description you wrote in DataHub, the Snowflake comment is cleared too. DataHub then writes nothing else to it until someone writes a new description in DataHub.
+
+The Snowflake comment is not cleared when:
+
+- an ingestion run is rolled back, or the dataset is deleted in DataHub
+- you delete a description that came from Snowflake itself
+- you remove a description from a YAML file
+- the description is removed through the API on a Remote Executor (removing it in the UI works)
+- the whole editable-description record is deleted through the API (setting the description to empty or null works)
+
+The automation's status shows how many descriptions were written, already matched Snowflake, were not found in Snowflake, were skipped because DataHub had different text, or failed.
+
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
 </p>
