@@ -572,6 +572,10 @@ class Partitionitem:
     ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena

@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "Gérez vos paramètres d'apparence.",
     "appearance.title": "Apparence",
+    "darkMode.beta": "Bêta",
+    "darkMode.description": "Utiliser un thème de couleurs sombre dans tout DataHub.",
+    "darkMode.title": "Mode sombre",
     "language.description": "Choisissez votre langue d'affichage préférée",
     "language.title": "Langue de l'interface utilisateur",
     "noSettings": "Aucun paramètre d'apparence trouvé.",

@@ -47,7 +47,6 @@ sink:
 #
 # Prerequisites:
 # - pip install 'acryl-datahub[hive-metastore]'
-# - For Kerberos: pip install thrift-sasl pyhive[hive-pure-sasl]
 # - For Kerberos: Run 'kinit' before ingestion to obtain ticket
 #
 # source:

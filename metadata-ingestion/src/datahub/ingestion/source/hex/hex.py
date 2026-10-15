@@ -94,6 +94,10 @@ class HexReport(
 @capability(
     SourceCapability.TAGS, "Status, categories, and collections emitted as tags"
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class HexSource(TestableSource, StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
