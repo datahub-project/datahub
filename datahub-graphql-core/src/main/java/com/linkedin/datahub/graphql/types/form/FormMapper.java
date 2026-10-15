@@ -62,7 +62,10 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     com.linkedin.form.FormInfo gmsFormInfo = new com.linkedin.form.FormInfo(dataMap);
     FormInfo formInfo = new FormInfo();
     formInfo.setName(gmsFormInfo.getName());
-    formInfo.setType(FormType.valueOf(gmsFormInfo.getType().toString()));
+    // A form type only a newer version knows shows as COMPLETION (the schema's default), not the
+    // stronger VERIFICATION.
+    formInfo.setType(
+        UnknownEnumValues.map(FormType.class, gmsFormInfo.getType(), FormType.COMPLETION));
     if (gmsFormInfo.hasDescription()) {
       formInfo.setDescription(gmsFormInfo.getDescription());
     }
