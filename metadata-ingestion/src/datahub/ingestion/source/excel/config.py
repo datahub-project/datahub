@@ -16,6 +16,16 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
+class ExcelProfilingConfig(ProfilingConfig):
+    use_sampling: bool = Field(
+        # On by default here, unlike the shared config: Excel implements
+        # sampling, and with it off the profiler sets sample_size to 0.
+        default=True,
+        description="Whether to profile column level stats on a sample of the worksheet "
+        "rather than all of it. Smaller worksheets are not sampled.",
+    )
+
+
 class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path_list: List[str] = Field(
         description="List of paths to Excel files or folders to ingest."
@@ -76,8 +86,8 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         "For example to allow the worksheet Sheet1 from file report.xlsx, use the pattern: 'report.Sheet1'.",
     )
 
-    profiling: ProfilingConfig = Field(
-        default=ProfilingConfig(),
+    profiling: ExcelProfilingConfig = Field(
+        default_factory=ExcelProfilingConfig,
         description="Configuration for profiling",
     )
 

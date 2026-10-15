@@ -194,6 +194,36 @@ def test_out_of_range_limit_and_offset_are_rejected(values: dict) -> None:
         ProfilingConfig.model_validate({"use_sampling": False, **values})
 
 
+def test_sampling_is_off_by_default() -> None:
+    # The shared default is off: most sources do not implement sampling, and a
+    # flag that is on where it does nothing also silently drops limit/offset.
+    assert ProfilingConfig().use_sampling is False
+
+
+def test_sources_that_sample_turn_sampling_on() -> None:
+    # The three sources that implement sampling opt back in. This is the guard
+    # that matters after flipping the shared default: a missing override -- or a
+    # subclass that exists but is not wired to the source's `profiling` field --
+    # means a large table is profiled in full rather than sampled.
+    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+    from datahub.ingestion.source.excel.config import ExcelSourceConfig
+    from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+
+    assert BigQueryV2Config.model_validate({}).profiling.use_sampling is True
+    assert (
+        SnowflakeV2Config.model_validate(
+            {"account_id": "abc12345"}
+        ).profiling.use_sampling
+        is True
+    )
+    assert (
+        ExcelSourceConfig.model_validate(
+            {"path_list": ["dummy"]}
+        ).profiling.use_sampling
+        is True
+    )
+
+
 def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
     # kafka, cassandra, and excel configs import the profiling config at module
     # scope, and none of those extras ship sqlalchemy. Importing either module

@@ -94,7 +94,9 @@ If `scans_avoided` is low, those last four say why. High `flatten_singletons` me
 
 ### Sampling
 
-For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the two options above reduce how many queries and scans are issued — so sampling composes with both, and on a supported platform you can enable all three.
+For very large tables, `profiling.use_sampling` profiles a sample rather than the full table. This reduces the cost of each scan, where the two options above reduce how many queries and scans are issued — so sampling composes with both, and on a supported platform you can enable all three.
+
+Only BigQuery and Snowflake implement sampling on the SQL profiler path, and it is **on by default there**. Everywhere else the option defaults to off and has no effect, so turning it on does not start sampling — it only suppresses `limit`/`offset`.
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
 

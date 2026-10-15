@@ -115,6 +115,13 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 
 
 class BigQueryProfilingConfig(ProfilingConfig):
+    use_sampling: bool = Field(
+        # On by default here, unlike the shared config: BigQuery implements sampling.
+        default=True,
+        description="Whether to profile column level stats on a sample of the table rather "
+        "than all of it. Smaller tables are not sampled.",
+    )
+
     fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
         default_factory=dict,
         description="Fallback values for partition columns when partition discovery fails. Keys are column "

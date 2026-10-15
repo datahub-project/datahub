@@ -283,9 +283,12 @@ class ProfilingConfig(ProfilingBaseConfig):
     use_sampling: Annotated[
         bool, SupportedSources(["bigquery", "excel", "snowflake"])
     ] = Field(
-        default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery, Excel and Snowflake support this. "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+        # Defaults to False here and is overridden to True by the three sources
+        # that implement sampling, so the flag is never on where it does nothing.
+        default=False,
+        description="Whether to profile column level stats on a sample of the table rather than all "
+        "of it. Only BigQuery, Excel and Snowflake implement sampling, and it is on by default there; "
+        "on every other source this option has no effect. Smaller tables are not sampled.",
     )
 
     sample_size: Annotated[
@@ -340,8 +343,7 @@ class ProfilingConfig(ProfilingBaseConfig):
                 "profiling.limit and profiling.offset are ignored while "
                 "profiling.use_sampling is enabled: they bound a profile to an "
                 "arbitrary slice of the table, which defeats the random sample. "
-                "Set use_sampling to false to apply them instead, on a source "
-                "that supports them."
+                "Set use_sampling to false to apply them instead."
             )
             self.limit = None
             self.offset = None
