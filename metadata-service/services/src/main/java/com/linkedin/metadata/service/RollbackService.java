@@ -192,13 +192,15 @@ public class RollbackService {
         metrics.recordRows(aspectRowsToDelete.size());
         metrics.recordPage();
 
-        return new RollbackResponse()
-            .setAspectsReverted(aspectsReverted)
-            .setEntitiesAffected(affectedEntities)
-            .setEntitiesDeleted(entitiesDeleted)
-            .setUnsafeEntitiesCount(unsafeEntitiesCount)
-            .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
-            .setAspectRowSummaries(rowSummaries);
+        return withAspectsLeftInPlace(
+            new RollbackResponse()
+                .setAspectsReverted(aspectsReverted)
+                .setEntitiesAffected(affectedEntities)
+                .setEntitiesDeleted(entitiesDeleted)
+                .setUnsafeEntitiesCount(unsafeEntitiesCount)
+                .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
+                .setAspectRowSummaries(rowSummaries),
+            aspectRowsToDelete.size() - revertibleRows.size());
       }
 
       if (dispatcher != null) {
@@ -214,6 +216,9 @@ public class RollbackService {
       RollbackRunResult rollbackRunResult =
           entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
       final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
+      // rollbackRun skips rows of entity types or aspects this registry doesn't know; they stay in
+      // place for the newer version and are reported, since the run is still marked rolled back.
+      long aspectsLeftInPlace = countUnknownToRegistry(opContext, aspectRowsToDelete);
       int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
       recordRollbackPage(metrics, rollbackRunResult);
 
@@ -243,6 +248,7 @@ public class RollbackService {
         rollbackRunResult =
             entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
+        aspectsLeftInPlace += countUnknownToRegistry(opContext, aspectRowsToDelete);
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
         aspectRowsToDelete.stream()
             .filter(row -> row.isKeyAspect() && !isUnknownToRegistry(opContext, row))
@@ -334,16 +340,26 @@ public class RollbackService {
 
       log.info("calculation done.");
 
+      if (aspectsLeftInPlace > 0) {
+        log.warn(
+            "Rollback of run {} left {} rows in place: this version doesn't know their entity type"
+                + " or aspect",
+            runId,
+            aspectsLeftInPlace);
+      }
+
       updateExecutionRequestStatus(opContext, runId, ROLLED_BACK_STATUS);
 
-      return new RollbackResponse()
-          .setAspectsAffected(affectedAspects)
-          .setAspectsReverted(aspectsReverted)
-          .setEntitiesAffected(affectedEntities)
-          .setEntitiesDeleted(entitiesDeleted)
-          .setUnsafeEntitiesCount(unsafeEntitiesCount)
-          .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
-          .setAspectRowSummaries(rowSummaries);
+      return withAspectsLeftInPlace(
+          new RollbackResponse()
+              .setAspectsAffected(affectedAspects)
+              .setAspectsReverted(aspectsReverted)
+              .setEntitiesAffected(affectedEntities)
+              .setEntitiesDeleted(entitiesDeleted)
+              .setUnsafeEntitiesCount(unsafeEntitiesCount)
+              .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
+              .setAspectRowSummaries(rowSummaries),
+          aspectsLeftInPlace);
     } catch (AuthenticationException e) {
       metrics.failed("unauthorized");
       throw e;
@@ -413,6 +429,18 @@ public class RollbackService {
             .map(AspectRowSummary::getUrn)
             .map(UrnUtils::getUrn)
             .collect(Collectors.toSet()));
+  }
+
+  private static long countUnknownToRegistry(
+      @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rows) {
+    return rows.stream().filter(row -> isUnknownToRegistry(opContext, row)).count();
+  }
+
+  /** Set only when rows were left, so a response without any is unchanged. */
+  @Nonnull
+  private static RollbackResponse withAspectsLeftInPlace(
+      @Nonnull RollbackResponse response, final long aspectsLeftInPlace) {
+    return aspectsLeftInPlace > 0 ? response.setAspectsLeftInPlace(aspectsLeftInPlace) : response;
   }
 
   private static boolean isUnknownToRegistry(
