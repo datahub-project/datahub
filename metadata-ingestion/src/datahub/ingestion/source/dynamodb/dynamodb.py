@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -43,7 +42,10 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
     classification_workunit_processor,
 )
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import (
+    AwsSourceConfig,
+    make_dynamodb_dataset_name,
+)
 from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
@@ -89,8 +91,8 @@ MAX_PRIMARY_KEYS_SIZE = 100
 FIELD_DELIMITER = "."
 EXPORT_STATUS_COMPLETED = "COMPLETED"
 S3_URI_PREFIX = "s3://"
-# ponytail: hard cap on ListExports pagination so a shim/service returning a static NextToken
-# can't hang ingestion forever. 100 pages * default 25 summaries/page covers any realistic table.
+# Hard cap on ListExports pagination so a shim/service returning a static NextToken can't hang
+# ingestion forever. 100 pages * default 25 summaries/page covers any realistic table.
 MAX_EXPORT_PAGES = 100
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -169,7 +171,9 @@ class DynamoDBConfig(
             "When `include_s3_export_lineage` is enabled, the maximum number of completed exports "
             "to describe per table. A table exported frequently accumulates many export ARNs over "
             "the ~90-day retention window that nearly all resolve to the same destination; this "
-            "bounds the DescribeExport calls. Exports are processed newest-first."
+            "bounds the DescribeExport calls. Exports are described in the order ListExports "
+            "returns them; AWS does not document that ordering, so which exports are kept when a "
+            "table exceeds this limit is not guaranteed."
         ),
     )
     s3_export_platform_instance: Optional[str] = Field(
@@ -190,18 +194,24 @@ class DynamoDBConfig(
 
     @model_validator(mode="after")
     def validate_s3_export_lineage_flags(self) -> "DynamoDBConfig":
-        # Warn-don't-fail, matching the convention in bigquery/snowflake/unity configs: a column
-        # lineage flag with the parent feature off is a silent no-op, so surface it.
-        if self.include_s3_export_column_lineage and not self.include_s3_export_lineage:
-            logger.warning(
-                "include_s3_export_column_lineage=True has no effect unless "
-                "include_s3_export_lineage is also enabled; ignoring it."
-            )
-        if self.s3_export_platform_instance and not self.include_s3_export_lineage:
-            logger.warning(
-                "s3_export_platform_instance is set but include_s3_export_lineage is disabled; "
-                "it will have no effect."
-            )
+        # Warn, don't fail (as the snowflake/unity configs do): a dependent flag set while the
+        # parent feature is off is a silent no-op, so surface it.
+        if not self.include_s3_export_lineage:
+            if self.include_s3_export_column_lineage:
+                logger.warning(
+                    "include_s3_export_column_lineage=True has no effect unless "
+                    "include_s3_export_lineage is also enabled; ignoring it."
+                )
+            if self.s3_export_platform_instance:
+                logger.warning(
+                    "s3_export_platform_instance is set but include_s3_export_lineage is "
+                    "disabled; it will have no effect."
+                )
+            if "max_exports_per_table" in self.model_fields_set:
+                logger.warning(
+                    "max_exports_per_table is set but include_s3_export_lineage is disabled; "
+                    "it will have no effect."
+                )
         return self
 
 
@@ -290,8 +300,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self.classification_handler = ClassificationHandler(self.config, self.report)
         # Aggregate so multiple tables that export to the same prefix emit one UpstreamLineage
         # aspect per S3 URN. Keys are, in order: S3 export dataset URN -> DynamoDB upstream dataset
-        # URN -> that table's v2 field paths (empty unless column lineage is enabled).
-        self._s3_export_lineage: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
+        # URN -> that table's v2 field paths (empty unless column lineage is enabled). Plain dict
+        # (not defaultdict) so a read can never materialise an empty entry that would emit
+        # upstreams=[] and wipe a real S3 dataset's lineage.
+        self._s3_export_lineage: Dict[str, Dict[str, List[str]]] = {}
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -311,7 +323,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
 
         for table_name in self._list_tables(dynamodb_client):
-            dataset_name = f"{region}.{table_name}"
+            dataset_name = make_dynamodb_dataset_name(region, table_name)
             if not self.config.table_pattern.allowed(dataset_name):
                 logger.debug(f"skipping table: {dataset_name}")
                 self.report.report_dropped(dataset_name)
@@ -768,11 +780,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         dynamodb_client: "DynamoDBClient",
         table_arn: str,
         dataset_name: str,
+        max_exports: int,
     ) -> List[str]:
         """List COMPLETED export ARNs for a table, returning whatever was collected on error.
 
         Error handling lives here (not the caller) so a failure on a later page still returns the
-        pages already collected. Pagination is bounded by page count and a repeating-token guard.
+        pages already collected. Collection stops once more than ``max_exports`` ARNs have been
+        seen (so ListExports isn't paged past what the caller will describe), and is otherwise
+        bounded by page count and a repeating-token guard. Returning one more than ``max_exports``
+        lets the caller detect — and warn about — truncation.
         """
         export_arns: List[str] = []
         next_token: Optional[str] = None
@@ -795,6 +811,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     ),
                     context=f"dataset={dataset_name}; error={e}",
                     exc=e,
+                    log=False,
                 )
                 break
             for summary in response.get("ExportSummaries") or []:
@@ -803,6 +820,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 export_arn = summary.get("ExportArn")
                 if export_arn:
                     export_arns.append(export_arn)
+            if len(export_arns) > max_exports:
+                break
             next_token = response.get("NextToken")
             if not next_token:
                 break
@@ -812,20 +831,27 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     message="ListExports returned a repeating pagination token; stopping to "
                     "avoid an infinite loop.",
                     context=f"dataset={dataset_name}",
+                    log=False,
                 )
                 break
             seen_tokens.add(next_token)
         else:
             self.report.warning(
                 title="DynamoDB S3 Export Lineage",
-                message=f"Stopped listing exports after {MAX_EXPORT_PAGES} pages; some exports "
-                "may be omitted.",
-                context=f"dataset={dataset_name}",
+                message="Stopped listing exports after reaching the maximum number of pages; "
+                "some exports may be omitted.",
+                context=f"dataset={dataset_name}; max_pages={MAX_EXPORT_PAGES}",
+                log=False,
             )
         return export_arns
 
     def _make_s3_export_urn(self, s3_uri: str) -> str:
-        """Build the S3 export dataset URN, applying s3_export_platform_instance when configured."""
+        """Build the S3 export dataset URN, applying s3_export_platform_instance when configured.
+
+        The two branches must stay equivalent to ``make_s3_urn_for_lineage`` aside from the
+        platform_instance; they only diverge on trailing-slash handling, which is unreachable
+        because ``_build_export_s3_uri`` already strips it.
+        """
         if self.config.s3_export_platform_instance:
             return make_dataset_urn_with_platform_instance(
                 platform="s3",
@@ -843,11 +869,24 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         dataset_name: str,
         field_paths: Optional[List[str]] = None,
     ) -> None:
+        max_exports = self.config.max_exports_per_table
         export_arns = self._list_completed_export_arns(
             dynamodb_client=dynamodb_client,
             table_arn=table_arn,
             dataset_name=dataset_name,
+            max_exports=max_exports,
         )
+        if len(export_arns) > max_exports:
+            # Truncating here can drop a distinct S3 destination entirely, so surface it rather
+            # than failing silently. Ordering from ListExports is undocumented, so which exports
+            # survive the slice is not guaranteed.
+            self.report.warning(
+                title="DynamoDB S3 Export Lineage",
+                message="Table has more completed exports than max_exports_per_table; only a "
+                "subset is described, so some S3 export destinations may be missing from lineage.",
+                context=f"dataset={dataset_name}; max_exports_per_table={max_exports}",
+                log=False,
+            )
 
         seen_s3_urns: Set[str] = set()
         # Only retain field paths when column lineage is requested; otherwise they are never read.
@@ -856,9 +895,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             if self.config.include_s3_export_column_lineage
             else []
         )
-        # Bound DescribeExport fan-out: a frequently-exported table accumulates many export ARNs
-        # over the ~90-day retention window that nearly all resolve to the same destination.
-        for export_arn in export_arns[: self.config.max_exports_per_table]:
+        for export_arn in export_arns[:max_exports]:
             try:
                 export_description = (
                     dynamodb_client.describe_export(ExportArn=export_arn).get(
@@ -875,6 +912,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     ),
                     context=f"dataset={dataset_name}; export_arn={export_arn}; error={e}",
                     exc=e,
+                    log=False,
                 )
                 continue
 
@@ -894,8 +932,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             if s3_urn in seen_s3_urns:
                 continue
             seen_s3_urns.add(s3_urn)
-            self._s3_export_lineage[s3_urn][dataset_urn] = resolved_field_paths
-            self.report.s3_export_locations_found += 1
+            self._s3_export_lineage.setdefault(s3_urn, {})[dataset_urn] = (
+                resolved_field_paths
+            )
 
     def _resolve_s3_downstream_field_paths(
         self, s3_urn: str
@@ -917,6 +956,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 "back to inferred identity column mapping.",
                 context=s3_urn,
                 exc=e,
+                log=False,
             )
             return None
         if not schema_metadata:
@@ -957,7 +997,54 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             )
         return fine_grained
 
+    def _build_s3_export_column_lineage(
+        self, s3_urn: str, upstreams_by_urn: Dict[str, List[str]]
+    ) -> List[FineGrainedLineageClass]:
+        downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
+        fine_grained: List[FineGrainedLineageClass] = []
+        for upstream_urn in sorted(upstreams_by_urn):
+            fine_grained.extend(
+                self._build_s3_export_fine_grained_lineages(
+                    s3_urn=s3_urn,
+                    upstream_urn=upstream_urn,
+                    field_paths=upstreams_by_urn[upstream_urn],
+                    downstream_field_paths=downstream_field_paths,
+                )
+            )
+        if downstream_field_paths is None and fine_grained:
+            # info, not warning: inferred column lineage is the documented fallback when the S3
+            # export dataset's schema can't be read, not an error.
+            self.report.info(
+                title="DynamoDB S3 export column lineage is inferred",
+                message="Column-level lineage was emitted using the DynamoDB field paths as-is "
+                "because the S3 export dataset's schema was not available in DataHub (no metadata "
+                "backend configured, the dataset is not ingested, or its schema could not be "
+                "read). These edges are not validated against the export's real schema; ingest "
+                "the S3 export bucket for validated column lineage.",
+                context=s3_urn,
+            )
+        elif (
+            downstream_field_paths is not None
+            and not fine_grained
+            and any(upstreams_by_urn.values())
+        ):
+            # Resolved the S3 schema but nothing matched: distinguish this from column lineage
+            # being switched off or the table having no inferred fields (all emit None).
+            self.report.warning(
+                title="DynamoDB S3 export column lineage produced no matches",
+                message="The S3 export dataset's schema was found but none of the DynamoDB field "
+                "paths matched it (case-insensitive), so no column-level lineage was emitted. "
+                "This is expected when the export format (DynamoDB JSON/Ion) uses different field "
+                "paths than the connector's flattened schema.",
+                context=s3_urn,
+                log=False,
+            )
+        return fine_grained
+
     def _emit_s3_export_lineage(self) -> Iterable[MetadataWorkUnit]:
+        # Count distinct destinations, not (table, destination) pairs: two tables exporting to the
+        # same prefix are one location.
+        self.report.s3_export_locations_found = len(self._s3_export_lineage)
         for s3_urn, upstreams_by_urn in self._s3_export_lineage.items():
             upstreams = [
                 UpstreamClass(
@@ -966,40 +1053,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 )
                 for upstream_urn in sorted(upstreams_by_urn)
             ]
-            fine_grained: List[FineGrainedLineageClass] = []
-            if self.config.include_s3_export_column_lineage:
-                downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
-                for upstream_urn in sorted(upstreams_by_urn):
-                    fine_grained.extend(
-                        self._build_s3_export_fine_grained_lineages(
-                            s3_urn=s3_urn,
-                            upstream_urn=upstream_urn,
-                            field_paths=upstreams_by_urn[upstream_urn],
-                            downstream_field_paths=downstream_field_paths,
-                        )
-                    )
-                if downstream_field_paths is None and fine_grained:
-                    # info, not warning: inferred column lineage is the documented fallback when
-                    # the S3 export dataset isn't in DataHub, not an error.
-                    self.report.info(
-                        title="DynamoDB S3 export column lineage is inferred",
-                        message="The S3 export dataset is not in DataHub, so column-level lineage "
-                        "was emitted using the DynamoDB field paths as-is and is not validated "
-                        "against the export's real schema. Ingest the S3 export bucket for "
-                        "validated column lineage.",
-                        context=s3_urn,
-                    )
-                elif downstream_field_paths is not None and not fine_grained:
-                    # Resolved the S3 schema but nothing matched: distinguish this from column
-                    # lineage simply being switched off (both emit fineGrainedLineages=None).
-                    self.report.warning(
-                        title="DynamoDB S3 export column lineage produced no matches",
-                        message="The S3 export dataset's schema was found but none of the DynamoDB "
-                        "field paths matched it (case-insensitive), so no column-level lineage was "
-                        "emitted. This is expected when the export format (DynamoDB JSON/Ion) uses "
-                        "different field paths than the connector's flattened schema.",
-                        context=s3_urn,
-                    )
+            fine_grained: List[FineGrainedLineageClass] = (
+                self._build_s3_export_column_lineage(s3_urn, upstreams_by_urn)
+                if self.config.include_s3_export_column_lineage
+                else []
+            )
             self.report.s3_export_lineage_edges += len(upstreams)
             # is_primary_source=False keeps S3 export datasets out of stateful ingestion
             # tracking so the DynamoDB source can't soft-delete S3 entities it doesn't own.

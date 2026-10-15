@@ -26,6 +26,7 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
     GLUE_NATIVE_CONNECTION_TYPE_MAP,
     JDBC_PLATFORM_MAP,
+    MAX_STS_ACCOUNT_ID_ATTEMPTS,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
@@ -3617,12 +3618,13 @@ def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
     assert source.report.warnings
 
 
-def test_glue_and_dynamodb_dataset_urns_match() -> None:
-    # Pins the Glue <-> DynamoDB URN agreement: both must build byte-identical dataset names via
-    # make_dynamodb_dataset_name, otherwise the Glue job lineage silently stops joining.
-    from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-    from datahub.ingestion.source.aws.aws_common import make_dynamodb_dataset_name
-
+def test_glue_dynamodb_dataset_urn_is_literal() -> None:
+    # Drift guard for the Glue side of the Glue <-> DynamoDB URN agreement. The literal below is
+    # exactly what the DynamoDB source emits for this table (see
+    # test_dynamodb.py::test_get_workunits_internal_emits_s3_export_lineage, which asserts the same
+    # {account}.{region}.{table} shape). Asserting a literal here (not a helper-derived value)
+    # means a change to make_dynamodb_dataset_name breaks this test, catching the drift the two
+    # sources would otherwise hide.
     region, table, account = "us-east-1", "customers", "123456789012"
 
     source = glue_source()
@@ -3636,15 +3638,43 @@ def test_glue_and_dynamodb_dataset_urns_match() -> None:
     )
     glue_result = source.process_dataflow_node(node, flow_urn)
     assert glue_result is not None
-
-    # The URN the DynamoDB source itself produces for the same table (see dynamodb.py:_process_table).
-    dynamodb_urn = make_dataset_urn_with_platform_instance(
-        platform="dynamodb",
-        platform_instance=account,
-        name=make_dynamodb_dataset_name(region, table),
-        env="PROD",
+    assert glue_result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "123456789012.us-east-1.customers,PROD)"
     )
-    assert glue_result["urn"] == dynamodb_urn
+
+
+def test_get_aws_account_id_caches_success() -> None:
+    source = glue_source()
+    # Patch on the class, not the pydantic-v2 config instance (instance setattr is intercepted).
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.return_value = {
+            "Account": "999999999999"
+        }
+        assert source._get_aws_account_id() == "999999999999"
+        assert source._get_aws_account_id() == "999999999999"
+        # A successful lookup is cached: STS is called once, not per node.
+        assert mock_sts.return_value.get_caller_identity.call_count == 1
+
+
+def test_get_aws_account_id_caps_retries_and_warns_once() -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.side_effect = Exception("throttled")
+        for _ in range(MAX_STS_ACCOUNT_ID_ATTEMPTS):
+            assert source._get_aws_account_id() is None
+        calls_at_cap = mock_sts.return_value.get_caller_identity.call_count
+        # Transient failures retry up to the cap...
+        assert calls_at_cap == MAX_STS_ACCOUNT_ID_ATTEMPTS
+        # ...then stop re-hitting STS for the rest of the run.
+        assert source._get_aws_account_id() is None
+        assert mock_sts.return_value.get_caller_identity.call_count == calls_at_cap
+    account_id_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not resolve AWS account id via STS"
+    ]
+    assert len(account_id_warnings) == 1
 
 
 @pytest.mark.parametrize(

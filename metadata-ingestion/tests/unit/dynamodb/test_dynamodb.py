@@ -667,6 +667,10 @@ class TestDynamoDBS3ExportLineage:
             dataset_name="us-west-2.x",
         )
         assert mock_client.describe_export.call_count == 2
+        # Truncating from 5 exports to 2 must be surfaced, not silent.
+        assert any(
+            w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
+        )
 
     def test_list_exports_repeating_token_is_bounded(
         self, mock_context, lineage_config
@@ -684,6 +688,7 @@ class TestDynamoDBS3ExportLineage:
             dynamodb_client=mock_client,
             table_arn="arn:table/x",
             dataset_name="us-west-2.x",
+            max_exports=source.config.max_exports_per_table,
         )
         assert arns == []
         # Two calls: first page, then one more that detects the repeat and stops.

@@ -245,6 +245,10 @@ DYNAMODB_TABLE_ARN_PATTERN = re.compile(
 )
 # arn:{partition}:iam::{account}:role/{name}
 DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+# Cap STS GetCallerIdentity retries: building a session + client is expensive (~seconds with an
+# SSO profile) and _aws_config() already retries internally, so don't re-attempt once per node for
+# a persistent failure (AccessDenied) or sustained throttling across an unbounded node count.
+MAX_STS_ACCOUNT_ID_ATTEMPTS = 3
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -833,6 +837,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
         self._aws_account_id_sts_warned: bool = False
+        self._aws_account_id_sts_attempts: int = 0
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1597,8 +1602,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.source_config.get_sts_client().get_caller_identity().get("Account")
             )
         except Exception as exc:
-            # Don't cache a transient failure, so a later node can retry instead of every
-            # DynamoDB URN inheriting a missing account for the rest of the run. Warn once.
+            # Don't cache a transient failure immediately, so a later node can retry instead of
+            # every DynamoDB URN inheriting a missing account for the rest of the run — but stop
+            # retrying after a few attempts so a persistent failure doesn't re-hit STS per node.
+            self._aws_account_id_sts_attempts += 1
+            if self._aws_account_id_sts_attempts >= MAX_STS_ACCOUNT_ID_ATTEMPTS:
+                self._aws_account_id_loaded = True
             if not self._aws_account_id_sts_warned:
                 self._aws_account_id_sts_warned = True
                 self.report.warning(
