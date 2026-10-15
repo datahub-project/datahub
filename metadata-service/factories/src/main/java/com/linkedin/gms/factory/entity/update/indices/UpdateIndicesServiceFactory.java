@@ -147,6 +147,7 @@ public class UpdateIndicesServiceFactory {
             structuredPropertiesWriteEnabled);
 
     entityService.setUpdateIndicesService(updateIndicesService);
+    entityService.setSystemMetadataService(systemMetadataService);
 
     return updateIndicesService;
   }

@@ -70,9 +70,12 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -2244,6 +2247,75 @@ public class EntityServiceImplTest {
     verify(dao, never())
         .getLatestAspect(
             any(OperationContext.class), eq(userUrn.toString()), eq(STATUS_ASPECT_NAME), eq(false));
+  }
+
+  @Test
+  public void testHardDeleteNamesStoredAspectsUnknownToRegistry() {
+    // A store that deletes rows by aspect name also gets the aspects stored for the urn, so rows a
+    // newer version wrote (read after a rollback) are deleted too.
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.deletesUrnByAspectName()).thenReturn(true);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    SystemMetadataService systemMetadataService = mock(SystemMetadataService.class);
+    service.setSystemMetadataService(systemMetadataService);
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:guardBystander");
+    OperationContext userContext = newUserContext();
+    when(systemMetadataService.findByUrn(
+            any(OperationContext.class), eq(userUrn.toString()), eq(true), eq(0), any()))
+        .thenReturn(
+            List.of(
+                new AspectRowSummary().setAspectName("corpUserKey"),
+                new AspectRowSummary().setAspectName("aspectFromNewerBuild")));
+
+    hardDeleteUserKey(service, dao, userContext, userUrn);
+
+    verify(dao)
+        .deleteUrnExcept(
+            any(OperationContext.class),
+            any(),
+            eq(userUrn.toString()),
+            eq(Set.of()),
+            eq(Set.of("corpUserKey", "aspectFromNewerBuild")));
+  }
+
+  @Test
+  public void testStrictHandlingHardDeleteDoesNotListStoredAspects() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      AspectDao dao = mock(AspectDao.class);
+      when(dao.deletesUrnByAspectName()).thenReturn(true);
+      EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+      SystemMetadataService systemMetadataService = mock(SystemMetadataService.class);
+      service.setSystemMetadataService(systemMetadataService);
+      Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:guardBystander");
+
+      hardDeleteUserKey(service, dao, newUserContext(), userUrn);
+
+      verify(dao).deleteUrn(any(OperationContext.class), any(), eq(userUrn.toString()));
+      verifyNoInteractions(systemMetadataService);
+    } finally {
+      UnknownDataHandlings.reset();
+    }
+  }
+
+  private void hardDeleteUserKey(
+      EntityServiceImpl service, AspectDao dao, OperationContext userContext, Urn userUrn) {
+    String keyAspectName = userContext.getKeyAspectName(userUrn);
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(userUrn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(
+            guardTestAspectRow(
+                userUrn,
+                keyAspectName,
+                RecordUtils.toJsonString(new CorpUserKey().setUsername("guardBystander")),
+                SystemMetadataUtils.createDefaultSystemMetadata()));
+    when(dao.getVersionRange(
+            any(OperationContext.class), eq(userUrn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    stubGuardTestTransaction(dao);
+
+    service.deleteAspectWithoutMCL(
+        userContext, userUrn.toString(), keyAspectName, Collections.emptyMap(), true);
   }
 
   @Test
