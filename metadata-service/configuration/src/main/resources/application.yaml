@@ -2261,6 +2261,8 @@ metadataChangeProposal:
         enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
       domainWrite:
         enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
+      dataPlatformInstance:
+        enabled: ${MCP_VALIDATION_DATA_PLATFORM_INSTANCE_WRITE:true}
       privilegeGrant:
         enabled: ${MCP_VALIDATION_PRIVILEGE_GRANT:true}
       versionProperties:
