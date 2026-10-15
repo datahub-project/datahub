@@ -41,7 +41,8 @@ public class RoleType
       ImmutableSet.of(
           Constants.ROLE_KEY,
           Constants.ROLE_PROPERTIES_ASPECT_NAME,
-          Constants.ROLE_ACTORS_ASPECT_NAME);
+          Constants.ROLE_ACTORS_ASPECT_NAME,
+          Constants.DATA_PRODUCTS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
