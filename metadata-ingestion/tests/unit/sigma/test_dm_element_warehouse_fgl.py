@@ -31,6 +31,7 @@ from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRegistry,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    ConnectionPath,
     SigmaDataModel,
     SigmaDataModelColumn,
     SigmaDataModelElement,
@@ -78,6 +79,7 @@ _UNMAPPABLE_RECORD = SigmaConnectionRecord(
 # Snowflake warehouse table fixture
 _SF_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
 _SF_INODE_SOURCE = f"inode-{_SF_URL_ID}"
+_SF_INODE_ID = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
 _SF_REF = _WarehouseTableRef(
     connection_id=_SF_CONN_ID,
     db="PROD_DB",
@@ -223,12 +225,40 @@ class TestTryEmitPreflightFailures:
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
         assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
 
-    def test_url_id_not_in_warehouse_map(self):
-        """url_id matches source_ids but /files lookup failed (not in map)."""
+    def test_url_id_in_neither_the_map_nor_files(self):
         source = _make_source()
         col = _column(f"inode-{_SF_URL_ID}/EMAIL", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        assert _try_emit(source, col, elem, {}) is None
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            assert _try_emit(source, col, elem, {}) is None
+
+    def _try_emit_via_files(
+        self, source: SigmaSource, connection_id: str
+    ) -> Optional[FineGrainedLineageClass]:
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "email", "[CUSTOMERS/Email]")
+        elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+        entry = {"id": _SF_INODE_ID, "type": "table", "name": "CUSTOMERS"}
+        conn_path = ConnectionPath(
+            connection_id=connection_id, path=["PROD_DB", "PUBLIC", "CUSTOMERS"]
+        )
+        with (
+            patch.object(source.sigma_api, "get_file_metadata", return_value=entry),
+            patch.object(
+                source.sigma_api, "get_connection_path", return_value=conn_path
+            ),
+        ):
+            return _try_emit(source, col, elem, {})
+
+    def test_url_id_missing_from_the_map_is_found_via_files(self):
+        fgl = self._try_emit_via_files(_make_source(), _SF_CONN_ID)
+        assert fgl is not None
+        assert fgl.upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+
+    def test_url_id_missing_from_the_map_on_an_unmappable_connection(self):
+        # The mappable Snowflake connection in the registry is not borrowed.
+        assert self._try_emit_via_files(_make_source(), _UNMAPPABLE_CONN_ID) is None
 
     def test_unmappable_connection(self):
         source = _make_source()
