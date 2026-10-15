@@ -312,6 +312,9 @@ class TestDynamoDBS3ExportLineage:
         assert source.report.s3_export_locations_found == 1
         assert source.report.s3_export_lineage_edges == 1
         assert not source.report.warnings
+        # S3 export datasets are not owned by the DynamoDB source; is_primary_source must stay False
+        # so stateful ingestion can't soft-delete them.
+        assert workunits[0].is_primary_source is False
 
         mcp = workunits[0].metadata
         assert isinstance(mcp, MetadataChangeProposalWrapper)
@@ -410,10 +413,8 @@ class TestDynamoDBS3ExportLineage:
         )
 
         assert list(source._emit_s3_export_lineage()) == []
-        assert len(source.report.warnings) >= 1
         assert any(
-            "Failed to list DynamoDB table exports" in str(w)
-            for w in source.report.warnings
+            w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
         )
 
     def test_describe_export_error_is_warning(self, mock_context, lineage_config):
@@ -439,44 +440,13 @@ class TestDynamoDBS3ExportLineage:
         assert source.report.s3_export_locations_found == 0
         assert source.report.s3_export_lineage_edges == 0
         assert any(
-            "Failed to describe a DynamoDB table export" in str(w)
-            for w in source.report.warnings
+            w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
         )
 
     def test_column_lineage_off_by_default(self, mock_context, lineage_config):
         # include_s3_export_column_lineage is omitted, so the new default (False)
         # applies: table-level COPY only, no fine-grained lineage.
         assert lineage_config.include_s3_export_column_lineage is False
-        source = DynamoDBSource(
-            ctx=mock_context, config=lineage_config, platform="dynamodb"
-        )
-        mock_client = MagicMock()
-        mock_client.list_exports.return_value = {
-            "ExportSummaries": [
-                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
-            ]
-        }
-        mock_client.describe_export.return_value = {
-            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
-        }
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)"
-        source._collect_s3_export_lineage(
-            dynamodb_client=mock_client,
-            table_arn="arn:table/x",
-            dataset_urn=dataset_urn,
-            dataset_name="us-west-2.x",
-            field_paths=["id"],
-        )
-        workunits = list(source._emit_s3_export_lineage())
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert not mcp.aspect.fineGrainedLineages
-        assert len(mcp.aspect.upstreams) == 1
-        assert mcp.aspect.upstreams[0].dataset == dataset_urn
-
-    def test_column_lineage_can_be_disabled(self, mock_context, lineage_config):
-        lineage_config.include_s3_export_column_lineage = False
         source = DynamoDBSource(
             ctx=mock_context, config=lineage_config, platform="dynamodb"
         )
@@ -605,3 +575,192 @@ class TestDynamoDBS3ExportLineage:
             w.title == "Failed to read S3 export schema from DataHub"
             for w in source.report.warnings
         )
+
+    def test_column_lineage_resolved_but_nothing_matches_warns(
+        self, mock_context, lineage_config
+    ):
+        # When the S3 schema is found but no DynamoDB field matches it, no column lineage is
+        # emitted — and that must be distinguishable from column lineage being switched off.
+        lineage_config.include_s3_export_column_lineage = True
+        mock_context.graph = MagicMock()
+        mock_context.graph.get_schema_metadata.return_value = SimpleNamespace(
+            fields=[SimpleNamespace(fieldPath="totally_different")]
+        )
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+            field_paths=["orderId"],
+        )
+        workunits = list(source._emit_s3_export_lineage())
+        mcp = workunits[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, UpstreamLineageClass)
+        assert not mcp.aspect.fineGrainedLineages
+        assert any(
+            w.title == "DynamoDB S3 export column lineage produced no matches"
+            for w in source.report.warnings
+        )
+
+    def test_s3_export_platform_instance_applied(self, mock_context, lineage_config):
+        lineage_config.s3_export_platform_instance = "lake"
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "bucket", "S3Prefix": "prefix"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+        )
+        workunits = list(source._emit_s3_export_lineage())
+        assert (
+            workunits[0].metadata.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,lake.bucket/prefix,PROD)"
+        )
+
+    def test_max_exports_per_table_caps_describe_calls(
+        self, mock_context, lineage_config
+    ):
+        lineage_config.max_exports_per_table = 2
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": f"arn:export/{i}", "ExportStatus": "COMPLETED"}
+                for i in range(5)
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+        )
+        assert mock_client.describe_export.call_count == 2
+
+    def test_list_exports_repeating_token_is_bounded(
+        self, mock_context, lineage_config
+    ):
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        # A buggy service returning a static NextToken would loop forever without the guard.
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [],
+            "NextToken": "same-token-forever",
+        }
+        arns = source._list_completed_export_arns(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_name="us-west-2.x",
+        )
+        assert arns == []
+        # Two calls: first page, then one more that detects the repeat and stops.
+        assert mock_client.list_exports.call_count == 2
+        assert any(
+            w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
+        )
+
+    def test_get_workunits_internal_emits_s3_export_lineage(
+        self, mock_context, lineage_config
+    ):
+        # Drives the real wiring in get_workunits_internal end-to-end: the table's actual
+        # TableArn and the field paths produced by construct_schema_metadata feed the lineage
+        # builder, rather than hand-built toy arguments.
+        lineage_config.include_s3_export_column_lineage = True
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.meta.region_name = "us-west-2"
+
+        list_tables_paginator = MagicMock()
+        list_tables_paginator.paginate.return_value = [{"TableNames": ["orders"]}]
+        scan_paginator = MagicMock()
+        scan_paginator.paginate.return_value = [
+            {
+                "Items": [
+                    {
+                        "orderId": {"S": "1"},
+                        "customer": {"M": {"name": {"S": "a"}}},
+                    }
+                ]
+            }
+        ]
+
+        def _get_paginator(name):
+            return list_tables_paginator if name == "list_tables" else scan_paginator
+
+        mock_client.get_paginator.side_effect = _get_paginator
+        mock_client.describe_table.return_value = {
+            "Table": {
+                "TableArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders",
+                "ItemCount": 1,
+                "KeySchema": [{"AttributeName": "orderId", "KeyType": "HASH"}],
+            }
+        }
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "export-bucket", "S3Prefix": "orders"}
+        }
+
+        with patch.object(
+            DynamoDBConfig, "get_dynamodb_client", return_value=mock_client
+        ):
+            workunits = list(source.get_workunits_internal())
+
+        lineage_wus = [
+            wu
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        ]
+        assert len(lineage_wus) == 1
+        lineage_wu = lineage_wus[0]
+        assert lineage_wu.is_primary_source is False
+        aspect = lineage_wu.metadata.aspect
+        assert isinstance(aspect, UpstreamLineageClass)
+        ddb_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+            "123456789012.us-west-2.orders,PROD)"
+        )
+        assert [u.dataset for u in aspect.upstreams] == [ddb_urn]
+        # graph is None so column lineage is inferred from the real schema fields.
+        assert aspect.fineGrainedLineages
+        upstream_fields = {
+            f.upstreams[0] for f in aspect.fineGrainedLineages if f.upstreams
+        }
+        assert f"urn:li:schemaField:({ddb_urn},orderId)" in upstream_fields

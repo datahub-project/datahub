@@ -83,14 +83,13 @@ To capture lineage across Glue jobs and databases, a requirements must be met �
 
 #### DynamoDB Job Lineage
 
-When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)`, the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks.
+When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)` (or the equivalent sink), the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks — a DynamoDB `DataSource` becomes a job input and a DynamoDB `DataSink` becomes a job output.
 
-Typical patterns:
+This covers `extract_transforms: true` Glue ETL jobs that read from or write to DynamoDB — for example DynamoDB → Glue catalog / Iceberg / Parquet. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to their Iceberg/S3 storage.
 
-1. **Native DynamoDB Export to S3** (JSON/Ion) — use the DynamoDB source with `include_s3_export_lineage: true`.
-2. **Glue ETL DynamoDB → catalog / Iceberg / Parquet** — use the Glue source with `extract_transforms: true`. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to Iceberg/S3 storage.
+The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the Glue `catalog_id`, then the `sts:GetCallerIdentity` caller account. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
 
-To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+For capturing native DynamoDB **Export to S3** jobs (JSON/Ion) rather than Glue ETL, use the DynamoDB source's `include_s3_export_lineage` option instead — that is a DynamoDB-source feature, not a Glue one.
 
 #### JDBC Upstream Lineage
 

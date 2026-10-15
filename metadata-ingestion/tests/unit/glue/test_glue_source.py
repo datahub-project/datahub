@@ -3483,7 +3483,10 @@ def test_process_dataflow_node_dynamodb_cross_account_role_arn() -> None:
         },
     )
 
-    result = source.process_dataflow_node(node, flow_urn)
+    # Patch STS so that, if the role-ARN regex ever regresses, the test fails deterministically
+    # instead of silently falling back to a real sts:GetCallerIdentity against ambient creds.
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     # Account must come from the role ARN, not the caller STS identity.
@@ -3506,6 +3509,142 @@ def test_process_dataflow_node_dynamodb_missing_table() -> None:
 
     assert result is None
     assert source.report.warnings
+
+
+def test_process_dataflow_node_dynamodb_sink_output_table() -> None:
+    # The DataSink + dynamodb.output.tableName path is the only one that reaches outputDatasets.
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+
+
+def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
+    # Exercises the edge-traversal wiring: a DynamoDB DataSink must land in the upstream
+    # transform's outputDatasets (the only path that reaches outputDatasets).
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    transform = {
+        "Id": "Transform0",
+        "NodeType": "ApplyMapping",
+        "Args": [],
+        "LineNumber": 1,
+    }
+    sink = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+    graph = {
+        "DagNodes": [transform, sink],
+        "DagEdges": [{"Source": "Transform0", "Target": "DataSink0"}],
+    }
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        nodes = source.process_dataflow_graph(graph, flow_urn)
+
+    sink_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+    assert nodes["DataSink0"]["urn"] == sink_urn
+    assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
+
+
+def test_process_dataflow_node_dynamodb_malformed_arn_with_table_name_is_skipped() -> (
+    None
+):
+    # An explicit but unparseable ARN must NOT fall through to the tableName/region/account
+    # fallbacks — that would emit a URN built from the Glue job's own account/region for a table
+    # that may live elsewhere.
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.tableArn": (
+                "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+            ),
+            "dynamodb.input.tableName": "customers",
+            "dynamodb.region": "us-east-1",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
+    # No ARN, no role ARN, no catalog_id, and STS returns nothing -> no platform_instance.
+    # The node must be skipped rather than emitting a phantom URN with no account.
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value=None):
+        result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_glue_and_dynamodb_dataset_urns_match() -> None:
+    # Pins the Glue <-> DynamoDB URN agreement: both must build byte-identical dataset names via
+    # make_dynamodb_dataset_name, otherwise the Glue job lineage silently stops joining.
+    from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+    from datahub.ingestion.source.aws.aws_common import make_dynamodb_dataset_name
+
+    region, table, account = "us-east-1", "customers", "123456789012"
+
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.tableArn": f"arn:aws:dynamodb:{region}:{account}:table/{table}",
+        },
+    )
+    glue_result = source.process_dataflow_node(node, flow_urn)
+    assert glue_result is not None
+
+    # The URN the DynamoDB source itself produces for the same table (see dynamodb.py:_process_table).
+    dynamodb_urn = make_dataset_urn_with_platform_instance(
+        platform="dynamodb",
+        platform_instance=account,
+        name=make_dynamodb_dataset_name(region, table),
+        env="PROD",
+    )
+    assert glue_result["urn"] == dynamodb_urn
 
 
 @pytest.mark.parametrize(

@@ -74,7 +74,10 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import (
+    AwsSourceConfig,
+    make_dynamodb_dataset_name,
+)
 from datahub.ingestion.source.aws.glue_selection import (
     CATALOG_ID_FACT,
     DATABASE_CATALOG_ID_FACT,
@@ -829,6 +832,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self._seen_column_param_urns: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
+        self._aws_account_id_sts_warned: bool = False
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1588,14 +1592,31 @@ class GlueSource(StatefulIngestionSourceBase):
         """Caller account id for DynamoDB URN platform_instance when the DAG node has no ARN."""
         if self._aws_account_id_loaded:
             return self._aws_account_id
-        self._aws_account_id_loaded = True
         try:
-            self._aws_account_id = (
+            account_id = (
                 self.source_config.get_sts_client().get_caller_identity().get("Account")
             )
         except Exception as exc:
-            logger.debug("Could not resolve AWS account id via STS: %s", exc)
-            self._aws_account_id = None
+            # Do not cache a transient failure (throttle/timeout): leaving _loaded False lets a
+            # later node retry rather than poisoning every DynamoDB URN for the rest of the run.
+            # Warn once so a persistent config/permission error (NoCredentialsError, AccessDenied
+            # on sts:GetCallerIdentity) is visible instead of only logged at debug.
+            if not self._aws_account_id_sts_warned:
+                self._aws_account_id_sts_warned = True
+                self.report.warning(
+                    title="Could not resolve AWS account id via STS",
+                    message=(
+                        "Failed to call sts:GetCallerIdentity to resolve the AWS account id used as "
+                        "the DynamoDB platform_instance. DynamoDB DAG nodes without a table ARN, "
+                        "cross-account role ARN, or catalog_id will be skipped (no lineage emitted) "
+                        "rather than emitting a URN with a guessed account."
+                    ),
+                    exc=exc,
+                )
+            return None
+        # Only cache a successful lookup.
+        self._aws_account_id = account_id
+        self._aws_account_id_loaded = True
         return self._aws_account_id
 
     def _process_dynamodb_node(
@@ -1603,13 +1624,13 @@ class GlueSource(StatefulIngestionSourceBase):
         node: Dict[str, Any],
         node_args: Dict[str, Any],
         flow_urn: str,
-    ) -> Optional[List[str]]:
+    ) -> Optional[str]:
         """Resolve a Glue DynamoDB DataSource/DataSink to a DynamoDB dataset URN.
 
-        Matches the DynamoDB source naming convention: ``{region}.{table}`` with
-        platform_instance defaulting to the AWS account id. Supports both the ETL
-        connector (``dynamodb.input.tableName`` / ``dynamodb.output.tableName``) and
-        the export connector (``dynamodb.tableArn``).
+        Matches the DynamoDB source naming convention via ``make_dynamodb_dataset_name``
+        (``{region}.{table}``) with platform_instance defaulting to the AWS account id.
+        Supports both the ETL connector (``dynamodb.input.tableName`` /
+        ``dynamodb.output.tableName``) and the export connector (``dynamodb.tableArn``).
         """
         connection_options = node_args.get("connection_options") or {}
         node_label = f"{node['NodeType']}-{node['Id']}"
@@ -1621,18 +1642,24 @@ class GlueSource(StatefulIngestionSourceBase):
         table_arn = connection_options.get(DYNAMODB_TABLE_ARN)
         if table_arn:
             match = DYNAMODB_TABLE_ARN_PATTERN.match(str(table_arn))
-            if match:
-                region, account_id, table_name = (
-                    match.group(1),
-                    match.group(2),
-                    match.group(3),
-                )
-            else:
+            if not match:
+                # The table ARN is the most authoritative signal in the node. If it is present
+                # but unparseable, do NOT fall through to the tableName/region/account fallbacks —
+                # that would emit a URN built from the Glue job's own account and region for a
+                # table that may live in a different account or region, silently never joining.
                 self.report.warning(
-                    message="Failed to parse DynamoDB table ARN for node",
+                    title="Failed to parse DynamoDB table ARN for node",
+                    message="Skipping DynamoDB node: its table ARN could not be parsed, so a "
+                    "correct dataset URN cannot be built. No lineage emitted for this node.",
                     context=f"{flow_urn}: {node_label}: {table_arn}",
                     log=False,
                 )
+                return None
+            region, account_id, table_name = (
+                match.group(1),
+                match.group(2),
+                match.group(3),
+            )
 
         if not table_name:
             table_name = connection_options.get(
@@ -1648,24 +1675,28 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if not table_name or not region:
             self.report.warning(
-                message="Missing DynamoDB table name or region for node",
+                title="Missing DynamoDB table name or region for node",
+                message="Skipping DynamoDB node: could not determine the table name or region.",
                 context=f"{flow_urn}: {node_label}",
                 log=False,
             )
             return None
 
-        dataset_name = f"{region}.{table_name}"
+        dataset_name = make_dynamodb_dataset_name(region, table_name)
+
+        # A configured target_platform_configs["dynamodb"].platform_instance wins over every
+        # account-id source below, so short-circuit here and reuse the shared URN builder (which
+        # already applies that platform_instance and env). No STS call is made in this path.
         target_config = self.source_config.target_platform_configs.get(
             DYNAMODB_PLATFORM
         )
         if target_config and target_config.platform_instance:
-            return [
-                self._make_dataset_urn_for_platform(DYNAMODB_PLATFORM, dataset_name)
-            ]
+            return self._make_dataset_urn_for_platform(DYNAMODB_PLATFORM, dataset_name)
 
-        # Mirror DynamoDB source: default platform_instance to AWS account id.
-        # ETL connector nodes often omit tableArn; priority: ARN account > cross-account
-        # role ARN account > catalog_id > caller STS identity.
+        # Mirror the DynamoDB source: default platform_instance to the AWS account id.
+        # ETL connector nodes often omit tableArn; account-id precedence is:
+        #   target_platform_configs platform_instance (handled above)
+        #   > tableArn account > cross-account role ARN account > catalog_id > caller STS identity.
         if not account_id:
             role_arn = connection_options.get(DYNAMODB_STS_ROLE_ARN)
             if role_arn:
@@ -1675,18 +1706,28 @@ class GlueSource(StatefulIngestionSourceBase):
         platform_instance = (
             account_id or self.source_config.catalog_id or self._get_aws_account_id()
         )
-        return [
-            make_dataset_urn_with_platform_instance(
-                platform=DYNAMODB_PLATFORM,
-                name=dataset_name,
-                platform_instance=platform_instance,
-                env=(
-                    target_config.env
-                    if target_config and target_config.env
-                    else self.env
-                ),
+        if platform_instance is None:
+            # The DynamoDB source always derives platform_instance from the table ARN's account,
+            # so a DynamoDB URN with no platform_instance would never match a real table — it would
+            # create a phantom dataset next to the real one. Skip the node: absent lineage is
+            # recoverable on a later run; wrong metadata gets filed as a bug months later.
+            self.report.warning(
+                title="Could not resolve DynamoDB account id for node",
+                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN, "
+                "catalog_id, or STS caller identity was available to use as platform_instance. "
+                "Set target_platform_configs.dynamodb or grant sts:GetCallerIdentity.",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
             )
-        ]
+            return None
+        return make_dataset_urn_with_platform_instance(
+            platform=DYNAMODB_PLATFORM,
+            name=dataset_name,
+            platform_instance=platform_instance,
+            env=(
+                target_config.env if target_config and target_config.env else self.env
+            ),
+        )
 
     def process_dataflow_node(
         self,
@@ -1752,10 +1793,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is DynamoDB (ETL connector or export connector)
             elif node_args.get("connection_type") == DYNAMODB_CONNECTION_TYPE:
-                _urns = self._process_dynamodb_node(node, node_args, flow_urn)
-                if not _urns:
+                dynamodb_urn = self._process_dynamodb_node(node, node_args, flow_urn)
+                if not dynamodb_urn:
                     return None
-                node_urn = _urns[0]
+                node_urn = dynamodb_urn
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
