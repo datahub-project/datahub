@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -733,8 +734,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   public Optional<SearchResponse> raw(
-      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
-    return esSearchDAO.raw(opContext, indexName, jsonQuery);
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nullable String jsonQuery,
+      @Nonnull SearchOperation operation) {
+    return esSearchDAO.raw(opContext, indexName, jsonQuery, operation);
   }
 
   @Override

@@ -12,6 +12,8 @@ public enum SearchOperation {
   ENTITY_SEARCH("entitySearch"),
   GRAPH("graph"),
   GRAPH_QUERY_PIT("graphQueryPit"),
+  INCIDENT_STATS("incidentStats"),
+  PLATFORM_ENTITY_COUNTS("platformEntityCounts"),
   SYSTEM_METADATA("systemMetadata"),
   TIMESERIES("timeseries");
 

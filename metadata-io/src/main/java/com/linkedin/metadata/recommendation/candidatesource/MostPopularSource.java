@@ -102,7 +102,7 @@ public class MostPopularSource implements EntityRecommendationSource {
             final SearchResponse searchResponse =
                 SearchTookMetrics.time(
                     opContext,
-                    SearchOperation.ENTITY_SEARCH,
+                    SearchOperation.DATAHUB_USAGE,
                     () -> _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);

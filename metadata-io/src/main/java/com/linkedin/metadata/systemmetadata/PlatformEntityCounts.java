@@ -144,7 +144,7 @@ public class PlatformEntityCounts {
       response =
           SearchTookMetrics.time(
               opContext,
-              SearchOperation.ENTITY_SEARCH,
+              SearchOperation.PLATFORM_ENTITY_COUNTS,
               () ->
                   SearchClients.forEntityIndices(opContext, request)
                       .search(opContext, request, RequestOptions.DEFAULT));

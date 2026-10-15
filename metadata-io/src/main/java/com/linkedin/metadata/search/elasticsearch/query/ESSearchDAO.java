@@ -1260,7 +1260,7 @@ public class ESSearchDAO {
               final SearchResponse searchResponse =
                   SearchTookMetrics.time(
                       opContext,
-                      SearchOperation.ENTITY_SEARCH,
+                      SearchOperation.INCIDENT_STATS,
                       () ->
                           searchClient(opContext, searchRequest)
                               .search(opContext, searchRequest, RequestOptions.DEFAULT));
@@ -1470,7 +1470,10 @@ public class ESSearchDAO {
   }
 
   public Optional<SearchResponse> raw(
-      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nullable String jsonQuery,
+      @Nonnull SearchOperation operation) {
     return Optional.ofNullable(jsonQuery)
         .map(
             json -> {
@@ -1491,7 +1494,7 @@ public class ESSearchDAO {
 
                 return SearchTookMetrics.time(
                     opContext,
-                    SearchOperation.ENTITY_SEARCH,
+                    operation,
                     () ->
                         SearchClients.forIndex(opContext, searchConfiguration, resolvedIndex)
                             .search(opContext, searchRequest, RequestOptions.DEFAULT));
