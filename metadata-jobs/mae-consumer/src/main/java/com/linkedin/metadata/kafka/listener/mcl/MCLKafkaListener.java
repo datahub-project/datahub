@@ -114,6 +114,10 @@ public class MCLKafkaListener
     if (isDroppedByConfig(event, aspectsToDrop)) {
       return true;
     }
+    if (!handling().isTolerant()) {
+      // As before tolerance, and without reading the urn, which throws for a malformed one.
+      return false;
+    }
 
     // After a rollback, MCLs written by the newer build can name entity types or aspects this build
     // does not know. No hook can process them, and hooks that look up their specs would throw and
