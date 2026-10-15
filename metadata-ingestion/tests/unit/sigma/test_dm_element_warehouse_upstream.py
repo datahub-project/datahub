@@ -552,7 +552,10 @@ class TestUpstreamLineageWarehouseWiring:
             updatedAt="2024-01-01T00:00:00Z",
         )
 
-        lineage = self._run(source, element, dm, {})
+        with patch.object(
+            source.sigma_api, "get_file_metadata_by_url_id", return_value=None
+        ):
+            lineage = self._run(source, element, dm, {})
 
         assert lineage is None
         assert source.reporter.data_model_element_upstreams_unresolved == 1
@@ -688,6 +691,104 @@ class TestUpstreamLineageWarehouseWiring:
 # ---------------------------------------------------------------------------
 # Tests: SigmaAPI.get_file_metadata error paths (H5)
 # ---------------------------------------------------------------------------
+
+
+_DM = SigmaDataModel(
+    dataModelId="dm-1",
+    name="DM",
+    createdAt="2024-01-01T00:00:00Z",
+    updatedAt="2024-01-01T00:00:00Z",
+)
+_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
+_SF_CUSTOMERS_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+    "warehouse_coffee_company.public.customers,PROD)"
+)
+
+
+class TestTableMissingFromDataModelLineage:
+    """An element's table that the Data Model's /lineage omits, asked of /files."""
+
+    def _upstreams(
+        self,
+        source: SigmaSource,
+        files_entry: Optional[Dict[str, Any]],
+        warehouse_map: Optional[Dict[str, _WarehouseTableRef]] = None,
+    ) -> List[str]:
+        element = _make_minimal_element(source_ids=[f"inode-{_URL_ID}"])
+        with patch.object(
+            source.sigma_api, "get_file_metadata_by_url_id", return_value=files_entry
+        ) as lookup:
+            lineage = source._gen_data_model_element_upstream_lineage(
+                element,
+                _DM,
+                source._gen_data_model_element_urn(_DM, element),
+                elementId_to_dataset_urn={},
+                element_name_to_eids={},
+                warehouse_url_id_map=warehouse_map or {},
+            )
+        self.lookups = lookup.call_count
+        return [u.dataset for u in lineage.upstreams] if lineage else []
+
+    def test_found_via_files_on_the_sole_mappable_connection(self):
+        source = _make_source()
+        assert self._upstreams(source, _GOOD_FILES_RESPONSE) == [_SF_CUSTOMERS_URN]
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 1
+
+    def test_one_lookup_per_url_id(self):
+        source = _make_source()
+        self._upstreams(source, _GOOD_FILES_RESPONSE)
+        assert self._upstreams(source, _GOOD_FILES_RESPONSE) == [_SF_CUSTOMERS_URN]
+        assert self.lookups == 0
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 1
+
+    def test_unresolvable_url_id_is_counted(self):
+        source = _make_source()
+        assert self._upstreams(source, None) == []
+        assert source.reporter.dm_element_warehouse_url_id_unresolvable == 1
+        assert source.reporter.data_model_element_upstreams_unresolved == 1
+
+    def test_ingested_sigma_dataset_is_not_looked_up(self):
+        source = _make_source()
+        sd_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_URL_ID},PROD)"
+        source.sigma_dataset_urn_by_url_id[_URL_ID] = sd_urn
+        assert self._upstreams(source, _GOOD_FILES_RESPONSE) == [sd_urn]
+        assert self.lookups == 0
+
+    def test_a_file_that_is_not_a_table_is_no_upstream(self):
+        source = _make_source()
+        entry = {**_GOOD_FILES_RESPONSE, "type": "dataset", "path": "My Workspace"}
+        assert self._upstreams(source, entry) == []
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 0
+        assert source.reporter.dm_element_warehouse_path_unparseable == 0
+
+    def test_connection_taken_from_the_data_models_own_tables(self):
+        bq = SigmaConnectionRecord(
+            connection_id="conn-bq-001",
+            name="BigQuery",
+            sigma_type="bigquery",
+            datahub_platform="bigquery",
+            is_mappable=True,
+        )
+        source = _make_source(extra_registry_records=[bq])
+        own = _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID, db="D", schema="S", table="T"
+        )
+        upstreams = self._upstreams(source, _GOOD_FILES_RESPONSE, {"own": own})
+        assert _SF_CUSTOMERS_URN in upstreams
+
+    def test_ambiguous_connection_is_refused(self):
+        source = _make_source()
+        warehouse_map = {
+            "a": _WarehouseTableRef(
+                connection_id=_SNOWFLAKE_CONN_ID, db="D", schema="S", table="A"
+            ),
+            "b": _WarehouseTableRef(
+                connection_id="conn-other", db="D", schema="S", table="B"
+            ),
+        }
+        upstreams = self._upstreams(source, _GOOD_FILES_RESPONSE, warehouse_map)
+        assert _SF_CUSTOMERS_URN not in upstreams
 
 
 def _make_api() -> SigmaAPI:

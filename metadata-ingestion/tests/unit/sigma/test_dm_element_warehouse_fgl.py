@@ -223,12 +223,34 @@ class TestTryEmitPreflightFailures:
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
         assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
 
-    def test_url_id_not_in_warehouse_map(self):
-        """url_id matches source_ids but /files lookup failed (not in map)."""
+    def test_url_id_in_neither_the_map_nor_files(self):
         source = _make_source()
         col = _column(f"inode-{_SF_URL_ID}/EMAIL", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        assert _try_emit(source, col, elem, {}) is None
+        with patch.object(
+            source.sigma_api, "get_file_metadata_by_url_id", return_value=None
+        ):
+            assert _try_emit(source, col, elem, {}) is None
+
+    def test_url_id_missing_from_the_map_is_found_via_files(self):
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "email", "[CUSTOMERS/Email]")
+        elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+        # Another table of the same Data Model names the connection.
+        wh_map = {"other-url-id": _SF_REF}
+        entry = {
+            "type": "table",
+            "name": "CUSTOMERS",
+            "path": "Connection Root/PROD_DB/PUBLIC",
+        }
+        with patch.object(
+            source.sigma_api, "get_file_metadata_by_url_id", return_value=entry
+        ):
+            fgl = _try_emit(source, col, elem, wh_map)
+        assert fgl is not None
+        assert fgl.upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
 
     def test_unmappable_connection(self):
         source = _make_source()
