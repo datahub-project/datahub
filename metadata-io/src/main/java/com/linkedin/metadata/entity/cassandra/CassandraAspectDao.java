@@ -3,7 +3,6 @@ package com.linkedin.metadata.entity.cassandra;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.cassandra.CassandraAspect.rowToEntityAspect;
-import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
@@ -484,7 +483,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
-    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+    return deleteUrnExcept(opContext, txContext, urn, Set.of(), Set.of());
   }
 
   @Override
@@ -493,6 +492,26 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final Set<String> keptAspectNames) {
+    return deleteUrnExcept(opContext, txContext, urn, keptAspectNames, Set.of());
+  }
+
+  @Override
+  public boolean deletesUrnByAspectName() {
+    return true;
+  }
+
+  /**
+   * Cassandra deletes rows by aspect name, so aspects this registry doesn't know (written by a
+   * newer version before a rollback) are only deleted when named in {@code storedAspectNames};
+   * otherwise they would come back after re-upgrading.
+   */
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames,
+      @Nonnull final Set<String> storedAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -504,12 +523,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     String entityType = urnObj.getEntityType();
 
     // Get all aspect names for this entity type
-    final Set<String> registryAspectNames =
-        opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
     final Set<String> allAspectNames =
-        handling().isTolerant()
-            ? withStoredAspectNames(urn, registryAspectNames)
-            : registryAspectNames;
+        new HashSet<>(opContext.getEntityRegistryContext().getEntityAspectNames(entityType));
+    allAspectNames.addAll(storedAspectNames);
 
     // Create list of non-key aspect names
     List<String> nonKeyAspectNames =
@@ -558,28 +574,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     return -1;
-  }
-
-  /**
-   * The registry's aspect names plus the ones actually stored for this urn: rows of aspects this
-   * registry doesn't know (written by a newer version before a rollback) must be deleted too, or
-   * they would come back after re-upgrading.
-   */
-  @Nonnull
-  private Set<String> withStoredAspectNames(
-      @Nonnull final String urn, @Nonnull final Set<String> registryAspectNames) {
-    final Set<String> aspectNames = new HashSet<>(registryAspectNames);
-    final SimpleStatement storedAspects =
-        selectFrom(CassandraAspect.TABLE_NAME)
-            .column(CassandraAspect.ASPECT_COLUMN)
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn))
-            .build();
-    _cqlSession
-        .execute(storedAspects)
-        .all()
-        .forEach(row -> aspectNames.add(row.getString(CassandraAspect.ASPECT_COLUMN)));
-    return aspectNames;
   }
 
   @Override
