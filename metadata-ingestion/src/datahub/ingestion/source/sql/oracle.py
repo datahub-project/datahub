@@ -1586,6 +1586,10 @@ class OracleSource(SQLAlchemySource):
 
         `name` is the URN name without platform instance: `schema.table`, or
         `db.schema.table` when add_database_name_to_urn is set.
+
+        Only the recipe patterns decide. Oracle system schemas are not rejected
+        here: the crawl ingests them when schema_pattern allows it, and lineage
+        on those entities must follow. V$SQL already excludes them in SQL.
         """
         parts = name.split(".")
         if self.config.add_database_name_to_urn:
@@ -1597,8 +1601,6 @@ class OracleSource(SQLAlchemySource):
                 return False
             schema = parts[0]
 
-        if schema.upper() in ORACLE_SYSTEM_SCHEMAS:
-            return False
         if not self.config.schema_pattern.allowed(schema):
             return False
         # The parser cannot tell tables from views, so accept either pattern.

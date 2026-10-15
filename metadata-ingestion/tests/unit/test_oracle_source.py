@@ -1502,8 +1502,24 @@ class TestOracleQueryExtraction:
         assert source._is_allowed_table("HR.EMPLOYEES")
         assert not source._is_allowed_table("finance.ledger")
         assert not source._is_allowed_table("hr.tmp_load")
-        assert not source._is_allowed_table("sys.dual")
         assert not source._is_allowed_table("employees")
+
+    def test_is_allowed_table_honours_allowed_system_schema(self, ctx):
+        # Recipes may deliberately ingest SYSTEM; lineage on those entities must
+        # not be filtered away by a hard-coded system-schema list.
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "schema_pattern": {"allow": ["^system$"]},
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        assert source._is_allowed_table("system.product_privs")
+        assert not source._is_allowed_table("hr.employees")
 
     def test_is_allowed_table_with_database_in_urn(self, ctx):
         config = OracleConfig.model_validate(
@@ -1520,7 +1536,6 @@ class TestOracleQueryExtraction:
 
         assert source._is_allowed_table("orcl.hr.employees")
         assert not source._is_allowed_table("orcl.finance.ledger")
-        assert not source._is_allowed_table("orcl.system.audit")
         # Two-part names cannot be matched against a three-tier filter.
         assert not source._is_allowed_table("hr.employees")
 
