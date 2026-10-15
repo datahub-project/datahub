@@ -8,7 +8,7 @@ title: "Deploying DataHub on AWS ECS"
 
 > **Scope.** This guide describes a functional reference deployment. It does not cover full production hardening, observability, high availability, or cost optimization. Treat every configuration value in this guide as a starting point, not a sizing recommendation.
 
-> **Tested version.** This guide was tested with DataHub **v0.14.1**. On DataHub **1.5 and later**, GMS also requires a token service signing key and salt — see [Configure the token service signing key and salt](#configure-the-token-service-signing-key-and-salt).
+> **Tested version.** This guide was tested with DataHub **v0.14.1**. On DataHub **1.5 and later**, GMS also requires a token service signing key and salt, and Frontend requires `DATAHUB_SECRET` — see [Configure the token service signing key and salt](#configure-the-token-service-signing-key-and-salt) and [Enable metadata service authentication](#enable-metadata-service-authentication).
 
 > DataHub's environment variables and default configuration change between releases. If you are following this guide with a different DataHub version or need information on other configuration not listed here, cross-check the variables below against the current [Deployment Environment Variables](https://docs.datahub.com/docs/deploy/environment-vars) and [Docker Images](https://docs.datahub.com/docs/docker) reference before applying them.
 
@@ -48,7 +48,7 @@ MAE and MCE can also be deployed as separate ECS services when they need to be s
 The deployment also uses a one-time ECS task for DataHub System Update. The DataHub Docker images include `acryldata/datahub-upgrade`, which runs System Update and performs SQL and search-index setup when configured to do so.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-ecs-architecture.svg"/>
+  <img width="90%" src="aws-ecs-architecture.svg"/>
 </p>
 
 *If your environment should not be publicly accessible at all, remove the ALB from the public subnet, and reach Frontend through a VPN or other private connectivity.*
@@ -60,12 +60,13 @@ The infrastructure can be provisioned using Terraform (see the [template files](
 ```bash
 terraform init
 terraform validate
-terraform workspace select -or-create <environment>
-terraform plan
-terraform apply
+terraform plan -var environment=<environment>
+terraform apply -var environment=<environment>
 ```
 
-Make sure that the correct Terraform workspace is selected before applying changes, that you are running from the correct Terraform directory, and that your Terraform variables and AWS credentials are correctly set.
+Resource names are built from the `environment` variable, not from the Terraform workspace, so the same template can be reused for several environments. Because workspaces are no longer used to separate environments, keep a separate Terraform state for each one (for example a different backend key or a separate working directory per environment).
+
+Make sure that you are running from the correct Terraform directory, that `environment` is set to the environment you intend to change, and that your Terraform variables and AWS credentials are correctly set.
 
 ## Configure AWS Cloud Map
 
@@ -91,7 +92,7 @@ Provision an Amazon RDS MySQL database that is accessible from the ECS tasks ([A
 
 Store the database password in AWS Secrets Manager ([AWS reference](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html)).
 
-Use a dedicated database user with the permissions required by DataHub. Avoid using the root user for the application.
+Use a dedicated database user with the permissions required by DataHub. Avoid using the master user for the application.
 
 ## Configure Amazon MSK
 
@@ -170,7 +171,7 @@ Create an ECS service for the DataHub Frontend ([AWS reference](https://docs.aws
 
 | Setting | Value |
 |---|---|
-| Port | 9092 |
+| Port | 9002 |
 | CPU | 1024 |
 | Memory | 2048 MiB |
 
@@ -209,6 +210,11 @@ Provide the following values to the service through ECS secrets:
 ```
 DATAHUB_SYSTEM_CLIENT_SECRET
 DATAHUB_SYSTEM_CLIENT_ID
+```
+
+Frontend also needs the following secret:
+
+```
 DATAHUB_SECRET
 ```
 
@@ -245,7 +251,7 @@ If you use a separate schema registry, configure the corresponding values instea
 
 ### MAE and MCE consumers
 
-In this reference deployment, MAE and MCE run  within GMS:
+In this reference deployment, MAE and MCE run within GMS:
 
 ```
 MAE_CONSUMER_ENABLED=true
@@ -286,16 +292,16 @@ SEARCH_SERVICE_ENABLE_CACHE=true
 This can improve repeated search performance.
 
 ### Configure the token service signing key and salt
- 
+
 Set the following variables in GMS:
- 
+
 ```
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY
 DATAHUB_TOKEN_SERVICE_SALT
 ```
- 
+
 These are **required on DataHub 1.5 and later**. They are safe to add on v0.14.1, the version this guide was tested with, so you can set them regardless of version.
- 
+
 Treat both values as secrets. Store them in AWS Secrets Manager and provide them to the GMS task through ECS secrets, as with the other credentials in this guide.
 
 ## Deploy the Actions service
@@ -378,9 +384,9 @@ Run System Update as a one-time ECS task rather than as a long-running ECS servi
 Configure the task with the same database, Kafka, and OpenSearch connectivity required by GMS.
 
 ### Run the System Update task
- 
+
 Start the task with `aws ecs run-task`, using the System Update task definition. Because it is a one-time task and not part of an ECS service, you must pass the Fargate launch type and network configuration explicitly:
- 
+
 ```bash
 aws ecs run-task \
   --cluster <cluster-name> \
@@ -390,8 +396,10 @@ aws ecs run-task \
   --count 1 \
   --region <aws-region>
 ```
- 
+
 Use the same private subnets and security groups as GMS so the task can reach RDS, MSK, and OpenSearch. Omit the revision to use the latest ACTIVE revision of the task definition.
+
+Run System Update again whenever you upgrade the DataHub version.
 
 ### OpenSearch
 
@@ -408,11 +416,11 @@ es:ESHttpHead
 Scope these permissions to the OpenSearch domain.
 
 ## Update and restart services
- 
+
 Frontend, GMS, Actions, and any separately deployed MAE or MCE consumers run as long-running ECS services. To roll out changes to one of them, use `aws ecs update-service`.
- 
+
 Force a new deployment with the service's current task definition:
- 
+
 ```bash
 aws ecs update-service \
   --cluster <cluster-name> \
@@ -422,11 +430,12 @@ aws ecs update-service \
 ```
 
 Use `--force-new-deployment` when the task definition itself has not changed but the tasks need to restart, for example:
- 
+
 - You rotated a value in AWS Secrets Manager. ECS reads secrets only when a task starts, so running tasks keep the old value until they are replaced.
 - You need to restart tasks after changing networking or other infrastructure the tasks depend on.
+
 If you changed the task definition (new image tag, environment variables, CPU or memory), register the new revision and point the service at it. This starts a deployment on its own, so `--force-new-deployment` is not needed:
- 
+
 ```bash
 aws ecs update-service \
   --cluster <cluster-name> \
@@ -443,7 +452,7 @@ After provisioning the infrastructure:
 2. Verify that Frontend, GMS, and Actions are running and healthy.
 3. Verify that GMS can be resolved through Cloud Map or the configured load balancer.
 4. Verify that GMS can connect to RDS.
-5. Verify that GMS and Actions can connect to MSK.
+5. Verify that GMS, Actions, and the System Update task can connect to MSK.
 6. Verify that GMS can authenticate to OpenSearch using the ECS task role.
 7. Verify that the ECS tasks can retrieve the required secrets from Secrets Manager.
 8. Verify that Frontend can communicate with GMS.
