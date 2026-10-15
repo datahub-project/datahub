@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,13 +13,16 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.vertica import (
     VerticaConfig,
     VerticaSource,
-    _strip_default_namespace,
+    _drop_namespace_qualifiers,
 )
 from datahub.ingestion.source.sql.vertica_inspector import (
     DataHubVerticaDialect,
     VerticaInspector,
 )
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamLineageClass,
+)
 
 
 class _FakeResult:
@@ -552,13 +555,14 @@ def test_view_definition_uses_default_schema_when_unspecified():
     assert fake.executed[0][1] == {"schema": "public", "view": "v"}
 
 
-def _vertica_source() -> VerticaSource:
+def _vertica_source(**config: Any) -> VerticaSource:
     return VerticaSource(
         VerticaConfig.model_validate(
             {
                 "host_port": "host:5433",
                 "database": "vmart",
                 "include_view_lineage": True,
+                **config,
             }
         ),
         PipelineContext(run_id="vertica-test"),
@@ -574,6 +578,10 @@ CUSTOMER_URN = _vertica_urn("vmart.public.customer_dimension")
 SALES_URN = _vertica_urn("vmart.store.store_sales_fact")
 
 
+def _register(source: VerticaSource, urn: str, columns: Dict[str, str]) -> None:
+    source.aggregator._schema_resolver.add_raw_schema_info(urn, columns)
+
+
 def _lineage_for(source: VerticaSource, urn: str) -> UpstreamLineageClass:
     aspects = [
         mcp.aspect
@@ -584,40 +592,56 @@ def _lineage_for(source: VerticaSource, urn: str) -> UpstreamLineageClass:
     return aspects[0]
 
 
+def _upstream_field_urns(lineage: UpstreamLineageClass) -> set:
+    return {
+        field
+        for fgl in lineage.fineGrainedLineages or []
+        for field in fgl.upstreams or []
+    }
+
+
 @pytest.mark.parametrize(
     "definition,expected",
     [
+        # Vertica 24.1+ writes same-database references with the namespace.
         (
-            "SELECT * FROM default_namespace.public.t",
-            "SELECT * FROM public.t",
+            "SELECT a FROM default_namespace.public.t",
+            "SELECT a FROM public.t",
         ),
+        # A named namespace, and a database qualifier, are dropped the same way.
         (
-            'SELECT * FROM DEFAULT_NAMESPACE."Public"."T"',
-            'SELECT * FROM "Public"."T"',
+            "SELECT a FROM ns1.public.t JOIN Vmart.store.s ON t.k = s.k",
+            "SELECT a FROM public.t JOIN store.s ON t.k = s.k",
         ),
-        # Only the namespace qualifier is touched.
+        # Quoted qualifiers are table references too.
         (
-            "SELECT default_namespace_flag FROM public.default_namespace_t",
-            "SELECT default_namespace_flag FROM public.default_namespace_t",
+            'SELECT a FROM "default_namespace"."Public"."T"',
+            'SELECT a FROM "Public"."T"',
+        ),
+        # Two-part names, column names and string literals are left alone.
+        (
+            "SELECT default_namespace_flag FROM public.default_namespace_t "
+            "WHERE name = 'default_namespace.foo'",
+            "SELECT default_namespace_flag FROM public.default_namespace_t "
+            "WHERE name = 'default_namespace.foo'",
+        ),
+        # Unparseable SQL passes through for the aggregator to report.
+        (
+            "SELECT ts, AVG(x) OVER (TIMESERIES ts AS '1 hour') FROM default_namespace.public.t",
+            "SELECT ts, AVG(x) OVER (TIMESERIES ts AS '1 hour') FROM default_namespace.public.t",
         ),
     ],
 )
-def test_strip_default_namespace(definition: str, expected: str) -> None:
-    assert _strip_default_namespace(definition) == expected
+def test_drop_namespace_qualifiers(definition: str, expected: str) -> None:
+    assert _drop_namespace_qualifiers(definition) == expected
 
 
-def test_view_definition_lineage_resolves_default_namespace_to_database() -> None:
-    # Vertica 24.1+ qualifies same-database references in view_definition with
-    # `default_namespace.`; the parser must land on the real datasets, with
-    # column-level lineage, and the catalog map must not write a second aspect.
+def test_view_definition_lineage_resolves_namespace_to_database() -> None:
+    # The parser must land on the real datasets, with column-level lineage,
+    # and the catalog map must not write a second aspect.
     source = _vertica_source()
-    source.aggregator._schema_resolver.add_raw_schema_info(
-        CUSTOMER_URN, {"customer_key": "int", "customer_name": "varchar"}
-    )
-    source.aggregator._schema_resolver.add_raw_schema_info(
-        SALES_URN, {"customer_key": "int", "sales_amount": "numeric"}
-    )
-    source._view_catalog_upstreams[VIEW_URN] = [CUSTOMER_URN, SALES_URN]
+    _register(source, CUSTOMER_URN, {"customer_key": "int", "customer_name": "varchar"})
+    _register(source, SALES_URN, {"customer_key": "int", "sales_amount": "numeric"})
 
     source._add_view_to_aggregator(
         view_urn=VIEW_URN,
@@ -629,30 +653,54 @@ def test_view_definition_lineage_resolves_default_namespace_to_database() -> Non
         ),
         default_db="vmart",
         default_schema="public",
+        table_level_fallback_upstreams=[CUSTOMER_URN, SALES_URN],
     )
 
-    assert source._view_catalog_upstreams == {}
     lineage = _lineage_for(source, VIEW_URN)
     assert {u.dataset for u in lineage.upstreams} == {CUSTOMER_URN, SALES_URN}
-    assert lineage.fineGrainedLineages
-    upstream_fields = {
-        field for fgl in lineage.fineGrainedLineages for field in fgl.upstreams or []
-    }
-    assert upstream_fields == {
+    assert _upstream_field_urns(lineage) == {
         f"urn:li:schemaField:({CUSTOMER_URN},customer_name)",
         f"urn:li:schemaField:({SALES_URN},sales_amount)",
     }
 
 
-def test_unparseable_view_falls_back_to_catalog_lineage() -> None:
-    source = _vertica_source()
-    source._view_catalog_upstreams[VIEW_URN] = [CUSTOMER_URN, SALES_URN]
+def test_view_lineage_keeps_mixed_case_database_and_columns() -> None:
+    # `database: Vmart` puts the database into every URN verbatim, while the
+    # parser lowercases identifiers (Vertica is case-insensitive). Lineage must
+    # still point at the registered URNs, and column matching must ignore case.
+    source = _vertica_source(database="Vmart")
+    view_urn = _vertica_urn("Vmart.public.sales_view")
+    customer_urn = _vertica_urn("Vmart.public.customer_dimension")
+    _register(source, customer_urn, {"Customer_Key": "int", "Customer_Name": "varchar"})
 
     source._add_view_to_aggregator(
+        view_urn=view_urn,
+        view_definition="SELECT customer_name AS Name FROM public.customer_dimension",
+        default_db="Vmart",
+        default_schema="public",
+        table_level_fallback_upstreams=[customer_urn],
+    )
+
+    lineage = _lineage_for(source, view_urn)
+    assert [u.dataset for u in lineage.upstreams] == [customer_urn]
+    assert _upstream_field_urns(lineage) == {
+        f"urn:li:schemaField:({customer_urn},Customer_Name)"
+    }
+
+
+def test_unparseable_view_falls_back_to_catalog_lineage() -> None:
+    source = _vertica_source()
+
+    # TIMESERIES is Vertica-only syntax that the Postgres-derived parser rejects.
+    source._add_view_to_aggregator(
         view_urn=VIEW_URN,
-        view_definition="SELECT ts, AVG(x) OVER (TIMESERIES ts AS '1 hour') FROM",
+        view_definition=(
+            "SELECT ts, AVG(x) OVER (TIMESERIES ts AS '1 hour') "
+            "FROM default_namespace.store.store_sales_fact"
+        ),
         default_db="vmart",
         default_schema="public",
+        table_level_fallback_upstreams=[CUSTOMER_URN, SALES_URN],
     )
 
     lineage = _lineage_for(source, VIEW_URN)
@@ -673,56 +721,66 @@ def _mock_inspector(view_definition: str) -> VerticaInspector:
     return inspector
 
 
+def _process_view(source: VerticaSource, inspector: VerticaInspector) -> List[Any]:
+    with patch.object(source, "get_db_name", return_value="vmart"):
+        return list(
+            source._process_view(
+                dataset_name="vmart.public.sales_view",
+                inspector=inspector,
+                schema="public",
+                view="sales_view",
+                sql_config=source.config,
+            )
+        )
+
+
 def _upstream_lineage_aspects(workunits: List[Any]) -> List[UpstreamLineageClass]:
     return [
         wu.metadata.aspect
         for wu in workunits
-        if getattr(wu.metadata, "aspect", None) is not None
-        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
     ]
 
 
 def test_process_view_hands_catalog_map_to_aggregator_instead_of_emitting_it() -> None:
     source = _vertica_source()
-    inspector = _mock_inspector(
-        "SELECT customer_name FROM default_namespace.public.customer_dimension"
+    _register(source, CUSTOMER_URN, {"customer_name": "varchar"})
+
+    workunits = _process_view(
+        source,
+        _mock_inspector(
+            "SELECT customer_name FROM default_namespace.public.customer_dimension"
+        ),
     )
 
-    with patch.object(source, "get_db_name", return_value="vmart"):
-        workunits = list(
-            source._process_view(
-                dataset_name="vmart.public.sales_view",
-                inspector=inspector,
-                schema="public",
-                view="sales_view",
-                sql_config=source.config,
-            )
-        )
-
+    # Not emitted directly by the source ...
     assert _upstream_lineage_aspects(workunits) == []
-    staged = source.aggregator._view_definitions[VIEW_URN]
-    assert staged.view_definition == (
-        "SELECT customer_name FROM public.customer_dimension"
-    )
-    assert staged.table_level_fallback_upstreams == [CUSTOMER_URN]
-    assert source._view_catalog_upstreams == {}
+    # ... but by the aggregator, from the parsed definition, with the namespace
+    # resolved to the real dataset.
+    lineage = _lineage_for(source, VIEW_URN)
+    assert [u.dataset for u in lineage.upstreams] == [CUSTOMER_URN]
+    assert _upstream_field_urns(lineage) == {
+        f"urn:li:schemaField:({CUSTOMER_URN},customer_name)"
+    }
 
 
 def test_process_view_without_definition_keeps_catalog_lineage() -> None:
     source = _vertica_source()
-    inspector = _mock_inspector("")
 
-    with patch.object(source, "get_db_name", return_value="vmart"):
-        workunits = list(
-            source._process_view(
-                dataset_name="vmart.public.sales_view",
-                inspector=inspector,
-                schema="public",
-                view="sales_view",
-                sql_config=source.config,
-            )
-        )
+    workunits = _process_view(source, _mock_inspector(""))
 
     (lineage,) = _upstream_lineage_aspects(workunits)
     assert [u.dataset for u in lineage.upstreams] == [CUSTOMER_URN]
-    assert VIEW_URN not in source.aggregator._view_definitions
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.VIEW
+    assert list(source.aggregator.gen_metadata()) == []
+
+
+def test_process_view_without_view_lineage_reads_no_catalog_map() -> None:
+    source = _vertica_source(include_view_lineage=False)
+    inspector = _mock_inspector("SELECT customer_name FROM public.customer_dimension")
+
+    workunits = _process_view(source, inspector)
+
+    assert _upstream_lineage_aspects(workunits) == []
+    cast(MagicMock, inspector._populate_view_lineage).assert_not_called()
+    assert list(source.aggregator.gen_metadata()) == []

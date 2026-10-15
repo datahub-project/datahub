@@ -1214,6 +1214,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         view_definition: str,
         default_db: Optional[str],
         default_schema: Optional[str],
+        table_level_fallback_upstreams: Optional[List[str]] = None,
     ) -> None:
         """Add a view definition to the aggregator for lineage processing.
 
@@ -1224,7 +1225,25 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             view_definition=view_definition,
             default_db=default_db,
             default_schema=default_schema,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
+
+    def _get_view_table_level_fallback_upstreams(
+        self,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        dataset_urn: str,
+    ) -> Optional[List[str]]:
+        """Upstream dataset URNs the catalog itself records for a view, if any.
+
+        Override in a connector whose catalog exposes view dependencies (e.g. a
+        dependency table). The aggregator emits them as table-level lineage only
+        when the view definition yields no lineage, so the parsed and the
+        catalog-recorded lineage never compete for the same aspect. A view with
+        no definition at all gets them as its lineage directly.
+        """
+        return None
 
     def _process_view(
         self,
@@ -1273,6 +1292,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         view_definition = self._get_view_definition(inspector, schema, view)
         properties["view_definition"] = view_definition
+        table_level_fallback_upstreams = (
+            self._get_view_table_level_fallback_upstreams(
+                inspector, schema, view, dataset_urn
+            )
+            if self.config.include_view_lineage
+            else None
+        )
         if view_definition and self.config.include_view_lineage:
             default_db = None
             default_schema = None
@@ -1292,7 +1318,23 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
+                table_level_fallback_upstreams=table_level_fallback_upstreams,
             )
+        elif table_level_fallback_upstreams:
+            # Nothing to parse: the catalog-recorded dependencies are the
+            # view's only lineage.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=upstream_urn,
+                            type=DatasetLineageTypeClass.VIEW,
+                        )
+                        for upstream_urn in table_level_fallback_upstreams
+                    ]
+                ),
+            ).as_workunit()
 
         dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,

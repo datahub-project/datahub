@@ -1,10 +1,11 @@
 import logging
-import re
 import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
+import sqlglot
+import sqlglot.errors
 from pydantic import field_validator
 from sqlalchemy.engine.reflection import Inspector
 
@@ -53,6 +54,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
@@ -62,18 +64,37 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Vertica 24.1+ (namespaces) stores references to objects in the default
-# namespace as ``default_namespace.<schema>.<table>`` in
-# ``v_catalog.views.view_definition``. The namespace is not part of DataHub's
-# ``<database>.<schema>.<table>`` identifier, so left in place the parser
-# resolves those references to datasets that do not exist. Dropping the
-# prefix lets the aggregator's default_db qualify them like any other
-# unqualified reference.
-_DEFAULT_NAMESPACE_RE = re.compile(r"\bdefault_namespace\.(?=[\w\"])", re.IGNORECASE)
 
+def _drop_namespace_qualifiers(view_definition: str) -> str:
+    """Drop the first segment of every three-part table name in a view definition.
 
-def _strip_default_namespace(view_definition: str) -> str:
-    return _DEFAULT_NAMESPACE_RE.sub("", view_definition)
+    Vertica has no cross-database references, so a three-part name in a view body
+    is ``<database|namespace>.<schema>.<table>``: the current database, or on
+    24.1+ Eon clusters a namespace (``default_namespace.`` for objects outside
+    any named namespace, which Vertica writes into ``v_catalog.views``
+    ``view_definition`` for same-database references). Neither segment is part
+    of DataHub's ``<database>.<schema>.<table>`` identifier, so left in place the
+    parser resolves the reference to a dataset that does not exist. With the
+    segment dropped, the aggregator's ``default_db`` qualifies it like any other
+    schema-qualified reference.
+
+    A definition sqlglot cannot parse is returned unchanged, so the aggregator
+    records the parse failure and falls back to the catalog dependency map.
+    """
+    try:
+        statement = sqlglot.parse_one(view_definition, dialect=get_dialect("vertica"))
+    except sqlglot.errors.SqlglotError:
+        return view_definition
+    qualified = [
+        table
+        for table in statement.find_all(sqlglot.exp.Table)
+        if table.args.get("catalog")
+    ]
+    if not qualified:
+        return view_definition
+    for table in qualified:
+        table.set("catalog", None)
+    return statement.sql(dialect=get_dialect("vertica"))
 
 
 def _as_vertica_inspector(inspector: Inspector) -> VerticaInspector:
@@ -163,9 +184,6 @@ class VerticaSource(SQLAlchemySource):
         super().__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.config: VerticaConfig = config
-        # Catalog-map upstreams per view urn, staged by _process_view and
-        # consumed by _add_view_to_aggregator as the table-level fallback.
-        self._view_catalog_upstreams: Dict[str, List[str]] = {}
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
@@ -374,39 +392,9 @@ class VerticaSource(SQLAlchemySource):
             owner_urn=f"urn:li:corpuser:{view_owner}",
         )
 
-        # View lineage has a single writer: the SqlParsingAggregator. The
-        # catalog dependency map (v_catalog.view_tables) is handed to it as the
-        # table-level fallback for definitions it cannot parse, instead of being
-        # emitted as a second upstreamLineage aspect that races the parsed one
-        # through the async sink.
-        if self.config.include_view_lineage:
-            self._view_catalog_upstreams[dataset_urn] = (
-                self._get_catalog_view_upstream_urns(
-                    dataset_urn, _as_vertica_inspector(inspector), view, schema
-                )
-            )
-        try:
-            yield from super()._process_view(
-                dataset_name, inspector, schema, view, sql_config
-            )
-        finally:
-            catalog_upstreams = self._view_catalog_upstreams.pop(dataset_urn, None)
-
-        # A view without a definition never reaches the aggregator; the catalog
-        # map is then its only lineage, as before.
-        if catalog_upstreams:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=UpstreamLineage(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=upstream_urn,
-                            type=DatasetLineageTypeClass.VIEW,
-                        )
-                        for upstream_urn in catalog_upstreams
-                    ]
-                ),
-            ).as_workunit()
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
 
     def _add_view_to_aggregator(
         self,
@@ -414,28 +402,30 @@ class VerticaSource(SQLAlchemySource):
         view_definition: str,
         default_db: Optional[str],
         default_schema: Optional[str],
+        table_level_fallback_upstreams: Optional[List[str]] = None,
     ) -> None:
-        self.aggregator.add_view_definition(
+        super()._add_view_to_aggregator(
             view_urn=view_urn,
-            view_definition=_strip_default_namespace(view_definition),
+            view_definition=_drop_namespace_qualifiers(view_definition),
             default_db=default_db,
             default_schema=default_schema,
-            table_level_fallback_upstreams=self._view_catalog_upstreams.pop(
-                view_urn, None
-            )
-            or None,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
 
-    def _get_catalog_view_upstream_urns(
+    def _get_view_table_level_fallback_upstreams(
         self,
-        dataset_urn: str,
-        inspector: VerticaInspector,
-        view: str,
+        inspector: Inspector,
         schema: str,
-    ) -> List[str]:
+        view: str,
+        dataset_urn: str,
+    ) -> Optional[List[str]]:
+        # The catalog dependency map (v_catalog.view_tables) used to be emitted
+        # as its own upstreamLineage aspect next to the aggregator's, and the
+        # last write to land through the async sink won. It is now the
+        # aggregator's table-level fallback for definitions it cannot parse.
         try:
             lineage = self._get_upstream_lineage_info(
-                dataset_urn, inspector, view, schema
+                dataset_urn, _as_vertica_inspector(inspector), view, schema
             )
         except Exception as e:
             self.report.warning(
@@ -443,10 +433,10 @@ class VerticaSource(SQLAlchemySource):
                 context=f"{schema}.{view}",
                 exc=e,
             )
-            return []
+            return None
         if not isinstance(lineage, UpstreamLineage):
-            return []
-        return [upstream.dataset for upstream in lineage.upstreams]
+            return None
+        return [upstream.dataset for upstream in lineage.upstreams] or None
 
     def loop_projections(
         self,

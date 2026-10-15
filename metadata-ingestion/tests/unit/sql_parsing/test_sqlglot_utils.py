@@ -4,6 +4,7 @@ from enum import Enum
 
 import pytest
 import sqlglot
+import sqlglot.optimizer.normalize_identifiers
 
 from datahub.sql_parsing import sqlglot_utils
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -55,22 +56,29 @@ def test_fabricspark_uses_spark_dialect():
     assert is_dialect_instance(get_dialect("fabricspark"), "spark")
 
 
-def test_vertica_uses_postgres_dialect():
-    # sqlglot has no vertica dialect; Vertica is a PostgreSQL fork, so its view
-    # definitions parse with postgres. Without the mapping the aggregator fails
-    # every Vertica view with "Unknown dialect".
-    assert get_dialect_str("vertica") == "postgres"
-    assert is_dialect_instance(get_dialect("vertica"), "postgres")
+def test_vertica_dialect_is_a_postgres_subclass():
+    # sqlglot has no vertica dialect; ours is a Postgres subclass, so Vertica
+    # parses inherit Postgres handling while `is_dialect_instance(d, "vertica")`
+    # stays false for plain Postgres (it gates case-insensitive column matching).
+    assert get_dialect_str("vertica") == "vertica"
+    vertica = get_dialect("vertica")
+    assert is_dialect_instance(vertica, "postgres")
+    assert not is_dialect_instance(get_dialect("postgres"), "vertica")
 
     parsed = sqlglot.parse_one(
-        'SELECT c."customer_name", s.sales::int FROM store.store_sales_fact s '
+        'SELECT c."Customer_Name", s.sales::int FROM store.store_sales_fact s '
         "JOIN public.customer_dimension c ON s.customer_key = c.customer_key",
-        dialect=get_dialect("vertica"),
+        dialect=vertica,
     )
     assert {t.sql() for t in parsed.find_all(sqlglot.exp.Table)} == {
         "store.store_sales_fact AS s",
         "public.customer_dimension AS c",
     }
+    # Vertica identifiers are case-insensitive even when quoted.
+    normalized = sqlglot.optimizer.normalize_identifiers.normalize_identifiers(
+        parsed, dialect=vertica
+    )
+    assert '"customer_name"' in normalized.sql()
 
 
 def test_is_dialect_instance():

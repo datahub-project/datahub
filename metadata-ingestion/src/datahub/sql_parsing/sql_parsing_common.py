@@ -52,16 +52,6 @@ def get_dialect_str(platform: str) -> str:
         # quoted schema-qualified identifiers in `hana_script_lineage.py`
         # to sidestep them.
         return "postgres"
-    elif platform_lower == "vertica":
-        # sqlglot has no Vertica dialect, so without this mapping every parse
-        # fails with "Unknown dialect" and the SqlParsingAggregator emits no
-        # view lineage for the platform. Vertica forked PostgreSQL and kept its
-        # grammar (double-quoted identifiers, schema-qualified names, ANSI
-        # joins, window functions, `::` casts), so postgres parses the bulk of
-        # view definitions. Known mis-parses: Vertica-only functions and
-        # clauses (e.g. TIMESERIES, analytic function hints, INTERPOLATE),
-        # which the aggregator reports under `views_parse_failures`.
-        return "postgres"
     elif platform_lower == "informix":
         # sqlglot has no Informix dialect. Informix view text (sysviews.viewtext)
         # is typically ANSI-ish with double-quoted schema-qualified identifiers
@@ -115,6 +105,10 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
+    # Vertica identifiers are case-insensitive, quoted or not. Vertica gets its
+    # own sqlglot dialect (a Postgres subclass in sqlglot_utils), so this entry
+    # matches Vertica parses only and leaves Postgres untouched.
+    "vertica",
     # NOTE: SAP HANA and Informix also fold unquoted identifiers to uppercase
     # and are therefore semantically case-insensitive, but we deliberately do
     # *not* add "hana" or "informix" here. ``is_dialect_instance`` resolves
