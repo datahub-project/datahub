@@ -202,8 +202,10 @@ public interface EntityRegistry {
 
   /**
    * Safe lookup: returns the {@link EntitySpec} for the given entity name, or empty if the entity
-   * type is not in this registry. Only "not found" is mapped to empty; any other failure is a bug
-   * and propagates rather than being mistaken for an unknown entity type.
+   * type is not in this registry. The registries in this repository override it to look the name up
+   * without an exception; this default serves other implementations, mapping only "not found" to
+   * empty so any other failure still propagates. An empty result means "not registered now":
+   * plugins can add entity types later, so callers must not cache a miss.
    */
   @Nonnull
   default Optional<EntitySpec> findEntitySpec(@Nonnull String entityName) {

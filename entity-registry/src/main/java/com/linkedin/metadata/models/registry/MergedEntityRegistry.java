@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -45,10 +47,11 @@ public class MergedEntityRegistry implements EntityRegistry {
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
     // when this class attempts .put* operations on it.
+    // Concurrent: plugins add entity types at runtime while lookups run on other threads.
     entityNameToSpec =
         baseEntityRegistry.getEntitySpecs() != null
-            ? new HashMap<>(baseEntityRegistry.getEntitySpecs())
-            : new HashMap<>();
+            ? new ConcurrentHashMap<>(baseEntityRegistry.getEntitySpecs())
+            : new ConcurrentHashMap<>();
     eventNameToSpec =
         baseEntityRegistry.getEventSpecs() != null
             ? new HashMap<>(baseEntityRegistry.getEventSpecs())
@@ -291,6 +294,13 @@ public class MergedEntityRegistry implements EntityRegistry {
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
     return entityNameToSpec.get(lowercaseEntityName);
+  }
+
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
   }
 
   @Nonnull
