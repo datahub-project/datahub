@@ -312,9 +312,9 @@ class SnowflakeAdapter(PlatformAdapter):
             quote=True,
             quote_schema=True,
         )
-        # The config rejects a non-positive limit and nulls an offset that has no
-        # limit, so OFFSET is always paired with the LIMIT that Snowflake
-        # requires. https://docs.snowflake.com/en/sql-reference/constructs/limit
+        # The config rejects a non-positive limit and drops an offset that has
+        # no limit, so a limit is always present here. That also keeps the
+        # dialect off its bare-offset path, which compiles to `LIMIT -1`.
         query = sa.select(sa.text("*")).select_from(table_obj).limit(self.config.limit)
         if self.config.offset:
             query = query.offset(self.config.offset)

@@ -139,8 +139,8 @@ class BigQueryAdapter(PlatformAdapter):
             )
 
             # Build SELECT * query using query builder. The config constrains
-            # limit to a positive int and nulls an offset that has no limit, so
-            # OFFSET is always paired with the LIMIT that BigQuery requires.
+            # limit to a positive int and drops an offset that has no limit, so
+            # both values are usable as they stand.
             query = sa.select(sa.text("*")).select_from(table_obj)
             if self.config.limit:
                 query = query.limit(self.config.limit)
