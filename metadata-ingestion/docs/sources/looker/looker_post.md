@@ -58,10 +58,12 @@ Besides the listing calls, that is one read per dashboard plus one per
 standalone look, up to a fixed bound; whatever it could not read is left
 undetermined, and the result says whether the bound or a failed read stopped it.
 
-A read Looker refuses (HTTP 403 or 404) comes back empty with a warning, and a
-look or dashboard read it refuses is counted in one warning per kind of
-failure. Any other error ends the command, as does a Looker that cannot be
-reached.
+A listing Looker refuses (HTTP 403 or 404) comes back empty with a warning.
+When a command reads many objects, one by one, a read that is refused or
+fails (a 5xx or gateway page, a rate limit, a timeout) leaves only that
+object undetermined, and is counted in one warning per kind of failure. A
+listing that fails otherwise ends the command, as does a Looker that cannot be
+reached at all.
 
 ```shell
 datahub recipe probe run explores --model <model> --trace-charts --recipe looker.yml --report-to explores.json

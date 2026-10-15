@@ -1,8 +1,8 @@
-import re
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterator,
@@ -17,6 +17,7 @@ from typing import (
 from urllib.parse import urlparse
 
 import looker_sdk.rtl.requests_transport as looker_requests_transport
+import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
@@ -82,12 +83,6 @@ from datahub.ingestion.source.looker.looker_selection import (
 )
 
 _T = TypeVar("_T")
-
-# looker_sdk raises SDKError carrying Looker's documentation link, whose path
-# holds the HTTP status: .../looker/docs/r/err/4.0/404/get/dashboards/...
-_DOC_URL_STATUS = re.compile(r"/r/err/[^/]+/(\d{3})(?:/|$)")
-# Older SDKs and LookerAPI's own checks use "Looker Not Found (404)".
-_MESSAGE_STATUS = re.compile(r"\((\d{3})\)")
 
 # The folder fields every rule here reads, named rather than left to whatever
 # a listing endpoint returns for a bare `folder`: a missing personal flag would
@@ -264,24 +259,6 @@ class _Reachability:
         return False if self.dashboards_complete else None
 
 
-def sdk_error_status(exc: SDKError) -> Optional[int]:
-    """The HTTP status behind an SDKError, or None.
-
-    Read so that nothing else of the error has to be: SDKError's str() is
-    Looker's response body plus documentation links, which is not ours to
-    forward.
-    """
-    urls = [exc.documentation_url or ""] + [
-        detail.documentation_url or "" for detail in exc.errors or []
-    ]
-    for url in urls:
-        match = _DOC_URL_STATUS.search(url)
-        if match:
-            return int(match.group(1))
-    match = _MESSAGE_STATUS.search(exc.message or "")
-    return int(match.group(1)) if match else None
-
-
 class _Refused(ProbeSoftError):
     """A 403/404 on one read. `outcome` names it without the object, so a
     caller reading many objects can count them in one warning."""
@@ -299,43 +276,52 @@ class _Failed(ProbeReadFailed):
         self.outcome = outcome
 
 
-def _is_transport_failure(exc: SDKError) -> bool:
-    """looker_sdk's RequestsTransport turns any IOError -- every
-    requests.RequestException, a dropped connection included -- into a non-ok
-    response carrying str(exc), which APIMethods._return raises as a bare
-    SDKError: no documentation link, no error details, no status."""
-    return (
-        sdk_error_status(exc) is None and not exc.documentation_url and not exc.errors
-    )
+class _HttpOutcome:
+    """What the last Looker read got back, read off the probe's own requests
+    session.
 
-
-@contextmanager
-def _looker_call(context: str, not_found: Optional[str] = None) -> Iterator[None]:
-    """Run one Looker read, translating its failure into the probe's terms.
-
-    Never formats the original: an SDKError renders the response body, or a
-    transport error's URL. `from None` keeps them out of any traceback a
-    caller logs too. 403/404 degrade (ProbeSoftError), except a 404 on the
-    object the caller named, which is a bad argument (`not_found`). A Looker
-    that cannot be reached ends the command.
+    looker_sdk discards the HTTP status (its transport.Response keeps only
+    ok and the body) and folds a request that got no response at all into
+    the same SDKError as a 5xx, so the SDKError alone cannot tell a gateway
+    page or a slow read from a Looker that is down. A response hook records
+    the status of every response; a wrapper around session.request records
+    the exception when there was none. LookerAPI already reaches into this
+    session to mount its retry adapter.
     """
-    try:
-        yield
-    except SDKError as exc:
-        if _is_transport_failure(exc):
-            raise ProbeConnectionError(
-                f"{context} failed: Looker could not be reached (SDKError with "
-                f"no Looker response)"
-            ) from None
-        status = sdk_error_status(exc)
-        if status == 404 and not_found is not None:
-            raise ProbeArgumentError(not_found) from None
-        if status in (403, 404):
-            raise _Refused(context, f"returned HTTP {status}") from None
-        reason = f"HTTP {status}" if status is not None else "an unrecognised error"
-        raise _Failed(context, f"failed: Looker returned {reason}") from None
-    except DeserializeError:
-        raise _Failed(context, "failed: Looker's response could not be read") from None
+
+    def __init__(self) -> None:
+        self.attached = False
+        self.status: Optional[int] = None
+        self.failure: Optional[requests.RequestException] = None
+
+    def attach(self, looker: LookerAPI) -> None:
+        transport = looker.client.transport
+        if not isinstance(transport, looker_requests_transport.RequestsTransport):
+            return
+        session = transport.session
+        session.hooks["response"].append(self._record_response)
+        send = session.request
+
+        def request(*args: Any, **kwargs: Any) -> requests.Response:
+            try:
+                return send(*args, **kwargs)
+            except requests.RequestException as exc:
+                self.failure = exc
+                raise
+
+        # An instance attribute, so only this probe's session is wrapped.
+        setattr(session, "request", request)  # noqa: B010
+        self.attached = True
+
+    def _record_response(
+        self, response: requests.Response, *args: Any, **kwargs: Any
+    ) -> requests.Response:
+        self.status = response.status_code
+        return response
+
+    def reset(self) -> None:
+        self.status = None
+        self.failure = None
 
 
 def _open_looker(config: LookerDashboardSourceConfig) -> LookerAPI:
@@ -384,20 +370,74 @@ class LookerMetadataProbe(ProbeProviderBase):
     def __init__(self, config: LookerDashboardSourceConfig) -> None:
         self._config = config
         self._folder_cache: Dict[str, _FolderFacts] = {}
+        # Folders whose ancestors could not be read in this command; asked
+        # once, so a 429 or 5xx is not repeated for every dashboard in them.
+        self._folders_undetermined: Set[str] = set()
+        self._http = _HttpOutcome()
 
     @classmethod
     def for_config(cls, config: LookerDashboardSourceConfig) -> "LookerMetadataProbe":
         return cls(config)
 
     def _api(self) -> LookerAPI:
-        return self._open_once(
-            "looker", lambda: _open_looker(self._config), close=_close_session
-        )
+        return self._open_once("looker", self._open, close=_close_session)
+
+    def _open(self) -> LookerAPI:
+        looker = _open_looker(self._config)
+        self._http.attach(looker)
+        return looker
+
+    @contextmanager
+    def _looker_call(
+        self, context: str, not_found: Optional[str] = None
+    ) -> Iterator[None]:
+        """Run one Looker read, translating its failure into the probe's terms.
+
+        Decided by what the read got back (_HttpOutcome), never by the
+        error's text, which is never formatted either: an SDKError renders
+        the response body. `from None` keeps it out of any traceback a caller
+        logs too.
+        - No response, and not a read timeout: Looker could not be reached,
+          which ends the command.
+        - 403/404: degrades (ProbeSoftError), except a 404 on the object the
+          caller named (`not_found`), which is a bad argument.
+        - Anything else -- a 5xx or gateway page, a 429, a read that timed
+          out -- is one failed read (ProbeReadFailed), which a listing that
+          reads many objects records and carries on from, as ingestion does.
+        """
+        http = self._http
+        http.reset()
+        try:
+            yield
+        except SDKError:
+            status = (
+                http.status if http.status is not None and http.status >= 400 else None
+            )
+            if status is None:
+                if isinstance(http.failure, requests.exceptions.ReadTimeout):
+                    raise _Failed(
+                        context, "failed: Looker did not answer in time"
+                    ) from None
+                if http.attached:
+                    raise ProbeConnectionError(
+                        f"{context} failed: Looker could not be reached "
+                        f"({type(http.failure).__name__ if http.failure else 'no HTTP response'})"
+                    ) from None
+            if status == 404 and not_found is not None:
+                raise ProbeArgumentError(not_found) from None
+            if status in (403, 404):
+                raise _Refused(context, f"returned HTTP {status}") from None
+            reason = f"HTTP {status}" if status is not None else "an unrecognised error"
+            raise _Failed(context, f"failed: Looker returned {reason}") from None
+        except DeserializeError:
+            raise _Failed(
+                context, "failed: Looker's response could not be read"
+            ) from None
 
     def _listing(self, context: str, call: Callable[[], Sequence[_T]]) -> List[_T]:
         """One listing read; a refused one is empty with a warning, so empty
         says "could not look" rather than "nothing here"."""
-        with soft_listing(self._warn), _looker_call(context):
+        with soft_listing(self._warn), self._looker_call(context):
             return list(call())
         return []
 
@@ -420,7 +460,10 @@ class LookerMetadataProbe(ProbeProviderBase):
         only, never the API user's id or email. All three are null, with a
         warning, when the credential cannot read its own roles."""
         api = self._api()
-        with soft_listing(self._warn), _looker_call("role lookup for the API user"):
+        with (
+            soft_listing(self._warn),
+            self._looker_call("role lookup for the API user"),
+        ):
             granted = api.get_available_permissions()
             return {
                 "granted": sorted(granted),
@@ -446,18 +489,25 @@ class LookerMetadataProbe(ProbeProviderBase):
         if cached is not None:
             return cached
         personal = is_personal_folder(folder)
+        undetermined = _FolderFacts(path=None, personal=personal, path_allowed=None)
+        if folder.id in self._folders_undetermined:
+            return undetermined
         api = self._api()
         ancestors: Optional[List[str]]
         try:
-            with _looker_call("folder ancestor lookup"):
-                ancestors = [
-                    ancestor.name
-                    for ancestor in api.client.folder_ancestors(
-                        folder.id,
-                        _FOLDER_ANCESTOR_FIELDS,
-                        transport_options=api.transport_options,
-                    )
-                ]
+            if folder.parent_id is None:
+                # A root folder has no ancestors; its path is its own name.
+                ancestors = []
+            else:
+                with self._looker_call("folder ancestor lookup"):
+                    ancestors = [
+                        ancestor.name
+                        for ancestor in api.client.folder_ancestors(
+                            folder.id,
+                            _FOLDER_ANCESTOR_FIELDS,
+                            transport_options=api.transport_options,
+                        )
+                    ]
         except ProbeSoftError:
             # A refusal persists: LookerAPI.folder_ancestors, which ingestion
             # calls, swallows it too and matches the bare name. The SDK is
@@ -466,9 +516,11 @@ class LookerMetadataProbe(ProbeProviderBase):
             ancestors = None
         except ProbeReadFailed:
             # A 5xx or rate limit says nothing about what a healthy run reads:
-            # undetermined, and not cached, so a later record may read it.
+            # undetermined, not a verdict. Remembered for this command only,
+            # so the read is not repeated for every dashboard in the folder.
             self._warn(_ANCESTORS_UNDETERMINED)
-            return _FolderFacts(path=None, personal=personal, path_allowed=None)
+            self._folders_undetermined.add(folder.id)
+            return undetermined
         path = looker_folder_path(ancestors or [], folder.name)
         # Withheld past the flags too: a path under a user root, or a nested
         # folder's bare name when its ancestors are unknown, may name a user.
@@ -562,7 +614,7 @@ class LookerMetadataProbe(ProbeProviderBase):
         shown = echoed(dashboard)
         with (
             soft_listing(self._warn),
-            _looker_call(
+            self._looker_call(
                 f"dashboard {shown}",
                 not_found=(
                     f"no dashboard with id {shown}; pass an id from the `dashboards` "
@@ -762,7 +814,7 @@ class LookerMetadataProbe(ProbeProviderBase):
         """
         api = self._api()
         try:
-            with _looker_call("look read"):
+            with self._looker_call("look read"):
                 return True, api.get_look(look_id, fields=["query"]).query
         except (_Refused, _Failed) as exc:
             failures[exc.outcome] += 1
@@ -791,7 +843,7 @@ class LookerMetadataProbe(ProbeProviderBase):
                 break
             reach.reads += 1
             try:
-                with _looker_call("dashboard read for the chart trace"):
+                with self._looker_call("dashboard read for the chart trace"):
                     detail = api.dashboard(
                         dashboard_id=dashboard_id, fields=_TRACE_DASHBOARD_FIELDS
                     )
@@ -805,7 +857,13 @@ class LookerMetadataProbe(ProbeProviderBase):
             "dashboard read(s) for the chart trace",
             "what they hold is undetermined",
         )
-        if with_standalone_looks and self._config.extract_independent_looks:
+        # After an incomplete dashboard walk, look-only explores cannot be
+        # counted (_Reachability._used), so their reads would change nothing.
+        if (
+            with_standalone_looks
+            and self._config.extract_independent_looks
+            and reach.dashboards_complete
+        ):
             self._trace_standalone_looks(reach)
         if reach.capped:
             self._warn(_TRACE_CAPPED.format(limit=_TRACE_FETCH_LIMIT))
@@ -819,7 +877,7 @@ class LookerMetadataProbe(ProbeProviderBase):
         """One trace listing. A refused or failed one leaves the trace
         incomplete instead of failing the listing it decorates."""
         try:
-            with _looker_call(context):
+            with self._looker_call(context):
                 return list(call())
         except (ProbeSoftError, ProbeReadFailed) as exc:
             self._warn(str(exc))
@@ -879,7 +937,7 @@ class LookerMetadataProbe(ProbeProviderBase):
         """The explores extract_independent_looks records, with its skips."""
         api = self._api()
         try:
-            with _looker_call("look listing for the chart trace"):
+            with self._looker_call("look listing for the chart trace"):
                 looks: Sequence[Look] = api.all_looks(
                     fields=_LOOK_LIST_FIELDS,
                     soft_deleted=self._config.include_deleted,

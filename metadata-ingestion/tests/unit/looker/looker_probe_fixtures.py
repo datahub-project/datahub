@@ -3,9 +3,12 @@ through the same mocked SDK client, so a parity test compares two readers of
 identical content. Placeholder names only."""
 
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from types import SimpleNamespace
+from typing import Any, Callable, Dict, Iterator, List, NoReturn, Optional
 from unittest import mock
 
+import looker_sdk.rtl.requests_transport as looker_requests_transport
+import requests
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import (
     Dashboard,
@@ -42,6 +45,21 @@ def recipe(**overrides: Any) -> Dict[str, Any]:
     }
     config.update(overrides)
     return config
+
+
+def http_error(client: mock.MagicMock, status: int) -> Callable[..., NoReturn]:
+    """A side effect that fails as a Looker HTTP error does: the response
+    passes the session's hooks (where the probe reads its status), then the
+    SDK raises an SDKError that carries no status of its own."""
+
+    def fail(*args: Any, **kwargs: Any) -> NoReturn:
+        response = requests.Response()
+        response.status_code = status
+        for hook in client.transport.session.hooks["response"]:
+            hook(response)
+        raise SDKError("<html>error page</html>")
+
+    return fail
 
 
 def sdk_error(status: int, message: str = "request failed") -> SDKError:
@@ -210,13 +228,20 @@ def _explore(model: str, explore: str) -> LookmlModelExplore:
 
 
 def install(client: mock.MagicMock) -> mock.MagicMock:
+    # A real transport, so the probe can attach to its session as it does to
+    # the SDK's; no request is ever sent through it.
+    client.transport = looker_requests_transport.RequestsTransport(
+        SimpleNamespace(agent_tag="test", headers=None, verify_ssl=True, timeout=5),
+        requests.Session(),
+    )
     by_id = {d.id: d for d in [*LIVE_DASHBOARDS, *DELETED_DASHBOARDS]}
+    not_found = http_error(client, 404)
 
     def dashboard(
         dashboard_id: str, fields: Optional[str] = None, transport_options: Any = None
     ) -> Dashboard:
         if dashboard_id not in by_id:
-            raise sdk_error(404, "Not found")
+            not_found()
         return by_id[dashboard_id]
 
     def search_dashboards(

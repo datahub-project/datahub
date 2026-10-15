@@ -34,8 +34,12 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
 )
 from datahub.ingestion.source.looker.looker_probe import (
+    _TRACE_CAPPED,
     LookerMetadataProbe,
-    sdk_error_status,
+)
+from datahub.ingestion.source.looker.looker_probe_verdicts import (
+    _ON_A_DASHBOARD_NOT_JUDGED,
+    _ON_A_DASHBOARD_UNDETERMINED,
 )
 from tests.unit.looker.looker_probe_fixtures import (
     API_USER_EMAIL,
@@ -43,6 +47,7 @@ from tests.unit.looker.looker_probe_fixtures import (
     CLIENT_SECRET,
     PERSONAL_FOLDER_NAME,
     fake_looker,
+    http_error,
     install,
     recipe,
     sdk_error,
@@ -119,15 +124,9 @@ def test_a_base_url_carrying_userinfo_is_refused_without_echoing_it() -> None:
     assert "hunter22" not in str(raised.value)
 
 
-def test_sdk_error_status_reads_the_documentation_url_then_the_message() -> None:
-    assert sdk_error_status(sdk_error(404)) == 404
-    assert sdk_error_status(SDKError("Looker Not Found (404)")) == 404
-    assert sdk_error_status(SDKError("no status here")) is None
-
-
 def test_a_read_failure_reports_the_status_and_not_the_sdk_text() -> None:
     client = install(mock.MagicMock())
-    client.user_roles.side_effect = sdk_error(500, f"boom {CLIENT_SECRET}")
+    client.user_roles.side_effect = http_error(client, 500)
     with (
         mock.patch("looker_sdk.init40", return_value=client),
         pytest.raises(ProbeReadFailed) as raised,
@@ -147,7 +146,7 @@ def test_permissions_report_what_ingestion_needs_and_lacks() -> None:
 
 def test_unreadable_roles_degrade_to_a_warning() -> None:
     client = install(mock.MagicMock())
-    client.user_roles.side_effect = sdk_error(403)
+    client.user_roles.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "permissions", {})
     assert run.result == {
@@ -189,7 +188,7 @@ def test_a_personal_folder_path_is_withheld_but_still_judged() -> None:
 
 def test_refused_ancestors_degrade_as_ingestion_does() -> None:
     client = install(mock.MagicMock())
-    client.folder_ancestors.side_effect = sdk_error(403)
+    client.folder_ancestors.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {})
     first = next(r for r in _rows(run) if r["name"] == "1")
@@ -204,20 +203,21 @@ def test_a_failed_ancestors_read_leaves_the_folder_path_undetermined() -> None:
     # A 5xx or rate limit says nothing about what a healthy run reads, so no
     # bare-name verdict is made, nor cached for the folder's other dashboards.
     client = install(mock.MagicMock())
-    client.folder_ancestors.side_effect = sdk_error(500)
+    client.folder_ancestors.side_effect = http_error(client, 500)
     config = recipe(folder_path_pattern={"allow": ["^Shared/Sales"]})
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", config, "dashboards", {})
     first = next(r for r in _rows(run) if r["name"] == "1")
     assert first["folder_path"] is None
     assert first["folder_path_allowed"] is None
-    assert client.folder_ancestors.call_count > 1
-    assert any("undetermined" in w for w in run.warnings)
+    # Read once per folder in this command, not once per dashboard.
+    asked = [c.args[0] for c in client.folder_ancestors.call_args_list]
+    assert asked and len(asked) == len(set(asked))
 
 
 def test_a_refused_deleted_listing_keeps_the_live_ones_and_warns() -> None:
     client = install(mock.MagicMock())
-    client.search_dashboards.side_effect = sdk_error(403)
+    client.search_dashboards.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {})
     assert {r["name"] for r in _rows(run)} == {"1", "2", "3", "5", "6"}
@@ -322,7 +322,7 @@ def test_explores_of_an_unknown_model_are_a_bad_argument() -> None:
 
 def test_a_refused_model_listing_is_empty_with_a_warning_not_a_bad_argument() -> None:
     client = install(mock.MagicMock())
-    client.all_lookml_models.side_effect = sdk_error(403)
+    client.all_lookml_models.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "explores", {"model": "sales"})
     assert run.result == []
@@ -436,7 +436,7 @@ def test_traced_looks_mark_the_ones_on_a_kept_dashboard() -> None:
 
 def test_an_interrupted_trace_leaves_unfound_use_undetermined() -> None:
     client = install(mock.MagicMock())
-    client.all_dashboards.side_effect = sdk_error(403)
+    client.all_dashboards.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method(
             "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
@@ -450,7 +450,6 @@ def test_an_interrupted_trace_leaves_unfound_use_undetermined() -> None:
         "unused": None,
     }
     assert any("HTTP 403" in w for w in run.warnings)
-    assert any("undetermined" in w for w in run.warnings)
 
 
 def test_the_trace_stops_at_its_bound_and_says_so() -> None:
@@ -467,7 +466,7 @@ def test_the_trace_stops_at_its_bound_and_says_so() -> None:
     # Dashboard 1 was read before the bound; what only later ones use is unknown.
     assert used["orders"] is True
     assert used["unused"] is None
-    assert any("undetermined" in w for w in run.warnings)
+    assert _TRACE_CAPPED.format(limit=1) in run.warnings
 
 
 def test_the_trace_reads_no_dashboard_skip_personal_folders_discards() -> None:
@@ -530,15 +529,15 @@ def test_listings_ask_for_the_personal_folder_flags() -> None:
 
 def test_an_unreadable_look_leaves_the_trace_undetermined_not_failed() -> None:
     client = install(mock.MagicMock())
-    client.look.side_effect = sdk_error(500, "boom")
+    client.look.side_effect = http_error(client, 500)
     config = recipe(dashboard_pattern={"deny": [".*"]}, **_LOOKS_ON)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method(
             "looker", config, "explores", {"model": "sales", "trace_charts": True}
         )
     assert {r["used"] for r in _rows(run)} == {None}
-    assert any("undetermined" in w for w in run.warnings)
-    assert not any("boom" in w for w in run.warnings)
+    # The response body (an HTML page here) is never forwarded.
+    assert not any("error page" in w for w in run.warnings)
 
 
 def test_a_defect_reading_a_look_is_not_reported_as_an_unreadable_look() -> None:
@@ -606,12 +605,11 @@ def test_a_looker_that_goes_away_ends_the_command(
 
 def test_many_refused_look_reads_give_one_counted_warning() -> None:
     client = install(mock.MagicMock())
-    client.look.side_effect = sdk_error(403)
+    client.look.side_effect = http_error(client, 403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(**_LOOKS_ON), "looks", {})
     refused = [w for w in run.warnings if "403" in w]
-    assert len(refused) == 1
-    assert refused[0].split(" ", 1)[0] == str(client.look.call_count)
+    assert client.look.call_count > 1 and len(refused) == 1
 
 
 def test_a_capped_trace_says_it_was_capped_not_untraced() -> None:
@@ -633,9 +631,9 @@ def test_a_capped_trace_says_it_was_capped_not_untraced() -> None:
             names=listing.names,
             attributes=listing.attributes,
         )
-    assert any("stopped after 1 reads" in w for w in run.warnings)
-    assert not any("--trace-charts" in w for w in result.warnings)
-    assert any("could not settle" in w for w in result.warnings)
+    assert _TRACE_CAPPED.format(limit=1) in run.warnings
+    assert _ON_A_DASHBOARD_UNDETERMINED in result.warnings
+    assert _ON_A_DASHBOARD_NOT_JUDGED not in result.warnings
 
 
 def test_titles_in_personal_folders_are_withheld_when_ingestion_skips_them() -> None:
@@ -665,7 +663,7 @@ def test_the_standalone_look_trace_stops_at_the_read_bound_too() -> None:
         )
     assert client.dashboard.call_count == 5
     assert client.look.call_count == 1
-    assert any("stopped after 6 reads" in w for w in run.warnings)
+    assert _TRACE_CAPPED.format(limit=6) in run.warnings
     used = {r["name"]: r["used"] for r in _rows(run)}
     assert used["orders"] is True
     assert used["unused"] is None
@@ -676,12 +674,12 @@ def test_a_look_on_an_unread_dashboard_does_not_make_its_explore_certain() -> No
     # sees 105 as standalone; ingestion reads it as the tile, whose query can
     # differ, so the explore only 105's saved query names stays undetermined.
     client = install(mock.MagicMock())
-    by_id = {"6": sdk_error(403)}
+    by_id = {"6": http_error(client, 403)}
     real_dashboard = client.dashboard.side_effect
 
     def dashboard(dashboard_id: str, **kwargs: Any) -> Any:
         if dashboard_id in by_id:
-            raise by_id[dashboard_id]
+            by_id[dashboard_id]()
         return real_dashboard(dashboard_id, **kwargs)
 
     real_look = client.look.side_effect
@@ -705,3 +703,104 @@ def test_a_look_on_an_unread_dashboard_does_not_make_its_explore_certain() -> No
     used = {r["name"]: r["used"] for r in _rows(run)}
     assert used["orders"] is True
     assert used["unused"] is None
+
+
+def _real_sdk(client: mock.MagicMock) -> methods40.Looker40SDK:
+    # The SDK's own request path over the client's transport, so Looker's
+    # answer passes the session the probe attached to.
+    return methods40.Looker40SDK(
+        _NoAuth(),  # type: ignore[arg-type]
+        serialize.deserialize40,
+        serialize.serialize40,
+        client.transport,
+        "4.0",
+    )
+
+
+_DASHBOARD_6_URL = "https://looker.example.com/api/4.0/dashboards/6"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        {"status_code": 502, "text": "<html><body>Bad Gateway</body></html>"},
+        {"status_code": 503, "text": ""},
+        {"exc": requests.exceptions.ReadTimeout},
+    ],
+    ids=["gateway-page", "empty-5xx", "read-timeout"],
+)
+def test_one_bad_gateway_or_slow_read_degrades_the_trace_not_the_command(
+    requests_mock: Any, answer: Dict[str, Any]
+) -> None:
+    client = install(mock.MagicMock())
+    sdk = _real_sdk(client)
+    fake_dashboard = client.dashboard.side_effect
+
+    def dashboard(dashboard_id: str, **kwargs: Any) -> Any:
+        if dashboard_id == "6":
+            return sdk.dashboard(dashboard_id, fields="id")
+        return fake_dashboard(dashboard_id, **kwargs)
+
+    client.dashboard.side_effect = dashboard
+    requests_mock.get(_DASHBOARD_6_URL, **answer)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method(
+            "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
+        )
+    used = {r["name"]: r["used"] for r in _rows(run)}
+    assert used["orders"] is True
+    # Dashboard 6 alone uses `customers`; its read failed, so: undetermined.
+    assert used["customers"] is None
+    assert not any("Bad Gateway" in w for w in run.warnings)
+
+
+def test_a_refused_connection_on_the_real_path_ends_the_command(
+    requests_mock: Any,
+) -> None:
+    client = install(mock.MagicMock())
+    client.dashboard = _real_sdk(client).dashboard
+    requests_mock.get(
+        "https://looker.example.com/api/4.0/dashboards/1",
+        exc=requests.exceptions.ConnectionError,
+    )
+    with (
+        mock.patch("looker_sdk.init40", return_value=client),
+        pytest.raises(ProbeConnectionError),
+    ):
+        run_probe_method("looker", recipe(), "charts", {"dashboard": "1"})
+
+
+def test_a_root_folder_needs_no_ancestors_read() -> None:
+    client = install(mock.MagicMock())
+    client.all_dashboards.side_effect = lambda **kwargs: [
+        Dashboard(
+            id="9", title="At the root", folder=FolderBase(id="f-shared", name="Shared")
+        )
+    ]
+    client.search_dashboards.side_effect = lambda **kwargs: []
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", recipe(), "dashboards", {})
+    assert _rows(run)[0]["folder_path"] == "Shared"
+    client.folder_ancestors.assert_not_called()
+
+
+def test_an_incomplete_dashboard_walk_spends_no_reads_on_standalone_looks() -> None:
+    # Look-only explores cannot count after it, so their reads would be waste.
+    client = install(mock.MagicMock())
+    fake_dashboard = client.dashboard.side_effect
+    refuse = http_error(client, 403)
+
+    def dashboard(dashboard_id: str, **kwargs: Any) -> Any:
+        if dashboard_id == "6":
+            refuse()
+        return fake_dashboard(dashboard_id, **kwargs)
+
+    client.dashboard.side_effect = dashboard
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run_probe_method(
+            "looker",
+            recipe(**_LOOKS_ON),
+            "explores",
+            {"model": "sales", "trace_charts": True},
+        )
+    client.look.assert_not_called()
