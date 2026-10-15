@@ -63,8 +63,8 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         SupportedSources(["bigquery", "dremio", "snowflake"]),
     ] = Field(
         default=None,
-        description="Number of rows to skip before the profiled window. Requires `limit`; "
-        "ignored on its own, because SQL has no standalone OFFSET. Ignored when "
+        description="Number of rows to skip before the profiled window. Requires `limit` — "
+        "on its own it bounds nothing and is ignored. Ignored when "
         "`use_sampling` is enabled. Only BigQuery, Dremio and Snowflake support this. "
         "By default, uses no offset.",
     )
@@ -349,15 +349,15 @@ class ProfilingConfig(ProfilingBaseConfig):
 
     @model_validator(mode="after")
     def drop_offset_without_limit(self) -> "ProfilingConfig":
-        # SQL has no standalone OFFSET -- Snowflake and BigQuery both define it
-        # as part of the LIMIT clause, and SQLAlchemy fills the gap with the
-        # invalid `LIMIT -1`. An offset alone would also profile every row after
-        # it, costing more than no offset rather than less.
+        # limit/offset exist here to bound how much data gets scanned. An offset
+        # with no limit bounds nothing -- it profiles every row after it, which
+        # costs more than leaving it unset, not less. Pairing them is our choice
+        # about what these knobs are for, not a restriction SQL imposes.
         if self.offset is not None and self.limit is None:
             logger.warning(
-                "profiling.offset is ignored without profiling.limit: there is "
-                "no standalone OFFSET to apply, and skipping rows without "
-                "bounding them would profile more of the table, not less."
+                "profiling.offset is ignored without profiling.limit: on its own "
+                "it bounds nothing, profiling every row after the offset, which "
+                "costs more than leaving it unset, not less."
             )
             self.offset = None
         return self

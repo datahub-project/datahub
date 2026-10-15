@@ -104,7 +104,7 @@ The difference that matters when choosing: sampling changes the numbers you get.
 
 The two do not compose. Sampling an already-limited table draws randomly from an arbitrary slice, which pays sampling's cost and loses the only thing it buys, so they are mutually exclusive and **sampling takes precedence**: while `use_sampling` is on, `limit` and `offset` are dropped with a warning. Turn `use_sampling` off to bound the profile by row count instead.
 
-`offset` only applies alongside `limit`, and is dropped with a warning on its own: SQL has no standalone `OFFSET` — Snowflake and BigQuery both define it as part of the `LIMIT` clause — and skipping rows without bounding them would profile more of the table, not less. `limit` must be a positive whole number and `offset` a non-negative one; both are checked when the recipe is read.
+`offset` only applies alongside `limit`, and is dropped with a warning on its own: these options exist to bound how much data is scanned, and an offset with no limit bounds nothing — it profiles every row after the offset, costing more than leaving it unset. `limit` must be a positive whole number and `offset` a non-negative one; both are checked when the recipe is read.
 
 Only BigQuery, Dremio and Snowflake apply `limit`/`offset` at all. Elsewhere the profiler warns and profiles the full table, and the profile stays labelled `FULL_TABLE` rather than claiming a bound that was never applied.
 

@@ -171,7 +171,7 @@ def test_limit_and_offset_survive_when_sampling_is_off() -> None:
 
 
 def test_offset_without_limit_is_dropped(caplog: pytest.LogCaptureFixture) -> None:
-    # SQL has no standalone OFFSET, so an offset alone cannot be applied at all.
+    # An offset alone bounds nothing, so it is dropped rather than applied.
     with caplog.at_level(logging.WARNING):
         config = ProfilingConfig.model_validate({"use_sampling": False, "offset": 25})
 
