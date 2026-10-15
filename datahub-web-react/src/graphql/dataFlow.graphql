@@ -43,6 +43,11 @@ fragment dataFlowFields on DataFlow {
     ...entityDataProduct
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     deprecation {
         ...deprecationFields

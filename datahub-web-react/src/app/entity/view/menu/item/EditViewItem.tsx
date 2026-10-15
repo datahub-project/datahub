@@ -1,4 +1,4 @@
-import { FormOutlined } from '@ant-design/icons';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,7 +18,7 @@ export const EditViewItem = ({ key, onClick }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-edit">
-            <IconItemTitle tip={t('menu.editTooltip')} title={tc('edit')} icon={<FormOutlined />} />
+            <IconItemTitle tip={t('menu.editTooltip')} title={tc('edit')} icon={<PencilLine />} />
         </MenuItemStyle>
     );
 };

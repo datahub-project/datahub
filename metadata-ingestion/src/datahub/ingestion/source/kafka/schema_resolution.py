@@ -360,7 +360,7 @@ class KafkaSchemaResolver:
 
                 # Try to get the schema from the registry using the ID
                 try:
-                    schema = self.schema_registry_client.get_by_id(schema_id)
+                    schema = self.schema_registry_client.get_schema(schema_id)
                     if schema and schema.schema_str:
                         return self._extract_record_name_from_schema(schema.schema_str)
                 except (KeyError, ValueError, OSError) as e:

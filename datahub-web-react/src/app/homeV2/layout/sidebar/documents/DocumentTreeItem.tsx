@@ -89,6 +89,10 @@ interface DocumentTreeItemProps {
      * list stays pinned at the top instead of jumping to the open document.
      */
     suppressSelectionScroll?: boolean;
+    /** Optional inline badge after the title (SaaS). */
+    afterLabel?: React.ReactNode;
+    /** Optional secondary line under the title (parent breadcrumb). */
+    belowLabel?: React.ReactNode;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -111,6 +115,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     parentUrn,
     multiSelect = false,
     suppressSelectionScroll = false,
+    afterLabel,
+    belowLabel,
 }) => {
     const { t } = useTranslation('home.v2');
     // Pin ⋮/+ visible while a portaled menu/dialog is open (mouse leaves the row).
@@ -226,6 +232,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             icon={restingIcon}
             label={title}
             labelTitle={title}
+            afterLabel={afterLabel}
+            belowLabel={belowLabel}
             trailing={trailing}
             onSelect={() => handleItemClick()}
             onToggleExpand={onToggleExpand}

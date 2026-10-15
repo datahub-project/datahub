@@ -56,8 +56,13 @@ def source():
         },
     )
     ctx = PipelineContext(run_id="test_fanout")
-    with patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    # event.listens_for is patched too: SA 2.0 registers a connect-listener on
+    # the engine, which rejects the MagicMock the patched create_engine returns.
+    with (
+        patch("datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"),
+        patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for"
+        ),
     ):
         src = FivetranSource(config, ctx)
         src.api_client = None

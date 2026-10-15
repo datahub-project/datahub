@@ -1133,8 +1133,8 @@ def test_folder_entity_emits_folder_subtype_document(
 ) -> None:
     """A folder ancestor is emitted as a Folder-subtyped document with no text."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.source.common.subtypes import DocumentSubTypes
     from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
-    from datahub.ingestion.source.confluence.confluence_source import FOLDER_SUBTYPE
     from datahub.metadata.schema_classes import (
         DocumentInfoClass,
         SubTypesClass,
@@ -1163,7 +1163,7 @@ def test_folder_entity_emits_folder_subtype_document(
             elif isinstance(wu.metadata.aspect, DocumentInfoClass):
                 doc_info = wu.metadata.aspect
 
-    assert subtype is not None and FOLDER_SUBTYPE in subtype.typeNames
+    assert subtype is not None and DocumentSubTypes.FOLDER in subtype.typeNames
     assert doc_info is not None
     assert doc_info.title == "Engineering"
     # Folders carry no content but keep their Confluence id for traceability.

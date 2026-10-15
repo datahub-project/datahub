@@ -45,7 +45,6 @@ export const EntitySearchInputV2 = ({
                 start: 0,
                 count: 10,
                 orFilters,
-                searchFlags: { skipCache: true }, // To support chain linking
             },
         },
     });

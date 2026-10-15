@@ -10,8 +10,16 @@ import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 
 import { DataHubViewType } from '@types';
 
+const FormContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+`;
+
 const FormSection = styled.div`
     margin-bottom: 12px;
+    flex-shrink: 0;
 `;
 
 type Props = {
@@ -55,7 +63,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     const isDisabled = mode === ViewBuilderMode.PREVIEW;
 
     return (
-        <div data-testid="view-builder-form">
+        <FormContainer data-testid="view-builder-form">
             <FormSection>
                 <Input
                     label={t('viewForm.nameLabel')}
@@ -92,6 +100,6 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                 />
             </FormSection>
             <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />
-        </div>
+        </FormContainer>
     );
 };

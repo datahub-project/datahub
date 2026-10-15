@@ -44,9 +44,6 @@ public class TopicConventionFactory {
   @Value("${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}")
   private String platformEventTopicName;
 
-  @Value("${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME + "}")
-  private String dataHubUpgradeHistoryTopicName;
-
   @Value("${DATAHUB_USAGE_EVENT_TOPIC_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}")
   private String dataHubUsageEventTopicName;
 
@@ -63,7 +60,6 @@ public class TopicConventionFactory {
         platformEventTopicName,
         // TODO once we start rolling out v5 add support for changing the new event names.
         TopicConventionImpl.DEFAULT_EVENT_PATTERN,
-        dataHubUpgradeHistoryTopicName,
         dataHubUsageEventTopicName);
   }
 }

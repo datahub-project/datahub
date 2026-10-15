@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch.shim;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +18,7 @@ public final class KnnSearchRequest {
   private final List<String> fieldsToFetch;
   private final Map<String, Object> filter;
   private final boolean ignoreUnavailable;
+  @Nullable private final Duration timeout;
 
   private KnnSearchRequest(Builder b) {
     this.indexName = b.indexName;
@@ -30,6 +32,7 @@ public final class KnnSearchRequest {
     this.filter =
         b.filter != null ? Collections.unmodifiableMap(new HashMap<>(b.filter)) : Map.of();
     this.ignoreUnavailable = b.ignoreUnavailable;
+    this.timeout = b.timeout;
   }
 
   @Nonnull
@@ -69,6 +72,12 @@ public final class KnnSearchRequest {
     return ignoreUnavailable;
   }
 
+  /** How long the engine and the client may take; empty keeps the client's settings. */
+  @Nonnull
+  public Optional<Duration> timeout() {
+    return Optional.ofNullable(timeout);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -82,6 +91,7 @@ public final class KnnSearchRequest {
     private List<String> fieldsToFetch;
     private Map<String, Object> filter;
     private boolean ignoreUnavailable = true;
+    private Duration timeout;
 
     public Builder indexName(@Nonnull String v) {
       this.indexName = v;
@@ -123,6 +133,11 @@ public final class KnnSearchRequest {
       return this;
     }
 
+    public Builder timeout(@Nullable Duration v) {
+      this.timeout = v;
+      return this;
+    }
+
     public KnnSearchRequest build() {
       if (indexName == null || vectorField == null) {
         throw new IllegalStateException("indexName and vectorField are required");
@@ -132,6 +147,9 @@ public final class KnnSearchRequest {
       }
       if (k < 1) {
         throw new IllegalStateException("k must be >= 1");
+      }
+      if (timeout != null && (timeout.isNegative() || timeout.isZero())) {
+        throw new IllegalStateException("timeout must be positive");
       }
       return new KnnSearchRequest(this);
     }

@@ -13,7 +13,7 @@ on:
 jobs:
   verify-quickstart-compose-updated:
     name: Verify quickstart compose file is up-to-date
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       THRESHOLD_GB: 4.3
     steps:

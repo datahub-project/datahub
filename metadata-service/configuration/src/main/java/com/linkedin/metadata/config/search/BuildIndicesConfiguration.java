@@ -50,6 +50,12 @@ public class BuildIndicesConfiguration {
   // Parallel reindexing configuration
   @Builder.Default private boolean enableParallelReindex = false;
 
+  /**
+   * Concurrent non-reindex settings updates (including {@code refresh_interval}). No Java default:
+   * {@code application.yaml} sets this. A missing or non-positive value fails system-update.
+   */
+  private Integer maxConcurrentSettingsUpdates;
+
   @Builder.Default private int taskCheckIntervalSeconds = 15;
 
   @Builder.Default private int maxReindexHours = 12;

@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { Button, Editor } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 import { useUpdateDocumentContentsMutation } from '@graphql/document.generated';
 
@@ -30,7 +32,8 @@ const StyledEditor = styled(Editor)`
             padding: 0px 0;
             min-height: 400px;
         }
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             font-size: 15px;
             line-height: 1.7;
             color: ${(props) => props.theme.colors.textSecondary};

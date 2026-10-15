@@ -1,0 +1,49 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "e91329d57ab626ad7bd38c273eb27ce68c97cef9f5c21d16cd48835a0b676dab",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.a,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.target,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"a\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.target,PROD)",
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"f\".\"v\" AS \"v\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO public.target SELECT a.id, f.v FROM public.a AS a JOIN public.MY_FN(?) AS f ON a.id = f.id"
+    }
+}

@@ -147,6 +147,24 @@ public class ESUtilsLifecycleStageFilterTest {
     assertTrue(query.toString().contains("dataset"));
   }
 
+  /** V3 entity indices map the V2 .keyword subfield, so hidden stages filter on it as on V2. */
+  @Test
+  public void testV3HiddenStagesExcludedOnKeywordSubfield() {
+    OperationContext opContext = mockOpContext(new SearchFlags().setIncludeSoftDeleted(true));
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    ESUtils.applyDefaultSearchFilters(
+        opContext, List.of("dataset"), null, query, Set.of(PROPOSED_URN), entityIndex);
+
+    assertEquals(query.mustNot().size(), 1);
+    assertMustNotContainsTerm(query, LIFECYCLE_STAGE + KEYWORD_SUFFIX, PROPOSED_URN);
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private static OperationContext mockOpContext(SearchFlags searchFlags) {

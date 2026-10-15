@@ -74,8 +74,6 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
-    ShowV2ThemeEvent,
-    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -614,14 +612,6 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
-export interface ShowV2ThemeEvent extends BaseEvent {
-    type: EventType.ShowV2ThemeEvent;
-}
-
-export interface RevertV2ThemeEvent extends BaseEvent {
-    type: EventType.RevertV2ThemeEvent;
-}
-
 export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
@@ -1083,7 +1073,7 @@ export interface HomePageClickEvent extends BaseEvent {
 export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
-    values: string[]; // the values being filtered for
+    filterValues: string[]; // the values being filtered for
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {
@@ -1468,8 +1458,6 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | ShowV2ThemeEvent
-    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent

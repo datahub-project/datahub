@@ -44,8 +44,9 @@ class DatahubLineageConfig(ConfigModel):
     # If true, the tags field of the DAG will be captured as DataHub tags.
     capture_tags_info: bool
 
-    # If true (default), we'll materialize and un-soft-delete any urns
-    # referenced by inlets or outlets.
+    # If true (default), we'll create the dataset entities referenced by inlets or
+    # outlets (via their key aspect) and record an Operation on each outlet. Note that
+    # this creates entities that don't exist yet, but does not revive soft-deleted ones.
     materialize_iolets: bool
 
     # If true (default), capture native Airflow Assets/Datasets in inlets/outlets

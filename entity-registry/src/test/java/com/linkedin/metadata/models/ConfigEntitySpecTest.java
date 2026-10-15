@@ -2,6 +2,7 @@ package com.linkedin.metadata.models;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.Arrays;
@@ -115,6 +116,15 @@ public class ConfigEntitySpecTest {
 
     assertEquals(aspectSpec.getAspectAnnotation().getName(), "domains");
     assertEquals(aspectSpec.getAspectAnnotation().getSchemaVersion(), 1L);
+  }
+
+  @Test
+  public void testRelationshipFieldSpecsAreMemoized() {
+    ConfigEntitySpec entitySpec =
+        new ConfigEntitySpec(
+            "testEntity", "testKey", Arrays.asList(createMockAspectSpec("testAspect")), null);
+
+    assertSame(entitySpec.getRelationshipFieldSpecs(), entitySpec.getRelationshipFieldSpecs());
   }
 
   private AspectSpec createMockAspectSpec(String name) {

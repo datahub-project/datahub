@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -315,22 +316,27 @@ public class AnalyticsServiceTest {
   }
 
   @Test
-  public void testBarChartSkipsV3EntityKeywordSubfields() throws Exception {
+  public void testBarChartAggregatesV3EntityKeywordSubfields() throws Exception {
     AnalyticsService v3Service =
         new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+    SearchResponse empty = emptyFilteredResponse();
+    ArgumentCaptor<SearchRequest> request = ArgumentCaptor.forClass(SearchRequest.class);
+    when(mockClient.search(any(), request.capture(), any())).thenReturn(empty);
 
-    assertEquals(
-        v3Service.getBarChart(
-            opContext,
-            "*index_v3",
-            Optional.empty(),
-            List.of("platform.keyword"),
-            Map.of(),
-            Map.of(),
-            Optional.empty(),
-            false),
-        List.of());
-    verify(mockClient, times(0)).search(any(), any(SearchRequest.class), any());
+    v3Service.getBarChart(
+        opContext,
+        "*index_v3",
+        Optional.empty(),
+        List.of("domains.keyword", "platform.keyword"),
+        Map.of(),
+        Map.of(),
+        Optional.empty(),
+        false);
+
+    // V3 entity indices map the V2 .keyword subfields, so the field names are kept as given
+    String source = request.getValue().source().toString();
+    assertTrue(source.contains("\"field\":\"domains.keyword\""), source);
+    assertTrue(source.contains("\"field\":\"platform.keyword\""), source);
   }
 
   @Test
@@ -339,7 +345,8 @@ public class AnalyticsServiceTest {
         new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
 
     SearchResponse empty = emptyFilteredResponse();
-    when(mockClient.search(any(), any(SearchRequest.class), any())).thenReturn(empty);
+    ArgumentCaptor<SearchRequest> request = ArgumentCaptor.forClass(SearchRequest.class);
+    when(mockClient.search(any(), request.capture(), any())).thenReturn(empty);
     assertEquals(
         v3Service.getBarChart(
             opContext,
@@ -352,6 +359,8 @@ public class AnalyticsServiceTest {
             false),
         List.of());
     verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
+    // Field names pass through as given
+    assertTrue(request.getValue().source().toString().contains("actorUrn.keyword"));
   }
 
   @Test

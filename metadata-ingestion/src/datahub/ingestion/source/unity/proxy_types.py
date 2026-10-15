@@ -151,6 +151,23 @@ class Schema(CommonProperty):
     owner: Optional[str]
 
 
+def make_schema(
+    catalog: Catalog,
+    name: str,
+    comment: Optional[str] = None,
+    owner: Optional[str] = None,
+) -> Schema:
+    """The Schema UnityCatalogApiProxy builds for one schema of `catalog`,
+    with the id schema_pattern is matched against."""
+    return Schema(
+        id=f"{catalog.id}.{escape_unity_name(name)}",
+        name=name,
+        catalog=catalog,
+        comment=comment,
+        owner=owner,
+    )
+
+
 @dataclass
 class Column(CommonProperty):
     type_text: str
@@ -175,6 +192,27 @@ class ServicePrincipal:
     application_id: str  # uuid used to reference the service principal
     display_name: str
     active: Optional[bool]
+
+
+def escape_unity_name(value: str) -> str:
+    """A metastore, catalog or schema name as it appears in the ids that
+    catalog_pattern and schema_pattern are matched against.
+
+    Shared by UnityCatalogApiProxy, which builds those ids, and by the recipe
+    probe's UnityCatalogSourceConfig.probe_match_target, so both sides filter
+    on the same string.
+    """
+    return value.replace(" ", "_")
+
+
+def qualified_table_name(catalog: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by TableReference.qualified_table_name below and by the recipe
+    probe's UnityCatalogSourceConfig.probe_filter_target override (see
+    unity/config.py), so both sides filter on the same string.
+    """
+    return f"{catalog}.{schema}.{table}"
 
 
 @dataclass(frozen=True, order=True)
@@ -222,7 +260,7 @@ class TableReference:
 
     @property
     def qualified_table_name(self) -> str:
-        return f"{self.catalog}.{self.schema}.{self.table}"
+        return qualified_table_name(self.catalog, self.schema, self.table)
 
     @property
     def external_path(self) -> str:

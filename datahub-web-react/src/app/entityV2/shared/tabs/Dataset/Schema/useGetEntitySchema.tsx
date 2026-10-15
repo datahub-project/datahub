@@ -1,5 +1,5 @@
 import { ApolloClient, ApolloError, DocumentNode, useApolloClient } from '@apollo/client';
-import { cloneDeep } from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';

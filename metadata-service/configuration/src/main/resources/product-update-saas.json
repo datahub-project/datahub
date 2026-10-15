@@ -1,82 +1,82 @@
 {
-  "enabled": true,
-  "id": "v2.2",
-  "releaseMonth": "2026-09",
+  "enabled": false,
+  "id": "v2.3",
+  "releaseMonth": "2026-10",
   "requiredVersion": null,
   "header": null,
-  "title": "DataHub Updates: September",
-  "description": "Context Platform is now in Public Beta + Custom Agents",
-  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-sep2026.png",
-  "ctaText": "Explore DataHub Cloud 2.2",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-v2-2",
+  "title": "DataHub Cloud October Updates",
+  "description": "Context, Evals, and Metrics that work in production",
+  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-oct2026.png",
+  "ctaText": "Explore DataHub Cloud 2.3",
+  "ctaLink": "https://datahub.com/blog/datahub-cloud-2-3",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
   "features": [],
   "i18n": {
     "de": {
-      "title": "DataHub-Updates: September",
-      "description": "Context Platform ist jetzt in der öffentlichen Betaphase + benutzerdefinierte Agents",
-      "ctaText": "DataHub Cloud 2.2 entdecken"
+      "title": "DataHub Cloud Oktober-Updates",
+      "description": "Context, Evals und Metrics, die in der Produktion funktionieren",
+      "ctaText": "DataHub Cloud 2.3 entdecken"
     },
     "es": {
-      "title": "Actualizaciones de DataHub: septiembre",
-      "description": "Context Platform ya está en beta pública + agentes personalizados",
-      "ctaText": "Explorar DataHub Cloud 2.2"
+      "title": "Actualizaciones de octubre de DataHub Cloud",
+      "description": "Context, Evals y Metrics que funcionan en producción",
+      "ctaText": "Explorar DataHub Cloud 2.3"
     },
     "fi": {
-      "title": "DataHub-päivitykset: syyskuu",
-      "description": "Context Platform on nyt julkisessa beetavaiheessa + mukautetut agentit",
-      "ctaText": "Tutustu DataHub Cloud 2.2:een"
+      "title": "DataHub Cloudin lokakuun päivitykset",
+      "description": "Context, Evals ja Metrics, jotka toimivat tuotannossa",
+      "ctaText": "Tutustu DataHub Cloud 2.3:een"
     },
     "fr": {
-      "title": "Mises à jour DataHub : septembre",
-      "description": "Context Platform est désormais en bêta publique + agents personnalisés",
-      "ctaText": "Découvrir DataHub Cloud 2.2"
+      "title": "Mises à jour DataHub Cloud d'octobre",
+      "description": "Context, Evals et Metrics qui fonctionnent en production",
+      "ctaText": "Découvrir DataHub Cloud 2.3"
     },
     "hu": {
-      "title": "DataHub-frissítések: szeptember",
-      "description": "A Context Platform már nyilvános bétaverzióban érhető el + egyéni ügynökök",
-      "ctaText": "A DataHub Cloud 2.2 felfedezése"
+      "title": "DataHub Cloud októberi frissítések",
+      "description": "Context, Evals és Metrics, amelyek élesben működnek",
+      "ctaText": "A DataHub Cloud 2.3 felfedezése"
     },
     "it": {
-      "title": "Aggiornamenti DataHub: settembre",
-      "description": "Context Platform è ora in beta pubblica + agenti personalizzati",
-      "ctaText": "Scopri DataHub Cloud 2.2"
+      "title": "Aggiornamenti di ottobre di DataHub Cloud",
+      "description": "Context, Evals e Metrics che funzionano in produzione",
+      "ctaText": "Scopri DataHub Cloud 2.3"
     },
     "ja": {
-      "title": "DataHub アップデート：9月",
-      "description": "Context Platform がパブリックベータ版になりました + カスタムエージェント",
-      "ctaText": "DataHub Cloud 2.2 を見る"
+      "title": "DataHub Cloud 10月のアップデート",
+      "description": "本番で使える Context、Evals、Metrics",
+      "ctaText": "DataHub Cloud 2.3 を見る"
     },
     "nb": {
-      "title": "DataHub-oppdateringer: september",
-      "description": "Context Platform er nå i offentlig betaversjon + egendefinerte agenter",
-      "ctaText": "Utforsk DataHub Cloud 2.2"
+      "title": "DataHub Cloud oktober-oppdateringer",
+      "description": "Context, Evals og Metrics som fungerer i produksjon",
+      "ctaText": "Utforsk DataHub Cloud 2.3"
     },
     "pt-BR": {
-      "title": "Atualizações do DataHub: setembro",
-      "description": "A Context Platform agora está em beta pública + agentes personalizados",
-      "ctaText": "Conheça o DataHub Cloud 2.2"
+      "title": "Atualizações de outubro do DataHub Cloud",
+      "description": "Context, Evals e Metrics que funcionam em produção",
+      "ctaText": "Conheça o DataHub Cloud 2.3"
     },
     "ru": {
-      "title": "Обновления DataHub: сентябрь",
-      "description": "Context Platform теперь в публичной бета-версии + пользовательские агенты",
-      "ctaText": "Изучите DataHub Cloud 2.2"
+      "title": "Октябрьские обновления DataHub Cloud",
+      "description": "Context, Evals и Metrics, которые работают в продакшене",
+      "ctaText": "Изучите DataHub Cloud 2.3"
     },
     "sv": {
-      "title": "DataHub-uppdateringar: september",
-      "description": "Context Platform är nu i offentlig betaversion + anpassade agenter",
-      "ctaText": "Utforska DataHub Cloud 2.2"
+      "title": "DataHub Cloud oktoberuppdateringar",
+      "description": "Context, Evals och Metrics som fungerar i produktion",
+      "ctaText": "Utforska DataHub Cloud 2.3"
     },
     "zh-CN": {
-      "title": "DataHub 更新：九月",
-      "description": "Context Platform 现已推出公开测试版 + 自定义智能体",
-      "ctaText": "探索 DataHub Cloud 2.2"
+      "title": "DataHub Cloud 十月更新",
+      "description": "可在生产环境中使用的 Context、Evals 和 Metrics",
+      "ctaText": "探索 DataHub Cloud 2.3"
     },
     "zh-TW": {
-      "title": "DataHub 更新：九月",
-      "description": "Context Platform 現已推出公開測試版 + 自訂智慧代理",
-      "ctaText": "探索 DataHub Cloud 2.2"
+      "title": "DataHub Cloud 十月更新",
+      "description": "可在正式環境中使用的 Context、Evals 與 Metrics",
+      "ctaText": "探索 DataHub Cloud 2.3"
     }
   }
 }

@@ -17,6 +17,7 @@ type Props = {
     showColumnTag?: boolean;
     // use below description which is present in assertion info object to decide whether to show description or generate dynamic one
     assertionDescription?: Maybe<string>;
+    ellipsis?: boolean;
 };
 
 const StyledDescrptionContainer = styled.div`
@@ -52,7 +53,7 @@ const renderFallbackDescription = (field: string | null | undefined) => (
     />
 );
 
-export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
+export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription, ellipsis }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const field = getFieldDescription(assertionInfo);
     let descriptionContent: React.ReactNode = assertionDescription;
@@ -89,7 +90,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
 
     return (
         <StyledDescrptionContainer>
-            <Typography.Text>{descriptionContent}</Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>{descriptionContent}</Typography.Text>
             {showColumnTag && <StyledColumnTag>{field}</StyledColumnTag>}
         </StyledDescrptionContainer>
     );
