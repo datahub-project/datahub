@@ -7,6 +7,7 @@ export const ASSERTION_DEFAULT_FILTERS = {
         searchText: '',
         status: [],
         type: [],
+        category: [],
         tags: [],
         column: [],
         source: [],
