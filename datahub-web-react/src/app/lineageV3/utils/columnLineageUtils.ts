@@ -1,4 +1,4 @@
-import { FetchedEntity } from '@app/lineage/types';
+import { FetchedEntity } from '@app/lineageV3/types';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '@types';

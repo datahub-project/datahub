@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageEntity, NodeContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 
 import { EntityType, LineageDirection } from '@types';
 

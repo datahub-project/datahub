@@ -5,7 +5,7 @@ import {
     getLineageEmptyGraphNudgeState,
     isLineageGraphEmpty,
     isLineageGraphLoaded,
-} from '@app/lineage/utils/lineageEmptyGraphNudgeUtils';
+} from '@app/lineageV3/utils/lineageEmptyGraphNudgeUtils';
 
 import { LineageDirection } from '@types';
 

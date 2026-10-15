@@ -1,4 +1,4 @@
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
 
 /**
  * A schemaField urn is `urn:li:schemaField:(<parentUrn>,<fieldPath>)`. Splitting on the first `)`

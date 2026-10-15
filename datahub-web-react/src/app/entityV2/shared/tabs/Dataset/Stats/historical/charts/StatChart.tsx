@@ -2,8 +2,8 @@ import { Card, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
-import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
+import { ChartContainer } from '@app/analyticsDashboardV2/components/ChartContainer';
+import { TimeSeriesChart } from '@app/analyticsDashboardV2/components/TimeSeriesChart';
 
 import { DateInterval, DateRange } from '@types';
 

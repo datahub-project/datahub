@@ -2,8 +2,8 @@ import React, { useCallback } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import LineageTimeSelector, { Datetime } from '@app/lineageV3/LineageTimeSelector';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { getTimeFromNow } from '@app/sharedV2/time/timeUtils';
 import updateQueryParams from '@app/sharedV2/updateQueryParams';
 
