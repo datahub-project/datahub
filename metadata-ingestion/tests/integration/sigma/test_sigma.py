@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import patch
 
@@ -506,6 +507,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
+    # A /files/{urlId} lookup no fixture answers is a 404; exact URLs override.
+    request_mock.register_uri("GET", re.compile(r"/v2/files/[^/?]+$"), status_code=404)
     for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -6863,6 +6866,54 @@ def test_sigma_ingest_data_models_warehouse_upstream(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_table_missing_from_lineage(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A table the Data Model's /lineage omits is found via /files/{urlId}.
+
+    Same fixture as the warehouse-upstream test, minus the type=table lineage
+    entry, so the only record of the table is the element's sourceId and the
+    column's columnId.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_overrides()
+    lineage = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/lineage"
+    ]["json"]
+    lineage["entries"] = [e for e in lineage["entries"] if e["type"] != "table"]
+    files = override_data.pop(
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}"
+    )
+    override_data[f"https://aws-api.sigmacomputing.com/v2/files/{_WH_URL_ID}"] = files
+    columns = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ]["json"]
+    columns["entries"][0]["columnId"] = f"inode-{_WH_URL_ID}/CUSTOMER_ID"
+    columns["entries"][0]["formula"] = "[CUSTOMERS/Customer Id]"
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_table_missing_from_lineage_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_resolved_by_url_id == 1
+    assert report.dm_element_warehouse_upstream_emitted == 1
+    assert report.data_model_element_upstreams_unresolved == 0
+    assert report.data_model_element_fgl_warehouse_resolved == 1
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_table_missing_from_lineage.json",
     )
 
 

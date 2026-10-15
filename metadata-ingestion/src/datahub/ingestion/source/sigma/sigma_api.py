@@ -2363,6 +2363,40 @@ class SigmaAPI:
             )
             return None
 
+    def get_file_metadata_by_url_id(self, url_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch ``/files/{urlId}``, or None when it cannot be resolved.
+
+        ``/files/{id}`` accepts a urlId as well as an inodeId. A Data Model
+        element's ``inode-<suffix>`` carries the urlId, so this is the only way
+        to ask about a table the Data Model's own ``/lineage`` never described.
+
+        A 404 returns None without a warning: the file may be deleted or outside
+        the token's visibility, and the two cannot be told apart from here.
+        """
+        url = f"{self.config.api_url}/files/{quote(url_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code != 404:
+                self.report.warning(
+                    title="Sigma /files lookup by urlId returned non-200",
+                    message=(
+                        "Could not resolve a warehouse table referenced by a "
+                        "Data Model element. Lineage to that table is skipped."
+                    ),
+                    context=f"url_id={url_id}, http_status={response.status_code}",
+                )
+            return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /files lookup by urlId failed",
+                message="Exception resolving a warehouse table by urlId.",
+                context=f"url_id={url_id}",
+                exc=e,
+            )
+            return None
+
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on
         non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``

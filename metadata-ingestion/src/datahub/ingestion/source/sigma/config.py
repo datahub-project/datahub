@@ -470,6 +470,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+    # A table an element names but its Data Model's /lineage omits, found by
+    # asking /files/{urlId} directly. Once per distinct urlId.
+    dm_element_warehouse_resolved_by_url_id: int = 0
+    # /files/{urlId} could not resolve the urlId: the table is deleted or not
+    # visible to this token. Once per distinct urlId.
+    dm_element_warehouse_url_id_unresolvable: int = 0
 
     # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
     # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
