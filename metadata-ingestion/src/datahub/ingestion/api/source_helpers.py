@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
+    MetadataChangeProposalClass,
     OwnershipClass as Ownership,
     SystemMetadataClass,
     TimeWindowSizeClass,
@@ -154,12 +155,27 @@ class AutoSystemMetadata:
             yield self.stamp_wu(wu)
 
     def stamp_wu(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
-        if self.ctx.flags.set_system_metadata:
-            if not wu.metadata.systemMetadata:
-                wu.metadata.systemMetadata = SystemMetadataClass()
-            wu.metadata.systemMetadata.runId = self.ctx.run_id
-            if not wu.metadata.systemMetadata.lastObserved:
-                wu.metadata.systemMetadata.lastObserved = get_sys_time()
-            if self.ctx.flags.set_system_metadata_pipeline_name:
-                wu.metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
+        self.stamp_metadata(wu.metadata)
         return wu
+
+    def stamp_metadata(
+        self,
+        metadata: Union[
+            MetadataChangeEventClass,
+            MetadataChangeProposalClass,
+            MetadataChangeProposalWrapper,
+        ],
+    ) -> None:
+        """Stamp the run id (and, when enabled, the pipeline name) onto a record.
+
+        Used for source workunits via :meth:`stamp`, and by the pipeline for
+        records that transformers create, which never pass through a source.
+        """
+        if self.ctx.flags.set_system_metadata:
+            if not metadata.systemMetadata:
+                metadata.systemMetadata = SystemMetadataClass()
+            metadata.systemMetadata.runId = self.ctx.run_id
+            if not metadata.systemMetadata.lastObserved:
+                metadata.systemMetadata.lastObserved = get_sys_time()
+            if self.ctx.flags.set_system_metadata_pipeline_name:
+                metadata.systemMetadata.pipelineName = self.ctx.pipeline_name

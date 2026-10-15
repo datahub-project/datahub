@@ -13,8 +13,9 @@ import time_machine
 from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.committable import CommitPolicy, Committable
-from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.api.common import EndOfStream, RecordEnvelope
 from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Source, SourceReport
@@ -549,6 +550,54 @@ class TestPipeline:
         assert len(sink_report.received_records) == 1
         assert expected_mce == sink_report.received_records[0].record
 
+    def test_run_stamps_records_created_by_transformers(self):
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.EmitStatusAtEndOfStream"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "pipeline_test",
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        sink_report: RecordingSinkReport = cast(
+            RecordingSinkReport, pipeline.sink.get_report()
+        )
+        records = [envelope.record for envelope in sink_report.received_records]
+        assert len(records) == 2
+        (minted,) = [r for r in records if isinstance(r, MetadataChangeProposalWrapper)]
+        # Created by the transformer at end of stream: it never passed through
+        # the source, so only the pipeline can attribute it to the run.
+        assert minted.systemMetadata is not None
+        assert minted.systemMetadata.runId == "pipeline_test"
+        assert minted.systemMetadata.lastObserved
+
+    def test_run_respects_set_system_metadata_flag_for_transformer_output(self):
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.EmitStatusAtEndOfStream"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "pipeline_test",
+                "flags": {"set_system_metadata": False},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        sink_report: RecordingSinkReport = cast(
+            RecordingSinkReport, pipeline.sink.get_report()
+        )
+        records = [envelope.record for envelope in sink_report.received_records]
+        (minted,) = [r for r in records if isinstance(r, MetadataChangeProposalWrapper)]
+        assert minted.systemMetadata is None
+
     @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
@@ -809,6 +858,28 @@ class AddStatusRemovedTransformer(Transformer):
                 )
                 record_envelope.record.proposedSnapshot.aspects.append(
                     get_status_removed_aspect()
+                )
+            yield record_envelope
+
+
+class EmitStatusAtEndOfStream(Transformer):
+    """Mints a new record at end of stream, as lineage/ownership transformers do."""
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Transformer":
+        return cls()
+
+    def transform(
+        self, record_envelopes: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
+        for record_envelope in record_envelopes:
+            if isinstance(record_envelope.record, EndOfStream):
+                yield RecordEnvelope(
+                    record=MetadataChangeProposalWrapper(
+                        entityUrn=get_initial_mce().proposedSnapshot.urn,
+                        aspect=get_status_removed_aspect(),
+                    ),
+                    metadata={"workunit_id": "end-of-stream-status"},
                 )
             yield record_envelope
 
