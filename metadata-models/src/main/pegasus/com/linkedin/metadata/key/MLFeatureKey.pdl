@@ -22,7 +22,7 @@ record MLFeatureKey {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 8.0,
+    "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "searchLabel": "entityName"
   }

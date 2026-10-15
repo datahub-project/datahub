@@ -350,7 +350,31 @@ public class SearchableAnnotationValidatorTest {
         () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
   }
 
+  @Test
+  public void testSameSearchLabelRequiresTheSameBoost() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(
+        new SearchableAnnotationValidator.AnnotatedField(
+            createAnnotation("WORD_GRAM", Optional.of("entityName"), 10.0),
+            DataSchema.Type.STRING,
+            "dataset.datasetProperties.name"));
+    fields.add(
+        new SearchableAnnotationValidator.AnnotatedField(
+            createAnnotation("WORD_GRAM", Optional.of("entityName"), 8.0),
+            DataSchema.Type.STRING,
+            "mlFeature.mlFeatureKey.name"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
   private SearchableAnnotation createAnnotation(String fieldType, Optional<String> searchLabel) {
+    return createAnnotation(fieldType, searchLabel, 1.0);
+  }
+
+  private SearchableAnnotation createAnnotation(
+      String fieldType, Optional<String> searchLabel, double boostScore) {
     return new SearchableAnnotation(
         "testField",
         SearchableAnnotation.FieldType.valueOf(fieldType),
@@ -360,7 +384,7 @@ public class SearchableAnnotationValidatorTest {
         false, // addHasValuesToFilters
         Optional.empty(), // filterNameOverride
         Optional.empty(), // hasValuesFilterNameOverride
-        1.0, // boostScore
+        boostScore, // boostScore
         Optional.empty(), // hasValuesFieldName
         Optional.empty(), // numValuesFieldName
         java.util.Map.of(), // weightsPerFieldValue

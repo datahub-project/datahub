@@ -10,6 +10,7 @@ record EntityTypeInfo {
      */
     @Searchable = {
       "fieldType": "KEYWORD",
+      "boostScore": 10.0,
       "searchLabel": "qualifiedName"
     }
     qualifiedName: string

@@ -14,6 +14,7 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "fieldType": "KEYWORD",
+      "boostScore": 10.0,
       "searchLabel": "qualifiedName"
     }
     qualifiedName: string
@@ -24,6 +25,7 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "enableAutocomplete": true,
       "fieldType": "WORD_GRAM",
+      "boostScore": 10.0,
       "searchLabel": "entityName"
       }
     displayName: optional string

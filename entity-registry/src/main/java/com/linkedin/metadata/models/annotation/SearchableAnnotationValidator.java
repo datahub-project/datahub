@@ -2,8 +2,12 @@ package com.linkedin.metadata.models.annotation;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,8 +15,8 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
- * Validator for cross-annotation validation of SearchableAnnotation fields. Validates that fields
- * with the same searchLabel have compatible types.
+ * Validator for cross-annotation validation of SearchableAnnotation fields. Fields with the same
+ * searchLabel share one indexed field, so they must have compatible types and the same boostScore.
  */
 public class SearchableAnnotationValidator {
 
@@ -60,7 +64,31 @@ public class SearchableAnnotationValidator {
     }
   }
 
-  /** Validates that all fields with the same searchLabel have compatible types */
+  /**
+   * Fields that share a searchLabel across the registry must declare the same boostScore. A label
+   * with no boostScore uses the annotation default of 1.
+   */
+  public static void validateSharedLabelWeights(@Nonnull Collection<EntitySpec> entitySpecs) {
+    final List<AnnotatedField> fields = new ArrayList<>();
+    for (EntitySpec entitySpec : entitySpecs) {
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          fields.add(
+              new AnnotatedField(
+                  fieldSpec.getSearchableAnnotation(),
+                  fieldSpec.getPegasusSchema().getDereferencedType(),
+                  entitySpec.getName()
+                      + "."
+                      + aspectSpec.getName()
+                      + "."
+                      + fieldSpec.getSearchableAnnotation().getFieldName()));
+        }
+      }
+    }
+    validateCrossAnnotationCompatibility(fields);
+  }
+
+  /** Validates that all fields with the same searchLabel have compatible types and one weight */
   public static void validateCrossAnnotationCompatibility(
       @Nonnull List<AnnotatedField> annotatedFields) {
     Map<String, List<AnnotatedField>> searchLabelGroups = new HashMap<>();
@@ -124,6 +152,24 @@ public class SearchableAnnotationValidator {
                 firstFieldType,
                 currentField.getContext(),
                 currentFieldType));
+      }
+
+      // One indexed field has one query weight
+      if (Double.compare(
+              firstField.getAnnotation().getBoostScore(),
+              currentField.getAnnotation().getBoostScore())
+          != 0) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotations: fields with the same %s '%s' must have the same boostScore. "
+                    + "Field at %s has boostScore %s, but field at %s has boostScore %s",
+                SearchableAnnotation.ANNOTATION_NAME,
+                labelType,
+                labelValue,
+                firstField.getContext(),
+                firstField.getAnnotation().getBoostScore(),
+                currentField.getContext(),
+                currentField.getAnnotation().getBoostScore()));
       }
     }
   }

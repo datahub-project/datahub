@@ -807,6 +807,48 @@ def test_bc_changed_field_type_is_incompatible():
     assert bsv._defs_backward_compatible(base, cur) is False
 
 
+def test_bc_changed_boost_score_is_compatible():
+    # boostScore only changes how this version scores a query. It does not
+    # change the stored record or the index mapping, so the aspect version stays.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 1.0 }', "a: optional string"
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_boost_score_is_compatible():
+    base = _record_defs('@Searchable = { "fieldType": "TEXT" }', "a: optional string")
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_nested_boost_score_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 1.0 } }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 10.0 } }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_boost_score_with_field_type_change_is_incompatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "boostScore": 1.0 }', "a: optional string"
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
 def test_bc_changed_searchable_annotation_is_incompatible():
     # @Searchable drives Elasticsearch index mapping, so changing its value on
     # an existing field requires a reindex — not a no-op, backward-compatible
@@ -896,6 +938,34 @@ def test_is_bc_change_schema_version_removal_only(tmp_path, monkeypatch):
     current = (
         'namespace x\n@Aspect = { "name": "foo" }\n'
         "record Foo { a: boolean\n  b: optional string }"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_boost_score_is_compatible(tmp_path, monkeypatch):
+    # A query weight is read from the registry at query time, so changing it
+    # is not a schema migration.
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"boostScore\": 1.0\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"boostScore\": 10.0\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
     )
     p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
     monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)

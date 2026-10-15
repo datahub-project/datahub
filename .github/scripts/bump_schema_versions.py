@@ -814,6 +814,21 @@ def _without_retired_search_tier(annotation_text: str) -> str:
     return normalize_pdl_for_compare(without_key)
 
 
+def _without_query_weight(annotation_text: str) -> str:
+    """Ignore ``boostScore`` when comparing ``@Searchable`` values.
+
+    The weight only changes how this version scores a query. It does not change
+    the stored record or the index mapping, so it is not a schema migration.
+    """
+    text = re.sub(
+        r'"boostScore"\s*:\s*-?(?:\d+(?:\.\d*)?|\.\d+)\s*,', "", annotation_text
+    )
+    text = re.sub(r',?\s*"boostScore"\s*:\s*-?(?:\d+(?:\.\d*)?|\.\d+)', "", text)
+    if text == annotation_text:
+        return annotation_text
+    return normalize_pdl_for_compare(text)
+
+
 BUMP_WORTHY_ANNOTATIONS = frozenset(
     {
         "Searchable",
@@ -868,7 +883,7 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 if ann_name in BUMP_WORTHY_ANNOTATIONS:
                     value = normalize_pdl_for_compare(body[j + 1 : nxt])
                     if ann_name == "Searchable":
-                        value = _without_retired_search_tier(value)
+                        value = _without_query_weight(_without_retired_search_tier(value))
                     pending_annotations[ann_name] = value
                 i = nxt
             i = _skip_ws(body, i)
@@ -1025,6 +1040,25 @@ def _aspect_annotation_without_version(content: str) -> dict | None:
     return data
 
 
+_BOOST_SCORE_RE = re.compile(r'"boostScore"\s*:\s*-?(?:\d+(?:\.\d*)?|\.\d+)')
+
+
+def _without_boost_score(annotation: str) -> str:
+    """Drop boostScore from a normalized @Searchable value, including path maps."""
+    text = _BOOST_SCORE_RE.sub("", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    return " ".join(text.split())
+
+
+def _annotations_for_version_bump(annotations: dict[str, str]) -> dict[str, str]:
+    return {
+        name: _without_boost_score(value) if name == "Searchable" else value
+        for name, value in annotations.items()
+    }
+
+
 def _defs_backward_compatible(
     base_defs: dict[str, dict], cur_defs: dict[str, dict]
 ) -> bool:
@@ -1042,7 +1076,9 @@ def _defs_backward_compatible(
     includes change, removed enum symbol, or a changed/added/removed
     `BUMP_WORTHY_ANNOTATIONS` value on an existing field (@Searchable,
     @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection
-    — these drive reindexing) is treated as incompatible (bump).
+    — these drive reindexing) is treated as incompatible (bump). A @Searchable
+    change that only sets `boostScore` is a query weight: each version builds
+    queries from its own registry, so it does not bump.
     """
     for name, bdef in base_defs.items():
         cdef = cur_defs.get(name)
@@ -1069,7 +1105,10 @@ def _defs_backward_compatible(
                     return False
                 # A whitelisted annotation (index/reindex-relevant) changing
                 # value, appearing, or disappearing is a real schema change.
-                if bann != cann:
+                # boostScore is a query weight and is ignored.
+                if _annotations_for_version_bump(bann) != _annotations_for_version_bump(
+                    cann
+                ):
                     return False
             for fname, (_ctype, copt, _ann) in cur_fields.items():
                 if fname not in base_fields and not copt:
