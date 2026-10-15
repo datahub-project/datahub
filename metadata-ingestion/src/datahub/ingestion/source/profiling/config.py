@@ -50,7 +50,8 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         description="Experimental feature. To specify operation configs.",
     )
     limit: Annotated[
-        Optional[int], SupportedSources(["bigquery", "dremio", "snowflake"])
+        Optional[pydantic.PositiveInt],
+        SupportedSources(["bigquery", "dremio", "snowflake"]),
     ] = Field(
         default=None,
         description="Max number of rows to profile, taken in storage order — not a random "
@@ -58,11 +59,14 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         "Only BigQuery, Dremio and Snowflake support this. By default, profiles all rows.",
     )
     offset: Annotated[
-        Optional[int], SupportedSources(["bigquery", "dremio", "snowflake"])
+        Optional[pydantic.NonNegativeInt],
+        SupportedSources(["bigquery", "dremio", "snowflake"]),
     ] = Field(
         default=None,
-        description="Number of rows to skip before profiling. Ignored when `use_sampling` "
-        "is enabled. Only BigQuery, Dremio and Snowflake support this. By default, uses no offset.",
+        description="Number of rows to skip before the profiled window. Requires `limit`; "
+        "ignored on its own, because SQL has no standalone OFFSET. Ignored when "
+        "`use_sampling` is enabled. Only BigQuery, Dremio and Snowflake support this. "
+        "By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -328,8 +332,9 @@ class ProfilingConfig(ProfilingBaseConfig):
         # costs more and is statistically valid. Composing them samples randomly
         # from an arbitrary subset, which pays for sampling and loses the only
         # thing it buys, so they are mutually exclusive and sampling wins.
-        # Nulling them here means no adapter has to know this rule. Warn rather
-        # than raise: a recipe carrying a leftover limit should keep profiling.
+        # Nulling them here keeps the rule in one place, and the adapters that
+        # implement both assert it. Warn rather than raise: a recipe carrying a
+        # leftover limit should keep profiling.
         if self.use_sampling and (self.limit is not None or self.offset is not None):
             logger.warning(
                 "profiling.limit and profiling.offset are ignored while "
@@ -343,15 +348,18 @@ class ProfilingConfig(ProfilingBaseConfig):
         return self
 
     @model_validator(mode="after")
-    def warn_if_offset_without_limit(self) -> "ProfilingConfig":
-        # An offset with no limit profiles the whole table minus its first rows,
-        # which costs more than leaving it unset rather than less.
+    def drop_offset_without_limit(self) -> "ProfilingConfig":
+        # SQL has no standalone OFFSET -- Snowflake and BigQuery both define it
+        # as part of the LIMIT clause, and SQLAlchemy fills the gap with the
+        # invalid `LIMIT -1`. An offset alone would also profile every row after
+        # it, costing more than no offset rather than less.
         if self.offset is not None and self.limit is None:
             logger.warning(
-                "profiling.offset is set without profiling.limit, so it bounds "
-                "nothing: every row after the offset is profiled, which costs "
-                "more than profiling the whole table, not less."
+                "profiling.offset is ignored without profiling.limit: there is "
+                "no standalone OFFSET to apply, and skipping rows without "
+                "bounding them would profile more of the table, not less."
             )
+            self.offset = None
         return self
 
     @model_validator(mode="after")

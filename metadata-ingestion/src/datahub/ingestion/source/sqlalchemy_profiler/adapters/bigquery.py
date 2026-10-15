@@ -50,8 +50,9 @@ class BigQueryAdapter(PlatformAdapter):
         """
         logger.debug(f"BigQuery setup for {context.pretty_name}")
 
-        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table
-        if context.custom_sql or self.config.limit or self.config.offset:
+        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table. An offset
+        # without a limit never arrives -- the config nulls it.
+        if context.custom_sql or self.config.limit:
             context = self._create_temp_table_for_query(context)
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
@@ -137,28 +138,14 @@ class BigQueryAdapter(PlatformAdapter):
                 schema=context.schema,
             )
 
-            # Build SELECT * query using query builder
+            # Build SELECT * query using query builder. The config constrains
+            # limit to a positive int and nulls an offset that has no limit, so
+            # OFFSET is always paired with the LIMIT that BigQuery requires.
             query = sa.select(sa.text("*")).select_from(table_obj)
-
-            # Add LIMIT if configured
             if self.config.limit:
-                # Pydantic validates this is an int, but ensure it's positive
-                limit_val = int(self.config.limit)
-                if limit_val <= 0:
-                    raise ValueError(
-                        f"Invalid LIMIT value: {limit_val}. Must be positive."
-                    )
-                query = query.limit(limit_val)
-
-            # Add OFFSET if configured
+                query = query.limit(self.config.limit)
             if self.config.offset:
-                # Pydantic validates this is an int, but ensure it's non-negative
-                offset_val = int(self.config.offset)
-                if offset_val < 0:
-                    raise ValueError(
-                        f"Invalid OFFSET value: {offset_val}. Must be non-negative."
-                    )
-                query = query.offset(offset_val)
+                query = query.offset(self.config.offset)
 
             # Compile query to SQL string for DBAPI execution
             bq_sql = str(

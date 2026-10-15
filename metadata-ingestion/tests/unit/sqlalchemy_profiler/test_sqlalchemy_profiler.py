@@ -1685,7 +1685,8 @@ class TestLimitOffsetContract:
             False,
         ]
 
-    @pytest.mark.parametrize("limit,offset", [(100, None), (100, 25), (None, 25)])
+    # An offset never arrives without a limit: the config nulls it.
+    @pytest.mark.parametrize("limit,offset", [(100, None), (100, 25)])
     def test_supported_limit_is_labelled_as_a_bounded_query(
         self, profiler, profiler_config, sqlite_engine, mock_report, limit, offset
     ):

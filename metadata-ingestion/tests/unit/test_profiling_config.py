@@ -4,6 +4,7 @@ import sys
 import textwrap
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.source.profiling.config import (
@@ -169,13 +170,28 @@ def test_limit_and_offset_survive_when_sampling_is_off() -> None:
     assert config.offset == 25
 
 
-def test_offset_without_limit_warns(caplog: pytest.LogCaptureFixture) -> None:
-    # An offset alone profiles everything after it, costing more than no offset.
+def test_offset_without_limit_is_dropped(caplog: pytest.LogCaptureFixture) -> None:
+    # SQL has no standalone OFFSET, so an offset alone cannot be applied at all.
     with caplog.at_level(logging.WARNING):
         config = ProfilingConfig.model_validate({"use_sampling": False, "offset": 25})
 
-    assert config.offset == 25
-    assert any("bounds nothing" in r.message for r in caplog.records)
+    assert config.offset is None
+    assert any("ignored without profiling.limit" in r.message for r in caplog.records)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"limit": 0},
+        {"limit": -1},
+        {"offset": -1, "limit": 10},
+    ],
+)
+def test_out_of_range_limit_and_offset_are_rejected(values: dict) -> None:
+    # Caught at config-parse time rather than as a database error mid-run --
+    # `limit: 0` used to fall through to a full-table profile silently.
+    with pytest.raises(ValidationError):
+        ProfilingConfig.model_validate({"use_sampling": False, **values})
 
 
 def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:

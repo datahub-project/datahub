@@ -1511,7 +1511,8 @@ class SQLAlchemyProfiler:
         # Get platform-specific adapter
         adapter = self._thread_adapter(platform)
 
-        limit_requested = bool(self.config.limit or self.config.offset)
+        # An offset only ever accompanies a limit -- the config nulls it otherwise.
+        limit_requested = self.config.limit is not None
         limit_applied = limit_requested and adapter.supports_limit_offset()
         if limit_requested and not limit_applied:
             self.report.warning(

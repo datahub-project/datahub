@@ -866,8 +866,6 @@ class TestSnowflakeAdapter:
         [
             (100, None, "LIMIT 100"),
             (100, 25, "LIMIT 100 OFFSET 25"),
-            # Snowflake rejects a bare OFFSET; LIMIT NULL means "no limit".
-            (None, 25, "LIMIT NULL OFFSET 25"),
         ],
     )
     def test_limited_temp_table_sql(

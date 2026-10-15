@@ -63,9 +63,9 @@ class SnowflakeAdapter(PlatformAdapter):
         )
 
         # The ProfilingConfig validators drop limit/offset whenever sampling is
-        # on. A bound needs no denominator, so this also short-circuits the
-        # row-count lookup below.
-        if self.config.limit or self.config.offset:
+        # on, and null an offset that has no limit. A bound needs no
+        # denominator, so this also short-circuits the row-count lookup below.
+        if self.config.limit:
             assert not self.config.use_sampling, (
                 f"limit/offset reached the adapter with sampling enabled "
                 f"(table: {context.pretty_name})"
@@ -312,13 +312,10 @@ class SnowflakeAdapter(PlatformAdapter):
             quote=True,
             quote_schema=True,
         )
-        query = sa.select(sa.text("*")).select_from(table_obj)
-        if self.config.limit:
-            query = query.limit(self.config.limit)
-        elif self.config.offset:
-            # Snowflake accepts OFFSET only as part of a LIMIT clause; LIMIT NULL
-            # means no limit. https://docs.snowflake.com/en/sql-reference/constructs/limit
-            query = query.limit(sa.null())
+        # The config rejects a non-positive limit and nulls an offset that has no
+        # limit, so OFFSET is always paired with the LIMIT that Snowflake
+        # requires. https://docs.snowflake.com/en/sql-reference/constructs/limit
+        query = sa.select(sa.text("*")).select_from(table_obj).limit(self.config.limit)
         if self.config.offset:
             query = query.offset(self.config.offset)
 
