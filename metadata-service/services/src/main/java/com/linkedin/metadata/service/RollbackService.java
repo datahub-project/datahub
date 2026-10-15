@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics.TAG_OPERATION;
 import static com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics.TAG_PHASE;
 
@@ -18,7 +19,6 @@ import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.key.ExecutionRequestKey;
-import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
@@ -417,9 +417,8 @@ public class RollbackService {
 
   private static boolean isUnknownToRegistry(
       @Nonnull OperationContext opContext, @Nonnull AspectRowSummary row) {
-    return RegistryKnowledge.classifyUrn(
-            opContext.getEntityRegistry(), row.getUrn(), row.getAspectName())
-        .isUnknown();
+    return handling()
+        .isUnknownUrn(opContext.getEntityRegistry(), row.getUrn(), row.getAspectName());
   }
 
   private String stringifyRowCount(int size) {

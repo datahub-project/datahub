@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +27,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
-import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -209,12 +209,14 @@ public class UpdateIndicesService implements SearchIndicesService {
         events.stream()
             .filter(
                 event -> {
-                  return UNKNOWN_DATA.admitEvent(
-                      entityRegistry,
-                      opContext.getMetricUtils(),
-                      event.getEntityUrn(),
-                      event.hasEntityType() ? event.getEntityType() : null,
-                      event.hasAspectName() ? event.getAspectName() : null);
+                  return handling()
+                      .admitEvent(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          opContext.getMetricUtils(),
+                          event.getEntityUrn(),
+                          event.hasEntityType() ? event.getEntityType() : null,
+                          event.hasAspectName() ? event.getAspectName() : null);
                 })
             .map(event -> buildValidMCLItem(opContext, event))
             .filter(Objects::nonNull)
@@ -237,7 +239,8 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
     } catch (ValidationException e) {
-      if (!isFromNewerVersion(opContext, event)) {
+      // Checked first so strict handling does no deserialization and fails as before.
+      if (!handling().isTolerant() || !isFromNewerVersion(opContext, event)) {
         throw e;
       }
       opContext
@@ -267,8 +270,7 @@ public class UpdateIndicesService implements SearchIndicesService {
         // Unreadable payloads aren't attributed to a newer version.
       }
     }
-    return UnknownEntityUrnStripper.isFromNewerVersion(
-        aspect, event.getSystemMetadata(), aspectSpec, registry);
+    return handling().isFromNewerVersion(aspect, event.getSystemMetadata(), aspectSpec, registry);
   }
 
   /**

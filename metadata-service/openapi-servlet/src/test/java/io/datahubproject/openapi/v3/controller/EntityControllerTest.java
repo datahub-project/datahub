@@ -100,6 +100,8 @@ import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -150,6 +152,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -199,6 +202,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         authorizerChain);
     AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
     when(testAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -2551,6 +2559,26 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     verify(mockEntityService, never())
         .deleteAspect(any(), anyString(), any(), anyMap(), anyBoolean());
     verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testStrictHandlingDeleteOfUnknownAspectIsANoOp() throws Exception {
+    // Without tolerance an unknown aspect name is ignored and the request succeeds, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    "/openapi/v3/entity/dataset/"
+                        + "urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)/futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), any(), anyMap(), anyBoolean());
   }
 
   @Test

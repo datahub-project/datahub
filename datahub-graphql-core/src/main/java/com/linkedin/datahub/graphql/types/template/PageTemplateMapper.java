@@ -16,9 +16,9 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.SummaryElement;
 import com.linkedin.datahub.graphql.generated.SummaryElementType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.template.DataHubPageTemplateProperties;
@@ -132,8 +132,7 @@ public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPa
                   el -> {
                     SummaryElement summaryElement = new SummaryElement();
                     summaryElement.setElementType(
-                        PdlEnumMapper.mapDefaultNull(
-                            SummaryElementType.class, el.getElementType()));
+                        UnknownEnumValues.mapOrNull(SummaryElementType.class, el.getElementType()));
                     if (el.getStructuredPropertyUrn() != null) {
                       StructuredPropertyEntity structuredProperty = new StructuredPropertyEntity();
                       structuredProperty.setUrn(el.getStructuredPropertyUrn().toString());

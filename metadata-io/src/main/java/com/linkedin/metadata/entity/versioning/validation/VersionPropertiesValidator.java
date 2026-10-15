@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.versioning.validation;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
@@ -134,31 +135,32 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
               RecordUtils.toRecordTemplate(
                   VersionSetProperties.class, versionSetPropertiesAspect.get().data());
           VersioningScheme versioningScheme = versionSetProperties.getVersioningScheme();
-          if (versioningScheme == VersioningScheme.$UNKNOWN) {
+          if (handling().isTolerant() && versioningScheme == VersioningScheme.$UNKNOWN) {
             // A scheme only a newer version knows (read after a rollback) can't be checked here;
             // skip scheme validation rather than reject every new version of the set.
             log.warn(
                 "Version set of {} uses a versioning scheme this version doesn't know; skipping"
                     + " scheme validation",
                 mcpItem.getUrn());
-          } else if (!versioningScheme.equals(versionProperties.getVersioningScheme())) {
-            exceptions.addException(
-                mcpItem,
-                "Versioning Scheme does not match Version Set properties. Expected Scheme: "
-                    + versioningScheme
-                    + " Provided Scheme: "
-                    + versionProperties.getVersioningScheme());
-          }
+          } else {
+            if (!versioningScheme.equals(versionProperties.getVersioningScheme())) {
+              exceptions.addException(
+                  mcpItem,
+                  "Versioning Scheme does not match Version Set properties. Expected Scheme: "
+                      + versioningScheme
+                      + " Provided Scheme: "
+                      + versionProperties.getVersioningScheme());
+            }
 
-          switch (versioningScheme) {
-            case LEXICOGRAPHIC_STRING: // No validation
-            case $UNKNOWN: // Newer scheme, see above
-              break;
-            case ALPHANUMERIC_GENERATED_BY_DATAHUB:
-              validateDataHubGeneratedScheme(sortId, exceptions, mcpItem);
-              break;
-            default:
-              exceptions.addException(mcpItem, "Unsupported scheme type: " + versioningScheme);
+            switch (versioningScheme) {
+              case LEXICOGRAPHIC_STRING: // No validation
+                break;
+              case ALPHANUMERIC_GENERATED_BY_DATAHUB:
+                validateDataHubGeneratedScheme(sortId, exceptions, mcpItem);
+                break;
+              default:
+                exceptions.addException(mcpItem, "Unsupported scheme type: " + versioningScheme);
+            }
           }
         }
       }

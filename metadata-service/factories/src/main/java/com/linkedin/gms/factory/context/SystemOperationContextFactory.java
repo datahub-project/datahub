@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.context;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -22,6 +23,9 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.EntityTypeUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -141,6 +145,7 @@ public class SystemOperationContextFactory {
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
+    configureUnknownDataHandling(configurationProvider);
     return systemOperationContext;
   }
 
@@ -228,6 +233,7 @@ public class SystemOperationContextFactory {
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
+    configureUnknownDataHandling(configurationProvider);
     return systemOperationContext;
   }
 
@@ -331,5 +337,19 @@ public class SystemOperationContextFactory {
     final Set<String> effective =
         EntityTypeUtils.resolve(viewConfiguration.getUnrestrictedEntityTypes(), entityRegistry);
     return viewConfiguration.toBuilder().effectiveUnrestrictedEntityTypes(effective).build();
+  }
+
+  /**
+   * Chooses, for this process, how data the entity registry doesn't know is treated. Every process
+   * that runs the unknown-data paths (GMS, the MAE and MCE consumers, upgrade jobs) builds its
+   * system operation context here.
+   */
+  @VisibleForTesting
+  static void configureUnknownDataHandling(
+      @Nonnull final ConfigurationProvider configurationProvider) {
+    final boolean tolerant =
+        configurationProvider.getFeatureFlags().isUnknownDataToleranceEnabled();
+    UnknownDataHandlings.use(tolerant ? TolerantHandling.INSTANCE : StrictHandling.INSTANCE);
+    log.info("Unknown data tolerance {}", tolerant ? "enabled" : "disabled");
   }
 }

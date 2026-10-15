@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.Deprecation;
@@ -49,7 +50,7 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Urn entityUrn = entityResponse.getUrn();
     final SchemaFieldEntity result = this.mapSchemaFieldUrn(context, entityUrn);
-    if (result.getParent() == null) {
+    if (result.getParent() == null && handling().isTolerant()) {
       // SchemaFieldEntity.parent is non-null; a field whose parent is of an entity type GraphQL
       // can't map (e.g. added by a newer version before a rollback) resolves to no entity.
       return null;

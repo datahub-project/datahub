@@ -10,6 +10,7 @@ import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME
 import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -100,7 +101,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
 
-      if (versionSetProperties.getVersioningScheme() == VersioningScheme.$UNKNOWN) {
+      if (handling().isTolerant()
+          && versionSetProperties.getVersioningScheme() == VersioningScheme.$UNKNOWN) {
         // Written by a newer version (e.g. read after a rollback); say so instead of the generic
         // message below.
         throw new IllegalArgumentException(

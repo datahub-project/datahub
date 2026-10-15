@@ -19,12 +19,15 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -38,6 +41,11 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
   public void setup() {
     MockitoAnnotations.openMocks(this);
     when(mockUpgradeContext.opContext()).thenReturn(mockOpContext);
+  }
+
+  @AfterMethod
+  public void tearDown() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -128,6 +136,31 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
         .thenThrow(new ValidationException("invalid default"));
 
     assertEquals(runStep(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testStrictHandlingWritesEvenWhenStoredSettingsHaveEveryDefault() {
+    // Without tolerance the defaults are always merged and ingested, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    GlobalSettingsInfo stored = new GlobalSettingsInfo();
+    stored.data().put("views", new DataMap());
+    when(mockEntityService.getAspect(any(), any(), any(), eq(0L))).thenReturn(stored);
+
+    assertEquals(runStep(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockEntityService).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testStrictHandlingFailsOnValidationFailureOfSettingsFromANewerVersion() {
+    // Without tolerance any validation failure fails the step, and the stored aspect is not read
+    // again to attribute it.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    givenStoredSettingsWithSchemaVersion(2L, 1L);
+    when(mockEntityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenThrow(new ValidationException("unknown enum symbol"));
+
+    assertEquals(runStep(), DataHubUpgradeState.FAILED);
+    verify(mockOpContext, never()).getAspectRetriever();
   }
 
   private DataHubUpgradeState runStep() {

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.globalsettings;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -26,7 +27,6 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -153,7 +153,8 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
     // Existing values win the merge, so if every default key is already set there is nothing to
     // write. Re-ingesting would only re-validate stored values, which can fail after a rollback
     // (e.g. a reference or enum value only a newer version knows) and block system-update.
-    if (storedSettings != null
+    if (handling().isTolerant()
+        && storedSettings != null
         && existingSettings.data().keySet().containsAll(defaultSettings.data().keySet())) {
       log.info("Global settings already contain every default; nothing to ingest.");
       return;
@@ -181,7 +182,7 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
       // Stored settings written by a newer version (read after a rollback) can hold values this
       // version can't validate; leave them as they are rather than failing a blocking upgrade step.
       // Any other validation failure fails the step as before.
-      if (!isFromNewerVersion(systemOperationContext)) {
+      if (!handling().isTolerant() || !isFromNewerVersion(systemOperationContext)) {
         throw e;
       }
       log.warn(
@@ -202,11 +203,12 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
             .getLatestSystemAspect(
                 systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
     return stored != null
-        && UnknownEntityUrnStripper.isFromNewerVersion(
-            stored.getRecordTemplate(),
-            stored.getSystemMetadata(),
-            stored.getAspectSpec(),
-            systemOperationContext.getEntityRegistry());
+        && handling()
+            .isFromNewerVersion(
+                stored.getRecordTemplate(),
+                stored.getSystemMetadata(),
+                stored.getAspectSpec(),
+                systemOperationContext.getEntityRegistry());
   }
 
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {

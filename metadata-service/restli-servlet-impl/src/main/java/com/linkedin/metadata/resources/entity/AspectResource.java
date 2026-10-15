@@ -9,6 +9,7 @@ import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedIngest;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -303,12 +304,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     // A proposal for an entity type the registry doesn't know (e.g. sent by a client built for a
     // newer version) is a bad request; resolving a key-only proposal's urn for it would fail with a
     // 500 in the authorization checks below.
-    for (MetadataChangeProposal mcp : metadataChangeProposals) {
-      if (mcp.getEntityType() != null
-          && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
-        throw new RestLiServiceException(
-            HttpStatus.S_400_BAD_REQUEST,
-            String.format("Unknown entity type %s", mcp.getEntityType()));
+    if (handling().isTolerant()) {
+      for (MetadataChangeProposal mcp : metadataChangeProposals) {
+        if (mcp.getEntityType() != null
+            && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {
+          throw new RestLiServiceException(
+              HttpStatus.S_400_BAD_REQUEST,
+              String.format("Unknown entity type %s", mcp.getEntityType()));
+        }
       }
     }
 

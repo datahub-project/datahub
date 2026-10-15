@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -320,7 +321,7 @@ public class DeleteEntityService {
       @Nullable CascadeOperationContext cascade) {
     final String relatedEntityName = relatedUrn.getEntityType();
     final Optional<EntitySpec> maybeRelatedEntitySpec =
-        opContext.getEntityRegistry().findEntitySpec(relatedEntityName);
+        handling().entitySpecForData(opContext.getEntityRegistry(), relatedEntityName);
     // An entity type this build does not know (e.g. a referrer written by a newer build before a
     // version rollback) cannot have its aspects edited here: skip it instead of failing the
     // whole reference cleanup.

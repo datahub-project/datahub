@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
@@ -68,10 +70,13 @@ final class StoredAspectValues {
                 stored.getSystemMetadata(), item.getAspectSpec()));
   }
 
-  /** True if the stored aspect holds {@code value} at {@code fieldPath}. */
+  /**
+   * True if the stored aspect holds {@code value} at {@code fieldPath}. Always false, without
+   * reading the stored aspect, when unknown data isn't tolerated.
+   */
   boolean contains(
       @Nonnull final BatchItem item, @Nonnull final String fieldPath, @Nonnull final String value) {
-    if (item.getUrn() == null || item.getAspectName() == null) {
+    if (!handling().isTolerant() || item.getUrn() == null || item.getAspectName() == null) {
       return false;
     }
     return values

@@ -1,11 +1,12 @@
 package com.linkedin.datahub.graphql.types.common.mappers.util;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
@@ -23,6 +24,9 @@ import javax.annotation.Nullable;
  * ({@code Entity!}, {@code [Entity!]!}) fails the whole parent object or list. Use these helpers
  * wherever references become entities in a list or a required field, so one unknown reference drops
  * only itself.
+ *
+ * <p>When unknown data isn't tolerated, nothing is left out or looked up: every urn is mapped as
+ * before, including to null.
  */
 public final class KnownEntities {
 
@@ -36,6 +40,12 @@ public final class KnownEntities {
   public static List<Entity> mapAll(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
     final List<Entity> entities = new ArrayList<>(urns.size());
+    if (!handling().isTolerant()) {
+      for (Urn urn : urns) {
+        entities.add(UrnToEntityMapper.map(context, urn));
+      }
+      return entities;
+    }
     for (Urn urn : urns) {
       final boolean known = isKnown(context, urn);
       final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
@@ -56,6 +66,10 @@ public final class KnownEntities {
   @Nullable
   public static Entity mapFirst(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
+    if (!handling().isTolerant()) {
+      // Throws for no urns, as the callers' get(0) did.
+      return UrnToEntityMapper.map(context, new ArrayList<>(urns).get(0));
+    }
     for (Urn urn : urns) {
       final boolean known = isKnown(context, urn);
       final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
@@ -96,10 +110,13 @@ public final class KnownEntities {
    * known.
    */
   public static boolean isKnown(@Nullable final QueryContext context, @Nonnull final Urn urn) {
+    if (!handling().isTolerant()) {
+      return true;
+    }
     final EntityRegistry registry =
         context == null || context.getOperationContext() == null
             ? null
             : context.getOperationContext().getEntityRegistry();
-    return registry == null || !RegistryKnowledge.referencesUnknownEntityType(registry, urn);
+    return registry == null || !handling().referencesUnknownEntityType(registry, urn);
   }
 }

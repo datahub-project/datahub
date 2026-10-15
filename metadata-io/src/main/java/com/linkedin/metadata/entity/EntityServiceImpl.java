@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SOURCE_KEY;
@@ -949,11 +950,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         dbKeys.stream()
             .filter(
                 dbKey ->
-                    UNKNOWN_READ.admitUrn(
-                        opContext.getEntityRegistry(),
-                        opContext.getMetricUtils(),
-                        dbKey.getUrn(),
-                        null))
+                    handling()
+                        .admitUrn(
+                            UNKNOWN_READ,
+                            opContext.getEntityRegistry(),
+                            opContext.getMetricUtils(),
+                            dbKey.getUrn(),
+                            null))
             .collect(Collectors.toSet());
 
     Set<Urn> urns =
@@ -977,15 +980,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       List<EnvelopedAspect> aspects =
           urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
 
-      if (!alwaysIncludeKeyAspect) {
+      // Strict handling keeps building the key aspect even when it isn't added, as before.
+      if (!alwaysIncludeKeyAspect && handling().isTolerant()) {
         result.put(urn, aspects);
         continue;
       }
       EnvelopedAspect keyAspect =
           EntityUtils.getKeyEnvelopedAspect(urn, opContext.getEntityRegistry());
       // Add key aspect if it does not exist in the returned aspects
-      if (aspects.isEmpty()
-          || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
+      if (alwaysIncludeKeyAspect
+          && (aspects.isEmpty()
+              || aspects.stream()
+                  .noneMatch(aspect -> keyAspect.getName().equals(aspect.getName())))) {
         result.put(
             urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
       } else {
@@ -2288,9 +2294,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .filter(
                       result -> { // only versioned MCLs
                         MetadataChangeLog mcl = result.getMetadataChangeLog();
-                        return opContext
-                            .getEntityRegistry()
-                            .findAspectSpec(mcl.getEntityType(), mcl.getAspectName())
+                        return handling()
+                            .aspectSpecForData(
+                                opContext.getEntityRegistry(),
+                                mcl.getEntityType(),
+                                mcl.getAspectName())
                             .map(spec -> !spec.isTimeseries())
                             .orElse(false);
                       })
@@ -3076,7 +3084,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         "Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
 
     final Optional<EntitySpec> entitySpec =
-        opContext.getEntityRegistry().findEntitySpec(entityName);
+        handling().entitySpecForData(opContext.getEntityRegistry(), entityName);
     if (entitySpec.isEmpty()) {
       // An entity type this registry doesn't know (e.g. added by a newer version before a
       // rollback) has no urns this version can list.
@@ -3290,9 +3298,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .map(
             mcl -> {
               Optional<AspectSpec> aspectSpec =
-                  opContext
-                      .getEntityRegistry()
-                      .findAspectSpec(mcl.getEntityType(), mcl.getAspectName());
+                  handling()
+                      .aspectSpecForData(
+                          opContext.getEntityRegistry(), mcl.getEntityType(), mcl.getAspectName());
               if (aspectSpec.isEmpty()) {
                 UNKNOWN_MCL.skipped(
                     opContext.getMetricUtils(),
@@ -3641,11 +3649,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   // the MCL with), so leave them in place for the newer build instead of failing
                   // the whole rollback on the first one.
                   if (deletePurpose == DeletePurpose.ROLLBACK
-                      && !UNKNOWN_ROLLBACK_ROW.admitUrn(
-                          opContext.getEntityRegistry(),
-                          opContext.getMetricUtils(),
-                          aspectToRemove.getUrn(),
-                          aspectToRemove.getAspectName())) {
+                      && !handling()
+                          .admitUrn(
+                              UNKNOWN_ROLLBACK_ROW,
+                              opContext.getEntityRegistry(),
+                              opContext.getMetricUtils(),
+                              aspectToRemove.getUrn(),
+                              aspectToRemove.getAspectName())) {
                     return null;
                   }
                   RollbackResult result =
@@ -3657,10 +3667,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           hardDelete,
                           deletePurpose);
                   if (result != null) {
+                    // Strict handling keeps the original lookup, which logs and skips an unknown
+                    // aspect below instead of throwing.
                     Optional<AspectSpec> aspectSpec =
-                        opContext
-                            .getEntityRegistry()
-                            .findAspectSpec(result.entityName, result.aspectName);
+                        handling().isTolerant()
+                            ? handling()
+                                .aspectSpecForData(
+                                    opContext.getEntityRegistry(),
+                                    result.entityName,
+                                    result.aspectName)
+                            : opContext
+                                .getEntityRegistryContext()
+                                .getAspectSpec(result.entityName, result.aspectName);
                     if (!aspectSpec.isPresent()) {
                       log.error(
                           "Issue while rolling back: unknown aspect {} for entity {}",
@@ -3712,8 +3730,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
   private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    return UNKNOWN_READ.admit(
-        opContext.getEntityRegistry(), opContext.getMetricUtils(), urn.getEntityType(), null, urn);
+    return handling()
+        .admit(
+            UNKNOWN_READ,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn.getEntityType(),
+            null,
+            urn);
   }
 
   @Override
@@ -3881,7 +3905,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // a newer build) are reported as non-existent instead of failing the whole lookup.
     final List<Urn> knownUrns =
         urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
-    if (knownUrns.isEmpty()) {
+    if (knownUrns.isEmpty() && handling().isTolerant()) {
       return new HashSet<>();
     }
 

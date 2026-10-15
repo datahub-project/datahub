@@ -24,6 +24,8 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -49,6 +52,11 @@ public class CassandraAspectDaoTest {
         new CassandraAspectDao(
             PrimaryStorageTestUtils.cassandraResolver(mockSession), List.of(), null);
     testDao.setConnectionValidated(true); // Skip connection validation in tests
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @DataProvider(name = "writabilityConfig")
@@ -203,6 +211,27 @@ public class CassandraAspectDaoTest {
     assertTrue(
         statements.getAllValues().get(1).getQuery().contains("aspectFromNewerBuild"),
         "The non-key delete must include stored aspects the registry doesn't know");
+  }
+
+  @Test
+  public void testDeleteUrnStrictHandlingDeletesRegistryAspectsOnly() {
+    // Strict handling keeps the original delete: no read of the stored aspect names.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    testDao.setWritable(true);
+    ResultSet deleteResult = mock(ResultSet.class);
+    ExecutionInfo executionInfo = mock(ExecutionInfo.class);
+    when(executionInfo.getErrors()).thenReturn(Collections.emptyList());
+    when(deleteResult.getExecutionInfo()).thenReturn(executionInfo);
+    when(mockSession.execute(any(SimpleStatement.class))).thenReturn(deleteResult);
+
+    testDao.deleteUrn(opContext, null, "urn:li:corpuser:testDeleteStrict");
+
+    org.mockito.ArgumentCaptor<SimpleStatement> statements =
+        org.mockito.ArgumentCaptor.forClass(SimpleStatement.class);
+    verify(mockSession, times(2)).execute(statements.capture());
+    assertTrue(
+        statements.getAllValues().stream()
+            .allMatch(statement -> statement.getQuery().startsWith("DELETE")));
   }
 
   @Test

@@ -16,8 +16,11 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -40,6 +43,11 @@ public class UnknownEntityUrnStrippingTest {
   public void setUp() {
     aspectRetriever = mock(AspectRetriever.class);
     when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -120,5 +128,19 @@ public class UnknownEntityUrnStrippingTest {
                 DATA_PRODUCT_URN,
                 aspect,
                 aspectRetriever));
+  }
+
+  @Test
+  public void testStrictHandlingRejectsUnknownUrnsInsteadOfRemovingThem() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Urn domain = UrnUtils.getUrn("urn:li:domain:finance");
+    Domains aspect = new Domains().setDomains(new UrnArray(UNKNOWN_TYPE_URN, domain));
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            ValidationApiUtils.validateRecordTemplate(
+                entityRegistry.getEntitySpec("dataset"), DATASET_URN, aspect, aspectRetriever));
+    assertEquals(aspect.getDomains(), List.of(UNKNOWN_TYPE_URN, domain));
   }
 }

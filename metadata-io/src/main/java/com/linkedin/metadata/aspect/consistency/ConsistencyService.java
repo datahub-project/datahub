@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.consistency;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -16,7 +17,6 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
@@ -1196,8 +1196,7 @@ public class ConsistencyService {
     // exists() reports urns of entity types this registry doesn't know (written by a newer version
     // before a rollback) as missing; their index documents belong to that version, not to orphans.
     orphans.removeIf(
-        urn ->
-            RegistryKnowledge.isUnknown(opContext.getEntityRegistry(), urn.getEntityType(), null));
+        urn -> handling().isUnknown(opContext.getEntityRegistry(), urn.getEntityType(), null));
     return orphans;
   }
 
@@ -1280,12 +1279,14 @@ public class ConsistencyService {
             .orElseThrow(() -> new IllegalArgumentException("Unknown check ID: " + checkId));
 
     String entityType = urn.getEntityType();
-    if (!UNKNOWN_DATA.admit(
-        opContext.getEntityRegistry(),
-        opContext.getMetricUtils(),
-        urn.getEntityType(),
-        null,
-        urn)) {
+    if (!handling()
+        .admit(
+            UNKNOWN_DATA,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn.getEntityType(),
+            null,
+            urn)) {
       return java.util.Optional.empty();
     }
 

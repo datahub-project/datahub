@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DATAHUB_VIEW_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -29,7 +30,6 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -320,11 +320,12 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
           .headers(versionHeaders(systemMetadata != null ? systemMetadata.getVersion() : null))
           .build(opContext.getAspectRetriever());
     } catch (ValidationException e) {
-      if (!UnknownEntityUrnStripper.isFromNewerVersion(
-          prepared.getRecordTemplate(),
-          systemMetadata,
-          prepared.getAspectSpec(),
-          opContext.getEntityRegistry())) {
+      if (!handling()
+          .isFromNewerVersion(
+              prepared.getRecordTemplate(),
+              systemMetadata,
+              prepared.getAspectSpec(),
+              opContext.getEntityRegistry())) {
         throw e;
       }
       log.warn(

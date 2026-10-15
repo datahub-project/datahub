@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.consistency.check;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.UNVERSIONED_ASPECT_VERSION;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -415,8 +415,8 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * present so no fix deletes data that version still uses.
    */
   protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
-    return RegistryKnowledge.isUnknown(
-        ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
+    return handling()
+        .isUnknown(ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
   }
 
   // ============================================================================

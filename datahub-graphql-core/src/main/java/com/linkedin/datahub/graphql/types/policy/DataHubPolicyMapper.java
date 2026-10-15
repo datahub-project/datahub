@@ -17,9 +17,9 @@ import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
-import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -60,10 +60,9 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     // Type/state are free-form strings; a value this version doesn't know (ingested via the API, or
     // written by a newer version before a rollback) falls back, as in PolicyInfoPolicyMapper.
     policy.setPolicyType(
-        PolicyInfoPolicyMapper.safeValueOf(
-            PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
+        UnknownEnumValues.fromString(PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
     policy.setState(
-        PolicyInfoPolicyMapper.safeValueOf(
+        UnknownEnumValues.fromString(
             PolicyState.class, policyInfo.getState(), PolicyState.INACTIVE));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
     policy.setPrivileges(policyInfo.getPrivileges());

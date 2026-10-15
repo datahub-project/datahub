@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -184,14 +185,22 @@ public class EntityController
 
           final boolean alternateValidation =
               opContext.getValidationContext().isAlternateValidation();
-          // ProposedItem.build validates the aspect against the registry itself; the typed path
-          // needs the spec, so an unknown name is rejected with a 400 instead of a 500.
-          final AspectSpec aspectSpec =
-              alternateValidation
-                  ? lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null)
-                  : RequestInputUtil.requireAspectSpec(
-                      entityRegistry.findEntitySpec(entityUrn.getEntityType()).orElse(null),
-                      aspect.getKey());
+          final AspectSpec aspectSpec;
+          if (!handling().isTolerant()) {
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          } else if (alternateValidation) {
+            // ProposedItem.build validates the aspect against the registry itself.
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          } else {
+            // The typed path needs the spec, so an unknown name is rejected with a 400 instead of
+            // a 500.
+            aspectSpec =
+                RequestInputUtil.requireAspectSpec(
+                    handling()
+                        .entitySpecForData(entityRegistry, entityUrn.getEntityType())
+                        .orElse(null),
+                    aspect.getKey());
+          }
           JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (alternateValidation) {

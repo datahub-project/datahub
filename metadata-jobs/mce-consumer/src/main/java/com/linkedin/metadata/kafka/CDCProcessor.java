@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -210,15 +211,26 @@ public class CDCProcessor {
     // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
     Urn entityUrn = Urn.createFromString(urn);
     String entityType = entityUrn.getEntityType();
-    final Optional<AspectSpec> maybeAspectSpec =
-        systemOperationContext.getEntityRegistry().findAspectSpec(entityType, aspectName);
-    if (maybeAspectSpec.isEmpty()) {
-      // A row of an entity type or aspect this registry doesn't know (written by a newer version
-      // before a rollback): expected after a rollback, so skip it without an error.
-      UNKNOWN_DATA.skipped(systemOperationContext.getMetricUtils(), entityType, aspectName, urn);
-      return Optional.empty();
+    final AspectSpec aspectSpec;
+    if (handling().isTolerant()) {
+      final Optional<AspectSpec> maybeAspectSpec =
+          handling()
+              .aspectSpecForData(
+                  systemOperationContext.getEntityRegistry(), entityType, aspectName);
+      if (maybeAspectSpec.isEmpty()) {
+        // A row of an entity type or aspect this registry doesn't know (written by a newer version
+        // before a rollback): expected after a rollback, so skip it without an error.
+        UNKNOWN_DATA.skipped(systemOperationContext.getMetricUtils(), entityType, aspectName, urn);
+        return Optional.empty();
+      }
+      aspectSpec = maybeAspectSpec.get();
+    } else {
+      aspectSpec =
+          systemOperationContext
+              .getEntityRegistry()
+              .getEntitySpec(entityType)
+              .getAspectSpec(aspectName);
     }
-    final AspectSpec aspectSpec = maybeAspectSpec.get();
 
     RecordTemplate oldValue = null;
     if (beforeMetadata != null) {
