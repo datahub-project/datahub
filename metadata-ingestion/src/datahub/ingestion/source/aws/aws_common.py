@@ -570,11 +570,10 @@ class AwsConnectionConfig(ConfigModel):
 
 
 def make_dynamodb_dataset_name(region: str, table_name: str) -> str:
-    """Canonical DynamoDB dataset name shared by the DynamoDB and Glue sources.
+    """Single definition of the ``{region}.{table}`` DynamoDB dataset name.
 
-    Both sources must build byte-identical dataset names so Glue job lineage joins the
-    DynamoDB tables emitted by the DynamoDB source. Keep this the single definition of the
-    ``{region}.{table}`` convention — changing it here changes it for both.
+    The DynamoDB and Glue sources must build identical names so Glue job lineage joins the
+    DynamoDB tables emitted by the DynamoDB source.
     """
     return f"{region}.{table_name}"
 

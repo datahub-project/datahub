@@ -211,9 +211,8 @@ class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportM
     s3_export_locations_found: int = 0
     s3_export_lineage_edges: int = 0
     s3_export_column_lineage_resolved: int = 0
-    # Inferred == best-effort identity mapping emitted when the S3 export dataset is NOT in
-    # DataHub; these column edges are unvalidated against a real schema (see the warning emitted
-    # alongside), so this is a caveat counter, not a success metric.
+    # Caveat counter, not a success metric: identity-mapped column edges emitted when the S3
+    # export dataset isn't in DataHub, so they're unvalidated against a real schema.
     s3_export_column_lineage_inferred: int = 0
 
     def report_dropped(self, name: str) -> None:
@@ -980,10 +979,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                         )
                     )
                 if downstream_field_paths is None and fine_grained:
-                    # Inferred identity mapping: the S3 export dataset is not in DataHub, so these
-                    # column edges are unvalidated against a real schema. Native Export to S3 writes
-                    # DynamoDB JSON/Ion whose paths often differ, so flag this as best-effort (info,
-                    # not warning — it is the documented fallback when the S3 dataset is absent).
+                    # info, not warning: inferred column lineage is the documented fallback when
+                    # the S3 export dataset isn't in DataHub, not an error.
                     self.report.info(
                         title="DynamoDB S3 export column lineage is inferred",
                         message="The S3 export dataset is not in DataHub, so column-level lineage "

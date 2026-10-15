@@ -1597,10 +1597,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.source_config.get_sts_client().get_caller_identity().get("Account")
             )
         except Exception as exc:
-            # Do not cache a transient failure (throttle/timeout): leaving _loaded False lets a
-            # later node retry rather than poisoning every DynamoDB URN for the rest of the run.
-            # Warn once so a persistent config/permission error (NoCredentialsError, AccessDenied
-            # on sts:GetCallerIdentity) is visible instead of only logged at debug.
+            # Don't cache a transient failure, so a later node can retry instead of every
+            # DynamoDB URN inheriting a missing account for the rest of the run. Warn once.
             if not self._aws_account_id_sts_warned:
                 self._aws_account_id_sts_warned = True
                 self.report.warning(
@@ -1614,7 +1612,6 @@ class GlueSource(StatefulIngestionSourceBase):
                     exc=exc,
                 )
             return None
-        # Only cache a successful lookup.
         self._aws_account_id = account_id
         self._aws_account_id_loaded = True
         return self._aws_account_id
@@ -1707,10 +1704,9 @@ class GlueSource(StatefulIngestionSourceBase):
             account_id or self.source_config.catalog_id or self._get_aws_account_id()
         )
         if platform_instance is None:
-            # The DynamoDB source always derives platform_instance from the table ARN's account,
-            # so a DynamoDB URN with no platform_instance would never match a real table — it would
-            # create a phantom dataset next to the real one. Skip the node: absent lineage is
-            # recoverable on a later run; wrong metadata gets filed as a bug months later.
+            # The DynamoDB source always derives platform_instance from the table ARN account,
+            # so a URN without one would never join the real table (it creates a phantom dataset).
+            # Skip the node rather than emit lineage that silently points at nothing.
             self.report.warning(
                 title="Could not resolve DynamoDB account id for node",
                 message="Skipping DynamoDB node: no table ARN account, cross-account role ARN, "
