@@ -168,7 +168,6 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     MappingsBuilder mappingsBuilder =
         new MultiEntityMappingsBuilder(
             entityIndex,
-            getSearchClient(),
             ESUtils.KEYWORD_MAXLENGTH,
             List.of(new DocumentV3EmbeddingMappingContributor(semanticSearch, getSearchClient())));
     MultiEntitySettingsBuilder settingsBuilder =

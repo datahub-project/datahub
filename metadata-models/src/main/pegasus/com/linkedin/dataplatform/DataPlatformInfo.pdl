@@ -7,7 +7,7 @@ import com.linkedin.common.Url
  */
 @Aspect = {
   "name": "dataPlatformInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DataPlatformInfo {
 
@@ -20,8 +20,7 @@ record DataPlatformInfo {
     "enableAutocomplete": false,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 

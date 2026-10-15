@@ -19,7 +19,7 @@ record EditableSchemaFieldInfo {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
     "boostScore": 0.1,
-    "searchTier": 2,
+    "searchLabel": "description",
     "sanitizeRichText": true
   }
   description: optional string
@@ -37,7 +37,8 @@ record EditableSchemaFieldInfo {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "searchLabel": "tags"
     },
     "/tags/*/attribution/time": {
         "fieldName": "editedFieldTagAttributionDates",
@@ -70,6 +71,7 @@ record EditableSchemaFieldInfo {
       "fieldName": "editedFieldGlossaryTerms",
       "fieldType": "URN",
       "boostScore": 0.5,
+      "searchLabel": "glossaryTerms",
       "includeSystemModifiedAt": true,
       "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt"
     },

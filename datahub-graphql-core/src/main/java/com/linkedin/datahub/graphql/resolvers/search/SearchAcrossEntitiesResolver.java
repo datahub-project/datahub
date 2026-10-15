@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;
@@ -122,7 +123,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             // Execute search and remove default filter fields from aggregations
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withSearchSurface(SearchTemplateSurfaces.SEARCH_ACROSS_ENTITIES),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

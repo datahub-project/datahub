@@ -43,6 +43,13 @@ record DataHubSearchConfig {
     **/
     excludeFromFullTextSearch: optional boolean
 
+    /**
+    * When true, a string or rich-text structured property is indexed as full text and included
+    * in the default query field list. When false, it is neither indexed for full text nor queried
+    * as full text.
+    **/
+    fullTextSearch: optional boolean = false
+
     /** 
     * Whether we should use the field for default autocomplete
     **/

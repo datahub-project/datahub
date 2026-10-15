@@ -7,7 +7,8 @@ import com.linkedin.common.FabricType
  * Key for an ML model group
  */
 @Aspect = {
-  "name": "mlModelGroupKey"
+  "name": "mlModelGroupKey",
+  "schemaVersion": 2
 }
 record MLModelGroupKey {
   /**
@@ -24,8 +25,7 @@ record MLModelGroupKey {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 

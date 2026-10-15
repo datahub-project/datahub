@@ -6486,6 +6486,11 @@
       "type" : "float",
       "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
       "optional" : true
+    }, {
+      "name" : "searchTemplate",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Caller-selected search template URN. When set, selection skips classification, sub-intent,\nand engine lookup. The resolved template is not written back onto this field.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
@@ -6805,6 +6810,11 @@
                     "name" : "value",
                     "type" : "string",
                     "doc" : "Matched field value"
+                  }, {
+                    "name" : "mode",
+                    "type" : "string",
+                    "doc" : "How a structured property matched. One of {@code exact}, {@code prefix},\n{@code contains}, or {@code nameAndValue}. Unset for a shared field.",
+                    "optional" : true
                   } ]
                 }
               },
@@ -6931,6 +6941,14 @@
           },
           "doc" : "A list of search query suggestions based on the given query",
           "default" : [ ]
+        }, {
+          "name" : "routeChain",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Templates visited while choosing this result. Set when the caller asks for an explanation.",
+          "optional" : true
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"

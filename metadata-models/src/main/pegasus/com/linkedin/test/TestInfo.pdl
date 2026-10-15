@@ -4,7 +4,8 @@ namespace com.linkedin.test
  * Information about a DataHub Test
  */
 @Aspect = {
-  "name": "testInfo"
+  "name": "testInfo",
+  "schemaVersion": 2
 }
 record TestInfo {
     /**
@@ -27,8 +28,7 @@ record TestInfo {
      * Description of the test
      */
      @Searchable = {
-       "fieldType": "TEXT",
-       "searchTier": 2
+       "fieldType": "TEXT"
      }
     description: optional string
 

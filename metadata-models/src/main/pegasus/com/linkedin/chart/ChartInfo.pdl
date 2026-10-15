@@ -12,7 +12,8 @@ import com.linkedin.common.Edge
  * Information about a chart
  */
 @Aspect = {
-  "name": "chartInfo"
+  "name": "chartInfo",
+  "schemaVersion": 2
 }
 record ChartInfo includes CustomProperties, ExternalReference {
 
@@ -24,8 +25,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   title: string
 
@@ -33,7 +33,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Detailed description about the chart
    */
   @Searchable = {
-    "searchTier": 2
+    "fieldType": "TEXT",
+    "searchLabel": "description"
   }
   description: string
 
@@ -52,8 +53,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
   @Searchable = {
-    "fieldType": "KEYWORD",
-    "searchTier": 4
+    "fieldType": "KEYWORD"
   }
   chartUrl: optional Url
 
@@ -94,8 +94,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Chart Type",
-    "searchTier": 3
+    "filterNameOverride": "Chart Type"
   }
   type: optional ChartType
 
@@ -105,8 +104,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Access Level",
-    "searchTier": 4
+    "filterNameOverride": "Access Level"
   }
   access: optional AccessLevel
 

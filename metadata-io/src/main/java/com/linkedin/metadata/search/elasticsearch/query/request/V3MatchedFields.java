@@ -35,8 +35,7 @@ import org.tartarus.snowball.ext.EnglishStemmer;
  * the query, as their phrase prefix does; an identifier such as {@code customer_id} also matches by
  * its parts, as the analyzers index them. This is best effort: synonyms are not applied, words are
  * split on what is not a letter, a digit or an underscore even when a main tokenizer is configured,
- * and as on V2 only the first matching value of a field is reported. {@link #forAutocomplete} reads
- * words as the autocomplete analyzer does instead.
+ * and as on V2 only the first matching value of a field is reported.
  *
  * <p>One instance serves one query, for the hits of one response, from one thread.
  */
@@ -45,9 +44,6 @@ final class V3MatchedFields {
   // Letters and digits in any script, as the shared fields' tokenizer splits them, the accents of
   // decomposed letters, which belong to their word, and underscores, which join an identifier
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_]+");
-  // The words of the autocomplete analyzer (V2's partial analyzer), whose word delimiter keeps
-  // hyphens inside a word too (V2LegacySettingsBuilder.WORD_DELIMITER_TYPE_TABLE)
-  private static final Pattern AUTOCOMPLETE_WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}_-]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
   // Longer values are cut to this many characters around the first match, about what the V2
   // highlighter returns
@@ -57,9 +53,6 @@ final class V3MatchedFields {
   private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
   private final int minWordLength;
-  // Words are read as the autocomplete analyzer reads them: whole, stop words kept, not stemmed
-  private final boolean autocomplete;
-  private final Pattern wordPattern;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
   // The forms of the query's last word, which match as a prefix
@@ -70,16 +63,9 @@ final class V3MatchedFields {
    *     filter drops them
    */
   V3MatchedFields(@Nonnull final String query, final int minWordLength) {
-    this(query, minWordLength, false);
-  }
-
-  private V3MatchedFields(
-      @Nonnull final String query, final int minWordLength, final boolean autocomplete) {
     this.minWordLength = minWordLength;
-    this.autocomplete = autocomplete;
-    this.wordPattern = autocomplete ? AUTOCOMPLETE_WORD : WORD;
     final List<List<String>> queryWords = new ArrayList<>();
-    final Matcher matcher = wordPattern.matcher(query);
+    final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
       final List<String> forms = forms(matcher.group());
       if (!forms.isEmpty()) {
@@ -89,20 +75,6 @@ final class V3MatchedFields {
     this.queryStems =
         queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
-  }
-
-  /**
-   * For an autocomplete input, a prefix being typed, matched as the autocomplete analyzer reads
-   * words: none is too short and no stop word is dropped, nothing is stemmed, and an identifier
-   * such as {@code order_i} or {@code order-i} stays whole, in the input and in the values, since
-   * its parts would be prefixes of unrelated words. This is best effort too: unlike the analyzer,
-   * it reads the {@code s} of a possessive {@code 's} as a word of its own, which the analyzer
-   * drops, it splits at a character that only folds to a hyphen or an underscore, such as an en
-   * dash, and it keeps a hyphenated word whole even when a main tokenizer is configured.
-   */
-  @Nonnull
-  static V3MatchedFields forAutocomplete(@Nonnull final String input) {
-    return new V3MatchedFields(input, 0, true);
   }
 
   /** The fields among {@code fields}, in that order, whose value in {@code source} matches. */
@@ -136,7 +108,7 @@ final class V3MatchedFields {
    * a long value is scanned only up to its first match.
    */
   private int firstMatch(@Nonnull final String text) {
-    final Matcher matcher = wordPattern.matcher(text);
+    final Matcher matcher = WORD.matcher(text);
     while (matcher.find()) {
       for (String form : forms(matcher.group())) {
         if (lastQueryForms.stream().anyMatch(form::startsWith) || queryStems.contains(stem(form))) {
@@ -149,8 +121,7 @@ final class V3MatchedFields {
 
   /**
    * The forms the analyzers keep of one word: the word, with case and accents folded, and for an
-   * identifier its parts around the underscores, without short words and stop words. Autocomplete
-   * keeps an identifier whole and keeps stop words.
+   * identifier its parts around the underscores, without short words and stop words.
    */
   @Nonnull
   private List<String> forms(@Nonnull final String word) {
@@ -159,7 +130,7 @@ final class V3MatchedFields {
     if (isKept(folded)) {
       forms.add(folded);
     }
-    if (!autocomplete && folded.indexOf('_') >= 0) {
+    if (folded.indexOf('_') >= 0) {
       for (String part : UNDERSCORES.split(folded)) {
         if (isKept(part) && !forms.contains(part)) {
           forms.add(part);
@@ -188,16 +159,12 @@ final class V3MatchedFields {
 
   private boolean isKept(@Nonnull final String word) {
     return word.length() >= Math.max(1, minWordLength)
-        && (autocomplete
-            || (!DATAHUB_STOP_WORDS_LIST.contains(word)
-                && !EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(word)));
+        && !DATAHUB_STOP_WORDS_LIST.contains(word)
+        && !EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(word);
   }
 
   @Nonnull
   private String stem(@Nonnull final String word) {
-    if (autocomplete) {
-      return word;
-    }
     final String override = STEM_OVERRIDES.get(word);
     if (override != null) {
       return override;

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import org.testng.annotations.Test;
@@ -37,5 +38,17 @@ public class SearchFlagsInputMapperTest {
         SearchFlagsInputMapper.map(null, new SearchFlags());
     assertFalse(defaults.hasIncludeExplain());
     assertFalse(defaults.hasSearchType());
+  }
+
+  @Test
+  public void testSearchTemplateMappedThrough() {
+    SearchFlags input = new SearchFlags();
+    input.setSearchTemplate("urn:li:searchTemplate:fulltext");
+    com.linkedin.metadata.query.SearchFlags result = SearchFlagsInputMapper.map(null, input);
+    assertEquals(result.getSearchTemplate().toString(), "urn:li:searchTemplate:fulltext");
+
+    SearchFlags invalid = new SearchFlags();
+    invalid.setSearchTemplate("not a urn");
+    assertThrows(RuntimeException.class, () -> SearchFlagsInputMapper.map(null, invalid));
   }
 }

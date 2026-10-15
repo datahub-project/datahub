@@ -10,7 +10,8 @@ import com.linkedin.common.FabricType
  * Information about a Data processing flow
  */
 @Aspect = {
-  "name": "dataFlowInfo"
+  "name": "dataFlowInfo",
+  "schemaVersion": 2
 }
 record DataFlowInfo includes CustomProperties, ExternalReference {
 
@@ -22,8 +23,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 
@@ -33,7 +33,6 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
     "sanitizeRichText": true
   }
   description: optional string
@@ -43,8 +42,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": false,
-    "searchTier": 3
+    "queryByDefault": false
   }
   project: optional string
 

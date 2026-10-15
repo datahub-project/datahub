@@ -24,6 +24,12 @@ record SearchEntity {
      * Matched field value
      */
     value: string
+
+    /**
+     * How a structured property matched. One of {@code exact}, {@code prefix},
+     * {@code contains}, or {@code nameAndValue}. Unset for a shared field.
+     */
+    mode: optional string
   }] = []
 
   features: optional map[string, double]

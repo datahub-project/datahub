@@ -23,6 +23,7 @@ public final class MappingConstants {
           "_entityType",
           ASPECTS_FIELD_NAME,
           SEARCH_FIELD_NAME,
+          "_system",
           "runId",
           "structuredProperties",
           "systemCreated",

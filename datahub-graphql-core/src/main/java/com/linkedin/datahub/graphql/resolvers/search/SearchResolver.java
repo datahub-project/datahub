@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -83,7 +84,10 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withSearchSurface(SearchTemplateSurfaces.SEARCH),
                     entityName,
                     sanitizedQuery,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),

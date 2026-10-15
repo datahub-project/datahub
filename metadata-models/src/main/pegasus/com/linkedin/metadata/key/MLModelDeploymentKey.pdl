@@ -7,7 +7,8 @@ import com.linkedin.common.FabricType
  * Key for an ML model deployment
  */
 @Aspect = {
-  "name": "mlModelDeploymentKey"
+  "name": "mlModelDeploymentKey",
+  "schemaVersion": 2
 }
 record MLModelDeploymentKey {
   /**
@@ -23,8 +24,7 @@ record MLModelDeploymentKey {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 

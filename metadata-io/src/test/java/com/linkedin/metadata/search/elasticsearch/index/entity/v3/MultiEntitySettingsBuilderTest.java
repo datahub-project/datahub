@@ -272,8 +272,8 @@ public class MultiEntitySettingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
 
-    // Search tier analyzers are gone; the merged V2 analysis serves autocomplete, legacy browse
-    // and the filters the shared search field analyzers reuse
+    // Search tier analyzers are gone; the merged V2 analysis serves legacy browse and the filters
+    // the shared search field analyzers reuse
     assertNull(analyzers.get("full"), "tier analyzer full should be gone");
     assertNotNull(analyzers.get("word_delimited"), "word_delimited analyzer should be present");
     assertNotNull(

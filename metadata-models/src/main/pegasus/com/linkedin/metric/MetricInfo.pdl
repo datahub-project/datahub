@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 5
+  "schemaVersion": 6
 }
 record MetricInfo includes ExternalReference {
 
@@ -21,8 +21,7 @@ record MetricInfo includes ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 
@@ -31,8 +30,7 @@ record MetricInfo includes ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 

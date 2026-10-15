@@ -1,0 +1,188 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * A Mustache-rendered search query template. Sections that are unset are inherited from
+ * {@code parent}. An explicitly present empty string for {@code query}, {@code clauses},
+ * {@code functionScore}, {@code rescore}, {@code knn}, or {@code ladder} drops that inherited
+ * section. An explicitly present empty {@code ranking} or {@code retrieval} drops that inherited
+ * section. An explicitly present empty {@code fields}, {@code highlightFields},
+ * {@code aggregations}, or {@code sort} drops the inherited override and falls back to the schema
+ * or Java default. An explicitly present empty {@code boosts} drops an inherited list.
+ * An explicitly present empty {@code structuredPropertyQuery} drops an inherited section
+ * and leaves value-only matching. Each non-empty {@code queryFragments} value adds to the
+ * root-first comma join for that hole. An empty string drops inherited pieces for that hole.
+ * {@code routes} is replaced as a whole list: unset keeps the parent list, an empty list
+ * drops it, and a non-empty list replaces it. {@code defaultRoute} is inherited on its own.
+ * Unset keeps the parent default. A record with a template replaces it. A record with no
+ * template clears it.
+ *
+ * {@code parent} is {@code @Searchable} with {@code queryByDefault} false, so a write can find
+ * the templates that name this one as parent. No other field is searchable. The entity stays out
+ * of the default search, browse, and autocomplete entity-type lists.
+ */
+@Aspect = {
+  "name": "searchTemplateProperties"
+}
+record SearchTemplateProperties {
+  /**
+   * Display name.
+   */
+  name: string
+
+  /**
+   * What this template ranks or matches. Not searchable.
+   */
+  description: optional string
+
+  /**
+   * Body language. Elasticsearch and OpenSearch share {@code ELASTICSEARCH}. {@code POSTGRES}
+   * stores Mustache text for a future SQL compiler and is not executed by this release.
+   */
+  dialect: enum SearchTemplateDialect {
+    ELASTICSEARCH
+    POSTGRES
+  } = "ELASTICSEARCH"
+
+  /**
+   * Mustache text for the query. For {@code ELASTICSEARCH} this renders to one query DSL object.
+   * For {@code POSTGRES} it is opaque text and is not parsed as JSON.
+   */
+  query: optional string
+
+  /**
+   * JSON spliced into a named hole in {@code query}. Each level that sets a non-empty key adds a
+   * piece, joined root-first with commas. An unset key adds nothing. An empty string drops
+   * inherited pieces for that key. {@code parameters} stays a separate map of named values.
+   */
+  queryFragments: optional map[string, string]
+
+  /**
+   * Mustache JSON object with {@code must}, {@code must_not}, {@code filter}, and {@code should}
+   * arrays. Merged into the resolved query after parent inheritance.
+   */
+  clauses: optional string
+
+  /**
+   * Mustache JSON for one function_score wrapper: {@code functions}, {@code score_mode},
+   * {@code boost_mode}. Java wraps it around the rendered query once.
+   */
+  functionScore: optional string
+
+  /**
+   * Mustache JSON for one rescore clause ({@code window_size}, {@code query}). Unset means no
+   * rescore.
+   */
+  rescore: optional string
+
+  /**
+   * Mustache JSON for document rerank weights: {@code keyword_weight} and {@code vector_weight}.
+   * {@code k} and {@code num_candidates} are unused; the candidates are the keyword rows already
+   * returned. Unset means this template stays in keyword order. An explicit empty value drops an
+   * inherited section, so a child keeps the parent's clauses and functionScore. Applied only when
+   * semantic read is on and the request includes document entities.
+   */
+  knn: optional string
+
+  /**
+   * Service ranking. Unset keeps the parent section. An explicit empty value drops it. OSS
+   * runs {@code preset none} and {@code windowSizer fixed} only.
+   */
+  ranking: optional SearchTemplateRanking
+
+  /**
+   * Retrieval mode and vector settings. Unset is keyword. An explicit empty value drops an
+   * inherited retrieval section.
+   */
+  retrieval: optional SearchTemplateRetrieval
+
+  /**
+   * Selection, stop, and the next template. Unset means this template is one query. An explicit
+   * empty value drops an inherited ladder.
+   */
+  ladder: optional SearchTemplateLadder
+
+  /**
+   * Mustache JSON object of aggregation name to aggregation body. Unset keeps the annotation
+   * default facets.
+   */
+  aggregations: optional string
+
+  /**
+   * Mustache JSON array of sort clauses. Unset, or an explicit empty value, keeps the Java
+   * default of {@code _score} descending then {@code urn} ascending.
+   */
+  sort: optional string
+
+  /**
+   * Template default for queried fields.
+   */
+  fields: optional SearchFieldOverrides
+
+  /**
+   * Name-and-value matching for string and rich-text structured properties. Unset inherits
+   * the parent. An explicit empty value drops an inherited section. A set
+   * {@code nameAndValueWeight} must be positive. The template does not store per-property
+   * clauses or resolved field paths.
+   */
+  structuredPropertyQuery: optional StructuredPropertyQuery
+
+  /**
+   * Template default for highlight fields.
+   */
+  highlightFields: optional HighlightFieldOverrides
+
+  /**
+   * User Mustache variables, for example {@code deprecatedBoost}.
+   */
+  parameters: optional map[string, string]
+
+  /**
+   * List-membership weights. Each entry names a field, an injectable list, and a weight. An empty
+   * array drops an inherited list. A child that sets this replaces the parent's list.
+   */
+  boosts: optional array[SearchTemplateBoost]
+
+  /**
+   * Ordered RE2 routes. The first pattern that matches the whole trimmed query selects the
+   * template. Unset keeps the parent list. An empty list drops it. A non-empty list replaces it.
+   */
+  routes: optional array[SearchTemplateRoute]
+
+  /**
+   * Template used when no route pattern matches. Unset keeps the parent default. A record with
+   * a template replaces it. A record with no template clears it, and the miss stays on this body.
+   */
+  defaultRoute: optional SearchTemplateDefaultRoute
+
+  /**
+   * Parent template. The child replaces only the sections it sets. The parent must use the same
+   * dialect. Indexed so a write can load the templates whose parent is this URN.
+   */
+  @Searchable = {
+    "fieldName": "parent",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  parent: optional Urn
+
+  /**
+   * When false, only the system actor may change this template.
+   */
+  editable: boolean = true
+
+  /**
+   * When this template was first written. Callers omit this; the server sets it on the first write.
+   * Not searchable.
+   */
+  created: optional AuditStamp
+
+  /**
+   * When this template was last written. Callers omit this; every accepted write sets it to the
+   * write time. Not searchable. The search-result cache key includes this stamp along the parent
+   * chain.
+   */
+  lastModified: optional AuditStamp
+}

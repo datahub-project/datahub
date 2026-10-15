@@ -9,11 +9,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
-import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,19 +30,6 @@ public class MultiEntityMappingsUtils {
   }
 
   /**
-   * Creates an alias mapping for _entityName that points to _search.entityName. This consolidates
-   * the _entityName handling logic used in multiple places.
-   *
-   * @return Map containing the alias mapping for _entityName
-   */
-  public static Map<String, Object> createEntityNameAliasMapping() {
-    Map<String, Object> aliasMapping = new HashMap<>();
-    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-    aliasMapping.put(PATH, "_search.entityName");
-    return aliasMapping;
-  }
-
-  /**
    * Checks if a field name or alias is _entityName.
    *
    * @param fieldName the field name or alias to check
@@ -52,19 +37,6 @@ public class MultiEntityMappingsUtils {
    */
   public static boolean isEntityNameField(String fieldName) {
     return "_entityName".equals(fieldName);
-  }
-
-  /**
-   * Creates an alias mapping for _qualifiedName that points to _search.qualifiedName. This
-   * consolidates the _qualifiedName handling logic used in multiple places.
-   *
-   * @return Map containing the alias mapping for _qualifiedName
-   */
-  public static Map<String, Object> createQualifiedNameAliasMapping() {
-    Map<String, Object> aliasMapping = new HashMap<>();
-    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-    aliasMapping.put(PATH, "_search.qualifiedName");
-    return aliasMapping;
   }
 
   /**
@@ -100,21 +72,9 @@ public class MultiEntityMappingsUtils {
     com.linkedin.metadata.models.annotation.SearchableAnnotation annotation =
         searchableFieldSpec.getSearchableAnnotation();
 
-    // Check for searchLabel
-    if (annotation.getSearchLabel().isPresent()
+    return annotation.getSearchLabel().isPresent()
         && annotation.getSearchLabel().get() != null
-        && !annotation.getSearchLabel().get().isEmpty()) {
-      return true;
-    }
-
-    // Check for entityFieldName
-    if (annotation.getEntityFieldName().isPresent()
-        && annotation.getEntityFieldName().get() != null
-        && !annotation.getEntityFieldName().get().isEmpty()) {
-      return true;
-    }
-
-    return false;
+        && !annotation.getSearchLabel().get().isEmpty();
   }
 
   /**
@@ -179,7 +139,7 @@ public class MultiEntityMappingsUtils {
   public static boolean hasEagerGlobalOrdinals(
       @Nonnull Collection<EntitySpec> entitySpecs,
       @Nonnull String fieldName,
-      @Nonnull java.util.Set<String> allPaths) {
+      @Nonnull Set<String> allPaths) {
 
     for (String path : allPaths) {
       String[] pathParts = path.split("\\.");
@@ -340,137 +300,5 @@ public class MultiEntityMappingsUtils {
     FieldType fieldType = annotation.getFieldType();
 
     return FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType);
-  }
-
-  /**
-   * Builds the _search section with all copy_to destination fields: the labels the models declare,
-   * typed from their source fields, and every other shared field a root field copies into. A shared
-   * field that full-text search reads gets the analyzed shape of {@link V3SearchFields#mapping};
-   * the others stay keywords, dates or numbers.
-   *
-   * @param entitySpecs collection of entity specs to analyze
-   * @param mappings existing mappings to analyze for copy_to destinations
-   * @param partialNgramConfig engine-specific search-as-you-type shape of the autocomplete field
-   * @return Map containing the _search section properties
-   */
-  public static Map<String, Object> buildSearchSection(
-      Collection<EntitySpec> entitySpecs,
-      Map<String, Object> mappings,
-      Map<String, String> partialNgramConfig) {
-    Map<String, Object> searchProperties = new HashMap<>();
-    Map<String, Set<String>> searchFieldTypes = new HashMap<>();
-
-    // Collect all copy_to destinations that point to _search.* fields
-    for (EntitySpec entitySpec : entitySpecs) {
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          com.linkedin.metadata.models.annotation.SearchableAnnotation annotation =
-              fieldSpec.getSearchableAnnotation();
-
-          // Check for search label destinations
-          annotation
-              .getSearchLabel()
-              .ifPresent(
-                  searchLabel -> {
-                    if (searchLabel != null && !searchLabel.isEmpty()) {
-                      String destinationField = searchLabel;
-                      String fieldType = getElasticsearchTypeForField(fieldSpec);
-                      searchFieldTypes
-                          .computeIfAbsent(destinationField, k -> new HashSet<>())
-                          .add(fieldType);
-                    }
-                  });
-
-          // Check for entity field name destinations
-          annotation
-              .getEntityFieldName()
-              .ifPresent(
-                  entityFieldName -> {
-                    if (entityFieldName != null && !entityFieldName.isEmpty()) {
-                      String destinationField = entityFieldName;
-                      String fieldType = getElasticsearchTypeForField(fieldSpec);
-                      searchFieldTypes
-                          .computeIfAbsent(destinationField, k -> new HashSet<>())
-                          .add(fieldType);
-                    }
-                  });
-        }
-      }
-    }
-    // Shared fields root fields copy into without a label: the long tail, the entity name of an
-    // entity that labels none, and autocomplete
-    for (String destination : rootCopyToSearchFields(mappings)) {
-      searchFieldTypes.computeIfAbsent(destination, k -> new HashSet<>(Set.of("keyword")));
-    }
-    // Structured property fields copy into their shared field from under structuredProperties, and
-    // a property can be added to any entity, so every entity index maps it
-    if (!entitySpecs.isEmpty()) {
-      searchFieldTypes.computeIfAbsent(
-          V3SearchFields.STRUCTURED_PROPERTIES, k -> new HashSet<>(Set.of("keyword")));
-    }
-
-    Set<String> fullTextFields = V3SearchFields.fullTextFields(entitySpecs).keySet();
-    // Create field mappings for each destination field, resolving type conflicts
-    for (Map.Entry<String, Set<String>> entry : searchFieldTypes.entrySet()) {
-      String fieldName = entry.getKey();
-      Set<String> types = entry.getValue();
-
-      if (fullTextFields.contains(fieldName) || V3SearchFields.AUTOCOMPLETE.equals(fieldName)) {
-        searchProperties.put(
-            fieldName,
-            V3SearchFields.mapping(
-                fieldName, fullTextFields.contains(fieldName), partialNgramConfig));
-        continue;
-      }
-
-      String resolvedType = ConflictResolver.resolveTypeConflict(types);
-
-      Map<String, Object> fieldMapping = new HashMap<>();
-      fieldMapping.put("type", resolvedType);
-
-      // Add normalizer for keyword fields
-      if ("keyword".equals(resolvedType)) {
-        fieldMapping.put("normalizer", "keyword_normalizer");
-        // copy_to copies values the source field skipped, so the target skips long ones itself
-        fieldMapping.put(
-            ESUtils.IGNORE_ABOVE, ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH));
-      }
-
-      searchProperties.put(fieldName, fieldMapping);
-    }
-
-    // Wrap search properties in a properties object to match Elasticsearch structure
-    Map<String, Object> searchSection = new HashMap<>();
-    searchSection.put("dynamic", true);
-    searchSection.put("properties", searchProperties);
-
-    return searchSection;
-  }
-
-  /** Names of the {@code _search} fields that root fields copy into. */
-  @SuppressWarnings("unchecked")
-  private static Set<String> rootCopyToSearchFields(Map<String, Object> mappings) {
-    Set<String> destinations = new HashSet<>();
-    if (!(mappings.get("properties") instanceof Map<?, ?> properties)) {
-      return destinations;
-    }
-    String prefix = MappingConstants.SEARCH_FIELD_NAME + ".";
-    for (Object mapping : properties.values()) {
-      if (!(mapping instanceof Map<?, ?> fieldMapping)) {
-        continue;
-      }
-      // copy_to takes one field name or a list of them
-      final Object copyTo = fieldMapping.get(ESUtils.COPY_TO);
-      final Collection<?> copyToFields =
-          copyTo instanceof Collection<?> list
-              ? list
-              : copyTo == null ? List.of() : List.of(copyTo);
-      copyToFields.stream()
-          .map(String::valueOf)
-          .filter(destination -> destination.startsWith(prefix))
-          .map(destination -> destination.substring(prefix.length()))
-          .forEach(destinations::add);
-    }
-    return destinations;
   }
 }

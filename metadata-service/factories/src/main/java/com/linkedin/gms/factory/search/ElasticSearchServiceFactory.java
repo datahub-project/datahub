@@ -7,6 +7,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConcurrencyConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -18,6 +19,9 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIn
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -31,8 +35,15 @@ import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.hybrid.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,6 +72,10 @@ public class ElasticSearchServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Autowired(required = false)
+  @Nullable
+  private SearchTemplateLoader searchTemplateLoader;
+
   @Bean
   protected ElasticSearchConfiguration elasticSearchConfiguration(
       final ConfigurationProvider configurationProvider) {
@@ -87,8 +102,18 @@ public class ElasticSearchServiceFactory {
       final EntityDocumentIdHasher entityDocumentIdHasher,
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
-      final SearchClusterRegistry searchClusterRegistry) {
+      final SearchClusterRegistry searchClusterRegistry,
+      @Qualifier("searchTemplateLadderExecutor")
+          final ExecutorService searchTemplateLadderExecutor) {
 
+    if (searchTemplateLoader != null) {
+      SearchTemplates.install(
+          new SearchTemplateCoordinator(
+              elasticSearchConfiguration,
+              customSearchConfiguration,
+              searchTemplateLoader,
+              searchTemplateLadderExecutor));
+    }
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -171,6 +196,46 @@ public class ElasticSearchServiceFactory {
   private static IllegalStateException hybridConfigurationError(@Nonnull final String detail) {
     return new IllegalStateException(
         "elasticsearch.entityIndex.v3.hybridReadEnabled is on, but " + detail);
+  }
+
+  @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")
+  protected ExecutorService searchTemplateLadderExecutor(
+      final ElasticSearchConfiguration elasticSearchConfiguration, final MetricUtils metricUtils) {
+    SearchTemplateConcurrencyConfiguration concurrency =
+        elasticSearchConfiguration.getSearch().getV3().getTemplates().getConcurrency();
+    int corePoolSize = concurrency.resolveCorePoolSize();
+    int maxPoolSize = concurrency.resolveMaxPoolSize();
+    if (maxPoolSize < corePoolSize) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.maxPoolSize must be >= corePoolSize");
+    }
+    if (concurrency.getKeepAlive() <= 0) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.keepAlive must be positive");
+    }
+    AtomicInteger threadNumber = new AtomicInteger();
+    ThreadFactory threadFactory =
+        runnable -> {
+          Thread thread =
+              new Thread(runnable, "search-template-ladder-" + threadNumber.incrementAndGet());
+          thread.setDaemon(true);
+          return thread;
+        };
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            maxPoolSize,
+            concurrency.getKeepAlive(),
+            TimeUnit.SECONDS,
+            concurrency.createWorkQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    executor.allowCoreThreadTimeOut(true);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "search-template-ladder", executor, metricUtils.getRegistry());
+    }
+    return executor;
   }
 
   @Bean

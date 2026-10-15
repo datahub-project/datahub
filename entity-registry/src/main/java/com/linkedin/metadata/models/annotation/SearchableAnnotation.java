@@ -64,19 +64,13 @@ public class SearchableAnnotation {
 
   Optional<String> systemModifiedAtFieldName;
 
-  // Deprecated no-op: search indices no longer build tier fields. Still parsed and validated so
-  // existing models keep loading
-  Optional<Integer> searchTier;
-
   // Unified label for search operations
   Optional<String> searchLabel;
 
-  // Deprecated no-op, like searchTier: every searchable field is indexed under its own name
+  // Deprecated no-op: every searchable field is indexed under its own name
   Optional<Boolean> searchIndexed;
 
-  // If set, this field will be copied to _search.<entityFieldName> and the root alias will point
-  // there
-  // This allows multiple aspects to consolidate into a single entity-level field
+  // Unused by Search V3. The indexed name is {@link #indexedName()}.
   Optional<String> entityFieldName;
 
   // Whether to set eager_global_ordinals to true for this field
@@ -86,6 +80,21 @@ public class SearchableAnnotation {
   // Whether to sanitize rich text content (HTML, Markdown, base64 images) before indexing
   // This prevents indexing failures due to term size limits and improves search relevance
   boolean sanitizeRichText;
+
+  /**
+   * Shared field this annotation maps onto. {@code searchLabel} wins; otherwise the source {@code
+   * fieldName} is the shared field.
+   */
+  @Nonnull
+  public String sharedFieldName() {
+    return searchLabel.filter(label -> !label.isEmpty()).orElse(fieldName);
+  }
+
+  /** Root field Search V3 indexes and queries. */
+  @Nonnull
+  public String indexedName() {
+    return sharedFieldName();
+  }
 
   public enum FieldType {
     KEYWORD,
@@ -158,7 +167,6 @@ public class SearchableAnnotation {
         AnnotationUtils.getField(map, "systemModifiedAtFieldName", String.class);
 
     // Parse new fields
-    final Optional<Integer> searchTier = AnnotationUtils.getField(map, "searchTier", Integer.class);
     final Optional<String> searchLabel = AnnotationUtils.getField(map, "searchLabel", String.class);
     final Optional<Boolean> searchIndexed =
         AnnotationUtils.getField(map, "searchIndexed", Boolean.class);
@@ -170,8 +178,7 @@ public class SearchableAnnotation {
         AnnotationUtils.getField(map, "sanitizeRichText", Boolean.class);
 
     // Validate new fields
-    validateSearchTier(searchTier, resolvedFieldType, context);
-    validateSearchIndexed(searchIndexed, resolvedFieldType, searchTier, context);
+    validateSearchIndexed(searchIndexed, resolvedFieldType, context);
     validateElasticsearchFieldName(searchLabel, "searchLabel", context);
     validateElasticsearchFieldName(entityFieldName, "entityFieldName", context);
     validateEagerGlobalOrdinals(eagerGlobalOrdinals, resolvedFieldType, context);
@@ -194,7 +201,6 @@ public class SearchableAnnotation {
         includeQueryEmptyAggregation.orElse(false),
         includeSystemModifiedAt.orElse(false),
         systemModifiedAtFieldName,
-        searchTier,
         searchLabel,
         searchIndexed,
         entityFieldName,
@@ -264,52 +270,10 @@ public class SearchableAnnotation {
     return aliases;
   }
 
-  /**
-   * Validates that searchTier is >= 1 if present and that fields with searchTier are of type
-   * KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or URN
-   */
-  private static void validateSearchTier(
-      Optional<Integer> searchTier, FieldType fieldType, String context) {
-    if (searchTier.isPresent()) {
-      // Validate searchTier value is >= 1
-      if (searchTier.get() < 1) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchTier must be >= 1, but was %d",
-                ANNOTATION_NAME, context, searchTier.get()));
-      }
-
-      // Validate that fields with searchTier are of type KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or
-      // URN
-      if (fieldType != FieldType.KEYWORD
-          && fieldType != FieldType.TEXT
-          && fieldType != FieldType.TEXT_PARTIAL
-          && fieldType != FieldType.WORD_GRAM
-          && fieldType != FieldType.URN) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchTier can only be used with KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or URN field types, but was %s",
-                ANNOTATION_NAME, context, fieldType));
-      }
-    }
-  }
-
-  /** Validates that searchIndexed is only used with appropriate field types and searchTier */
+  /** Validates that searchIndexed is only used with KEYWORD or TEXT fields. */
   private static void validateSearchIndexed(
-      Optional<Boolean> searchIndexed,
-      FieldType fieldType,
-      Optional<Integer> searchTier,
-      String context) {
+      Optional<Boolean> searchIndexed, FieldType fieldType, String context) {
     if (searchIndexed.isPresent() && searchIndexed.get()) {
-      // searchIndexed can only be true when searchTier is present
-      if (!searchTier.isPresent()) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchIndexed can only be true when searchTier is specified",
-                ANNOTATION_NAME, context));
-      }
-
-      // searchIndexed can only be used with KEYWORD or TEXT field types
       if (fieldType != FieldType.KEYWORD && fieldType != FieldType.TEXT) {
         throw new ModelValidationException(
             String.format(

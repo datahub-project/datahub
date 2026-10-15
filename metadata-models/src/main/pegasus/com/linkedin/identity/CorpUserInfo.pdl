@@ -9,7 +9,8 @@ import com.linkedin.common.Urn
  * Linkedin corp user information
  */
 @Aspect = {
-  "name": "corpUserInfo"
+  "name": "corpUserInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserInfo includes CustomProperties {
@@ -32,8 +33,7 @@ record CorpUserInfo includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   displayName: optional string
 
@@ -42,8 +42,7 @@ record CorpUserInfo includes CustomProperties {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "queryByDefault": true,
-    "searchTier": 1
+    "queryByDefault": true
   }
   email: optional EmailAddress
 

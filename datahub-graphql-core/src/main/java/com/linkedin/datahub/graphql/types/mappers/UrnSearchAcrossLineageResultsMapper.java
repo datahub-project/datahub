@@ -40,6 +40,9 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     if (input.hasFreshness()) {
       FreshnessStats outputFreshness = new FreshnessStats();

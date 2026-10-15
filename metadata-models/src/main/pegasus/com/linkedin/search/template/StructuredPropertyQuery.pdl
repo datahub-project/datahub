@@ -1,0 +1,14 @@
+namespace com.linkedin.search.template
+
+/**
+ * Name-and-value matching for included string and rich-text properties. The template stores
+ * the weight only. Search expands the clauses from the current definitions. An explicitly
+ * present empty value drops an inherited section and leaves value-only matching.
+ */
+record StructuredPropertyQuery {
+  /**
+   * Positive weight for a property-name span whose unmatched remainder is non-empty.
+   * This is not a {@code fields.override} and not a {@code functionScore} weight.
+   */
+  nameAndValueWeight: optional float
+}

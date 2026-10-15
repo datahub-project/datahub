@@ -119,7 +119,7 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
     assertEquals(headResp.getStatusCode(), HttpStatus.NOT_FOUND);
 
     ResponseEntity<ScrollChartEntityResponseV2> scrollResp =
-        chartApiController.scroll(false, List.of(), 10, null, null, null, null);
+        chartApiController.scroll(false, List.of(), 10, null, null, null, null, null, null);
     assertEquals(scrollResp.getStatusCode(), HttpStatus.OK);
     assertNotNull(scrollResp.getBody().getEntities());
   }
@@ -143,7 +143,7 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
     assertEquals(headResp.getStatusCode(), HttpStatus.NOT_FOUND);
 
     ResponseEntity<ScrollDatasetEntityResponseV2> scrollResp =
-        datasetApiController.scroll(false, List.of(), 10, null, null, null, null);
+        datasetApiController.scroll(false, List.of(), 10, null, null, null, null, null, null);
     assertEquals(scrollResp.getStatusCode(), HttpStatus.OK);
     assertNotNull(scrollResp.getBody().getEntities());
   }

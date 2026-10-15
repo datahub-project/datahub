@@ -8,7 +8,8 @@ import com.linkedin.common.Urn
  * Information about a Domain
  */
 @Aspect = {
-  "name": "domainProperties"
+  "name": "domainProperties",
+  "schemaVersion": 2
 }
 record DomainProperties includes CustomProperties {
 
@@ -20,8 +21,7 @@ record DomainProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: string
 
@@ -30,8 +30,7 @@ record DomainProperties includes CustomProperties {
    */
    @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 

@@ -8,7 +8,8 @@ import com.linkedin.common.ExternalReference
  * Properties associated with a Data Platform Instance
  */
 @Aspect = {
-  "name": "dataPlatformInstanceProperties"
+  "name": "dataPlatformInstanceProperties",
+  "schemaVersion": 2
 }
 record DataPlatformInstanceProperties includes CustomProperties, ExternalReference {
 
@@ -20,8 +21,7 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "searchLabel": "name"
   }
   name: optional string
 
@@ -30,8 +30,7 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 }

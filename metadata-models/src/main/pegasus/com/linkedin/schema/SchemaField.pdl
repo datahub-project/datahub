@@ -17,7 +17,8 @@ record SchemaField {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
     "boostScore": 1.0,
-    "queryByDefault": "true"
+    "queryByDefault": "true",
+    "searchLabel": "columns"
   }
   fieldPath: SchemaFieldPath
 
@@ -39,7 +40,8 @@ record SchemaField {
     "fieldName": "fieldDescriptions",
     "fieldType": "TEXT",
     "boostScore": 0.1,
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "searchLabel": "description"
   }
   description: optional string
 
@@ -53,7 +55,8 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldLabels",
     "fieldType": "TEXT",
-    "boostScore": 0.2
+    "boostScore": 0.2,
+    "searchLabel": "columns"
   }
   @Deprecated
   label: optional string
@@ -96,7 +99,8 @@ record SchemaField {
     "/tags/*/tag": {
       "fieldName": "fieldTags",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "searchLabel": "tags"
     },
     "/tags/*/attribution/time": {
         "fieldName": "fieldTagAttributionDates",
@@ -129,7 +133,8 @@ record SchemaField {
     "/terms/*/urn": {
       "fieldName": "fieldGlossaryTerms",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "searchLabel": "glossaryTerms"
     },
     "/terms/*/attribution/time": {
         "fieldName": "fieldTermAttributionDates",

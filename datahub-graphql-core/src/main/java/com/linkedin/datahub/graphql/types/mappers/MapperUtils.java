@@ -113,6 +113,9 @@ public class MapperUtils {
               MatchedField matchedField = new MatchedField();
               matchedField.setName(field.getName());
               matchedField.setValue(field.getValue());
+              if (field.hasMode() && field.getMode() != null) {
+                matchedField.setMode(field.getMode());
+              }
               if (SearchUtils.isUrn(field.getValue())) {
                 try {
                   Urn urn = Urn.createFromString(field.getValue());

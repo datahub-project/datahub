@@ -145,7 +145,7 @@ authorization:
     #   identity: corpuser, corpGroup
     #   platforms: dataPlatform, dataPlatformInstance
     #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
-    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post, searchTemplate
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
@@ -1264,6 +1264,43 @@ elasticsearch:
       add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
 
+    # Search V3 query templates. Off until keyword read and this flag are both on.
+    # Engine slots (elasticsearch8, opensearch3, elasticsearch9, opensearch2, postgres) are
+    # optional. An unset slot uses default. A URN is selected only when its dialect matches.
+    v3:
+      templates:
+        enabled: ${SEARCH_V3_TEMPLATES_ENABLED:false}
+        # storage reads the aspect and fills a missing shipped template from the classpath.
+        # System update sets classpath and does not read stored templates.
+        source: ${SEARCH_V3_TEMPLATES_SOURCE:storage}
+        maxLeafClauses: ${SEARCH_V3_TEMPLATES_MAX_LEAF_CLAUSES:1024}
+        concurrency:
+          corePoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_CORE_POOL_SIZE:-1}
+          maxPoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_MAX_POOL_SIZE:0}
+          queueSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_QUEUE_SIZE:0}
+          keepAlive: ${SEARCH_V3_TEMPLATES_CONCURRENCY_KEEP_ALIVE_SECONDS:60}
+        defaults:
+          fulltext:
+            default: urn:li:searchTemplate:search
+            # elasticsearch8: urn:li:searchTemplate:searchEs8
+            # opensearch3: urn:li:searchTemplate:searchOs3
+            # postgres: urn:li:searchTemplate:searchPostgres
+          structured:
+            default: urn:li:searchTemplate:structured
+        surfaces:
+          # Page search starts on searchLight, whose ordinary query is the light template.
+          # Scroll, aggregate, and browseV2 keep the global single-query seed.
+          search:
+            fulltext:
+              default: urn:li:searchTemplate:searchLight
+          searchAcrossEntities:
+            fulltext:
+              default: urn:li:searchTemplate:searchLight
+          searchAcrossLineage:
+            fulltext:
+              default: urn:li:searchTemplate:lineage
+              # opensearch3: urn:li:searchTemplate:lineageOs3
+
 
 # TODO: Kafka topic convention
 kafka:
@@ -2095,6 +2132,8 @@ cache:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
           structuredPropertyKey: 86400 # 1 day
+        searchTemplate:
+          searchTemplateProperties: ${CACHE_TTL_SECONDS:600}
         chart:
           usageFeatures: 21600 # 6hrs
         dataset:

@@ -675,6 +675,62 @@ fieldConfigurations:
       enabled: false
 ```
 
+## Search V3 query templates
+
+Search V3 can rank with a Mustache JSON body stored on a `searchTemplate` entity (`urn:li:searchTemplate:<id>`). Templates are off until both Search V3 keyword read and `SEARCH_V3_TEMPLATES_ENABLED` are on. Until then, search keeps today's Java query builder and `search_config.yaml` `queryConfigurations`. System update always searches with the templates in the shipped bootstrap file and treats structured properties and other stored lookups as empty, because that job runs before those aspects are written. GMS reads the stored template. Until that aspect exists, GMS uses the same shipped file and the same empty lookups. A stored template replaces the file and restores normal resolution.
+
+The bootstrapped templates are not editable except by the DataHub system actor. `search` is the single-query fulltext router. `searchLight` inherits its routes and starts an ordinary query on `light`. `fulltext` is the full query and `light` is its cheaper first rung. `list` is an empty query or `*`. `exact` is a fully quoted query. `structured` is the seed when fulltext is off. `structuredExact` is a quoted structured query, and it starts as a child of `structured`. `lineage` is a child of `fulltext` used only for the entity search that runs after a lineage graph walk. `identity` is the template for a URN or an `s3://`, `gs://`, or `hdfs://` path.
+
+`search` matches, in order: a URN or an `s3://`, `gs://`, or `hdfs://` path to `identity`; an empty query or `*` to `list`; a quoted `\/q` query to `structuredExact`; any other `\/q` query to `structured`; and a quoted query to `exact`. A single unquoted token remains a normal fulltext query, matching the Java Search V3 strategy. A miss follows `defaultRoute` to `fulltext`; the inherited route on `searchLight` instead starts at `light`. `structured` keeps the identity pattern and the empty-or-`*` pattern, then one pattern for a quoted query with or without the `\/q` prefix, which selects `structuredExact`. A regex is legal only in `routes`. A ladder predicate is not a regex. `structured` has no default route, so a query that matches nothing stays on `structured`. There is no catch-all `.*` route. The structured prefix is the characters `\/q `, including the leading backslash. `fulltext=false` selects the `structured` seed, because that flag is not part of the query text. `fulltext`, `identity`, `list`, `exact`, and `structuredExact` have an empty route list, which pins that template when it has no default route. A child inherits the list when `routes` is unset, and an explicit empty list drops it. A non-empty child list replaces the parent list. `defaultRoute` is inherited on its own. A record with no template clears it. A template that names a default route cannot also carry a query body. `lineage` repeats the `search` patterns and clears the default, so a query that matches none of them stays on `lineage`.
+
+Today's `search_config.yaml` `queryRegex` list works the same way: the first pattern that matches the whole query selects a profile. The browse-all pattern becomes the empty-query and `*` route, the quoted pattern becomes the quoted route, and the `.*` catch-all becomes the default route on `search` and staying on `structured`.
+
+A route target may itself have routes. DataHub stops if a hop repeats a template or the hop limit is spent. A parent cycle is a separate check, with a depth of five, and loading a parent does not count as a route hop. A pattern uses RE2. A Java-only lookaround or backreference from an older `queryRegex` is rejected and has to be rewritten before it can be a route. The route chain is included when a caller asks for an explanation. The result cache key is the final template and the ladder rungs the request will run.
+
+`elasticsearch.search.v3.templates` in `application.yaml` names the seed URN for a surface and an engine. The global `fulltext` slot points at `search`. Interactive `search` and `searchAcrossEntities` override it with `searchLight`; scroll, aggregate, browse, and lineage use one rendered query because they do not walk from `light` to `fulltext`. `structured` is the seed when fulltext is off. `default` is the shared engine slot. `elasticsearch8`, `opensearch3`, `elasticsearch9`, and `opensearch2` are optional and select another seed of the same Elasticsearch dialect when a clause has to diverge. A `postgres` slot can point at a stored template; this release does not execute Postgres templates. Changing a route list is a template write. It does not require a new `search_config.yaml` deploy.
+
+The shipped lexical templates use the same Search V3 root text and stemmed fields (`name`, `qualifiedName`, `description`, and the other indexed names), field-selection configuration, light-query gates, and entity hybrid reranker as the Java query builder. A template that explicitly defines `knn` takes precedence over that default reranker.
+
+Java supplies schema-derived data to Mustache, including selected field paths, weights, and
+`@SearchScore` definitions. The stored template still contains the query DSL that consumes those
+values; Java does not substitute a hidden default query or scoring wrapper. Authorization, system
+filters, ladder execution, and hybrid reranking remain execution concerns outside the query body.
+
+A request uses `SearchFlags.searchTemplate` when the caller sets it. GraphQL and Rest.li pass that field on search, scroll, and lineage. Entity OpenAPI scroll accepts the same choice as the `searchTemplate` query parameter, and `includeExplain=true` adds `routeChain` to the scroll response. That URN's routes still run unless its merged route list is empty and it has no default route. Otherwise DataHub selects the seed from the GraphQL surface, then the engine, then `default`, and from the fulltext flag. `searchAcrossLineage` overrides the fulltext seed only. A `*` on that surface still uses the list template. Filter, list, document count, and value aggregation render one template for `*` and do not walk a ladder. The resolved URN is not written back onto `SearchFlags`. An empty query or `*`, with no caller template, still scrolls: routing runs first and selects `list`, then one body, no ladder.
+
+Operators change a template with the generic entity API (OpenAPI or Rest.li) by URN, including JSON patch. There is no GraphQL mutation or search UI for templates. Callers omit `created` and `lastModified`. The first write sets `created`, and every accepted write sets `lastModified`. After the write commits, search drops cached results for that template and any template that parents it. Other service instances pick up the change within `cacheTtlSeconds`. System filters (`removed`, hidden lifecycle stages, entity type, latest version, and view authorization) are still applied in Java after the template renders.
+
+A template cannot include a Mustache partial. `rescore` cannot be combined with `sort` or with `functionScore.boost_mode: replace`: the search engine rejects rescore when the request has an explicit sort. With a rescore and no caller sort, DataHub omits the `urn` tie-break. A caller sort replaces the rescore. Checks run on the template after parent sections are merged, so a child that adds a `rescore` to a parent with `boost_mode: replace` is rejected.
+
+### Query holes
+
+A child can insert query JSON into a named hole without copying the parent body. `queryFragments` maps the hole name to that JSON. Each level that sets a key adds that JSON. The pieces are joined with a comma, root first. An unset key adds nothing. An empty string drops the pieces inherited from parents. Setting `query` still replaces the whole body.
+
+The bootstrapped fulltext template opens `extraDisMaxQueries` inside its top-level `dis_max` `queries` array. The parent emits a comma and the fragment only when the fragment is set, so an empty hole leaves the JSON valid. The fragment does not start with a comma. Several query objects separated by commas become further branches of that `dis_max`. `{{urn:li:structuredProperty:...}}` and `{{unquoted}}` expand in the fragment the same way they do in `query`.
+
+A write that fills a hole the inherited query does not contain is rejected. A parent `query` write is rejected while a child that inherits that body still fills a hole the new text drops. A child that sets `query` stops that walk. A search fails when the merged template fills a hole the merged query text does not contain.
+
+```yaml
+parent: urn:li:searchTemplate:fulltext
+queryFragments:
+  extraDisMaxQueries: |
+    {
+      "constant_score": {
+        "boost": 1000,
+        "filter": {
+          "term": {
+            "{{urn:li:structuredProperty:businessName}}.keyword": {
+              "value": "{{unquoted}}",
+              "case_insensitive": true
+            }
+          }
+        }
+      }
+    }
+```
+
+`1000` ties an exact value on that property with an exact match on `name.keyword`. `fields.add` does not change the boost written in the fragment.
+
 ## FAQ and Troubleshooting
 
 **How are the results ordered?**

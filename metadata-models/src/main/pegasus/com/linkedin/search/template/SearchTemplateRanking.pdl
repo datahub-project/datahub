@@ -1,0 +1,28 @@
+namespace com.linkedin.search.template
+
+/**
+ * Service ranking applied to the keyword page. An explicitly present empty value drops an
+ * inherited ranking section. {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve}
+ * are stored here and executed only by a deployment that advertises them.
+ */
+record SearchTemplateRanking {
+  /**
+   * Ranking formula. {@code none}, {@code usage}, or {@code usageAndMatchTier}.
+   */
+  preset: optional string
+
+  /**
+   * How many hits the formula reranks.
+   */
+  window: optional int
+
+  /**
+   * How the window size is chosen. {@code fixed} or {@code tokenCurve}.
+   */
+  windowSizer: optional string
+
+  /**
+   * Formula parameters, for example a usage weight.
+   */
+  parameters: optional map[string, string]
+}

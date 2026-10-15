@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for a GlossaryTerm
  */
 @Aspect = {
-  "name": "glossaryTermKey"
+  "name": "glossaryTermKey",
+  "schemaVersion": 2
 }
 record GlossaryTermKey {
   /**
@@ -15,7 +16,8 @@ record GlossaryTermKey {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "fieldName": "id"
+    "fieldName": "id",
+    "searchLabel": "name"
   }
   name: string
 

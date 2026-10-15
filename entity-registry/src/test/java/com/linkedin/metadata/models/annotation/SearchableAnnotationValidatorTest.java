@@ -6,6 +6,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.testng.annotations.Test;
 
@@ -233,50 +234,6 @@ public class SearchableAnnotationValidatorTest {
   }
 
   @Test
-  public void testSearchTierCrossEntityCompatibility() {
-    // Test that searchTier validation works across different entity contexts
-    // Since searchTier is used for cross-entity searching, this is important
-    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
-
-    // Different entities with same searchTier should be compatible
-    SearchableAnnotation annotation1 = createAnnotationWithSearchTier("TEXT", 1, Optional.empty());
-    SearchableAnnotation annotation2 =
-        createAnnotationWithSearchTier("KEYWORD", 1, Optional.empty());
-
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation1, DataSchema.Type.STRING, "entity1.field1"));
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation2, DataSchema.Type.STRING, "entity2.field1"));
-
-    // Should not throw exception - same searchTier across entities is valid
-    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
-  }
-
-  @Test
-  public void testSearchTierDifferentValuesAcrossEntities() {
-    // Test that different searchTier values don't cause conflicts
-    // This is important since searchTier is used for cross-entity searching
-    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
-
-    // Different searchTier values should not conflict
-    SearchableAnnotation annotation1 = createAnnotationWithSearchTier("TEXT", 1, Optional.empty());
-    SearchableAnnotation annotation2 =
-        createAnnotationWithSearchTier("KEYWORD", 2, Optional.empty());
-
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation1, DataSchema.Type.STRING, "entity1.field1"));
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation2, DataSchema.Type.STRING, "entity2.field1"));
-
-    // Should not throw exception - different searchTier values are fine
-    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
-  }
-
-  @Test
   public void testSortLabelAcrossDifferentEntities() {
     // Test that searchLabel works across different entities
     // Since searchLabel copies values to common fields, this is critical
@@ -394,28 +351,6 @@ public class SearchableAnnotationValidatorTest {
         () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
   }
 
-  @Test
-  public void testSearchTierWithLabels() {
-    // Test that searchTier works correctly with searchLabel and searchLabel
-    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
-
-    // Fields with searchTier and labels should be compatible
-    SearchableAnnotation annotation1 =
-        createAnnotationWithSearchTier("TEXT", 1, Optional.of("name_sort"));
-    SearchableAnnotation annotation2 =
-        createAnnotationWithSearchTier("KEYWORD", 1, Optional.of("name_sort"));
-
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation1, DataSchema.Type.STRING, "entity1.name"));
-    fields.add(
-        new SearchableAnnotationValidator.AnnotatedField(
-            annotation2, DataSchema.Type.STRING, "entity2.name"));
-
-    // Should not throw exception - compatible types and same labels
-    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
-  }
-
   private SearchableAnnotation createAnnotation(String fieldType, Optional<String> searchLabel) {
     return new SearchableAnnotation(
         "testField",
@@ -429,39 +364,11 @@ public class SearchableAnnotationValidatorTest {
         1.0, // boostScore
         Optional.empty(), // hasValuesFieldName
         Optional.empty(), // numValuesFieldName
-        java.util.Map.of(), // weightsPerFieldValue
-        java.util.List.of(), // fieldNameAliases
+        Map.of(), // weightsPerFieldValue
+        List.of(), // fieldNameAliases
         false, // includeQueryEmptyAggregation
         false, // includeSystemModifiedAt
         Optional.empty(), // systemModifiedAtFieldName
-        Optional.empty(), // searchTier
-        searchLabel, // searchLabel
-        Optional.empty(), // searchIndexed
-        Optional.empty(), // entityFieldName
-        Optional.empty(), // eagerGlobalOrdinals
-        false);
-  }
-
-  private SearchableAnnotation createAnnotationWithSearchTier(
-      String fieldType, int searchTier, Optional<String> searchLabel) {
-    return new SearchableAnnotation(
-        "testField",
-        SearchableAnnotation.FieldType.valueOf(fieldType),
-        true, // queryByDefault
-        false, // enableAutocomplete
-        false, // addToFilters
-        false, // addHasValuesToFilters
-        Optional.empty(), // filterNameOverride
-        Optional.empty(), // hasValuesFilterNameOverride
-        1.0, // boostScore
-        Optional.empty(), // hasValuesFieldName
-        Optional.empty(), // numValuesFieldName
-        java.util.Map.of(), // weightsPerFieldValue
-        java.util.List.of(), // fieldNameAliases
-        false, // includeQueryEmptyAggregation
-        false, // includeSystemModifiedAt
-        Optional.empty(), // systemModifiedAtFieldName
-        Optional.of(searchTier), // searchTier
         searchLabel, // searchLabel
         Optional.empty(), // searchIndexed
         Optional.empty(), // entityFieldName

@@ -18,6 +18,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -117,7 +118,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()
-                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags)
+                        .withSearchSurface(SearchTemplateSurfaces.SCROLL),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,
