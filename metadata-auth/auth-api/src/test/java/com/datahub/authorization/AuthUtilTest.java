@@ -347,6 +347,7 @@ public class AuthUtilTest {
   public void testInviteTokenRestApiAuthorization() {
     final String actorEditOnly = "urn:li:corpuser:inviteTokenEdit";
     final String actorManage = "urn:li:corpuser:inviteTokenManage";
+    final String actorView = "urn:li:corpuser:inviteTokenView";
 
     Authorizer mockAuthorizer =
         mockAuthorizer(
@@ -358,12 +359,34 @@ public class AuthUtilTest {
                 actorManage,
                 Map.of(
                     PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE.getType(),
-                    Set.of(TEST_INVITE_TOKEN_URN))));
+                    Set.of(TEST_INVITE_TOKEN_URN)),
+                actorView,
+                Map.of(
+                    "VIEW_ENTITY_PAGE", Set.of(TEST_INVITE_TOKEN_URN),
+                    "GET_ENTITY_PRIVILEGE", Set.of(TEST_INVITE_TOKEN_URN))));
 
     Authentication authEditOnly =
         new Authentication(new Actor(ActorType.USER, "inviteTokenEdit"), "");
     Authentication authManage =
         new Authentication(new Actor(ActorType.USER, "inviteTokenManage"), "");
+    Authentication authView = new Authentication(new Actor(ActorType.USER, "inviteTokenView"), "");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authView, mockAuthorizer), READ, List.of(TEST_INVITE_TOKEN_URN)),
+        "Standard entity read privileges must not authorize inviteToken read");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authEditOnly, mockAuthorizer),
+            READ,
+            List.of(TEST_INVITE_TOKEN_URN)),
+        "EDIT_ENTITY must not authorize inviteToken read");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authManage, mockAuthorizer), READ, List.of(TEST_INVITE_TOKEN_URN)),
+        "MANAGE_USER_CREDENTIALS should authorize inviteToken read");
 
     assertEquals(
         AuthUtil.isAPIAuthorizedUrns(
