@@ -64,4 +64,16 @@ public class EntityRegistrySafeLookupTest {
     assertThrows(
         IllegalStateException.class, () -> brokenRegistry.findAspectSpec("dataset", "status"));
   }
+
+  @Test
+  public void testLookupIgnoresCaseAndMissIsEmptyAfterMerge() {
+    // A miss is a map lookup, not a caught exception: after a rollback every event of a newer
+    // version's entity type misses.
+    MergedEntityRegistry merged = new MergedEntityRegistry(registry);
+
+    for (EntityRegistry lookup : new EntityRegistry[] {registry, merged}) {
+      assertTrue(lookup.findEntitySpec("Dataset").isPresent());
+      assertTrue(lookup.findEntitySpec("entityFromNewer").isEmpty());
+    }
+  }
 }
