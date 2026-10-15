@@ -343,6 +343,9 @@ def make_assertion_from_test(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=extra_custom_props,
+        # dbt data tests support a user-authored description (dbt >=1.9); the UI
+        # prefers it over generated copy when rendering the assertion.
+        description=node.description or None,
         source=mce_builder.make_assertion_source(),
         customAssertion=custom_assertion,
     )
