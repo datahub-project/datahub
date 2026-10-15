@@ -25,6 +25,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -274,6 +275,32 @@ public class DataPlatformInstanceWriteAuthorizationValidatorTest {
   }
 
   @Test
+  public void testPreCommitDeniesWhenStoredInstanceChangedConcurrently() {
+    // Proposal time saw OWN (unchanged, no check); another write stored FOREIGN before the lock.
+    assertEquals(preCommit(session, changeMcp(FOREIGN_INSTANCE, OWN_INSTANCE)).size(), 1);
+  }
+
+  @Test
+  public void testPreCommitAllowsUnchangedInstanceWithoutAuthorizationCalls() {
+    OperationContext denyAll =
+        TestOperationContexts.userContextNoSearchAuthorization(Authorizer.EMPTY, WRITER);
+
+    assertEquals(preCommit(denyAll, changeMcp(OWN_INSTANCE, OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testPreCommitAllowsMoveBetweenOwnInstances() {
+    assertEquals(preCommit(session, changeMcp(OWN_INSTANCE, OWN_OTHER_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testPreCommitSkipsSystemActor() {
+    OperationContext system = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    assertEquals(preCommit(system, changeMcp(FOREIGN_INSTANCE, OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
   public void testSystemActorExempt() {
     storedInstance = OWN_INSTANCE;
     OperationContext system = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -344,6 +371,23 @@ public class DataPlatformInstanceWriteAuthorizationValidatorTest {
     return validator
         .validateProposedAspectsWithAuth(session, List.of(item), retrieverContext, session)
         .collect(Collectors.toList());
+  }
+
+  private List<AspectValidationException> preCommit(OperationContext actor, ChangeMCP change) {
+    return validator
+        .validatePreCommitAspectsWithAuth(actor, List.of(change), retrieverContext, actor)
+        .collect(Collectors.toList());
+  }
+
+  private ChangeMCP changeMcp(@Nullable Urn previous, @Nullable Urn proposed) {
+    ChangeMCP change = mock(ChangeMCP.class);
+    when(change.getUrn()).thenReturn(DATASET_URN);
+    when(change.getAspectName()).thenReturn(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+    when(change.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(change.getPreviousAspect(DataPlatformInstance.class))
+        .thenReturn(previous == null ? null : dpi(previous));
+    when(change.getAspect(DataPlatformInstance.class)).thenReturn(dpi(proposed));
+    return change;
   }
 
   private TestMCP upsert(@Nullable Urn instance) {

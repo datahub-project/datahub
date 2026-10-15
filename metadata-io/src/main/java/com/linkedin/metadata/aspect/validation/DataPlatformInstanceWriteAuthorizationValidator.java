@@ -16,6 +16,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.ApiOperation;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -59,6 +61,12 @@ import lombok.extern.slf4j.Slf4j;
  *       instance" would stop instance-scoped owners from ever clearing it.
  *   <li>A proposed value that cannot be resolved (e.g. a PATCH that does not apply): denied.
  * </ul>
+ *
+ * <p>The same decision runs twice: at proposal time, and again before commit against the previous
+ * value read under the row lock, so a concurrent change to the instance can't slip past an
+ * "unchanged" proposal-time result. As for domains, the pre-commit run is skipped for system
+ * sessions and sessions without a request context (async MCE processing, already authorized on the
+ * API thread).
  */
 @Slf4j
 @Setter
@@ -97,12 +105,7 @@ public class DataPlatformInstanceWriteAuthorizationValidator
       DataPlatformInstance before = current.get(urn);
       DataPlatformInstance after = resolveProposed(item, aspectRetriever, before);
       if (after == null) {
-        failures.add(
-            authFailure(
-                item,
-                "Unauthorized to change dataPlatformInstance on entity "
-                    + urn
-                    + " (could not resolve the proposed value)"));
+        failures.add(unresolvedFailure(item));
         continue;
       }
       current.put(urn, after);
@@ -117,23 +120,101 @@ public class DataPlatformInstanceWriteAuthorizationValidator
             DomainWriteAuthorizationUtils.resolveEntityExists(
                 operationContext, aspectRetriever, urns);
       }
-      ApiOperation operation =
-          DomainWriteAuthorizationUtils.resolveApiOperation(
-              item.getChangeType(), Boolean.TRUE.equals(entityExists.get(urn)));
-      if ((beforeInstance != null
-              && !isAuthorizedWithInstance(session, urn, beforeInstance, operation))
-          || (afterInstance != null
-              && !isAuthorizedWithInstance(session, urn, afterInstance, operation))) {
-        failures.add(
-            authFailure(
-                item,
-                "Unauthorized to change dataPlatformInstance on entity "
-                    + urn
-                    + " (requires CREATE_ENTITY or EDIT_ENTITY for both the current and the"
-                    + " proposed instance)"));
+      if (!isAuthorizedChange(
+          session,
+          item,
+          beforeInstance,
+          afterInstance,
+          Boolean.TRUE.equals(entityExists.get(urn)))) {
+        failures.add(changeFailure(item));
       }
     }
     return failures;
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    if (isTrustedSystemOperation(operationContext, session)
+        || DomainWriteAuthorizationValidator.shouldSkipUserDomainAuth(session)) {
+      return Stream.empty();
+    }
+    List<ChangeMCP> instanceItems =
+        changeMCPs.stream()
+            .filter(item -> DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(item.getAspectName()))
+            .collect(Collectors.toList());
+    if (instanceItems.isEmpty()) {
+      return Stream.empty();
+    }
+
+    Map<Urn, Boolean> entityExists = null;
+    List<AspectValidationException> failures = new ArrayList<>();
+    for (ChangeMCP item : instanceItems) {
+      // Previous value comes from the read under the row lock (or an earlier item in the batch).
+      DataPlatformInstance before = item.getPreviousAspect(DataPlatformInstance.class);
+      DataPlatformInstance after = item.getAspect(DataPlatformInstance.class);
+      if (after == null) {
+        failures.add(unresolvedFailure(item));
+        continue;
+      }
+      Urn beforeInstance = before == null ? null : before.getInstance();
+      Urn afterInstance = after.getInstance();
+      if (Objects.equals(beforeInstance, afterInstance)) {
+        continue;
+      }
+      if (entityExists == null) {
+        entityExists =
+            DomainWriteAuthorizationUtils.resolveEntityExists(
+                operationContext,
+                retrieverContext.getAspectRetriever(),
+                instanceItems.stream().map(ChangeMCP::getUrn).collect(Collectors.toSet()));
+      }
+      if (!isAuthorizedChange(
+          session,
+          item,
+          beforeInstance,
+          afterInstance,
+          Boolean.TRUE.equals(entityExists.get(item.getUrn())))) {
+        failures.add(changeFailure(item));
+      }
+    }
+    return failures.stream();
+  }
+
+  /** Rights on the current instance (if any) and on the proposed one (if any). */
+  private static boolean isAuthorizedChange(
+      @Nonnull AuthorizationSession session,
+      @Nonnull BatchItem item,
+      @Nullable Urn beforeInstance,
+      @Nullable Urn afterInstance,
+      boolean entityExists) {
+    ApiOperation operation =
+        DomainWriteAuthorizationUtils.resolveApiOperation(item.getChangeType(), entityExists);
+    Urn urn = item.getUrn();
+    return (beforeInstance == null
+            || isAuthorizedWithInstance(session, urn, beforeInstance, operation))
+        && (afterInstance == null
+            || isAuthorizedWithInstance(session, urn, afterInstance, operation));
+  }
+
+  private AspectValidationException changeFailure(@Nonnull BatchItem item) {
+    return authFailure(
+        item,
+        "Unauthorized to change dataPlatformInstance on entity "
+            + item.getUrn()
+            + " (requires CREATE_ENTITY or EDIT_ENTITY for both the current and the proposed"
+            + " instance)");
+  }
+
+  private AspectValidationException unresolvedFailure(@Nonnull BatchItem item) {
+    return authFailure(
+        item,
+        "Unauthorized to change dataPlatformInstance on entity "
+            + item.getUrn()
+            + " (could not resolve the proposed value)");
   }
 
   /**
