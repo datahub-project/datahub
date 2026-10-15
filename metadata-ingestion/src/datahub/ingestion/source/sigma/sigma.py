@@ -2828,6 +2828,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _append_no_ref_warehouse_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        warehouse_fgl: Optional[FineGrainedLineageClass],
+        fgls: List[FineGrainedLineageClass],
+    ) -> None:
+        """Lineage for a column whose formula has no ref to follow.
+
+        Covers an empty formula, a constant, and one with only parameters and
+        bare [col] refs. The columnId alone names the warehouse column; the
+        column is never name-matched against siblings, which would fabricate
+        edges. Its downstream field is unique to it, so no dedup is needed.
+        """
+        if warehouse_fgl is not None:
+            fgls.append(warehouse_fgl)
+            self.reporter.data_model_element_fgl_warehouse_resolved += 1
+        elif (column.columnId or "").startswith("inode-"):
+            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -2871,8 +2891,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
         emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
-            if not column.formula:
-                continue
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -2887,11 +2905,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_url_id_map=warehouse_url_id_map,
             )
             warehouse_consumed = False
+            followed_ref = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
                     # are not cross-Dataset lineage; skip.
                     continue
+                followed_ref = True
 
                 candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
 
@@ -2984,6 +3004,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     fgls=fgls,
                     cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
+                )
+            if not followed_ref:
+                self._append_no_ref_warehouse_fgl(
+                    column=column, warehouse_fgl=warehouse_fgl, fgls=fgls
                 )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
         # FGL (both appended to `fgls`). Cross-DM is tracked separately via
