@@ -325,7 +325,12 @@ public class SemanticSearchService {
                                     new FilterValue()
                                         .setValue(entityType)
                                         .setFacetCount(
-                                            numResultsPerEntity.get(entityType.toLowerCase())))
+                                            // V3 keys are registry entity names; V2 keys are
+                                            // lower-cased
+                                            numResultsPerEntity.getOrDefault(
+                                                entityType,
+                                                numResultsPerEntity.getOrDefault(
+                                                    entityType.toLowerCase(), 0L))))
                             .collect(Collectors.toList()))));
       }
     }

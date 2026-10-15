@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Union
+from typing import Annotated, Callable, Dict, List, Optional, Sequence, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -12,6 +12,8 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
+    Filters,
     HiddenFromDocs,
 )
 from datahub.configuration.source_common import (
@@ -21,14 +23,27 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+)
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
+from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    sql_structural_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -37,6 +52,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
+from datahub.ingestion.source.unity.proxy_types import (
+    escape_unity_name,
+    qualified_table_name,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
@@ -49,6 +68,13 @@ logger = logging.getLogger(__name__)
 # Configuration default constants
 INCLUDE_TAGS_DEFAULT = True
 INCLUDE_HIVE_METASTORE_DEFAULT = True
+
+# The kinds process_tables judges in one loop, by table_like_rejected_by.
+_TABLE_LIKE_KINDS = (
+    DatasetSubTypes.TABLE,
+    DatasetSubTypes.VIEW,
+    DatasetSubTypes.METRIC_VIEW,
+)
 
 
 class LineageDataSource(ConfigEnum):
@@ -73,7 +99,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
         ),
     )
 
-    # TODO: Support cluster compute as well, for ge profiling
+    # TODO: Support cluster compute as well, for profiling
     warehouse_id: Optional[str] = Field(
         default=None, description="SQL Warehouse id, for running profiling queries."
     )
@@ -98,7 +124,7 @@ class DeltaLakeDetails(ConfigModel):
 class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
     method: Literal["analyze"] = "analyze"
 
-    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
+    # TODO: Reduce duplicate code with DataLakeProfilerConfig, ProfilingConfig, SQLAlchemyConfig
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -136,9 +162,7 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
 
 
 # TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
-class UnityCatalogSQLAlchemyProfilerConfig(
-    UnityCatalogProfilerConfig, GEProfilingConfig
-):
+class UnityCatalogSQLAlchemyProfilerConfig(UnityCatalogProfilerConfig, ProfilingConfig):
     method: Literal["sqlalchemy"] = "sqlalchemy"
 
     max_wait_secs: Optional[int] = Field(
@@ -148,7 +172,7 @@ class UnityCatalogSQLAlchemyProfilerConfig(
 
     # Unity Catalog still uses `method` as a real discriminator (analyze vs
     # sqlalchemy), so cancel the `_method_removed` validator inherited from
-    # GEProfilingConfig (see ge_profiling_config.py) — otherwise it would warn
+    # ProfilingConfig (see profiling/config.py) — otherwise it would warn
     # and strip `method` on every Unity profiling config. The attribute name must
     # match the inherited validator's for the override to take effect.
     @model_validator(mode="before")
@@ -240,34 +264,47 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    catalog_pattern: AllowDenyPattern = Field(
+    catalog_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.CATALOG)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the full `metastore.catalog` name.",
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
 
-    notebook_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
-            " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
-            " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
-        ),
+    notebook_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.NOTEBOOK)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description=(
+                "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
+                " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
+                " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+            ),
+        )
     )
 
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
-    metric_view_pattern: AllowDenyPattern = Field(
+    metric_view_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.METRIC_VIEW)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
@@ -309,9 +346,12 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    include_notebooks: bool = pydantic.Field(
-        default=False,
-        description="Ingest notebooks, represented as DataHub datasets.",
+    # get_workunits_internal runs process_notebooks only with this on.
+    include_notebooks: Annotated[bool, Enables(DatasetSubTypes.NOTEBOOK)] = (
+        pydantic.Field(
+            default=False,
+            description="Ingest notebooks, represented as DataHub datasets.",
+        )
     )
 
     include_ownership: bool = pydantic.Field(
@@ -620,6 +660,151 @@ class UnityCatalogSourceConfig(
 
     def uses_table_level_profiler(self) -> bool:
         return self.is_sqlalchemy_profiling()
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        """sql_probe.py's generic get_identifier shim has no get_identifier to
+        call for Unity Catalog: UnityCatalogSource doesn't extend
+        SQLAlchemySource, and process_tables (source.py) matches table_pattern
+        against `table.ref.qualified_table_name`, i.e.
+        `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
+        reused here rather than reimplemented).
+
+        The catalog is the caller's --parent when given (`database` here), else
+        the one `catalogs` pins. With neither there is no single answer, and
+        the degrade is reported rather than returned silently.
+        """
+        catalog = database
+        if catalog is None and self.catalogs is not None and len(self.catalogs) == 1:
+            catalog = self.catalogs[0]
+        if catalog is not None:
+            return qualified_table_name(catalog, schema, entity)
+
+        warn(
+            "unity-catalog: no catalog given, so table verdicts are matched "
+            "against `schema.table` while ingestion matches "
+            "`catalog.schema.table`; pass the catalog with --parent (or pin a "
+            "single one in `catalogs`) for exact verdicts."
+        )
+        return None
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """For a catalog or schema, the id catalog_pattern and schema_pattern
+        are matched against; the SQL family's identifier for anything else.
+
+        Not the bare name: UnityCatalogApiProxy builds Catalog.id and Schema.id
+        from the escaped names joined with ".", prefixed by the metastore's
+        when include_metastore is set, and process_catalogs / process_schemas
+        filter on those ids.
+        """
+        if ctx.kind == DatasetContainerSubTypes.CATALOG:
+            depth = 0
+        elif ctx.kind == DatasetContainerSubTypes.SCHEMA:
+            depth = 1
+        else:
+            return super().probe_match_target(ctx)
+        if self.include_metastore:
+            depth += 1
+
+        containers = list(ctx.parent_path[-depth:]) if depth else []
+        if (
+            len(containers) < depth
+            and ctx.kind == DatasetContainerSubTypes.SCHEMA
+            and not self.include_metastore
+            and self.catalogs is not None
+            and len(self.catalogs) == 1
+        ):
+            containers = [self.catalogs[0]]
+        if len(containers) < depth:
+            ctx.warn(
+                "unity-catalog matches catalog_pattern and schema_pattern "
+                "against the full id (`[metastore.]catalog[.schema]`); pass the "
+                "containing names with --parent, outermost first, for exact "
+                "verdicts. Judged on the bare name instead."
+            )
+            return ctx.name
+        return ".".join(escape_unity_name(part) for part in [*containers, ctx.name])
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # The metastore has no pattern, so it is left out of the chain; a
+        # --parent naming it is simply not judged. Notebooks live in the
+        # workspace tree, not under a catalog, so they have no container.
+        if kind == DatasetSubTypes.NOTEBOOK:
+            return ()
+        return ancestors_in(
+            (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
+        )
+
+    def pinned_catalogs(self) -> Optional[List[str]]:
+        """The catalogs _get_catalogs reads one by one, or None when it lists
+        every catalog: `catalogs: []` lists all, as an unset one does."""
+        return self.catalogs or None
+
+    def table_like_rejected_by(
+        self, qualified_name: str, *, is_view: bool, is_metric_view: bool
+    ) -> Optional[str]:
+        """The field that makes process_tables drop one table, view or metric
+        view, in the order it checks them, or None when it is ingested.
+        table_pattern applies to every kind; metric_view_pattern only while
+        include_metric_views is on."""
+        if not self.table_pattern.allowed(qualified_name):
+            return "table_pattern"
+        if is_view:
+            if not self.include_views:
+                return "include_views"
+            if not self.view_pattern.allowed(qualified_name):
+                return "view_pattern"
+        elif is_metric_view:
+            if self.include_metric_views and not self.metric_view_pattern.allowed(
+                qualified_name
+            ):
+                return "metric_view_pattern"
+        elif not self.include_tables:
+            return "include_tables"
+        return None
+
+    def notebook_ingested(self, path: str) -> bool:
+        return self.include_notebooks and self.notebook_pattern.allowed(path)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # A kind switch's exclusion (include_views: false) stands.
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in _TABLE_LIKE_KINDS:
+            # Read off this config, which is the copy --try-allow/--try-deny
+            # edited; a tried view_pattern cannot rescue a view table_pattern
+            # drops, and the verdict says which pattern to change.
+            rejected_by = self.table_like_rejected_by(
+                ctx.target,
+                is_view=ctx.kind == DatasetSubTypes.VIEW,
+                is_metric_view=ctx.kind == DatasetSubTypes.METRIC_VIEW,
+            )
+            if rejected_by is None:
+                return Verdict.include()
+            return Verdict.exclude(rejected_by)
+        pinned = self.pinned_catalogs()
+        if ctx.kind == DatasetContainerSubTypes.CATALOG and pinned is not None:
+            # Case-folded because catalogs.get resolves names
+            # case-insensitively and the listing reports the stored name.
+            if ctx.name.casefold() not in {name.casefold() for name in pinned}:
+                return Verdict.exclude("catalogs")
+        return sql_structural_verdict(self, ctx)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: unity_probe imports proxy.py, which imports this module
+        from datahub.ingestion.source.unity.unity_probe import (
+            UnityCatalogMetadataProbe,
+        )
+
+        return UnityCatalogMetadataProbe
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

@@ -153,6 +153,25 @@ def register_handlers(
         )
 
     httpserver.expect_request(
+        f"/dwaas-core/api/v1/spaces/{SPACE}/views",
+        method="GET",
+    ).respond_with_data(
+        # A real tenant lists every design-time View, including ones not
+        # exposed in the catalog.
+        json.dumps(
+            [{"technicalName": n} for n in VIEW_NAMES + SOURCE_OBJECT_VIEW_NAMES]
+        ),
+        content_type="application/json",
+    )
+    httpserver.expect_request(
+        f"/dwaas-core/api/v1/spaces/{SPACE}/analyticmodels",
+        method="GET",
+    ).respond_with_data(
+        json.dumps([{"technicalName": n} for n in ANALYTIC_MODEL_NAMES]),
+        content_type="application/json",
+    )
+
+    httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/localtables",
         method="GET",
     ).respond_with_data(

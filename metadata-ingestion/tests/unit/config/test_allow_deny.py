@@ -49,3 +49,23 @@ def test_case_sensitivity():
     pattern = AllowDenyPattern(allow=["Foo.myTable"], ignoreCase=False)
     assert not pattern.allowed("foo.mytable")
     assert pattern.allowed("Foo.myTable")
+
+
+def test_is_allow_all() -> None:
+    assert AllowDenyPattern.allow_all().is_allow_all()
+    assert AllowDenyPattern(allow=["^prod", ".*"]).is_allow_all()
+    assert not AllowDenyPattern(deny=["^tmp_"]).is_allow_all()
+    assert not AllowDenyPattern(allow=["^prod$"]).is_allow_all()
+    assert not AllowDenyPattern(allow=[]).is_allow_all()
+
+
+def test_is_allow_all_survives_the_regex_cache() -> None:
+    # allowed() stores compiled regexes in __dict__, which is what __eq__
+    # compares, so a used default stops equalling a fresh allow_all().
+    pattern = AllowDenyPattern.allow_all()
+    assert pattern.allowed("analytics.orders")
+    assert pattern.is_allow_all()
+
+
+def test_is_allow_all_ignores_ignore_case() -> None:
+    assert AllowDenyPattern(allow=[".*"], ignoreCase=False).is_allow_all()

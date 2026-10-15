@@ -1,42 +1,20 @@
-import { Icon, Switch, Text } from '@components';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
-import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/CronField';
+import { ScheduleFields } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleFields';
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 import { useScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/useScheduleStepSubtitle';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
-import { lowerFirstLetter } from '@app/shared/textUtil';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
-import { cronToString } from '@utils/cronstrue';
 
 const SectionContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
-`;
-
-const SwitchLabel = styled.div`
-    display: flex;
-    gap: 2px;
-`;
-
-const WarningContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-`;
-
-const TimezoneContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 `;
 
 export function ScheduleSection() {
@@ -52,28 +30,6 @@ export function ScheduleSection() {
     const subtitle = useScheduleStepSubtitle();
 
     const analyticsRef = useRef(false);
-
-    const cronAsText = useMemo(() => {
-        if (scheduleCronInterval) {
-            try {
-                return {
-                    text: t('multiStep.schedule.runs', {
-                        schedule: lowerFirstLetter(cronToString(scheduleCronInterval)),
-                    }),
-                    error: false,
-                };
-            } catch (e) {
-                return {
-                    text: undefined,
-                    error: true,
-                };
-            }
-        }
-        return {
-            text: undefined,
-            error: false,
-        };
-    }, [scheduleCronInterval, t]);
 
     useEffect(() => {
         if (scheduleEnabled) {
@@ -111,38 +67,14 @@ export function ScheduleSection() {
     return (
         <SectionContainer data-testid="sync-schedule-section">
             <SectionName name={t('multiStep.schedule.title')} description={subtitle} />
-            <SwitchLabel>
-                <Text size="sm" weight="bold" color="gray" colorLevel={600}>
-                    {t('multiStep.schedule.runOnSchedule')}
-                </Text>
-                <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
-                    {t('multiStep.schedule.recommended')}
-                </Text>
-            </SwitchLabel>
-            <Switch
-                label={t('multiStep.schedule.switchLabel')}
-                checked={scheduleEnabled}
-                onChange={(e) => setScheduleEnabled(e.target.checked)}
-                labelPosition="right"
-                data-testid="schedule-enabled-switch"
+            <ScheduleFields
+                scheduleEnabled={scheduleEnabled}
+                onScheduleEnabledChange={setScheduleEnabled}
+                cronInterval={scheduleCronInterval}
+                onCronIntervalChange={setScheduleCronInterval}
+                timezone={scheduleTimezone}
+                onTimezoneChange={setScheduleTimezone}
             />
-            {!scheduleEnabled && (
-                <WarningContainer>
-                    <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
-                    <Text color="yellow" colorLevel={1000} size="sm">
-                        {t('multiStep.schedule.noScheduleWarning')}
-                    </Text>
-                </WarningContainer>
-            )}
-            <CronField
-                scheduleCronInterval={scheduleCronInterval}
-                setScheduleCronInterval={setScheduleCronInterval}
-                cronAsText={cronAsText}
-            />
-            <TimezoneContainer>
-                <Text color="gray">{t('multiStep.schedule.chooseTimezone')}</Text>
-                <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
-            </TimezoneContainer>
         </SectionContainer>
     );
 }

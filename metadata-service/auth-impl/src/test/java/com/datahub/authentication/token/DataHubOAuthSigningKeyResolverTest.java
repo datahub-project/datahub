@@ -32,7 +32,7 @@ public class DataHubOAuthSigningKeyResolverTest {
   private DataHubOAuthSigningKeyResolver resolver;
   private HttpClient mockHttpClient;
   private HttpResponse<String> mockHttpResponse;
-  private JwsHeader<?> mockJwsHeader;
+  private JwsHeader mockJwsHeader;
   private Claims mockClaims;
 
   @BeforeMethod

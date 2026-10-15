@@ -142,6 +142,8 @@ function formatEntityType(type: string): string {
             return EntityType.Dashboard;
         case 'chart':
             return EntityType.Chart;
+        case 'metric':
+            return EntityType.Metric;
         case 'tag':
             return EntityType.Tag;
         case 'dataflow':

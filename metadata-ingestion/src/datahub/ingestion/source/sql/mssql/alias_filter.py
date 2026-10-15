@@ -4,7 +4,11 @@ from typing import Callable, Iterable, Iterator, List, Optional, Set
 
 from datahub.emitter.mce_builder import dataset_urn_to_key
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.ingestion.api.incremental_lineage_helper import datajob_lineage_is_empty
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    FineGrainedLineageClass,
+)
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -12,6 +16,26 @@ logger = logging.getLogger(__name__)
 
 # MSSQL requires 3-part naming: database.schema.table
 MSSQL_QUALIFIED_NAME_PARTS = 3
+
+
+def _split_by_downstream(
+    cll: FineGrainedLineageClass,
+) -> List[FineGrainedLineageClass]:
+    if len(cll.downstreams or []) <= 1:
+        return [cll]
+    return [
+        FineGrainedLineageClass(
+            upstreamType=cll.upstreamType,
+            downstreamType=cll.downstreamType,
+            upstreams=list(cll.upstreams or []),
+            downstreams=[downstream],
+            transformOperation=cll.transformOperation,
+            confidenceScore=cll.confidenceScore,
+            query=cll.query,
+            matchType=cll.matchType,
+        )
+        for downstream in cll.downstreams or []
+    ]
 
 
 class MSSQLAliasFilter:
@@ -29,10 +53,12 @@ class MSSQLAliasFilter:
         self,
         is_discovered_table: Callable[[str], bool],
         platform_instance: Optional[str] = None,
+        is_discovered_procedure: Optional[Callable[[str], bool]] = None,
     ):
         """Initialize the alias filter with discovered table checker and optional platform instance."""
         self.is_discovered_table = is_discovered_table
         self.platform_instance = platform_instance
+        self.is_discovered_procedure = is_discovered_procedure
 
     def _is_qualified_table_urn(self, urn: str) -> bool:
         """
@@ -218,6 +244,29 @@ class MSSQLAliasFilter:
                 filtered_downstreams.append(field_urn)
         return filtered_downstreams
 
+    def _filter_undiscovered_calls(
+        self, datajob_urns: List[str], procedure_name: Optional[str]
+    ) -> List[str]:
+        """Drop calls to procedures this run never emitted a dataJob for.
+
+        A call site only gives a name. System procedures (`sp_rename`,
+        `msdb.dbo.sp_send_dbmail`) resolve like any other, as do procedures excluded
+        by `procedure_pattern` or living in a database this run did not read. Checking
+        against what the run emitted catches every case without maintaining a list of
+        system names.
+        """
+        assert self.is_discovered_procedure is not None
+
+        kept = [urn for urn in datajob_urns if self.is_discovered_procedure(urn)]
+        for urn in datajob_urns:
+            if urn not in kept:
+                logger.info(
+                    "Dropping call to an undiscovered procedure in %s: %s",
+                    procedure_name,
+                    urn,
+                )
+        return kept
+
     def _filter_column_lineage(
         self,
         aspect: DataJobInputOutputClass,
@@ -307,7 +356,14 @@ class MSSQLAliasFilter:
 
             # Only keep column lineage if it has both upstreams and downstreams
             if cll.upstreams and cll.downstreams:
-                filtered_column_lineage.append(cll)
+                # One entry per downstream. Remapping an alias to several real tables
+                # is the only way an entry here gets more than one, and the server
+                # rejects that shape: a patch is keyed on a single downstream, and
+                # once such an entry is stored every later patch to the dataJob throws
+                # before it is applied, freezing all of its lineage. Splitting is
+                # lossless -- the server models column lineage one downstream at a
+                # time regardless.
+                filtered_column_lineage.extend(_split_by_downstream(cll))
 
         aspect.fineGrainedLineages = (
             filtered_column_lineage if filtered_column_lineage else None
@@ -362,8 +418,15 @@ class MSSQLAliasFilter:
                     filtered_downstream_aliases,
                 )
 
-                # Skip aspect only if BOTH inputs and outputs are empty
-                if not aspect.inputDatasets and not aspect.outputDatasets:
+                if aspect.inputDatajobs and self.is_discovered_procedure is not None:
+                    aspect.inputDatajobs = self._filter_undiscovered_calls(
+                        aspect.inputDatajobs, procedure_name
+                    )
+
+                # Every lineage field counts, not just the dataset arrays, so a body
+                # that only calls other procedures keeps its `inputDatajobs`. Shares
+                # the source's emptiness test, so nothing kept here is dropped later.
+                if datajob_lineage_is_empty(aspect):
                     logger.warning(
                         "Skipping lineage for %s: all tables were filtered",
                         procedure_name,

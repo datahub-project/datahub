@@ -134,6 +134,12 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
+    for kind in ("views", "analyticmodels"):
+        httpserver.expect_request(
+            f"/dwaas-core/api/v1/spaces/LINEAGE_TEST/{kind}",
+            method="GET",
+        ).respond_with_data("[]", content_type="application/json")
+
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
         method="GET",
@@ -335,6 +341,12 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
         _fixture_text("connections_lineage.json"),
         content_type="application/json",
     )
+
+    for kind in ("views", "analyticmodels"):
+        httpserver.expect_request(
+            f"/dwaas-core/api/v1/spaces/LINEAGE_TEST/{kind}",
+            method="GET",
+        ).respond_with_data("[]", content_type="application/json")
 
     output_file = tmp_path / "out.json"
     pipeline_config = {

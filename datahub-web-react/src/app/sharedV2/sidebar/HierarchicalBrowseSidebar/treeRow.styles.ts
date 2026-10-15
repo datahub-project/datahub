@@ -3,6 +3,12 @@ import styled, { css } from 'styled-components';
 import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { getTreeRowPaddingLeft } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/treeRowChrome';
 
+function treeRowPadding(isCollapsed?: boolean, multilineLabel?: boolean): string {
+    if (isCollapsed) return '4px 0';
+    if (multilineLabel) return '8px 8px 8px 0';
+    return '4px 8px 4px 0';
+}
+
 /** Shared row height / gap for tree, home, and collapsed rail. */
 export const treeRowHitTarget = css`
     position: relative;
@@ -161,14 +167,21 @@ export const treeRowHoverChrome = css`
 export const TreeRowContainer = styled.div<{
     $isSelected: boolean;
     $isCollapsed?: boolean;
+    $multilineLabel?: boolean;
 }>`
     ${treeRowHitTarget}
     display: flex;
-    align-items: center;
+    align-items: ${(props) => (props.$multilineLabel ? 'flex-start' : 'center')};
     justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'space-between')};
     /* Level indent on ExpandZone; match right inset so selected rows aren’t lopsided. */
-    padding: ${(props) => (props.$isCollapsed ? '4px 0' : '4px 8px 4px 0')};
+    padding: ${(props) => treeRowPadding(props.$isCollapsed, props.$multilineLabel)};
     cursor: pointer;
+
+    ${(props) =>
+        props.$multilineLabel &&
+        css`
+            height: auto;
+        `}
 
     ${(props) => !props.$isCollapsed && treeRowInteractionBg}
     ${(props) => !props.$isCollapsed && treeRowHoverChrome}
@@ -178,18 +191,19 @@ export const TreeRowContainer = styled.div<{
  * Indent + icon: expand/collapse tap target for parents. Title stays outside so
  * it remains navigation. Leaves let clicks bubble to the row.
  */
-export const TreeRowExpandZone = styled.div<{ $level: number; $expandable: boolean }>`
+export const TreeRowExpandZone = styled.div<{ $level: number; $expandable: boolean; $multilineLabel?: boolean }>`
     display: flex;
-    align-items: center;
+    align-items: ${(props) => (props.$multilineLabel ? 'flex-start' : 'center')};
     align-self: stretch;
     padding-left: ${(props) => getTreeRowPaddingLeft(props.$level)}px;
+    padding-top: ${(props) => (props.$multilineLabel ? '2px' : '0')};
     flex-shrink: 0;
     cursor: ${(props) => (props.$expandable ? 'pointer' : 'inherit')};
 `;
 
-export const TreeRowLeftContent = styled.div<{ $isCollapsed?: boolean }>`
+export const TreeRowLeftContent = styled.div<{ $isCollapsed?: boolean; $multilineLabel?: boolean }>`
     display: flex;
-    align-items: center;
+    align-items: ${(props) => (props.$multilineLabel ? 'flex-start' : 'center')};
     ${(props) =>
         props.$isCollapsed
             ? `flex: 0 0 auto;`
@@ -201,10 +215,11 @@ export const TreeRowLeftContent = styled.div<{ $isCollapsed?: boolean }>`
 `;
 
 /** Shared by tree rows and home nav. */
-export const TreeRowTitle = styled.span<{ $isSelected: boolean }>`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+export const TreeRowTitle = styled.span<{ $isSelected: boolean; $multiline?: boolean }>`
+    overflow: ${(props) => (props.$multiline ? 'visible' : 'hidden')};
+    text-overflow: ${(props) => (props.$multiline ? 'unset' : 'ellipsis')};
+    white-space: ${(props) => (props.$multiline ? 'normal' : 'nowrap')};
+    display: ${(props) => (props.$multiline ? 'block' : 'inline')};
     font-size: 14px;
     line-height: 20px;
     color: ${(props) => props.theme.colors.textSecondary};

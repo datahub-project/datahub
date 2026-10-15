@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, Mock, call, patch
 
 import boto3
@@ -401,6 +401,68 @@ def test_ingest_table_records_schema_and_tagging_instrumentation(s3_resource):
     list(source.ingest_table(table_data, path_spec))
 
     assert source.report.tables_tagged == 1
+
+
+def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resource):
+    """With inference enabled but get_fields failing (e.g. credentials can list
+    but not read the object), ingest_table emits no SchemaMetadata and must not
+    leave a dangling schema_inferred_from naming a file whose schema was never
+    emitted."""
+    from datahub.metadata.schema_classes import (
+        DatasetPropertiesClass,
+        SchemaMetadataClass,
+    )
+
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/{table}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
+
+    source = S3Source.create(
+        config_dict={
+            "path_spec": {
+                "include": path_spec.include,
+                "table_name": path_spec.table_name,
+            },
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    # Simulate a read failure during schema inference while listing still works.
+    get_fields_mock = Mock(side_effect=OSError("cannot read object"))
+    source.get_fields = get_fields_mock  # type: ignore[method-assign]
+
+    full_path = "s3://my-bucket/my-folder/table1/data.csv"
+    table_data = TableData(
+        display_name="table1",
+        is_s3=True,
+        full_path=full_path,
+        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        table_path=full_path,
+        size_in_bytes=12,
+        number_of_files=1,
+    )
+
+    workunits = list(source.ingest_table(table_data, path_spec))
+    aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if hasattr(wu.metadata, "aspect") and wu.metadata.aspect is not None
+    ]
+
+    assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
+    get_fields_mock.assert_called_once()
+
+    dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
+    assert "schema_inferred_from" not in dataset_props.customProperties
 
 
 def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
@@ -1105,3 +1167,121 @@ def test_data_lake_s3_calls(seeded_local_system_bucket, calls_test_tuple):
         calls.append(c)
 
     assert calls == expected_calls
+
+
+@pytest.mark.parametrize(
+    "full_path,enable_compression,default_extension,expected",
+    [
+        # Plain supported extension is kept as-is.
+        pytest.param("s3://b/data.json", True, None, ".json", id="plain_json"),
+        pytest.param("s3://b/data.parquet", True, None, ".parquet", id="plain_parquet"),
+        pytest.param("s3://b/data.jsonl", True, None, ".jsonl", id="plain_jsonl"),
+        # Compression with a supported inner extension is unwrapped.
+        pytest.param("s3://b/data.json.gz", True, None, ".json", id="json_gz"),
+        pytest.param("s3://b/data.parquet.gz", True, None, ".parquet", id="parquet_gz"),
+        pytest.param("s3://b/data.jsonl.gz", True, None, ".jsonl", id="jsonl_gz"),
+        pytest.param("s3://b/data.json.bz2", True, None, ".json", id="json_bz2"),
+        # Uppercase extensions are normalised to lowercase.
+        pytest.param("s3://b/data.JSON", True, None, ".json", id="uppercase_json"),
+        pytest.param(
+            "s3://b/data.PARQUET.GZ", True, None, ".parquet", id="uppercase_parquet_gz"
+        ),
+        # Compression-only files fall through to default_extension.
+        pytest.param(
+            "s3://b/data.gz", True, "json", ".json", id="gz_only_with_default"
+        ),
+        pytest.param("s3://b/data.gz", True, None, "", id="gz_only_no_default"),
+        # File names with dots in the stem must not produce a fake extension.
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc.gz",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_compressed_falls_back_to_default",
+        ),
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_uncompressed_falls_back_to_default",
+        ),
+        # No default_extension and a fake suffix -> empty (no inferrer).
+        pytest.param(
+            "s3://b/foo.bar.baz-abc.gz",
+            True,
+            None,
+            "",
+            id="dotted_stem_compressed_no_default",
+        ),
+        # enable_compression=False keeps the .gz suffix as the apparent extension,
+        # which is not a supported file type, so it falls back to default_extension.
+        pytest.param(
+            "s3://b/data.json.gz",
+            False,
+            "json",
+            ".json",
+            id="compression_disabled_falls_back",
+        ),
+    ],
+)
+def test_resolve_format_extension(
+    full_path: str,
+    enable_compression: bool,
+    default_extension: Optional[str],
+    expected: str,
+) -> None:
+    path_spec = PathSpec(
+        include="s3://b/{table}/*",
+        enable_compression=enable_compression,
+        default_extension=default_extension,
+    )
+    assert path_spec.resolve_format_extension(full_path) == expected
+
+
+@pytest.mark.parametrize(
+    "path,default_extension,file_types,expected",
+    [
+        # Recognised format in file_types -> allowed.
+        pytest.param("s3://b/t/data.json", None, None, True, id="known_format_allowed"),
+        pytest.param(
+            "s3://b/t/data.json.gz", None, None, True, id="known_format_compressed"
+        ),
+        # Recognised format excluded by file_types -> skipped.
+        pytest.param(
+            "s3://b/t/data.json", None, ["csv"], False, id="known_format_not_wanted"
+        ),
+        # Fake extension from a dotted stem: without a default it is skipped, with a
+        # default it is allowed (this is the motivating case for the fix).
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            None,
+            None,
+            False,
+            id="dotted_stem_no_default_skipped",
+        ),
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            "json",
+            None,
+            True,
+            id="dotted_stem_with_default_allowed",
+        ),
+        # No extension behaves the same as a fake one.
+        pytest.param("s3://b/t/data", None, None, False, id="no_ext_no_default"),
+        pytest.param("s3://b/t/data", "json", None, True, id="no_ext_with_default"),
+    ],
+)
+def test_allowed_resolves_format_extension(
+    path: str,
+    default_extension: Optional[str],
+    file_types: Optional[List[str]],
+    expected: bool,
+) -> None:
+    kwargs: dict = {"include": "s3://b/{table}/*"}
+    if default_extension is not None:
+        kwargs["default_extension"] = default_extension
+    if file_types is not None:
+        kwargs["file_types"] = file_types
+    path_spec = PathSpec(**kwargs)
+    assert path_spec.allowed(path) is expected

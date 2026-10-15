@@ -11,7 +11,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.source.profiling.config import ProfilingBaseConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -124,8 +124,8 @@ class CassandraSourceConfig(
         description="Regex patterns for tables to profile",
     )
 
-    profiling: GEProfilingBaseConfig = Field(
-        default=GEProfilingBaseConfig(),
+    profiling: ProfilingBaseConfig = Field(
+        default=ProfilingBaseConfig(),
         description="Configuration for profiling",
     )
 

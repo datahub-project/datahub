@@ -1,21 +1,39 @@
 package auth.metrics;
 
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import health.FrontendProbeState;
+import health.FrontendProbeState.Readiness;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Minimal HTTP listener for Micrometer Prometheus scrape (parity with Spring Actuator on :4319).
+ * Minimal HTTP listener for Micrometer Prometheus scrape and Kubernetes probes (parity with Spring
+ * Actuator on :4319).
+ *
+ * <p>This listener has its own thread pool and does not share the Play/Pekko connection table, so
+ * {@code /health/live} and {@code /health/ready} can still respond when Play is saturated. Paths
+ * are not prefixed with {@code DATAHUB_BASE_PATH}.
  */
 @Slf4j
 public final class PrometheusScrapeServer {
 
-  /** Last server started by {@link #startIfConfigured}; cleared when stopped. For tests only. */
+  /**
+   * In-flight {@code /health/live} and {@code /health/ready} calls on this listener. Play's {@code
+   * play_http_requests_inflight} counts {@code /admin} and {@code /health} on port 9002; these
+   * probes are not in that chain.
+   */
+  static final String HEALTH_INFLIGHT = "frontend_management_health_inflight";
+
+  /** Last server started by {@link #startIfConfigured}; cleared by {@link #stopIfRunning()}. */
   private static volatile HttpServer activeScrapeServer;
 
   /**
@@ -26,13 +44,25 @@ public final class PrometheusScrapeServer {
 
   private PrometheusScrapeServer() {}
 
-  /** Stops the server bound by {@link #startIfConfigured}, if any. For unit tests only. */
-  static void stopActiveScrapeServerForTests() {
+  /**
+   * Stops the server bound by {@link #startIfConfigured}, if any.
+   *
+   * <p>Called from a late Pekko CoordinatedShutdown phase (see {@code
+   * config.GracefulShutdownModule}) rather than a JVM shutdown hook. JVM hooks run concurrently
+   * with CoordinatedShutdown, so a hook would close this listener at SIGTERM and {@code
+   * /health/ready} could never report 503 while Play drains.
+   */
+  public static void stopIfRunning() {
     HttpServer server = activeScrapeServer;
     activeScrapeServer = null;
     if (server != null) {
       server.stop(0);
     }
+  }
+
+  /** Stops the server bound by {@link #startIfConfigured}, if any. For unit tests only. */
+  static void stopActiveScrapeServerForTests() {
+    stopIfRunning();
   }
 
   /**
@@ -48,7 +78,8 @@ public final class PrometheusScrapeServer {
 
   /**
    * If {@code MANAGEMENT_SERVER_PORT} is set, binds {@code 0.0.0.0}:{port} and serves {@code GET
-   * /actuator/prometheus}. Stopped on JVM shutdown.
+   * /health/live} and {@code GET /health/ready}. {@code GET /actuator/prometheus} is served only
+   * when a Prometheus registry is provided. Stopped by {@link #stopIfRunning()}.
    */
   public static void startIfConfigured(PrometheusMeterRegistry prometheusRegistry) {
     String portStr =
@@ -69,8 +100,8 @@ public final class PrometheusScrapeServer {
       HttpServer server = createAndStart(prometheusRegistry, port);
       activeScrapeServer = server;
       log.info(
-          "Micrometer Prometheus scrape endpoint at http://0.0.0.0:{}/actuator/prometheus", port);
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
+          "Management endpoints at http://0.0.0.0:{} (/actuator/prometheus, /health/live, /health/ready)",
+          port);
     } catch (IOException e) {
       log.error("Failed to bind Micrometer Prometheus scrape server on port {}", port, e);
     }
@@ -88,31 +119,97 @@ public final class PrometheusScrapeServer {
   private static HttpServer createAndStart(PrometheusMeterRegistry prometheusRegistry, int port)
       throws IOException {
     HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+    AtomicInteger healthInFlight = new AtomicInteger();
+    if (prometheusRegistry != null) {
+      Gauge.builder(HEALTH_INFLIGHT, healthInFlight, AtomicInteger::get)
+          .description(
+              "In-flight /health/live and /health/ready on the management listener, not the Play filter chain")
+          .strongReference(true)
+          .register(prometheusRegistry);
+      server.createContext(
+          "/actuator/prometheus",
+          exchange -> {
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+              exchange.sendResponseHeaders(405, -1);
+              exchange.close();
+              return;
+            }
+            byte[] body = prometheusRegistry.scrape().getBytes(StandardCharsets.UTF_8);
+            exchange
+                .getResponseHeaders()
+                .add("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+              os.write(body);
+            }
+          });
+    }
     server.createContext(
-        "/actuator/prometheus",
-        exchange -> {
-          if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            exchange.sendResponseHeaders(405, -1);
-            exchange.close();
-            return;
-          }
-          byte[] body = prometheusRegistry.scrape().getBytes(StandardCharsets.UTF_8);
-          exchange
-              .getResponseHeaders()
-              .add("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-          exchange.sendResponseHeaders(200, body.length);
-          try (OutputStream os = exchange.getResponseBody()) {
-            os.write(body);
-          }
-        });
-    server.setExecutor(
-        Executors.newSingleThreadExecutor(
+        "/health/live",
+        exchange -> track(healthInFlight, exchange, ex -> sendPlainText(ex, 200, "LIVE")));
+    server.createContext(
+        "/health/ready",
+        exchange ->
+            track(
+                healthInFlight,
+                exchange,
+                ex -> {
+                  Readiness readiness = FrontendProbeState.readiness();
+                  if (readiness == Readiness.READY) {
+                    sendPlainText(ex, 200, "READY");
+                  } else {
+                    sendPlainText(ex, 503, readinessBody(readiness));
+                  }
+                }));
+    // A scrape must not block a probe, so this is not a single thread.
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            2,
             r -> {
-              Thread t = new Thread(r, "prometheus-scrape");
+              Thread t = new Thread(r, "frontend-management");
               t.setDaemon(true);
               return t;
-            }));
+            });
+    server.setExecutor(executor);
     server.start();
     return server;
+  }
+
+  private static void track(AtomicInteger inFlight, HttpExchange exchange, HealthHandler handler)
+      throws IOException {
+    inFlight.incrementAndGet();
+    try {
+      handler.handle(exchange);
+    } finally {
+      inFlight.decrementAndGet();
+    }
+  }
+
+  @FunctionalInterface
+  private interface HealthHandler {
+    void handle(HttpExchange exchange) throws IOException;
+  }
+
+  private static String readinessBody(Readiness readiness) {
+    return switch (readiness) {
+      case SHUTTING_DOWN -> "Shutting down";
+      case SATURATED -> "Saturated";
+      case STARTING, READY -> "Starting";
+    };
+  }
+
+  private static void sendPlainText(HttpExchange exchange, int status, String body)
+      throws IOException {
+    if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+      exchange.sendResponseHeaders(405, -1);
+      exchange.close();
+      return;
+    }
+    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+    exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+    exchange.sendResponseHeaders(status, bytes.length);
+    try (OutputStream os = exchange.getResponseBody()) {
+      os.write(bytes);
+    }
   }
 }

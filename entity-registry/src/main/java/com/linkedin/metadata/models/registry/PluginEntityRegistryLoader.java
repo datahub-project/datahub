@@ -104,9 +104,11 @@ public class PluginEntityRegistryLoader {
                     .filter(x -> x.getNameCount() - rootDepth == 2)
                     .collect(Collectors.toList());
             log.debug("Size of list {}", paths.size());
-            log.debug(
-                "Paths : {}",
-                paths.stream().map(x -> x.toString() + ";").collect(Collectors.joining()));
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  "Paths : {}",
+                  paths.stream().map(x -> x.toString() + ";").collect(Collectors.joining()));
+            }
             List<Path> versionedPaths =
                 paths.stream()
                     .filter(
@@ -134,9 +136,11 @@ public class PluginEntityRegistryLoader {
                           }
                         })
                     .collect(Collectors.toList());
-            log.debug(
-                "Will be loading paths in this order {}",
-                versionedPaths.stream().map(p -> p.toString()).collect(Collectors.joining(";")));
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  "Will be loading paths in this order {}",
+                  versionedPaths.stream().map(p -> p.toString()).collect(Collectors.joining(";")));
+            }
 
             for (Path x : versionedPaths) {
               try {

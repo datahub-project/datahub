@@ -972,15 +972,16 @@ def test_embedding_stats_aggregation(notion_source):
 
 
 def test_notion_types_filter_unknown_fields_paragraph_icon():
-    """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
+    """unstructured-ingest 1.4.28 models Paragraph.icon (AI-603); construction must succeed."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
     NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
-    paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
+    icon = {"type": "emoji", "emoji": "📝"}
+    paragraph = Paragraph(color="default", icon=icon)
     assert paragraph.color == "default"
-    assert not hasattr(paragraph, "icon")
+    assert paragraph.icon == icon
 
 
 def test_notion_types_filter_unknown_fields_page_is_archived():
@@ -1066,10 +1067,11 @@ def test_icon_dispatcher_handles_none_payload():
 
 
 def test_icon_dispatcher_unknown_types_preserves_known_types():
-    """Emoji and external icons must still parse correctly after the patch."""
+    """Emoji, external, and file icons must still parse after the patch."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
         EmojiIcon,
+        FileIcon,
         Icon,
     )
 
@@ -1078,6 +1080,80 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
     assert isinstance(emoji_result, EmojiIcon)
     assert emoji_result.emoji == "📝"
+
+    file_result = Icon.from_dict(
+        {"type": "file", "file": {"url": "https://example.com/icon.png"}}
+    )
+    assert isinstance(file_result, FileIcon)
+
+
+def test_unstructured_ingest_syncblock_handles_null_synced_from():
+    """1.4.28 already treats synced_from=null as an original block; do not re-patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+        SyncBlock,
+    )
+
+    original = SyncBlock.from_dict({"synced_from": None})
+    assert isinstance(original, OriginalSyncedBlock)
+
+    duplicate = SyncBlock.from_dict(
+        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    )
+    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert duplicate.block_id == "abc"
+
+
+def test_empty_original_synced_block_is_reported(
+    notion_source, config, pipeline_context
+):
+    """Report empty original synced blocks using the outer Block id, once per wrap."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+    )
+
+    def block_payload(block_id: str, synced_block: dict) -> dict:
+        return {
+            "id": block_id,
+            "type": "synced_block",
+            "created_time": "2024-01-01T00:00:00.000Z",
+            "last_edited_time": "2024-01-01T00:00:00.000Z",
+            "created_by": {"id": "user-1"},
+            "last_edited_by": {"id": "user-1"},
+            "archived": False,
+            "in_trash": False,
+            "has_children": True,
+            "parent": {"type": "page_id", "page_id": "page-1"},
+            "synced_block": synced_block,
+        }
+
+    notion_source._warn_on_empty_original_synced_blocks()
+    notion_source._warn_on_empty_original_synced_blocks()
+
+    empty = Block.from_dict(block_payload("block-empty", {"synced_from": None}))
+    assert isinstance(empty.block, OriginalSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+    assert "block-empty" in list(notion_source.report.synced_blocks_skipped)
+
+    duplicate = Block.from_dict(
+        block_payload(
+            "block-dup",
+            {"synced_from": {"type": "block_id", "block_id": "abc"}},
+        )
+    )
+    assert isinstance(duplicate.block, DuplicateSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+    other_source = NotionSource(config=config, ctx=pipeline_context)
+    other_source._warn_on_empty_original_synced_blocks()
+    Block.from_dict(block_payload("block-other", {"synced_from": None}))
+    assert other_source.report.num_synced_blocks_skipped == 1
+    assert notion_source.report.num_synced_blocks_skipped == 1
 
 
 def _document_entity_test_setup(notion_source, side_effect):

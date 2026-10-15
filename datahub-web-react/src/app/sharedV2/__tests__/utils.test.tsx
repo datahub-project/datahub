@@ -1,38 +1,43 @@
+import { Binary } from '@phosphor-icons/react/dist/csr/Binary';
+import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { TextAUnderline } from '@phosphor-icons/react/dist/csr/TextAUnderline';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
 import { render } from '@testing-library/react';
+import React from 'react';
 
 import { ColumnTypeIcon, TypeTooltipTitle } from '@app/sharedV2/utils';
 
 import { SchemaFieldDataType } from '@types';
 
+function renderIconHtml(node: JSX.Element | null) {
+    return render(node as JSX.Element).container.innerHTML;
+}
+
 describe('ColumnTypeIcon', () => {
-    it('should return FontColorsOutlined for String type', () => {
-        const { container } = render(ColumnTypeIcon(SchemaFieldDataType.String) as JSX.Element);
-        expect(container.querySelector('.anticon-font-colors')).toBeInTheDocument();
+    it('should return TextAUnderline for String type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.String))).toBe(renderIconHtml(<TextAUnderline />));
     });
 
-    it('should return CalendarOutlined for Date type', () => {
-        const { container } = render(ColumnTypeIcon(SchemaFieldDataType.Date) as JSX.Element);
-        expect(container.querySelector('.anticon-calendar')).toBeInTheDocument();
+    it('should return CalendarBlank for Date type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Date))).toBe(renderIconHtml(<CalendarBlank />));
     });
 
-    it('should return ClockCircleOutlined for Time type', () => {
-        const { container } = render(ColumnTypeIcon(SchemaFieldDataType.Time) as JSX.Element);
-        expect(container.querySelector('.anticon-clock-circle')).toBeInTheDocument();
+    it('should return Clock for Time type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Time))).toBe(renderIconHtml(<Clock />));
     });
 
-    it('should return BoldOutlined for Boolean type', () => {
-        const { container } = render(ColumnTypeIcon(SchemaFieldDataType.Boolean) as JSX.Element);
-        expect(container.querySelector('.anticon-bold')).toBeInTheDocument();
+    it('should return TextB for Boolean type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Boolean))).toBe(renderIconHtml(<TextB />));
     });
 
-    it('should return FieldBinaryOutlined for Bytes type', () => {
-        const { container } = render(ColumnTypeIcon(SchemaFieldDataType.Bytes) as JSX.Element);
-        expect(container.querySelector('.anticon-field-binary')).toBeInTheDocument();
+    it('should return Binary for Bytes type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Bytes))).toBe(renderIconHtml(<Binary />));
     });
 
-    it('should return ProfileOutlined for unknown type', () => {
-        const { container } = render(ColumnTypeIcon(undefined) as JSX.Element);
-        expect(container.querySelector('.anticon-profile')).toBeInTheDocument();
+    it('should return Question for unknown type', () => {
+        expect(renderIconHtml(ColumnTypeIcon(undefined))).toBe(renderIconHtml(<Question />));
     });
 });
 

@@ -1817,11 +1817,19 @@ URN of the following format:
 urn:li:assertion:<unique-assertion-id>
 ```
 
-2. Generate the [**AssertionInfo**](/docs/generated/metamodel/entities/assertion.md#assertion-info) aspect for the assertion. You can do this using the Python SDK. Give your assertion a `type` and a `source`
-   with type `EXTERNAL` to mark it as an external assertion, not run by DataHub itself.
+2. Generate the [**AssertionInfo**](/docs/generated/metamodel/entities/assertion.md#assertion-info) aspect for the assertion. You can do this using the Python SDK. Set `type` to `CUSTOM`, populate
+   `customAssertion` (targeting the dataset), and set a `source` with type `EXTERNAL` to mark it as an external assertion, not run by DataHub itself.
+   Also emit a `dataPlatformInstance` aspect identifying the tool that runs the assertion.
 
 3. Generate the [**AssertionRunEvent**](/docs/generated/metamodel/entities/assertion.md#assertionrunevent-timeseries) timeseries aspect using the Python SDK. This aspect should contain the result of the assertion
    run at a given timestamp and will be shown on the results graph in DataHub's UI.
+
+Write the `assertionInfo` aspect **before** reporting any run events. A run event for an assertion without
+`assertionInfo` creates an otherwise empty assertion entity that is not linked to the dataset, so its results won't
+appear on the dataset or contribute to its health.
+
+For most integrations, the recommended path is the `upsertCustomAssertion` / `reportAssertionResult` GraphQL APIs
+(or their Python SDK equivalents), described in [Custom Assertions](/docs/api/tutorials/custom-assertions.md).
 
 ## Create and Remove Subscriptions
 

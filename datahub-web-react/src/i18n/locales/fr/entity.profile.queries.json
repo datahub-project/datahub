@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Copier la requête",
-    "emptyQueries.noHighlightedQueries": "Aucune requête mise en avant pour le moment",
     "queriesTab.addHighlightedQueryButton": "Ajouter une requête mise en avant",
     "queriesTab.addHighlightedQueryTooltip": "Ajouter une requête mise en avant",
     "queriesTab.addUnauthorizedMessage": "Vous n'êtes pas autorisé à ajouter des requêtes à cette entité.",
@@ -8,6 +7,8 @@
     "queriesTab.downstreamQueriesTooltip": "Requêtes qui alimentent les Assets en aval",
     "queriesTab.highlightedQueriesTitle": "Requêtes mises en avant",
     "queriesTab.highlightedQueriesTooltip": "Requêtes sélectionnées pertinentes pour ce dataset",
+    "queriesTab.noViewPermission": "Vous n'avez pas l'autorisation d'afficher les requêtes de ce Dataset.",
+    "queriesTab.queriesTitle": "Requêtes",
     "queriesTab.recentQueriesTitle": "Requêtes récentes",
     "queriesTab.recentQueriesTooltip": "Requêtes récemment exécutées sur ce dataset",
     "queryBuilderModal.createError": "Échec de la création de la requête! Une erreur inattendue s'est produite",

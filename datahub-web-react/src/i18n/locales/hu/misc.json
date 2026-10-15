@@ -146,6 +146,8 @@
     "metrics.homeEmptyTitle": "Még nincsenek betöltött metrikák",
     "metrics.homeEmptyDescription": "Amint metrikák és szemantikus modellek betöltésre kerülnek az adatplatformjáról, itt jelennek meg.",
     "metrics.homeEmptyAction": "Metrikák betöltése",
+    "metrics.homeEmptyLearnMore": "További információ",
+    "metrics.homeEmptyMigrationHint": "Már betölti a Snowflake Semantic Views-t? <anchor>Így migrálhatja őket</anchor> az új modellbe.",
     "mfeframework.disabledError": "{{label}} le van tiltva.",
     "mfeframework.notAvailableError": "{{label}} jelenleg nem érhető el",
     "tags.appliedToEntityCount_one": "{{count}} entitás",

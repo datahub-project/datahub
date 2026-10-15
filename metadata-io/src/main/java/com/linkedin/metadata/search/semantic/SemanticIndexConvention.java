@@ -71,6 +71,12 @@ public class SemanticIndexConvention implements IndexConvention {
   }
 
   @Override
+  public SearchComponent componentForIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    return delegate.componentForIndex(operation, indexName);
+  }
+
+  @Override
   @Nonnull
   public String getEntityIndexName(@Nonnull OperationFingerprint operation, String entityName) {
     // This is the key method - append _semantic to entity index names

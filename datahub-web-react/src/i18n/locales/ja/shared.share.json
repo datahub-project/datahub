@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "リンクをコピーしました",
     "copyLink.tooltip": "このEntityの共有可能なリンクをコピーします。",
     "copyName.label": "名前をコピー",
+    "copyName.success": "名前をコピーしました",
     "copyName.tooltip": "{{type}}の正式名称をコピーします",
     "copyUrn.label": "URNをコピー",
+    "copyUrn.success": "URNをコピーしました",
     "copyUrn.tooltip": "この{{type}}のURNをコピーします。URNはDataHub上のEntityを一意に識別します。",
+    "email.body": "DataHubのこの{{displayType}}をご覧ください: {{linkText}}。Urn: {{urn}}",
     "email.label": "メール",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "この{{type}}をメールで共有します"
 }

@@ -1,12 +1,11 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import _ from 'lodash';
+import uniqBy from 'lodash/uniqBy';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
-import { Avatar, SimpleSelect } from '@src/alchemy-components';
+import { Avatar, Loader, SimpleSelect } from '@src/alchemy-components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
@@ -68,7 +67,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
                 label: entityRegistry.getDisplayName(entity.type, entity),
                 entity,
             })) || [];
-        const uniqueOptions = _.uniqBy(options, 'value');
+        const uniqueOptions = uniqBy(options, 'value');
         return uniqueOptions;
     }, [ownerResult, entityRegistry, resolvedAssigneeEntities]);
 
@@ -132,11 +131,11 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
             setUseSearch(false);
         }
     };
-    const combinedAssigneeOptions = _.uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value');
+    const combinedAssigneeOptions = uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value');
 
     return recommendationsLoading ? (
         <LoadingWrapper>
-            <LoadingOutlined />
+            <Loader size="xs" />
         </LoadingWrapper>
     ) : (
         <SimpleSelect

@@ -25,7 +25,6 @@ describe('getDomainSelectorScrollInput', () => {
                 sortInput: {
                     sortCriteria: [{ field: '_entityName', sortOrder: SortOrder.Ascending }],
                 },
-                searchFlags: { skipCache: true },
             },
         });
     });
@@ -44,7 +43,6 @@ describe('getDomainSelectorScrollInput', () => {
                 sortInput: {
                     sortCriteria: [{ field: '_entityName', sortOrder: SortOrder.Ascending }],
                 },
-                searchFlags: { skipCache: true },
             },
         });
     });
@@ -68,12 +66,6 @@ describe('getDomainSelectorScrollInput', () => {
 
         expect(input.input.query).toBe('*');
         expect(input.input.types).toEqual([EntityType.Domain]);
-    });
-
-    it('should enable cache skipping', () => {
-        const input = getDomainSelectorScrollInput(null, null);
-
-        expect(input.input.searchFlags).toEqual({ skipCache: true });
     });
 
     it('should sort by entity name in ascending order', () => {

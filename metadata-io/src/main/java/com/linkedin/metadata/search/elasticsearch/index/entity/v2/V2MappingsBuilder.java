@@ -71,6 +71,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
           WORD_GRAMS_LENGTH_3,
           WORD_GRAMS_LENGTH_4);
 
+  public static final String CUSTOM_FULL_TEXT_SEARCH_FIELDS = "customFullTextSearchFields";
+
   private final EntityIndexConfiguration entityIndexConfiguration;
   private final int keywordMaxLength;
 

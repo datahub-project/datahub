@@ -16,6 +16,18 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
+# DataHub's Hive and Presto dialects register their URL schemes (hive://, hive+http://,
+# sparksql://, presto://) on import. Their drivers come with the hive / presto extras,
+# without which those URIs can't work anyway.
+try:
+    import datahub.ingestion.source.sql.hive.hive_dialect
+except ImportError:
+    pass
+try:
+    import datahub.ingestion.source.sql.presto_dialect  # noqa: F401
+except ImportError:
+    pass
+
 
 @dataclass
 class BaseColumn:
@@ -55,7 +67,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         description="Name of platform being ingested, used in constructing URNs."
     )
     connect_uri: str = Field(
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls"
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls"
     )
 
     def get_sql_alchemy_url(self):
@@ -67,6 +79,10 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 @support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
     Generic source for databases with SQLAlchemy dialect support but no dedicated connector.

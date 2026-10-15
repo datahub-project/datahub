@@ -1,4 +1,4 @@
-import { Dropdown } from 'antd';
+import { Dropdown } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
