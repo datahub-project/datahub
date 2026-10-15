@@ -8,8 +8,8 @@ import {
     getLineageEmptyGraphNudgeState,
     isLineageGraphEmpty,
     isLineageGraphLoaded,
-} from '@app/lineage/utils/lineageEmptyGraphNudgeUtils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+} from '@app/lineageV3/utils/lineageEmptyGraphNudgeUtils';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 

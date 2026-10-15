@@ -8,7 +8,7 @@ import { EntityType, LineageDirection } from '@types';
 
 const mocks = vi.hoisted(() => ({ ignoreSchemaFieldStatus: false }));
 
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetLineageTimeParams: () => ({ startTimeMillis: undefined, endTimeMillis: undefined }),
 }));
 

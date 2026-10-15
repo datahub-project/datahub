@@ -8,8 +8,13 @@ import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/Previe
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
-import { FetchedEntity } from '@app/lineage/types';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
+import {
+    FetchedEntity,
+    FetchedEntityV2,
+    FetchedEntityV2Relationship,
+    LineageAsset,
+    LineageAssetType,
+} from '@app/lineageV3/types';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 

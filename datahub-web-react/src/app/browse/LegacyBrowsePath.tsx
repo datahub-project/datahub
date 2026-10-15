@@ -5,8 +5,8 @@ import React, { ComponentProps } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { navigateToLineageUrl } from '@app/lineageV3/utils/navigateToLineageUrl';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 

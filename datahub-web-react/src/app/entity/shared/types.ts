@@ -1,7 +1,7 @@
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import React from 'react';
 
-import { FetchedEntity } from '@app/lineage/types';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 import {
     ApplicationAssociation,

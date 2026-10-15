@@ -21,11 +21,11 @@ import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import LineageTabTimeSelector from '@app/entityV2/shared/tabs/Lineage/LineageTabTimeSelector';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Lineage/ManageLineageMenuFromImpactAnalysis';
-import { Direction } from '@src/app/lineage/types';
+import { Direction } from '@src/app/lineageV3/types';
 
 import { EntityType, LineageDirection, LineageSearchPath } from '@types';
 
