@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.context;
 
+import static com.linkedin.metadata.Constants.ENTITY_TYPE_INFO_ASPECT_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.google.common.annotations.VisibleForTesting;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.EntityTypeUtils;
+import com.linkedin.metadata.utils.NextVersionEntityTypes;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
@@ -145,7 +148,7 @@ public class SystemOperationContextFactory {
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
-    configureUnknownDataHandling(configurationProvider);
+    configureUnknownDataHandling(configurationProvider, systemOperationContext);
     return systemOperationContext;
   }
 
@@ -233,7 +236,7 @@ public class SystemOperationContextFactory {
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
-    configureUnknownDataHandling(configurationProvider);
+    configureUnknownDataHandling(configurationProvider, systemOperationContext);
     return systemOperationContext;
   }
 
@@ -342,14 +345,28 @@ public class SystemOperationContextFactory {
   /**
    * Chooses, for this process, how data the entity registry doesn't know is treated. Every process
    * that runs the unknown-data paths (GMS, the MAE and MCE consumers, upgrade jobs) builds its
-   * system operation context here.
+   * system operation context here. When tolerant, an unknown entity type is tolerated only if a
+   * newer version registered it as an {@code entityType} row.
    */
   @VisibleForTesting
   static void configureUnknownDataHandling(
-      @Nonnull final ConfigurationProvider configurationProvider) {
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final OperationContext systemOperationContext) {
     final boolean tolerant =
         configurationProvider.getFeatureFlags().isUnknownDataToleranceEnabled();
-    UnknownDataHandlings.use(tolerant ? TolerantHandling.INSTANCE : StrictHandling.INSTANCE);
+    UnknownDataHandlings.use(
+        tolerant
+            ? TolerantHandling.forNextVersionEntityTypes(
+                new NextVersionEntityTypes(
+                    entityTypeUrn ->
+                        systemOperationContext
+                                .getAspectRetriever()
+                                .getLatestAspectObject(
+                                    systemOperationContext,
+                                    entityTypeUrn,
+                                    ENTITY_TYPE_INFO_ASPECT_NAME)
+                            != null))
+            : StrictHandling.INSTANCE);
     log.info("Unknown data tolerance {}", tolerant ? "enabled" : "disabled");
   }
 }
