@@ -179,6 +179,11 @@ extraEnvs:
     value: /etc/kerberos/krb5.conf
 ```
 
+> **Note**: The `0440` keytab mode is only readable by the init container if the pod runs with a matching
+> `fsGroup`. The executor runs as a non-root user, so confirm your deployment sets
+> `podSecurityContext.fsGroup: 1000` (the executor's group); some chart paths leave `podSecurityContext`
+> empty, in which case add it to your values.
+
 **Step 3 — Ingestion recipe:**
 
 ```yaml
