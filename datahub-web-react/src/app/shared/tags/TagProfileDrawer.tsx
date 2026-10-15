@@ -1,4 +1,4 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Button, Drawer, Space } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -43,7 +43,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                         <Space>
                             {/* broken */}
                             <Button href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, urn))}>
-                                <InfoCircleOutlined /> {t('tagDetails')}
+                                <Info /> {t('tagDetails')}
                             </Button>
                         </Space>
                     </DetailsLayout>

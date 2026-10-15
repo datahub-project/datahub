@@ -1,11 +1,12 @@
-import { Avatar, Button } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { Avatar } from '@components/components/Avatar';
 import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+import { Button } from '@components/components/Button';
 import { AvatarSizeOptions } from '@components/theme/config';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';

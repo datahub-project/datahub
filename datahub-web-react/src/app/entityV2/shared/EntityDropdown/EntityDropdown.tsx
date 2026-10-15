@@ -16,7 +16,7 @@ import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import qs from 'query-string';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
 
@@ -45,7 +45,7 @@ import {
 import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/LinkAssetVersionModal';
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -87,6 +87,14 @@ const EntityDropdown = (props: Props) => {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
+    const { t: ts } = useTranslation('shared.share');
+
+    // The menu closes as soon as an item is clicked, so a toast is the only confirmation
+    // the user can actually see.
+    const copyToClipboard = useCallback((value: string, confirmation: string) => {
+        navigator.clipboard.writeText(value);
+        toast.success(confirmation);
+    }, []);
 
     const {
         urn,
@@ -113,7 +121,7 @@ const EntityDropdown = (props: Props) => {
     const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
+    const { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal } = useDeleteEntity(
         urn,
         entityType,
         entityData,
@@ -389,7 +397,7 @@ const EntityDropdown = (props: Props) => {
                 onClick: () => {
                     const { origin } = window.location;
                     const copyUrl = `${origin}${resolveRuntimePath(entityRegistryV2.getEntityUrl(entityType, urn))}/`;
-                    navigator.clipboard.writeText(copyUrl);
+                    copyToClipboard(copyUrl, ts('copyLink.success'));
                 },
             });
         }
@@ -402,7 +410,7 @@ const EntityDropdown = (props: Props) => {
                 title: t('menuItem.copyUrn'),
                 icon: Copy,
                 onClick: () => {
-                    navigator.clipboard.writeText(urn);
+                    copyToClipboard(urn, ts('copyUrn.success'));
                 },
             });
         }
@@ -417,11 +425,7 @@ const EntityDropdown = (props: Props) => {
                 icon: Copy,
                 onClick: () => {
                     const qualifiedName = entityData?.properties?.qualifiedName;
-                    if (qualifiedName) {
-                        navigator.clipboard.writeText(qualifiedName);
-                    } else {
-                        navigator.clipboard.writeText(displayName);
-                    }
+                    copyToClipboard(qualifiedName || displayName, ts('copyName.success'));
                 },
             });
         }
@@ -564,6 +568,7 @@ const EntityDropdown = (props: Props) => {
                     onClose={() => setIsMoveModalVisible(false)}
                 />
             )}
+            {DeleteConfirmationModal}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

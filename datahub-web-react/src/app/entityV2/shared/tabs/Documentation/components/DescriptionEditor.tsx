@@ -1,8 +1,9 @@
-import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
+
+import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';

@@ -63,10 +63,9 @@ public class UpdateViewResolverTest {
                           false,
                           FilterOperator.EQUAL),
                       new FacetFilterInput(
-                          "test2",
-                          ImmutableList.of("value1", "value2"),
-                          true,
-                          FilterOperator.IN)))));
+                          "test2", ImmutableList.of("value1", "value2"), true, FilterOperator.IN)),
+                  null,
+                  null)));
 
   @Test
   public void testGetSuccessGlobalViewIsCreator() throws Exception {

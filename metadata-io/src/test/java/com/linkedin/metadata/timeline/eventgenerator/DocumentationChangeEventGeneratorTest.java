@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Documentation;
@@ -9,6 +10,7 @@ import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -407,5 +409,93 @@ public class DocumentationChangeEventGeneratorTest extends AbstractTestNGSpringC
     assertEquals(
         actual.get(0).getDescription(),
         String.format("Documentation for '%s' has been added: 'My doc text'.", TEST_ENTITY_URN));
+  }
+
+  private static DocumentationAssociation createAssociationWithSourceDetail(
+      String docText, String actorUrn, String sourceUrn, StringMap sourceDetail)
+      throws URISyntaxException {
+    DocumentationAssociation association =
+        createAssociationWithSource(docText, actorUrn, sourceUrn);
+    association.getAttribution().setSourceDetail(sourceDetail);
+    return association;
+  }
+
+  @Test
+  public void testSourceDetailsIncludedInParameters() throws Exception {
+    DocumentationChangeEventGenerator generator = new DocumentationChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    StringMap sourceDetail = new StringMap();
+    sourceDetail.put("origin", "urn:li:schemaField:(urn:li:dataset:upstream,col)");
+    sourceDetail.put("propagation_depth", "1");
+
+    Aspect<Documentation> from = createDocumentationAspect(List.of());
+    Aspect<Documentation> to =
+        createDocumentationAspect(
+            List.of(
+                createAssociationWithSourceDetail(
+                    "Propagated doc", TEST_ACTOR_URN_1, TEST_SOURCE_URN_1, sourceDetail)));
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(urn, "dataset", "documentation", from, to, auditStamp);
+
+    assertEquals(actual.size(), 1);
+    String serialized = (String) actual.get(0).getParameters().get("sourceDetails");
+    assertNotNull(serialized);
+    assertTrue(serialized.contains("origin"));
+    assertTrue(serialized.contains("propagation_depth"));
+    assertTrue(serialized.contains("urn:li:schemaField:(urn:li:dataset:upstream,col)"));
+  }
+
+  @Test
+  public void testSourceDetailsEmptyWhenNoAttribution() throws Exception {
+    DocumentationChangeEventGenerator generator = new DocumentationChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<Documentation> from = createDocumentationAspect(List.of());
+    Aspect<Documentation> to =
+        createDocumentationAspect(List.of(createAssociationNoAttribution("Plain doc")));
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(urn, "dataset", "documentation", from, to, auditStamp);
+
+    assertEquals(actual.size(), 1);
+    assertEquals(actual.get(0).getParameters().get("sourceDetails"), "{}");
+  }
+
+  @Test
+  public void testSourceDetailsOnModify() throws Exception {
+    DocumentationChangeEventGenerator generator = new DocumentationChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    StringMap sourceDetail = new StringMap();
+    sourceDetail.put("origin", "urn:li:schemaField:(urn:li:dataset:upstream,col)");
+    sourceDetail.put("propagation_depth", "2");
+    sourceDetail.put("via", "urn:li:schemaField:(urn:li:dataset:mid,col)");
+
+    Aspect<Documentation> from =
+        createDocumentationAspect(
+            List.of(
+                createAssociationWithSourceDetail(
+                    "Old text", TEST_ACTOR_URN_1, TEST_SOURCE_URN_1, sourceDetail)));
+    Aspect<Documentation> to =
+        createDocumentationAspect(
+            List.of(
+                createAssociationWithSourceDetail(
+                    "New text", TEST_ACTOR_URN_1, TEST_SOURCE_URN_1, sourceDetail)));
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(urn, "dataset", "documentation", from, to, auditStamp);
+
+    assertEquals(actual.size(), 1);
+    String serialized = (String) actual.get(0).getParameters().get("sourceDetails");
+    assertTrue(serialized.contains("propagation_depth"));
+    assertTrue(serialized.contains("via"));
   }
 }

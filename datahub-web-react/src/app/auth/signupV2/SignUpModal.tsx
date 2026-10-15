@@ -1,6 +1,5 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +9,9 @@ import { useLocation } from 'react-router-dom';
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import ModalHeader from '@app/auth/shared/ModalHeader';
+import { confirmPassword, password, required } from '@app/auth/shared/shared.utils';
 import { SignupFormValues } from '@app/auth/shared/types';
+import { useAuthForm } from '@app/auth/shared/useAuthForm';
 import SignupForm from '@app/auth/signupV2/SignupForm';
 import useGetInviteTokenFromUrlParams from '@app/auth/useGetInviteTokenFromUrlParams';
 import { useAppConfig } from '@app/useAppConfig';
@@ -23,7 +24,6 @@ export default function SignUpModal() {
     const history = useHistory();
     const location = useLocation();
 
-    const [form] = Form.useForm();
     const { t } = useTranslation('auth');
 
     const [loading, setLoading] = useState(false);
@@ -52,8 +52,6 @@ export default function SignUpModal() {
 
     const [acceptRoleMutation] = useAcceptRoleMutation();
 
-    const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
-
     const acceptRole = () => {
         acceptRoleMutation({
             variables: {
@@ -64,18 +62,12 @@ export default function SignUpModal() {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('signup.acceptedInvite'),
-                        duration: 2,
-                    });
+                    toast.success(t('signup.acceptedInvite'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('signup.acceptInviteFailed', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('signup.acceptInviteFailed', { error: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -85,14 +77,6 @@ export default function SignUpModal() {
             history.push(PageRoutes.ROOT);
         }
     });
-
-    const onFormChange = () => {
-        const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);
-
-        const isTouched = form.isFieldsTouched(true);
-
-        setIsSubmitDisabled(hasErrors || !isTouched);
-    };
 
     const handleSignUp = useCallback(
         (values: SignupFormValues) => {
@@ -120,11 +104,25 @@ export default function SignUpModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(t('signup.loginFailed'));
+                    toast.error(t('signup.loginFailed'));
                 })
                 .finally(() => setLoading(false));
         },
         [refreshContext, inviteToken, t],
+    );
+
+    const form = useAuthForm<SignupFormValues>(
+        { email: '', fullName: '', password: '', confirmPassword: '' },
+        {
+            email: required(t('emailRequired')),
+            fullName: required(t('fullNameRequired')),
+            password: password({ required: t('passwordRequired'), tooShort: t('passwordHint') }),
+            confirmPassword: confirmPassword({
+                required: t('confirmPasswordRequired'),
+                mismatch: t('passwordsDoNotMatch'),
+            }),
+        },
+        handleSignUp,
     );
 
     return (
@@ -133,8 +131,8 @@ export default function SignUpModal() {
             buttons={[
                 {
                     text: t('signup.submitButton'),
-                    onClick: () => form.submit(),
-                    disabled: isSubmitDisabled,
+                    onClick: form.submit,
+                    disabled: form.isSubmitDisabled,
                     buttonDataTestId: 'sign-up',
                 },
             ]}
@@ -143,12 +141,7 @@ export default function SignUpModal() {
             closable={false}
             width="533px"
         >
-            <SignupForm
-                form={form}
-                handleSubmit={handleSignUp}
-                onFormChange={onFormChange}
-                isSubmitDisabled={isSubmitDisabled}
-            />
+            <SignupForm form={form} />
         </Modal>
     );
 }

@@ -362,6 +362,8 @@ class DataplexEntriesProcessor:
         if result.main_entity is not None:
             if result.lineage_entry is not None:
                 self._ctx.append_entry(result.lineage_entry)
+            # Unlike lineage_entry, registered for Container entities too.
+            self._ctx.register_entry_urn(entry.name, result.main_entity.urn.urn())
             results.append(result.main_entity)
 
         return results

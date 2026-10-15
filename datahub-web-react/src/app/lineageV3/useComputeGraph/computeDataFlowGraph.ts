@@ -23,6 +23,7 @@ import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useCompute
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -40,6 +41,7 @@ const ROOT_SEPARATION = 50 + LINEAGE_NODE_HEIGHT;
  * @param urn urn of the data flow
  * @param type type of the data flow
  * @param context LineageNodesContext that represents the current state of the graph
+ * @param entityRegistry Resolves urns to entity types, to identify transformations and queries
  * @param ignoreSchemaFieldStatus Whether to ignore schema field status when computing the graph
  * @returns An object containing:
  *   flowNodes: Nodes for React Flow to render
@@ -50,6 +52,7 @@ export default function computeDataFlowGraph(
     urn: string,
     type: EntityType,
     context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
     showFilterNodes = true,
 ) {
@@ -65,7 +68,7 @@ export default function computeDataFlowGraph(
         ignoreSchemaFieldStatus,
     };
     const newGraphStore = {
-        ...hideNodes(urn, rootType, config, graphStore, (node) => node.parentDataJob === urn),
+        ...hideNodes(urn, rootType, entityRegistry, config, graphStore, (node) => node.parentDataJob === urn),
         rootType,
     };
     console.debug(newGraphStore);
@@ -150,6 +153,7 @@ export default function computeDataFlowGraph(
                     node.urn,
                     node.type,
                     context,
+                    entityRegistry,
                     ignoreSchemaFieldStatus,
                     undefined,
                     offsets,

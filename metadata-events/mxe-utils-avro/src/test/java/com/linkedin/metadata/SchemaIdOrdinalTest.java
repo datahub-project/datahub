@@ -17,7 +17,7 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1.getSchemaId(), 5);
     assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1.getSchemaId(), 6);
     assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1.getSchemaId(), 7);
-    assertEquals(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId(), 8);
+    assertEquals(SchemaIdOrdinal.RESERVED_8.getSchemaId(), 8);
 
     // Test _FIX ordinals
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 9);
@@ -64,7 +64,7 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.fromSchemaId(5), SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1);
     assertEquals(SchemaIdOrdinal.fromSchemaId(6), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1);
     assertEquals(SchemaIdOrdinal.fromSchemaId(7), SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1);
-    assertEquals(SchemaIdOrdinal.fromSchemaId(8), SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(8), SchemaIdOrdinal.RESERVED_8);
     assertEquals(SchemaIdOrdinal.fromSchemaId(9), SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX);
     assertEquals(
         SchemaIdOrdinal.fromSchemaId(10), SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX);
@@ -187,7 +187,7 @@ public class SchemaIdOrdinalTest {
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1));
     assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1));
-    assertTrue(contains(ordinals, SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.RESERVED_8));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL));
     assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_LOG));
@@ -279,10 +279,8 @@ public class SchemaIdOrdinalTest {
     // Test special cases
     assertEquals(
         SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId(), 4, "PLATFORM_EVENT should have schema ID 4");
-    assertEquals(
-        SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId(),
-        8,
-        "DATAHUB_UPGRADE_HISTORY_EVENT should have schema ID 8");
+    assertEquals(SchemaIdOrdinal.RESERVED_8.getSchemaId(), 8, "RESERVED_8 should have schema ID 8");
+    assertTrue(SchemaIdOrdinal.RESERVED_8.isReserved());
   }
 
   @Test
@@ -331,7 +329,7 @@ public class SchemaIdOrdinalTest {
         return 6;
       case METADATA_AUDIT_EVENT_V1:
         return 7;
-      case DATAHUB_UPGRADE_HISTORY_EVENT:
+      case RESERVED_8:
         return 8;
       case METADATA_CHANGE_PROPOSAL_V1_FIX:
         return 9;

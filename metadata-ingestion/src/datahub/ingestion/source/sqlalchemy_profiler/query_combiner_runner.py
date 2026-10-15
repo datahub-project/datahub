@@ -116,7 +116,7 @@ class QueryCombinerRunner:
     Methods that return FutureResult[T]:
         - Single-value scalar queries (e.g., COUNT, MIN, MAX, AVG, STDDEV)
         - These return FutureResult[T] which makes batching explicit in the type system
-        - Schedule multiple queries, call query_combiner.flush(), then extract results
+        - Schedule them inside a batch(), then extract results once it exits
 
     Methods that return direct values:
         - Complex queries (e.g., histograms, frequencies, quantiles)
@@ -124,25 +124,16 @@ class QueryCombinerRunner:
         - Cannot be efficiently batched
 
     Usage pattern:
-        # Schedule queries (returns FutureResult immediately)
-        row_count_future = runner.get_row_count(table)
-        min_future = runner.get_column_min(table, "col")
-        max_future = runner.get_column_max(table, "col")
+        # Scheduling returns a FutureResult immediately; the batch flushes
+        # on exit.
+        with runner.batch() as batch:
+            row_count_future = batch.get_row_count(table)
+            min_future = batch.get_column_min(table, "col")
+            max_future = batch.get_column_max(table, "col")
 
-        # Execute all 3 queries in one batch
-        query_combiner.flush()
-
-        # Extract results
         row_count = row_count_future.result()
         min_val = min_future.result()
         max_val = max_future.result()
-
-    TODO: Future enhancement - Add context manager for automatic flush:
-        with runner.batch() as batch:
-            row_count = batch.get_row_count(table)
-            min_val = batch.get_column_min(table, "col")
-            # Auto-flushes on exit
-        print(row_count.result())
 
     Architecture:
         User -> QueryCombinerRunner (schedules via query combiner) -> PlatformAdapter (executes SQL)
@@ -235,18 +226,15 @@ class QueryCombinerRunner:
     def get_row_count(
         self,
         table: "sa.Table",
-        sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> FutureResult[int]:
         """
-        Get row count with optional sampling or estimation.
+        Get row count, optionally via fast estimation.
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
         return self._schedule(
-            lambda: self.adapter.get_row_count(
-                table, self.conn, sample_clause, use_estimation
-            )
+            lambda: self.adapter.get_row_count(table, self.conn, use_estimation)
         )
 
     def get_column_non_null_count(

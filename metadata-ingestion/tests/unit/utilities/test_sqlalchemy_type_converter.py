@@ -142,3 +142,20 @@ def test_null_type_columns_get_unique_field_paths():
     assert fields_b[0].fieldPath == "[version=2.0].[type=null].col_b"
     assert fields_a[0].type.type == NullTypeClass()
     assert fields_b[0].type.type == NullTypeClass()
+
+
+def test_primitive_lookup_prefers_most_specific_registered_type() -> None:
+    inspector_magic_mock = MagicMock()
+    inspector_magic_mock.dialect = DefaultDialect()
+
+    def field_path(column_type: types.TypeEngine) -> str:
+        return get_schema_fields_for_sqlalchemy_column(
+            column_name="c", column_type=column_type, inspector=inspector_magic_mock
+        )[0].fieldPath
+
+    # BIGINT is also an Integer subclass; its own entry must win over Integer's.
+    assert field_path(types.BIGINT()) == "[version=2.0].[type=long].c"
+    assert field_path(types.SMALLINT()) == "[version=2.0].[type=int].c"
+    # Subclasses of registered types resolve through their parent.
+    assert field_path(types.DOUBLE()) == "[version=2.0].[type=float].c"
+    assert field_path(types.Text()) == "[version=2.0].[type=string].c"

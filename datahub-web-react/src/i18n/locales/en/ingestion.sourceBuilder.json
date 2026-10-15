@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "Continue Setup",
     "multiStep.builder.discard.description": "Exiting now will discard your configuration. You can continue setup or exit and start over later",
     "multiStep.builder.discard.title": "You have unsaved changes",
-    "multiStep.chat.placeholder": "AI chat placeholder",
     "multiStep.connection.addOwners": "Add Owners",
     "multiStep.connection.advancedSettings": "Advanced Settings",
     "multiStep.connection.cannotChangeSourceType": "It's not possible to change source type for existing ingestion source",

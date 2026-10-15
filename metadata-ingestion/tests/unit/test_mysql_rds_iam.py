@@ -50,7 +50,7 @@ class TestMySQLRDSIAMConfig:
 
 
 class TestMySQLSourceRDSIAM:
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager")
     def test_init_without_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "localhost:3306",
@@ -66,7 +66,7 @@ class TestMySQLSourceRDSIAM:
         assert source._rds_iam_token_manager is None
         mock_token_manager.assert_not_called()
 
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager")
     def test_init_with_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:3306",
@@ -88,7 +88,7 @@ class TestMySQLSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager")
     def test_init_with_rds_iam_custom_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:3307",
@@ -109,7 +109,7 @@ class TestMySQLSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager")
     def test_init_with_rds_iam_no_username(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:3306",
@@ -123,7 +123,7 @@ class TestMySQLSourceRDSIAM:
         with pytest.raises(ValueError, match="username is required"):
             MySQLSource(config, ctx)
 
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager")
     def test_init_with_rds_iam_invalid_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:invalid",

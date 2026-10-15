@@ -551,6 +551,61 @@ class TestNullUpstreamName:
         assert source.reporter.chart_dataset_upstream_name_missing == 1
 
 
+class TestDatasetIngestionDisabled:
+    """``ingest_datasets=False`` must not lose lineage silently -- the same
+    diagnostic gap ``datasets_listing_failed`` exists to close, reached by a
+    different cause. It is reported only when it actually costs something."""
+
+    def _handle(self, source: SigmaSource, *, sql_named_tables: bool) -> None:
+        source._handle_dataset_upstream(
+            upstream=DatasetUpstream(name="PETS dataset"),
+            node_id="inode-url-1",
+            element=Element(elementId="el-1", name="chart", url="http://x"),
+            workbook=Workbook(
+                workbookId="wb-1",
+                name="WB",
+                ownerId="u",
+                createdBy="u",
+                updatedBy="u",
+                createdAt="2024-01-01T00:00:00Z",
+                updatedAt="2024-01-01T00:00:00Z",
+                url="http://x",
+                path="ws",
+                latestVersion=1,
+            ),
+            dataset_inputs={},
+            sql_parser_in_tables=[],
+            sql_named_tables=sql_named_tables,
+        )
+
+    def test_lost_lineage_is_reported(self) -> None:
+        source = _make_source()
+        source.config.ingest_datasets = False
+        with patch.object(source.reporter, "info") as spy:
+            self._handle(source, sql_named_tables=False)
+            spy.assert_called_once()
+            assert "ingestion disabled" in spy.call_args.kwargs["title"]
+            # Must not send the operator after a filter that cannot help.
+            assert "workspace_pattern" not in spy.call_args.kwargs["message"]
+
+    def test_silent_when_sql_covers_the_element(self) -> None:
+        # The caller re-adds the parsed tables as direct warehouse inputs, so
+        # the chart keeps its lineage and there is nothing to report.
+        source = _make_source()
+        source.config.ingest_datasets = False
+        with patch.object(source.reporter, "info") as spy:
+            self._handle(source, sql_named_tables=True)
+            spy.assert_not_called()
+
+    def test_reported_once_per_dataset_not_per_element(self) -> None:
+        source = _make_source()
+        source.config.ingest_datasets = False
+        with patch.object(source.reporter, "info") as spy:
+            for _ in range(3):
+                self._handle(source, sql_named_tables=False)
+            spy.assert_called_once()
+
+
 class TestDatasetListingFailure:
     def test_unlisted_reason_names_the_listing_failure(self) -> None:
         # When /v2/datasets itself failed, the cause is the (deprecated) endpoint,

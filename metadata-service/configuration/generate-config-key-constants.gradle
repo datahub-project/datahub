@@ -95,7 +95,7 @@ tasks.register('generateConfigKeyConstants') {
                             + "'${child}' both normalize to constant '${constant}' — rename one of them")
                     }
                     sb.append(indent).append("public static final String ").append(constant)
-                      .append(" = \"").append(child).append("\";\n")
+                      .append(" = key(\"").append(child).append("\");\n")
                     counter[0]++
                 }
             }
@@ -111,6 +111,8 @@ tasks.register('generateConfigKeyConstants') {
         sb.append(counter[0]).append(" keys.\n */\n")
         sb.append("public final class ConfigKeyConstants {\n\n")
         sb.append("  private ConfigKeyConstants() {}\n\n")
+        sb.append("  /** Not a constant expression, so javac cannot inline the key into callers. */\n")
+        sb.append("  static String key(String path) {\n    return path;\n  }\n\n")
         sb.append(body)
         sb.append("}\n")
 

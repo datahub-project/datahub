@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.HttpProxySettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchClusterUri;
 import com.linkedin.metadata.config.search.SearchComponent;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -45,6 +47,10 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 public class SearchClientShimFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
+
+  @Autowired(required = false)
+  @Nullable
+  private MetricUtils metricUtils;
 
   @Autowired(required = false)
   @Qualifier("defaultAwsCredentialsProvider")
@@ -93,6 +99,8 @@ public class SearchClientShimFactory {
             "Search cluster '{}' resolves to an already-connected endpoint; reusing that client",
             clusterName);
         shims.put(clusterName, existing);
+        // Pool gauges stay registered under the first cluster's name only; the pool is shared, so
+        // registering it again would double-count its leased and waiting connections.
         continue;
       }
 
@@ -100,6 +108,9 @@ public class SearchClientShimFactory {
           buildSearchClientShim(objectMapper, esConfig, clusterName, cluster, socketMs, connMs);
       shims.put(clusterName, shim);
       byIdentity.put(identity, shim);
+      if (metricUtils != null && metricUtils.getRegistry() != null) {
+        shim.registerConnectionPoolMetrics(metricUtils.getRegistry(), clusterName);
+      }
     }
 
     return new SearchClientShims(shims);
@@ -136,7 +147,8 @@ public class SearchClientShimFactory {
         String.valueOf(cluster.getRegion()),
         shim == null ? "auto" : String.valueOf(shim.getEngineType()),
         shim == null ? "auto" : String.valueOf(shim.getAutoDetectEngine()),
-        sslIdentity(ssl));
+        sslIdentity(ssl),
+        proxyIdentity(cluster.getProxy()));
   }
 
   @Nonnull
@@ -155,6 +167,23 @@ public class SearchClientShimFactory {
         String.valueOf(ssl.getKeyStoreType()),
         hashedSecret(ssl.getKeyStorePassword()),
         hashedSecret(ssl.getKeyPassword()));
+  }
+
+  @Nonnull
+  private static String proxyIdentity(@Nullable HttpProxySettings proxy) {
+    if (proxy == null) {
+      return "proxy:system";
+    }
+    if (proxy.getHost() != null) {
+      return String.join(
+          ",",
+          proxy.getHost(),
+          String.valueOf(proxy.getPort()),
+          String.valueOf(proxy.getScheme()),
+          String.valueOf(proxy.getUsername()),
+          hashedSecret(proxy.getPassword()));
+    }
+    return proxy.isUseSystemProxyProperties() ? "proxy:system" : "proxy:none";
   }
 
   @Nonnull
@@ -229,6 +258,16 @@ public class SearchClientShimFactory {
                     : cluster.getThreadCount())
             .withConnectionRequestTimeout(connectionRequestTimeoutMs)
             .withSocketTimeout(socketTimeoutMs);
+
+    HttpProxySettings.resolve(cluster.getProxy(), uri.getHost(), uri.isUseSSL())
+        .ifPresent(
+            proxy ->
+                configBuilder.withHttpProxy(
+                    proxy.getHost(),
+                    proxy.getPort(),
+                    proxy.getScheme(),
+                    proxy.getUsername(),
+                    proxy.getPassword()));
 
     ShimSettings shim = cluster.getShim();
     SearchClientShim<?> client;
