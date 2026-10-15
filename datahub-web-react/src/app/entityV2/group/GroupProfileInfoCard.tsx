@@ -51,6 +51,7 @@ const AvatarColumn = styled.div`
 const InfoColumn = styled.div`
     flex: 1 1 auto;
     min-width: 0;
+    padding-right: 28px;
 `;
 
 type Props = {

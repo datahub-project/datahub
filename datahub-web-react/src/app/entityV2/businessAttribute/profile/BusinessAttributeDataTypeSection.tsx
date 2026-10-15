@@ -1,6 +1,6 @@
 import { SimpleSelect, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -33,8 +33,12 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
     const [originalDescription, setOriginalDescription] = useState<string | null>(null);
     const [isEditing, setEditing] = useState(false);
     const refetch = useRefetch();
+    // SimpleSelect copies `values` over its internal selection on the next render.
+    // Hold the in-flight type so a server echo cannot put the previous value back.
+    const pendingTypeRef = useRef<string | null>(null);
 
     useEffect(() => {
+        if (pendingTypeRef.current) return;
         if (entityData?.properties?.businessAttributeDataType) {
             setOriginalDescription(entityData?.properties?.businessAttributeDataType);
         }
@@ -49,14 +53,20 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
             return;
         }
 
+        const previousType = originalDescription;
+        pendingTypeRef.current = value;
+        setOriginalDescription(value);
+
         updateBusinessAttribute({ variables: { urn, input: { type: value } } })
             .then(() => {
+                pendingTypeRef.current = null;
                 setEditing(false);
-                setOriginalDescription(value);
                 toast.success(t('businessAttribute.dataTypeUpdated'), { duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
+                pendingTypeRef.current = null;
+                setOriginalDescription((current) => (current === value ? previousType : current));
                 toast.destroy();
                 if (e instanceof Error) {
                     toast.error(t('businessAttribute.dataTypeUpdateError', { error: e.message || '' }), {

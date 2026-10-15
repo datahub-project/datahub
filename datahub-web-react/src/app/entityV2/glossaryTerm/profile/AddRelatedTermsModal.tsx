@@ -86,7 +86,7 @@ function AddRelatedTermsModal(props: Props) {
         onClose();
     }
 
-    const [termSearch, { data: termSearchData }] = useGetSearchResultsLazyQuery();
+    const [termSearch, { data: termSearchData, loading: isSearching }] = useGetSearchResultsLazyQuery();
 
     const handleSearch = (text: string) => {
         const trimmed = text.trim();
@@ -198,8 +198,10 @@ function AddRelatedTermsModal(props: Props) {
         >
             <SimpleSelect
                 showSearch
+                defaultOpen
                 isMultiSelect
                 filterResultsByQuery={false}
+                isLoading={Boolean(inputValue) && isSearching}
                 placeholder={t('glossaryTerm.searchForTermsPlaceholder')}
                 values={selectedUrns}
                 onUpdate={onUpdate}
