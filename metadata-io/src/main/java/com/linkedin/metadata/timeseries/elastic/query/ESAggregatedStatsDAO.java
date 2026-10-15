@@ -15,6 +15,7 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -42,6 +43,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -447,8 +449,10 @@ public class ESAggregatedStatsDAO {
 
     try {
       final SearchResponse searchResponse =
-          SearchTookMetrics.search(
-              searchClient, opContext, searchRequest, "timeseriesAggregatedStats");
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
@@ -729,8 +733,10 @@ public class ESAggregatedStatsDAO {
     final SearchResponse searchResponse;
     try {
       searchResponse =
-          SearchTookMetrics.search(
-              searchClient, opContext, searchRequest, "timeseriesBatchAggregatedStats");
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error("Batch aggregated stats query failed: {}", e.getMessage());
       throw new ESQueryException("Batch aggregated stats query failed:", e);

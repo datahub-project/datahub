@@ -1,18 +1,15 @@
 package com.linkedin.metadata.search.utils;
 
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RequestOptions;
 
 /**
- * Runs a search and records ES {@code took} and the wall time spent outside it, tagged by {@code
- * operation}.
+ * Times a search call and records ES {@code took} and the wall time spent outside it, tagged by
+ * {@link SearchOperation}. Pass only the search call, or its work is counted as outside took.
  */
 public final class SearchTookMetrics {
 
@@ -21,36 +18,37 @@ public final class SearchTookMetrics {
       "datahub.elasticsearch.search.outside_took";
   public static final String OPERATION_TAG = "operation";
 
-  private SearchTookMetrics() {}
-
-  public static SearchResponse search(
-      @Nonnull SearchClientShim<?> client,
-      @Nonnull OperationContext opContext,
-      @Nonnull SearchRequest searchRequest,
-      @Nonnull String operation)
-      throws IOException {
-    return search(
-        client, opContext, searchRequest, operation, opContext.getMetricUtils().orElse(null));
+  @FunctionalInterface
+  public interface SearchCall {
+    SearchResponse execute() throws IOException;
   }
 
-  public static SearchResponse search(
-      @Nonnull SearchClientShim<?> client,
+  private SearchTookMetrics() {}
+
+  public static SearchResponse time(
       @Nonnull OperationContext opContext,
-      @Nonnull SearchRequest searchRequest,
-      @Nonnull String operation,
-      @Nullable MetricUtils metricUtils)
+      @Nonnull SearchOperation operation,
+      @Nonnull SearchCall search)
+      throws IOException {
+    return time(opContext.getMetricUtils().orElse(null), operation, search);
+  }
+
+  public static SearchResponse time(
+      @Nullable MetricUtils metricUtils,
+      @Nonnull SearchOperation operation,
+      @Nonnull SearchCall search)
       throws IOException {
     long start = System.nanoTime();
-    SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+    SearchResponse response = search.execute();
     long wallNanos = System.nanoTime() - start;
     if (metricUtils != null && response != null && response.getTook() != null) {
       long tookNanos = response.getTook().nanos();
-      metricUtils.recordTimer(SEARCH_TOOK_METRIC, tookNanos, OPERATION_TAG, operation);
+      metricUtils.recordTimer(SEARCH_TOOK_METRIC, tookNanos, OPERATION_TAG, operation.getTag());
       metricUtils.recordTimer(
           SEARCH_OUTSIDE_TOOK_METRIC,
           Math.max(0L, wallNanos - tookNanos),
           OPERATION_TAG,
-          operation);
+          operation.getTag());
     }
     return response;
   }

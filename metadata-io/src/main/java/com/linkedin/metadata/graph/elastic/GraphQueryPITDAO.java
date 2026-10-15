@@ -15,6 +15,7 @@ import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.graph.elastic.utils.PreRenderedQueryBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -38,6 +39,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
@@ -441,8 +443,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest, int urnCount)
       throws IOException {
     SearchResponse response =
-        SearchTookMetrics.search(
-            graphClient(opContext), opContext, searchRequest, "graphQueryPit", metricUtils);
+        SearchTookMetrics.time(
+            metricUtils,
+            SearchOperation.GRAPH_QUERY_PIT,
+            () -> graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT));
     Span span = Span.current();
     span.setAttribute(SEARCH_URNS_ATTR, urnCount);
     if (response != null) {

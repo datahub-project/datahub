@@ -35,6 +35,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
@@ -71,6 +72,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
@@ -154,8 +156,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return SearchTookMetrics.search(
-                graphClient(opContext), opContext, searchRequest, "graphLineage", metricUtils);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () ->
+                    graphClient(opContext)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -509,8 +515,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     try {
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-      return SearchTookMetrics.search(
-          graphClient(opContext), opContext, searchRequest, "graphSearch", metricUtils);
+      return SearchTookMetrics.time(
+          metricUtils,
+          SearchOperation.GRAPH,
+          () -> graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -720,8 +728,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return SearchTookMetrics.search(
-                graphClient(opContext), opContext, searchRequest, "graphScroll", metricUtils);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () ->
+                    graphClient(opContext)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1293,8 +1305,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return SearchTookMetrics.search(
-                graphClient(opContext), opContext, request, "graphLineageGroupBy", metricUtils);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () -> graphClient(opContext).search(opContext, request, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

@@ -13,6 +13,7 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -98,8 +100,10 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
         () -> {
           try {
             final SearchResponse searchResponse =
-                SearchTookMetrics.search(
-                    _searchClient, opContext, searchRequest, "recommendationRecentlyEdited");
+                SearchTookMetrics.time(
+                    opContext,
+                    SearchOperation.ENTITY_SEARCH,
+                    () -> _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             List<String> bucketUrns =
