@@ -5,7 +5,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional
 
-from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,13 +15,11 @@ from datahub.ingestion.api.workunit_processor import (
 )
 from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
-    ChangeTypeClass,
     DatasetProfileClass,
     EspressoSchemaClass,
     GenericAspectClass,
     KafkaSchemaClass,
     KeyValueSchemaClass,
-    MetadataChangeProposalClass,
     MySqlDDLClass,
     OracleDDLClass,
     OrcSchemaClass,
@@ -117,14 +114,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
-            if (
-                isinstance(wu.metadata, MetadataChangeProposalClass)
-                and wu.metadata.changeType == ChangeTypeClass.PATCH
-                and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
-                and wu.metadata.aspect is not None
-                and wu.metadata.aspect.contentType == JSON_PATCH_CONTENT_TYPE
-            ):
-                self.ensure_upstream_lineage_patch_size(urn, wu.metadata.aspect)
+            if lineage_patch := wu.get_json_patch_aspect(UpstreamLineageClass):
+                self.ensure_upstream_lineage_patch_size(urn, lineage_patch)
             yield wu
 
     def ensure_dataset_profile_size(
