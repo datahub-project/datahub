@@ -394,7 +394,6 @@ public class MultiEntityMappingsUtilsTest {
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
     assertTrue(properties.containsKey("name"));
     assertTrue(properties.containsKey("score"));
-    // searchTier is ignored: no tier field is created
     assertFalse(properties.containsKey("tier_1"));
   }
 

@@ -868,8 +868,6 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 if ann_name in BUMP_WORTHY_ANNOTATIONS:
                     value = normalize_pdl_for_compare(body[j + 1 : nxt])
                     if ann_name == "Searchable":
-                        # searchTier never shipped as index or aspect-data behavior.
-                        # Dropping it must not bump schemaVersion.
                         value = _without_retired_search_tier(value)
                     pending_annotations[ann_name] = value
                 i = nxt

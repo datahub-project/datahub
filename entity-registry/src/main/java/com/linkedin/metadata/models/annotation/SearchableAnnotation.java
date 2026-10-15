@@ -153,7 +153,6 @@ public class SearchableAnnotation {
     final Optional<String> systemModifiedAtFieldName =
         AnnotationUtils.getField(map, "systemModifiedAtFieldName", String.class);
 
-    // Parse new fields. searchTier is ignored: it never shipped as index behavior.
     final Optional<String> searchLabel = AnnotationUtils.getField(map, "searchLabel", String.class);
     final Optional<Boolean> searchIndexed =
         AnnotationUtils.getField(map, "searchIndexed", Boolean.class);

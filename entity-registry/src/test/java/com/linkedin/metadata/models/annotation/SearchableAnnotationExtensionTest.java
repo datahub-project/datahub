@@ -19,7 +19,6 @@ public class SearchableAnnotationExtensionTest {
     // Create a test annotation map with the new fields
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchTier", 1);
     annotationMap.put("searchLabel", "priorityField");
     annotationMap.put("queryByDefault", true);
     annotationMap.put("enableAutocomplete", false);
@@ -73,7 +72,6 @@ public class SearchableAnnotationExtensionTest {
     // Create a test annotation map with only some of the new fields
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT_PARTIAL");
-    annotationMap.put("searchTier", 3);
     annotationMap.put("searchLabel", "relevance");
 
     // Create SearchableAnnotation from the map
@@ -268,20 +266,6 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
-  public void testDefaultFieldTypeForStringWithSearchTier() {
-    // Test that string fields with searchTier and no explicit fieldType default to TEXT
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("searchTier", 1);
-    // No fieldType specified
-
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.TEXT);
-  }
-
-  @Test
   public void testDefaultFieldTypeForOtherTypes() {
     // Test default field types for various schema types
     Map<DataSchema.Type, SearchableAnnotation.FieldType> expectedDefaults =
@@ -313,7 +297,6 @@ public class SearchableAnnotationExtensionTest {
     // Test that explicit fieldType overrides the default
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT"); // Explicit fieldType
-    annotationMap.put("searchTier", 1);
 
     SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(
@@ -447,7 +430,6 @@ public class SearchableAnnotationExtensionTest {
     for (String invalidFieldType : invalidFieldTypes) {
       DataMap annotationMap = new DataMap();
       annotationMap.put("fieldType", invalidFieldType);
-      annotationMap.put("searchTier", 1);
       annotationMap.put("searchIndexed", true);
 
       assertThrows(
@@ -467,7 +449,6 @@ public class SearchableAnnotationExtensionTest {
     for (String validFieldType : validFieldTypes) {
       DataMap annotationMap = new DataMap();
       annotationMap.put("fieldType", validFieldType);
-      annotationMap.put("searchTier", 1);
       annotationMap.put("searchIndexed", true);
 
       // Should not throw exception
@@ -481,11 +462,9 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
-  public void testSearchIndexedFalseWithSearchTier() {
-    // Test that searchIndexed=false with searchTier works correctly
+  public void testSearchIndexedFalse() {
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchTier", 1);
     annotationMap.put("searchIndexed", false);
 
     // Should not throw exception
@@ -499,10 +478,8 @@ public class SearchableAnnotationExtensionTest {
 
   @Test
   public void testSearchIndexedErrorMessageFormat() {
-    // A leftover searchTier is ignored. searchIndexed is still limited to KEYWORD and TEXT.
     DataMap invalidFieldTypeMap = new DataMap();
     invalidFieldTypeMap.put("fieldType", "TEXT_PARTIAL");
-    invalidFieldTypeMap.put("searchTier", 1);
     invalidFieldTypeMap.put("searchIndexed", true);
 
     try {

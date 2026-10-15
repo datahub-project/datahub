@@ -460,7 +460,7 @@ It takes the following parameters:
 
 - **searchLabel**: string (optional) - Unified label for search operations. Copies the field value into `_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. The field stays indexed under its own name too. For string fields on Search V3, the label also names the shared full-text field the value lands in (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
 
-- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless. A leftover `searchTier` key is ignored.
+- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless.
 
 - **entityFieldName**: string (optional) - If set, this field is copied into `_search.{entityFieldName}`, so several aspects can fill one entity-level field. `_entityName` aliases `_search.entityName` when a field of the entity sets `entityName`.
 
@@ -551,10 +551,6 @@ large.
 #### Search Label System
 
 The search label system provides a powerful way to organize search fields and create specialized search experiences:
-
-**Search Tiers (`searchTier`) — removed:**
-
-Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fields. That mapping never shipped in a production release, and Search V3 reads the shared `_search` fields described below. The setting is no longer part of the model. A custom annotation that still names `searchTier` loads, and the key is ignored. Removing it does not change stored aspect data, so it does not increase an aspect's `schemaVersion`.
 
 **Search Labels (`searchLabel`):**
 

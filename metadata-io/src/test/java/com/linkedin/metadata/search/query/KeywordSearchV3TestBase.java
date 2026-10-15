@@ -1145,7 +1145,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   /** Every field queried by default is searched. */
   @Test
-  public void testSearchFieldWithoutSearchTier() {
+  public void testEveryDefaultQueryFieldIsSearched() {
     assertUrns(
         searchService
             .search(
