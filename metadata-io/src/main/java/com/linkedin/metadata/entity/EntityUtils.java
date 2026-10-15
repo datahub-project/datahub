@@ -32,6 +32,7 @@ import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -266,6 +267,26 @@ public class EntityUtils {
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
+  /** True when the stored row's system metadata carries a newer schema version than its spec. */
+  private static boolean isWrittenByNewerSchema(
+      @Nonnull final EntityAspect raw,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    if (raw.getSystemMetadata() == null) {
+      return false;
+    }
+    try {
+      final SystemMetadata systemMetadata =
+          RecordUtils.toRecordTemplate(SystemMetadata.class, raw.getSystemMetadata());
+      return handling()
+          .isWrittenByNewerSchema(
+              systemMetadata,
+              entityRegistry.findAspectSpec(urn.getEntityType(), raw.getAspect()).orElse(null));
+    } catch (RuntimeException unreadableSystemMetadata) {
+      return false;
+    }
+  }
+
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
       @Nonnull final OperationFingerprint operationContext,
@@ -285,14 +306,16 @@ public class EntityUtils {
                 raw -> {
                   Urn urn = UrnUtils.getUrn(raw.getUrn());
 
+                  // Also skips urns whose key references an unknown entity type (e.g. a schema
+                  // field of an entity type only a newer version has).
                   if (!handling()
-                      .admit(
+                      .admitEvent(
                           UNKNOWN_DATA,
                           entityRegistry,
                           metrics,
+                          urn,
                           urn.getEntityType(),
-                          raw.getAspect(),
-                          urn)) {
+                          raw.getAspect())) {
                     return null;
                   }
                   if (!handling().isTolerant()) {
@@ -307,7 +330,23 @@ public class EntityUtils {
                         String.format("Aspect %s could not be found", raw.getAspect()));
                   }
 
-                  return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
+                  try {
+                    return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
+                  } catch (RuntimeException conversionFailure) {
+                    // One row a newer version wrote must not fail the whole read; any other
+                    // conversion failure is still an error.
+                    if (!handling().isTolerant()
+                        || !isWrittenByNewerSchema(raw, urn, entityRegistry)) {
+                      throw conversionFailure;
+                    }
+                    UNKNOWN_DATA.skippedBecause(
+                        metrics,
+                        urn.getEntityType() + "/" + raw.getAspect() + "/unreadable",
+                        "it was written under a newer schema and can't be read here: "
+                            + conversionFailure.getMessage(),
+                        urn);
+                    return null;
+                  }
                 })
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
