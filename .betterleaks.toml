@@ -10,7 +10,6 @@ title = "DataHub betterleaks config"
 #   YOUR_ACCESS_TOKEN       -> curl "Bearer" placeholder in managed-datahub docs
 #   test_password           -> metabase integration-test fixture (POSTGRES_PASSWORD / db user)
 #   Admin123!               -> metabase integration-test fixture (metabase admin login)
-#   PLANTEDvalue            -> redaction unit test id recorded in integration_test_weights.json
 #
 # matchesAny (regex) is used rather than containsAny: containsAny misses multi-line
 # matches (e.g. the multi-line RSA key block in archive.py).
@@ -22,7 +21,6 @@ filter.matchesAny(finding["match"], [
   "YOUR_ACCESS_TOKEN",
   "test_password",
   "Admin123!",
-  "PLANTEDvalue",
 ])
 '''
 

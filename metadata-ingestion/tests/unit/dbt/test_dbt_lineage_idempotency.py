@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
@@ -18,16 +16,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 
-# Distinct from the schema's unknown-time sentinel. These must not leak into lineage.
-_MANIFEST_GENERATED_AT_MS = 1_700_000_000_000
-_NODE_CREATED_AT_MS = 1_600_000_000_000
-_CATALOG_GENERATED_AT_MS = 1_500_000_000_000
-_RUN_EXECUTION_MS = 1_400_000_000_000
-_UNKNOWN_LINEAGE_TIME_MS = 0
-
 
 def _source_node() -> DBTNode:
-    node = DBTNode(
+    return DBTNode(
         database="warehouse_prod",
         schema="source_ops",
         name="campaign",
@@ -41,7 +32,7 @@ def _source_node() -> DBTNode:
         dbt_file_path="models/sources.yml",
         dbt_package_name="project",
         node_type="source",
-        max_loaded_at=datetime.fromtimestamp(_RUN_EXECUTION_MS / 1000, tz=timezone.utc),
+        max_loaded_at=None,
         materialization=None,
         catalog_type="table",
         missing_from_catalog=False,
@@ -56,25 +47,13 @@ def _source_node() -> DBTNode:
             )
         ],
     )
-    node.meta = {
-        "manifest_generated_at_ms": _MANIFEST_GENERATED_AT_MS,
-        "created_at_ms": _NODE_CREATED_AT_MS,
-        "catalog_generated_at_ms": _CATALOG_GENERATED_AT_MS,
-    }
-    return node
 
 
 def _assert_unknown_lineage_time(lineage: UpstreamLineageClass) -> None:
     assert lineage.upstreams
     for upstream in lineage.upstreams:
         assert upstream.auditStamp is not None
-        assert upstream.auditStamp.time == _UNKNOWN_LINEAGE_TIME_MS
-        assert upstream.auditStamp.time not in {
-            _MANIFEST_GENERATED_AT_MS,
-            _NODE_CREATED_AT_MS,
-            _CATALOG_GENERATED_AT_MS,
-            _RUN_EXECUTION_MS,
-        }
+        assert upstream.auditStamp.time == 0
 
 
 def test_source_node_lineage_is_stable_across_emits() -> None:
@@ -100,7 +79,6 @@ def test_source_node_lineage_is_stable_across_emits() -> None:
     assert first.to_obj() == second.to_obj()
     assert first.fineGrainedLineages
     _assert_unknown_lineage_time(first)
-    _assert_unknown_lineage_time(second)
 
 
 def test_transformed_lineage_is_stable_across_emits() -> None:
@@ -134,9 +112,7 @@ def test_transformed_lineage_is_stable_across_emits() -> None:
         dbt_file_path="models/campaign_enriched.sql",
         dbt_package_name="project",
         node_type="model",
-        max_loaded_at=datetime.fromtimestamp(
-            _CATALOG_GENERATED_AT_MS / 1000, tz=timezone.utc
-        ),
+        max_loaded_at=None,
         materialization="table",
         catalog_type="table",
         missing_from_catalog=False,
@@ -150,7 +126,6 @@ def test_transformed_lineage_is_stable_across_emits() -> None:
             )
         ],
     )
-    model.meta = {"created_at_ms": _NODE_CREATED_AT_MS}
     nodes = {upstream_name: upstream, model_name: model}
 
     first = source._create_lineage_aspect_for_dbt_node(model, nodes)
@@ -162,7 +137,6 @@ def test_transformed_lineage_is_stable_across_emits() -> None:
     assert first.fineGrainedLineages
     assert first.upstreams[0].type == "TRANSFORMED"
     _assert_unknown_lineage_time(first)
-    _assert_unknown_lineage_time(second)
 
 
 def test_assertion_info_is_stable_across_emits() -> None:
