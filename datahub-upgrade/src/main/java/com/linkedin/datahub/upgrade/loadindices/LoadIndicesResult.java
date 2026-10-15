@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import lombok.Data;
 
 @Data
@@ -16,13 +18,22 @@ public class LoadIndicesResult {
 
   @Override
   public String toString() {
-    return String.format(
-        "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d, unknownToRegistrySkipped=%d}",
-        rowsProcessed,
-        urnsProcessed,
-        timeSqlQueryMs,
-        timeElasticsearchWriteMs,
-        conversionErrorsSkipped,
-        unknownToRegistrySkipped);
+    // Reported only when unknown data is tolerated, so the text is unchanged otherwise.
+    return handling().isTolerant()
+        ? String.format(
+            "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d, unknownToRegistrySkipped=%d}",
+            rowsProcessed,
+            urnsProcessed,
+            timeSqlQueryMs,
+            timeElasticsearchWriteMs,
+            conversionErrorsSkipped,
+            unknownToRegistrySkipped)
+        : String.format(
+            "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d}",
+            rowsProcessed,
+            urnsProcessed,
+            timeSqlQueryMs,
+            timeElasticsearchWriteMs,
+            conversionErrorsSkipped);
   }
 }
