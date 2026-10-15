@@ -135,7 +135,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "shipments_row_count"
         }
     },
     "systemMetadata": {
@@ -200,7 +201,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "shipment_id_unique on `shipment_id`"
         }
     },
     "systemMetadata": {
@@ -269,7 +271,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "weight_unit_valid on `weight_unit`"
         }
     },
     "systemMetadata": {
@@ -322,7 +325,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "carrier_duplicates_tolerated on `carrier`"
         }
     },
     "systemMetadata": {
@@ -445,6 +449,74 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_v302_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:11a806e0d4c51781622d325aa80de24f",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000004.shipments,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:41f7955c40449d6a4ad76a50b0a71932"
+                }
+            ],
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:c6ae1d85f4326936f782ce7004879c70"
+                },
+                {
+                    "assertion": "urn:li:assertion:f1e36487f779870614bca5e12c7ede9c"
+                },
+                {
+                    "assertion": "urn:li:assertion:32780ff8615055ba86835d9536561316"
+                },
+                {
+                    "assertion": "urn:li:assertion:90e6083201150973c04836f75603cc08"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_v302_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:11a806e0d4c51781622d325aa80de24f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_v302_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:11a806e0d4c51781622d325aa80de24f",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
         }
     },
     "systemMetadata": {

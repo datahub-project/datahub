@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.elastic;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -10,6 +11,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -156,5 +158,63 @@ public class ProcessSliceFuturesPartialResultsTest {
     assertTrue(
         futures.get(1).isCompletedExceptionally(),
         "slice 1 failed before fail-fast cancel-all ran");
+  }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetExhaustedAfterSlice_throwsLineageTimeout()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+    futures.add(new CompletableFuture<>()); // never read: the hop budget is gone after slice 0
+
+    // remainingTime=0: slice 0 returns instantly but the budget is exhausted with slice 1 unread.
+    // Strict mode must fail rather than report the hop complete.
+    LineageTimeoutException thrown =
+        Assert.expectThrows(
+            LineageTimeoutException.class,
+            () -> harness.invokeProcessSliceFutures(futures, 0, false));
+
+    assertTrue(thrown.getMessage().contains("timed out"), thrown.getMessage());
+    assertTrue(futures.get(1).isCancelled(), "unread slices are cancelled on strict timeout");
+  }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetSpentButAllSlicesReturned_returnsCompleteResult()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+
+    // remainingTime=0 but the only slice has returned: nothing is unread, so strict mode must
+    // return the complete hop rather than throw.
+    LineageSliceFetchResult result = harness.invokeProcessSliceFutures(futures, 0, false);
+
+    assertEquals(result.getLineageRelationships().size(), 1);
+    assertFalse(result.isPartial(), "all slices returned: the hop is complete");
+  }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetSpentButLaterSlicesAlreadyDone_returnsCompleteResult()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,b,PROD)"))));
+
+    // remainingTime=0 after slice 0, but slice 1 has already finished: nothing is pending, so
+    // strict mode must read it and return the complete hop rather than throw.
+    LineageSliceFetchResult result = harness.invokeProcessSliceFutures(futures, 0, false);
+
+    assertEquals(result.getLineageRelationships().size(), 2);
+    assertFalse(result.isPartial(), "all slices finished: the hop is complete");
   }
 }

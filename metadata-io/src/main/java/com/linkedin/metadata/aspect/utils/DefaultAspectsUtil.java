@@ -21,10 +21,12 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityApiUtils;
@@ -79,13 +81,25 @@ public class DefaultAspectsUtil {
             .filter(DefaultAspectsUtil::keyAspectExcludeFilter)
             .collect(Collectors.toCollection(LinkedList::new));
     // Key aspect restored if needed
-    result.addAll(
+    List<MCPItem> additionalChanges =
         DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2));
+            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2);
+
+    // `result` was already validated upstream as part of original inputBatch;
+    // Only additionalChanges needs validation here
+    ValidationExceptionCollection exceptions =
+        AspectsBatch.validateProposed(
+            opContext, additionalChanges, inputBatch.getRetrieverContext(), opContext);
+
+    if (!exceptions.isEmpty()) {
+      throw new ValidationException(exceptions);
+    }
+
+    result.addAll(additionalChanges);
     return AspectsBatchImpl.builder()
         .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
-        .build(opContext);
+        .buildWithoutValidation();
   }
 
   public static List<MCPItem> getAdditionalChanges(

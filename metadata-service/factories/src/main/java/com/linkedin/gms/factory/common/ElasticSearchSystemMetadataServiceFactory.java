@@ -2,6 +2,8 @@ package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import javax.annotation.Nonnull;
@@ -19,15 +21,20 @@ public class ElasticSearchSystemMetadataServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
+  @Autowired private SearchClusterRegistry searchClusterRegistry;
+
   @Bean(name = "esSystemMetadataDAO")
   @Nonnull
   public ESSystemMetadataDAO esSystemMetadataDAO(
       final ConfigurationProvider configurationProvider) {
     return new ESSystemMetadataDAO(
-        components.getSearchClient(),
+        searchClusterRegistry.clientFor(SearchComponent.SYSTEM_METADATA),
         components.getIndexConvention(),
-        components.getBulkProcessor(),
-        components.getConfig().getBulkProcessor().getNumRetries(),
+        searchClusterRegistry.bulkProcessorFor(SearchComponent.SYSTEM_METADATA),
+        searchClusterRegistry
+            .configFor(SearchComponent.SYSTEM_METADATA)
+            .getBulkProcessor()
+            .getNumRetries(),
         configurationProvider.getSystemMetadataService());
   }
 
@@ -35,13 +42,13 @@ public class ElasticSearchSystemMetadataServiceFactory {
   @Nonnull
   protected ElasticSearchSystemMetadataService getInstance(
       @Qualifier("esSystemMetadataDAO") final ESSystemMetadataDAO esSystemMetadataDAO,
-      @Value("${elasticsearch.idHashAlgo}") final String elasticIdHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") final String elasticIdHashAlgo,
       final ConfigurationProvider configurationProvider) {
     return new ElasticSearchSystemMetadataService(
-        components.getBulkProcessor(),
+        searchClusterRegistry.bulkProcessorFor(SearchComponent.SYSTEM_METADATA),
         components.getIndexConvention(),
         esSystemMetadataDAO,
-        components.getIndexBuilder(),
+        searchClusterRegistry.indexBuilderFor(SearchComponent.SYSTEM_METADATA),
         elasticIdHashAlgo,
         configurationProvider.getSystemMetadataService());
   }

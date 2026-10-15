@@ -10,6 +10,10 @@ from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
+# Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
+# only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
+DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
 
 class ServerEmbeddingConfig(ConfigModel):
     """Embedding configuration fetched from DataHub server via AppConfig API."""
@@ -28,6 +32,7 @@ class ServerSemanticSearchConfig(ConfigModel):
     enabled: bool
     enabled_entities: list[str]
     embedding_config: Optional[ServerEmbeddingConfig] = None
+    entity_index_v3_enabled: Optional[bool] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -41,6 +46,14 @@ class ChunkingConfig(ConfigModel):
     combine_text_under_n_chars: int = Field(
         default=100, description="Combine chunks smaller than this size"
     )
+    max_chunks_per_document: int = Field(
+        default=DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ge=1,
+        description="Maximum number of chunks embedded per document. A document that "
+        "produces more chunks is truncated to the first N so its semanticContent aspect "
+        "stays under the Kafka producer size limit; the dropped chunks are reported as a "
+        "warning, not a failure.",
+    )
 
 
 class EmbeddingConfig(ConfigModel):
@@ -51,16 +64,31 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]] = (
-        Field(
-            default=None,
-            description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. If not set, loads from server.",
-        )
+    provider: Optional[
+        Literal[
+            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+        ]
+    ] = Field(
+        default=None,
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
         description="Endpoint URL for local embedding server (e.g., http://localhost:11434/v1/embeddings). "
         "Only used when provider='local'. Falls back to LOCAL_EMBEDDING_ENDPOINT env var.",
+    )
+    onnx_model_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing model.onnx (or model_quantized.onnx) and tokenizer.json. "
+        "Only used when provider='onnx'. Falls back to ONNX_EMBEDDING_MODEL_DIR env var. "
+        "Must be the same model the GMS query-side provider uses, or semantic search will not match.",
+    )
+    onnx_pooling: str = Field(
+        default="cls",
+        description="Pooling strategy for provider='onnx': 'cls' (first-token, default) or 'mean' "
+        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity. "
+        "When config is loaded from the server, falls back to the ONNX_EMBEDDING_POOLING env var "
+        "(the same variable GMS reads), since the server API does not expose pooling.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -181,6 +209,16 @@ class EmbeddingConfig(ConfigModel):
                 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
             )
 
+        # The server names the onnx model but not where its files live or how it
+        # pools; the executor resolves both from the same env vars GMS uses so
+        # both sides load the identical model.onnx + tokenizer.json and pool the
+        # same way (query/doc vector parity).
+        onnx_model_dir: Optional[str] = None
+        onnx_pooling = "cls"
+        if provider == "onnx":
+            onnx_model_dir = os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+            onnx_pooling = os.environ.get("ONNX_EMBEDDING_POOLING", "cls")
+
         config = cls(
             provider=provider,
             model=server_config.model_id,
@@ -190,6 +228,8 @@ class EmbeddingConfig(ConfigModel):
             vertex_location=server_config.vertex_location,
             api_key=api_key,
             endpoint=endpoint,
+            onnx_model_dir=onnx_model_dir,
+            onnx_pooling=onnx_pooling,
         )
         # Set private field after construction
         config._server_config = server_config
@@ -284,12 +324,18 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         if "vertex" in provider_lower:
             return "vertex_ai"
+        if "onnx" in provider_lower:
+            return "onnx"
+        if "classical" in provider_lower:
+            return "classical"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]:  # type: ignore
+    ) -> Literal[
+        "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+    ]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -302,6 +348,10 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         elif normalized == "vertex_ai":
             return "vertex_ai"
+        elif normalized == "onnx":
+            return "onnx"
+        elif normalized == "classical":
+            return "classical"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -537,7 +587,7 @@ def get_processing_config_fingerprint(
     # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
 
-    return {
+    fingerprint: dict[str, Any] = {
         # Chunking affects chunk boundaries and structure
         "chunking_strategy": chunking.strategy if embedding_enabled else None,
         "chunking_max_characters": chunking.max_characters
@@ -554,6 +604,18 @@ def get_processing_config_fingerprint(
             embedding.model_embedding_key if embedding_enabled else None
         ),
     }
+    # The chunk cap changes emitted output (fewer chunks), so a change must re-hash
+    # affected documents. Only add the key when the cap is non-default, so merely
+    # upgrading to a build that introduces the knob does not re-fingerprint (and
+    # re-embed) every already-processed document.
+    if (
+        embedding_enabled
+        and chunking.max_chunks_per_document != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+    ):
+        fingerprint["chunking_max_chunks_per_document"] = (
+            chunking.max_chunks_per_document
+        )
+    return fingerprint
 
 
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
@@ -570,9 +632,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
-    # Older servers reject it with FieldUndefined; we fall back to the base
-    # query in that case rather than propagating a confusing schema error.
+    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
+    # servers reject unknown fields with FieldUndefined; we fall back to the base
+    # query rather than propagating a confusing schema error.
     _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
@@ -592,9 +654,13 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 }
               }
             }
+            entityIndexV3 {
+              enabled
+            }
           }
         }
     """
+    # Oldest GMS schemas: no vertexProviderConfig, no entityIndexV3.
     _QUERY_BASE = """
         query getSemanticSearchConfig {
           appConfig {
@@ -621,11 +687,12 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Older servers don't have vertexProviderConfig in their schema. When the
-        # graphql-core library is absent, strip_unsupported_fields is a no-op and
-        # the full query reaches the server, which rejects it with FieldUndefined.
-        # Retry with the base query — vertex fields will simply be None.
-        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+        # When graphql-core is absent, strip_unsupported_fields is a no-op and the
+        # full query reaches the server. Retry without the newer fields.
+        error_text = str(e)
+        if "FieldUndefined" in error_text and (
+            "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+        ):
             response = graph.execute_graphql(
                 query=_QUERY_BASE,
                 operation_name="getSemanticSearchConfig",
@@ -634,6 +701,8 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
+    entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}
+    entity_index_v3_enabled = entity_index_v3.get("enabled")
 
     if not semantic_search_config:
         raise GraphError(
@@ -650,6 +719,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             enabled=is_enabled,
             enabled_entities=semantic_search_config["enabledEntities"],
             embedding_config=None,
+            entity_index_v3_enabled=entity_index_v3_enabled,
         )
 
     # Extract AWS region from nested awsProviderConfig
@@ -692,4 +762,5 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
+        entity_index_v3_enabled=entity_index_v3_enabled,
     )

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -49,10 +50,18 @@ public class ReindexConfig {
   */
   public static final List<String> SETTINGS_DYNAMIC = ImmutableList.of("refresh_interval");
   // These setting require reindex
-  public static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards");
+  public static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards", "knn");
   public static final List<String> SETTINGS =
       Stream.concat(SETTINGS_DYNAMIC.stream(), SETTINGS_STATIC.stream())
           .collect(Collectors.toList());
+
+  /**
+   * Settings that are omitted from most indices. OpenSearch reports {@code index.knn: false} on
+   * ordinary indices, so treating a missing target value as a diff would reindex the fleet.
+   */
+  public static final Set<String> SETTINGS_OPTIONAL_WHEN_ABSENT_FROM_TARGET = Set.of("knn");
+
+  public static final String KNN_VECTOR_TYPE = "knn_vector";
 
   /**
    * Mapping parameters that Elasticsearch/OpenSearch accept on an <i>existing</i> field via {@code
@@ -75,6 +84,7 @@ public class ReindexConfig {
   private final boolean enableIndexSettingsReindex;
   private final boolean enableStructuredPropertiesReindex;
   private final boolean enableStructuredPropertyTypeMismatchReindex;
+  private final boolean enableStructuredPropertyCopyToMismatchReindex;
   private final String version;
 
   /* Calculated */
@@ -115,6 +125,13 @@ public class ReindexConfig {
   private final boolean hasStructuredPropertyTypeMismatch;
 
   /**
+   * True when a structured property field exists in both current and target mappings but the {@code
+   * copy_to} targets differ. Absent {@code copy_to} is an empty set. A put-mapping does not
+   * backfill already-copied values, so the difference requires a full reindex.
+   */
+  private final boolean hasStructuredPropertyCopyToMismatch;
+
+  /**
    * True when the mapping diff contains new or modified fields that are NOT structured properties.
    * New fields come from new {@code @Searchable} annotations and require backfill because the ES
    * {@code _reindex} API only copies existing doc fields.
@@ -146,6 +163,112 @@ public class ReindexConfig {
     requiresReindex = true;
     requiresApplyMappings = true;
     requiresApplySettings = true;
+  }
+
+  /**
+   * True when target settings want {@code index.knn: true}, the live index does not have it, and a
+   * reindex will not run. OpenSearch rejects in-place {@code knn_vector} mapping updates in that
+   * state.
+   */
+  public boolean cannotApplyKnnVectorMappingInPlace() {
+    return !requiresReindex
+        && targetRequestsIndexKnn(targetSettings)
+        && !isCurrentIndexKnnEnabled(currentSettings);
+  }
+
+  public static boolean targetRequestsIndexKnn(@Nullable Map<String, Object> targetSettings) {
+    if (targetSettings == null) {
+      return false;
+    }
+    Object index = targetSettings.get("index");
+    if (!(index instanceof Map)) {
+      return false;
+    }
+    Object knn = ((Map<?, ?>) index).get("knn");
+    return knn != null && Boolean.parseBoolean(knn.toString());
+  }
+
+  public static boolean isCurrentIndexKnnEnabled(@Nullable Settings currentSettings) {
+    if (currentSettings == null) {
+      return false;
+    }
+    String value = currentSettings.get("index.knn");
+    return value != null && Boolean.parseBoolean(value);
+  }
+
+  /**
+   * Deep-copy {@code mappings} and drop any field whose mapping type is {@code knn_vector}, plus
+   * object parents left empty. Does not mutate the input (reindex/createIndex still need the
+   * original target mappings).
+   */
+  @SuppressWarnings("unchecked")
+  @Nonnull
+  public static Map<String, Object> mappingsWithoutKnnVectorFields(
+      @Nullable Map<String, Object> mappings) {
+    if (mappings == null || mappings.isEmpty()) {
+      return new HashMap<>();
+    }
+    Map<String, Object> copy = OBJECT_MAPPER.convertValue(mappings, Map.class);
+    removeKnnVectorFields(copy);
+    return copy;
+  }
+
+  public static boolean mappingHasProperties(@Nullable Map<String, Object> mappings) {
+    if (mappings == null) {
+      return false;
+    }
+    Object properties = mappings.get(PROPERTIES);
+    return properties instanceof Map && !((Map<?, ?>) properties).isEmpty();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static boolean removeKnnVectorFields(Map<String, Object> node) {
+    Object type = node.get(TYPE);
+    if (type != null && KNN_VECTOR_TYPE.equals(String.valueOf(type))) {
+      return true;
+    }
+    Object propsObj = node.get(PROPERTIES);
+    if (propsObj instanceof Map) {
+      Map<String, Object> properties = (Map<String, Object>) propsObj;
+      Iterator<Map.Entry<String, Object>> iterator = properties.entrySet().iterator();
+      while (iterator.hasNext()) {
+        Map.Entry<String, Object> entry = iterator.next();
+        if (entry.getValue() instanceof Map) {
+          Map<String, Object> child = (Map<String, Object>) entry.getValue();
+          if (removeKnnVectorFields(child) || isEmptyObjectMapping(child)) {
+            iterator.remove();
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean isEmptyObjectMapping(Map<String, Object> node) {
+    Object props = node.get(PROPERTIES);
+    if (!(props instanceof Map) || !((Map<?, ?>) props).isEmpty()) {
+      return false;
+    }
+    Object type = node.get(TYPE);
+    return type == null || "object".equals(String.valueOf(type));
+  }
+
+  static boolean settingValuesEqual(
+      @Nonnull String settingKey, @Nullable Object targetValue, @Nullable String currentValue) {
+    if (targetValue == null) {
+      if (SETTINGS_OPTIONAL_WHEN_ABSENT_FROM_TARGET.contains(settingKey)) {
+        return true;
+      }
+      return currentValue == null;
+    }
+    if (currentValue == null) {
+      return false;
+    }
+    if (ESIndexBuilder.REFRESH_INTERVAL.equals(settingKey)
+        && RefreshIntervalResolver.sameDuration(targetValue.toString(), currentValue)) {
+      return true;
+    }
+    return Objects.equals(targetValue.toString(), currentValue);
   }
 
   public static ReindexConfigBuilder builder() {
@@ -196,6 +319,10 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder hasStructuredPropertyTypeMismatch(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder hasStructuredPropertyCopyToMismatch(boolean ignored) {
       return this;
     }
 
@@ -345,6 +472,15 @@ public class ReindexConfig {
               super.name,
               mismatchedStructuredPropertyFields);
         }
+        Set<String> mismatchedStructuredPropertyCopyTo =
+            structuredPropertyCopyToMismatches(super.currentMappings, super.targetMappings);
+        super.hasStructuredPropertyCopyToMismatch = !mismatchedStructuredPropertyCopyTo.isEmpty();
+        if (super.hasStructuredPropertyCopyToMismatch) {
+          log.info(
+              "Index: {} - Structured property copy_to mismatch(es): {}",
+              super.name,
+              mismatchedStructuredPropertyCopyTo);
+        }
         // True when the only mapping change is adding structured properties.
         // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
         // SP stripped from mappingsDiff (dynamic=true, the common production case).
@@ -367,7 +503,8 @@ public class ReindexConfig {
             (onlySPInDiff || !super.requiresApplyMappings)
                 && super.hasNewStructuredProperty
                 && !super.hasRemovedStructuredProperty
-                && !super.hasStructuredPropertyTypeMismatch;
+                && !super.hasStructuredPropertyTypeMismatch
+                && !super.hasStructuredPropertyCopyToMismatch;
 
         // Detect new or modified non-structured-property fields that require DB backfill.
         // New fields: _reindex won't populate them (they didn't exist in the source index).
@@ -423,13 +560,19 @@ public class ReindexConfig {
                 "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                 super.name);
           }
-        } else if (super.hasRemovedStructuredProperty || super.hasStructuredPropertyTypeMismatch) {
+        } else if (super.hasRemovedStructuredProperty
+            || super.hasStructuredPropertyTypeMismatch
+            || super.hasStructuredPropertyCopyToMismatch) {
           boolean reindexForRemoval =
               super.hasRemovedStructuredProperty && super.enableStructuredPropertiesReindex;
           boolean reindexForTypeMismatch =
               super.hasStructuredPropertyTypeMismatch
                   && super.enableStructuredPropertyTypeMismatchReindex;
-          if (super.enableIndexMappingsReindex && (reindexForRemoval || reindexForTypeMismatch)) {
+          boolean reindexForCopyToMismatch =
+              super.hasStructuredPropertyCopyToMismatch
+                  && super.enableStructuredPropertyCopyToMismatchReindex;
+          if (super.enableIndexMappingsReindex
+              && (reindexForRemoval || reindexForTypeMismatch || reindexForCopyToMismatch)) {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
@@ -451,6 +594,14 @@ public class ReindexConfig {
                       + " Structured Property type-mismatch reindexing is DISABLED.",
                   super.name,
                   mismatchedStructuredPropertyFields);
+            }
+            if (super.hasStructuredPropertyCopyToMismatch
+                && !super.enableStructuredPropertyCopyToMismatchReindex) {
+              log.warn(
+                  "Index: {} - Structured Property copy_to mismatch(es) detected ({}), however"
+                      + " Structured Property copy_to reindexing is DISABLED.",
+                  super.name,
+                  mismatchedStructuredPropertyCopyTo);
             }
           }
         }
@@ -629,11 +780,56 @@ public class ReindexConfig {
     }
 
     /**
+     * Fields present in both current and target structured-property mappings whose {@code copy_to}
+     * targets differ. Absent {@code copy_to} is an empty set. A string and a one-element list of
+     * the same field name match.
+     */
+    private static Set<String> structuredPropertyCopyToMismatches(
+        Map<String, Object> current, Map<String, Object> target) {
+      Map<String, Object> currentFields = structuredPropertyFieldMappings(current);
+      Map<String, Object> targetFields = structuredPropertyFieldMappings(target);
+
+      Set<String> mismatches = new TreeSet<>();
+      for (Map.Entry<String, Object> currentEntry : currentFields.entrySet()) {
+        String field = currentEntry.getKey();
+        if (!targetFields.containsKey(field)) {
+          continue;
+        }
+        Set<String> currentCopyTo = extractCopyTo(currentEntry.getValue());
+        Set<String> targetCopyTo = extractCopyTo(targetFields.get(field));
+        if (!currentCopyTo.equals(targetCopyTo)) {
+          mismatches.add(
+              String.format("%s (current=%s, target=%s)", field, currentCopyTo, targetCopyTo));
+        }
+      }
+      return mismatches;
+    }
+
+    /**
      * Map of structured-property field ids (unversioned qualified-name keys and flattened versioned
      * paths) to their Elasticsearch {@code type}.
      */
     private static Map<String, String> structuredPropertyFieldTypes(Map<String, Object> mappings) {
       Map<String, String> fieldTypes = new HashMap<>();
+      structuredPropertyFieldMappings(mappings)
+          .forEach(
+              (field, mapping) -> {
+                String type = extractMappingType(mapping);
+                if (type != null) {
+                  fieldTypes.put(field, type);
+                }
+              });
+      return fieldTypes;
+    }
+
+    /**
+     * Structured-property field ids to their mapping objects. Unversioned keys are the qualified
+     * name. Versioned fields are flattened the same way {@link #structuredPropertyFieldTypes}
+     * historically walked them.
+     */
+    private static Map<String, Object> structuredPropertyFieldMappings(
+        Map<String, Object> mappings) {
+      Map<String, Object> fields = new LinkedHashMap<>();
 
       Map<String, Object> structuredPropertyFields =
           getOrDefault(
@@ -643,10 +839,7 @@ public class ReindexConfig {
         if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(entry.getKey())) {
           continue;
         }
-        String type = extractMappingType(entry.getValue());
-        if (type != null) {
-          fieldTypes.put(entry.getKey(), type);
-        }
+        fields.put(entry.getKey(), entry.getValue());
       }
 
       Map<String, Object> versionedMappings =
@@ -661,15 +854,32 @@ public class ReindexConfig {
 
       flattenStructuredPropertyMappings(
               Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .forEach(
-              entry -> {
-                String type = extractMappingType(entry.getValue());
-                if (type != null) {
-                  fieldTypes.put(entry.getKey(), type);
-                }
-              });
+          .forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
 
-      return fieldTypes;
+      return fields;
+    }
+
+    private static Set<String> extractCopyTo(@Nullable Object mapping) {
+      if (!(mapping instanceof Map)) {
+        return Set.of();
+      }
+      Object copyTo = ((Map<?, ?>) mapping).get(COPY_TO);
+      if (copyTo == null) {
+        return Set.of();
+      }
+      if (copyTo instanceof String stringCopyTo) {
+        return stringCopyTo.isBlank() ? Set.of() : Set.of(stringCopyTo);
+      }
+      if (copyTo instanceof Collection<?> copyToValues) {
+        Set<String> values = new TreeSet<>();
+        for (Object value : copyToValues) {
+          if (value != null && !value.toString().isBlank()) {
+            values.add(value.toString());
+          }
+        }
+        return values;
+      }
+      return Set.of();
     }
 
     /**
@@ -734,18 +944,11 @@ public class ReindexConfig {
       Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
       return SETTINGS.stream()
           .allMatch(
-              settingKey -> {
-                Object targetValue = indexSettings.get(settingKey);
-                String currentValue = super.currentSettings.get("index." + settingKey);
-                // Handle null values properly
-                if (targetValue == null && currentValue == null) {
-                  return true;
-                }
-                if (targetValue == null || currentValue == null) {
-                  return false;
-                }
-                return Objects.equals(targetValue.toString(), currentValue);
-              });
+              settingKey ->
+                  settingValuesEqual(
+                      settingKey,
+                      indexSettings.get(settingKey),
+                      super.currentSettings.get("index." + settingKey)));
     }
 
     private boolean isSettingsReindexRequired() {
@@ -760,18 +963,11 @@ public class ReindexConfig {
 
       if (SETTINGS_STATIC.stream()
           .anyMatch(
-              settingKey -> {
-                Object targetValue = indexSettings.get(settingKey);
-                String currentValue = super.currentSettings.get("index." + settingKey);
-                // Handle null values properly
-                if (targetValue == null && currentValue == null) {
-                  return false;
-                }
-                if (targetValue == null || currentValue == null) {
-                  return true;
-                }
-                return !Objects.equals(targetValue.toString(), currentValue);
-              })) {
+              settingKey ->
+                  !settingValuesEqual(
+                      settingKey,
+                      indexSettings.get(settingKey),
+                      super.currentSettings.get("index." + settingKey)))) {
         return true;
       }
 

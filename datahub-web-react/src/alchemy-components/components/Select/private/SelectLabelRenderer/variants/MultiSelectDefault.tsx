@@ -1,5 +1,6 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { LabelsWrapper, Placeholder } from '@components/components/Select/components';
 import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
@@ -14,6 +15,7 @@ export default function MultiSelectDefault<OptionType extends SelectOption>({
     placeholder,
     isMultiSelect,
 }: SelectLabelVariantProps<OptionType>) {
+    const theme = useTheme();
     return (
         <LabelsWrapper shouldShowGap={selectedOptions.length > 1}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
@@ -27,6 +29,11 @@ export default function MultiSelectDefault<OptionType extends SelectOption>({
                             rightIcon={!isDisabled ? X : undefined}
                             size="sm"
                             key={o.value}
+                            customIconRenderer={o.icon ? () => o.icon : undefined}
+                            // The default gray/filled Pill text resolves to `textSecondary`, which is
+                            // noticeably lower-contrast than the rest of the select's selected-value text
+                            // (`text`). Bump it to match so selected chips stay legible.
+                            customStyle={{ color: theme.colors.text }}
                             onClickRightIcon={(e) => {
                                 e.stopPropagation();
                                 removeOption?.(o);

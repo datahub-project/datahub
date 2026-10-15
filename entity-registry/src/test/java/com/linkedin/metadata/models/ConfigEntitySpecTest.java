@@ -2,6 +2,7 @@ package com.linkedin.metadata.models;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.Arrays;
@@ -26,19 +27,15 @@ public class ConfigEntitySpecTest {
   }
 
   @Test
-  public void testConfigEntitySpecWithDefaultSearchIndexGroup() {
+  public void testConfigEntitySpecWithUnsetSearchGroup() {
     AspectSpec mockAspectSpec = createMockAspectSpec("testAspect");
 
     ConfigEntitySpec entitySpec =
-        new ConfigEntitySpec(
-            "testEntity",
-            "testKey",
-            Arrays.asList(mockAspectSpec),
-            EntityAnnotation.DEFAULT_SEARCH_GROUP);
+        new ConfigEntitySpec("testEntity", "testKey", Arrays.asList(mockAspectSpec), null);
 
     assertEquals(entitySpec.getName(), "testEntity");
     assertEquals(entitySpec.getKeyAspectName(), "testKey");
-    assertEquals(entitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertEquals(entitySpec.getSearchGroup(), null);
     assertEquals(entitySpec.getAspectSpecs().size(), 1);
     assertNotNull(entitySpec.getAspectSpec("testAspect"));
   }
@@ -119,6 +116,15 @@ public class ConfigEntitySpecTest {
 
     assertEquals(aspectSpec.getAspectAnnotation().getName(), "domains");
     assertEquals(aspectSpec.getAspectAnnotation().getSchemaVersion(), 1L);
+  }
+
+  @Test
+  public void testRelationshipFieldSpecsAreMemoized() {
+    ConfigEntitySpec entitySpec =
+        new ConfigEntitySpec(
+            "testEntity", "testKey", Arrays.asList(createMockAspectSpec("testAspect")), null);
+
+    assertSame(entitySpec.getRelationshipFieldSpecs(), entitySpec.getRelationshipFieldSpecs());
   }
 
   private AspectSpec createMockAspectSpec(String name) {

@@ -1,4 +1,5 @@
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -10,8 +11,9 @@ import { IngestionDocumentationHint } from '@app/ingest/source/builder/Ingestion
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
 import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
+import { CSV, LOOKER, LOOK_ML, SNOWFLAKE } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 const ControlsContainer = styled.div`
@@ -72,6 +74,17 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
+    // Invalid YAML is ignored; the form/yaml editor surfaces its own validation errors.
+    // Only the Snowflake banner consumes parsedRecipe; skip parsing for other source types.
+    const parsedRecipe = React.useMemo(() => {
+        if (type !== SNOWFLAKE || !displayRecipe) return null;
+        try {
+            return YAML.parse(displayRecipe);
+        } catch {
+            return null;
+        }
+    }, [displayRecipe, type]);
+
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -91,6 +104,7 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {sourceConfigs?.displayName} Details
@@ -103,7 +117,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> Form
+                        <PencilLine /> Form
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -112,7 +126,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> YAML
+                        <Code /> YAML
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>

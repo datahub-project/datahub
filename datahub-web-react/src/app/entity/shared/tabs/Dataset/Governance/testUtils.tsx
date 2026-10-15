@@ -1,4 +1,5 @@
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import i18next from 'i18next';
 import React from 'react';
 import { DefaultTheme } from 'styled-components';
@@ -40,9 +41,9 @@ export const getResultIcon = (result: TestResultType, theme: DefaultTheme) => {
     const resultColor = getResultColor(result, theme);
     switch (result) {
         case TestResultType.Success:
-            return <CheckCircleOutlined style={{ color: resultColor }} />;
+            return <CheckCircle style={{ color: resultColor }} />;
         case TestResultType.Failure:
-            return <CloseCircleOutlined style={{ color: resultColor }} />;
+            return <XCircle style={{ color: resultColor }} />;
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }

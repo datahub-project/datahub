@@ -5,6 +5,7 @@ import styled from 'styled-components';
 const OptionalPromptsWrapper = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
     margin-top: 4px;
+    text-wrap: wrap;
 `;
 
 interface Props {

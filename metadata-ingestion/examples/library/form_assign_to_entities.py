@@ -1,12 +1,7 @@
-import logging
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import FormAssociationClass, FormsClass
 from datahub.metadata.urns import DatasetUrn, FormUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Form to assign
 form_urn = FormUrn("metadata_initiative_2024")
@@ -35,6 +30,6 @@ for dataset_urn in dataset_urns:
         aspect=forms_aspect,
     )
     rest_emitter.emit(event)
-    log.info(f"Assigned form {form_urn} to entity {dataset_urn}")
+    print(f"Assigned form {form_urn} to entity {dataset_urn}")
 
-log.info(f"Successfully assigned form to {len(dataset_urns)} entities")
+print(f"Successfully assigned form to {len(dataset_urns)} entities")

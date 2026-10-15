@@ -1,6 +1,8 @@
-import { Icon } from '@components';
-import { Typography } from 'antd';
+import { Icon, Tooltip } from '@components';
+import React from 'react';
 import styled from 'styled-components';
+
+import { TextProps } from '@components/components/Text/types';
 
 import VectorBackground from '@images/homepage-vector.svg?react';
 
@@ -22,7 +24,7 @@ export const HomePageContainer = styled.div`
     overflow: hidden;
     margin: 5px;
     border-radius: 12px;
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     background-color: ${(props) => props.theme.colors.bg};
 `;
 
@@ -105,16 +107,75 @@ export const FloatingRightHeaderSection = styled.div`
     height: 100%;
 `;
 
-export const NameContainer = styled(Typography.Text)`
+type EllipsisTextProps = TextProps & {
+    ellipsis?: {
+        tooltip?: {
+            showArrow?: boolean;
+            color?: string;
+            overlayInnerStyle?: React.CSSProperties;
+        };
+    };
+};
+
+function EllipsisText({ ellipsis, children, ...props }: EllipsisTextProps) {
+    const textRef = React.useRef<HTMLSpanElement>(null);
+    const [isTruncated, setIsTruncated] = React.useState(false);
+    const htmlProps = { ...props };
+    delete htmlProps.color;
+    delete htmlProps.size;
+    delete htmlProps.weight;
+    delete htmlProps.type;
+    delete htmlProps.theme;
+
+    React.useEffect(() => {
+        const element = textRef.current;
+        if (!element) return undefined;
+
+        const updateTruncation = () => setIsTruncated(element.scrollWidth > element.clientWidth);
+        updateTruncation();
+
+        const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateTruncation);
+        observer?.observe(element);
+        window.addEventListener('resize', updateTruncation);
+
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener('resize', updateTruncation);
+        };
+    }, [children]);
+
+    const text = React.createElement('span', { ...htmlProps, ref: textRef }, children);
+
+    return ellipsis
+        ? React.createElement(
+              Tooltip,
+              {
+                  title: isTruncated ? children : undefined,
+                  showArrow: ellipsis.tooltip?.showArrow,
+                  color: ellipsis.tooltip?.color,
+                  overlayInnerStyle: ellipsis.tooltip?.overlayInnerStyle,
+              },
+              text,
+          )
+        : text;
+}
+
+export const NameContainer = styled(EllipsisText)`
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
     font-size: 16px;
     line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
-export const DescriptionContainer = styled(Typography.Text)`
+export const DescriptionContainer = styled(EllipsisText)`
     color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
     font-size: 12px;
     line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;

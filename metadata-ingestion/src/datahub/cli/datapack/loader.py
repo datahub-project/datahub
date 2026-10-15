@@ -21,9 +21,15 @@ from requests.adapters import HTTPAdapter
 from typing_extensions import NotRequired, TypedDict
 from urllib3.util.retry import Retry
 
-from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
+from datahub.cli.config_utils import (
+    DATAHUB_ROOT_FOLDER,
+    MissingConfigError,
+    load_client_config,
+)
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
+from datahub.configuration.env_vars import get_skip_config
+from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import AuthConfig
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
@@ -32,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 CACHE_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-cache")
 LOADS_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-loads")
+
+# Used when demo-data / ingest-sample-data has no env and no ~/.datahubenv.
+QUICKSTART_DEFAULT_GMS_SERVER = "http://localhost:8080"
 
 EMIT_MODE_ENV = "DATAHUB_EMIT_MODE"
 
@@ -368,7 +377,7 @@ def check_version_compatibility(
         return
 
     try:
-        client_config = load_client_config()
+        client_config = _resolve_datapack_client_config()
         from datahub.ingestion.graph.client import DataHubGraph
 
         graph = DataHubGraph(client_config)
@@ -732,12 +741,51 @@ def _run_pipeline_for_file(
         pipeline.raise_from_status()
 
 
+def _can_fallback_to_quickstart_gms() -> bool:
+    """True only when nothing is configured — not OAuth or DATAHUB_SKIP_CONFIG."""
+    if get_skip_config():
+        return False
+    if build_auth_config_from_env() is not None:
+        return False
+    return True
+
+
+def _resolve_datapack_client_config(
+    client_config: Optional[DatahubClientConfig] = None,
+    *,
+    server: Optional[str] = None,
+    token: Optional[str] = None,
+) -> DatahubClientConfig:
+    if client_config is not None:
+        return client_config
+    if server:
+        return DatahubClientConfig(server=server, token=token)
+
+    try:
+        resolved = load_client_config()
+    except MissingConfigError:
+        if not _can_fallback_to_quickstart_gms():
+            raise
+        logger.warning(
+            "No DataHub client config found; ingesting to %s. "
+            "Set DATAHUB_GMS_URL or run `datahub init` to target another instance.",
+            QUICKSTART_DEFAULT_GMS_SERVER,
+        )
+        resolved = DatahubClientConfig(server=QUICKSTART_DEFAULT_GMS_SERVER)
+
+    if token:
+        return resolved.model_copy(update={"token": token, "auth": None})
+    return resolved
+
+
 def ingest_datapack_file_entries(
     pack: DataPackInfo,
     file_entries: List[IndexFileEntry],
     run_id: str,
     *,
     client_config: Optional[DatahubClientConfig] = None,
+    server: Optional[str] = None,
+    token: Optional[str] = None,
     no_time_shift: bool = False,
     as_of: Optional[datetime] = None,
     log_progress: bool = True,
@@ -747,8 +795,9 @@ def ingest_datapack_file_entries(
     Uses OpenAPI async_batch for all files. Index entries with wait_for_completion
     use async_wait (trace blocking) before the next file starts.
     """
-    if client_config is None:
-        client_config = load_client_config()
+    client_config = _resolve_datapack_client_config(
+        client_config, server=server, token=token
+    )
 
     sink_config = _build_datapack_sink_config(client_config)
 
@@ -804,7 +853,7 @@ def load_pack_into_datahub(
     Returns:
         The run_id used for this load.
     """
-    client_config = load_client_config()
+    client_config = _resolve_datapack_client_config()
     run_id = _generate_run_id(pack.name)
 
     if dry_run:
@@ -812,6 +861,7 @@ def load_pack_into_datahub(
             click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {entry.path.name} ---")
             click.echo(f"Dry run - would load {entry.path}")
         click.echo(f"\nDry run complete for {len(file_entries)} files.")
+        click.echo(f"Would ingest to {client_config.server}.")
         return run_id
 
     ingest_datapack_file_entries(

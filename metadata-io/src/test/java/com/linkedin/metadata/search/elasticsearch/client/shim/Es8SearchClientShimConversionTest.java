@@ -420,6 +420,37 @@ public class Es8SearchClientShimConversionTest {
     assertTrue(serialized.contains("\"lt\":200"));
   }
 
+  /**
+   * GraphQL DateRange bounds are strings. If they are passed through RangeQueryBuilder unchanged,
+   * ES8 conversion keeps quoted millis, which date-mapped {@code timestamp} fields reject.
+   * Analytics must emit numeric longs instead of relying on the shim.
+   */
+  @Test
+  public void testConvertAggregationsDoesNotCoerceQuotedEpochMillisToNumbers() throws Exception {
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.aggregation(
+        AggregationBuilders.filter(
+            "filtered",
+            QueryBuilders.boolQuery()
+                .must(QueryBuilders.rangeQuery("timestamp").gte("100").lt("200"))));
+
+    Method convertAggregationsMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertAggregations", AggregatorFactories.Builder.class);
+    convertAggregationsMethod.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Aggregation> aggregations =
+        (Map<String, Aggregation>) convertAggregationsMethod.invoke(shim, source.aggregations());
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    String serialized =
+        JsonpUtils.toJsonString(aggregations.get("filtered"), new JacksonJsonpMapper(objectMapper));
+    assertTrue(serialized.contains("\"gte\":\"100\""));
+    assertTrue(serialized.contains("\"lt\":\"200\""));
+    assertFalse(serialized.contains("\"gte\":100"));
+  }
+
   /** Helper method to invoke the private convertQuery method via reflection. */
   private Query invokeConvertQuery(QueryBuilder queryBuilder) throws Exception {
     Method convertQueryMethod =

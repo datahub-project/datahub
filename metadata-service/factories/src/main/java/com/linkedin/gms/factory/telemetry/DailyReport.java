@@ -13,8 +13,11 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NamedBar;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -36,6 +39,8 @@ import org.json.JSONObject;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,7 +48,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 @Slf4j
 public class DailyReport {
   private final OperationContext systemOperationContext;
-  private final SearchClientShim<?> _elasticClient;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
@@ -93,12 +97,10 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
     this.systemOperationContext = systemOperationContext;
-    this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
@@ -133,7 +135,9 @@ public class DailyReport {
   public void dailyReport() {
     AnalyticsService analyticsService =
         new AnalyticsService(
-            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
+            systemOperationContext.getSearchContext().getIndexConvention(),
+            systemOperationContext.getEntityRegistry(),
+            entityIndexConfiguration());
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);
@@ -217,23 +221,18 @@ public class DailyReport {
    */
   private int getTotalUserCount() {
     try {
-      String corpUserIndex =
-          systemOperationContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
-
-      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
+      SearchRequest searchRequest = new SearchRequest(corpUserIndexName());
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
       searchSourceBuilder.size(0); // We only need the count
-      searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+      searchSourceBuilder.query(corpUserQuery(null));
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
+              .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count users for telemetry: {}", e.getMessage());
@@ -249,23 +248,19 @@ public class DailyReport {
    */
   private int getServiceAccountCount() {
     try {
-      String corpUserIndex =
-          systemOperationContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
-
-      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
+      SearchRequest searchRequest = new SearchRequest(corpUserIndexName());
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
       searchSourceBuilder.size(0); // We only need the count
-      searchSourceBuilder.query(QueryBuilders.termQuery("typeNames", SERVICE_ACCOUNT_SUB_TYPE));
+      searchSourceBuilder.query(
+          corpUserQuery(QueryBuilders.termQuery("typeNames", SERVICE_ACCOUNT_SUB_TYPE)));
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
+              .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());
@@ -470,5 +465,28 @@ public class DailyReport {
     } else {
       return "1M+";
     }
+  }
+
+  private EntityIndexConfiguration entityIndexConfiguration() {
+    ElasticSearchConfiguration elasticSearch = _configurationProvider.getElasticSearch();
+    return elasticSearch == null ? null : elasticSearch.getEntityIndex();
+  }
+
+  private String corpUserIndexName() {
+    return EntitySearchIndexResolver.indexName(
+        systemOperationContext, Constants.CORP_USER_ENTITY_NAME, entityIndexConfiguration());
+  }
+
+  private QueryBuilder corpUserQuery(QueryBuilder extraFilter) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    EntitySearchIndexResolver.applyEntityTypeFilter(
+        query, List.of(Constants.CORP_USER_ENTITY_NAME), entityIndexConfiguration());
+    if (extraFilter != null) {
+      query.filter(extraFilter);
+    }
+    if (!query.hasClauses()) {
+      return QueryBuilders.matchAllQuery();
+    }
+    return query;
   }
 }

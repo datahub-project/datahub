@@ -5,15 +5,18 @@ import { hashString } from '@components/components/Avatar/utils';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
-import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
+import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@app/useAppConfig';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
+
+export { LINEAGE_HANDLE_OFFSET };
 
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
@@ -40,8 +43,6 @@ export const BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES: ReadonlySet<EntityType
 
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
-export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
-
 export const VERTICAL_HANDLE = 'vertical';
 
 type Urn = string;
@@ -219,18 +220,21 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnQuery(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+// These take the registry as an argument rather than importing globalEntityRegistryV2. That module
+// builds every entity, and entity profiles reach lineage through import(), so importing it here
+// closes an import cycle across that chunk boundary.
+export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.Query;
 }
 
-export function isUrnDataProcessInstance(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+export function isUrnDataProcessInstance(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.DataProcessInstance;
 }
 
-export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+export function isUrnTransformational(urn: string, rootType: EntityType, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return !!type && isTransformational({ urn, type }, rootType);
 }
 
@@ -244,6 +248,57 @@ export function createColumnRef(urn: Urn, field: string): ColumnRef {
 export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     const [urn, field] = columnRef.split('::', 2);
     return [urn, field];
+}
+
+/**
+ * Field of a column ref that stands for an entity as a whole, for entities that read columns
+ * without having columns of their own, e.g. a metric reading a dataset column. Column lineage
+ * edges to such a ref attach to the entity's node rather than to a column.
+ */
+export const ENTITY_LEVEL_FIELD = '';
+
+export function createEntityRef(urn: Urn): ColumnRef {
+    return createColumnRef(urn, ENTITY_LEVEL_FIELD);
+}
+
+export function isEntityRef(columnRef: ColumnRef): boolean {
+    return parseColumnRef(columnRef)[1] === ENTITY_LEVEL_FIELD;
+}
+
+/**
+ * Whether the entity behaves as a single column within column lineage, e.g. a metric. Lineage
+ * between two such entities is modelled entity-to-entity rather than as fine-grained lineage, so
+ * column highlighting has to walk it through the entity-level adjacency list.
+ */
+export function isColumnLikeEntity(urn: Urn, nodes: NodeContext['nodes']): boolean {
+    return nodes.get(urn)?.type === EntityType.Metric;
+}
+
+/** Entity edges the current column highlight covers, mapped to the stroke to draw them with. */
+export type ColumnHighlightedEdges = Map<EdgeId, string>;
+
+/** What column lineage is highlighted from: a column or entity ref, and whether it is selected rather than hovered. */
+export interface ColumnHighlightSource {
+    ref: ColumnRef;
+    isSelected: boolean;
+}
+
+/**
+ * Picks the ref that drives column lineage highlights. A selected column always wins, so selecting
+ * or hovering an entity while a column is selected changes nothing; a selected entity then takes
+ * precedence over hovers, as a selected column does.
+ */
+export function resolveColumnHighlightSource(
+    selectedColumn: ColumnRef | null,
+    hoveredColumn: ColumnRef | null,
+    selectedEntityRef: ColumnRef | null,
+    hoveredEntityRef: ColumnRef | null,
+): ColumnHighlightSource | null {
+    if (selectedColumn) return { ref: selectedColumn, isSelected: true };
+    if (selectedEntityRef) return { ref: selectedEntityRef, isSelected: true };
+    if (hoveredColumn) return { ref: hoveredColumn, isSelected: false };
+    if (hoveredEntityRef) return { ref: hoveredEntityRef, isSelected: false };
+    return null;
 }
 
 export function createFineGrainedOperationRef(
@@ -459,9 +514,16 @@ interface DisplayContext {
     setDisplayedMenuNode: Dispatch<SetStateAction<Urn | null>>;
     hoveredColumn: ColumnRef | null;
     setHoveredColumn: Dispatch<SetStateAction<ColumnRef | null>>;
+    /** The node selected on the graph, shown in the lineage sidebar. */
+    selectedNode: LineageEntity | null;
+    setSelectedNode: (v: LineageEntity | null) => void;
     selectedColumn: ColumnRef | null;
     setSelectedColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     // Outputs
+    /** Resolved from the hovered / selected column and node; null when nothing highlights column lineage. */
+    columnHighlightSource: ColumnHighlightSource | null;
+    /** Entity edges covered by the column highlight, e.g. between two metrics; see `isColumnLikeEntity`. */
+    columnHighlightedEdges: ColumnHighlightedEdges;
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
@@ -481,8 +543,12 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     setDisplayedMenuNode: () => {},
     hoveredColumn: null,
     setHoveredColumn: () => {},
+    selectedNode: null,
+    setSelectedNode: () => {},
     selectedColumn: null,
     setSelectedColumn: () => {},
+    columnHighlightSource: null,
+    columnHighlightedEdges: new Map(),
     highlightedNodes: new Set(),
     cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),

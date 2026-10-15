@@ -1,151 +1,161 @@
 import { Tooltip } from '@components';
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Form, FormInstance } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AdvancedOptions from '@app/govern/structuredProperties/AdvancedOptions';
 import DisplayPreferences from '@app/govern/structuredProperties/DisplayPreferences';
-import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
 import StructuredPropsFormSection from '@app/govern/structuredProperties/StructuredPropsFormSection';
-import {
-    FieldLabel,
-    FlexContainer,
-    GridFormItem,
-    RowContainer,
-} from '@app/govern/structuredProperties/styledComponents';
+import { FieldError, FormContainer } from '@app/govern/structuredProperties/styledComponents';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
-import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
-import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    AllowedValueRow,
+    PropValueField,
+    StructuredProp,
+    StructuredPropertyFormErrors,
+    valueTypes,
+} from '@app/govern/structuredProperties/utils';
+import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
+import { AllowedValueInput, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
-interface Props {
+type Props = {
     selectedProperty: StructuredPropertyEntity | undefined;
-    form: FormInstance;
+    isReadOnly: boolean;
     formValues: StructuredProp | undefined;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
+    setFieldValue: (field: keyof StructuredProp, value: StructuredProp[keyof StructuredProp]) => void;
+    errors: StructuredPropertyFormErrors;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
     isEditMode: boolean;
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
-    allowedValues: AllowedValue[] | undefined;
+    /** The allowed values the property was saved with; absent when it has none. */
+    savedAllowedValues: AllowedValueRow[] | undefined;
+    allowedValueRows: AllowedValueRow[];
+    /** Unsaved rows with a value, in list order. */
+    liveAllowedValues: AllowedValueInput[];
+    addAllowedValueRow: () => void;
+    updateAllowedValueRow: (rowId: string, patch: Partial<AllowedValueRow>) => void;
+    removeAllowedValueRow: (rowId: string) => void;
+    moveAllowedValueRow: (from: number, to: number) => void;
     valueField: PropValueField;
-    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
-    refetchProperties: () => void;
     badgeProperty?: StructuredPropertyEntity;
-}
+    /** Fires on user edits only, not on programmatic value changes. */
+    onValuesChange?: () => void;
+};
 
 const StructuredPropsForm = ({
     selectedProperty,
-    form,
+    isReadOnly,
     formValues,
     setFormValues,
+    setFieldValue,
+    errors,
     isEditMode,
     setCardinality,
     selectedValueType,
     setSelectedValueType,
-    allowedValues,
+    savedAllowedValues,
+    allowedValueRows,
+    liveAllowedValues,
+    addAllowedValueRow,
+    updateAllowedValueRow,
+    removeAllowedValueRow,
+    moveAllowedValueRow,
     valueField,
-    setShowAllowedValuesDrawer,
-    refetchProperties,
     badgeProperty,
+    onValuesChange,
 }: Props) => {
     const { t } = useTranslation('governance.structured-properties');
     const { t: tl } = useTranslation('common.labels');
-    const { handleTypeUpdate, handleDisplaySettingChange } = useStructuredProp({
+    const structuredPropActions = useStructuredProp({
         selectedProperty,
-        form,
         setFormValues,
         setCardinality,
         setSelectedValueType,
     });
+    const { handleTypeUpdate, handleDisplaySettingChange } = structuredPropActions;
 
     return (
-        <Form form={form}>
-            <Form.Item
-                name="displayName"
-                rules={[
-                    {
-                        required: true,
-                        message: t('create.nameError'),
-                    },
-                ]}
-            >
-                <Input
-                    label={tl('name')}
-                    placeholder={t('create.namePlaceholder')}
-                    isRequired
-                    data-testid="structured-props-input-name"
-                />
-            </Form.Item>
-            <Form.Item name="description">
-                <TextArea
-                    label={tl('description')}
-                    placeholder={t('allowedValues.descriptionPlaceholder')}
-                    data-testid="structured-props-input-description"
-                />
-            </Form.Item>
-            <RowContainer>
-                <FieldLabel>
-                    <FlexContainer>
-                        {t('create.propertyType')}
-                        <RequiredAsterisk />
-                        <Tooltip title={t('create.propertyTypeTooltip')} showArrow={false}>
-                            <Icon icon={Info} color="iconBrand" size="lg" />
-                        </Tooltip>
-                    </FlexContainer>
-                </FieldLabel>
-
-                <Tooltip title={isEditMode && t('create.propertyTypeDisabledTooltip')} showArrow={false}>
-                    <GridFormItem
-                        name="valueType"
-                        rules={[
-                            {
-                                required: true,
-                                message: t('create.propertyTypeError'),
-                            },
-                        ]}
-                    >
-                        <SimpleSelect
-                            onUpdate={(values: any) => {
-                                handleTypeUpdate(values[0]);
-                            }}
-                            placeholder={t('create.propertyTypePlaceholder')}
-                            options={valueTypes}
-                            values={formValues?.valueType ? [formValues?.valueType] : undefined}
-                            isDisabled={isEditMode}
-                            showDescriptions
-                            data-testid="structured-props-select-input-type"
-                            optionListTestId="structured-props-property-type-options-list"
-                            width="full"
-                        />
-                    </GridFormItem>
-                </Tooltip>
-            </RowContainer>
+        <FormContainer>
+            <Input
+                label={tl('name')}
+                placeholder={t('create.namePlaceholder')}
+                isRequired
+                value={formValues?.displayName ?? ''}
+                setValue={(value) => setFieldValue('displayName', value)}
+                error={errors.displayName}
+                isDisabled={isReadOnly}
+                data-testid="structured-props-input-name"
+            />
+            <TextArea
+                label={tl('description')}
+                placeholder={t('allowedValues.descriptionPlaceholder')}
+                value={formValues?.description ?? ''}
+                onChange={(e) => setFieldValue('description', e.target.value)}
+                isDisabled={isReadOnly}
+                data-testid="structured-props-input-description"
+            />
+            <Tooltip title={isEditMode && t('create.propertyTypeDisabledTooltip')} showArrow={false}>
+                <div>
+                    <SimpleSelect
+                        label={t('create.propertyType')}
+                        isRequired
+                        onUpdate={(values) => {
+                            handleTypeUpdate(values[0]);
+                            onValuesChange?.();
+                        }}
+                        placeholder={t('create.propertyTypePlaceholder')}
+                        options={valueTypes}
+                        values={formValues?.valueType ? [formValues.valueType] : undefined}
+                        isDisabled={isEditMode || isReadOnly}
+                        showDescriptions
+                        data-testid="structured-props-select-input-type"
+                        optionListTestId="structured-props-property-type-options-list"
+                        width="full"
+                    />
+                    {errors.valueType && <FieldError>{errors.valueType}</FieldError>}
+                </div>
+            </Tooltip>
 
             <StructuredPropsFormSection
                 selectedProperty={selectedProperty}
-                form={form}
+                isReadOnly={isReadOnly}
                 formValues={formValues}
-                setFormValues={setFormValues}
+                errors={errors}
                 isEditMode={isEditMode}
-                setCardinality={setCardinality}
                 selectedValueType={selectedValueType}
-                setSelectedValueType={setSelectedValueType}
-                allowedValues={allowedValues}
+                selectionActions={structuredPropActions}
+                savedAllowedValues={savedAllowedValues}
+                allowedValueRows={allowedValueRows}
+                addAllowedValueRow={addAllowedValueRow}
+                updateAllowedValueRow={updateAllowedValueRow}
+                removeAllowedValueRow={removeAllowedValueRow}
+                moveAllowedValueRow={moveAllowedValueRow}
                 valueField={valueField}
-                setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
+                onValuesChange={onValuesChange}
             />
             <DisplayPreferences
                 formValues={formValues}
-                handleDisplaySettingChange={handleDisplaySettingChange}
+                handleDisplaySettingChange={(field, value) => {
+                    handleDisplaySettingChange(field, value);
+                    onValuesChange?.();
+                }}
                 selectedValueType={selectedValueType}
-                refetchProperties={refetchProperties}
                 badgeProperty={badgeProperty}
-                allowedValues={allowedValues}
+                // Allowed values are edited inline, so display preferences (e.g. the asset badge
+                // toggle, which requires a bounded value set) must react to unsaved edits rather
+                // than the saved definition.
+                allowedValues={liveAllowedValues}
+                isReadOnly={isReadOnly}
             />
-            <AdvancedOptions isEditMode={isEditMode} />
-        </Form>
+            <AdvancedOptions
+                isEditMode={isEditMode}
+                isReadOnly={isReadOnly}
+                qualifiedName={formValues?.qualifiedName}
+                setQualifiedName={(value) => setFieldValue('qualifiedName', value)}
+                error={errors.qualifiedName}
+            />
+        </FormContainer>
     );
 };
 

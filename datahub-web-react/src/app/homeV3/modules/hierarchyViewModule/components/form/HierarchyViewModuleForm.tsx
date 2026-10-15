@@ -30,7 +30,7 @@ export default function HierarchyViewModuleForm() {
                     label={t('details.nameLabel')}
                     placeholder={t('details.namePlaceholder')}
                     isRequired
-                    data-testid="hierarchy-module-name"
+                    inputTestId="hierarchy-module-name"
                 />
             </FormItem>
 

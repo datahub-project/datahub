@@ -472,7 +472,7 @@ Each consumer automatically records queue time metrics using the message's embed
 
 Metric: `messaging.queue.time`
 
-- Type: Timer with configurable percentiles and SLO buckets
+- Type: Timer with percentile histogram and configurable SLO buckets (use `histogram_quantile()` or SLO bucket rates for alerting — client-side `quantile` gauges are not exported)
 - Unit: Milliseconds
 - Tags:
   - `messaging.system`: `kafka` or `pgqueue`
@@ -488,7 +488,7 @@ The timer automatically tracks:
 - Count: Total messages processed
 - Sum: Cumulative queue time
 - Max: Highest queue time observed
-- Percentiles: p50, p95, p99, p99.9 (configurable)
+- Histogram buckets: `_bucket` series for percentile estimates via `histogram_quantile()` and SLO compliance
 - SLO Buckets: Percentage of messages meeting latency targets
 
 #### Configuration Guide
@@ -499,9 +499,6 @@ Default Configuration:
 kafka:
   consumer:
     metrics:
-      # Percentiles to calculate
-      percentiles: "0.5,0.95,0.99,0.999"
-
       # Service Level Objective buckets (seconds)
       slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
 
@@ -567,7 +564,7 @@ Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` hist
 
 The new metrics provide:
 
-- Better percentile accuracy
+- Histogram-based percentile estimates (`histogram_quantile()` over `_bucket` series)
 - SLO bucket tracking
 - Multi-backend support
 - Dimensional tagging
@@ -870,10 +867,11 @@ performance under load.
 ```yaml
 graphQL.concurrency:
   separateThreadPool: true
-  corePoolSize: 20 # Base threads
-  maxPoolSize: 200 # Scale under load
+  scaleWithProcessors: false # true restores availableProcessors()*5 / *100 and SynchronousQueue
+  corePoolSize: 40 # 8-core default (5 * 8); < 0 uses 5 * cores
+  maxPoolSize: 800 # 8-core cap (100 * 8); <= 0 uses 100 * cores
+  queueSize: 0 # 0 = SynchronousQueue (blocking GraphQL fan-out); > 0 = bounded queue
   keepAlive: 60 # Seconds before idle thread removal
-  # Handles complex GraphQL query resolution
 ```
 
 #### 2. Batch Processing Executors
@@ -1198,6 +1196,27 @@ scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` uns
 application port; set it when you want a separate management listener (Spring maps the env var to
 `management.server.port`).
 
+The Play frontend exports HTTP server pool gauges on that scrape, comparable to GMS Jetty
+`jetty_threads_*` / `jetty_connections_*`. Request handling runs on Pekko's default dispatcher (a fork-join
+pool shared with other Pekko actors). Pekko HTTP does not expose a live connection count, so the connection
+series are the configured limits.
+
+| Series                                                          | Meaning                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| `play_http_threads_busy`                                        | Threads actively executing on the dispatcher              |
+| `play_http_threads_idle`                                        | Dispatcher threads not executing                          |
+| `play_http_threads_current`                                     | Current dispatcher pool size                              |
+| `play_http_threads_jobs`                                        | Tasks queued on the dispatcher                            |
+| `play_http_threads_parallelism`                                 | Live pool cap (saturation denominator)                    |
+| `play_http_threads_config_min` / `play_http_threads_config_max` | Configured fork-join parallelism bounds                   |
+| `play_http_connections_max`                                     | Configured `pekko.http.server.max-connections`            |
+| `play_http_connections_backlog`                                 | Configured accept backlog                                 |
+| `play_http_requests_inflight`                                   | Requests inside the Play filter chain, including `/admin` |
+
+```promql
+play_http_threads_busy / play_http_threads_parallelism
+```
+
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
 to http://localhost:3001 to find the grafana dashboards! (Username: admin, PW: admin)
@@ -1248,4 +1267,19 @@ Or start the base stack with `./gradlew quickstartDebug` and add monitoring comp
 
 ## Health check endpoint
 
-For monitoring healthiness of your DataHub service, `/admin` endpoint can be used.
+`GET /admin` and `GET /health` on the main HTTP port (9002) are **deprecated** for health checks. Both still return `200 GOOD`, or `503` while graceful shutdown is in progress, and they do not call GMS. They remain only so existing monitors keep working. New checks, including Kubernetes probes and the Docker `HEALTHCHECK`, should use the management listener below. `datahub-dev` still calls `/admin` and should move off it before that route is removed.
+
+Those routes run on the Play server. A burst of slow upstream calls holds Play connections (GMS proxy waits up to 120s; the OTEL collector, login, and SSO hold a connection too), and once that table is full a probe to port 9002 can connect and then time out waiting for headers. Liveness and readiness must not share that failure mode.
+
+The management listener (`MANAGEMENT_SERVER_PORT`, default **4319**) starts whenever that port is set, including when Prometheus export is disabled. `/actuator/prometheus` is registered on the same port only when a Prometheus registry exists. The listener has its own thread pool. `GET /health/live` and `GET /health/ready` are counted on `frontend_management_health_inflight`. That is the management-port counterpart of Play's `play_http_requests_inflight`, which counts `/admin` and `/health` on port 9002 because those routes still run in the Play filter chain. A stuck management probe shows up on `frontend_management_health_inflight`; a saturated Play pool does not, because these paths never enter it.
+
+| Path                | Meaning                                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health/live`  | **200** if this listener can run. Process is up. This is the restart signal (Docker `HEALTHCHECK` uses it). It does not check GMS, saturation, or shutdown.                                                                              |
+| `GET /health/ready` | **200** when the process has finished starting, is not shutting down, and in-flight upstream calls are at or below the low-water mark. **503** while starting (`Starting`), shutting down (`Shutting down`), or saturated (`Saturated`). |
+
+Readiness fails when in-flight upstream calls reach **90%** of `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` (default **1024**, Pekko HTTP's `max-connections`) and recovers when they fall to **70%**. The 20% band stops readiness from flapping on a few requests without holding a pod out of rotation while a large share of the budget drains. GMS (`/api`, `/openapi`), login and signup, SSO, and in-flight OTEL forwards share that one budget. Browser trace export (`/otel/v1/traces`) also has its own cap of **100**, so a collector storm returns **503** before it can use the rest of the shared budget. At **100%** of the shared cap, a new call on those paths returns **503** with `Retry-After: 1` and is not forwarded. That sheds load before Play stops writing response headers.
+
+Point Kubernetes liveness at `GET /health/live` and readiness at `GET /health/ready` on port **4319**. Do not prefix those paths with `DATAHUB_BASE_PATH`. Current Helm charts still probe `/admin` on port 9002 until the chart is updated. That chart change is the deprecation of `/admin` as a probe: stop pointing liveness and readiness at it, then remove the route in a later release once monitors have moved.
+
+`/health/ready` does not mean GMS is healthy. A down or slow GMS should produce a fast proxy error (or 503 once the cap is hit) and can take the pod out of rotation. It should not restart the pod.

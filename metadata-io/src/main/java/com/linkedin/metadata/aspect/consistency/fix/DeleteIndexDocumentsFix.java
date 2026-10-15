@@ -3,13 +3,19 @@ package com.linkedin.metadata.aspect.consistency.fix;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -46,6 +52,7 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
   private final ESSystemMetadataDAO esSystemMetadataDAO;
   private final EntitySearchService entitySearchService;
   private final GraphService graphService;
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   public DeleteIndexDocumentsFix(
       @Qualifier("esSystemMetadataDAO") ESSystemMetadataDAO esSystemMetadataDAO,
@@ -54,6 +61,20 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
     this.esSystemMetadataDAO = esSystemMetadataDAO;
     this.entitySearchService = entitySearchService;
     this.graphService = graphService;
+    this.entityDocumentIdHasher = new Sha256UrnEntityDocumentIdHasher();
+  }
+
+  @Autowired
+  public DeleteIndexDocumentsFix(
+      @Qualifier("esSystemMetadataDAO") ESSystemMetadataDAO esSystemMetadataDAO,
+      @Qualifier("entitySearchService") EntitySearchService entitySearchService,
+      @Qualifier("graphService") GraphService graphService,
+      ObjectProvider<EntityDocumentIdHasher> hasherProvider) {
+    this.esSystemMetadataDAO = esSystemMetadataDAO;
+    this.entitySearchService = entitySearchService;
+    this.graphService = graphService;
+    this.entityDocumentIdHasher =
+        hasherProvider.getIfAvailable(Sha256UrnEntityDocumentIdHasher::new);
   }
 
   @Override
@@ -122,24 +143,42 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String entityType) {
 
     String urnStr = urn.toString();
-    // Document ID in search index is URL-encoded
-    String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
+    String v2DocId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
     int successCount = 0;
     Exception lastException = null;
 
-    // 1. Delete from entity search index FIRST
+    // 1. Delete from entity search indexes FIRST (V2 URL-encoded _id, V3 hashed _id)
     try {
-      entitySearchService.deleteDocument(opContext, entityType, docId);
+      entitySearchService.deleteDocument(opContext, entityType, v2DocId);
       log.debug(
-          "Deleted from entity search index: {} (type={}, docId={})", urnStr, entityType, docId);
+          "Deleted from V2 entity search index: {} (type={}, docId={})",
+          urnStr,
+          entityType,
+          v2DocId);
       successCount++;
     } catch (Exception e) {
       log.warn(
-          "Failed to delete from entity search index {} (type={}, docId={}): {}",
+          "Failed to delete from V2 entity search index {} (type={}, docId={}): {}",
           urnStr,
           entityType,
-          docId,
+          v2DocId,
           e.getMessage());
+      lastException = e;
+    }
+    try {
+      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityType);
+      String indexKey = V3IndexKeys.resolve(entitySpec);
+      String v3DocId = entityDocumentIdHasher.documentId(opContext, urn);
+      entitySearchService.deleteDocumentBySearchGroup(opContext, indexKey, v3DocId);
+      log.debug(
+          "Deleted from V3 entity search index: {} (indexKey={}, docId={})",
+          urnStr,
+          indexKey,
+          v3DocId);
+      // V3 delete is additive cleanup. EntitySearchService's default is a no-op, so a
+      // non-throwing call is not evidence that a document was removed.
+    } catch (Exception e) {
+      log.warn("Failed to delete from V3 entity search index {}: {}", urnStr, e.getMessage());
       lastException = e;
     }
 

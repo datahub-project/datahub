@@ -20,9 +20,11 @@ import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
@@ -30,6 +32,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
@@ -41,6 +44,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -48,11 +52,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -61,7 +68,6 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -98,6 +104,20 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
   protected abstract SearchClientShim<?> getClient();
 
+  protected SearchClientShim<?> graphClient(@Nonnull OperationContext opContext) {
+    if (opContext.getSearchContext().getSearchClusterAccess() == null) {
+      return getClient();
+    }
+    return SearchClients.forComponent(opContext, SearchComponent.GRAPH);
+  }
+
+  private static String graphIndexName(@Nonnull OperationContext opContext) {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
+  }
+
   protected abstract LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
@@ -125,8 +145,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(graphIndexName(opContext));
 
     return opContext.withSpan(
         "esQuery",
@@ -135,7 +154,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -489,7 +508,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     try {
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-      return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -667,11 +686,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 opContext,
                 scrollId,
                 keepAlive,
-                getClient(),
+                graphClient(opContext),
                 opContext
                     .getSearchContext()
                     .getIndexConvention()
-                    .getIndexName(opContext, INDEX_NAME))
+                    .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
             : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
@@ -689,8 +708,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request
     if (!usePIT) {
-      searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+      searchRequest.indices(graphIndexName(opContext));
     }
 
     return opContext.withSpan(
@@ -700,7 +718,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -730,85 +748,59 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     if (urns.isEmpty() || edgeInfo.isEmpty()) {
       return Optional.empty();
     } else {
-      // Create the main bool query
-      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
       Set<String> entityUrns = urns.stream().map(Urn::toString).collect(Collectors.toSet());
 
-      // Group edge info by relationship type AND direction
-      Map<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> edgeGroups =
-          edgeInfo.stream()
-              .collect(Collectors.groupingBy(edge -> Pair.of(edge.getType(), edge.getDirection())));
-
-      // Special handling for UNDIRECTED - they need to be included in both directions
-      List<LineageRegistry.EdgeInfo> undirectedEdges =
-          edgeInfo.stream()
-              .filter(edge -> edge.getDirection() == RelationshipDirection.UNDIRECTED)
-              .collect(Collectors.toList());
-
-      // Add undirected edges to both INCOMING and OUTGOING groups
-      for (LineageRegistry.EdgeInfo undirectedEdge : undirectedEdges) {
-        // Create virtual INCOMING edge
-        edgeGroups
-            .computeIfAbsent(
-                Pair.of(undirectedEdge.getType(), RelationshipDirection.INCOMING),
-                k -> new ArrayList<>())
-            .add(undirectedEdge);
-
-        // Create virtual OUTGOING edge
-        edgeGroups
-            .computeIfAbsent(
-                Pair.of(undirectedEdge.getType(), RelationshipDirection.OUTGOING),
-                k -> new ArrayList<>())
-            .add(undirectedEdge);
-      }
-
-      // Process each group
-      for (Map.Entry<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> entry :
-          edgeGroups.entrySet()) {
-        String relationshipType = entry.getKey().getLeft();
-        RelationshipDirection direction = entry.getKey().getRight();
-        List<LineageRegistry.EdgeInfo> edges = entry.getValue();
-
-        // Skip the UNDIRECTED in the main loop as we've already processed them
-        if (direction == RelationshipDirection.UNDIRECTED) {
-          continue;
-        }
-
-        // Collect the entity types for this relationship type and direction
-        List<String> entityTypes =
-            edges.stream()
-                .map(LineageRegistry.EdgeInfo::getOpposingEntityType)
-                .collect(Collectors.toList());
-
-        // Build the appropriate query based on direction
-        if (direction == RelationshipDirection.OUTGOING) {
-          BoolQueryBuilder outgoingQuery =
-              QueryBuilders.boolQuery()
-                  .filter(QueryBuilders.termsQuery(GraphQueryConstants.SOURCE_URN, entityUrns))
-                  .filter(
-                      QueryBuilders.termQuery(
-                          GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType));
-
-          // Use termsQuery for multiple types
-          outgoingQuery.filter(
-              QueryBuilders.termsQuery(GraphQueryConstants.DESTINATION_TYPE, entityTypes));
-
-          mainQuery.should(outgoingQuery);
-        } else if (direction == RelationshipDirection.INCOMING) {
-          BoolQueryBuilder incomingQuery =
-              QueryBuilders.boolQuery()
-                  .filter(QueryBuilders.termsQuery(GraphQueryConstants.DESTINATION_URN, entityUrns))
-                  .filter(
-                      QueryBuilders.termQuery(
-                          GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType));
-
-          // Use termsQuery for multiple types
-          incomingQuery.filter(
-              QueryBuilders.termsQuery(GraphQueryConstants.SOURCE_TYPE, entityTypes));
-
-          mainQuery.should(incomingQuery);
+      // Opposing entity types per relationship type, grouped by direction. UNDIRECTED edges are
+      // followed both ways. Sorted maps keep the rendered query stable.
+      Map<RelationshipDirection, Map<String, Set<String>>> typesByDirection =
+          new EnumMap<>(RelationshipDirection.class);
+      for (LineageRegistry.EdgeInfo edge : edgeInfo) {
+        List<RelationshipDirection> directions =
+            edge.getDirection() == RelationshipDirection.UNDIRECTED
+                ? List.of(RelationshipDirection.INCOMING, RelationshipDirection.OUTGOING)
+                : List.of(edge.getDirection());
+        for (RelationshipDirection direction : directions) {
+          typesByDirection
+              .computeIfAbsent(direction, d -> new TreeMap<>())
+              .computeIfAbsent(edge.getType(), t -> new TreeSet<>())
+              .add(edge.getOpposingEntityType());
         }
       }
+
+      // One clause per direction: the URN list appears once per direction instead of once per
+      // relationship type. It is by far the largest part of the request, so repeating it made
+      // every page several times larger to build, send and parse.
+      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+      typesByDirection.forEach(
+          (direction, typesByRelationship) -> {
+            final String urnField;
+            final String opposingTypeField;
+            if (direction == RelationshipDirection.OUTGOING) {
+              urnField = GraphQueryConstants.SOURCE_URN;
+              opposingTypeField = GraphQueryConstants.DESTINATION_TYPE;
+            } else if (direction == RelationshipDirection.INCOMING) {
+              urnField = GraphQueryConstants.DESTINATION_URN;
+              opposingTypeField = GraphQueryConstants.SOURCE_TYPE;
+            } else {
+              return;
+            }
+
+            BoolQueryBuilder relationshipQuery = QueryBuilders.boolQuery();
+            typesByRelationship.forEach(
+                (relationshipType, entityTypes) ->
+                    relationshipQuery.should(
+                        QueryBuilders.boolQuery()
+                            .filter(
+                                QueryBuilders.termQuery(
+                                    GraphQueryConstants.RELATIONSHIP_TYPE, relationshipType))
+                            .filter(QueryBuilders.termsQuery(opposingTypeField, entityTypes))));
+            relationshipQuery.minimumShouldMatch(1);
+
+            mainQuery.should(
+                QueryBuilders.boolQuery()
+                    .filter(QueryBuilders.termsQuery(urnField, entityUrns))
+                    .filter(relationshipQuery));
+          });
 
       // Require that at least one of the "should" clauses matches
       mainQuery.minimumShouldMatch(1);
@@ -1217,17 +1209,18 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     // Log progress
-    log.debug(
-        "Current entity counts per input urn: {}",
-        entitiesPerInputUrn.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size())));
-
-    log.debug(
-        "Input urns that reached their limits: {}",
-        inputUrnLimitReached.entrySet().stream()
-            .filter(Map.Entry::getValue)
-            .map(e -> e.getKey().toString())
-            .collect(Collectors.toList()));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Current entity counts per input urn: {}",
+          entitiesPerInputUrn.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size())));
+      log.debug(
+          "Input urns that reached their limits: {}",
+          inputUrnLimitReached.entrySet().stream()
+              .filter(Map.Entry::getValue)
+              .map(e -> e.getKey().toString())
+              .collect(Collectors.toList()));
+    }
   }
 
   /**
@@ -1284,8 +1277,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(graphIndexName(opContext));
 
     return searchRequest;
   }
@@ -1298,7 +1290,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, request, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, request, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1392,6 +1384,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
         if (remainingTime < 0) {
+          cascade.recordError("timeout"); // datahub.lineage.graph_walk.errors{error_type=timeout}
           if (allowPartialResults) {
             log.warn(
                 "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
@@ -1407,7 +1400,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 entityUrn,
                 lineageGraphFilters.getLineageDirection(),
                 maxHops);
-            throw new IllegalStateException(
+            throw new LineageTimeoutException(
                 String.format(
                     "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
                     config.getSearch().getGraph().getTimeoutSeconds(),
@@ -1426,20 +1419,30 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         // Do one hop on the lineage graph
         // Note: maxRelations is the original total limit, but we pass the remaining capacity
         // to the scroll methods to ensure accurate limit checking at each level
-        ImpactHopResult hopResult =
-            processOneHopLineageWithMaxRelations(
-                opContext,
-                currentLevel,
-                remainingTime,
-                maxHops,
-                lineageGraphFilters,
-                visitedEntities,
-                viaEntities,
-                existingPaths,
-                result,
-                i,
-                maxRelations,
-                allowPartialResults);
+        ImpactHopResult hopResult;
+        try {
+          hopResult =
+              processOneHopLineageWithMaxRelations(
+                  opContext,
+                  currentLevel,
+                  remainingTime,
+                  maxHops,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  existingPaths,
+                  result,
+                  i,
+                  maxRelations,
+                  allowPartialResults);
+        } catch (LineageTimeoutException e) {
+          // Strict-mode slice timeouts surface here; record them on the same cascade so every
+          // timeout, whichever site detected it, lands on graph_walk.errors{error_type=timeout}.
+          // Partial-mode slice timeouts on the final hop are only visible via isPartial;
+          // add a reason to LineageSliceFetchResult if that rate ever needs its own series.
+          cascade.recordError("timeout");
+          throw e;
+        }
         currentLevel = hopResult.getNextLevelUrns();
         isPartial |= hopResult.isSlicePartial();
         cascade.recordEntitiesProcessed(result.size() - sizeBefore);
@@ -1750,6 +1753,21 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
   }
 
+  /**
+   * Mark a hop partial when any slice stopped on a timeout or a shard failure in partial mode (see
+   * {@link #stopSliceOnTimeout} and {@link #stopSliceOnShardFailure}). The slice keeps and returns
+   * what it collected but cannot flag itself partial through {@link #processSliceFutures}, which
+   * infers partial only from an exception or an exhausted wait budget; the shared flag closes that
+   * gap so truncated lineage is never reported with {@code isPartial=false}.
+   */
+  static LineageSliceFetchResult markPartialIfSliceIncomplete(
+      LineageSliceFetchResult fetch, AtomicBoolean sliceIncomplete, boolean allowPartialResults) {
+    if (!allowPartialResults || fetch.isPartial() || !sliceIncomplete.get()) {
+      return fetch;
+    }
+    return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
+  }
+
   private static IllegalStateException rejectMaxRelationsExceeded(int sliceId, int maxRelations) {
     log.error(
         "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
@@ -1820,17 +1838,31 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 i + 1,
                 allRelationships.size());
             slicePartial = true;
-          } else {
-            log.warn("Out of time, stopping slice processing after {} slices", i + 1);
+            break;
           }
-          break;
+          if (sliceFutures.stream().skip(i + 1).allMatch(CompletableFuture::isDone)) {
+            // Every remaining slice has already finished (or none remain): a slice that returned
+            // normally in strict mode completed all its pages, so the hop is complete even though
+            // the budget is spent. Keep reading (get() returns immediately) instead of failing;
+            // the BFS-level deadline check decides whether another hop may start.
+            continue;
+          }
+          // Strict mode: the hop budget is gone with later slices unread. Returning what we have
+          // would report truncated lineage as complete; fail exactly like a timed-out slice.
+          log.error(
+              "Out of time after {} of {} slices; failing strict lineage query",
+              i + 1,
+              sliceFutures.size());
+          sliceFutures.forEach(f -> f.cancel(true));
+          throw new LineageTimeoutException(
+              "Lineage hop timed out after " + (i + 1) + " of " + sliceFutures.size() + " slices");
         }
 
       } catch (TimeoutException e) {
         if (!allowPartialResults) {
           log.error("Slice {} timed out after {} seconds", i, futureTimeout);
           sliceFutures.forEach(f -> f.cancel(true));
-          throw new RuntimeException(
+          throw new LineageTimeoutException(
               "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
         }
         future.cancel(true);
@@ -1888,9 +1920,50 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     return new LineageSliceFetchResult(allRelationships, slicePartial);
   }
 
+  /**
+   * A slice ran out of time: either the shared hop deadline passed between pages, or a page came
+   * back with {@code timedOut=true} because the shard stopped collecting at the per-request
+   * timeout. One policy for both, so strict mode can never report a truncated slice as complete and
+   * partial mode never throws away what the slice already collected: strict mode throws the
+   * distinct {@link LineageTimeoutException}; partial mode flags the hop partial and logs. Callers
+   * stop paginating immediately after this returns.
+   */
+  protected void stopSliceOnTimeout(
+      int sliceId, String reason, boolean allowPartialResults, AtomicBoolean sliceIncomplete) {
+    if (!allowPartialResults) {
+      throw new LineageTimeoutException("Slice " + sliceId + " timed out (" + reason + ")");
+    }
+    sliceIncomplete.set(true);
+    log.warn(
+        "Slice {} timed out ({}); keeping collected relationships and stopping pagination",
+        sliceId,
+        reason);
+  }
+
+  /**
+   * A page came back with failed shards. Their hits for this page are missing and, with
+   * search_after, later pages cannot return them, so the slice is incomplete. Same policy as {@link
+   * #stopSliceOnTimeout}: strict mode fails the query; partial mode flags the hop partial and logs.
+   * Callers stop paginating immediately after this returns.
+   */
+  protected void stopSliceOnShardFailure(
+      int sliceId,
+      int failedShards,
+      int totalShards,
+      boolean allowPartialResults,
+      AtomicBoolean sliceIncomplete) {
+    String reason =
+        String.format("Slice %d: %d of %d shards failed", sliceId, failedShards, totalShards);
+    if (!allowPartialResults) {
+      throw new ESQueryException(reason);
+    }
+    sliceIncomplete.set(true);
+    log.warn("{}; keeping collected relationships and stopping pagination", reason);
+  }
+
   @Override
   public void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId) {
-    ESUtils.cleanupPointInTime(opContext, getClient(), pitId, "API Request");
+    ESUtils.cleanupPointInTime(opContext, graphClient(opContext), pitId, "API Request");
   }
 
   @Value

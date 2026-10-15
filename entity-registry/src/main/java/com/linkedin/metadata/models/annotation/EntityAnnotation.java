@@ -4,6 +4,7 @@ import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Value;
 
 /** Simple object representation of the @Entity annotation metadata. */
@@ -11,7 +12,6 @@ import lombok.Value;
 public class EntityAnnotation {
 
   public static final String ANNOTATION_NAME = "Entity";
-  public static final String DEFAULT_SEARCH_GROUP = "default";
   private static final String NAME_FIELD = "name";
   private static final String KEY_ASPECT_FIELD = "keyAspect";
   private static final String SEARCH_GROUP_FIELD = "searchGroup";
@@ -19,11 +19,11 @@ public class EntityAnnotation {
 
   String name;
   String keyAspect;
-  String searchGroup;
+  @Nullable String searchGroup;
   boolean viewUnrestricted;
 
   public EntityAnnotation(String name, String keyAspect) {
-    this(name, keyAspect, DEFAULT_SEARCH_GROUP, false);
+    this(name, keyAspect, null, false);
   }
 
   public EntityAnnotation(String name, String keyAspect, String searchGroup) {
@@ -67,18 +67,21 @@ public class EntityAnnotation {
               ANNOTATION_NAME, context, KEY_ASPECT_FIELD));
     }
 
-    // Get searchGroup with default value if not present
     final String searchGroup =
-        AnnotationUtils.getField(map, SEARCH_GROUP_FIELD, String.class)
-            .orElse(DEFAULT_SEARCH_GROUP);
-
-    // Validate searchGroup
-    validateElasticsearchIndexName(searchGroup, context);
+        AnnotationUtils.getField(map, SEARCH_GROUP_FIELD, String.class).orElse(null);
+    if (searchGroup != null) {
+      validateElasticsearchIndexName(searchGroup, context);
+    }
 
     final boolean viewUnrestricted =
         AnnotationUtils.getField(map, VIEW_UNRESTRICTED_FIELD, Boolean.class).orElse(false);
 
     return new EntityAnnotation(name.get(), keyAspect.get(), searchGroup, viewUnrestricted);
+  }
+
+  /** True when the entity has no explicit searchGroup and should use an entity-named V3 index. */
+  public static boolean isSearchGroupUnset(@Nullable String searchGroup) {
+    return searchGroup == null || searchGroup.isBlank();
   }
 
   /** Validates that searchGroup follows Elasticsearch index naming conventions */

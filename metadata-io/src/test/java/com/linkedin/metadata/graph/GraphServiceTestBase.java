@@ -270,7 +270,10 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   /** Any source and destination type value. */
   protected static @Nullable Set<String> anyType = null;
 
-  protected static final OperationContext operationContext =
+  // Instance field so subclasses can stamp SearchClusterAccess (or other context) in
+  // @BeforeClass. A static field cannot be reassigned, and a subclass field of the same name
+  // would shadow this one — parent tests would keep using an unstamped context.
+  protected OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   /** Timeout used to test concurrent ops in doTestConcurrentOp. */

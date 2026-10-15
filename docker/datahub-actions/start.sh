@@ -97,7 +97,7 @@ else
 fi
 
 if [ "$MONITORING_ENABLED" = true ]; then
-    datahub-actions --enable-monitoring --monitoring-port "$MONITORING_PORT" actions $config_files
+    exec datahub-actions --enable-monitoring --monitoring-port "$MONITORING_PORT" actions $config_files
 else
-    datahub-actions actions $config_files
+    exec datahub-actions actions $config_files
 fi

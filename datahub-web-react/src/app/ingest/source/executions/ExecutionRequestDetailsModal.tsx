@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -207,7 +207,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                             View logs that were collected during the sync.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
-                            <DownloadOutlined />
+                            <DownloadSimple />
                             Download
                         </Button>
                     </SectionSubHeader>

@@ -16,6 +16,8 @@ import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
 import type { DefaultTheme } from 'styled-components';
 
+import { EDITOR_CONTENT_CLASS, editorContentCss } from '@components/components/Editor/editorContentStyles';
+
 export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
     ...defaultRemirrorTheme,
     fontSize: {
@@ -78,75 +80,9 @@ export const EditorContainer = styled.div<{
         max-width: 100%;
     }
 
-    .remirror-editor.ProseMirror {
-        flex: 1 1 100%;
-        border: 0;
-        font-size: 14px;
-        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
-        position: relative;
-        outline: 0;
-        line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
-        white-space: pre-wrap;
-        margin: 0;
-        color: ${(props) => props.theme.colors.text};
-        min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
-        max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
-        overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
-
-        a {
-            font-weight: 500;
-            color: ${(props) => props.theme.colors.hyperlinks};
-        }
-
-        li {
-            ~ li {
-                margin-top: 0.25em;
-            }
-            p {
-                margin: 0;
-            }
-        }
-
-        img {
-            margin: 0.25em 0;
-            &:not([width]) {
-                max-width: 100%;
-            }
-        }
-
-        hr {
-            margin: 2rem 0;
-            border-color: ${(props) => props.theme.colors.overlayLight};
-        }
-
-        .autocomplete {
-            padding: 0.2rem;
-            background: ${(props) => props.theme.colors.bgSurface};
-            border-radius: 4px;
-        }
-
-        table {
-            display: block;
-            th:not(.remirror-table-controller) {
-                background: ${(props) => props.theme.colors.bgSurface};
-            }
-
-            th:not(.remirror-table-controller),
-            td {
-                padding: 16px;
-                min-width: 120px;
-            }
-        }
-
-        /* Scrollbar styling (only visible when overflow is auto, i.e. compact mode) */
-        &::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        &::-webkit-scrollbar-thumb {
-            background-color: ${(props) => props.theme.colors.textDisabled};
-            border-radius: 2px;
-        }
+    .remirror-editor.ProseMirror,
+    .${EDITOR_CONTENT_CLASS} {
+        ${editorContentCss}
     }
 
     .remirror-floating-popover {

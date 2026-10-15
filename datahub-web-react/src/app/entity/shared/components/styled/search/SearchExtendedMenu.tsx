@@ -1,4 +1,5 @@
-import { FormOutlined, MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Button, Dropdown } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +12,7 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 
 import { AndFilterInput } from '@types';
 
-const MenuIcon = styled(MoreOutlined)`
+const MenuIcon = styled(DotsThreeVertical)`
     font-size: 20px;
     height: 20px;
 `;
@@ -62,7 +63,7 @@ export default function SearchExtendedMenu({
                   label: (
                       <MenuItemStyle>
                           <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                              <FormOutlined />
+                              <PencilLine className="anticon" />
                               {t('searchExtendedMenu.edit')}
                           </SelectButton>
                       </MenuItemStyle>

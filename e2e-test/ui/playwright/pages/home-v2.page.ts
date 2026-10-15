@@ -33,7 +33,6 @@ export class HomeV2Page extends BasePage {
   async navigateToHome(): Promise<void> {
     this.logger?.step('navigate to home page', {});
     await this.navigate('/');
-    await this.waitForPageLoad();
   }
 
   async verifyHomePageContentContainerExists(): Promise<void> {

@@ -27,7 +27,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from .upgrade_blocking import parse_indices_state
 from ..config import ZDUTestConfig
-from ..constants import REPO_ROOT
+from ..constants import REPO_ROOT, ZDU_NEW_REVISION
 from ..context import (
     IOObservation,
     IOWriteResult,
@@ -53,16 +53,6 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
-# NEW-side revision marker. The incremental-reindex upgrade id is
-# "BuildIndicesIncremental_<gitVersion>-<revision>" (see BuildIndices.java and
-# SystemUpdateConfig's DATAHUB_REVISION binding, which defaults to "0"). This
-# harness builds OLD and NEW from near-identical commits, so they share a
-# gitVersion and would share that id — the NEW upgrade would then inherit the
-# OLD boot's COMPLETED state and skip the reindex, even though a real mapping
-# diff was detected. Production never collides, because OLD and NEW are
-# different releases. Bumping the revision on the NEW-side jobs reproduces that
-# separation without touching the rollout stage.
-ZDU_NEW_REVISION = "1"
 
 _SWEEP_START_TIMEOUT = 120  # seconds to wait for STARTED event
 _BATCH_POLL_INTERVAL = 1  # seconds between queue drain cycles
@@ -312,6 +302,10 @@ class UpgradeNonBlockingPhase(Phase):
         # those vars are missing from the parent-process env. -e flags only
         # populate the container env, not Compose's substitution layer.
         compose_env = dict(token_env)
+        # Pin the upgrade image to the NEW tag, the same side as the NEW
+        # worktree mounts below. Unpinned, it falls back to DATAHUB_VERSION
+        # (`head` in CI), which can lag master.
+        compose_env["DATAHUB_UPDATE_VERSION"] = self._config.new_image_tag
         # G20c — pin the host mounts on the one-shot upgrade container to
         # the NEW worktree so the bundled jar gets overlaid with NEW build
         # outputs (not whatever the dev working tree last built). Same logic

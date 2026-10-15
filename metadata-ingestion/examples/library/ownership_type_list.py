@@ -1,5 +1,3 @@
-# Inlined from /metadata-ingestion/examples/library/ownership_type_list.py
-
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 
 # Create DataHub client

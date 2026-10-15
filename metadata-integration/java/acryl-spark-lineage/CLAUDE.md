@@ -18,23 +18,29 @@ This module:
 The OpenLineage version is defined in the root `build.gradle`:
 
 ```gradle
-ext.openLineageVersion = '1.50.0'
+ext.openLineageVersion = '1.53.0'
 ```
 
-**Last upgraded:** July 3, 2026 (from 1.45.0 to 1.50.0)
+**Last upgraded:** September 2, 2026 (from 1.50.0 to 1.53.0)
 
-**Key changes across 1.46.0 → 1.50.0:**
+**Key changes across 1.51.0 → 1.53.0:**
 
-- ✅ Iceberg-on-Glue symlink now detected via Spark config upstream (1.46, #4384) — the
-  temporary DataHub `AwsUtils` backport was removed as a result
-- ✅ `DatasetFactory.getDataset(...)` overloads replaced by the `sparkDatasetBuilder()` builder
-  pattern (1.48); all vendored call sites migrated
-- ✅ `BaseCatalogTypeHandler.getIdentifier()` now returns `Optional<DatasetIdentifier>` (1.48)
-- ⚡ BigLake / GCP lakehouse Hive catalog symlink support (1.46) and S3 default-location fix (1.47)
-- ⚡ SQL Server JDBC → `MsSqlDialect`; S3 Tables + Snowflake Horizon Iceberg REST catalogs (1.48)
-- ⚡ `PartitionedFile.filePath()` returns `SparkPath` and `DataSourceRDDPartition.inputPartition()`
-  became `inputPartitions()` — older-Spark branches now access these reflectively
-- 🔒 httpclient5 → 5.6.1 and AWS SDK CVE bumps (1.47)
+- ✅ OpenLineage's Spark integration now includes Spark 4.2 compatibility, including the
+  `CatalogManager` interface change; DataHub's Spark 4 smoke baseline remains on Spark 4.0 (1.53)
+- ✅ ClickHouse V2 catalogs now emit dataset identifiers plus catalog and storage facets through
+  the official ClickHouse Spark connector (1.53)
+- ✅ Databricks Unity Catalog symlinks now use the stable `unity-catalog` namespace and a
+  catalog-qualified table name; Spark 4 also gains an open source Unity Catalog handler (1.51)
+- ✅ Parent-run context can forward facets for both the parent and root run/job through the generic
+  OpenLineage context payload (1.52)
+- ⚡ Spark output coverage now includes append-mode `insertInto`, `LOAD DATA`, Spark 4 V1
+  micro-batch writes, and additional Databricks CTAS, COPY, UPDATE, and DELETE plan variants
+- ⚡ SQL lineage now covers additional nested joins and predicate/assignment subqueries, and Spark
+  lifecycle state is cleaned up after completion (1.52-1.53)
+- 📐 OpenLineage 1.53 adds explicit-lineage model facets. DataHub accepts the newer model while
+  retaining its existing conversion behavior; no DataHub-specific mapping is added in this upgrade
+- 🔒 Upstream Java integrations moved to Jackson 2.18.9. DataHub's enforced Jackson BOM remains the
+  authority for the converter and shaded artifacts
 
 ### Architecture: Patch-Based Customization System
 
@@ -43,10 +49,11 @@ DataHub maintains customizations to OpenLineage through a **version-organized pa
 ```
 patches/
 └── datahub-customizations/      # Versioned patch files (committed to git)
-    ├── v1.50.0/                 # Patches for OpenLineage 1.50.0 (current)
+    ├── v1.53.0/                 # Patches for OpenLineage 1.53.0 (current)
     │   ├── Vendors.patch
     │   ├── PathUtils.patch
     │   └── ...
+    ├── v1.50.0/                 # Patches for OpenLineage 1.50.0 (historical)
     ├── v1.45.0/                 # Patches for OpenLineage 1.45.0 (historical)
     ├── v1.38.0/                 # Patches for OpenLineage 1.38.0 (historical)
     └── v1.33.0/                 # Patches for OpenLineage 1.33.0 (historical)
@@ -57,7 +64,7 @@ patches/upstream-<version>/      # Original OpenLineage files
 patches/backup-<timestamp>/      # Automatic backups during upgrades
 ```
 
-**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.50.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
+**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.53.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
 
 ### Shadowed Classes Location
 
@@ -69,9 +76,9 @@ src/main/java/io/openlineage/
 
 These files are OpenLineage source files with DataHub-specific modifications applied via patches.
 
-### Known Customizations (v1.50.0)
+### Known Customizations (v1.53.0)
 
-Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
+Tracked via patch files in `patches/datahub-customizations/v1.53.0/`:
 
 1. **`Vendors.patch`**: Adds `RedshiftVendor` to the vendors list
 2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling
@@ -208,18 +215,19 @@ See ING-2959 for the phased plan.
 
 ### Upgrade Process (3-way merge — the reliable path)
 
-The 1.33→1.38→1.45→1.50 upgrades showed that the only robust way to move a **patch-tracked**
+The 1.33→1.38→1.45→1.50→1.53 upgrades showed that the only robust way to move a **patch-tracked**
 vendored file forward is a **3-way merge**: replay upstream's `old→new` delta on top of our
-customized copy. Blind `cp new-upstream + patch -p0` (what `upgrade-openlineage.sh` attempts) breaks
-whenever upstream changed a patched file — e.g. OL 1.48's `DatasetFactory` builder refactor rewrote
+customized copy. Blindly copying new upstream and replaying the old patch (what
+`upgrade-openlineage.sh` attempts) breaks whenever upstream changed a patched file — e.g. OL 1.48's
+`DatasetFactory` builder refactor rewrote
 call sites in several patched files. Prefer the steps below; treat `upgrade-openlineage.sh` as an
 optional first pass only.
 
 1. **Fetch both the old and new upstream** (the old version is the merge base):
 
    ```bash
-   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.45.0
-   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.50.0
+   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.50.0
+   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.53.0
    ```
 
 2. **3-way merge each patch-tracked file** (see "Known Customizations" for the list). `git merge-file`
@@ -311,8 +319,8 @@ excluded from dependency locking (its Spark 4 deps are test-only, not part of th
 Patch files show exactly what DataHub customized:
 
 ```bash
-# View a specific customization for v1.50.0
-cat patches/datahub-customizations/v1.50.0/Vendors.patch
+# View a specific customization for v1.53.0
+cat patches/datahub-customizations/v1.53.0/Vendors.patch
 
 # Example output shows:
 # - Lines removed from upstream (-)
@@ -351,10 +359,12 @@ If you need to customize additional files:
 
 ```bash
 # Dry-run to see if patch will apply cleanly
-patch -p0 --dry-run < patches/datahub-customizations/v1.50.0/Vendors.patch
+patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
+  < patches/datahub-customizations/v1.53.0/Vendors.patch
 
 # See what a patch would change
-patch -p0 --dry-run < patches/datahub-customizations/v1.50.0/Vendors.patch | less
+patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
+  < patches/datahub-customizations/v1.53.0/Vendors.patch | less
 ```
 
 ### Debugging
@@ -391,3 +401,135 @@ To see resolved dependencies for each Scala version:
 
 - `acryl-spark-lineage_2.12-<version>.jar`
 - `acryl-spark-lineage_2.13-<version>.jar`
+
+## Changelog and Release Notes
+
+The agent's release notes are the `## Changelog` section of [`README.md`](README.md). There is no
+separate `CHANGELOG.md`, and nothing generates it — regenerate it by hand whenever the released
+versions have drifted ahead of the newest documented one.
+
+### Why this is manual
+
+The jar is published on **every** DataHub release and takes that release's version from
+`versioning.gradle`, which reads `build/version.json` derived from the git tag. Nothing in this
+module declares a version. Most releases therefore ship a jar with no agent changes in it. The
+changelog lists only the versions that changed, and you attribute every entry to a release by
+hand.
+
+### Attribute commits to releases
+
+Collect commits over a **date window on `origin/master`**, then resolve each one with
+`git tag --contains`. Both ends of that recipe avoid branch topology, which is the part that goes
+wrong. Two traps make the obvious approaches return nonsense:
+
+- **Release tags are not on `master`.** Patch lines are tagged on release branches, so
+  `git merge-base --is-ancestor v1.7.0.10 master` is false and a `v1.7.0.10..HEAD` range comes
+  back nearly empty.
+- **Version order is not time order.** `v1.8.0rc3` was tagged 2026-09-07, ten days _before_
+  `v1.7.0.11rc4` on 2026-09-17, and `v1.7.0.1` (2026-09-03) came a month after `v1.7.0.2`
+  (2026-08-06). Neither `sort -V | tail -1` nor a range between adjacent tags means what it looks
+  like it means.
+
+Run this from the repository root, with `<last-documented>` set to the newest version already in
+the changelog:
+
+```bash
+# Releases are tagged on the acryl remote; master lives on origin.
+git fetch acryl --tags && git fetch origin
+
+# Collect every commit that reaches the published jar, from the last documented release onward.
+SINCE=$(git log -1 --format=%cI v<last-documented>)
+git log --format='%H|%ci|%s' --since="$SINCE" origin/master -- \
+  metadata-integration/java/acryl-spark-lineage/ \
+  metadata-integration/java/openlineage-converter/ \
+  metadata-integration/java/datahub-client/src/main/ > /tmp/spark_commits.txt
+
+# Map each commit to the lowest-numbered GA release that contains it.
+while IFS='|' read -r sha date subj; do
+  tag=$(git tag --contains "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | head -1)
+  printf "%-12s %s  %s\n" "${tag:--unreleased-}" "${date:0:10}" "$subj"
+done < /tmp/spark_commits.txt | tac
+```
+
+Commits that resolve to no tag are unreleased and belong under `### Next`. A commit that reached a
+release only as a cherry-pick keeps a different SHA on the release branch. Spot-check anything that
+looks like it should have shipped: `git log --all --grep '#<pr-number>)'`.
+
+### Which paths count
+
+| Path                                                 | Why it reaches the jar                              |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `metadata-integration/java/acryl-spark-lineage/`     | The agent itself                                    |
+| `metadata-integration/java/openlineage-converter/`   | Shared OpenLineage-to-DataHub conversion, shaded in |
+| `metadata-integration/java/datahub-client/src/main/` | The REST, Kafka, file and S3 emitters, shaded in    |
+
+Skip changes confined to `src/test/`, `spark-smoke-test/`, or test-only `build.gradle`
+dependencies — they never reach users. To decide whether a dependency bump is user-visible, look
+at the runtime entries in its lockfile diff:
+
+```bash
+git show <sha> --format="" -- metadata-integration/java/acryl-spark-lineage/gradle.lockfile \
+  | grep '^[-+]' | grep 'runtimeClasspath' | grep -v 'testRuntimeClasspath$'
+```
+
+### Confirm what was actually published
+
+Tags and published jars are not the same set: some tags never reach GA, and release candidates are
+published too. Check Maven Central before writing version headings:
+
+```bash
+curl -s https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml \
+  | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g'
+```
+
+Give a heading only to GA versions. Keep changes that exist solely in an `rc` under `### Next`
+until that GA release ships.
+
+### Write the entries
+
+Match the conventions already in `README.md`:
+
+- Order versions newest first, above `### Version 0.2.18`.
+- Group bullets under `_Changes_`, `_Fixes_` and `_Dependencies_`.
+- Link each PR as `([#19254](https://github.com/datahub-project/datahub/pull/19254))`.
+- Describe the user-visible symptom of a fix, not the patch. Readers decide whether to upgrade
+  from the symptom.
+- Name any config key a change adds or alters, and update the "Configuration Options" table in the
+  same pass.
+- After a run of unlisted versions, state the gap — for example,
+  `_No agent changes in 1.7.0, 1.7.0.1, 1.7.0.2, 1.7.0.3, 1.7.0.6 or 1.7.0.7._` — so a reader can
+  tell a deliberate gap from a missing entry.
+
+Before committing, format with Gradle (never `npx prettier`):
+
+```bash
+./gradlew :datahub-web-react:mdPrettierWrite
+```
+
+### Prompt to hand an agent
+
+Run this from the repository root:
+
+> Update the `## Changelog` section of
+> `metadata-integration/java/acryl-spark-lineage/README.md` to cover every DataHub release
+> published since the newest version documented there.
+>
+> Follow the "Changelog and Release Notes" runbook in
+> `metadata-integration/java/acryl-spark-lineage/CLAUDE.md`. In particular:
+>
+> - Run `git fetch acryl --tags && git fetch origin` first; releases are tagged on the `acryl`
+>   remote and `master` lives on `origin`.
+> - Collect candidate commits with a `--since` date window on `origin/master`, then attribute each
+>   one with `git tag --contains <sha>`. Never range between two tags and never use `HEAD` as the
+>   endpoint: release tags sit on release branches, and version order is not time order.
+> - Cover `acryl-spark-lineage/`, `openlineage-converter/` and `datahub-client/src/main/`, and
+>   ignore test-only changes.
+> - Cross-check against the published versions in
+>   `https://repo1.maven.org/maven2/io/acryl/acryl-spark-lineage_2.12/maven-metadata.xml`, and give
+>   a heading only to GA versions.
+> - State explicitly which versions shipped no agent changes.
+> - For each user-facing change, read the diff and describe the symptom a user would see, and name
+>   any config key involved.
+> - Finish with `./gradlew :datahub-web-react:mdPrettierWrite`.
+>
+> Show me the diff. Do not commit or push.

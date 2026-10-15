@@ -24,14 +24,14 @@ import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import {
+    RemoveConfirmState,
     useRemoveApplicationAssets,
     useRemoveDataProductAssets,
     useRemoveDomainAssets,
     useRemoveGlossaryTermAssets,
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
-import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -69,6 +69,7 @@ const PreviewContainer = styled.div`
     width: 100%;
     justify-content: space-between;
     align-items: start;
+
     .entityCount {
         margin-bottom: 2px;
     }
@@ -141,7 +142,6 @@ interface Props {
     owners?: Array<Owner> | null;
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
-    entityTitleSuffix?: React.ReactNode;
     subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
@@ -173,7 +173,6 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    propagationDetails?: AttributionDetails;
     refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
@@ -204,7 +203,6 @@ export default function DefaultPreviewCard({
     entityCount,
     titleSizePx,
     dataTestID,
-    entityTitleSuffix,
     onClick,
     degree,
     parentEntities,
@@ -221,7 +219,6 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    propagationDetails,
     refetchDeprecation,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
@@ -232,13 +229,13 @@ export default function DefaultPreviewCard({
     const shouldShowDescriptionsForSearch =
         previewType === PreviewType.SEARCH && config.searchCardConfig.showDescription;
     const shouldShowDescription =
-        previewType === PreviewType.HOVER_CARD ||
-        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) ||
-        shouldShowDescriptionsForSearch;
+        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) || shouldShowDescriptionsForSearch;
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
-    const previewData = usePreviewData();
+    // Passing previewType via context because not all entities pass it via props
+    // But not using previewContextType everywhere to avoid regressions... sorry
+    const { previewData } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -258,7 +255,7 @@ export default function DefaultPreviewCard({
 
     const { isFullViewCard } = useSearchContext();
 
-    const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
+    const { removeRelationship, removeButtonText, confirmationModals } = useRemoveRelationship(entityType);
 
     // When a caller passes a live `deprecation` (e.g. Preview using local optimistic state),
     // merge it into the entityData handed to the row's actions menu so the menu reflects the
@@ -275,7 +272,6 @@ export default function DefaultPreviewCard({
         <EntityHeader
             name={name}
             onClick={onClick}
-            previewType={previewType}
             titleSizePx={titleSizePx}
             url={url}
             urn={urn}
@@ -290,7 +286,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
-            {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
+            {isFullViewCard ? (
                 <>
                     <RowContainer alignment="self-start">
                         {isIconPresent ? (
@@ -312,7 +308,7 @@ export default function DefaultPreviewCard({
                                 </TransparentButton>
                             )}
                             <ViewInPlatform urn={urn} data={data} shouldFillAllAvailableSpace={false} />
-                            {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
+                            {headerDropdownItems && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
                                     urn={urn}
@@ -332,7 +328,7 @@ export default function DefaultPreviewCard({
                             entityType={entityType}
                             browsePaths={browsePaths}
                             parentEntities={parentEntities}
-                            entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                            entityTitleWidth={200}
                         />
                     </RowContainer>
                     {shouldShowDescription &&
@@ -350,9 +346,6 @@ export default function DefaultPreviewCard({
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
-                    )}
-                    {previewType === PreviewType.HOVER_CARD && (
-                        <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>
             ) : (
@@ -375,7 +368,6 @@ export default function DefaultPreviewCard({
                     isOutputPort={isOutputPort}
                     entityIcon={entityIcon}
                     headerDropdownItems={headerDropdownItems}
-                    previewType={previewType}
                     urn={urn}
                     entityType={entityType}
                     finalType={finalType}
@@ -389,8 +381,6 @@ export default function DefaultPreviewCard({
                 owners={owners}
                 entityCapabilities={supportedCapabilities}
                 tier={tier}
-                previewType={previewType}
-                entityTitleSuffix={entityTitleSuffix}
                 entityType={entityType}
                 urn={urn}
                 entityRegistry={entityRegistry}
@@ -399,6 +389,7 @@ export default function DefaultPreviewCard({
                 paths={paths}
                 isFullViewCard={isFullViewCard}
             />
+            {confirmationModals}
         </PreviewContainer>
     );
 }
@@ -407,12 +398,39 @@ function useRemoveRelationship(entityType: EntityType) {
     const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
-    const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeDomain, confirmState: domainConfirmState } = useRemoveDomainAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeTerm, confirmState: termConfirmState } = useRemoveGlossaryTermAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeDataProduct, confirmState: dataProductConfirmState } = useRemoveDataProductAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeApplication, confirmState: applicationConfirmState } = useRemoveApplicationAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
 
-    const previewData = usePreviewData();
+    const renderConfirmModal = (state: RemoveConfirmState) => (
+        <ConfirmationModal
+            isOpen={state.isOpen}
+            handleClose={state.handleClose}
+            handleConfirm={state.handleConfirm}
+            modalTitle={state.modalTitle}
+            modalText={state.modalText}
+        />
+    );
+
+    const confirmationModals = (
+        <>
+            {renderConfirmModal(domainConfirmState)}
+            {renderConfirmModal(termConfirmState)}
+            {renderConfirmModal(dataProductConfirmState)}
+            {renderConfirmModal(applicationConfirmState)}
+        </>
+    );
+
+    const { previewData } = usePreviewData();
     const entityData = useEntityData();
     const pageEntityType = entityData.entityType;
 
@@ -423,29 +441,34 @@ function useRemoveRelationship(entityType: EntityType) {
                 showRemovalFromList && entityType !== EntityType.DataProduct
                     ? removeText || t('removeFromDomain')
                     : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.GlossaryTerm) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeTerm(previewData, entityData.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeGlossaryTerm') : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.DataProduct) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeDataProduct(previewData?.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeFromDataProduct') : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
+            confirmationModals,
         };
     }
 
     return {
         removeRelationship: () => {},
         removeButtonText: null,
+        confirmationModals,
     };
 }

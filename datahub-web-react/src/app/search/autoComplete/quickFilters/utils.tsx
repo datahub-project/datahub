@@ -11,7 +11,7 @@ const StyledIcon = styled.img`
     height: 14px;
 `;
 
-enum QuickFilterField {
+export enum QuickFilterField {
     Platform = 'platform',
     Entity = '_entityType',
 }

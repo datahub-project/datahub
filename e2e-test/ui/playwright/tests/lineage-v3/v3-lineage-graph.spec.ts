@@ -555,6 +555,17 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
   });
 
+  test('draws manually added edges dashed, and ingested ones solid', async () => {
+    // node5's upstream edge from node1 is seeded with `properties.source = UI`, which is what
+    // marks a lineage edge as manually added; node1 -> node2 is an ordinary ingested edge.
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE2_DATASET_URN);
+
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN, true);
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE2_DATASET_URN, false);
+  });
+
   test('should allow to expand and filter children', async ({ apiMock }) => {
     // The dedicated filter-node UI asserted below only renders when showLineageFilterNodes is on.
     await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: true });

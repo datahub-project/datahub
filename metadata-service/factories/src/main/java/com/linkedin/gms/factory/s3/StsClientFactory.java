@@ -51,9 +51,11 @@ public class StsClientFactory {
     boolean hasObjectStorageRoleArn =
         AwsClientFactory.isObjectStorageRoleArnConfigured(configurationProvider);
 
-    if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn) {
+    boolean hasSharedCredentials = defaultAwsCredentialsProvider != null;
+
+    if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn && !hasSharedCredentials) {
       log.debug(
-          "Skipping STS client creation (no AWS_ENDPOINT_URL, AWS_REGION, aws.region, or objectStorage.roleArn)");
+          "Skipping STS client creation (no AWS endpoint/region, objectStorage.roleArn, or shared credentials)");
       return null;
     }
 
@@ -76,6 +78,12 @@ public class StsClientFactory {
         clientBuilder.credentialsProvider(defaultAwsCredentialsProvider);
         // When only roleArn is configured, leave region to the SDK default chain (IRSA / IMDS /
         // AWS_REGION). Explicit region/endpoint paths set region above or via the environment.
+      } else {
+        // AWS SDK 2.30 builds a new DefaultCredentialsProvider (IRSA STS stack) when credentials
+        // are omitted. Skip rather than leak StsAssumeRoleWithWebIdentityCredentialsProvider.
+        log.warn(
+            "Skipping STS client creation (no shared DefaultCredentialsProvider and no custom endpoint)");
+        return null;
       }
 
       managedStsClient = clientBuilder.build();

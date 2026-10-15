@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "详细信息",
+    "viewDefinitionTab.formatCompiled": "已编译",
+    "viewDefinitionTab.formatFormatted": "已格式化",
+    "viewDefinitionTab.formatRaw": "原始",
+    "viewDefinitionTab.formatSource": "源码",
+    "viewDefinitionTab.languageLabel": "语言",
+    "viewDefinitionTab.logicHeading": "逻辑",
+    "viewDefinitionTab.materializedFalse": "否",
+    "viewDefinitionTab.materializedLabel": "是否物化",
+    "viewDefinitionTab.materializedTrue": "是"
+}

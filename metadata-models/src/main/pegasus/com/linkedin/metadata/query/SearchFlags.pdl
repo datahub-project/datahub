@@ -103,6 +103,23 @@ record SearchFlags {
   }
 
   /**
+   * Include Elasticsearch scoring explanation in search results.
+   * When enabled, each result includes detailed score breakdown in extraProperties._explain.
+   * Note: Adds 10-30% computational overhead - use for debugging only.
+   */
+  includeExplain: optional boolean = false
+
+  /**
+   * Elasticsearch search type for controlling IDF calculation across shards.
+   * - QUERY_THEN_FETCH: Shard-local IDF (default, faster, but less accurate scoring)
+   * - DFS_QUERY_THEN_FETCH: Global IDF across all shards (more accurate scoring)
+   *
+   * Only affects relevance scoring in multi-shard scenarios.
+   * DFS mode adds 20-50% latency overhead but provides consistent scoring.
+   */
+  searchType: optional string = "QUERY_THEN_FETCH"
+
+  /**
    * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
    * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
    * null/unset, no floor is applied. Currently honored only by the semantic search path.

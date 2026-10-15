@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 
@@ -100,14 +101,19 @@ export const EntitySearchValueInput = ({
     };
 
     const onSearch = (text: string) => {
+        const input = addUserFiltersToMultiEntitySearchInput(
+            {
+                types: entityTypes,
+                query: text,
+                start: 0,
+                count: 10,
+            },
+            entityTypes,
+        );
+
         searchResources({
             variables: {
-                input: {
-                    types: entityTypes,
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
+                input,
             },
         });
     };

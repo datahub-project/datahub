@@ -1,97 +1,65 @@
-import json
-import urllib.parse
-
-import requests
-
-# Configuration
-gms_server = "http://localhost:8080"
-primary_key_urn = "urn:li:mlPrimaryKey:(users_feature_table,user_id)"
-
-# Encode the URN for use in URL
-encoded_urn = urllib.parse.quote(primary_key_urn, safe="")
-
-# Fetch the MLPrimaryKey entity
-response = requests.get(f"{gms_server}/entities/{encoded_urn}")
-
-if response.status_code == 200:
-    entity_data = response.json()
-    print("MLPrimaryKey Entity:")
-    print(json.dumps(entity_data, indent=2))
-
-    # Extract specific aspects
-    if "aspects" in entity_data:
-        aspects = entity_data["aspects"]
-
-        # Get mlPrimaryKeyProperties
-        if "mlPrimaryKeyProperties" in aspects:
-            properties = aspects["mlPrimaryKeyProperties"]["value"]
-            print("\nPrimary Key Properties:")
-            print(f"  Description: {properties.get('description', 'N/A')}")
-            print(f"  Data Type: {properties.get('dataType', 'N/A')}")
-            if "sources" in properties:
-                print(f"  Sources: {properties['sources']}")
-
-        # Get ownership
-        if "ownership" in aspects:
-            ownership = aspects["ownership"]["value"]
-            print("\nOwnership:")
-            for owner in ownership.get("owners", []):
-                print(f"  - {owner['owner']} ({owner['type']})")
-
-        # Get tags
-        if "globalTags" in aspects:
-            tags = aspects["globalTags"]["value"]
-            print("\nTags:")
-            for tag in tags.get("tags", []):
-                print(f"  - {tag['tag']}")
-
-        # Get glossary terms
-        if "glossaryTerms" in aspects:
-            terms = aspects["glossaryTerms"]["value"]
-            print("\nGlossary Terms:")
-            for term in terms.get("terms", []):
-                print(f"  - {term['urn']}")
-else:
-    print(f"Failed to fetch entity. Status code: {response.status_code}")
-    print(f"Response: {response.text}")
-
-# Find feature tables that use this primary key
-# Query for entities with a KeyedBy relationship to this primary key
-relationships_response = requests.get(
-    f"{gms_server}/relationships",
-    params={
-        "direction": "INCOMING",
-        "urn": primary_key_urn,
-        "types": "KeyedBy",
-    },
+from datahub.ingestion.graph.client import RelationshipDirection, get_default_graph
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    MLPrimaryKeyPropertiesClass,
+    OwnershipClass,
 )
+from datahub.metadata.urns import MlPrimaryKeyUrn
 
-if relationships_response.status_code == 200:
-    relationships_data = relationships_response.json()
-    print("\n\nFeature Tables using this Primary Key:")
-    for relationship in relationships_data.get("relationships", []):
-        print(f"  - {relationship['entity']}")
-else:
-    print(
-        f"\nFailed to fetch relationships. Status code: {relationships_response.status_code}"
-    )
+graph = get_default_graph()
 
-# Find upstream datasets that this primary key is derived from
-upstream_response = requests.get(
-    f"{gms_server}/relationships",
-    params={
-        "direction": "OUTGOING",
-        "urn": primary_key_urn,
-        "types": "DerivedFrom",
-    },
+primary_key_urn = MlPrimaryKeyUrn("users_feature_table", "user_id")
+
+print("MLPrimaryKey Entity:", primary_key_urn)
+
+properties = graph.get_aspect(
+    entity_urn=str(primary_key_urn), aspect_type=MLPrimaryKeyPropertiesClass
 )
+if properties is None:
+    raise SystemExit(f"MLPrimaryKey not found: {primary_key_urn}")
 
-if upstream_response.status_code == 200:
-    upstream_data = upstream_response.json()
-    print("\nUpstream Datasets (Sources):")
-    for relationship in upstream_data.get("relationships", []):
-        print(f"  - {relationship['entity']}")
-else:
-    print(
-        f"\nFailed to fetch upstream lineage. Status code: {upstream_response.status_code}"
-    )
+print("\nPrimary Key Properties:")
+print(f"  Description: {properties.description}")
+print(f"  Data Type: {properties.dataType}")
+print(f"  Sources: {properties.sources}")
+
+ownership = graph.get_aspect(
+    entity_urn=str(primary_key_urn), aspect_type=OwnershipClass
+)
+if ownership is not None:
+    print("\nOwnership:")
+    for owner in ownership.owners:
+        print(f"  - {owner.owner} ({owner.type})")
+
+tags = graph.get_aspect(entity_urn=str(primary_key_urn), aspect_type=GlobalTagsClass)
+if tags is not None:
+    print("\nTags:")
+    for tag in tags.tags:
+        print(f"  - {tag.tag}")
+
+terms = graph.get_aspect(
+    entity_urn=str(primary_key_urn), aspect_type=GlossaryTermsClass
+)
+if terms is not None:
+    print("\nGlossary Terms:")
+    for term in terms.terms:
+        print(f"  - {term.urn}")
+
+# Feature tables that use this primary key.
+print("\n\nFeature Tables using this Primary Key:")
+for related in graph.get_related_entities(
+    entity_urn=str(primary_key_urn),
+    relationship_types=["KeyedBy"],
+    direction=RelationshipDirection.INCOMING,
+):
+    print(f"  - {related.urn}")
+
+# Upstream datasets this primary key is derived from.
+print("\nUpstream Datasets (Sources):")
+for related in graph.get_related_entities(
+    entity_urn=str(primary_key_urn),
+    relationship_types=["DerivedFrom"],
+    direction=RelationshipDirection.OUTGOING,
+):
+    print(f"  - {related.urn}")

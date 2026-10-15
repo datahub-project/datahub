@@ -35,6 +35,11 @@ const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 `;
 
 const BusinessGlossaryPage = () => {

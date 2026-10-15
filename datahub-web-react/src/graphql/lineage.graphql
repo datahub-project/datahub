@@ -305,6 +305,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +352,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -406,6 +412,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLFeatureTable {
         ...nonRecursiveMLFeatureTable
@@ -424,6 +433,14 @@ fragment lineageNodeProperties on EntityWithRelationships {
             name
             description
             externalUrl
+        }
+        metricUpstreams {
+            fieldUpstreams {
+                destination {
+                    urn
+                    type
+                }
+            }
         }
         platform {
             ...platformFields
@@ -538,6 +555,27 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
     }
+    ... on Api {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+    }
     ... on Restricted {
         urn
         type
@@ -553,14 +591,6 @@ fragment lineageFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -679,14 +709,6 @@ fragment entityLineage on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -856,6 +878,11 @@ fragment entityLineageV2 on Entity {
             ...platformFields
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+    }
     ... on DataProcessInstance {
         ...dataProcessInstanceFields
     }
@@ -936,6 +963,11 @@ fragment canEditLineageFragment on EntityWithRelationships {
             canEditLineage
         }
     }
+    ... on Metric {
+        privileges {
+            canEditLineage
+        }
+    }
 }
 
 query getLineageCounts(
@@ -983,6 +1015,25 @@ query getLineageCounts(
     }
 }
 
+# Counts only, for the URNs already on screen. Search results render from a query that skips
+# lineage; this runs afterward so the page is not blocked on a lookup per card. `count: 100`
+# matches the search fragment so ghost entities are filtered the same way.
+query getSearchResultLineageCounts($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        ... on EntityWithRelationships {
+            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+        }
+    }
+}
+
 # How many columns a column is directly related to, counted the way the lineage graph draws them.
 # `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
 # graph -- see `buildRelatedColumnFilters`.
@@ -991,6 +1042,11 @@ query getLineageCounts(
 # -- fine-grained lineage writes graph edges without creating them -- so there is nothing to return
 # for them, and `includeGhostEntities` is what stops them being left out of the count. See the
 # caveats on that field: the count is approximate.
+#
+# `types` lists everything a column's lineage lands on that the graph draws: other columns, metrics
+# reading the column, and charts consuming it through `inputFields` (each chart once, however many
+# of its fields read the column). Dashboards can carry `inputFields` too, but the graph does not
+# load them as column consumers, so counting them would report lineage that never draws.
 query getColumnLineageCounts(
     $urn: String!
     $startTimeMillis: Long
@@ -1003,7 +1059,7 @@ query getColumnLineageCounts(
         input: {
             urn: $urn
             direction: UPSTREAM
-            types: [SCHEMA_FIELD]
+            types: [SCHEMA_FIELD, METRIC, CHART]
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis
@@ -1020,7 +1076,7 @@ query getColumnLineageCounts(
         input: {
             urn: $urn
             direction: DOWNSTREAM
-            types: [SCHEMA_FIELD]
+            types: [SCHEMA_FIELD, METRIC, CHART]
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis

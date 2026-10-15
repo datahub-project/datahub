@@ -246,7 +246,6 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-
                 <Form.Item
                     label={
                         <LabelContainer>

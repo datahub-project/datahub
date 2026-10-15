@@ -1,10 +1,10 @@
+import logging
 import pathlib
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -26,6 +26,7 @@ from datahub.executor.execution.runner import (
     setup_venv,
     validate_dependency_resolution_enabled,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 
 def test_venv_config_json_parsing() -> None:
@@ -485,18 +486,14 @@ class TestLogHolder:
         # Should be truncated to approximately the max size
         assert len(logs) <= 200  # Some tolerance for truncation messages
 
-    def test_echo_to_stdout_functionality(self):
-        """Test echo to stdout with prefix."""
-        # Capture stdout
-        captured_output = StringIO()
-
-        with patch("sys.stdout", captured_output):
+    def test_echo_goes_through_stdlib_logging(self, caplog):
+        """Echoed lines are stdlib log records, so masking filters on logging
+        handlers apply to them."""
+        with caplog.at_level(logging.DEBUG, logger="datahub.executor.execution.runner"):
             log_holder = LogHolder(echo_to_stdout_prefix="[TEST] ")
             log_holder.append("Test message\n")
 
-        # Check if message was echoed (depends on loguru implementation)
-        # This test verifies the LogHolder can be created with echo prefix
-        assert log_holder._echo_logs_prefix == "[TEST] "
+        assert "[TEST] Test message" in caplog.text
 
     def test_concurrent_log_access(self):
         """Test thread-safe access to logs."""
@@ -1015,6 +1012,35 @@ class TestSetupVenvConstraints:
         pass2_cmd = extra_installs[0][0][0]
         assert "--reinstall" not in pass2_cmd
         assert "--reinstall-package" not in pass2_cmd
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_setup_venv_registers_referenced_env_values(
+        self, _find_uv, temp_dir, monkeypatch
+    ):
+        """Env values referenced in pip requirements must be maskable before
+        any expanded content reaches a log line."""
+        SecretRegistry.reset_instance()
+        monkeypatch.setenv("VENV_PIP_TOKEN", "venv-pip-token-value")
+        config = VenvConfig(
+            version="0.12.1",
+            main_plugin="snowflake",
+            extra_pip_requirements=[
+                "pkg @ https://user:${VENV_PIP_TOKEN}@example.com/simple"
+            ],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=self._mock_execute)
+
+        try:
+            with patch.object(runner, "execute", mock):
+                await setup_venv(config, runner, temp_dir)
+
+            assert (
+                SecretRegistry.get_instance().get_secret_value("VENV_PIP_TOKEN")
+                == "venv-pip-token-value"
+            )
+        finally:
+            SecretRegistry.reset_instance()
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_custom_requirements_file_skips_pass2(self, _find_uv, temp_dir):

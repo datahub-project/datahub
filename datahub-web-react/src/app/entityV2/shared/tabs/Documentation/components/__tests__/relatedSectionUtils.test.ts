@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     combineAndSortRelatedItems,
     createRelatedSectionMenuItems,
+    getResourcePreview,
     hasRelatedContent,
 } from '@app/entityV2/shared/tabs/Documentation/components/relatedSectionUtils';
 
@@ -34,6 +35,27 @@ const createTestDocument = (urn: string, title: string): Document =>
     }) as Document;
 
 describe('relatedSectionUtils', () => {
+    describe('getResourcePreview', () => {
+        it('returns five preview items and the remaining count', () => {
+            const items = combineAndSortRelatedItems(
+                Array.from({ length: 7 }, (_, index) =>
+                    createTestLink(`https://example.com/${index}`, `Link ${index}`),
+                ),
+            );
+
+            expect(getResourcePreview(items)).toMatchObject({
+                previewItems: items.slice(0, 5),
+                remainingCount: 2,
+            });
+        });
+
+        it('returns no remaining items when the list fits in the preview', () => {
+            const items = combineAndSortRelatedItems([createTestLink('https://example.com', 'Link')]);
+
+            expect(getResourcePreview(items)).toEqual({ previewItems: items, remainingCount: 0 });
+        });
+    });
+
     describe('combineAndSortRelatedItems', () => {
         it('groups documents before links and sorts each group alphabetically (case-insensitive)', () => {
             const links = [

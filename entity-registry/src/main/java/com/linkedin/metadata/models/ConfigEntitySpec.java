@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.ToString;
 
 @ToString
@@ -22,6 +23,7 @@ public class ConfigEntitySpec implements EntitySpec {
   private final Map<String, AspectSpec> _aspectSpecs;
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
+  private volatile List<RelationshipFieldSpec> _relationshipFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private Map<PathSpec, String> searchableFieldPathMap;
   private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
@@ -30,7 +32,7 @@ public class ConfigEntitySpec implements EntitySpec {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final Collection<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup) {
+      @Nullable final String searchGroup) {
     this(entityName, keyAspect, aspectSpecs, searchGroup, false);
   }
 
@@ -38,7 +40,7 @@ public class ConfigEntitySpec implements EntitySpec {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final Collection<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup,
+      @Nullable final String searchGroup,
       final boolean viewUnrestricted) {
     _aspectSpecs =
         aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
@@ -104,6 +106,15 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
+    if (_relationshipFieldSpecs == null) {
+      _relationshipFieldSpecs = List.copyOf(EntitySpec.super.getRelationshipFieldSpecs());
+    }
+
+    return _relationshipFieldSpecs;
   }
 
   @Override

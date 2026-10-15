@@ -1,9 +1,9 @@
+import { toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
@@ -108,7 +108,7 @@ const EllipsisText = styled(Text)`
     display: block;
 `;
 
-export const EmptyStateContainer = styled.div`
+const EmptyStateContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -143,7 +143,7 @@ type ServiceAccountDescriptionCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
     const { t } = useTranslation('entity.identity');
 
     if (!serviceAccount.description) {
@@ -209,7 +209,7 @@ type ServiceAccountDefaultViewCellProps = {
     onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
 };
 
-export const ServiceAccountDefaultViewCell = ({
+const ServiceAccountDefaultViewCell = ({
     serviceAccount,
     viewOptions,
     onDefaultViewChange,
@@ -258,7 +258,7 @@ const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountA
 
     const handleCopyUrn = () => {
         navigator.clipboard.writeText(serviceAccount.urn);
-        message.success(t('serviceAccounts.urnCopied'));
+        toast.success(t('serviceAccounts.urnCopied'));
     };
 
     const handleTokenCreated = () => {

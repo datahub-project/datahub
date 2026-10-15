@@ -257,7 +257,8 @@ export const getFileNameFromUrl = (url: string): string | undefined => {
     if (!isFileUrl(url)) return undefined;
 
     try {
-        const urlObj = new URL(url);
+        // Relative paths (e.g. /openapi/v1/files/...) need a base for URL parsing.
+        const urlObj = new URL(url, 'https://datahub.local');
         const { pathname } = urlObj;
 
         // Extract the last part after the final '/'
@@ -265,9 +266,11 @@ export const getFileNameFromUrl = (url: string): string | undefined => {
 
         if (!lastSegment) return undefined;
 
-        const fileName = lastSegment.split('__')?.[1];
+        const decoded = decodeURIComponent(lastSegment);
+        // Storage keys use uuid__originalFileName; fall back to the full segment.
+        const fileName = decoded.split('__')?.[1] || decoded;
 
-        return fileName;
+        return fileName || undefined;
     } catch (error) {
         // If URL parsing fails, return undefined
         return undefined;

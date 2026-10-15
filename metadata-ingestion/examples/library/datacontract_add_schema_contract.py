@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/datacontract_add_schema_contract.py
-import logging
 
 from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -9,9 +8,6 @@ from datahub.metadata.schema_classes import (
     DataContractPropertiesClass,
     SchemaContractClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 contract_urn = "urn:li:dataContract:purchases-contract"
 
@@ -23,8 +19,7 @@ contract_properties = graph.get_aspect(
 )
 
 if not contract_properties:
-    log.error(f"Contract {contract_urn} not found")
-    exit(1)
+    raise SystemExit(f"Contract {contract_urn} not found")
 
 new_schema_assertion_urn = make_assertion_urn("new-schema-assertion")
 
@@ -41,4 +36,4 @@ event = MetadataChangeProposalWrapper(
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 rest_emitter.emit(event)
 
-log.info(f"Added schema contract to {contract_urn}")
+print(f"Added schema contract to {contract_urn}")

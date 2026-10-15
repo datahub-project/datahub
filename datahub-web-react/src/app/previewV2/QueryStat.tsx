@@ -7,7 +7,6 @@ import { formatNumber } from '@app/shared/formatNumber';
 const Container = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
-    white-space: nowrap;
 `;
 
 interface Props {

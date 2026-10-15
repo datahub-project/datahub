@@ -1,5 +1,6 @@
 import { RoleEntity } from '@app/entityV2/Access/RoleEntity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { ApiEntity } from '@app/entityV2/api/ApiEntity';
 import { ApplicationEntity } from '@app/entityV2/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entityV2/chart/ChartEntity';
@@ -62,6 +63,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new DataProcessInstanceEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new ApplicationEntity());
+    registry.register(new ApiEntity());
     registry.register(new MetricEntity());
     registry.register(new SemanticModelEntity());
     return registry;

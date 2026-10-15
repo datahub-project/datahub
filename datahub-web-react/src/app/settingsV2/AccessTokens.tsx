@@ -148,12 +148,12 @@ export const AccessTokens = () => {
     }, [currentUserUrn]);
 
     const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
-    const allowNoExpiry = useAppConfig().config?.authConfig?.allowNoExpiry ?? false;
     const canGeneratePersonalAccessTokens =
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
     const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts;
+    const canManageIngestion = authenticatedUser?.platformPrivileges?.manageIngestion;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -434,7 +434,7 @@ export const AccessTokens = () => {
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
-                        ...(allowNoExpiry
+                        ...(canManageIngestion
                             ? ([
                                   {
                                       type: 'item',

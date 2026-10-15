@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/datacontract_create_basic.py
-import logging
 import os
 
 from datahub.emitter.mce_builder import make_assertion_urn, make_dataset_urn
@@ -14,9 +13,6 @@ from datahub.metadata.schema_classes import (
     SchemaContractClass,
     StatusClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 dataset_urn = make_dataset_urn(platform="snowflake", name="purchases", env="PROD")
 
@@ -56,4 +52,4 @@ for event in MetadataChangeProposalWrapper.construct_many(
 ):
     rest_emitter.emit(event)
 
-log.info(f"Created data contract {contract_urn}")
+print(f"Created data contract {contract_urn}")
