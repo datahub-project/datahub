@@ -43,8 +43,21 @@ import org.opensearch.tasks.TaskInfo;
 public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
   private static final String UPGRADE_ID_PREFIX = "CopyDocumentsToSemanticIndex";
-  private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
+  private static final long DEFAULT_TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
   private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
+
+  // Overridable so tests that drive the poll loop don't sleep the real 5s per poll.
+  private static volatile long taskPollIntervalMs = DEFAULT_TASK_POLL_INTERVAL_MS;
+
+  @com.google.common.annotations.VisibleForTesting
+  public static void setTaskPollIntervalMsForTesting(long intervalMs) {
+    taskPollIntervalMs = intervalMs;
+  }
+
+  @com.google.common.annotations.VisibleForTesting
+  public static void resetTaskPollIntervalMsForTesting() {
+    taskPollIntervalMs = DEFAULT_TASK_POLL_INTERVAL_MS;
+  }
 
   private static final int CROSS_CLUSTER_PAGE_SIZE = 500;
 
@@ -171,7 +184,12 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
    * @param taskId The task ID in format "nodeId:taskId"
    * @return true if task completed successfully, false otherwise
    */
-  private boolean waitForTaskCompletion(SearchClientShim<?> searchClient, String taskId) {
+  public static boolean waitForTaskCompletion(SearchClientShim<?> searchClient, String taskId) {
+    return waitForTaskCompletionInternal(searchClient, taskId);
+  }
+
+  private static boolean waitForTaskCompletionInternal(
+      SearchClientShim<?> searchClient, String taskId) {
     String[] parts = taskId.split(":");
     if (parts.length != 2) {
       log.error("Invalid task ID format: {}", taskId);
@@ -205,7 +223,7 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
         log.debug("Task {} still running...", taskId);
 
-        Thread.sleep(TASK_POLL_INTERVAL_MS);
+        Thread.sleep(taskPollIntervalMs);
       } catch (InterruptedException e) {
         // Restore interrupt flag - likely caused by JVM shutdown (e.g., container restart
         // during deployment). Returning false leaves upgrade as non-SUCCEEDED so it retries

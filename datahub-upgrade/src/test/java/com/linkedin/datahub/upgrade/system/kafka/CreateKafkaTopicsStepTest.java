@@ -69,6 +69,9 @@ public class CreateKafkaTopicsStepTest {
     // Create real KafkaProperties with test data
     kafkaProperties = new KafkaProperties();
     kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
+    // testCreateAdminClientMethod builds a real AdminClient (all other tests mock
+    // createAdminClient); short timeouts stop its network thread from retrying the absent broker.
+    KafkaTestTimeouts.applyShort(kafkaProperties);
 
     step = new CreateKafkaTopicsStep(mockOpContext, kafkaConfiguration, kafkaProperties);
   }
