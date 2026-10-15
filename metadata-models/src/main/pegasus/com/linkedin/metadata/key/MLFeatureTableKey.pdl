@@ -26,7 +26,6 @@ record MLFeatureTableKey {
     "enableAutocomplete": true,
     "boostScore": 8.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   name: string
