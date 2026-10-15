@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 
 import com.google.common.collect.ImmutableList;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
@@ -26,6 +28,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -55,6 +60,7 @@ public class ListDataProductAssetsResolver
   private static final int DEFAULT_COUNT = 10;
 
   private final EntityClient _entityClient;
+  private final ViewService _viewService;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -121,7 +127,7 @@ public class ListDataProductAssetsResolver
             .distinct()
             .collect(Collectors.toList());
 
-    final List<String> finalEntityNames =
+    final List<String> entityNames =
         inputEntityNames.size() > 0 ? inputEntityNames : entitiesToQuery;
 
     // escape forward slash since it is a reserved character in Elasticsearch
@@ -144,6 +150,14 @@ public class ListDataProductAssetsResolver
             return results;
           }
 
+          final DataHubViewInfo maybeResolvedView =
+              (input.getViewUrn() != null)
+                  ? resolveView(
+                      context.getOperationContext(),
+                      _viewService,
+                      UrnUtils.getUrn(input.getViewUrn()))
+                  : null;
+
           List<FacetFilterInput> filters = input.getFilters();
           final List<Urn> urnsToFilterOn = getUrnsToFilterOn(assetUrns, finalOutputPorts, filters);
           // need to remove output ports filter so we don't send to elastic
@@ -151,10 +165,10 @@ public class ListDataProductAssetsResolver
             filters.removeIf(f -> f.getField().equals(OUTPUT_PORTS_FILTER_FIELD));
           }
           // add urns from the aspect to our filters
-          final Filter baseFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
-          final Filter finalFilter =
+          final Filter inputFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+          final Filter baseFilter =
               buildFilterWithUrns(
-                  context.getDataHubAppConfig(), new HashSet<>(urnsToFilterOn), baseFilter);
+                  context.getDataHubAppConfig(), new HashSet<>(urnsToFilterOn), inputFilter);
 
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
@@ -163,6 +177,21 @@ public class ListDataProductAssetsResolver
           } else {
             searchFlags = null;
           }
+
+          List<String> finalEntityNames =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntityNames.size() == 0) {
+            return SearchUtils.createEmptySearchResults(start, count);
+          }
+
+          Filter finalFilter =
+              maybeResolvedView != null
+                  ? FilterUtils.combineFilters(
+                      baseFilter, maybeResolvedView.getDefinition().getFilter())
+                  : baseFilter;
 
           try {
             log.debug(
