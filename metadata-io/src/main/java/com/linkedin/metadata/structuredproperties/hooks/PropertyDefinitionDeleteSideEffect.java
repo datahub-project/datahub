@@ -143,12 +143,11 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
                     // rollback); their properties cannot be patched here.
                     .filter(
                         entity ->
-                            !handling().isTolerant()
-                                || retrieverContext
-                                    .getAspectRetriever()
-                                    .getEntityRegistry()
-                                    .findEntitySpec(entity.getEntity().getEntityType())
-                                    .isPresent())
+                            !handling()
+                                .isUnknown(
+                                    retrieverContext.getAspectRetriever().getEntityRegistry(),
+                                    entity.getEntity().getEntityType(),
+                                    null))
                     .map(
                         entity -> {
                           GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();

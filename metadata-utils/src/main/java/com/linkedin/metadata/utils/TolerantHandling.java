@@ -8,19 +8,38 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import java.net.URISyntaxException;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
  * Tolerates data the registry doesn't know: skips it, strips references to it, and attributes
  * validation failures to a newer version where it can.
+ *
+ * <p>Data whose own entity type is unknown is tolerated only when that type is a newer version's
+ * (see {@link NextVersionEntityTypes}); any other unknown type, such as a typo, is handled as
+ * {@link StrictHandling} handles it. Unknown aspects of known types and references to unknown types
+ * are always tolerated.
  */
 public final class TolerantHandling implements UnknownDataHandling {
 
-  public static final TolerantHandling INSTANCE = new TolerantHandling();
+  /** Tolerates every unknown entity type. */
+  public static final TolerantHandling INSTANCE = new TolerantHandling(entityType -> true);
 
-  private TolerantHandling() {}
+  private final Predicate<String> nextVersionEntityType;
+
+  private TolerantHandling(@Nonnull final Predicate<String> nextVersionEntityType) {
+    this.nextVersionEntityType = nextVersionEntityType;
+  }
+
+  /** Tolerates unknown entity types only when {@code nextVersionEntityType} accepts them. */
+  @Nonnull
+  public static TolerantHandling forNextVersionEntityTypes(
+      @Nonnull final Predicate<String> nextVersionEntityType) {
+    return new TolerantHandling(nextVersionEntityType);
+  }
 
   @Override
   public boolean admit(
@@ -30,6 +49,10 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final String entityType,
       @Nullable final String aspectName,
       @Nullable final Object subject) {
+    if (isUnregistered(registry, entityType)) {
+      return StrictHandling.INSTANCE.admit(
+          site, registry, metricUtils, entityType, aspectName, subject);
+    }
     return site.admit(registry, metricUtils, entityType, aspectName, subject);
   }
 
@@ -40,6 +63,9 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final Optional<MetricUtils> metricUtils,
       @Nullable final String urn,
       @Nullable final String aspectName) {
+    if (isUnregistered(registry, entityTypeOf(urn))) {
+      return StrictHandling.INSTANCE.admitUrn(site, registry, metricUtils, urn, aspectName);
+    }
     return site.admitUrn(registry, metricUtils, urn, aspectName);
   }
 
@@ -51,6 +77,11 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final Urn urn,
       @Nullable final String entityType,
       @Nullable final String aspectName) {
+    if (isUnregistered(registry, entityType)
+        || (urn != null && isUnregistered(registry, urn.getEntityType()))) {
+      return StrictHandling.INSTANCE.admitEvent(
+          site, registry, metricUtils, urn, entityType, aspectName);
+    }
     return site.admitEvent(registry, metricUtils, urn, entityType, aspectName);
   }
 
@@ -59,6 +90,9 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nullable final String entityType,
       @Nullable final String aspectName) {
+    if (isUnregistered(registry, entityType)) {
+      return StrictHandling.INSTANCE.isUnknown(registry, entityType, aspectName);
+    }
     return RegistryKnowledge.isUnknown(registry, entityType, aspectName);
   }
 
@@ -67,12 +101,18 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nullable final String urn,
       @Nullable final String aspectName) {
+    if (isUnregistered(registry, entityTypeOf(urn))) {
+      return StrictHandling.INSTANCE.isUnknownUrn(registry, urn, aspectName);
+    }
     return RegistryKnowledge.classifyUrn(registry, urn, aspectName).isUnknown();
   }
 
   @Override
   public boolean referencesUnknownEntityType(
       @Nonnull final EntityRegistry registry, @Nonnull final Urn urn) {
+    if (isUnregistered(registry, urn.getEntityType())) {
+      return StrictHandling.INSTANCE.referencesUnknownEntityType(registry, urn);
+    }
     return RegistryKnowledge.referencesUnknownEntityType(registry, urn);
   }
 
@@ -86,6 +126,9 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public Optional<EntitySpec> entitySpecForData(
       @Nonnull final EntityRegistry registry, @Nonnull final String entityType) {
+    if (isUnregistered(registry, entityType)) {
+      return StrictHandling.INSTANCE.entitySpecForData(registry, entityType);
+    }
     return registry.findEntitySpec(entityType);
   }
 
@@ -95,6 +138,9 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nonnull final String entityType,
       @Nonnull final String aspectName) {
+    if (isUnregistered(registry, entityType)) {
+      return StrictHandling.INSTANCE.aspectSpecForData(registry, entityType, aspectName);
+    }
     return registry.findAspectSpec(entityType, aspectName);
   }
 
@@ -130,5 +176,25 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public boolean isTolerant() {
     return true;
+  }
+
+  /** An entity type the registry doesn't know and no newer version registered. */
+  private boolean isUnregistered(
+      @Nonnull final EntityRegistry registry, @Nullable final String entityType) {
+    return entityType != null
+        && registry.findEntitySpec(entityType).isEmpty()
+        && !nextVersionEntityType.test(entityType);
+  }
+
+  @Nullable
+  private static String entityTypeOf(@Nullable final String urn) {
+    if (urn == null) {
+      return null;
+    }
+    try {
+      return Urn.createFromString(urn).getEntityType();
+    } catch (URISyntaxException | IllegalArgumentException e) {
+      return null;
+    }
   }
 }
