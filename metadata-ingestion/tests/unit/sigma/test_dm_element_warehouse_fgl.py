@@ -10,6 +10,8 @@ Coverage:
     same upstream schemaField → two FGLs, one upstream)
   - _build_dm_element_fine_grained_lineages: mixed intra-DM + warehouse refs
   - URN identity: schemaField parent Dataset URN matches entity-level warehouse URN
+  - _build_dm_element_fine_grained_lineages: a column with no ref to follow
+    (only an empty formula gets the columnId edge)
 
 Counters verified:
   data_model_element_fgl_warehouse_resolved
@@ -19,6 +21,8 @@ Counters verified:
 import datetime as dt
 from typing import Dict, List, Optional, Set
 from unittest.mock import patch
+
+import pytest
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
@@ -382,26 +386,6 @@ class TestBuildFglWarehouseIntegration:
             source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
         )
 
-    def test_deferred_when_no_warehouse_source(self):
-        """When the element has no warehouse-backed inode, deferred counter bumps."""
-        source = _make_source()
-        col = _column("bare-col-id", "Email", "[CUSTOMERS/Email]")
-        elem = _element("el-customers", "CUSTOMERS", [col], [])  # no source_ids
-        name_to_eids = {"customers": [elem.elementId]}
-
-        fgls = _build_fgls(
-            source,
-            elem,
-            warehouse_map={},
-            element_name_to_eids=name_to_eids,
-        )
-
-        assert fgls == []
-        assert (
-            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
-        )
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
-
     def test_diamond_two_downstream_columns_same_upstream(self):
         """Two columns on the same element both reference the same warehouse column.
         Each produces a distinct FGL (different downstream schemaField), but the
@@ -589,6 +573,218 @@ class TestBuildFglWarehouseIntegration:
         assert fgls[0].upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert fgls[0].upstreams[0] == expected_upstream
+
+
+# An empty formula, a formula whose source is the warehouse table rather than
+# an element, and one naming the element itself; all read the columnId and
+# must count it the same way.
+_FORMULAS_READING_THE_COLUMN_ID = [
+    pytest.param(None, id="empty-formula"),
+    pytest.param("[CUSTOMERS_TABLE/Email]", id="table-formula"),
+    pytest.param("[Customers/Email]", id="self-named-formula"),
+]
+_SELF_NAME_TO_EIDS = {"customers": ["el-customers"]}
+
+
+class TestColumnWithNoRefToFollow:
+    """A column with an empty formula gets its edge from columnId alone."""
+
+    @pytest.mark.parametrize(
+        "formula", [None, "", "  "], ids=["absent", "empty", "whitespace"]
+    )
+    def test_an_inode_column_id_alone_gives_the_warehouse_edge(
+        self, formula: Optional[str]
+    ) -> None:
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", formula)
+        elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert [f.upstreams for f in fgls] == [
+            [builder.make_schema_field_urn(_SF_DATASET_URN, "email")]
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    @pytest.mark.parametrize(
+        "formula",
+        ["42", "[P_Markup]", "[Cost] * 1.2"],
+        ids=["constant", "parameter", "bare-ref-to-another-column"],
+    )
+    def test_a_non_empty_formula_without_a_ref_gets_no_edge(self, formula: str) -> None:
+        # The formula no longer reads the column its columnId names, so the
+        # columnId edge would be wrong.
+        source = _make_source()
+        cols = [
+            _column(f"inode-{_SF_URL_ID}/PRICE", "Price", formula),
+            _column(f"inode-{_SF_URL_ID}/COST", "Cost", "[CUSTOMERS/Cost]"),
+        ]
+        elem = _element("el-customers", "Customers", cols, [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert [f.downstreams for f in fgls] == [
+            [
+                builder.make_schema_field_urn(
+                    "urn:li:dataset:(urn:li:dataPlatform:sigma,el-customers,PROD)",
+                    "Cost",
+                )
+            ]
+        ]
+
+    def test_an_opaque_column_id_gets_no_edge(self) -> None:
+        # A sibling has a column of the same name; matching on name alone
+        # would fabricate an edge to it.
+        source = _make_source()
+        sibling_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-sibling,PROD)"
+        sibling = _element("el-sibling", "Sibling", [_column("s-email", "Email", None)])
+        col = _column("opaque-col-id", "Email", None)
+        elem = _element("el-customers", "Customers", [col], ["el-sibling"])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            element_name_to_eids={"sibling": ["el-sibling"]},
+            elementId_to_dataset_urn={"el-sibling": sibling_urn},
+            entity_level_upstream_urns={sibling_urn},
+            upstream_elements=[sibling],
+        )
+
+        assert fgls == []
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+
+    @pytest.mark.parametrize(
+        "column_id",
+        [
+            "opaque-col-id",
+            "inode-OtherUrlId0000000001/EMAIL",
+            f"inode-{_SF_URL_ID}/",
+            _SF_INODE_SOURCE,
+        ],
+        ids=["opaque", "not-own-source", "no-column", "no-slash"],
+    )
+    @pytest.mark.parametrize("formula", _FORMULAS_READING_THE_COLUMN_ID)
+    def test_a_column_id_not_naming_an_own_source_column_is_not_counted(
+        self, column_id: str, formula: Optional[str]
+    ) -> None:
+        source = _make_source()
+        col = _column(column_id, "Email", formula)
+        elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
+
+        with patch.object(source.sigma_api, "get_file_metadata") as files:
+            fgls = _build_fgls(
+                source,
+                elem,
+                warehouse_map={},
+                element_name_to_eids=_SELF_NAME_TO_EIDS,
+            )
+
+        assert fgls == []
+        files.assert_not_called()
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+
+    @pytest.mark.parametrize("formula", _FORMULAS_READING_THE_COLUMN_ID)
+    def test_an_unresolvable_inode_column_id_is_counted(
+        self, formula: Optional[str]
+    ) -> None:
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", formula)
+        elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
+
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            fgls = _build_fgls(
+                source,
+                elem,
+                warehouse_map={},
+                element_name_to_eids=_SELF_NAME_TO_EIDS,
+            )
+
+        assert fgls == []
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+        )
+
+    @pytest.mark.parametrize("formula", _FORMULAS_READING_THE_COLUMN_ID)
+    def test_an_ingested_sigma_dataset_column_id_is_not_counted(
+        self, formula: Optional[str]
+    ) -> None:
+        source = _make_source()
+        sd_url_id = "sdUrlId0000000000000001"
+        source.sigma_dataset_urn_by_url_id[sd_url_id] = (
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,sd-1,PROD)"
+        )
+        col = _column(f"inode-{sd_url_id}/EMAIL", "Email", formula)
+        elem = _element("el-customers", "Customers", [col], [f"inode-{sd_url_id}"])
+
+        fgls = _build_fgls(
+            source, elem, warehouse_map={}, element_name_to_eids=_SELF_NAME_TO_EIDS
+        )
+
+        assert fgls == []
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+
+    def test_a_duplicate_name_keeps_the_formula_row_and_drops_the_empty_twin(
+        self,
+    ) -> None:
+        # Pins dedup: the row with a formula wins, so the empty-formula twin's
+        # columnId edge is not emitted.
+        source = _make_source()
+        cols = [
+            _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", None),
+            _column("calc-email", "Email", "42"),
+        ]
+        elem = _element("el-customers", "Customers", cols, [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert fgls == []
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
+
+    def test_a_whitespace_formula_does_not_outrank_an_empty_twin(self) -> None:
+        # Both rows have no formula, so columnId breaks the tie and the inode
+        # row's edge is emitted.
+        source = _make_source()
+        cols = [
+            _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", None),
+            _column("z-blank-email", "Email", "  "),
+        ]
+        elem = _element("el-customers", "Customers", cols, [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert [f.upstreams for f in fgls] == [
+            [builder.make_schema_field_urn(_SF_DATASET_URN, "email")]
+        ]
+
+    def test_a_column_with_a_sibling_ref_gets_no_extra_warehouse_edge(self) -> None:
+        source = _make_source()
+        upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-upstream,PROD)"
+        upstream = _element("el-upstream", "Upstream", [_column("up-x", "x", None)])
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[Upstream/x]")
+        elem = _element(
+            "el-customers", "Customers", [col], [_SF_INODE_SOURCE, "el-upstream"]
+        )
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"upstream": ["el-upstream"]},
+            elementId_to_dataset_urn={"el-upstream": upstream_urn},
+            entity_level_upstream_urns={upstream_urn},
+            upstream_elements=[upstream],
+        )
+
+        assert [f.upstreams for f in fgls] == [
+            [builder.make_schema_field_urn(upstream_urn, "x")]
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
 
 
 class TestExplicitCaseFlagScope:

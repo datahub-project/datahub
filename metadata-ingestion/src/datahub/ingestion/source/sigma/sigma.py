@@ -153,6 +153,10 @@ _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula 
 _FGL_CONFIDENCE_ORPHAN_RECOVERED: float = 0.8
 
 
+def _has_formula(column: SigmaDataModelColumn) -> bool:
+    return bool((column.formula or "").strip())
+
+
 def _dm_column_ranks_above(
     candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
 ) -> bool:
@@ -163,8 +167,8 @@ def _dm_column_ranks_above(
     columnId so the choice is stable across runs even if /columns ordering
     shifts.
     """
-    if bool(candidate.formula) != bool(incumbent.formula):
-        return bool(candidate.formula)
+    if _has_formula(candidate) != _has_formula(incumbent):
+        return _has_formula(candidate)
     return candidate.columnId < incumbent.columnId
 
 
@@ -341,6 +345,31 @@ def _normalize_warehouse_identifier(
     if _should_lowercase_identifiers(platform, lowercase=lowercase, explicit=explicit):
         return name.lower()
     return name
+
+
+@dataclass(frozen=True)
+class _OwnWarehouseColumnId:
+    """A Data Model columnId ``inode-<url_id>/<column>`` naming one of its
+    element's own sources."""
+
+    url_id: str
+    column: str
+
+
+def _own_warehouse_column_id(
+    column: SigmaDataModelColumn, element: SigmaDataModelElement
+) -> Optional[_OwnWarehouseColumnId]:
+    col_id = column.columnId or ""
+    if not col_id.startswith("inode-"):
+        return None
+    url_id, sep, warehouse_col = col_id[len("inode-") :].partition("/")
+    if not sep or not warehouse_col:
+        return None
+    # A url_id that is not one of the element's sources names another
+    # element's table (or drifted data); it is not this column's warehouse.
+    if f"inode-{url_id}" not in element.source_ids:
+        return None
+    return _OwnWarehouseColumnId(url_id=url_id, column=warehouse_col)
 
 
 @dataclass(frozen=True)
@@ -2699,20 +2728,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         resolution failure.  Counter bookkeeping and dedup (emitted_pairs) are
         the caller's responsibility so that None unambiguously means failure.
         """
-        # Parse columnId → url_id + warehouse column name.
-        col_id = column.columnId or ""
-        if not col_id.startswith("inode-"):
+        own_id = _own_warehouse_column_id(column, element)
+        if own_id is None:
             return None
-        suffix = col_id[len("inode-") :]
-        url_id, sep, warehouse_col = suffix.partition("/")
-        if not sep or not warehouse_col:
-            return None
-
-        # Verify this url_id is one of the element's declared warehouse sources.
-        # Mismatches can occur if a column belongs to a different element's inode
-        # (shouldn't happen with well-formed API data, but guards against drift).
-        if f"inode-{url_id}" not in element.source_ids:
-            return None
+        url_id = own_id.url_id
+        warehouse_col = own_id.column
 
         wh_ref = self._dm_warehouse_ref(url_id, warehouse_url_id_map)
         if wh_ref is None:
@@ -2775,11 +2795,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         contains only bare intra-DM element IDs or is empty entirely.
 
         Note: when this returns False because _resolve_cross_dm_fgl deferred,
-        both data_model_element_fgl_cross_dm_deferred (from the callee) and
+        data_model_element_fgl_cross_dm_deferred (from the callee) and
         data_model_element_fgl_warehouse_passthrough_deferred (from the caller's
-        fall-through) are incremented for the same ref. This is intentional —
-        the two counters measure independent dimensions (cross-DM attempt outcome
-        vs. warehouse-passthrough gate), and operators should not sum them.
+        fall-through, per _count_warehouse_deferred) can both count the same
+        ref. This is intentional — the two counters measure independent
+        dimensions (cross-DM attempt outcome vs. warehouse-passthrough gate),
+        and operators should not sum them.
         """
         if not _cross_dm_source_url_ids(element):
             logger.debug(
@@ -3153,6 +3174,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ),
         )
 
+    def _count_warehouse_deferred(
+        self, column: SigmaDataModelColumn, element: SigmaDataModelElement
+    ) -> None:
+        """Count a column whose columnId warehouse edge did not resolve.
+
+        Only a well-formed columnId naming one of the element's own sources
+        counts; an ingested Sigma Dataset is not a warehouse table.
+        """
+        own_id = _own_warehouse_column_id(column, element)
+        if own_id is not None and own_id.url_id not in self.sigma_dataset_urn_by_url_id:
+            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+
+    def _append_empty_formula_warehouse_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        warehouse_fgl: Optional[FineGrainedLineageClass],
+        fgls: List[FineGrainedLineageClass],
+    ) -> None:
+        """The columnId alone names the warehouse column; never match siblings
+        by name, which would invent edges. The downstream field is unique to
+        the column, so no dedup is needed."""
+        if warehouse_fgl is not None:
+            fgls.append(warehouse_fgl)
+            self.reporter.data_model_element_fgl_warehouse_resolved += 1
+        else:
+            self._count_warehouse_deferred(column, element)
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -3165,7 +3215,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
         discovered_upstreams: Set[str],
     ) -> List[FineGrainedLineageClass]:
-        """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+        """Build FineGrainedLineage entries for a Data Model element's columns.
 
         ``discovered_upstreams`` is an out-parameter: siblings an edge points at
         that Sigma's /lineage did not list, for the caller to add to the
@@ -3201,8 +3251,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
         emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
-            if not column.formula:
-                continue
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -3216,6 +3264,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 downstream_field=downstream_field,
                 warehouse_url_id_map=warehouse_url_id_map,
             )
+            # Only an empty formula: a non-empty one with no followable ref
+            # (constant, parameters, bare [col]) no longer reads the column
+            # its columnId names.
+            if not _has_formula(column):
+                self._append_empty_formula_warehouse_fgl(
+                    column=column,
+                    element=element,
+                    warehouse_fgl=warehouse_fgl,
+                    fgls=fgls,
+                )
+                continue
             warehouse_consumed = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
@@ -3253,7 +3312,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if not warehouse_consumed:
                             warehouse_consumed = True
                             if warehouse_fgl is None:
-                                self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                                self._count_warehouse_deferred(column, element)
                             else:
                                 assert warehouse_fgl.upstreams
                                 pair = (downstream_field, warehouse_fgl.upstreams[0])
@@ -3267,8 +3326,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # the warehouse table name as the formula source (e.g.
                     # "[CUSTOMERS/col]" on an element that isn't named "CUSTOMERS")
                     # rather than the element name — columnId is authoritative.
-                    # If columnId is warehouse-shaped but resolution failed,
-                    # count as warehouse-deferred rather than cross-DM-deferred.
+                    # If columnId names one of the element's own sources but
+                    # resolution failed, count as warehouse-deferred rather
+                    # than cross-DM-deferred.
                     if not warehouse_consumed:
                         warehouse_consumed = True
                         if warehouse_fgl is not None:
@@ -3279,8 +3339,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 fgls.append(warehouse_fgl)
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
                             continue
-                        if (column.columnId or "").startswith("inode-"):
-                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        if _own_warehouse_column_id(column, element) is not None:
+                            self._count_warehouse_deferred(column, element)
                             continue
 
                     # Source not in this DM — resolve via cross-DM sources that
