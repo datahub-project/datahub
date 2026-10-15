@@ -155,10 +155,13 @@ class AutoSystemMetadata:
             yield self.stamp_wu(wu)
 
     def stamp_wu(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
-        self.stamp_metadata(wu.metadata)
+        if self.ctx.flags.set_system_metadata:
+            if not wu.metadata.systemMetadata:
+                wu.metadata.systemMetadata = SystemMetadataClass()
+            self._stamp(wu.metadata.systemMetadata)
         return wu
 
-    def stamp_metadata(
+    def stamp_if_unattributed(
         self,
         metadata: Union[
             MetadataChangeEventClass,
@@ -166,16 +169,35 @@ class AutoSystemMetadata:
             MetadataChangeProposalWrapper,
         ],
     ) -> None:
-        """Stamp the run id (and, when enabled, the pipeline name) onto a record.
+        """Stamp a record that no source attributed to a run.
 
-        Used for source workunits via :meth:`stamp`, and by the pipeline for
-        records that transformers create, which never pass through a source.
+        The pipeline applies this to the records leaving the transformer chain:
+        a record a transformer creates never passed through :meth:`stamp`. A
+        record that already carries a run id is left exactly as it is. An
+        existing ``systemMetadata`` is copied before it is changed, because a
+        transformer hands the source record's object to the records it mints
+        (``base_transformer``), and that source record may already sit in the
+        sink's queue.
         """
-        if self.ctx.flags.set_system_metadata:
-            if not metadata.systemMetadata:
-                metadata.systemMetadata = SystemMetadataClass()
-            metadata.systemMetadata.runId = self.ctx.run_id
-            if not metadata.systemMetadata.lastObserved:
-                metadata.systemMetadata.lastObserved = get_sys_time()
-            if self.ctx.flags.set_system_metadata_pipeline_name:
-                metadata.systemMetadata.pipelineName = self.ctx.pipeline_name
+        if not self.ctx.flags.set_system_metadata:
+            return
+        system_metadata = metadata.systemMetadata
+        if system_metadata is None:
+            system_metadata = SystemMetadataClass()
+        elif system_metadata.runId not in _UNATTRIBUTED_RUN_IDS:
+            return
+        else:
+            system_metadata = SystemMetadataClass.from_obj(system_metadata.to_obj())
+        self._stamp(system_metadata)
+        metadata.systemMetadata = system_metadata
+
+    def _stamp(self, system_metadata: SystemMetadataClass) -> None:
+        system_metadata.runId = self.ctx.run_id
+        if not system_metadata.lastObserved:
+            system_metadata.lastObserved = get_sys_time()
+        if self.ctx.flags.set_system_metadata_pipeline_name:
+            system_metadata.pipelineName = self.ctx.pipeline_name
+
+
+# The model's default run id is a placeholder, not an attribution.
+_UNATTRIBUTED_RUN_IDS = {None, "", SystemMetadataClass().runId}

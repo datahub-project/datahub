@@ -493,6 +493,7 @@ class Pipeline:
         return self.config.source.type
 
     def _configure_transforms(self) -> None:
+        self._system_metadata_stamper = AutoSystemMetadata(self.ctx)
         self.transformers = []
         if self.config.transformers is not None:
             for transformer in self.config.transformers:
@@ -797,20 +798,20 @@ class Pipeline:
         for transformer in self.transformers:
             records = transformer.transform(records)
 
-        return self._stamp_transformer_output(records)
+        return self._stamp_unattributed(records)
 
-    def _stamp_transformer_output(
+    def _stamp_unattributed(
         self, records: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         # The source stamps systemMetadata on its own workunits
         # (AutoSystemMetadata in Source.get_workunits), but transformers run
-        # after that, and a record a transformer creates (e.g. at end of
-        # stream) reaches the sink with no runId. Without it the record is
-        # left out of run attribution and `datahub delete --run-id`.
-        if not self.transformers:
+        # after that, so a record a transformer creates (e.g. at end of
+        # stream) reached the sink with no runId and was left out of run
+        # attribution and `datahub delete --run-id`. Records that already
+        # carry a run id are not touched.
+        if not self.ctx.flags.set_system_metadata:
             yield from records
             return
-        stamper = AutoSystemMetadata(self.ctx)
         for envelope in records:
             if isinstance(
                 envelope.record,
@@ -820,7 +821,7 @@ class Pipeline:
                     MetadataChangeProposalWrapper,
                 ),
             ):
-                stamper.stamp_metadata(envelope.record)
+                self._system_metadata_stamper.stamp_if_unattributed(envelope.record)
             yield envelope
 
     def process_commits(self) -> None:
