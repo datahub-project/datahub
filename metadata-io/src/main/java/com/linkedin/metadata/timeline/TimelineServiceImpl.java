@@ -6,6 +6,11 @@ import static com.linkedin.metadata.Constants.*;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datajob.DataFlowInfo;
+import com.linkedin.datajob.DataJobInfo;
+import com.linkedin.datajob.EditableDataFlowProperties;
+import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.models.AspectSpec;
@@ -30,6 +35,7 @@ import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEvent
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.PropertiesDescriptionChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
@@ -495,6 +501,77 @@ public class TimelineServiceImpl implements TimelineService {
         API_ENTITY_NAME, buildAgentFamilyTimelineRegistry(API_ENTITY_NAME));
     entityTypeElementAspectRegistry.put(
         AGENT_SKILL_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AGENT_SKILL_ENTITY_NAME));
+
+    entityTypeElementAspectRegistry.put(
+        DATA_FLOW_ENTITY_NAME,
+        buildDataJobFamilyTimelineRegistry(
+            DATA_FLOW_ENTITY_NAME,
+            DATA_FLOW_INFO_ASPECT_NAME,
+            DataFlowInfo.class,
+            EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME,
+            EditableDataFlowProperties.class));
+    entityTypeElementAspectRegistry.put(
+        DATA_JOB_ENTITY_NAME,
+        buildDataJobFamilyTimelineRegistry(
+            DATA_JOB_ENTITY_NAME,
+            DATA_JOB_INFO_ASPECT_NAME,
+            DataJobInfo.class,
+            EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME,
+            EditableDataJobProperties.class));
+  }
+
+  /**
+   * Builds the timeline registry for a pipeline-family entity (dataFlow, dataJob). Both carry the
+   * standard catalog aspects plus a single domain and application membership. Descriptions can come
+   * from either the ingested info aspect or the UI-editable properties aspect, so DOCUMENTATION
+   * watches both; without this registration getTimeline throws UnsupportedOperationException for
+   * these urns regardless of stored history.
+   */
+  private HashMap<ChangeCategory, Set<String>> buildDataJobFamilyTimelineRegistry(
+      final String entityType,
+      final String infoAspectName,
+      final Class<? extends RecordTemplate> infoAspectClass,
+      final String editableAspectName,
+      final Class<? extends RecordTemplate> editableAspectClass) {
+    final HashMap<ChangeCategory, Set<String>> registry =
+        buildAgentFamilyTimelineRegistry(entityType);
+    registry.computeIfAbsent(ChangeCategory.DOMAIN, k -> new HashSet<>()).add(DOMAINS_ASPECT_NAME);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.DOMAIN,
+        DOMAINS_ASPECT_NAME,
+        new SingleDomainChangeEventGenerator());
+    registry
+        .computeIfAbsent(ChangeCategory.APPLICATION, k -> new HashSet<>())
+        .add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.APPLICATION,
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        new ApplicationsChangeEventGenerator());
+    registry
+        .computeIfAbsent(ChangeCategory.STRUCTURED_PROPERTY, k -> new HashSet<>())
+        .add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.STRUCTURED_PROPERTY,
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        new StructuredPropertyChangeEventGenerator());
+    final Set<String> documentationAspects =
+        registry.computeIfAbsent(ChangeCategory.DOCUMENTATION, k -> new HashSet<>());
+    documentationAspects.add(infoAspectName);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.DOCUMENTATION,
+        infoAspectName,
+        new PropertiesDescriptionChangeEventGenerator<>(infoAspectName, infoAspectClass));
+    documentationAspects.add(editableAspectName);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.DOCUMENTATION,
+        editableAspectName,
+        new PropertiesDescriptionChangeEventGenerator<>(editableAspectName, editableAspectClass));
+    return registry;
   }
 
   private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(
@@ -541,8 +618,10 @@ public class TimelineServiceImpl implements TimelineService {
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {
     if (this.entityTypeElementAspectRegistry.containsKey(entityType)) {
+      // Not every entity registers every category; an unregistered category simply contributes no
+      // aspects rather than failing the whole timeline request.
       return elementNames.stream()
-          .map(x -> entityTypeElementAspectRegistry.get(entityType).get(x))
+          .map(x -> entityTypeElementAspectRegistry.get(entityType).getOrDefault(x, Set.of()))
           .flatMap(Collection::stream)
           .collect(Collectors.toSet());
     } else {

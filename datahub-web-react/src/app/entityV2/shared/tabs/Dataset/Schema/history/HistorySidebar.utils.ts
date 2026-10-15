@@ -105,6 +105,17 @@ function getAllCategoryOptions(): CategoryOption[] {
     ];
 }
 
+// Pipelines and tasks share one registration on the backend (buildDataJobFamilyTimelineRegistry).
+const PIPELINE_FAMILY_CATEGORIES: Set<ChangeCategoryValue> = new Set([
+    ChangeCategoryType.Documentation,
+    ChangeCategoryType.Tag,
+    ChangeCategoryType.GlossaryTerm,
+    ChangeCategoryType.Ownership,
+    CATEGORY_DOMAIN,
+    CATEGORY_STRUCTURED_PROPERTY,
+    CATEGORY_APPLICATION,
+]);
+
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
 const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
     [EntityType.Dataset]: new Set([
@@ -142,6 +153,8 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
         CATEGORY_APPLICATION,
         CATEGORY_ASSET_MEMBERSHIP,
     ]),
+    [EntityType.DataFlow]: PIPELINE_FAMILY_CATEGORIES,
+    [EntityType.DataJob]: PIPELINE_FAMILY_CATEGORIES,
 };
 
 export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {

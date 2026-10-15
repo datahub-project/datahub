@@ -72,6 +72,26 @@ describe('getCategoryOptions', () => {
         expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
+    it.each([EntityType.DataFlow, EntityType.DataJob])(
+        'returns Documentation, Tags, Terms, Owners, Domains, Properties, Applications for %s',
+        (entityType) => {
+            const options = getCategoryOptions(entityType);
+            const values = options.map((o) => o.value);
+
+            expect(values).toEqual([
+                ChangeCategoryType.Documentation,
+                ChangeCategoryType.Tag,
+                ChangeCategoryType.GlossaryTerm,
+                ChangeCategoryType.Ownership,
+                CATEGORY_DOMAIN,
+                CATEGORY_STRUCTURED_PROPERTY,
+                CATEGORY_APPLICATION,
+            ]);
+            expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
+            expect(values).not.toContain(CATEGORY_VERSIONING);
+        },
+    );
+
     it('returns all supported categories including Assets for data products', () => {
         const options = getCategoryOptions(EntityType.DataProduct);
         const values = options.map((o) => o.value);

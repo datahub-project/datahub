@@ -3,7 +3,7 @@ title: "Timeline API"
 ---
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
-to entities. The API supports Datasets, Glossary Terms, Domains, and Data Products.
+to entities. The API supports Datasets, Glossary Terms, Domains, Data Products, Pipelines (DataFlow), and Tasks (DataJob).
 
 ## Compatibility
 
