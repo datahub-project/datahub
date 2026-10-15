@@ -5,8 +5,8 @@ import { Axis, GlyphSeries, LineSeries, Tooltip, XYChart } from '@visx/xychart';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import Legend from '@app/analyticsDashboard/components/Legend';
-import { lineColors } from '@app/analyticsDashboard/components/lineColors';
+import Legend from '@app/analyticsDashboardV2/components/Legend';
+import { lineColors } from '@app/analyticsDashboardV2/components/lineColors';
 import { formatNumber } from '@app/sharedV2/formatNumber';
 import { addInterval } from '@app/sharedV2/time/timeUtils';
 

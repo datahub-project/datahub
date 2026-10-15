@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
+import { isLineageFilterActive } from '@app/lineageV3/controls/lineageControlsUtils';
 
 describe('isLineageFilterActive', () => {
     it('is inactive when nothing deviates from the defaults', () => {

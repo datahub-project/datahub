@@ -8,9 +8,9 @@ import {
     AdjacencyList,
     LineageEmptyGraphNudgeNodes,
     LineageEmptyGraphNudgeReason,
-} from '@app/lineage/utils/lineageEmptyGraphNudgeUtils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import useLineageEmptyGraphNudge from '@app/lineage/utils/useLineageEmptyGraphNudge';
+} from '@app/lineageV3/utils/lineageEmptyGraphNudgeUtils';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
+import useLineageEmptyGraphNudge from '@app/lineageV3/utils/useLineageEmptyGraphNudge';
 import updateQueryParams from '@app/sharedV2/updateQueryParams';
 
 export type LineageEmptyGraphNudgeProps = {
