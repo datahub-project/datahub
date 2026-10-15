@@ -1,6 +1,5 @@
 package com.linkedin.metadata.utils;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -14,7 +13,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.mxe.SystemMetadata;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,7 +115,6 @@ public final class UnknownEntityUrnStripper {
     private final boolean mutate;
     // Aspects repeat a few entity types many times (e.g. tags on every schema field).
     private final Map<String, Boolean> unknownByEntityType = new HashMap<>();
-    private final Map<String, Boolean> unknownByNestedUrn = new HashMap<>();
     private int removed;
     private boolean found;
 
@@ -195,24 +192,36 @@ public final class UnknownEntityUrnStripper {
       if (entityType == null) {
         return false;
       }
-      if (unknownByEntityType.computeIfAbsent(
-          entityType, type -> entityRegistry.findEntitySpec(type).isEmpty())) {
-        return true;
-      }
-      // Urns nesting another urn in their key (e.g. a schema field or monitor of an entity type
-      // only a newer version has) are parsed and checked whole; others skip the parse.
-      return urn.indexOf(URN_PREFIX, URN_PREFIX.length()) > 0
-          && unknownByNestedUrn.computeIfAbsent(urn, this::referencesUnknownEntityType);
+      return isUnknownType(entityType) || nestsUnknownEntityType(urn);
     }
 
-    private boolean referencesUnknownEntityType(@Nonnull final String urn) {
-      try {
-        return RegistryKnowledge.referencesUnknownEntityType(
-            entityRegistry, Urn.createFromString(urn));
-      } catch (URISyntaxException e) {
-        // Malformed urns are left for validation to reject.
-        return false;
+    private boolean isUnknownType(@Nonnull final String entityType) {
+      return unknownByEntityType.computeIfAbsent(
+          entityType, type -> entityRegistry.findEntitySpec(type).isEmpty());
+    }
+
+    /**
+     * Whether a urn nested in this urn's key (e.g. the dataset of a schema field, or the entity of
+     * a monitor) has an entity type the registry doesn't know. Nested urns start a key part, so
+     * they follow a '(' or ','; scanning for them finds the same types as parsing the urn, without
+     * building a Urn for each of the many nested urns large aspects hold.
+     */
+    private boolean nestsUnknownEntityType(@Nonnull final String urn) {
+      int start = urn.indexOf(URN_PREFIX, URN_PREFIX.length());
+      while (start > 0) {
+        final char before = urn.charAt(start - 1);
+        final int typeStart = start + URN_PREFIX.length();
+        final int typeEnd = urn.indexOf(':', typeStart);
+        if (typeEnd <= typeStart) {
+          // Malformed nested urns are left for validation to reject.
+          return false;
+        }
+        if ((before == '(' || before == ',') && isUnknownType(urn.substring(typeStart, typeEnd))) {
+          return true;
+        }
+        start = urn.indexOf(URN_PREFIX, typeEnd);
       }
+      return false;
     }
   }
 
