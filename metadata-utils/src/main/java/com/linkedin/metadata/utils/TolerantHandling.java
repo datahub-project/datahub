@@ -152,6 +152,15 @@ public final class TolerantHandling implements UnknownDataHandling {
 
   @Nonnull
   @Override
+  public UnknownReferenceMerger.MergeResult mergeStoredReferences(
+      @Nonnull final RecordTemplate request,
+      @Nullable final RecordTemplate stored,
+      @Nonnull final EntityRegistry registry) {
+    return UnknownReferenceMerger.merge(request, stored, registry);
+  }
+
+  @Nonnull
+  @Override
   public UnknownEntityUrnStripper.StripResult stripReporting(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
     return UnknownEntityUrnStripper.stripReporting(aspect, registry);

@@ -91,6 +91,19 @@ public interface UnknownDataHandling {
   UnknownEntityUrnStripper.StripResult stripReporting(
       @Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);
 
+  /**
+   * Keeps, in a written aspect, the stored references to entity types the registry doesn't know
+   * (see {@link UnknownReferenceMerger}), and reports the ones the write adds, which the caller
+   * rejects.
+   *
+   * @param stored the stored aspect as written, before any read dropped references; null if none
+   */
+  @Nonnull
+  UnknownReferenceMerger.MergeResult mergeStoredReferences(
+      @Nonnull RecordTemplate request,
+      @Nullable RecordTemplate stored,
+      @Nonnull EntityRegistry registry);
+
   /** True if the aspect references an entity type the registry doesn't know, anywhere in it. */
   boolean aspectReferencesUnknownEntityType(
       @Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);

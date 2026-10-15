@@ -118,6 +118,15 @@ public final class StrictHandling implements UnknownDataHandling {
 
   @Nonnull
   @Override
+  public UnknownReferenceMerger.MergeResult mergeStoredReferences(
+      @Nonnull final RecordTemplate request,
+      @Nullable final RecordTemplate stored,
+      @Nonnull final EntityRegistry registry) {
+    return UnknownReferenceMerger.MergeResult.NONE;
+  }
+
+  @Nonnull
+  @Override
   public UnknownEntityUrnStripper.StripResult stripReporting(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
     return UnknownEntityUrnStripper.StripResult.NONE;

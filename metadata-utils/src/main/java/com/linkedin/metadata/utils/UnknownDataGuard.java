@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 public final class UnknownDataGuard {
 
   public static final String SKIPPED_METRIC = "unknown_to_registry_skipped";
+  public static final String KEPT_METRIC = "unknown_references_kept";
 
   private static final long LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
@@ -160,6 +161,9 @@ public final class UnknownDataGuard {
       @Nullable final Object subject) {
     report(
         metricUtils,
+        SKIPPED_METRIC,
+        1,
+        "Skipping",
         entityType + "/" + aspectName,
         aspectName == null
             ? String.format("entity type '%s' is not in the entity registry", entityType)
@@ -173,7 +177,20 @@ public final class UnknownDataGuard {
       @Nonnull final String key,
       @Nonnull final String reason,
       @Nullable final Object subject) {
-    report(metricUtils, key, reason, subject);
+    report(metricUtils, SKIPPED_METRIC, 1, "Skipping", key, reason, subject);
+  }
+
+  /**
+   * Reports stored references a write kept (e.g. to entity types only a newer version knows),
+   * counted in {@link #KEPT_METRIC}.
+   */
+  public void kept(
+      @Nonnull final Optional<MetricUtils> metricUtils,
+      @Nonnull final String key,
+      final int count,
+      @Nonnull final String reason,
+      @Nullable final Object subject) {
+    report(metricUtils, KEPT_METRIC, count, "Keeping", key, reason, subject);
   }
 
   private boolean admit(
@@ -195,15 +212,19 @@ public final class UnknownDataGuard {
 
   private void report(
       @Nonnull final Optional<MetricUtils> metricUtils,
+      @Nonnull final String metric,
+      final int count,
+      @Nonnull final String verb,
       @Nonnull final String key,
       @Nonnull final String reason,
       @Nullable final Object subject) {
-    metricUtils.ifPresent(m -> m.increment(site, SKIPPED_METRIC, 1));
+    metricUtils.ifPresent(m -> m.increment(site, metric, count));
     final long now = nanoClock.getAsLong();
     final long suppressed =
         WINDOWS
             .asMap()
-            .computeIfAbsent(site.getName() + '|' + what + '|' + key, k -> new Window(now))
+            .computeIfAbsent(
+                site.getName() + '|' + verb + '|' + what + '|' + key, k -> new Window(now))
             .tryAcquire(now);
     if (suppressed < 0) {
       return;
@@ -212,10 +233,10 @@ public final class UnknownDataGuard {
     final String safeSubject = oneLine(String.valueOf(subject));
     final String safeReason = oneLine(reason);
     if (suppressed == 0) {
-      log.warn("Skipping {} {}: {}", what, safeSubject, safeReason);
+      log.warn(verb + " {} {}: {}", what, safeSubject, safeReason);
     } else {
       log.warn(
-          "Skipping {} {}: {} ({} more skipped since the last report)",
+          verb + " {} {}: {} ({} more since the last report)",
           what,
           safeSubject,
           safeReason,
