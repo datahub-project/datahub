@@ -936,12 +936,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         """Surface export truncation, choosing severity from the destinations actually seen.
 
         ListExports ordering is undocumented, so we can't know whether the dropped exports went to
-        new destinations without describing them — which is exactly what the cap avoids. But the
-        described subset is evidence: if it already fanned out to >=2 destinations the table
-        demonstrably spreads exports and dropped ones may be missing, so WARN. If every described
-        export resolved to a single destination, truncation is the expected case on a
-        frequently-exported table (the premise ``max_exports_per_table`` exists for) and info is the
-        honest severity.
+        new destinations without describing them — which is exactly what the cap avoids. The
+        described subset is the only evidence:
+
+        - ``>=2`` distinct destinations: the table demonstrably fans out, so dropped exports may hide
+          more destinations -> WARN.
+        - exactly ``1``: truncation is the expected case on a frequently-exported table (the premise
+          ``max_exports_per_table`` exists for) and the single destination is almost certainly
+          complete -> info.
+        - ``0``: every described export failed or lacked an S3 location (each already reported
+          per-export), so completeness can't be claimed -> info noting lineage may be partial.
         """
         context = (
             f"dataset={dataset_name}; max_exports_per_table={max_exports}; "
@@ -956,12 +960,21 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 context=context,
                 log=False,
             )
-        else:
+        elif described_destinations == 1:
             self.report.info(
                 title="DynamoDB S3 Export Lineage",
                 message="Table has more completed exports than max_exports_per_table; the described "
                 "subset all resolved to a single S3 destination, so lineage is likely complete, but "
                 "exports beyond the cap were not checked.",
+                context=context,
+                log=False,
+            )
+        else:
+            self.report.info(
+                title="DynamoDB S3 Export Lineage",
+                message="Table has more completed exports than max_exports_per_table and none of the "
+                "described subset resolved to an S3 destination, so S3 export lineage may be "
+                "incomplete for this table.",
                 context=context,
                 log=False,
             )

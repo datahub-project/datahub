@@ -708,6 +708,37 @@ class TestDynamoDBS3ExportLineage:
             "multiple S3 destinations" in w.message for w in source.report.warnings
         )
 
+    def test_truncation_with_no_resolved_destinations_does_not_claim_complete(
+        self, mock_context, lineage_config
+    ):
+        lineage_config.max_exports_per_table = 2
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": f"arn:export/{i}", "ExportStatus": "COMPLETED"}
+                for i in range(5)
+            ]
+        }
+        # Every described export fails, so nothing resolves to a destination: the truncation info
+        # must not claim a single complete destination.
+        mock_client.describe_export.side_effect = Exception("AccessDenied")
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+        )
+        assert not any(
+            "single S3 destination" in i.message for i in source.report.infos
+        )
+        assert any(
+            "none of the described subset resolved" in i.message
+            for i in source.report.infos
+        )
+
     def test_list_exports_stops_paging_once_max_exports_reached(
         self, mock_context, lineage_config
     ):
