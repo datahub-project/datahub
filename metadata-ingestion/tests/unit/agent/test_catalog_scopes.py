@@ -330,14 +330,16 @@ def test_user_data_is_refused_whatever_the_dialect(
         check_query_scope(query, platform=platform, scope=_scope(source_type))
 
 
-@pytest.mark.parametrize("platform", ["db2", "vertica"])
+@pytest.mark.parametrize("platform", ["db2"])
 def test_dialects_the_gate_cannot_resolve(platform: str) -> None:
     """sqlglot has no dialect for these, so `sql` fails closed on every query.
 
     Correct -- parsing against a near-enough grammar could clear a reference it had
     misread -- but it means the connector's `sql` command cannot work at all, whatever
     catalog it declares. That is why db2.py deliberately declares no scope. If sqlglot
-    gains either dialect, this test fails and the declaration becomes worth adding.
+    gains the dialect, this test fails and the declaration becomes worth adding.
+    (Vertica left this list when DataHub registered its own ``vertica`` dialect, a
+    Postgres subclass; vertica.py still declares no scope.)
     """
     with pytest.raises(SqlScopeError, match="cannot resolve a SQL dialect"):
         check_query_scope("SELECT tabname FROM syscat.tables", platform=platform)
