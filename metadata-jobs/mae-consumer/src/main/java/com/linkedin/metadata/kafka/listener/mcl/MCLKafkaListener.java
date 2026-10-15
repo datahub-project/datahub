@@ -70,6 +70,35 @@ public class MCLKafkaListener
     return shouldSkipMcl(event, aspectsToDrop, systemOperationContext);
   }
 
+  @Override
+  protected void logSkipped(MetadataChangeLog event) {
+    if (isDroppedByConfig(event, aspectsToDrop)) {
+      super.logSkipped(event);
+    } else {
+      logSkippedAsUnknown(event);
+    }
+  }
+
+  /**
+   * An MCL skipped because the registry doesn't know its entity type or aspect was already counted
+   * and logged (at most once a minute) by the guard, so only its urn and aspect are logged here: a
+   * backlog of a newer version's events would otherwise log every payload.
+   */
+  static void logSkippedAsUnknown(MetadataChangeLog event) {
+    log.debug(
+        "Skipping MCL unknown to the registry: {} {}",
+        event.getEntityUrn(),
+        event.hasAspectName() ? event.getAspectName() : null);
+  }
+
+  static boolean isDroppedByConfig(
+      MetadataChangeLog event, Map<String, Set<String>> aspectsToDrop) {
+    String entityType = event.hasEntityType() ? event.getEntityType() : null;
+    String aspectName = event.hasAspectName() ? event.getAspectName() : null;
+    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
+        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
+  }
+
   /**
    * Shared filter: returns {@code true} when this MCL's entity-type + aspect matches the
    * aspects-to-drop configuration, or its entity type is not in the registry. Used by both the
@@ -82,8 +111,7 @@ public class MCLKafkaListener
     String entityType = event.hasEntityType() ? event.getEntityType() : null;
     String aspectName = event.hasAspectName() ? event.getAspectName() : null;
 
-    if (aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName)) {
+    if (isDroppedByConfig(event, aspectsToDrop)) {
       return true;
     }
 
