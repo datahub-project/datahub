@@ -52,6 +52,16 @@ def get_dialect_str(platform: str) -> str:
         # quoted schema-qualified identifiers in `hana_script_lineage.py`
         # to sidestep them.
         return "postgres"
+    elif platform_lower == "vertica":
+        # sqlglot has no Vertica dialect, so without this mapping every parse
+        # fails with "Unknown dialect" and the SqlParsingAggregator emits no
+        # view lineage for the platform. Vertica forked PostgreSQL and kept its
+        # grammar (double-quoted identifiers, schema-qualified names, ANSI
+        # joins, window functions, `::` casts), so postgres parses the bulk of
+        # view definitions. Known mis-parses: Vertica-only functions and
+        # clauses (e.g. TIMESERIES, analytic function hints, INTERPOLATE),
+        # which the aggregator reports under `views_parse_failures`.
+        return "postgres"
     elif platform_lower == "informix":
         # sqlglot has no Informix dialect. Informix view text (sysviews.viewtext)
         # is typically ANSI-ish with double-quoted schema-qualified identifiers

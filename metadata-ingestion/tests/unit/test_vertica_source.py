@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Tuple
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine, exc as sa_exc, inspect, types as sa_types
@@ -9,7 +10,11 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.engine.default import DefaultDialect
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.vertica import VerticaConfig, VerticaSource
+from datahub.ingestion.source.sql.vertica import (
+    VerticaConfig,
+    VerticaSource,
+    _strip_default_namespace,
+)
 from datahub.ingestion.source.sql.vertica_inspector import (
     DataHubVerticaDialect,
     VerticaInspector,
@@ -545,3 +550,179 @@ def test_view_definition_uses_default_schema_when_unspecified():
 
     assert dialect.get_view_definition(fake, "v") == "SELECT 2"  # type: ignore[arg-type]
     assert fake.executed[0][1] == {"schema": "public", "view": "v"}
+
+
+def _vertica_source() -> VerticaSource:
+    return VerticaSource(
+        VerticaConfig.model_validate(
+            {
+                "host_port": "host:5433",
+                "database": "vmart",
+                "include_view_lineage": True,
+            }
+        ),
+        PipelineContext(run_id="vertica-test"),
+    )
+
+
+def _vertica_urn(name: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:vertica,{name},PROD)"
+
+
+VIEW_URN = _vertica_urn("vmart.public.sales_view")
+CUSTOMER_URN = _vertica_urn("vmart.public.customer_dimension")
+SALES_URN = _vertica_urn("vmart.store.store_sales_fact")
+
+
+def _lineage_for(source: VerticaSource, urn: str) -> UpstreamLineageClass:
+    aspects = [
+        mcp.aspect
+        for mcp in source.aggregator.gen_metadata()
+        if mcp.entityUrn == urn and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(aspects) == 1, "expected exactly one upstreamLineage writer per view"
+    return aspects[0]
+
+
+@pytest.mark.parametrize(
+    "definition,expected",
+    [
+        (
+            "SELECT * FROM default_namespace.public.t",
+            "SELECT * FROM public.t",
+        ),
+        (
+            'SELECT * FROM DEFAULT_NAMESPACE."Public"."T"',
+            'SELECT * FROM "Public"."T"',
+        ),
+        # Only the namespace qualifier is touched.
+        (
+            "SELECT default_namespace_flag FROM public.default_namespace_t",
+            "SELECT default_namespace_flag FROM public.default_namespace_t",
+        ),
+    ],
+)
+def test_strip_default_namespace(definition: str, expected: str) -> None:
+    assert _strip_default_namespace(definition) == expected
+
+
+def test_view_definition_lineage_resolves_default_namespace_to_database() -> None:
+    # Vertica 24.1+ qualifies same-database references in view_definition with
+    # `default_namespace.`; the parser must land on the real datasets, with
+    # column-level lineage, and the catalog map must not write a second aspect.
+    source = _vertica_source()
+    source.aggregator._schema_resolver.add_raw_schema_info(
+        CUSTOMER_URN, {"customer_key": "int", "customer_name": "varchar"}
+    )
+    source.aggregator._schema_resolver.add_raw_schema_info(
+        SALES_URN, {"customer_key": "int", "sales_amount": "numeric"}
+    )
+    source._view_catalog_upstreams[VIEW_URN] = [CUSTOMER_URN, SALES_URN]
+
+    source._add_view_to_aggregator(
+        view_urn=VIEW_URN,
+        view_definition=(
+            "SELECT c.customer_name, s.sales_amount "
+            "FROM default_namespace.store.store_sales_fact s "
+            "JOIN default_namespace.public.customer_dimension c "
+            "ON s.customer_key = c.customer_key"
+        ),
+        default_db="vmart",
+        default_schema="public",
+    )
+
+    assert source._view_catalog_upstreams == {}
+    lineage = _lineage_for(source, VIEW_URN)
+    assert {u.dataset for u in lineage.upstreams} == {CUSTOMER_URN, SALES_URN}
+    assert lineage.fineGrainedLineages
+    upstream_fields = {
+        field for fgl in lineage.fineGrainedLineages for field in fgl.upstreams or []
+    }
+    assert upstream_fields == {
+        f"urn:li:schemaField:({CUSTOMER_URN},customer_name)",
+        f"urn:li:schemaField:({SALES_URN},sales_amount)",
+    }
+
+
+def test_unparseable_view_falls_back_to_catalog_lineage() -> None:
+    source = _vertica_source()
+    source._view_catalog_upstreams[VIEW_URN] = [CUSTOMER_URN, SALES_URN]
+
+    source._add_view_to_aggregator(
+        view_urn=VIEW_URN,
+        view_definition="SELECT ts, AVG(x) OVER (TIMESERIES ts AS '1 hour') FROM",
+        default_db="vmart",
+        default_schema="public",
+    )
+
+    lineage = _lineage_for(source, VIEW_URN)
+    assert {u.dataset for u in lineage.upstreams} == {CUSTOMER_URN, SALES_URN}
+    assert not lineage.fineGrainedLineages
+    assert source.aggregator.report.num_views_failed == 1
+
+
+def _mock_inspector(view_definition: str) -> VerticaInspector:
+    inspector = MagicMock(spec=VerticaInspector)
+    inspector.get_view_owner.return_value = "dbadmin"
+    inspector.get_columns.return_value = []
+    inspector.get_table_comment.return_value = {"text": None}
+    inspector.get_view_definition.return_value = view_definition
+    inspector._populate_view_lineage.return_value = {
+        "vmart.public.sales_view": [("vmart.public.customer_dimension", "[]", "[]")]
+    }
+    return inspector
+
+
+def _upstream_lineage_aspects(workunits: List[Any]) -> List[UpstreamLineageClass]:
+    return [
+        wu.metadata.aspect
+        for wu in workunits
+        if getattr(wu.metadata, "aspect", None) is not None
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+
+
+def test_process_view_hands_catalog_map_to_aggregator_instead_of_emitting_it() -> None:
+    source = _vertica_source()
+    inspector = _mock_inspector(
+        "SELECT customer_name FROM default_namespace.public.customer_dimension"
+    )
+
+    with patch.object(source, "get_db_name", return_value="vmart"):
+        workunits = list(
+            source._process_view(
+                dataset_name="vmart.public.sales_view",
+                inspector=inspector,
+                schema="public",
+                view="sales_view",
+                sql_config=source.config,
+            )
+        )
+
+    assert _upstream_lineage_aspects(workunits) == []
+    staged = source.aggregator._view_definitions[VIEW_URN]
+    assert staged.view_definition == (
+        "SELECT customer_name FROM public.customer_dimension"
+    )
+    assert staged.table_level_fallback_upstreams == [CUSTOMER_URN]
+    assert source._view_catalog_upstreams == {}
+
+
+def test_process_view_without_definition_keeps_catalog_lineage() -> None:
+    source = _vertica_source()
+    inspector = _mock_inspector("")
+
+    with patch.object(source, "get_db_name", return_value="vmart"):
+        workunits = list(
+            source._process_view(
+                dataset_name="vmart.public.sales_view",
+                inspector=inspector,
+                schema="public",
+                view="sales_view",
+                sql_config=source.config,
+            )
+        )
+
+    (lineage,) = _upstream_lineage_aspects(workunits)
+    assert [u.dataset for u in lineage.upstreams] == [CUSTOMER_URN]
+    assert VIEW_URN not in source.aggregator._view_definitions

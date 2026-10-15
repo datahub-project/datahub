@@ -55,6 +55,24 @@ def test_fabricspark_uses_spark_dialect():
     assert is_dialect_instance(get_dialect("fabricspark"), "spark")
 
 
+def test_vertica_uses_postgres_dialect():
+    # sqlglot has no vertica dialect; Vertica is a PostgreSQL fork, so its view
+    # definitions parse with postgres. Without the mapping the aggregator fails
+    # every Vertica view with "Unknown dialect".
+    assert get_dialect_str("vertica") == "postgres"
+    assert is_dialect_instance(get_dialect("vertica"), "postgres")
+
+    parsed = sqlglot.parse_one(
+        'SELECT c."customer_name", s.sales::int FROM store.store_sales_fact s '
+        "JOIN public.customer_dimension c ON s.customer_key = c.customer_key",
+        dialect=get_dialect("vertica"),
+    )
+    assert {t.sql() for t in parsed.find_all(sqlglot.exp.Table)} == {
+        "store.store_sales_fact AS s",
+        "public.customer_dimension AS c",
+    }
+
+
 def test_is_dialect_instance():
     snowflake = get_dialect("snowflake")
 
