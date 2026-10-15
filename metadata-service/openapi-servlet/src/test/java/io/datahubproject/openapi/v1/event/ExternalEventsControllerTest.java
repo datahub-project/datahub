@@ -91,6 +91,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @BeforeMethod
   public void setup() {
     // Reset mocks and setup common behavior for each test
+    org.mockito.Mockito.reset(mockEventsService, mockAuthorizerChain, mockDataHubUsageService);
     Authentication authentication = mock(Authentication.class);
     Actor actor = new Actor(ActorType.USER, "testuser");
     when(authentication.getActor()).thenReturn(actor);
