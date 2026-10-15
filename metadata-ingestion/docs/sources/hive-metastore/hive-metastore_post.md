@@ -133,7 +133,7 @@ extraVolumes:
   - name: krb5-keytab
     secret:
       secretName: executor-krb5-keytab
-      defaultMode: 0400
+      defaultMode: 0440 # group-readable; requires the pod fsGroup to match the executor's group
   - name: krb5-config
     configMap:
       name: executor-krb5-config
@@ -167,6 +167,10 @@ extraInitContainers:
 extraVolumeMounts:
   - name: krb5-ccache
     mountPath: /tmp/krb5cc
+  - name: krb5-config
+    mountPath: /etc/kerberos/krb5.conf
+    subPath: krb5.conf
+    readOnly: true
 
 extraEnvs:
   - name: KRB5CCNAME
@@ -189,8 +193,10 @@ source:
 ```
 
 **TGT lifetime**: Kerberos TGTs typically expire after 10 hours, which is sufficient for most
-ingestion runs. For long-running ingestions, coordinate with your KDC administrator to issue a
-renewable ticket or extend the maximum ticket lifetime.
+ingestion runs. The init container runs `kinit` once and nothing renews the ticket afterwards, so an
+ingestion must finish within the ticket lifetime. For longer runs, ask your KDC administrator to
+extend the maximum ticket lifetime for the principal; a renewable ticket on its own does not help,
+because nothing in this setup calls `kinit -R`.
 
 #### Storage Lineage
 

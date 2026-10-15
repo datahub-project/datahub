@@ -151,8 +151,9 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **Remote Executor Kerberos**: `extraSidecars` is defined in the executor `values.yaml` but is not
   rendered in any executor deployment template — sidecar-based ticket renewal is not available. Use
   an `extraInitContainers` entry instead (see the Kerberos with Remote Executor section in
-  Prerequisites above). For ingestions that run longer than the TGT lifetime (typically 10 hours),
-  coordinate with your KDC administrator to issue a renewable ticket.
+  Prerequisites above). The init container runs `kinit` once and nothing renews the ticket, so an
+  ingestion must finish within the TGT lifetime (typically 10 hours); for longer runs, ask your KDC
+  administrator to extend the maximum ticket lifetime.
 
 ### Troubleshooting
 
