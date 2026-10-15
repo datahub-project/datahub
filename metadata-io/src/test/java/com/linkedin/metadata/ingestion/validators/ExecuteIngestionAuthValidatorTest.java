@@ -15,6 +15,8 @@ import com.datahub.authorization.EntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
@@ -108,8 +110,9 @@ public class ExecuteIngestionAuthValidatorTest {
     Mockito.when(deny.getType()).thenReturn(AuthorizationResult.Type.DENY);
     when(mockSession.authorize(any(), any(), anyCollection())).thenReturn(deny);
 
-    List<GenericJsonPatch.PatchOp> ops =
-        List.of(
+    BatchItem item =
+        patchItem(
+            alternateValidation,
             addOp("/task", "RUN_INGEST"),
             addOp("/args", Map.of()),
             addOp("/executorId", "default"),
@@ -121,22 +124,6 @@ public class ExecuteIngestionAuthValidatorTest {
                     "MANUAL_INGESTION_SOURCE",
                     "ingestionSource",
                     INGESTION_SOURCE_URN_STRING)));
-    MetadataChangeProposal mcp =
-        new MetadataChangeProposal()
-            .setEntityUrn(EXECUTION_REQUEST_URN)
-            .setEntityType(EXECUTION_REQUEST_ENTITY_NAME)
-            .setAspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
-            .setChangeType(ChangeType.PATCH)
-            .setAspect(
-                GenericRecordUtils.serializePatch(
-                    GenericJsonPatch.builder().patch(ops).forceGenericPatch(true).build(),
-                    new ObjectMapper()));
-    BatchItem item =
-        alternateValidation
-            ? ProposedItem.builder()
-                .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry)
-            : PatchItemImpl.builder()
-                .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry);
 
     assertEquals(
         validator
@@ -150,6 +137,68 @@ public class ExecuteIngestionAuthValidatorTest {
             any(),
             eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
             anyCollection());
+  }
+
+  // executionRequestInput has fields besides source, so a PATCH of one of them on an existing
+  // request must still authorize the source the stored aspect names. Dropping the stored read
+  // would leave the proposal sourceless and skip the check entirely.
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchOnStoredRequestChecksStoredSource(boolean alternateValidation) {
+    AuthorizationResult deny = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(deny.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    when(mockSession.authorize(any(), any(), anyCollection())).thenReturn(deny);
+
+    ExecutionRequestInput stored = new ExecutionRequestInput();
+    stored.setTask("RUN_INGEST");
+    stored.setArgs(new StringMap());
+    stored.setExecutorId("default");
+    stored.setRequestedAt(0L);
+    stored.setSource(
+        new ExecutionRequestSource()
+            .setType("MANUAL_INGESTION_SOURCE")
+            .setIngestionSource(INGESTION_SOURCE_URN));
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(),
+            eq(Set.of(EXECUTION_REQUEST_URN)),
+            eq(Set.of(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                EXECUTION_REQUEST_URN,
+                Map.of(EXECUTION_REQUEST_INPUT_ASPECT_NAME, new Aspect(stored.data()))));
+
+    // Patches args only; source comes from the stored aspect.
+    BatchItem item =
+        patchItem(alternateValidation, addOp("/args", Map.of("recipe", "{\"source\":{}}")));
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(item), mockRetrieverContext, mockSession)
+            .count(),
+        1);
+    Mockito.verify(mockSession, Mockito.atLeastOnce())
+        .authorize(
+            any(),
+            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
+            anyCollection());
+  }
+
+  private BatchItem patchItem(boolean alternateValidation, GenericJsonPatch.PatchOp... ops) {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(EXECUTION_REQUEST_URN)
+            .setEntityType(EXECUTION_REQUEST_ENTITY_NAME)
+            .setAspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder().patch(List.of(ops)).forceGenericPatch(true).build(),
+                    new ObjectMapper()));
+    return alternateValidation
+        ? ProposedItem.builder()
+            .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry)
+        : PatchItemImpl.builder()
+            .build(mcp, AuditStampUtils.createDefaultAuditStamp(), entityRegistry);
   }
 
   private static GenericJsonPatch.PatchOp addOp(String path, Object value) {

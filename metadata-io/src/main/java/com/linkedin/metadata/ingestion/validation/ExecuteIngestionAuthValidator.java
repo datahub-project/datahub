@@ -70,8 +70,12 @@ public class ExecuteIngestionAuthValidator extends AspectPayloadValidator {
             item, "Unable to resolve executionRequestInput PATCH for authorization");
         continue;
       }
+      // hasSource guards the dereference only. source is required by the PDL and
+      // ChangeItemImpl.build validates the patched record, so a sourceless patch is already
+      // rejected above as unresolvable; this keeps an auth validator from throwing if that ever
+      // stops holding.
       final Urn ingestionSourceUrn =
-          executionRequestInput != null
+          executionRequestInput != null && executionRequestInput.hasSource()
               ? executionRequestInput.getSource().getIngestionSource()
               : null;
 
