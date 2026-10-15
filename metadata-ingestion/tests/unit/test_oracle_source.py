@@ -29,8 +29,10 @@ from datahub.ingestion.source.sql.oracle import (
     VSqlPrerequisiteCheckResult,
     _preload_oracle_client_libs,
     _sql_type_list,
+    before_cursor_execute,
     extra_oracle_types,
 )
+from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
@@ -40,6 +42,7 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
     QuerySubjectsClass,
+    RecordTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -1820,6 +1823,179 @@ class TestOracleQueryExtraction:
         assert "command_type IN" in VSQL_USAGE_QUERY
         assert "ROWNUM" in VSQL_USAGE_QUERY
         assert ":max_queries" in VSQL_USAGE_QUERY
+        # sql_text is capped at 1000 chars; the full statement comes from the CLOB.
+        assert "sql_fulltext" in VSQL_USAGE_QUERY
+
+    def test_extract_queries_uses_full_text_and_strips_empty_hints(
+        self, config_with_query_usage, ctx
+    ):
+        source = OracleSource(config_with_query_usage, ctx)
+
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE "
+            + " OR ".join(f"A = {i}" for i in range(400))
+        )
+        assert len(long_query) > 1000
+
+        lob = Mock()
+        lob.read.return_value = "SELECT * FROM HR.FROM_LOB"
+
+        mock_rows = [
+            {
+                "sql_id": "full",
+                "sql_text": long_query[:1000],
+                "sql_fulltext": long_query,
+                "parsing_schema_name": "HR",
+                "first_load_time": "2024-01-15/10:30:00",
+            },
+            {
+                "sql_id": "fallback",
+                "sql_text": "SELECT 1 FROM HR.SMALL",
+                "sql_fulltext": None,
+                "parsing_schema_name": "HR",
+                "first_load_time": "2024-01-15/10:30:00",
+            },
+            {
+                "sql_id": "hint",
+                "sql_text": "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S",
+                "sql_fulltext": "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S",
+                "parsing_schema_name": "HR",
+                "first_load_time": "2024-01-15/10:30:00",
+            },
+            {
+                "sql_id": "lob",
+                "sql_text": "SELECT * FROM HR.FROM_LOB",
+                "sql_fulltext": lob,
+                "parsing_schema_name": "HR",
+                "first_load_time": "2024-01-15/10:30:00",
+            },
+        ]
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_result = Mock()
+        mock_result.mappings.return_value = mock_rows
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        with patch("sqlalchemy.inspect", return_value=Mock()):
+            queries = {
+                q.session_id: q.query
+                for q in source._extract_queries_from_vsql(mock_engine)
+            }
+
+        assert queries["sql_id:full"] == long_query
+        assert queries["sql_id:fallback"] == "SELECT 1 FROM HR.SMALL"
+        assert queries["sql_id:hint"] == "INSERT  INTO HR.T (A) SELECT A FROM HR.S"
+        assert queries["sql_id:lob"] == "SELECT * FROM HR.FROM_LOB"
+
+    def test_long_hinted_and_delete_queries_parse_cleanly(self, ctx):
+        """End to end through the real aggregator for the ING-3647 cases.
+
+        A statement longer than V$SQL.sql_text's 1000 characters, an empty
+        optimizer hint, and a DELETE must all parse: lineage is produced for
+        the writes and neither parse-failure counter moves.
+        """
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": True,
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        # Cutting this at 1000 chars leaves the IN list unbalanced, so the
+        # truncated text cannot parse; only the full text can.
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE A IN ("
+            + ", ".join(str(i) for i in range(400))
+            + ")"
+        )
+        assert len(long_query) > 1000
+        hinted_query = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        delete_query = "DELETE FROM HR.T WHERE A = 1"
+
+        def row(sql_id: str, sql_text: str) -> dict:
+            return {
+                "sql_id": sql_id,
+                "sql_text": sql_text[:1000],
+                "sql_fulltext": sql_text,
+                "parsing_schema_name": "HR",
+                "first_load_time": "2024-01-01/12:00:00",
+            }
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_result = Mock()
+        mock_result.mappings.return_value = [
+            row("long", long_query),
+            row("hint", hinted_query),
+            row("delete", delete_query),
+        ]
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch("sqlalchemy.inspect", return_value=Mock()),
+            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
+            patch.object(
+                source,
+                "_check_vsql_prerequisites",
+                return_value=VSqlPrerequisiteCheckResult(
+                    is_accessible=True, message="V$SQL accessible"
+                ),
+            ),
+        ):
+            source._populate_aggregator_from_queries()
+            mcps = list(source.aggregator.gen_metadata())
+
+        report = source.aggregator.report
+        assert report.num_observed_queries == 3
+        assert report.num_observed_queries_failed == 0
+        assert report.num_observed_queries_column_failed == 0
+
+        lineage = {
+            mcp.entityUrn: {upstream.dataset for upstream in mcp.aspect.upstreams}
+            for mcp in mcps
+            if isinstance(mcp.aspect, UpstreamLineageClass)
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.target", "PROD")] == {
+            make_dataset_urn("oracle", "hr.source", "PROD")
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.t", "PROD")] == {
+            make_dataset_urn("oracle", "hr.s", "PROD")
+        }
+
+    def test_metadata_engine_converts_lobs(self, config_with_query_usage, ctx):
+        source = OracleSource(config_with_query_usage, ctx)
+        engine = Mock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.oracle.create_engine",
+                return_value=engine,
+            ),
+            patch("datahub.ingestion.source.sql.oracle.event") as mock_event,
+        ):
+            assert source._get_metadata_engine() is engine
+
+        mock_event.listen.assert_called_once_with(
+            engine, "before_cursor_execute", before_cursor_execute
+        )
+
+    def test_extra_oracle_types_map_to_record_type(self):
+        report = SQLSourceReport()
+        for oracle_type in extra_oracle_types:
+            field_type = get_column_type(report, "hr.t", oracle_type())
+            assert isinstance(field_type.type, RecordTypeClass)
+        assert not report.infos
 
     def test_query_usage_integration_flow(self, ctx):
         """Test end-to-end flow of query usage extraction."""
