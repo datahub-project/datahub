@@ -453,6 +453,8 @@ public class CriterionFilterAspectsBlockingStepTest {
     when(stored.getRecordTemplate()).thenReturn(deprecation);
     when(stored.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
     when(stored.getSystemMetadata()).thenReturn(new SystemMetadata());
+    // Marked when the row was read, before the reference was stripped.
+    when(stored.isFromNewerVersion()).thenReturn(true);
 
     assertNull(buildStep().toChangeItem(OP_CONTEXT, stored));
   }

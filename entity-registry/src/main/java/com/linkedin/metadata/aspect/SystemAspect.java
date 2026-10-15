@@ -96,4 +96,13 @@ public interface SystemAspect extends ReadItem {
   default Object getOperationContext() {
     return null; // Default: no operation context
   }
+
+  /**
+   * True when the stored aspect was written by a newer version (a newer schema version, or a
+   * reference to an entity type this registry doesn't know), decided on the stored value before
+   * such references are removed for this version's readers.
+   */
+  default boolean isFromNewerVersion() {
+    return false;
+  }
 }

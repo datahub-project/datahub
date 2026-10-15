@@ -195,20 +195,13 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
     log.info("Successfully ingested default global settings.");
   }
 
-  private static boolean isFromNewerVersion(
-      @Nonnull final OperationContext systemOperationContext) {
-    final SystemAspect stored =
-        systemOperationContext
-            .getAspectRetriever()
-            .getLatestSystemAspect(
-                systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
-    return stored != null
-        && handling()
-            .isFromNewerVersion(
-                stored.getRecordTemplate(),
-                stored.getSystemMetadata(),
-                stored.getAspectSpec(),
-                systemOperationContext.getEntityRegistry());
+  /** Whether the stored settings were written by a newer version, decided before the read strip. */
+  private boolean isFromNewerVersion(@Nonnull final OperationContext systemOperationContext) {
+    return _entityService
+        .getLatestSystemAspect(
+            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME)
+        .map(SystemAspect::isFromNewerVersion)
+        .orElse(false);
   }
 
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {

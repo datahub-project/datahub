@@ -13,15 +13,11 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -160,7 +156,7 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
         .thenThrow(new ValidationException("unknown enum symbol"));
 
     assertEquals(runStep(), DataHubUpgradeState.FAILED);
-    verify(mockOpContext, never()).getAspectRetriever();
+    verify(mockEntityService, never()).getLatestSystemAspect(any(), any(), any());
   }
 
   private DataHubUpgradeState runStep() {
@@ -174,16 +170,9 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
   private void givenStoredSettingsWithSchemaVersion(long stored, long current) {
     when(mockEntityService.getAspect(any(), any(), any(), eq(0L)))
         .thenReturn(new GlobalSettingsInfo());
-    AspectSpec spec = mock(AspectSpec.class);
-    when(spec.getSchemaVersion()).thenReturn(current);
     SystemAspect storedAspect = mock(SystemAspect.class);
-    when(storedAspect.getRecordTemplate()).thenReturn(new GlobalSettingsInfo());
-    when(storedAspect.getSystemMetadata())
-        .thenReturn(new SystemMetadata().setSchemaVersion(stored));
-    when(storedAspect.getAspectSpec()).thenReturn(spec);
-    AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestSystemAspect(any(), any(), any())).thenReturn(storedAspect);
-    when(mockOpContext.getAspectRetriever()).thenReturn(retriever);
-    when(mockOpContext.getEntityRegistry()).thenReturn(mock(EntityRegistry.class));
+    when(storedAspect.isFromNewerVersion()).thenReturn(stored > current);
+    when(mockEntityService.getLatestSystemAspect(any(), any(), any()))
+        .thenReturn(java.util.Optional.of(storedAspect));
   }
 }

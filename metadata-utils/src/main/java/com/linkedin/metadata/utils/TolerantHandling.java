@@ -104,6 +104,13 @@ public final class TolerantHandling implements UnknownDataHandling {
     return UnknownEntityUrnStripper.strip(aspect, registry);
   }
 
+  @Nonnull
+  @Override
+  public UnknownEntityUrnStripper.StripResult stripReporting(
+      @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
+    return UnknownEntityUrnStripper.stripReporting(aspect, registry);
+  }
+
   @Override
   public boolean aspectReferencesUnknownEntityType(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {

@@ -30,6 +30,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -357,8 +358,18 @@ public class EntityUtils {
     systemAspects.forEach(
         systemAspect -> {
           if (systemAspect.getRecordTemplate() != null) {
-            final int removed =
-                handling().stripUnknownReferences(systemAspect.getRecordTemplate(), entityRegistry);
+            final UnknownEntityUrnStripper.StripResult stripped =
+                handling().stripReporting(systemAspect.getRecordTemplate(), entityRegistry);
+            // Decided on the stored value, before the strip removes what would show it, so steps
+            // that can't validate the aspect can tell data from a newer version from a real error.
+            if (systemAspect instanceof EntityAspect.EntitySystemAspect entitySystemAspect) {
+              entitySystemAspect.setFromNewerVersion(
+                  stripped.referencedUnknownEntityType()
+                      || handling()
+                          .isWrittenByNewerSchema(
+                              systemAspect.getSystemMetadata(), systemAspect.getAspectSpec()));
+            }
+            final int removed = stripped.removed();
             if (removed > 0) {
               UNKNOWN_REFERENCES.skippedBecause(
                   metrics,
