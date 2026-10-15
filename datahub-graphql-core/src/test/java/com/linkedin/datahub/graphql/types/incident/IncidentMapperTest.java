@@ -5,6 +5,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -327,6 +328,25 @@ public class IncidentMapperTest {
         incident.getIncidentStatus().getState(),
         com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE);
     assertNull(incident.getIncidentStatus().getStage());
+  }
+
+  @Test
+  public void testIncidentSourceTypeFromANewerVersionIsLeftOut() throws Exception {
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    com.linkedin.incident.IncidentSource source =
+        new com.linkedin.incident.IncidentSource()
+            .setType(com.linkedin.incident.IncidentSourceType.MANUAL);
+    source.data().put("type", "SOURCE_FROM_NEWER_BUILD");
+    incidentInfo.setSource(source);
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    assertNull(IncidentMapper.map(null, entityResponse).getSource());
+
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    expectThrows(IllegalArgumentException.class, () -> IncidentMapper.map(null, entityResponse));
   }
 
   @AfterMethod
