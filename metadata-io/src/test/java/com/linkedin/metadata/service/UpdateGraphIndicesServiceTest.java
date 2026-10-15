@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -16,6 +17,10 @@ import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -337,6 +342,43 @@ public class UpdateGraphIndicesServiceTest {
     String docId = docIdCaptor.getValue();
     // The doc ID should contain hash of the edge including source and destination
     assertNotNull(docId);
+  }
+
+  @Test
+  public void testDiffKeepsEdgesToEntityTypesFromANewerVersion() {
+    // After a rollback, the stored ownership still holds an owner of an entity type only the newer
+    // version registered. Indexing drops that reference from the new aspect; it must drop it from
+    // the previous aspect too, or the diff reads it as removed and deletes the newer version's
+    // edge.
+    test.setGraphDiffMode(true);
+    Urn alice = UrnUtils.getUrn("urn:li:corpuser:alice");
+    Urn carol = UrnUtils.getUrn("urn:li:corpuser:carol");
+    Urn bot = UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot1");
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.OWNERSHIP_ASPECT_NAME)
+            .setPreviousAspectValue(GenericRecordUtils.serializeAspect(ownership(alice, bot)))
+            .setAspect(GenericRecordUtils.serializeAspect(ownership(alice, bot, carol))));
+
+    verify(mockWriteDAO, never()).deleteDocument(any(OperationContext.class), any());
+  }
+
+  private static Ownership ownership(final Urn... owners) {
+    final OwnerArray ownerArray = new OwnerArray();
+    for (Urn owner : owners) {
+      ownerArray.add(new Owner().setOwner(owner).setType(OwnershipType.DATAOWNER));
+    }
+    return new Ownership()
+        .setOwners(ownerArray)
+        .setLastModified(
+            new com.linkedin.common.AuditStamp()
+                .setTime(0L)
+                .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")));
   }
 
   @Test
