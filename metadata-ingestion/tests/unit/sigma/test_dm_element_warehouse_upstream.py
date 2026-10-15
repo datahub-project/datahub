@@ -15,6 +15,7 @@ Counters verified:
   dm_element_warehouse_path_unparseable
 """
 
+import json
 from typing import Any, Dict, List, Optional
 from unittest.mock import patch
 
@@ -31,6 +32,7 @@ from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRegistry,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    ConnectionPath,
     SigmaDataModel,
     SigmaDataModelElement,
 )
@@ -552,7 +554,8 @@ class TestUpstreamLineageWarehouseWiring:
             updatedAt="2024-01-01T00:00:00Z",
         )
 
-        lineage = self._run(source, element, dm, {})
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            lineage = self._run(source, element, dm, {})
 
         assert lineage is None
         assert source.reporter.data_model_element_upstreams_unresolved == 1
@@ -690,6 +693,155 @@ class TestUpstreamLineageWarehouseWiring:
 # ---------------------------------------------------------------------------
 
 
+_DM = SigmaDataModel(
+    dataModelId="dm-1",
+    name="DM",
+    createdAt="2024-01-01T00:00:00Z",
+    updatedAt="2024-01-01T00:00:00Z",
+)
+_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
+_INODE_ID = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
+_SF_CUSTOMERS_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+    "warehouse_coffee_company.public.customers,PROD)"
+)
+_BQ_CONN_ID = "conn-bq-001"
+_BQ_CONN_RECORD = SigmaConnectionRecord(
+    connection_id=_BQ_CONN_ID,
+    name="BigQuery",
+    sigma_type="bigquery",
+    datahub_platform="bigquery",
+    is_mappable=True,
+)
+
+
+def _conn_path(connection_id: str) -> ConnectionPath:
+    return ConnectionPath(
+        connection_id=connection_id,
+        path=["WAREHOUSE_COFFEE_COMPANY", "PUBLIC", "CUSTOMERS"],
+    )
+
+
+class TestTableMissingFromDataModelLineage:
+    """An element's table that the Data Model's /lineage omits.
+
+    /files/{urlId} gives the inodeId; /connections/paths/{inodeId} gives the
+    table's own connection.
+    """
+
+    def _upstreams(
+        self,
+        source: SigmaSource,
+        files_entry: Optional[Dict[str, Any]],
+        conn_path: Optional[ConnectionPath] = None,
+        warehouse_map: Optional[Dict[str, _WarehouseTableRef]] = None,
+    ) -> List[str]:
+        element = _make_minimal_element(source_ids=[f"inode-{_URL_ID}"])
+        with (
+            patch.object(
+                source.sigma_api, "get_file_metadata", return_value=files_entry
+            ) as files,
+            patch.object(
+                source.sigma_api, "get_connection_path", return_value=conn_path
+            ) as paths,
+        ):
+            lineage = source._gen_data_model_element_upstream_lineage(
+                element,
+                _DM,
+                source._gen_data_model_element_urn(_DM, element),
+                elementId_to_dataset_urn={},
+                element_name_to_eids={},
+                warehouse_url_id_map=warehouse_map or {},
+            )
+        self.files_calls = files.call_args_list
+        self.paths_calls = paths.call_args_list
+        return [u.dataset for u in lineage.upstreams] if lineage else []
+
+    def test_found_on_the_connection_connections_paths_names(self):
+        source = _make_source()
+        upstreams = self._upstreams(
+            source, _GOOD_FILES_RESPONSE, _conn_path(_SNOWFLAKE_CONN_ID)
+        )
+        assert upstreams == [_SF_CUSTOMERS_URN]
+        assert [c.args for c in self.files_calls] == [(_URL_ID,)]
+        assert [c.args for c in self.paths_calls] == [(_INODE_ID,)]
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 1
+        assert source.reporter.dm_element_warehouse_upstream_emitted == 1
+
+    def test_connection_is_not_taken_from_the_data_models_other_tables(self):
+        source = _make_source(extra_registry_records=[_BQ_CONN_RECORD])
+        other = _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID, db="D", schema="S", table="T"
+        )
+        upstreams = self._upstreams(
+            source,
+            _GOOD_FILES_RESPONSE,
+            _conn_path(_BQ_CONN_ID),
+            warehouse_map={"other-url-id": other},
+        )
+        assert upstreams == [
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+            "WAREHOUSE_COFFEE_COMPANY.PUBLIC.CUSTOMERS,PROD)"
+        ]
+
+    def test_table_on_an_unmappable_connection_gets_no_edge(self):
+        # The registry also holds a mappable Snowflake connection; it must not
+        # be borrowed for a table that lives on the unmappable one.
+        source = _make_source()
+        upstreams = self._upstreams(
+            source, _GOOD_FILES_RESPONSE, _conn_path(_UNMAPPABLE_CONN_ID)
+        )
+        assert upstreams == []
+        assert source.reporter.dm_element_warehouse_unknown_connection == 1
+        assert source.reporter.dm_element_warehouse_upstream_emitted == 0
+        assert source.reporter.data_model_element_upstreams_unresolved == 1
+
+    def test_one_lookup_per_url_id(self):
+        source = _make_source()
+        conn_path = _conn_path(_SNOWFLAKE_CONN_ID)
+        self._upstreams(source, _GOOD_FILES_RESPONSE, conn_path)
+        upstreams = self._upstreams(source, _GOOD_FILES_RESPONSE, conn_path)
+        assert upstreams == [_SF_CUSTOMERS_URN]
+        assert self.files_calls == []
+        assert self.paths_calls == []
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 1
+
+    def test_url_id_files_cannot_resolve(self):
+        source = _make_source()
+        assert self._upstreams(source, None) == []
+        assert self.paths_calls == []
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 0
+        assert source.reporter.data_model_element_upstreams_unresolved == 1
+
+    def test_connections_paths_failure_is_not_counted_as_resolved(self):
+        source = _make_source()
+        assert self._upstreams(source, _GOOD_FILES_RESPONSE, None) == []
+        assert source.reporter.dm_element_warehouse_resolved_by_url_id == 0
+        assert source.reporter.data_model_element_upstreams_unresolved == 1
+
+    def test_table_entry_without_id_is_counted_and_warned(self):
+        source = _make_source()
+        entry = {k: v for k, v in _GOOD_FILES_RESPONSE.items() if k != "id"}
+        assert self._upstreams(source, entry) == []
+        assert self.paths_calls == []
+        assert source.reporter.dm_element_warehouse_url_id_lookup_failed == 1
+        assert any("no id" in (w.title or "") for w in source.reporter.warnings)
+
+    def test_ingested_sigma_dataset_is_not_looked_up(self):
+        source = _make_source()
+        sd_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_URL_ID},PROD)"
+        source.sigma_dataset_urn_by_url_id[_URL_ID] = sd_urn
+        assert self._upstreams(source, _GOOD_FILES_RESPONSE) == [sd_urn]
+        assert self.files_calls == []
+
+    def test_a_file_that_is_not_a_table_is_no_upstream(self):
+        source = _make_source()
+        entry = {**_GOOD_FILES_RESPONSE, "type": "dataset", "path": "My Workspace"}
+        assert self._upstreams(source, entry) == []
+        assert self.paths_calls == []
+        assert source.reporter.dm_element_warehouse_url_id_lookup_failed == 0
+
+
 def _make_api() -> SigmaAPI:
     config = SigmaSourceConfig.model_validate({"client_id": "x", "client_secret": "y"})
     with patch.object(SigmaAPI, "_generate_token"):
@@ -720,6 +872,55 @@ class TestSigmaApiGetFileMetadata:
         with patch.object(api, "_get_api_call", side_effect=requests.Timeout("boom")):
             result = api.get_file_metadata("inode-x")
         assert result is None
+
+
+def _response(status_code: int, body: Any = None) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    if body is not None:
+        response._content = json.dumps(body).encode()
+    return response
+
+
+class TestSigmaApiGetFileMetadataByUrlId:
+    def test_200_returns_the_entry(self):
+        api = _make_api()
+        with patch.object(
+            api, "_get_api_call", return_value=_response(200, _GOOD_FILES_RESPONSE)
+        ):
+            assert api.get_file_metadata(_URL_ID, by_url_id=True) == (
+                _GOOD_FILES_RESPONSE
+            )
+        assert api.report.dm_element_warehouse_url_id_lookup_failed == 0
+
+    def test_404_is_counted_without_a_warning(self):
+        api = _make_api()
+        with patch.object(api, "_get_api_call", return_value=_response(404)):
+            assert api.get_file_metadata(_URL_ID, by_url_id=True) is None
+        assert api.report.dm_element_warehouse_url_id_unresolvable == 1
+        assert api.report.dm_element_warehouse_url_id_lookup_failed == 0
+        assert len(api.report.warnings) == 0
+
+    def test_other_failure_is_counted_apart_from_404_and_warned(self):
+        api = _make_api()
+        with patch.object(api, "_get_api_call", return_value=_response(503)):
+            assert api.get_file_metadata(_URL_ID, by_url_id=True) is None
+        assert api.report.dm_element_warehouse_url_id_unresolvable == 0
+        assert api.report.dm_element_warehouse_url_id_lookup_failed == 1
+        assert len(api.report.warnings) == 1
+
+    def test_exception_is_counted_and_warned(self):
+        api = _make_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.Timeout("boom")):
+            assert api.get_file_metadata(_URL_ID, by_url_id=True) is None
+        assert api.report.dm_element_warehouse_url_id_lookup_failed == 1
+        assert len(api.report.warnings) == 1
+
+    def test_non_object_body_is_a_failure(self):
+        api = _make_api()
+        with patch.object(api, "_get_api_call", return_value=_response(200, [])):
+            assert api.get_file_metadata(_URL_ID, by_url_id=True) is None
+        assert api.report.dm_element_warehouse_url_id_lookup_failed == 1
 
 
 # ---------------------------------------------------------------------------

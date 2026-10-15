@@ -480,6 +480,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+    # A table an element names but its Data Model's /lineage omits, resolved
+    # to its connection via /files/{urlId} and /connections/paths/{inodeId}.
+    # An unmappable connection still yields no edge (unknown_connection above).
+    # Once per distinct urlId.
+    dm_element_warehouse_resolved_by_url_id: int = 0
+    # /files/{urlId} returned 404: deleted, or not visible to this token.
+    dm_element_warehouse_url_id_unresolvable: int = 0
+    # /files/{urlId} failed otherwise (429, 5xx, exception, unusable body);
+    # each is also a warning. A /connections/paths failure after it counts as
+    # connection_path_lookup_failed instead.
+    dm_element_warehouse_url_id_lookup_failed: int = 0
 
     # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
     # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
@@ -514,7 +525,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # latched as removed. Shows how much lineage the latch cost.
     dataset_sources_skipped_endpoint_gone: int = 0
     # /connections/paths/{inodeId} failed or returned an unusable body, so the
-    # table could not be tied to a connection.
+    # table could not be tied to a connection. Also counts a failure on the
+    # Data Model urlId route.
     connection_path_lookup_failed: int = 0
     # Sub-bucket of the above: 429 after retries.
     connection_path_lookup_rate_limited: int = 0

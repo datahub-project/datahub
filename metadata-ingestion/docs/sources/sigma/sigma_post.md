@@ -215,6 +215,12 @@ from `/v2/workbooks/{id}/lineage`. The resolved URN is written into `schemaField
 When `ingest_data_models: true` and `extract_lineage: true` (both default), the connector also emits entity-level `UpstreamLineage` from each Sigma Data Model element to the warehouse table it is sourced from.
 Resolution uses Sigma's `/v2/dataModels/{id}/lineage` (`type=table` entries) and `/v2/files/{inodeId}` to construct the fully-qualified `<DB>/<SCHEMA>/<TABLE>` identifier from the path and table name fields (path = `Connection Root/<DB>/<SCHEMA>` for most platforms; `Connection Root/<SCHEMA>` for Redshift), then maps the Sigma connection to a DataHub platform via the connection registry.
 
+A Data Model's lineage does not always list every table its elements read. For such a table the
+connector asks `/v2/files/{urlId}` with the id the element names, then
+`/v2/connections/paths/{inodeId}` for the table's own connection and path, so the URN is built
+from the connection record like any other. A table on a connection that cannot be mapped gets no
+edge.
+
 **Supported platforms**: All Sigma connection types in `SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP` (Snowflake, BigQuery, Redshift, Databricks, Postgres, MySQL, Athena, Spark, Trino, Presto, Synapse/MSSQL).
 Identifier casing is preserved as Sigma reports it, which matches the warehouse catalog for most platforms.
 Snowflake is the only platform that requires a case bridge (Snowflake's catalog uses uppercase identifiers, but the DataHub Snowflake connector lowercases them by default).
@@ -233,6 +239,10 @@ Redshift connections where the Sigma connection record omits `database`/`schema`
 | `dm_element_warehouse_table_lookup_failed`    | `/files/{inodeId}` call failed                      |
 | `dm_element_warehouse_path_unparseable`       | `/files` path did not match expected format         |
 | `dm_element_warehouse_table_entry_incomplete` | Lineage entry missing inodeId or connectionId       |
+| `dm_element_warehouse_resolved_by_url_id`     | Found via `/files/{urlId}`; may still get no edge   |
+| `dm_element_warehouse_url_id_unresolvable`    | `/files/{urlId}` 404: deleted or not visible        |
+| `dm_element_warehouse_url_id_lookup_failed`   | `/files/{urlId}` failed otherwise (see warnings)    |
+| `connection_path_lookup_failed`               | `/connections/paths/{inodeId}` call failed          |
 
 ##### Chart source platform mapping
 
