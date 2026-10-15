@@ -19,8 +19,11 @@ from datahub.ingestion.source.montecarlo.query_builder import (
     MONITOR_TYPE_SPEC,
     DriftVerdict,
     IntrospectingQueryBuilder,
+    MonteCarloGraphQLType,
     QueryBuilder,
     SchemaDrift,
+    TypeDrift,
+    drift_abort_title,
     field_spec_by_name,
     spec_value,
 )
@@ -420,6 +423,7 @@ class MonteCarloClient:
         self._run_events_disabled_warned = False
         self._table_scope_drift_checked = False
         self._table_scope_drift_lock = False
+        self._table_scope_drift_abort_reported = False
 
     def set_query_builder(self, builder: QueryBuilder) -> None:
         """Inject a query builder (used by tests to bypass introspection)."""
@@ -442,14 +446,21 @@ class MonteCarloClient:
         if self.config.include_alerts:
             types.extend(["Alert", "SchemaChange"])
         if self.config.run_events_lookback_days:
-            types.extend(["JobExecutionHistoryLog", "Metric"])
+            types.extend(
+                [
+                    MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG.value,
+                    MonteCarloGraphQLType.METRIC.value,
+                ]
+            )
         drift = self._query_builder.check_drift(strict, types=types)
         schema_drift = drift.per_type.get("SchemaChange")
         self._schema_change_join_disabled = (
             schema_drift is not None and schema_drift.verdict == DriftVerdict.ABORT
         )
-        job_drift = drift.per_type.get("JobExecutionHistoryLog")
-        metric_drift = drift.per_type.get("Metric")
+        job_drift = drift.per_type.get(
+            MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG.value
+        )
+        metric_drift = drift.per_type.get(MonteCarloGraphQLType.METRIC.value)
         self._run_events_disabled = any(
             td is not None and td.verdict == DriftVerdict.ABORT
             for td in (job_drift, metric_drift)
@@ -465,9 +476,10 @@ class MonteCarloClient:
             strict,
             types=["TableMonitor", "AssetSelection", "AssetSelectionResult"],
         )
-        self._table_scope_drift_lock = any(
-            td.verdict == DriftVerdict.ABORT for td in drift.per_type.values()
-        )
+        abort_drifts = [
+            td for td in drift.per_type.values() if td.verdict == DriftVerdict.ABORT
+        ]
+        self._table_scope_drift_lock = bool(abort_drifts)
         for type_drift in drift.per_type.values():
             if type_drift.verdict == DriftVerdict.DEGRADED:
                 self._warn(
@@ -478,6 +490,30 @@ class MonteCarloClient:
                     ),
                     context=type_drift.summary(),
                 )
+        if abort_drifts:
+            self._report_table_scope_drift_abort_once(abort_drifts, strict)
+
+    def _report_table_scope_drift_abort_once(
+        self, abort_drifts: List[TypeDrift], strict: bool
+    ) -> None:
+        if self._table_scope_drift_abort_reported or self.report is None:
+            return
+        self._table_scope_drift_abort_reported = True
+        primary = abort_drifts[0]
+        title = drift_abort_title(primary, strict)
+        type_names = ", ".join(td.type_name for td in abort_drifts)
+        self.report.failure(
+            title=title,
+            message=(
+                "The live Monte Carlo GraphQL schema no longer exposes fields "
+                "the connector requires to resolve TABLE monitor scope via "
+                "getTableMonitor and evaluateAssetSelection. Pattern-scoped "
+                "TABLE monitors will be skipped this run. Update the connector "
+                "or contact Monte Carlo about the schema change."
+            ),
+            context=f"types={type_names}; "
+            + "; ".join(td.summary() for td in abort_drifts),
+        )
 
     def _warn_schema_change_join_disabled_once(self) -> None:
         if not self._schema_change_join_disabled or self._schema_change_join_warned:
@@ -505,7 +541,10 @@ class MonteCarloClient:
                     "required for getJobExecutions or getMetricsV4. Measured "
                     "run events will not be emitted this run."
                 ),
-                context="types=JobExecutionHistoryLog,Metric",
+                context=(
+                    f"types={MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG.value},"
+                    f"{MonteCarloGraphQLType.METRIC.value}"
+                ),
             )
 
     def _warn(
@@ -800,6 +839,14 @@ class MonteCarloClient:
             return []
         monitor_raw = response.get("get_table_monitor")
         if monitor_raw is None:
+            self._warn(
+                title="Could not resolve table monitor scope",
+                message=(
+                    "getTableMonitor returned null for a monitor listed by "
+                    "getMonitors; skipping this monitor."
+                ),
+                context=f"monitor_uuid={monitor_uuid}",
+            )
             self._mark_table_scope_unresolved()
             return []
         monitor = monitor_raw if isinstance(monitor_raw, dict) else {}

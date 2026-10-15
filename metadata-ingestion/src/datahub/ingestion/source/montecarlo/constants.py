@@ -240,4 +240,5 @@ ASSET_FILTER_INPUT_FIELDS: Dict[str, str] = {
 }
 
 SCHEMA_CHANGE_PAGE_SIZE = 50
-SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS = 300
+# Catalog collection can lag the alert by well over a few minutes; 2h covers typical delay.
+SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS = 2 * 60 * 60

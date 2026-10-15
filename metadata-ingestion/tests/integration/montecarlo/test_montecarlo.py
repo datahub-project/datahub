@@ -364,7 +364,7 @@ def _build_introspection_type_map() -> Dict[str, Dict[str, Any]]:
         ("Alert", ALERTS),
         ("WarehouseTable", list(TABLES.values())),
         ("JobExecutionHistoryLog", job_execution_records),
-        ("Metric", metric_records),
+        ("TableMetricV2", metric_records),
     ]
     for type_name, records in roots:
         merged_by_type.setdefault(type_name, {})

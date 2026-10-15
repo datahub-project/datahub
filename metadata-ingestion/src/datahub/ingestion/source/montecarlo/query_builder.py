@@ -18,7 +18,7 @@ class MonteCarloGraphQLType(StrEnum):
     ASSET_SELECTION_RESULT = "AssetSelectionResult"
     SCHEMA_CHANGE = "SchemaChange"
     JOB_EXECUTION_HISTORY_LOG = "JobExecutionHistoryLog"
-    METRIC = "Metric"
+    METRIC = "TableMetricV2"
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,8 @@ class FieldSpec:
     critical: bool = False
     impact: str = ""
     in_fallback: bool = True
+    # Union member fields selected only via inline fragments; never drift-diffed.
+    fragment_only: bool = False
     children: Tuple["FieldSpec", ...] = ()
 
 
@@ -125,24 +127,31 @@ ALERT_TYPE_SPEC = TypeSpec(
     ),
 )
 
-_ASSET_FILTER_MEMBER_FIELDS: Tuple[FieldSpec, ...] = (
+_ASSET_FILTER_INTERFACE_FIELDS: Tuple[FieldSpec, ...] = (
     FieldSpec(name="type", critical=True),
     FieldSpec(name="negated"),
-    FieldSpec(name="tableName"),
-    FieldSpec(name="tableNameOperator"),
-    FieldSpec(name="fullTableId"),
-    FieldSpec(name="tableType"),
-    FieldSpec(name="tableTags"),
-    FieldSpec(name="tableTagsOperator"),
-    FieldSpec(name="readDays"),
-    FieldSpec(name="writeDays"),
-    FieldSpec(name="readWriteDays"),
-    FieldSpec(name="readAndWriteDays"),
-    FieldSpec(name="volumeChangeDays"),
-    FieldSpec(name="readActivityIsNull"),
-    FieldSpec(name="writeActivityIsNull"),
-    FieldSpec(name="readWriteActivityIsNull"),
-    FieldSpec(name="readAndWriteActivityIsNull"),
+)
+
+_ASSET_FILTER_FRAGMENT_FIELDS: Tuple[FieldSpec, ...] = (
+    FieldSpec(name="tableName", fragment_only=True, in_fallback=False),
+    FieldSpec(name="tableNameOperator", fragment_only=True, in_fallback=False),
+    FieldSpec(name="fullTableId", fragment_only=True, in_fallback=False),
+    FieldSpec(name="tableType", fragment_only=True, in_fallback=False),
+    FieldSpec(name="tableTags", fragment_only=True, in_fallback=False),
+    FieldSpec(name="tableTagsOperator", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readDays", fragment_only=True, in_fallback=False),
+    FieldSpec(name="writeDays", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readWriteDays", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readAndWriteDays", fragment_only=True, in_fallback=False),
+    FieldSpec(name="volumeChangeDays", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readActivityIsNull", fragment_only=True, in_fallback=False),
+    FieldSpec(name="writeActivityIsNull", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readWriteActivityIsNull", fragment_only=True, in_fallback=False),
+    FieldSpec(name="readAndWriteActivityIsNull", fragment_only=True, in_fallback=False),
+)
+
+_ASSET_FILTER_MEMBER_FIELDS: Tuple[FieldSpec, ...] = (
+    _ASSET_FILTER_INTERFACE_FIELDS + _ASSET_FILTER_FRAGMENT_FIELDS
 )
 
 ASSET_SELECTION_TYPE_SPEC = TypeSpec(
@@ -454,12 +463,13 @@ query mcIntrospect($name: String!) {
 
 @dataclass
 class _TypeField:
-    """One field of an introspected GraphQL type. is_object is True when the
-    field's (unwrapped) type is OBJECT, in which case object_type_name is the
-    name to introspect for the sub-selection."""
+    """One field of an introspected GraphQL type. is_composite is True when the
+    field's (unwrapped) type is OBJECT, INTERFACE, or UNION; object_type_name
+    is the GraphQL type name to introspect for sub-selection / drift."""
 
     name: str
     is_object: bool
+    is_composite: bool
     object_type_name: Optional[str] = None
 
 
@@ -496,10 +506,12 @@ def _parse_type_shape(response: Dict[str, object]) -> _TypeShape:
             continue
         kind, type_name = _unwrap_type(f.get("type"))
         is_object = kind == "OBJECT"
+        is_composite = kind in ("OBJECT", "INTERFACE", "UNION")
         shape.fields[name] = _TypeField(
             name=name,
             is_object=is_object,
-            object_type_name=type_name if is_object else None,
+            is_composite=is_composite,
+            object_type_name=type_name if is_composite else None,
         )
     return shape
 
@@ -552,7 +564,7 @@ def _build_selection_with_subshapes(
         if not spec.children:
             lines.append(f"{indent}{live_name}")
             continue
-        if not live.is_object or not live.object_type_name:
+        if not live.is_composite or not live.object_type_name:
             continue
         sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
         if sub_shape.introspection_failed:
@@ -579,6 +591,8 @@ def _collect_missing_paths(
     missing: list = []
     critical_missing: list = []
     for spec in fields:
+        if spec.fragment_only:
+            continue
         path = f"{prefix}.{spec.name}" if prefix else spec.name
         live_name = _live_graphql_name(spec, shape.fields)
         if live_name is None:
@@ -590,7 +604,7 @@ def _collect_missing_paths(
         if not spec.children:
             continue
         live = shape.fields[live_name]
-        if not live.is_object or not live.object_type_name:
+        if not live.is_composite or not live.object_type_name:
             if spec.critical or not critical_only:
                 missing.append(path)
             if spec.critical:
@@ -820,7 +834,7 @@ def _emit_asset_selection_selection(
             lines.append(f"{indent}{live_name}")
             continue
         live = shape.fields[live_name]
-        if not live.is_object or not live.object_type_name:
+        if not live.is_composite or not live.object_type_name:
             continue
         sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
         if spec.name == "databases":
@@ -854,7 +868,7 @@ def _build_table_monitor_selection(
             lines.append(f"{indent}{live_name}")
             continue
         live = shape.fields[live_name]
-        if not live.is_object or not live.object_type_name:
+        if not live.is_composite or not live.object_type_name:
             continue
         sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
         inner = _emit_asset_selection_selection(
@@ -924,7 +938,7 @@ class IntrospectingQueryBuilder:
             if live_name is None:
                 continue
             live = shape.fields[live_name]
-            if not live.is_object or not live.object_type_name:
+            if not live.is_composite or not live.object_type_name:
                 continue
             sub_shape = self._introspect(live.object_type_name)
             self._introspect_spec_subtypes(spec.children, sub_shape)

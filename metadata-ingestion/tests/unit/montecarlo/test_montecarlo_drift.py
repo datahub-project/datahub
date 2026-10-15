@@ -47,14 +47,18 @@ def _introspect_response(fields_spec: Dict[str, str]) -> Dict[str, Any]:
         type_node: Dict[str, Any]
         if kind in ("SCALAR", "ENUM"):
             type_node = {"kind": kind, "name": type_name, "of_type": None}
-        else:  # OBJECT — wrap as NON_NULL(LIST(OBJECT)) like a real connection
+        else:  # OBJECT / INTERFACE / UNION — wrap as NON_NULL(LIST(...))
             type_node = {
                 "kind": "NON_NULL",
                 "name": None,
                 "of_type": {
                     "kind": "LIST",
                     "name": None,
-                    "of_type": {"kind": "OBJECT", "name": type_name, "of_type": None},
+                    "of_type": {
+                        "kind": kind,
+                        "name": type_name,
+                        "of_type": None,
+                    },
                 },
             }
         fields.append({"name": name, "type": type_node})
@@ -192,7 +196,9 @@ def test_parse_type_shape_unwraps_list_of_object() -> None:
     shape = _parse_type_shape(response)
     assert "uuid" in shape.fields
     assert shape.fields["uuid"].is_object is False
+    assert shape.fields["uuid"].is_composite is False
     assert shape.fields["comparisons"].is_object is True
+    assert shape.fields["comparisons"].is_composite is True
     assert shape.fields["comparisons"].object_type_name == "Comparison"
 
 
@@ -1094,8 +1100,8 @@ def _live_asset_selection_shape() -> Dict[str, str]:
         "filtersJoiner": "SCALAR:String",
         "exclusionsJoiner": "SCALAR:String",
         "databases": "OBJECT:AssetSelectionDatabase",
-        "filters": "OBJECT:AssetFilterInterface",
-        "exclusions": "OBJECT:AssetFilterInterface",
+        "filters": "INTERFACE:AssetFilterInterface",
+        "exclusions": "INTERFACE:AssetFilterInterface",
     }
 
 
@@ -1105,6 +1111,33 @@ def _live_asset_filter_shape() -> Dict[str, str]:
         "negated": "SCALAR:Boolean",
         "fullTableId": "SCALAR:String",
     }
+
+
+def _table_monitor_drift_introspection(
+    asset_selection_shape: Dict[str, str],
+) -> Dict[str, Dict[str, Any]]:
+    return {
+        "TableMonitor": _introspect_response(_live_table_monitor_shape()),
+        "AssetSelection": _introspect_response(asset_selection_shape),
+        "AssetSelectionDatabase": _introspect_response(
+            {"name": "SCALAR:String", "schemas": "SCALAR:String"}
+        ),
+        "AssetFilterInterface": _introspect_response(_live_asset_filter_shape()),
+    }
+
+
+def test_drift_proceed_when_asset_filter_fields_are_interface_kind() -> None:
+    builder = _builder_with_introspection(
+        _table_monitor_drift_introspection(_live_asset_selection_shape())
+    )
+    for strict in (False, True):
+        drift = builder.check_drift(
+            strict=strict, types=["TableMonitor", "AssetSelection"]
+        )
+        assert drift.per_type["TableMonitor"].verdict == DriftVerdict.PROCEED
+        assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
+        assert drift.per_type["TableMonitor"].missing == []
+        assert drift.per_type["AssetSelection"].missing == []
 
 
 def test_check_schema_drift_skips_run_event_types_without_lookback() -> None:
@@ -1124,7 +1157,7 @@ def test_check_schema_drift_skips_run_event_types_without_lookback() -> None:
     )
     client.check_schema_drift(strict=False)
     assert "JobExecutionHistoryLog" not in introspect_calls
-    assert "Metric" not in introspect_calls
+    assert "TableMetricV2" not in introspect_calls
 
 
 def test_warehouse_table_critical_miss_aborts_monitor_phase() -> None:
@@ -1297,7 +1330,7 @@ def test_schema_change_critical_miss_disables_join_with_one_warning() -> None:
     "drift_type,field_to_drop",
     [
         ("JobExecutionHistoryLog", "jobExecutionUuid"),
-        ("Metric", "metric"),
+        ("TableMetricV2", "metric"),
     ],
 )
 def test_run_events_type_critical_miss_disables_with_one_warning(
@@ -1329,7 +1362,7 @@ def test_run_events_type_critical_miss_disables_with_one_warning(
             return _introspect_response({"connectionType": "SCALAR:String"})
         if type_name == "JobExecutionHistoryLog":
             return _introspect_response(job_shape)
-        if type_name == "Metric":
+        if type_name == "TableMetricV2":
             return _introspect_response(metric_shape)
         if "getJobExecutions" in query or "getMetricsV4" in query:
             raise AssertionError("run events should be disabled")
@@ -1386,3 +1419,11 @@ def test_table_scope_drift_locks_table_monitor_resolution() -> None:
     mcons = client._resolve_table_monitor_entity_mcons("mon-tbl", None)
     assert mcons == []
     assert report.build_failures == 1
+    assert len(report.failures) == 1
+    assert "critical fields missing" in (report.failures[0].title or "")
+    failure_context = " ".join(report.failures[0].context or [])
+    assert "TableMonitor" in failure_context
+    assert "warehouseUuid" in failure_context
+
+    client._resolve_table_monitor_entity_mcons("mon-tbl-2", None)
+    assert len(report.failures) == 1

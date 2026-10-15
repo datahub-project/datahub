@@ -1831,6 +1831,8 @@ def test_client_get_table_monitor_null_is_build_failure() -> None:
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
     assert report.build_failures == 1
+    assert report.warnings_count == 1
+    assert "monitor_uuid=m1" in " ".join(report.warnings[0].context or [])
 
 
 def test_client_table_monitor_unreadable_filters_skips_evaluate() -> None:
@@ -2640,6 +2642,19 @@ def test_closest_schema_change_returns_none_outside_window() -> None:
     )
     alert_time = datetime(2026, 9, 28, 16, 24, 35, tzinfo=timezone.utc)
     assert closest_schema_change([event], alert_time) is None
+
+
+def test_closest_schema_change_matches_event_ten_minutes_before_alert() -> None:
+    mcon = "MCON++a++wh++table++db.sch.table_a"
+    alert_time = datetime(2026, 9, 28, 16, 24, 35, tzinfo=timezone.utc)
+    event = MonteCarloSchemaChange(
+        mcon=mcon,
+        start_time="2026-09-28T16:14:35+00:00",
+        fields_added=["lagged_col"],
+    )
+    matched = closest_schema_change([event], alert_time)
+    assert matched is not None
+    assert matched.fields_added == ["lagged_col"]
 
 
 def _join_schema_alert(
