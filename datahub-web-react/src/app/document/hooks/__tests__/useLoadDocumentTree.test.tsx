@@ -361,6 +361,68 @@ describe('useLoadDocumentTree', () => {
         ]);
     });
 
+    it('clears the root spinner before missing source sections finish loading', async () => {
+        const notion = {
+            urn: 'urn:li:document:notion',
+            platform: { urn: 'urn:li:dataPlatform:notion', name: 'notion', type: 'DATA_PLATFORM' },
+            info: { title: 'Notion', parentDocument: null },
+        };
+        const confluence = {
+            urn: 'urn:li:document:confluence',
+            platform: { urn: 'urn:li:dataPlatform:confluence', name: 'confluence', type: 'DATA_PLATFORM' },
+            info: { title: 'Confluence', parentDocument: null },
+        };
+        let resolveConfluence: ((value: unknown) => void) | undefined;
+        const confluencePromise = new Promise((resolve) => {
+            resolveConfluence = resolve;
+        });
+
+        mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+            const input = opts?.variables?.input ?? {};
+            if (input.parentDocuments) {
+                return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+            }
+            if (input.facets) {
+                return Promise.resolve({
+                    data: {
+                        searchDocuments: {
+                            documents: [],
+                            total: 0,
+                            facets: [
+                                {
+                                    field: 'platform',
+                                    aggregations: [
+                                        { value: 'urn:li:dataPlatform:notion', count: 1 },
+                                        { value: 'urn:li:dataPlatform:confluence', count: 4 },
+                                    ],
+                                },
+                            ],
+                        },
+                    },
+                });
+            }
+            if (input.platforms?.[0] === 'urn:li:dataPlatform:confluence') {
+                return confluencePromise.then(() => ({
+                    data: { searchDocuments: { documents: [confluence], total: 4 } },
+                }));
+            }
+            return Promise.resolve({ data: { searchDocuments: { documents: [notion], total: 1 } } });
+        });
+
+        const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(mockInitializeTree).toHaveBeenCalled();
+        });
+        expect(result.current.loading).toBe(false);
+        expect(mockAppendRootNodes).not.toHaveBeenCalled();
+
+        resolveConfluence?.(undefined);
+        await waitFor(() => {
+            expect(mockAppendRootNodes).toHaveBeenCalled();
+        });
+    });
+
     // Regression coverage for a bug where changing the active View left the sidebar tree
     // stuck: fetchRootDocuments' "already populated" guard silently dropped the new View's
     // results, and even when it didn't, nothing but a visible IntersectionObserver sentinel

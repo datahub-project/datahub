@@ -239,11 +239,13 @@ export function useLoadDocumentTree(
                     // Always replace roots so sort and View changes take effect even when the
                     // shared tree context still holds the previous page.
                     initializeTree(nodes);
-                    try {
-                        await loadMissingSourceSectionRoots(nodes, generation);
-                    } catch (error) {
+                    // Clear the spinner as soon as page 0 is in context. Missing platform
+                    // sections fill in afterward — awaiting them blocked DocumentTree and
+                    // the /context/documents redirect on every Source load/sort/View change.
+                    setIsInitializing(false);
+                    loadMissingSourceSectionRoots(nodes, generation).catch((error) => {
                         console.error('Failed to load source sections:', error);
-                    }
+                    });
                 } else {
                     appendRootNodes(nodes);
                 }
