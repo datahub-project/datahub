@@ -333,13 +333,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Warehouse-passthrough refs where columnId-based resolution failed.
     # Fires for self-ref formulas (element name == formula source) AND for
     # formulas where the source is the warehouse table name but resolution fails
-    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # (e.g. inode-shaped columnId with /files miss or unmappable connection),
+    # and for an inode-shaped column with no ref to follow that fails the same way.
     # Note: semantics changed in this release — previously this counter fired on
     # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
-    # Covers both the self-ref case and the case where the formula source is
-    # the warehouse table name rather than the element name.
+    # Covers the self-ref case, the case where the formula source is the
+    # warehouse table name rather than the element name, and a column whose
+    # formula has no ref to follow (empty, constant, or only parameters).
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)

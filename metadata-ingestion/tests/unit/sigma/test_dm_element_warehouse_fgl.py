@@ -10,6 +10,7 @@ Coverage:
     same upstream schemaField → two FGLs, one upstream)
   - _build_dm_element_fine_grained_lineages: mixed intra-DM + warehouse refs
   - URN identity: schemaField parent Dataset URN matches entity-level warehouse URN
+  - _build_dm_element_fine_grained_lineages: a column with no ref to follow
 
 Counters verified:
   data_model_element_fgl_warehouse_resolved
@@ -19,6 +20,8 @@ Counters verified:
 import datetime as dt
 from typing import Dict, List, Optional, Set
 from unittest.mock import patch
+
+import pytest
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
@@ -580,6 +583,91 @@ class TestBuildFglWarehouseIntegration:
         assert fgls[0].upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert fgls[0].upstreams[0] == expected_upstream
+
+
+class TestColumnWithNoRefToFollow:
+    """A column whose formula has no ref to follow gets its edge from columnId."""
+
+    @pytest.mark.parametrize(
+        "formula",
+        [None, "", "42", "[P_Region]", "If([P_Flag], [Email], 0)"],
+        ids=["absent", "empty", "constant", "parameter", "bare-refs-only"],
+    )
+    def test_an_inode_column_id_alone_gives_the_warehouse_edge(
+        self, formula: Optional[str]
+    ) -> None:
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", formula)
+        elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert [f.upstreams for f in fgls] == [
+            [builder.make_schema_field_urn(_SF_DATASET_URN, "email")]
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_an_opaque_column_id_gets_no_edge(self) -> None:
+        # A sibling has a column of the same name; matching on name alone
+        # would fabricate an edge to it.
+        source = _make_source()
+        sibling_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-sibling,PROD)"
+        sibling = _element("el-sibling", "Sibling", [_column("s-email", "Email", None)])
+        col = _column("opaque-col-id", "Email", None)
+        elem = _element("el-customers", "Customers", [col], ["el-sibling"])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            element_name_to_eids={"sibling": ["el-sibling"]},
+            elementId_to_dataset_urn={"el-sibling": sibling_urn},
+            entity_level_upstream_urns={sibling_urn},
+            upstream_elements=[sibling],
+        )
+
+        assert fgls == []
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+
+    def test_an_unresolvable_inode_column_id_is_counted(self) -> None:
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", None)
+        elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
+
+        with patch.object(
+            source.sigma_api, "get_file_metadata_by_url_id", return_value=None
+        ):
+            fgls = _build_fgls(source, elem, warehouse_map={})
+
+        assert fgls == []
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+        )
+
+    def test_a_column_with_a_sibling_ref_gets_no_extra_warehouse_edge(self) -> None:
+        source = _make_source()
+        upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-upstream,PROD)"
+        upstream = _element("el-upstream", "Upstream", [_column("up-x", "x", None)])
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[Upstream/x]")
+        elem = _element(
+            "el-customers", "Customers", [col], [_SF_INODE_SOURCE, "el-upstream"]
+        )
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"upstream": ["el-upstream"]},
+            elementId_to_dataset_urn={"el-upstream": upstream_urn},
+            entity_level_upstream_urns={upstream_urn},
+            upstream_elements=[upstream],
+        )
+
+        assert [f.upstreams for f in fgls] == [
+            [builder.make_schema_field_urn(upstream_urn, "x")]
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
 
 
 class TestExplicitCaseFlagScope:
