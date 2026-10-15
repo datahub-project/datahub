@@ -2,6 +2,7 @@ package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -92,13 +93,20 @@ public class TimeseriesController {
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
-    AspectSpec aspectSpec =
-        RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
+    final AspectSpec aspectSpec;
+    final String canonicalAspectName;
+    if (handling().isTolerant()) {
+      aspectSpec =
+          RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
+      // The lookup is case-insensitive; use the registered name from here on.
+      canonicalAspectName = aspectSpec.getName();
+    } else {
+      aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+      canonicalAspectName = aspectName;
+    }
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
-    // The lookup is case-insensitive; use the registered name from here on.
-    final String canonicalAspectName = aspectSpec.getName();
 
     List<SortCriterion> sortCriteria =
         List.of(

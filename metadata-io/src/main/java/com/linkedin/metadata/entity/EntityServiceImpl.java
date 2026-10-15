@@ -3848,15 +3848,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Integer rowsDeletedFromEntityDeletion = 0;
 
     final EntitySpec spec =
-        opContext
-            .getEntityRegistry()
-            .findEntitySpec(PegasusUtils.urnToEntityName(urn))
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        String.format(
-                            "Cannot delete %s: its entity type is not in the entity registry",
-                            urn)));
+        handling().isTolerant()
+            ? opContext
+                .getEntityRegistry()
+                .findEntitySpec(PegasusUtils.urnToEntityName(urn))
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException(
+                            String.format(
+                                "Cannot delete %s: its entity type is not in the entity registry",
+                                urn)))
+            : opContext.getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 

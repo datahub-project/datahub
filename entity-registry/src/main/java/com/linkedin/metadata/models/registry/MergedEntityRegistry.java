@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -47,11 +46,10 @@ public class MergedEntityRegistry implements EntityRegistry {
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
     // when this class attempts .put* operations on it.
-    // Concurrent: plugins add entity types at runtime while lookups run on other threads.
     entityNameToSpec =
         baseEntityRegistry.getEntitySpecs() != null
-            ? new ConcurrentHashMap<>(baseEntityRegistry.getEntitySpecs())
-            : new ConcurrentHashMap<>();
+            ? new HashMap<>(baseEntityRegistry.getEntitySpecs())
+            : new HashMap<>();
     eventNameToSpec =
         baseEntityRegistry.getEventSpecs() != null
             ? new HashMap<>(baseEntityRegistry.getEventSpecs())
