@@ -357,7 +357,7 @@ def test_builder_fallback_does_not_poison_other_types() -> None:
     assert "customSql" not in monitor_q
     # Alert succeeds -> full dynamic selection, not the fallback.
     alert_q = builder.alerts_query()
-    assert "id" in alert_q
+    assert any(line.strip() == "id" for line in alert_q.splitlines())
     assert "monitorUuids" in alert_q
     drift = builder.check_drift(strict=False, types=["Monitor", "Alert"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
@@ -381,10 +381,8 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
 
     builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
     query = builder.monitors_query()
-    # Dynamic parent selection, not the Monitor fallback: fallback omits
-    # dataQualityDimension, and uses 4-space indent on comparisons.
+    # Monitor introspection succeeded; Comparison failure must not drop comparisons.
     assert "dataQualityDimension" in query
-    assert "        comparisons" in query
     _assert_desired_comparison_tree(query)
     assert "whereCondition" in query
     assert "priority" in query
@@ -417,9 +415,6 @@ def test_custom_rule_keeps_comparisons_when_nested_introspection_fails() -> None
 
     builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
     query = builder.custom_rules_query()
-    # 8-space indent is the dynamic selection; the CustomRule fallback
-    # uses 4-space indent and would still contain comparisons.
-    assert "        comparisons" in query
     _assert_desired_comparison_tree(query)
     assert "customSql" in query
     assert "priority" in query
@@ -1138,6 +1133,52 @@ def test_drift_proceed_when_asset_filter_fields_are_interface_kind() -> None:
         assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
         assert drift.per_type["TableMonitor"].missing == []
         assert drift.per_type["AssetSelection"].missing == []
+
+
+def test_table_monitor_keeps_asset_selection_when_nested_introspection_fails() -> None:
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "TableMonitor":
+            return _introspect_response(_live_table_monitor_shape())
+        if type_name == "AssetSelection":
+            raise RuntimeError("transient blip on AssetSelection only")
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    query = builder.table_monitor_query()
+    assert "warehouseUuid" in query
+    assert "assetSelection" in query
+    assert "filtersJoiner" in query
+    assert "databases" in query
+    assert "filters" in query
+    drift = builder.check_drift(strict=False, types=["TableMonitor", "AssetSelection"])
+    assert drift.per_type["TableMonitor"].verdict == DriftVerdict.PROCEED
+    assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
+
+
+def test_table_monitor_keeps_databases_when_asset_selection_database_introspection_fails() -> (
+    None
+):
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "TableMonitor":
+            return _introspect_response(_live_table_monitor_shape())
+        if type_name == "AssetSelection":
+            return _introspect_response(_live_asset_selection_shape())
+        if type_name == "AssetSelectionDatabase":
+            raise RuntimeError("transient blip on AssetSelectionDatabase only")
+        if type_name == "AssetFilterInterface":
+            return _introspect_response(_live_asset_filter_shape())
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    query = builder.table_monitor_query()
+    assert "databases" in query
+    assert "name" in query
+    assert "schemas" in query
+    assert "filters" in query
+    drift = builder.check_drift(strict=False, types=["TableMonitor", "AssetSelection"])
+    assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
 
 
 def test_check_schema_drift_skips_run_event_types_without_lookback() -> None:

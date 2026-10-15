@@ -1835,6 +1835,83 @@ def test_client_get_table_monitor_null_is_build_failure() -> None:
     assert "monitor_uuid=m1" in " ".join(report.warnings[0].context or [])
 
 
+def test_client_get_table_monitor_non_dict_is_build_failure() -> None:
+    """getMonitors listed the monitor but getTableMonitor body was not an object — lock."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {"get_table_monitor": "not-a-dict"}
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+    assert report.warnings_count == 1
+    assert "unexpected payload" in (report.warnings[0].message or "")
+
+
+def test_client_table_monitor_malformed_database_skips_evaluate() -> None:
+    """Database entries without a name must not silently shrink evaluated scope."""
+    calls: List[str] = []
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            calls.append("getMonitors")
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            calls.append("getTableMonitor")
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "databases": [{"name": "keep_me"}, {"schemas": ["public"]}],
+                        "filters": [],
+                        "exclusions": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            calls.append("evaluateAssetSelection")
+            raise AssertionError("evaluateAssetSelection must not run")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+    assert calls == ["getMonitors", "getTableMonitor"]
+    assert any(
+        w.title and "Unreadable table monitor asset filter" in w.title
+        for w in report.warnings
+    )
+
+
 def test_client_table_monitor_unreadable_filters_skips_evaluate() -> None:
     """Unreadable filters must not widen scope or call evaluateAssetSelection."""
     calls: List[str] = []
@@ -2293,6 +2370,48 @@ def test_client_evaluate_asset_selection_malformed_first_page_is_build_failure()
     monitors = list(client.get_monitors())
     assert monitors[0].entity_mcons == []
     assert report.build_failures == 1
+
+
+def test_client_evaluate_asset_selection_null_first_page_is_build_failure() -> None:
+    """A null evaluateAssetSelection on the first page is a fetch miss — lock
+    and warn with the monitor id, like null getTableMonitor."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                        "exclusions": [],
+                        "databases": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            return {"evaluate_asset_selection": None}
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    client.set_query_builder(StaticQueryBuilder())
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+    assert report.warnings_count == 1
+    assert "monitor_uuid=m1" in " ".join(report.warnings[0].context or [])
 
 
 @pytest.mark.parametrize("failing_query", ["getTableMonitor", "evaluateAssetSelection"])

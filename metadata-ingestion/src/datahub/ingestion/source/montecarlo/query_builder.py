@@ -821,35 +821,47 @@ def _emit_asset_selection_selection(
     filter_inline: str,
 ) -> str:
     lines: list = []
-    for spec in ASSET_SELECTION_TYPE_SPEC.fields:
-        live_name = _live_graphql_name(spec, shape.fields)
-        if live_name is None:
-            continue
-        if spec.name in ("filters", "exclusions"):
+    if shape.introspection_failed:
+        for spec in ASSET_SELECTION_TYPE_SPEC.fields:
+            if spec.name in ("filters", "exclusions"):
+                lines.append(f"{indent}{spec.name} {{")
+                lines.append(filter_inline.rstrip("\n"))
+                lines.append(f"{indent}}}")
+                continue
+            if spec.children:
+                lines.append(f"{indent}{spec.name} {{")
+                lines.append(_emit_desired_selection(spec.children, indent + "  "))
+                lines.append(f"{indent}}}")
+            else:
+                lines.append(f"{indent}{spec.name}")
+    else:
+        for spec in ASSET_SELECTION_TYPE_SPEC.fields:
+            live_name = _live_graphql_name(spec, shape.fields)
+            if live_name is None:
+                continue
+            if spec.name in ("filters", "exclusions"):
+                lines.append(f"{indent}{live_name} {{")
+                lines.append(filter_inline.rstrip("\n"))
+                lines.append(f"{indent}}}")
+                continue
+            if not spec.children:
+                lines.append(f"{indent}{live_name}")
+                continue
+            live = shape.fields[live_name]
+            if not live.is_composite or not live.object_type_name:
+                continue
+            sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
+            if sub_shape.introspection_failed:
+                sub_lines = _emit_desired_selection(spec.children, indent + "  ")
+            else:
+                sub_lines = _build_selection_with_subshapes(
+                    spec.children, sub_shape, object_shapes, indent + "  "
+                )
+            if not sub_lines.strip():
+                continue
             lines.append(f"{indent}{live_name} {{")
-            lines.append(filter_inline.rstrip("\n"))
+            lines.append(sub_lines)
             lines.append(f"{indent}}}")
-            continue
-        if not spec.children:
-            lines.append(f"{indent}{live_name}")
-            continue
-        live = shape.fields[live_name]
-        if not live.is_composite or not live.object_type_name:
-            continue
-        sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
-        if spec.name == "databases":
-            sub_lines = _build_selection_with_subshapes(
-                spec.children, sub_shape, object_shapes, indent + "  "
-            )
-        else:
-            sub_lines = _build_selection_with_subshapes(
-                spec.children, sub_shape, object_shapes, indent + "  "
-            )
-        if not sub_lines.strip():
-            continue
-        lines.append(f"{indent}{live_name} {{")
-        lines.append(sub_lines)
-        lines.append(f"{indent}}}")
     return "\n".join(lines)
 
 

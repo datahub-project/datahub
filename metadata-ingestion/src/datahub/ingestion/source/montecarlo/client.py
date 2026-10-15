@@ -849,7 +849,18 @@ class MonteCarloClient:
             )
             self._mark_table_scope_unresolved()
             return []
-        monitor = monitor_raw if isinstance(monitor_raw, dict) else {}
+        if not isinstance(monitor_raw, dict):
+            self._warn(
+                title="Could not resolve table monitor scope",
+                message=(
+                    "getTableMonitor returned an unexpected payload for a "
+                    "monitor listed by getMonitors; skipping this monitor."
+                ),
+                context=f"monitor_uuid={monitor_uuid}",
+            )
+            self._mark_table_scope_unresolved()
+            return []
+        monitor = monitor_raw
         warehouse_uuid = resource_id or monitor.get("warehouse_uuid")
         if not warehouse_uuid:
             self._warn(
@@ -866,8 +877,8 @@ class MonteCarloClient:
             filter_type, field = unreadable
             self._warn(
                 title="Unreadable table monitor asset filter",
-                message="TABLE monitor has a filter or exclusion the connector "
-                f"cannot read (type={filter_type!r}, field={field!r}); "
+                message="TABLE monitor has a filter, exclusion, or database entry "
+                f"the connector cannot read (type={filter_type!r}, field={field!r}); "
                 "skipping this monitor.",
                 context=f"monitor_uuid={monitor_uuid}",
             )
@@ -893,16 +904,19 @@ class MonteCarloClient:
         """Convert getTableMonitor's snake_cased AssetSelection into the
         camelCase AssetSelectionInput evaluateAssetSelection expects.
 
-        Returns (None, unreadable) when a filter or exclusion cannot be read.
+        Returns (None, unreadable) when a filter, exclusion, or database entry
+        cannot be read.
         Returns (None, None) when the selection is empty (no databases, filters,
         or exclusions) so callers do not evaluate an unbounded warehouse query.
         """
-        databases_in = [
-            self._database_to_input(d)
-            for d in (raw.get("databases") or [])
-            if isinstance(d, dict)
-        ]
-        databases = [d for d in databases_in if d is not None]
+        databases: List[Dict[str, Any]] = []
+        for entry in raw.get("databases") or []:
+            if not isinstance(entry, dict):
+                return None, ("database", "type")
+            converted = self._database_to_input(entry)
+            if converted is None:
+                return None, ("database", "name")
+            databases.append(converted)
         filters, unreadable = self._asset_filters_to_input(raw.get("filters") or [])
         if unreadable is not None:
             return None, unreadable
@@ -987,6 +1001,7 @@ class MonteCarloClient:
         monitor_uuid: str,
         mcons: List[str],
         page: Any,
+        response_succeeded: bool,
     ) -> bool:
         """Handle a failed or malformed evaluateAssetSelection page.
 
@@ -995,6 +1010,15 @@ class MonteCarloClient:
         """
         if page is None:
             if not mcons:
+                if response_succeeded:
+                    self._warn(
+                        title="Could not resolve table monitor scope",
+                        message=(
+                            "evaluateAssetSelection returned null for a monitor "
+                            "listed by getMonitors; skipping this monitor."
+                        ),
+                        context=f"monitor_uuid={monitor_uuid}",
+                    )
                 self._mark_table_scope_unresolved()
             return True
         if not isinstance(page, list):
@@ -1043,7 +1067,10 @@ class MonteCarloClient:
                 None if response is None else response.get("evaluate_asset_selection")
             )
             if self._evaluate_asset_selection_page_failure(
-                monitor_uuid=monitor_uuid, mcons=mcons, page=page
+                monitor_uuid=monitor_uuid,
+                mcons=mcons,
+                page=page,
+                response_succeeded=response is not None,
             ):
                 if mcons:
                     incomplete = True

@@ -96,11 +96,11 @@ Verdicts apply **per ingestion phase**, not to the whole run:
   monitor is resolved in the run
 - **Run history** (`getJobExecutions` / `getMetricsV4`), only when `run_events_lookback_days` is set
 
-| Verdict      | What happens                                                                                                                                                                                                                                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **PROCEED**  | The live schema exposes every field the connector requests for that type. Ingestion uses the dynamic query shape.                                                                                                                                                                                                  |
-| **DEGRADED** | One or more **non-critical** fields are missing. The connector drops them, continues the phase, and emits a **warning** titled `Monte Carlo schema drift (<type>)`. The message lists each missing field and, when known, what you lose (for example an empty native slot on the assertion).                       |
-| **ABORT**    | A **critical** field is missing, introspection failed, the GraphQL type itself is gone, or `strict_schema_drift` is enabled and any requested field is missing. The connector **skips that phase** and records a **failure** so stateful stale removal does not treat the run as complete. Other phases still run. |
+| Verdict      | What happens                                                                                                                                                                                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROCEED**  | The live schema exposes every field the connector requests for that type. Ingestion uses the dynamic query shape.                                                                                                                                                                                                      |
+| **DEGRADED** | One or more **non-critical** fields are missing. The connector drops them, continues the phase, and emits a **warning** titled `Monte Carlo schema drift (<type>)`. The message lists each missing field and, when known, what you lose (for example an empty native slot on the assertion).                           |
+| **ABORT**    | A **critical** field is missing, the GraphQL type itself is gone, or `strict_schema_drift` is enabled and (any requested field is missing or introspection failed). The connector **skips that phase** and records a **failure** so stateful stale removal does not treat the run as complete. Other phases still run. |
 
 **Failure titles you may see on ABORT:**
 
@@ -215,8 +215,9 @@ A few specifics that commonly cause silent mis-attachment:
 Verify that:
 
 1. The API key has read access to monitors, custom rules, and alerts in the Monte Carlo UI.
-2. At least one monitor is active and has fired an alert (the connector ingests only monitors that
-   have associated assets and alerts).
+2. At least one monitor is active and its scope resolves to warehouse table(s) (the connector
+   ingests assertions only for monitors whose assets resolve to dataset URNs; alerts are optional
+   and controlled separately by `include_alerts`).
 3. The `connection_to_platform_map` covers the warehouse connections used by your monitored assets.
 
 #### Stateful ingestion and soft-deletion
