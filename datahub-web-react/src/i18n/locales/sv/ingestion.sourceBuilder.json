@@ -235,6 +235,7 @@
     "secret.notFound": "Inga hemligheter hittades",
     "selectTemplate.noResults": "Ingen datakälla med namnet \"{{searchFilter}}\" hittades.",
     "selectTemplate.searchPlaceholder": "Sök datakällor...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake avvecklar autentisering med användarnamn + lösenord (DEFAULT_AUTHENTICATOR) som en del av Strong Authentication-utrullningen. Lösenordsautentisering kommer att sluta fungera på ett kontospecifikt ikraftträdelsedatum under Fas 3 (Aug-Okt 2026). Byt detta recept till nyckelpar-autentisering (KEY_PAIR_AUTHENTICATOR) före ditt kontos ikraftträdelsedatum. Se <anchor>migreringsguide</anchor>.",
     "steps.titles.createSchedule": "Synkroniseringstidsplan",
     "steps.titles.defineRecipe": "Konfigurera anslutning",
     "steps.titles.nameSource": "Slutför",

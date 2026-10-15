@@ -235,6 +235,7 @@
     "secret.notFound": "Секреты не найдены",
     "selectTemplate.noResults": "Источник данных с названием «{{searchFilter}}» не найден.",
     "selectTemplate.searchPlaceholder": "Поиск источников данных...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake отключает аутентификацию по имени пользователя и паролю (DEFAULT_AUTHENTICATOR) в рамках развёртывания Strong Authentication. Аутентификация по паролю перестанет работать в дату принудительного включения для вашего аккаунта на Фазе 3 (авг–окт 2026). Переведите этот рецепт на аутентификацию по паре ключей (KEY_PAIR_AUTHENTICATOR) до даты принудительного включения вашего аккаунта. См. <anchor>руководство по миграции</anchor>.",
     "steps.titles.createSchedule": "Расписание синхронизации",
     "steps.titles.defineRecipe": "Настройка подключения",
     "steps.titles.nameSource": "Завершение",

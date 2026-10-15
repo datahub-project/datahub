@@ -235,6 +235,7 @@
     "secret.notFound": "找不到密鑰",
     "selectTemplate.noResults": "找不到名稱為「{{searchFilter}}」的資料來源。",
     "selectTemplate.searchPlaceholder": "搜尋資料來源...",
+    "snowflake.passwordAuthDeprecation.message": "作為 Strong Authentication 推出作業的一環，Snowflake 正在停用使用者名稱 + 密碼驗證 (DEFAULT_AUTHENTICATOR)。密碼驗證將於第 3 階段（2026 年 8 月至 10 月）的帳戶特定強制啟用日期停止運作。請在帳戶的強制啟用日期前，將此配方切換為金鑰對驗證 (KEY_PAIR_AUTHENTICATOR)。請參閱<anchor>移轉指南</anchor>。",
     "sqlmesh.auditResultsPath.helper": "SQLMesh 稽核結果 JSON 檔案的路徑",
     "sqlmesh.auditResultsPath.label": "稽核結果路徑",
     "sqlmesh.auditResultsPath.tooltip": "包含 SQLMesh 稽核通過／失敗結果的 JSON 檔案路徑。設定後，連接器會發出斷言執行事件，讓通過／失敗狀態顯示在「資料品質」索引標籤。該檔案必須在執行資料擷取時已存在。",

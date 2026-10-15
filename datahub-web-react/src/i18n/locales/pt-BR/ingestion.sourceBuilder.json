@@ -235,6 +235,7 @@
     "secret.notFound": "Nenhum segredo encontrado",
     "selectTemplate.noResults": "Fonte de dados com o nome \"{{searchFilter}}\" não encontrada.",
     "selectTemplate.searchPlaceholder": "Pesquisar fontes de dados...",
+    "snowflake.passwordAuthDeprecation.message": "O Snowflake está descontinuando a autenticação por nome de usuário + senha (DEFAULT_AUTHENTICATOR) como parte da implantação do Strong Authentication. A autenticação por senha deixará de funcionar em uma data de aplicação específica da conta durante a Fase 3 (Ago-Out 2026). Alterne esta receita para autenticação por par de chaves (KEY_PAIR_AUTHENTICATOR) antes da data de aplicação da sua conta. Consulte o <anchor>guia de migração</anchor>.",
     "steps.titles.createSchedule": "Agendamento de Sincronização",
     "steps.titles.defineRecipe": "Configurar Conexão",
     "steps.titles.nameSource": "Finalizar",

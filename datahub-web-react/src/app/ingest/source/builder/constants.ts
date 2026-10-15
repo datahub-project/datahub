@@ -165,6 +165,7 @@ export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
 const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
 const SNOWFLAKE = 'snowflake';
+export { SNOWFLAKE };
 const SNOWFLAKE_BETA = 'snowflake-beta';
 const SNOWFLAKE_USAGE = 'snowflake-usage';
 export const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;

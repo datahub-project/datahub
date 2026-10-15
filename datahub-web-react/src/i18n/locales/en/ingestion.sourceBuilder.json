@@ -235,6 +235,7 @@
     "secret.notFound": "No secrets found",
     "selectTemplate.noResults": "Data Source with name \"{{searchFilter}}\" not found.",
     "selectTemplate.searchPlaceholder": "Search data sources...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake is deprecating username + password authentication (DEFAULT_AUTHENTICATOR) as part of its Strong Authentication rollout. Password auth will stop working on an account-specific enforcement date during Phase 3 (Aug-Oct 2026). Switch this recipe to key-pair authentication (KEY_PAIR_AUTHENTICATOR) before your account's enforcement date. See the <anchor>migration guide</anchor>.",
     "sqlmesh.auditResultsPath.helper": "Path to a JSON file of SQLMesh audit results",
     "sqlmesh.auditResultsPath.label": "Audit Results Path",
     "sqlmesh.auditResultsPath.tooltip": "Path to a JSON file containing SQLMesh audit pass/fail results. When set, the connector emits assertion run events so pass/fail status appears on the Data Quality tab. The file must exist at ingestion time.",

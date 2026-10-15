@@ -97,3 +97,23 @@ def test_oversized_module_sets_wall_floor_without_a_second_giant() -> None:
     assert giant_batch != other_batch
     assert plans[giant_batch].predicted_wall == pytest.approx(1000.0)
     assert max(plan.predicted_wall for plan in plans) == pytest.approx(1000.0)
+
+
+def test_timeline_classes_pack_by_class_makespan_not_file_sum() -> None:
+    """Four classes in one file must not pack as a single 885s leftover shard."""
+    path = "tests/timeline/timeline_change_history_test.py"
+    shards = [
+        ModuleShard(f"{path}::{cls}", seconds, 0.0)
+        for cls, seconds in (
+            ("TestDatasetTimeline", 303.2),
+            ("TestDataProductTimeline", 295.9),
+            ("TestGlossaryTermTimeline", 167.5),
+            ("TestDomainTimeline", 118.7),
+        )
+    ]
+    assert sum(s.parallel_seconds for s in shards) == pytest.approx(885.3)
+    plans = pack_module_plans(shards, batch_count=7, xdist_workers=3)
+    walls = [plan.predicted_wall for plan in plans]
+    assert max(walls) == pytest.approx(303.2)
+    assigned = {path for plan in plans for path in plan.module_paths}
+    assert assigned == {s.path for s in shards}

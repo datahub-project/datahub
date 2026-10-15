@@ -235,6 +235,7 @@
     "secret.notFound": "Aucun Secret trouvé",
     "selectTemplate.noResults": "Aucune source de données nommée \"{{searchFilter}}\" trouvée.",
     "selectTemplate.searchPlaceholder": "Rechercher des sources de données...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake déprécie l'authentification par nom d'utilisateur + mot de passe (DEFAULT_AUTHENTICATOR) dans le cadre de son déploiement Strong Authentication. L'authentification par mot de passe cessera de fonctionner à une date d'application spécifique au compte durant la Phase 3 (Août-Oct 2026). Basculez cette recette vers l'authentification par paire de clés (KEY_PAIR_AUTHENTICATOR) avant la date d'application de votre compte. Consultez le <anchor>guide de migration</anchor>.",
     "steps.titles.createSchedule": "Planification de la synchronisation",
     "steps.titles.defineRecipe": "Configurer la connexion",
     "steps.titles.nameSource": "Finaliser",

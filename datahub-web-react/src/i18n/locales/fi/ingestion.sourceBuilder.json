@@ -235,6 +235,7 @@
     "secret.notFound": "Secretejä ei löytynyt",
     "selectTemplate.noResults": "Tietolähdettä nimellä \"{{searchFilter}}\" ei löytynyt.",
     "selectTemplate.searchPlaceholder": "Hae tietolähteitä...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake on poistamassa käyttäjätunnuksen ja salasanan todennuksen (DEFAULT_AUTHENTICATOR) käytöstä osana Strong Authentication -käyttöönottoa. Salasanatodennus lakkaa toimimasta tilikohtaisena voimaantulopäivänä Vaiheessa 3 (Elo-Lok 2026). Vaihda tämä resepti avainparitodennukseen (KEY_PAIR_AUTHENTICATOR) ennen tilisi voimaantulopäivää. Katso <anchor>siirtymäopas</anchor>.",
     "steps.titles.createSchedule": "Synkronointiaikataulu",
     "steps.titles.defineRecipe": "Määritä yhteys",
     "steps.titles.nameSource": "Viimeistele",
