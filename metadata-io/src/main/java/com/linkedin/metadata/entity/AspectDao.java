@@ -591,6 +591,7 @@ public interface AspectDao {
    * Whether {@link #deleteUrn} deletes rows by aspect name rather than by urn alone, so rows of
    * aspects this registry doesn't know survive unless their names are passed in.
    */
+  @OperationContextExempt(reason = "Describes the store, not an operation on it")
   default boolean deletesUrnByAspectName() {
     return false;
   }
