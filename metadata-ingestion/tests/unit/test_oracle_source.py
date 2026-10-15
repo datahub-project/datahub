@@ -1438,10 +1438,108 @@ class TestOracleQueryExtraction:
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM HR.EMPLOYEES WHERE dept_id = 10"
         assert queries[0].default_schema == "HR"
-        assert queries[0].default_db == "TESTDB"
+        # Entity URNs are schema.table by default, so no database is passed to the
+        # parser; otherwise parsed tables would resolve to db.schema.table URNs.
+        assert queries[0].default_db is None
         assert queries[0].session_id == "sql_id:abc123"
         assert queries[1].query == "SELECT COUNT(*) FROM SALES.ORDERS"
         assert queries[1].default_schema == "SALES"
+
+    def test_extract_queries_passes_default_db_when_urns_include_database(self, ctx):
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": True,
+                "add_database_name_to_urn": True,
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_result = Mock()
+        mock_result.mappings.return_value = [
+            {
+                "sql_id": "abc123",
+                "sql_text": "SELECT * FROM HR.EMPLOYEES",
+                "parsing_schema_name": "HR",
+                "executions": 1,
+                "elapsed_seconds": 0.1,
+                "first_load_time": "2024-01-15/10:30:00",
+            }
+        ]
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch("sqlalchemy.inspect", return_value=Mock()),
+            patch.object(source, "get_db_name", return_value="testdb"),
+        ):
+            queries = list(source._extract_queries_from_vsql(mock_engine))
+
+        assert len(queries) == 1
+        assert queries[0].default_db == "testdb"
+
+    def test_is_allowed_table_applies_schema_and_table_filters(self, ctx):
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "schema_pattern": {"allow": ["hr", "sales"]},
+                "table_pattern": {"deny": [".*\\.tmp_.*"]},
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        assert source._is_allowed_table("hr.employees")
+        assert source._is_allowed_table("HR.EMPLOYEES")
+        assert not source._is_allowed_table("finance.ledger")
+        assert not source._is_allowed_table("hr.tmp_load")
+        assert not source._is_allowed_table("sys.dual")
+        assert not source._is_allowed_table("employees")
+
+    def test_is_allowed_table_with_database_in_urn(self, ctx):
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "add_database_name_to_urn": True,
+                "schema_pattern": {"allow": ["hr"]},
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        assert source._is_allowed_table("orcl.hr.employees")
+        assert not source._is_allowed_table("orcl.finance.ledger")
+        assert not source._is_allowed_table("orcl.system.audit")
+        # Two-part names cannot be matched against a three-tier filter.
+        assert not source._is_allowed_table("hr.employees")
+
+    def test_aggregator_receives_allowed_table_filter(self, ctx):
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "schema_pattern": {"allow": ["hr"]},
+            }
+        )
+        source = OracleSource(config, ctx)
+        hr_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+        other_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,finance.ledger,PROD)"
+
+        assert source.aggregator.is_allowed_table(hr_urn)
+        assert not source.aggregator.is_allowed_table(other_urn)
 
     def test_extract_queries_with_exclude_patterns(self, ctx):
         """Test query extraction with exclude patterns."""

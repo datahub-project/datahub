@@ -1572,8 +1572,39 @@ class OracleSource(SQLAlchemySource):
                 not (self.config.include_tables and self.config.include_views)
                 and not self.config.lazy_schema_resolver
             ),
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+    def _is_allowed_table(self, name: str) -> bool:
+        """Apply the recipe's schema/table filters to tables referenced by parsed SQL.
+
+        V$SQL and view/procedure definitions reference tables the schema crawl never
+        visited. Without this gate the aggregator emits usage, operations and query
+        subjects for those tables, creating container-less datasets outside the
+        configured schema_pattern / table_pattern.
+
+        `name` is the URN name without platform instance: `schema.table`, or
+        `db.schema.table` when add_database_name_to_urn is set.
+        """
+        parts = name.split(".")
+        if self.config.add_database_name_to_urn:
+            if len(parts) < 3:
+                return False
+            schema = parts[-2]
+        else:
+            if len(parts) < 2:
+                return False
+            schema = parts[0]
+
+        if schema.upper() in ORACLE_SYSTEM_SCHEMAS:
+            return False
+        if not self.config.schema_pattern.allowed(schema):
+            return False
+        # The parser cannot tell tables from views, so accept either pattern.
+        return self.config.table_pattern.allowed(
+            name
+        ) or self.config.view_pattern.allowed(name)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -2358,8 +2389,16 @@ class OracleSource(SQLAlchemySource):
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
-                # Get database name once outside the loop since it doesn't change per row
-                db_name = self.get_db_name(inspector)
+                # The parser fills a missing database from default_db, so only pass it
+                # when entity URNs carry the database too. Otherwise parsed tables
+                # become db.schema.table while the crawl emits schema.table, and
+                # usage lands on a second, container-less set of URNs. Mirrors
+                # get_db_schema, which view and procedure lineage use.
+                default_db = (
+                    self.get_db_name(inspector)
+                    if self.config.add_database_name_to_urn
+                    else None
+                )
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
@@ -2396,7 +2435,7 @@ class OracleSource(SQLAlchemySource):
 
                     yield ObservedQuery(
                         query=sql_text,
-                        default_db=db_name,
+                        default_db=default_db,
                         default_schema=row["parsing_schema_name"],
                         timestamp=timestamp,
                         session_id=f"sql_id:{row['sql_id']}",
