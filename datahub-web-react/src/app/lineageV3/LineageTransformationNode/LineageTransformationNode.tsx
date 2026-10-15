@@ -27,7 +27,7 @@ import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal'
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -96,7 +96,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     const history = useHistory();
     const location = useLocation();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const refetch = useRefetchLineage(urn, type);
     // The menu lives inside the hover card, which unmounts when it closes, so the modal is rendered here instead.
     const [manageLineageDirection, setManageLineageDirection] = useState<LineageDirection | null>(null);

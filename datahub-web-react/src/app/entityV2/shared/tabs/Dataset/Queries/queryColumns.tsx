@@ -11,7 +11,7 @@ import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBu
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/query.generated';
 
@@ -43,7 +43,7 @@ interface CreatedByProps {
 }
 
 export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (!createdBy || createdBy.urn === INGESTION_URN) return null;
 

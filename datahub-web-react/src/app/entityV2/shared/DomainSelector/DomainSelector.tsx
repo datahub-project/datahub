@@ -18,7 +18,7 @@ import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { CustomOptionRenderer } from '@src/alchemy-components/components/Select/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -77,7 +77,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     const resolvedPlaceholder =
         placeholder ?? t(isMultiSelect ? 'domainSelector.placeholder' : 'domainSelector.singlePlaceholder');
     const resolvedLabel = label ?? t(isMultiSelect ? 'domainSelector.label' : 'domainSelector.singleLabel');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [useSearch, setUseSearch] = useState(false);
     const attemptedUrnsRef = useRef<Set<string>>(new Set());
 

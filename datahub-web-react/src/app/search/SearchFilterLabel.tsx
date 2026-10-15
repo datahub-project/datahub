@@ -6,9 +6,9 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { IconStyleType } from '@app/entity/Entity';
 import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { ParentWrapper } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
+import { IconStyleType } from '@app/entityV2/Entity';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
 import { getParentEntities } from '@app/search/filters/utils';

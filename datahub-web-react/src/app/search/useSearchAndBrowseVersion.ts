@@ -11,7 +11,3 @@ const useSearchAndBrowseVersion = () => {
 export const useSearchVersion = () => {
     return useSearchAndBrowseVersion().searchVersion;
 };
-
-export const useIsSearchV2 = () => {
-    return useSearchVersion() === 'v2';
-};

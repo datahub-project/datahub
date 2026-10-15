@@ -42,7 +42,7 @@ vi.mock('@app/entityV2/summary/links/RelatedSection', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({ getEntityName: () => 'Glossary Term' }),
+    useEntityRegistry: () => ({ getEntityName: () => 'Glossary Term' }),
 }));
 
 vi.mock('@graphql/mutations.generated', () => ({

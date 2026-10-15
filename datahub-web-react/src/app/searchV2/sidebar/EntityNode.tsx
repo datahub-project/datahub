@@ -2,7 +2,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import {
     BrowseProvider,
     useEntityAggregation,

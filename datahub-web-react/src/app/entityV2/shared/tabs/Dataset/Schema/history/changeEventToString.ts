@@ -21,7 +21,7 @@ import {
     PARAM_TERM_URN,
     UNINFORMATIVE_OWNER_TYPES,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
-import { downgradeV2FieldPath } from '@src/app/lineageV3/utils/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { ChangeEvent } from '@src/types.generated';
 
 function emptyAssetDoc() {

@@ -3,7 +3,7 @@ import { useInView } from 'react-intersection-observer';
 
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { ListDomainFragment, useScrollAcrossDomainsQuery } from '@src/graphql/domain.generated';
 import { Entity, EntityType, FilterOperator, SortOrder } from '@src/types.generated';
 
@@ -43,7 +43,7 @@ interface Props {
  * Returns NestedSelectOption format domains and intersection observer ref
  */
 export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [hasInitialized, setHasInitialized] = useState(false);
     const [domains, setDomains] = useState<Entity[]>([]);
     const [domainsUrnsSet, setDomainsUrnsSet] = useState<Set<string>>(new Set());

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import EntityRegistry from '@src/app/entity/EntityRegistry';
+import EntityRegistry from '@src/app/entityV2/EntityRegistry';
 import { GetAutoCompleteResultsDocument } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
 

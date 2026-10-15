@@ -1,9 +1,8 @@
 import queryString from 'query-string';
 import { useLocation } from 'react-router';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
-import EntityRegistryV2 from '@app/entityV2/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { EntityType } from '@types';
 
@@ -17,7 +16,7 @@ const ENTITY_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/([^/]+).*';
 export function getEntityPath(
     entityType: EntityType,
     urn: string,
-    entityRegistry: EntityRegistry | EntityRegistryV2,
+    entityRegistry: EntityRegistry,
     isLineageMode: boolean,
     isHideSiblingMode: boolean,
     tabName?: string,

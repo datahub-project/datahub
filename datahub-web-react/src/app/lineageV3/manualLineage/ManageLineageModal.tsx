@@ -12,7 +12,7 @@ import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManual
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';

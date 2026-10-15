@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
-import { Incident, IncidentState, IncidentType } from '@types';
+import { IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 
@@ -17,31 +17,6 @@ export function getIncidentDisplayTypes() {
         },
     ];
 }
-
-export function getIncidentDisplayStates() {
-    return [
-        {
-            type: undefined,
-            name: i18next.t('entity.profile.incident:state.all'),
-        },
-        {
-            type: IncidentState.Active,
-            name: i18next.t('entity.profile.incident:state.active'),
-        },
-        {
-            type: IncidentState.Resolved,
-            name: i18next.t('entity.profile.incident:state.resolved'),
-        },
-    ];
-}
-
-export const getNameFromType = (type: IncidentType) => {
-    const incidentTypeToDetails = new Map();
-    getIncidentDisplayTypes().forEach((incidentDetails) => {
-        incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
-    });
-    return incidentTypeToDetails.get(type)?.name || type;
-};
 
 // apollo caching
 const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
@@ -104,30 +79,6 @@ const updateListIncidentsCache = (client, urn, incident, pageSize) => {
             },
         },
     });
-};
-
-/**
- * Returns a status summary for the incidents
- */
-export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
-    const summary = {
-        resolvedIncident: 0,
-        activeIncident: 0,
-        totalIncident: 0,
-    };
-    incidents.forEach((assertion) => {
-        if (incidents.length) {
-            const resultType = assertion.incidentStatus?.state;
-            if (IncidentState.Active === resultType) {
-                summary.activeIncident++;
-            }
-            if (IncidentState.Resolved === resultType) {
-                summary.resolvedIncident++;
-            }
-            summary.totalIncident++;
-        }
-    });
-    return summary;
 };
 
 /**

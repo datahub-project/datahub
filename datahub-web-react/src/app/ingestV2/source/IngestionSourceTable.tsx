@@ -22,7 +22,7 @@ import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
@@ -66,7 +66,7 @@ function IngestionSourceTable({
     const { t } = useTranslation('ingestion');
     const { t: tl } = useTranslation('common.labels');
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,

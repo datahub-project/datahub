@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { TreeNodeProps } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Wrapper = styled.div`
     display: flex;
@@ -15,7 +15,7 @@ const Wrapper = styled.div`
 `;
 
 export default function GlossaryTreeNodeRenderer({ node }: TreeNodeProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const name = entityRegistry.getDisplayName(node.entity.type, node.entity);
 
     return (

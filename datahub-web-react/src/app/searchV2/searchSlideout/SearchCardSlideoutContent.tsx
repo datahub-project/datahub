@@ -7,7 +7,7 @@ import { useSearchContext } from '@app/search/context/SearchContext';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { PreviewSection } from '@app/shared/MatchesContext';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 type Props = {
     item?: CombinedSearchResult | null;
@@ -33,7 +33,7 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
         setCachedExpandedSection(expandedSection);
     }, [expandedSection]);
 
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { isFullViewCard } = useSearchContext();
 
     if (!item || !item.entity || !cachedExpandedSection || !isFullViewCard) return <></>;

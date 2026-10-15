@@ -2,8 +2,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, SchemaFieldEntity } from '@types';

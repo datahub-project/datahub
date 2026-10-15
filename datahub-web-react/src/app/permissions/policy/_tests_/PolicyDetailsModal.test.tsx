@@ -19,13 +19,6 @@ vi.mock('@app/useEntityRegistry', () => ({
         getGenericEntityProperties: vi.fn().mockReturnValue(null),
         getIcon: vi.fn().mockReturnValue(null),
     }),
-    useEntityRegistryV2: () => ({
-        getEntityUrl: vi.fn().mockReturnValue('/test'),
-        getDisplayName: vi.fn().mockReturnValue('Test Entity'),
-        hasEntity: vi.fn().mockReturnValue(true),
-        getGenericEntityProperties: vi.fn().mockReturnValue(null),
-        getIcon: vi.fn().mockReturnValue(null),
-    }),
 }));
 
 vi.mock('@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled', () => ({

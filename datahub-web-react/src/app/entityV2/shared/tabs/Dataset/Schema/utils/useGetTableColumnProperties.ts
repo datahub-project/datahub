@@ -4,12 +4,12 @@ import {
     getShowInColumnsTablePropertyFilter,
     matchesAllowedPlatforms,
 } from '@src/app/govern/structuredProperties/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 export const useGetTableColumnProperties = (platformUrn?: string | null) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const inputs = {
         types: [EntityType.StructuredProperty],

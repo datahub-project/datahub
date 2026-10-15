@@ -9,7 +9,7 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, OwnerType } from '@types';
 
@@ -46,7 +46,7 @@ interface Props {
 }
 
 export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails, onClick }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = (actor && 'editableProperties' in actor && actor.editableProperties?.pictureLink) || undefined;
     const linkProps = useEmbeddedProfileLinkProps();

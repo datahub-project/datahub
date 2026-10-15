@@ -1,6 +1,6 @@
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { Direction } from '@app/lineage/types';
 
 import { Entity, EntityType, LineageDirection } from '@types';

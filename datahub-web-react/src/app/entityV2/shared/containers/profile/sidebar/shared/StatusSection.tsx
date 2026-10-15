@@ -12,7 +12,7 @@ import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shar
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 

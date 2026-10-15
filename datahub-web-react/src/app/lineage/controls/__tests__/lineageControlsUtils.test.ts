@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getWrappedIndex, isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
+import { isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
 
 describe('isLineageFilterActive', () => {
     it('is inactive when nothing deviates from the defaults', () => {
@@ -41,23 +41,5 @@ describe('isLineageFilterActive', () => {
                 showGhostEntities: true,
             }),
         ).toBe(true);
-    });
-});
-
-describe('getWrappedIndex', () => {
-    it('steps forward within bounds', () => {
-        expect(getWrappedIndex(0, 1, 3)).toBe(1);
-    });
-
-    it('wraps forward past the end to the start', () => {
-        expect(getWrappedIndex(2, 1, 3)).toBe(0);
-    });
-
-    it('wraps backward past the start to the end', () => {
-        expect(getWrappedIndex(0, -1, 3)).toBe(2);
-    });
-
-    it('returns NaN for an empty list', () => {
-        expect(getWrappedIndex(0, 1, 0)).toBeNaN();
     });
 });

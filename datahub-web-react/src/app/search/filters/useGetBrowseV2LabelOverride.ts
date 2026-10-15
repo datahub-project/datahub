@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getLastBrowseEntryFromFilterValue } from '@app/search/filters/utils';
 import { BROWSE_PATH_V2_FILTER_NAME } from '@app/search/utils/constants';
 

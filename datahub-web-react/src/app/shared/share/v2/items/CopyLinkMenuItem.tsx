@@ -4,7 +4,7 @@ import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType } from '@types';
@@ -27,7 +27,7 @@ const SimpleMenuItem = styled(Text)`
 `;
 
 export function SimpleCopyLinkMenuItem({ urn, entityType, text }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [isClicked, setIsClicked] = useState(false);
 
     const copyUrl = `${window.location.origin}${resolveRuntimePath(entityRegistry.getEntityUrl(entityType, urn))}/`;

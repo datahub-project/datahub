@@ -10,7 +10,7 @@ import { HorizontalList, SummaryColumns } from '@app/entityV2/shared/summary/Lis
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
 import Loading from '@app/shared/Loading';
 import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 import { Entity, EntityType } from '@types';
@@ -39,7 +39,7 @@ export default function ChartSummaryOverview() {
     const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const chart = useBaseEntity<GetChartQuery>()?.chart;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     // TODO: Fix casting
     // TODO: Check workbook + data source platform actually matches this entity's platform

@@ -10,7 +10,7 @@ import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/typ
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
 import { FetchedEntity } from '@app/lineage/types';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';

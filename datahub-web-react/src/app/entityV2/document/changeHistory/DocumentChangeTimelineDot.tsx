@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { getActorDisplayName, isSystemActor } from '@app/entityV2/document/changeHistory/utils/changeUtils';
 import { Avatar } from '@src/alchemy-components';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { DocumentChange } from '@types';
 
@@ -13,7 +13,7 @@ interface DocumentChangeTimelineDotProps {
 }
 
 export const DocumentChangeTimelineDot: React.FC<DocumentChangeTimelineDotProps> = ({ change }) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { actor } = change;
 
     if (!actor) {

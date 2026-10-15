@@ -1,44 +1,6 @@
-import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
-import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
-import i18next from 'i18next';
-import React from 'react';
-import styled from 'styled-components';
-
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
-
-const UnhealthyIconFilled = styled(WarningCircle).attrs({ weight: 'fill' })<{ fontSize: number }>`
-    color: ${(props) => props.theme.colors.iconError};
-    && {
-        font-size: ${(props) => props.fontSize}px;
-        width: ${(props) => props.fontSize}px;
-        height: ${(props) => props.fontSize}px;
-    }
-`;
-
-const UnhealthyIconOutlined = styled(WarningCircle)<{ fontSize: number }>`
-    color: ${(props) => props.theme.colors.iconError};
-    && {
-        font-size: ${(props) => props.fontSize}px;
-        width: ${(props) => props.fontSize}px;
-        height: ${(props) => props.fontSize}px;
-    }
-`;
-
-const HealthyIconOutlined = styled(CheckCircle)<{ fontSize: number }>`
-    color: ${(props) => props.theme.colors.iconSuccess};
-    && {
-        font-size: ${(props) => props.fontSize}px;
-        width: ${(props) => props.fontSize}px;
-        height: ${(props) => props.fontSize}px;
-    }
-`;
-
-export enum HealthSummaryIconType {
-    OUTLINED,
-    FILLED,
-}
 
 export const isUnhealthy = (healths: Health[]) => {
     const assertionHealth = healths.find((health) => health.type === HealthStatusType.Assertions);
@@ -62,66 +24,4 @@ export const isHealthy = (healths: Health[]) => {
         return isPassingAllAssertions;
     }
     return false;
-};
-
-export const getHealthSummaryIcon = (
-    healths: Health[],
-    type: HealthSummaryIconType = HealthSummaryIconType.FILLED,
-    fontSize = 16,
-) => {
-    const unhealthy = isUnhealthy(healths);
-    const healthy = isHealthy(healths);
-
-    if (unhealthy) {
-        const iconComponent =
-            type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled fontSize={fontSize} />
-            ) : (
-                <UnhealthyIconOutlined fontSize={fontSize} />
-            );
-        return iconComponent;
-    }
-
-    if (healthy) {
-        return <HealthyIconOutlined fontSize={fontSize} />;
-    }
-
-    return undefined;
-};
-
-export const getHealthSummaryMessage = (healths: Health[]) => {
-    const unhealthy = isUnhealthy(healths);
-    return unhealthy ? i18next.t('shared.health:summaryUnhealthy') : i18next.t('shared.health:summaryHealthy');
-};
-
-export const getHealthRedirectPath = (type: HealthStatusType) => {
-    switch (type) {
-        case HealthStatusType.Assertions: {
-            return 'Quality/List';
-        }
-        case HealthStatusType.Incidents: {
-            return 'Incidents';
-        }
-        case HealthStatusType.Tests: {
-            return 'Governance';
-        }
-        default:
-            throw new Error(`Unrecognized Health Status Type ${type} provided`);
-    }
-};
-
-export const getHealthTypeName = (type: HealthStatusType) => {
-    switch (type) {
-        case HealthStatusType.Assertions: {
-            return i18next.t('shared.health:typeAssertions');
-        }
-        case HealthStatusType.Incidents: {
-            return i18next.t('shared.health:typeIncidents');
-        }
-        case HealthStatusType.Tests: {
-            return i18next.t('shared.health:typeTests');
-        }
-        default:
-            throw new Error(`Unrecognized Health Status Type ${type} provided`);
-    }
 };

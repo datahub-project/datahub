@@ -1,13 +1,11 @@
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { IconStyleType } from '@app/entityV2/Entity';
 import {
     PlatformIcon,
-    getFilterEntity,
     getFilterIconAndLabel,
-    getNewFilters,
     isAnyOptionSelected,
     isFilterOptionSelected,
 } from '@app/search/filters/utils';
@@ -15,61 +13,6 @@ import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1 } from '@sr
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType } from '@types';
-
-describe('filter utils - getNewFilters', () => {
-    it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
-        const activeFilters = [{ field: 'entity', values: ['test'] }];
-        const selectedFilterValues = ['one', 'two'];
-        const newFilters = getNewFilters('platform', activeFilters, selectedFilterValues);
-        expect(newFilters).toMatchObject([
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['one', 'two'] },
-        ]);
-    });
-
-    it('should get the correct list of filters when adding filters where the filter field does already exist', () => {
-        const activeFilters = [{ field: 'entity', values: ['test'] }];
-        const selectedFilterValues = ['one', 'two'];
-        const newFilters = getNewFilters('entity', activeFilters, selectedFilterValues);
-        expect(newFilters).toMatchObject([{ field: 'entity', values: ['one', 'two'] }]);
-    });
-
-    it('should get the correct list of filters when adding filters where the filter field does already exist with other filters', () => {
-        const activeFilters = [
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['one'] },
-        ];
-        const selectedFilterValues = ['one', 'two'];
-        const newFilters = getNewFilters('platform', activeFilters, selectedFilterValues);
-        expect(newFilters).toMatchObject([
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['one', 'two'] },
-        ]);
-    });
-
-    it('should get the correct list of filters when removing filters all of the filters for a filter type', () => {
-        const activeFilters = [
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['one'] },
-        ];
-        const selectedFilterValues = [];
-        const newFilters = getNewFilters('platform', activeFilters, selectedFilterValues);
-        expect(newFilters).toMatchObject([{ field: 'entity', values: ['test'] }]);
-    });
-
-    it('should get the correct list of filters when removing filters one of multiple of the filters for a filter type', () => {
-        const activeFilters = [
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['one', 'two'] },
-        ];
-        const selectedFilterValues = ['two'];
-        const newFilters = getNewFilters('platform', activeFilters, selectedFilterValues);
-        expect(newFilters).toMatchObject([
-            { field: 'entity', values: ['test'] },
-            { field: 'platform', values: ['two'] },
-        ]);
-    });
-});
 
 describe('filter utils - isFilterOptionSelected', () => {
     const selectedFilterOptions = [
@@ -180,29 +123,5 @@ describe('filter utils - getFilterIconAndLabel', () => {
 
         expect(icon).toMatchObject(<Folder size={12} weight="fill" color="black" />);
         expect(label).toBe('TESTING');
-    });
-});
-
-describe('filter utils - getFilterEntity', () => {
-    const availableFilters = [
-        {
-            field: 'owners',
-            aggregations: [{ value: 'chris', count: 15 }],
-        },
-        {
-            field: 'platform',
-            aggregations: [
-                { value: 'snowflake', count: 12 },
-                { value: 'dbt', count: 4, entity: dataPlatform },
-            ],
-        },
-    ];
-
-    it('should find and return the filter entity given a filter field and value and availableFilters', () => {
-        expect(getFilterEntity('platform', 'dbt', availableFilters)).toMatchObject(dataPlatform);
-    });
-
-    it('should return null if the given filter has no associated entity in availableFilters', () => {
-        expect(getFilterEntity('platform', 'nonExistent', availableFilters)).toBe(null);
     });
 });

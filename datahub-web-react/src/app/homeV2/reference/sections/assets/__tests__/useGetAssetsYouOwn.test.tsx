@@ -3,7 +3,7 @@ import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
@@ -14,7 +14,7 @@ vi.mock('@graphql/search.generated', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: vi.fn(),
+    useEntityRegistry: vi.fn(),
 }));
 
 vi.mock('@src/app/entityV2/user/useGetUserGroupUrns', () => ({
@@ -36,7 +36,7 @@ function mockCorpUser(urn: string): CorpUser {
 
 describe('useGetAssetsYouOwn', () => {
     const queryMock = useGetSearchResultsForMultipleCardsQuery as unknown as Mock;
-    const registryMock = useEntityRegistryV2 as unknown as Mock;
+    const registryMock = useEntityRegistry as unknown as Mock;
     const groupUrnsMock = useGetUserGroupUrns as unknown as Mock;
 
     beforeEach(() => {
