@@ -95,8 +95,8 @@ interface VideoSlideProps {
     width: string;
 }
 
+// src on the video element restarts resource selection when the MP4 URL arrives.
+// A <source> child inserted after the first pass does not, so autoplay never starts.
 export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => (
-    <StyledVideo width={width} poster={posterSrc} autoPlay loop muted playsInline>
-        {videoSrc && <source src={videoSrc} type="video/mp4" />}
-    </StyledVideo>
+    <StyledVideo width={width} poster={posterSrc} src={videoSrc || undefined} autoPlay loop muted playsInline />
 );

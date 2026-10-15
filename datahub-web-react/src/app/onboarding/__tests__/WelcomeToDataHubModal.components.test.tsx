@@ -17,7 +17,7 @@ describe('VideoSlide', () => {
         const video = container.querySelector('video');
 
         expect(video).toHaveAttribute('poster', '/poster.webp');
-        expect(video?.querySelector('source')).not.toBeInTheDocument();
+        expect(video).not.toHaveAttribute('src');
 
         rerender(
             <MockedProvider>
@@ -28,6 +28,6 @@ describe('VideoSlide', () => {
         );
 
         expect(container.querySelector('video')).toBe(video);
-        expect(video?.querySelector('source')).toHaveAttribute('src', '/video.mp4');
+        expect(video).toHaveAttribute('src', '/video.mp4');
     });
 });
