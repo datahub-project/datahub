@@ -213,17 +213,23 @@ public class CDCProcessor {
     String entityType = entityUrn.getEntityType();
     final AspectSpec aspectSpec;
     if (handling().isTolerant()) {
-      final Optional<AspectSpec> maybeAspectSpec =
-          handling()
-              .aspectSpecForData(
-                  systemOperationContext.getEntityRegistry(), entityType, aspectName);
-      if (maybeAspectSpec.isEmpty()) {
-        // A row of an entity type or aspect this registry doesn't know (written by a newer version
-        // before a rollback): expected after a rollback, so skip it without an error.
-        UNKNOWN_DATA.skipped(systemOperationContext.getMetricUtils(), entityType, aspectName, urn);
+      // A row of an entity type or aspect this registry doesn't know, or whose urn key references
+      // one (written by a newer version before a rollback), is skipped before any metadata is
+      // deserialized, as the MCL consumers do.
+      if (!handling()
+          .admitEvent(
+              UNKNOWN_DATA,
+              systemOperationContext.getEntityRegistry(),
+              systemOperationContext.getMetricUtils(),
+              entityUrn,
+              entityType,
+              aspectName)) {
         return Optional.empty();
       }
-      aspectSpec = maybeAspectSpec.get();
+      aspectSpec =
+          handling()
+              .aspectSpecForData(systemOperationContext.getEntityRegistry(), entityType, aspectName)
+              .orElseThrow();
     } else {
       aspectSpec =
           systemOperationContext

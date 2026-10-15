@@ -90,6 +90,8 @@ public class LoadIndicesStepTest {
     AspectSpec containerAspectSpec = mock(AspectSpec.class);
     AspectSpec ownershipAspectSpec = mock(AspectSpec.class);
     when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(defaultEntitySpec);
+    // Dataset urns nest a dataPlatform urn in their key, which rows are checked against.
+    when(mockEntityRegistry.getEntitySpec("dataPlatform")).thenReturn(mock(EntitySpec.class));
     when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
     when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
     when(defaultEntitySpec.getAspectSpec("container")).thenReturn(containerAspectSpec);
