@@ -2,6 +2,10 @@ package com.linkedin.metadata.utils.metrics;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -65,7 +69,11 @@ public class CascadeOperationContext implements AutoCloseable {
   private final AtomicInteger entitiesProcessed = new AtomicInteger(0);
   private final AtomicInteger errorCount = new AtomicInteger(0);
   private final AtomicInteger hopsCompleted = new AtomicInteger(0);
+  // Largest frontier seen by recordHop(int); -1 until a sized hop is recorded
+  private final AtomicInteger maxFrontierSize = new AtomicInteger(-1);
   private volatile String lastErrorType;
+  // Insertion-ordered so log lines are stable; guarded by itself.
+  private final Map<String, String> tags = new LinkedHashMap<>();
 
   // Saved MDC state for restore-on-close (supports nesting)
   private final @Nullable String prevOperationId;
@@ -201,9 +209,28 @@ public class CascadeOperationContext implements AutoCloseable {
     entitiesProcessed.incrementAndGet();
   }
 
-  /** Record completion of one BFS hop or recursion level. */
-  public void recordHop() {
+  /**
+   * Add a low-cardinality dimension to the duration timer and to the slow and error log lines.
+   * Setting the same key again overwrites it, so callers can set a default at begin and refine it
+   * later. Prometheus requires every series of one meter name to carry the same tag keys, so every
+   * emitter of a given prefix must set the same keys on every path.
+   */
+  public CascadeOperationContext tag(String key, String value) {
+    synchronized (tags) {
+      tags.put(key, value);
+    }
+    return this;
+  }
+
+  /**
+   * Record completion of one BFS hop that queried {@code frontierSize} entities. Only the largest
+   * frontier is kept, so the slow and error log lines stay one value long however deep the walk.
+   * There is deliberately no size-less variant, so every walk logs {@code maxPerHop} alongside
+   * {@code hops}.
+   */
+  public void recordHop(int frontierSize) {
     hopsCompleted.incrementAndGet();
+    maxFrontierSize.accumulateAndGet(frontierSize, Math::max);
   }
 
   /** Record multiple entities processed in bulk (e.g., per-hop batch count). */
@@ -262,17 +289,33 @@ public class CascadeOperationContext implements AutoCloseable {
 
       int hops = hopsCompleted.get();
 
+      final List<String> timerTags =
+          new ArrayList<>(
+              List.of(
+                  "operation_type",
+                  operationType,
+                  "trigger_urn_type",
+                  triggerUrnType,
+                  "status",
+                  status));
+      final StringBuilder logTags = new StringBuilder();
+      int maxPerHop = maxFrontierSize.get();
+      if (maxPerHop >= 0) {
+        logTags.append(", maxPerHop=").append(maxPerHop);
+      }
+      synchronized (tags) {
+        tags.forEach(
+            (key, value) -> {
+              timerTags.add(key);
+              timerTags.add(value);
+              logTags.append(", ").append(key).append('=').append(value);
+            });
+      }
+
       // Emit metrics (always, regardless of log level)
       if (metricUtils != null) {
         metricUtils.recordTimer(
-            metricPrefix + ".duration",
-            durationNanos,
-            "operation_type",
-            operationType,
-            "trigger_urn_type",
-            triggerUrnType,
-            "status",
-            status);
+            metricPrefix + ".duration", durationNanos, timerTags.toArray(new String[0]));
         metricUtils.incrementMicrometer(
             metricPrefix + ".entities_processed",
             processed,
@@ -305,26 +348,29 @@ public class CascadeOperationContext implements AutoCloseable {
       // Conditional logging per PR #16577/#16578 guidelines
       if (errors > 0) {
         log.warn(
-            "Cascade completed with errors: type={}, entities={}, hops={}, errors={}, duration={}ms",
+            "Cascade completed with errors: type={}, entities={}, hops={}, errors={}, duration={}ms{}",
             operationType,
             processed,
             hops,
             errors,
-            durationMs);
+            durationMs,
+            logTags);
       } else if (durationMs >= slowThresholdMs) {
         log.info(
-            "Cascade completed (slow): type={}, entities={}, hops={}, duration={}ms",
+            "Cascade completed (slow): type={}, entities={}, hops={}, duration={}ms{}",
             operationType,
             processed,
             hops,
-            durationMs);
+            durationMs,
+            logTags);
       } else {
         log.debug(
-            "Cascade completed: type={}, entities={}, hops={}, duration={}ms",
+            "Cascade completed: type={}, entities={}, hops={}, duration={}ms{}",
             operationType,
             processed,
             hops,
-            durationMs);
+            durationMs,
+            logTags);
       }
     } catch (Exception e) {
       // Never propagate — observability failures must not break the cascade

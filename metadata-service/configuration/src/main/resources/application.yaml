@@ -353,6 +353,10 @@ datahub:
       percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
+    # Buckets for datahub.lineage.duration and datahub.lineage.graph_walk.duration. The 5s bucket
+    # matches the slow-operation log threshold, so the share of slow lineage requests can be charted.
+    lineageLatency:
+      slo: ${DATAHUB_METRICS_LINEAGE_LATENCY_SERVICE_LEVEL_OBJECTIVES:0.1,0.5,1,2,5,10,30,60} # seconds
     entityCounts:
       enabled: ${ENTITY_COUNT_METRICS_ENABLED:true}
       updateIntervalSeconds: ${ENTITY_COUNT_METRICS_UPDATE_INTERVAL_SECONDS:3600}

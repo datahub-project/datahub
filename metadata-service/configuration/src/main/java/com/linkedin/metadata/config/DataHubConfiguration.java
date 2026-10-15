@@ -45,6 +45,10 @@ public class DataHubConfiguration {
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;
+
+    /** Latency buckets for the lineage request and graph-walk timers. */
+    private MetricsOptions lineageLatency;
+
     private EntityCountMetricsConfiguration entityCounts;
   }
 }
