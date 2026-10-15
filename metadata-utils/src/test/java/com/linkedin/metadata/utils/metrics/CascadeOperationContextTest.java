@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils.metrics;
 
 import static org.testng.Assert.*;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -481,6 +482,40 @@ public class CascadeOperationContextTest {
       String deleteLine =
           lines.stream().filter(l -> l.contains("type=deleteTest")).findFirst().orElseThrow();
       assertTrue(deleteLine.endsWith("ms"), "no hops and no tags keep the old line: " + deleteLine);
+    } finally {
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
+  public void testFastCompletionLogsAtInfoOnlyWhenOptedIn() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    Logger logger = (Logger) LoggerFactory.getLogger(CascadeOperationContext.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      try (CascadeOperationContext ctx =
+          CascadeOperationContext.begin(
+                  metricUtils, "fastWalk", triggerUrn, -1, "datahub.lineage.graph_walk")
+              .logCompletionAtInfo()) {
+        ctx.recordHop(2);
+      }
+      try (CascadeOperationContext ctx =
+          CascadeOperationContext.begin(metricUtils, "fastDelete", triggerUrn, -1)) {
+        ctx.recordEntityProcessed();
+      }
+
+      List<String> infoLines =
+          appender.list.stream()
+              .filter(e -> e.getLevel() == Level.INFO)
+              .map(ILoggingEvent::getFormattedMessage)
+              .toList();
+      assertTrue(
+          infoLines.stream().anyMatch(l -> l.startsWith("Cascade completed: type=fastWalk")),
+          infoLines.toString());
+      assertTrue(
+          infoLines.stream().noneMatch(l -> l.contains("type=fastDelete")), infoLines.toString());
     } finally {
       logger.detachAppender(appender);
     }

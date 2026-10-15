@@ -76,6 +76,7 @@ public class CascadeOperationContext implements AutoCloseable {
   private volatile String lastErrorType;
   // Insertion-ordered so log lines are stable; guarded by itself.
   private final Map<String, String> tags = new LinkedHashMap<>();
+  private volatile boolean logCompletionAtInfo = false;
 
   // Saved MDC state for restore-on-close (supports nesting)
   private final @Nullable String prevOperationId;
@@ -221,6 +222,15 @@ public class CascadeOperationContext implements AutoCloseable {
     synchronized (tags) {
       tags.put(key, value);
     }
+    return this;
+  }
+
+  /**
+   * Log completions under the slow threshold at INFO instead of DEBUG, so every operation of this
+   * kind leaves a line. Opt-in because cascades and query rewrites run far more often than walks.
+   */
+  public CascadeOperationContext logCompletionAtInfo() {
+    this.logCompletionAtInfo = true;
     return this;
   }
 
@@ -382,6 +392,14 @@ public class CascadeOperationContext implements AutoCloseable {
       } else if (durationMs >= slowThresholdMs) {
         log.info(
             "Cascade completed (slow): type={}, entities={}, hops={}, duration={}ms{}",
+            operationType,
+            processed,
+            hops,
+            durationMs,
+            logTags);
+      } else if (logCompletionAtInfo) {
+        log.info(
+            "Cascade completed: type={}, entities={}, hops={}, duration={}ms{}",
             operationType,
             processed,
             hops,

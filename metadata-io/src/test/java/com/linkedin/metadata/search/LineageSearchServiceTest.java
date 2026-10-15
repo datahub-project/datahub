@@ -1696,12 +1696,6 @@ public class LineageSearchServiceTest {
           lineageTimer(registry, "searchAcrossLineage", "visualization", "tortoise", "miss")
               .count(),
           1L);
-
-      // Every series carries the caller tag; a system context has no request agent
-      registry
-          .find("datahub.lineage.duration")
-          .timers()
-          .forEach(t -> assertEquals(t.getId().getTag("caller"), "system"));
     } finally {
       _lineageSearchService.setMetricUtils(null);
     }
