@@ -23,17 +23,30 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Map;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class RateLimitEngineTest {
 
+  // One member for the whole class; maps are reset between methods (see HazelcastTestSupport).
   private HazelcastInstance hazelcastInstance;
 
-  @AfterMethod
-  public void tearDown() {
+  @BeforeClass
+  public void startCluster() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void stopCluster() {
     HazelcastTestSupport.shutdown(hazelcastInstance);
     hazelcastInstance = null;
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void clearBuckets() {
+    HazelcastTestSupport.resetAllMaps(hazelcastInstance);
   }
 
   @Test
@@ -56,7 +69,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testEndpointBucketDeniesAfterCapacityConsumed() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = endpointEnabledConfig();
     config.setRetryAfterJitterPercent(0);
     config
@@ -93,7 +105,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testEnabledWithNoAdaptiveCapacityRulesUsesEndpointOnly() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = endpointEnabledConfig();
     config.getCapacity().getDefaultCapacity().setEnabled(false);
 
@@ -209,7 +220,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testStatusSnapshotIncludesAdaptiveAndEndpointState() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = endpointEnabledConfig();
     config.getMetrics().setDetailed(true);
     config
@@ -244,7 +254,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testPerActorEndpointBucketIsolatesActors() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = perActorEndpointConfig(1);
 
     RateLimitEngine engine =
@@ -263,7 +272,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testPerActorRuleSkippedWhenActorMissing() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = perActorEndpointConfig(1);
 
     RateLimitEngine engine =
@@ -281,7 +289,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testPerActorSkippedStillEnforcesAdaptiveCapacity() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = perActorEndpointConfig(100);
     config.getCapacity().getDefaultCapacity().setInitialLimit(1);
     config.getCapacity().getDefaultCapacity().setMaxLimit(1);
@@ -321,7 +328,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testDisabledRuleDoesNotFireEvenWhenMatching() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = perActorEndpointConfig(1);
     // Disable the per-actor rule via the per-rule kill-switch
     config.getEndpoint().getRules().get(0).setEnabled(false);
@@ -341,7 +347,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testClientClassRoutesToSeparateBucketsWhenEnabled() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = endpointEnabledConfig();
     config.setClientClassEnabled(true);
     config.setRetryAfterJitterPercent(0);
@@ -392,7 +397,6 @@ public class RateLimitEngineTest {
 
   @Test
   public void testClientClassIgnoredWhenDisabled() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     RateLimitProperties config = endpointEnabledConfig();
     // clientClassEnabled defaults to false.
     config.setRetryAfterJitterPercent(0);
