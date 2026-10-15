@@ -13,8 +13,10 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
+from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
@@ -119,6 +121,23 @@ class DbtTestConfig:
             },
             **self.sink_config_modifiers,
         )
+
+
+def run_and_verify(config: DbtTestConfig) -> None:
+    run_and_get_pipeline(
+        {
+            "run_id": config.run_id,
+            "source": {"type": "dbt", "config": config.source_config},
+            "sink": {
+                "type": "file",
+                "config": config.sink_config,
+            },
+        }
+    )
+    assert_metadata_files_equal(
+        output_path=config.output_path,
+        golden_path=config.golden_path,
+    )
 
 
 @pytest.mark.parametrize(
@@ -402,23 +421,40 @@ def test_dbt_ingest(
         tmp_path=tmp_path,
     )
 
-    pipeline = Pipeline.create(
-        {
-            "run_id": config.run_id,
-            "source": {"type": "dbt", "config": config.source_config},
-            "sink": {
-                "type": "file",
-                "config": config.sink_config,
-            },
-        }
+    run_and_verify(config)
+
+
+@pytest.mark.integration
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dbt_multi_project_glob(pytestconfig, tmp_path):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    # Two small hand-authored projects under multi_project/, pinning the
+    # multi-project facts: both projects in one run, per-project platform
+    # instances derived from project_name, sibling catalogs resolved beside each
+    # manifest, a raw source declared by both projects, project_b consuming a
+    # project_a model as a source, one semantic model + metric per project, a
+    # shared-package model whose meta.queries must yield one query per project,
+    # and a run_results file whose test result lands on project_a's assertion.
+    config = DbtTestConfig(
+        "dbt-multi-project-glob",
+        "dbt_test_multi_project_glob.json",
+        "dbt_test_multi_project_glob_golden.json",
+        source_config_modifiers={
+            "manifest_path": f"{test_resources_dir}/multi_project/*/manifest.json",
+            "catalog_path": None,
+            "sources_path": None,
+            "run_results_paths": [
+                f"{test_resources_dir}/multi_project/*/run_results.json"
+            ],
+            "emit_semantic_model_entities": True,
+        },
     )
-    pipeline.run()
-    pipeline.raise_from_status()
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=config.output_path,
-        golden_path=config.golden_path,
+    config.set_paths(
+        dbt_metadata_uri_prefix=test_resources_dir,
+        test_resources_dir=test_resources_dir,
+        tmp_path=tmp_path,
     )
+    run_and_verify(config)
 
 
 def _aspect_key(entry: Dict[str, Any]) -> Any:

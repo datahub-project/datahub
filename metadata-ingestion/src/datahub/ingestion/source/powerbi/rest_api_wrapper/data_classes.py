@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -302,7 +303,7 @@ class User:
 
 
 class ReportType(Enum):
-    PaginatedReport = "PaginatedReport"
+    PaginatedReport = BIAssetSubTypes.POWERBI_PAGINATED_REPORT.value
     PowerBIReport = "Report"
 
 

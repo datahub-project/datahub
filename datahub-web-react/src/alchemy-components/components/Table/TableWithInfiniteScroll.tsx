@@ -1,8 +1,9 @@
-import { Loader, Table } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
+import { Loader } from '@components/components/Loader';
+import { Table } from '@components/components/Table';
 import { TableProps } from '@components/components/Table/types';
 
 const ScrollObserver = styled.div`

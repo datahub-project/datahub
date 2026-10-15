@@ -167,6 +167,10 @@ metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
 
+# Per-run TLS material for the Oracle and SQL Server integration fixtures.
+metadata-ingestion/tests/integration/mssql/.tls/
+metadata-ingestion/tests/integration/oracle/.tls/
+
 # Git credentials (should never be committed)
 .git-credentials
 

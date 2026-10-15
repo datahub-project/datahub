@@ -199,7 +199,10 @@ class TestSaslTransportQopEncoding:
             mock_socket = MagicMock()
 
             # Mock PureSASLClient to capture the qops parameter
-            with patch("pyhive.sasl_compat.PureSASLClient", autospec=True):
+            with patch(
+                "datahub.ingestion.source.sql.hive.sasl_client.PureSASLClient",
+                autospec=True,
+            ):
                 transport = client._create_sasl_transport(mock_socket)
 
                 # Verify transport was created
@@ -217,7 +220,10 @@ class TestSaslTransportQopEncoding:
 
         mock_socket = MagicMock()
 
-        with patch("pyhive.sasl_compat.PureSASLClient", autospec=True):
+        with patch(
+            "datahub.ingestion.source.sql.hive.sasl_client.PureSASLClient",
+            autospec=True,
+        ):
             client._create_sasl_transport(mock_socket)
             # Verify hostname override is used (sasl_host in the method)
             assert (

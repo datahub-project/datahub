@@ -1170,7 +1170,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
-  public void testRollbackKey() throws AssertionError {
+  public void testRollbackKeyKeepsEntityWithAspectFromAnotherRun() throws AssertionError {
     Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
 
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
@@ -1242,7 +1242,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
-    // this should delete the most recent aspect
+    // the key is run-123's, but run-456 wrote an aspect to the entity since
     AspectRowSummary rollbackKeyWithCorrectRunId = new AspectRowSummary();
     rollbackKeyWithCorrectRunId.setRunId("run-123");
     rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
@@ -1251,10 +1251,191 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.rollbackRun(
         opContext, ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
-    // assert the new most recent aspect is null
+    // assert the entity is kept, with the aspect the other run wrote
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn1, keyAspectName));
     RecordTemplate readNewRecentAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
-    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readNewRecentAspect));
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenRunAspectWasOverwrittenByAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeepsOverwritten");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-keep");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-keep");
+    CorpUserInfo overwrite = AspectGenerationUtils.createCorpUserInfo("overwrite@test.com");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, infoName, overwrite, runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-keep"), rollbackRow(urn, infoName, "run-a-keep")),
+        "run-a-keep",
+        true);
+
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            overwrite, _entityServiceImpl.getLatestAspect(opContext, urn, infoName)));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWrittenOnlyByTheRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackDeletesOwnEntity");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-own");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, new CorpUserEditableInfo().setAboutMe("about"), runA);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-own"),
+            rollbackRow(urn, infoName, "run-a-own"),
+            rollbackRow(urn, editableName, "run-a-own")),
+        "run-a-own",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, infoName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, editableName));
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenAnAspectWasWrittenWithTheDefaultRunId() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeepsUiEdit");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-ui");
+    SystemMetadata uiEdit = AspectGenerationUtils.createSystemMetadata(1635792689, DEFAULT_RUN_ID);
+    CorpUserEditableInfo edited = new CorpUserEditableInfo().setAboutMe("edited in the UI");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, edited, uiEdit);
+
+    _entityServiceImpl.rollbackRun(
+        opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-ui")), "run-a-ui", true);
+
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            edited, _entityServiceImpl.getLatestAspect(opContext, urn, editableName)));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenOnlyItsStatusWasWrittenByAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackIgnoresStatus");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String statusName = AspectGenerationUtils.getAspectName(new Status());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-status");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-status");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, statusName, new Status().setRemoved(false), runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-status"), rollbackRow(urn, infoName, "run-a-status")),
+        "run-a-status",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, infoName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, statusName));
+  }
+
+  @Test
+  public void testHardRollbackOfAKeptEntityStillRemovesTheRunsOwnAspects() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeptEntityLosesOwnAspects");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-kept-own");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-kept-own");
+    CorpUserInfo overwrite = AspectGenerationUtils.createCorpUserInfo("overwrite@test.com");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, new CorpUserEditableInfo().setAboutMe("about"), runA);
+    ingestForRollback(urn, infoName, overwrite, runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-kept-own"),
+            rollbackRow(urn, infoName, "run-a-kept-own"),
+            rollbackRow(urn, editableName, "run-a-kept-own")),
+        "run-a-kept-own",
+        true);
+
+    // Run B's write keeps the entity and its own value, but run A's other aspect still goes.
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            overwrite, _entityServiceImpl.getLatestAspect(opContext, urn, infoName)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, editableName));
+  }
+
+  @Test
+  public void testSoftRollbackMarksEntityRemovedEvenWithAnAspectFromAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:softRollbackWithOtherRun");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String statusName = AspectGenerationUtils.getAspectName(new Status());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-soft");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-soft");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("b@test.com"), runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-soft")), "run-a-soft", false);
+
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            new Status().setRemoved(true),
+            _entityServiceImpl.getLatestAspect(opContext, urn, statusName)));
+  }
+
+  private void ingestForRollback(
+      Urn urn, String aspectName, RecordTemplate aspect, SystemMetadata systemMetadata) {
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(urn)
+                        .aspectName(aspectName)
+                        .recordTemplate(aspect)
+                        .systemMetadata(systemMetadata)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+  }
+
+  private void ingestKeyForRollback(Urn urn, SystemMetadata systemMetadata) {
+    ingestForRollback(
+        urn,
+        opContext.getKeyAspectName(urn),
+        EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn),
+        systemMetadata);
+  }
+
+  private static AspectRowSummary rollbackRow(Urn urn, String aspectName, String runId) {
+    return new AspectRowSummary().setUrn(urn.toString()).setAspectName(aspectName).setRunId(runId);
   }
 
   @Test
