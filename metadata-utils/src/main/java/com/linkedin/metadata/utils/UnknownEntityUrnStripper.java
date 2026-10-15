@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils;
 
+import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -16,6 +17,7 @@ import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -110,6 +112,49 @@ public final class UnknownEntityUrnStripper {
         || (aspect != null && referencesUnknownEntityType(aspect, entityRegistry));
   }
 
+  /** The urns in {@code value} whose entity type the registry doesn't know. */
+  @Nonnull
+  static Set<String> unknownUrns(
+      @Nullable final Object value,
+      @Nonnull final DataSchema schema,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final Walk walk = new Walk(entityRegistry, false);
+    walk.unknownUrns = new HashSet<>();
+    walk.prune(value, schema);
+    return walk.unknownUrns;
+  }
+
+  /**
+   * Whether stripping would remove {@code value} as a whole from its container, so a reader never
+   * sees it. Does not modify {@code value}.
+   */
+  static boolean wouldRemove(
+      @Nonnull final Object value,
+      @Nonnull final DataSchema schema,
+      @Nonnull final EntityRegistry entityRegistry) {
+    return new Walk(entityRegistry, true).prune(copyOf(value), schema);
+  }
+
+  /** {@code value} as a reader sees it: a copy without its references to unknown entity types. */
+  @Nonnull
+  static Object strippedCopy(
+      @Nonnull final Object value,
+      @Nonnull final DataSchema schema,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final Object copy = copyOf(value);
+    new Walk(entityRegistry, true).prune(copy, schema);
+    return copy;
+  }
+
+  @Nonnull
+  static Object copyOf(@Nonnull final Object value) {
+    try {
+      return value instanceof DataComplex complex ? complex.copy() : value;
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   private static final class Walk {
     private final EntityRegistry entityRegistry;
     private final boolean mutate;
@@ -117,6 +162,7 @@ public final class UnknownEntityUrnStripper {
     private final Map<String, Boolean> unknownByEntityType = new HashMap<>();
     private int removed;
     private boolean found;
+    @Nullable private Set<String> unknownUrns;
 
     private Walk(@Nonnull final EntityRegistry entityRegistry, final boolean mutate) {
       this.entityRegistry = entityRegistry;
@@ -138,6 +184,9 @@ public final class UnknownEntityUrnStripper {
         }
         final boolean unknown = value instanceof String urn && isUnknownEntityType(urn);
         found |= unknown;
+        if (unknown && unknownUrns != null) {
+          unknownUrns.add((String) value);
+        }
         return unknown;
       }
       if (schema instanceof RecordDataSchema record && value instanceof DataMap map) {

@@ -432,6 +432,20 @@ public class CriterionFilterAspectsBlockingStepTest {
   }
 
   @Test
+  public void testStoredReferenceFromNewerVersionNoLongerFailsTheBuild() {
+    // A stored reference to an entity type only a newer version knows is checked when the write
+    // is applied, which keeps it because it is stored; building the item no longer fails.
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+
+    assertNotNull(
+        buildStep().toChangeItem(OP_CONTEXT, storedDeprecation(deprecation, new SystemMetadata())));
+  }
+
+  @Test
   public void testStoredValueFailingValidationIsSkippedNotFatal() {
     // A stored value this version can't validate (e.g. written by a newer version before a
     // rollback) must not fail this blocking step; that row is left as it is.
@@ -441,7 +455,9 @@ public class CriterionFilterAspectsBlockingStepTest {
         new com.linkedin.common.Deprecation()
             .setDeprecated(true)
             .setNote("moved")
-            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:x"));
+    // A value of a type this version's schema doesn't allow.
+    deprecation.data().put("decommissionTime", "not-a-timestamp");
     SystemAspect stored = mock(SystemAspect.class);
     when(stored.getUrn()).thenReturn(datasetUrn);
     when(stored.getEntitySpec())

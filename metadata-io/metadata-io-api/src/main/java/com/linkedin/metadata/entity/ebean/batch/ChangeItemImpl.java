@@ -196,8 +196,8 @@ public class ChangeItemImpl implements ChangeMCP {
         this.recordTemplate = convertToRecordTemplate(this.metadataChangeProposal, aspectSpec);
       }
 
-      ValidationApiUtils.validateRecordTemplate(
-          this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+      ValidationApiUtils.validateWrittenRecordTemplate(
+          this.entitySpec, this.aspectSpec, this.urn, this.recordTemplate, aspectRetriever);
 
       if (this.systemMetadata == null) {
         // generate default

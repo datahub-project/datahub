@@ -96,6 +96,7 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SyncSearchIndexUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownReferenceMerger;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -178,6 +179,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       UnknownDataGuard.forSite(EntityServiceImpl.class, "MCL");
   private static final UnknownDataGuard UNKNOWN_READ =
       UnknownDataGuard.forSite(EntityServiceImpl.class, "read of");
+  private static final UnknownDataGuard KEPT_REFERENCES =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "stored references in aspect write");
   private static final UnknownDataGuard UNKNOWN_ROLLBACK_ROW =
       UnknownDataGuard.forSite(EntityServiceImpl.class, "rollback row (left in place)");
 
@@ -360,6 +363,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull SemanticNoOpComparator semanticNoOpComparator) {
 
     try {
+      // Before the no-op check, so writing back what was read changes nothing.
+      if (opContext != null && changeMCP.getRecordTemplate() != null) {
+        mergeStoredReferences(opContext, changeMCP, latestAspect);
+      }
+
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
       // version 0)
       long rowNextVersion = Math.max(1, changeMCP.getNextAspectVersion());
@@ -551,6 +559,42 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         storedSystemMetadata.getAspectModified(GetMode.NULL), SetMode.REMOVE_IF_NULL);
     latestSystemMetadata.setAspectCreated(
         storedSystemMetadata.getAspectCreated(GetMode.NULL), SetMode.REMOVE_IF_NULL);
+  }
+
+  /**
+   * Keeps the stored references to entity types this version doesn't know (written by a newer
+   * version before a rollback), which reads drop, in the aspect being written, and rejects a write
+   * that adds one; a typo stays a client error. Compared with the stored row as written, not the
+   * in-memory latest aspect, so applying it again changes nothing.
+   */
+  private static void mergeStoredReferences(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final ChangeMCP changeMCP,
+      @Nullable final SystemAspect latestAspect) {
+    final RecordTemplate stored =
+        latestAspect == null
+            ? null
+            : latestAspect.getDatabaseAspect().map(SystemAspect::getRecordTemplate).orElse(null);
+    final UnknownReferenceMerger.MergeResult result =
+        handling()
+            .mergeStoredReferences(
+                changeMCP.getRecordTemplate(), stored, opContext.getEntityRegistry());
+    if (!result.added().isEmpty()) {
+      throw new ValidationException(
+          String.format(
+              "Aspect %s of %s references entity types this version doesn't know: %s",
+              changeMCP.getAspectName(), changeMCP.getUrn(), result.added()));
+    }
+    if (result.preserved() > 0) {
+      KEPT_REFERENCES.kept(
+          opContext.getMetricUtils(),
+          changeMCP.getAspectName(),
+          result.preserved(),
+          result.preserved()
+              + " stored references to entity types this version doesn't know in "
+              + changeMCP.getAspectName(),
+          changeMCP.getUrn());
+    }
   }
 
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {

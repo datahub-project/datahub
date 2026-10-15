@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -35,6 +37,10 @@ import com.codahale.metrics.Counter;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -212,6 +218,84 @@ public class EntityServiceImplTest {
     assertEquals(result.getSystemMetadata().getLastRunId(), "run-1");
     assertEquals(result.getSystemMetadata().getLastObserved(), 2000L);
     assertTrue(DataTemplateUtil.areEqual(result.getRecordTemplate(), originalInfo));
+  }
+
+  private static final Urn OWNED_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,owned,PROD)");
+  private static final Urn ALICE = UrnUtils.getUrn("urn:li:corpuser:alice");
+  private static final Urn NEWER_BOT = UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot1");
+
+  private Ownership ownershipOf(final Urn... owners) {
+    final OwnerArray ownerArray = new OwnerArray();
+    for (Urn owner : owners) {
+      ownerArray.add(new Owner().setOwner(owner).setType(OwnershipType.DATAOWNER));
+    }
+    return new Ownership().setOwners(ownerArray).setLastModified(TEST_AUDIT_STAMP);
+  }
+
+  private SystemAspect storedOwnership(final Ownership stored) {
+    final SystemMetadata metadata = new SystemMetadata().setRunId("run-1").setVersion("1");
+    return EbeanSystemAspect.builder()
+        .forUpdate(
+            new EbeanAspectV2(
+                OWNED_DATASET.toString(),
+                OWNERSHIP_ASPECT_NAME,
+                0L,
+                RecordUtils.toJsonString(stored),
+                new Timestamp(TEST_AUDIT_STAMP.getTime()),
+                TEST_AUDIT_STAMP.getActor().toString(),
+                null,
+                RecordUtils.toJsonString(metadata)),
+            testEntityRegistry);
+  }
+
+  private ChangeMCP ownershipWrite(final Ownership request) {
+    return ChangeItemImpl.builder()
+        .urn(OWNED_DATASET)
+        .aspectName(OWNERSHIP_ASPECT_NAME)
+        .recordTemplate(request)
+        .systemMetadata(new SystemMetadata().setRunId("run-2"))
+        .auditStamp(TEST_AUDIT_STAMP)
+        .nextAspectVersion(2)
+        .build(opContext.getAspectRetriever());
+  }
+
+  @Test
+  public void testApplyUpsertOfWhatWasReadKeepsStoredUnknownReferences() {
+    // After a rollback a read drops the owner of an entity type only the newer version knows;
+    // writing back what was read must keep it, and write no new version.
+    final SystemAspect latestAspect = storedOwnership(ownershipOf(ALICE, NEWER_BOT));
+    final ChangeMCP changeMCP = ownershipWrite(ownershipOf(ALICE));
+
+    final SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
+
+    assertEquals(changeMCP.getNextAspectVersion(), 1);
+    assertTrue(
+        DataTemplateUtil.areEqual(result.getRecordTemplate(), ownershipOf(ALICE, NEWER_BOT)));
+  }
+
+  @Test
+  public void testApplyUpsertRejectsAnAddedUnknownReference() {
+    final SystemAspect latestAspect = storedOwnership(ownershipOf(ALICE));
+    final ChangeMCP changeMCP = ownershipWrite(ownershipOf(ALICE, NEWER_BOT));
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            EntityServiceImpl.applyUpsert(
+                changeMCP, latestAspect, Collections.emptyList(), null, opContext));
+  }
+
+  @Test
+  public void testStrictHandlingRejectsUnknownReferenceWhenTheWriteIsBuilt() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      assertThrows(ValidationException.class, () -> ownershipWrite(ownershipOf(ALICE, NEWER_BOT)));
+    } finally {
+      UnknownDataHandlings.reset();
+    }
   }
 
   @Test

@@ -16,6 +16,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownTypeDeferringUrnValidator;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Objects;
@@ -210,6 +211,65 @@ public class ValidationApiUtils {
     return aspectSpec;
   }
 
+  /**
+   * Validates an aspect being written. With unknown data tolerated, urns of entity types the
+   * registry doesn't know are not rejected here: they are kept if the stored aspect already holds
+   * them and rejected otherwise when the write is applied ({@link
+   * com.linkedin.metadata.utils.UnknownReferenceMerger}). A timeseries aspect has no stored value
+   * to keep them from, so it is validated in full, as is every aspect when unknown data isn't
+   * tolerated.
+   */
+  public static void validateWrittenRecordTemplate(
+      EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      Urn urn,
+      @Nullable RecordTemplate aspect,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (!handling().isTolerant() || aspectSpec.isTimeseries()) {
+      validateRecordTemplate(
+          entitySpec,
+          urn,
+          aspect,
+          new EntityRegistryUrnValidator(aspectRetriever.getEntityRegistry()),
+          aspectRetriever);
+      return;
+    }
+    validateRecordTemplate(
+        entitySpec,
+        urn,
+        aspect,
+        new UnknownTypeDeferringUrnValidator(aspectRetriever.getEntityRegistry()),
+        aspectRetriever);
+  }
+
+  private static void validateRecordTemplate(
+      EntitySpec entitySpec,
+      Urn urn,
+      @Nullable RecordTemplate aspect,
+      @Nonnull EntityRegistryUrnValidator validator,
+      @Nonnull AspectRetriever aspectRetriever) {
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+    validator.setCurrentEntitySpec(entitySpec);
+    Consumer<ValidationResult> resultFunction =
+        validationResult -> {
+          throw new ValidationException(
+              "Invalid format for aspect: "
+                  + entitySpec.getName()
+                  + "\n Cause: "
+                  + validationResult.getMessages());
+        };
+
+    RecordTemplateValidator.validate(
+        EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
+    if (aspect != null) {
+      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    }
+  }
+
+  /**
+   * Validates an aspect being indexed (an MCL). References to entity types this registry doesn't
+   * know are dropped first, so they are neither indexed nor rejected.
+   */
   public static void validateRecordTemplate(
       EntitySpec entitySpec,
       Urn urn,
@@ -232,7 +292,7 @@ public class ValidationApiUtils {
 
     if (aspect != null) {
       // References to entity types this registry doesn't know (written by a newer version before
-      // a rollback) are dropped rather than stored or indexed, and don't fail the aspect.
+      // a rollback) are dropped rather than indexed, and don't fail the aspect.
       reportStripped(handling().stripUnknownReferences(aspect, entityRegistry), aspect, urn);
       RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
     }
