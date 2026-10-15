@@ -9,22 +9,34 @@ import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import io.github.bucket4j.ConsumptionProbe;
 import java.util.List;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class EndpointRateLimitStoreTest {
 
+  // One member for the whole class; maps are reset between methods (see HazelcastTestSupport).
   private HazelcastInstance hazelcastInstance;
 
-  @AfterMethod
-  public void tearDown() {
+  @BeforeClass
+  public void startCluster() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void stopCluster() {
     HazelcastTestSupport.shutdown(hazelcastInstance);
     hazelcastInstance = null;
   }
 
+  @AfterMethod(alwaysRun = true)
+  public void clearBuckets() {
+    HazelcastTestSupport.resetAllMaps(hazelcastInstance);
+  }
+
   @Test
   public void testDistributedEndpointBucketEnforcesClusterCapacity() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     store.registerEndpointRule(endpointRule("signup-rule"));
@@ -39,7 +51,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testTryConsumeForActor_distinctActorsAreIndependent() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     store.registerEndpointRule(endpointRule("api-rule"));
@@ -55,7 +66,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testTryConsumeForActor_unregisteredRuleReturnsNull() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
 
@@ -64,7 +74,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testTryConsumeForActor_repeatedCallsResumeState() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     store.registerEndpointRule(endpointRule("write-rule"));
@@ -83,7 +92,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testTryConsumeScoped_enforcesCapacityAndRefundRestoresTokens() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     RateLimitProperties.BucketLimits limits = bucketLimits(1);
@@ -98,7 +106,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testRefundScoped_capsAtCapacityAndNeverOverfills() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     RateLimitProperties.BucketLimits limits = bucketLimits(1);
@@ -113,7 +120,6 @@ public class EndpointRateLimitStoreTest {
 
   @Test
   public void testScopedGlobalMapIsSeparateFromTenantMap() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     EndpointRateLimitStore store =
         new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
     RateLimitProperties.BucketLimits limits = bucketLimits(1);

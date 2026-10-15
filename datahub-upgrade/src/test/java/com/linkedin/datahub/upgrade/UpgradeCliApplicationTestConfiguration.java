@@ -177,16 +177,34 @@ public class UpgradeCliApplicationTestConfiguration {
    * Provide an in-memory HazelcastInstance for tests so that Hazelcast Spring integration
    * (HazelcastObjectExtractionConfiguration in hazelcast-spring 5.6+) can create its
    * hzInternalBeanExposer bean. Network is disabled so no cluster join is attempted.
+   *
+   * <p>The instance is a JVM-wide singleton shared across every Spring context in this test fork.
+   * Each distinct {@code @SpringBootTest} configuration (upgrade mode / properties) boots its own
+   * application context, and starting a fresh HazelcastInstance per context costs ~5s of the boot.
+   * Because networking is fully disabled the instance is a self-contained single-member cluster
+   * with no cross-context state the upgrade tests depend on, so one shared instance is safe and
+   * pays the startup cost once per fork instead of once per context. {@code destroyMethod = ""}
+   * stops Spring from shutting it down when a context closes, so later (cache-missed) contexts can
+   * reuse it; the JVM exit reclaims it.
    */
-  @Bean(name = "hazelcastInstance")
+  private static volatile HazelcastInstance sharedHazelcast;
+
+  private static synchronized HazelcastInstance sharedHazelcastInstance() {
+    if (sharedHazelcast == null || !sharedHazelcast.getLifecycleService().isRunning()) {
+      Config config = new Config();
+      config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+      config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
+      config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
+      config.setClusterName("datahub-upgrade-test-shared");
+      sharedHazelcast = Hazelcast.newHazelcastInstance(config);
+    }
+    return sharedHazelcast;
+  }
+
+  @Bean(name = "hazelcastInstance", destroyMethod = "")
   @Primary
   public HazelcastInstance hazelcastInstance() {
-    Config config = new Config();
-    config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-    config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
-    config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
-    config.setClusterName("datahub-upgrade-test-" + UUID.randomUUID());
-    return Hazelcast.newHazelcastInstance(config);
+    return sharedHazelcastInstance();
   }
 
   /**
