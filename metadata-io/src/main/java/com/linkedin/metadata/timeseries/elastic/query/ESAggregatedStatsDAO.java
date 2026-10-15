@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic.query;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -385,6 +387,10 @@ public class ESAggregatedStatsDAO {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    if (!handling().isTolerant()) {
+      // As before tolerance: the checks below built their exception without throwing it.
+      return aspectSpec;
+    }
     if (aspectSpec == null) {
       throw new IllegalArgumentException(
           String.format("Unrecognized aspect name %s for entity %s", aspectName, entityName));

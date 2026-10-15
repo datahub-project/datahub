@@ -611,7 +611,7 @@ public abstract class GenericEntitiesController<
       } else {
         entityService.deleteUrn(opContext, urn);
       }
-    } else {
+    } else if (handling().isTolerant()) {
       // Resolve every name first, so a request naming an unknown aspect deletes nothing.
       final List<String> aspectNames =
           aspects.stream()
@@ -622,6 +622,12 @@ public abstract class GenericEntitiesController<
       aspectNames.forEach(
           aspectName ->
               entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
+    } else {
+      aspects.stream()
+          .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
+          .forEach(
+              aspectName ->
+                  entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
     }
   }
 
@@ -767,7 +773,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.requireAspectSpec(entitySpec, aspectName);
+    AspectSpec aspectSpec =
+        handling().isTolerant()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().getAspectRetriever(),
@@ -841,7 +850,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.requireAspectSpec(entitySpec, aspectName);
+    AspectSpec aspectSpec =
+        handling().isTolerant()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 
     MetadataChangeProposal mcp =
         new MetadataChangeProposal()
