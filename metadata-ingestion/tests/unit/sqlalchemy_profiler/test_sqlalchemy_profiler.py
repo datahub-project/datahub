@@ -1916,39 +1916,42 @@ class TestEndToEndFailureHandling:
 
         profiler, profile = self._profile(conn, True)
 
-        assert len(attempted) <= 3, attempted
+        assert len(attempted) == 2, attempted
         assert profile is not None
         assert not profile.fieldProfiles
 
     def test_one_failing_column_does_not_serialize_the_whole_table(self, tmp_path):
-        # Recovery is scoped to the chunk that failed, so later chunks are still
-        # combined instead of going one query per round trip.
+        # Recovery is scoped to the group that failed, so the other groups are
+        # still combined instead of going one query per round trip.
         engine, conn = self._db(tmp_path, columns=6)
         failed = []
 
         def deny_one(c, cur, statement, *_):
-            text = " ".join(statement.split())
-            if "count(c3)" in text.replace('"', "") and "count(c0)" not in text:
+            text = " ".join(statement.split()).replace('"', "")
+            if "distinct(c3)" in text:
                 failed.append(text)
                 raise sa.exc.OperationalError("denied", {}, Exception("denied"))
 
         sa.event.listen(engine, "before_cursor_execute", deny_one)
 
         # stddev_samp does not exist on SQLite, so leaving it on would fail
-        # every chunk and the assertion below would be met by the chunks that
+        # every group and the assertion below would be met by the groups that
         # ran before the failure rather than by the scoping.
         profiler, profile = self._profile(
             conn,
-            False,
+            True,
             include_field_stddev_value=False,
         )
         report = profiler.report.query_combiner
 
         assert profile is not None
-        # Only the chunk holding c3 goes one query per round trip. Without
-        # scoping the whole queue is demoted and this is an order of magnitude
-        # larger.
-        assert report.uncombined_queries_issued <= 3
+        # Pinned: the denial has to actually fire, or the counter below is zero
+        # for the wrong reason and the test proves nothing.
+        assert failed
+        # Only the distinct group goes one query per round trip -- six columns,
+        # and the re-route cannot help because every retry still touches c3.
+        # Without scoping the whole queue is demoted, which is every query.
+        assert report.uncombined_queries_issued == 6
 
     def test_empty_table_with_a_failing_column_stops_at_the_count(self, tmp_path):
         # Merging the row count into the column batch used to mean an empty
@@ -1967,7 +1970,7 @@ class TestEndToEndFailureHandling:
 
         profiler, profile = self._profile(conn, False)
 
-        assert len(issued) <= 2, issued
+        assert len(issued) == 2, issued
         assert profile is not None
         assert profile.rowCount == 0
         assert not profile.fieldProfiles

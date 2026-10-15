@@ -438,9 +438,15 @@ class SQLAlchemyQueryCombiner:
     # INVARIANT: a flush carries queries for one table only. The record says
     # "this table cannot be read", so a flush spanning two tables would let
     # one table's failed gate skip the other's queries. The profiler holds
-    # this by giving each table its own runner.batch() on its own worker, and
-    # test_a_gate_only_skips_queries_from_its_own_flush pins it. Anything that
-    # queues several tables together must key this by FROM signature first.
+    # this by giving each table its own runner.batch() on its own worker;
+    # test_a_flush_never_carries_two_tables and
+    # test_a_failed_gate_does_not_leak_into_the_next_flush pin it. Anything
+    # that queues several tables together must key this by FROM signature
+    # first.
+    #
+    # Unlocked, unlike the two maps above: each worker only ever reads and
+    # writes its own main greenlet's key, so there is no shared entry to race
+    # over.
     _gate_failure_by_thread: Dict[greenlet.greenlet, Exception] = dataclasses.field(
         default_factory=dict
     )
@@ -817,6 +823,11 @@ class SQLAlchemyQueryCombiner:
         # A one-member group saves no scans and costs a round trip per group
         # where the CTE path needs one for all (measured: 40 tables -> 1
         # statement flag-off, 40 flag-on).
+        #
+        # The gate must not land here: unmatched runs after the groups, so an
+        # unreadable table would pay the distinct-heavy group's serial fallback
+        # before the gate fires. It never does -- every profiled column puts a
+        # count(col) in the gate's cheap group, so that group has a member.
         for sig in [sig for sig, members in groups.items() if len(members) == 1]:
             k, fut = groups.pop(sig)[0]
             self.report.flatten_singletons += 1

@@ -313,10 +313,11 @@ class ProfilingConfig(ProfilingBaseConfig):
         # profiler parses these again while resolving tags, inside a handler
         # that answers any failure with "treat the table as tagged" -- so an
         # unvalidated typo would silently drop every column value for every
-        # table, reported as a DataHub outage.
+        # table, reported as a DataHub outage. Same call the profiler makes, so
+        # parse time and profile time accept exactly the same set.
         for tag in value or []:
             try:
-                TagUrn.from_string(tag) if tag.startswith("urn:") else TagUrn(tag)
+                TagUrn(tag)
             except Exception as e:
                 raise ValueError(
                     f"tags_to_ignore_sampling entry {tag!r} is not a valid tag "

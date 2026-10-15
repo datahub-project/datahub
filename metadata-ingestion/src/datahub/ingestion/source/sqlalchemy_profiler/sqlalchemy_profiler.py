@@ -1785,20 +1785,18 @@ class SQLAlchemyProfiler:
                         pretty_name=pretty_name,
                     )
 
-                    # Emit no field profiles when the row count says there is no data:
-                    # - row_count is None: row count query failed (permission error etc.)
-                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    # Emit no field profiles when the row count says there is no
+                    # data to profile:
+                    # - row_count is None: the query failed (permission error etc.)
+                    # - row_count == 0 AND the count was EXACT: genuinely empty.
                     #
-                    # The column queries have already run — over an empty table they scan
-                    # nothing, which is why they are scheduled alongside the row count
-                    # rather than behind it. Their results are simply dropped here.
+                    # The column queries already ran alongside the count, so their
+                    # results are dropped here rather than skipped.
                     #
-                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
-                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
-                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
-                    # recently-modified tables that actually have data — never analyzed yet, or
-                    # stats not refreshed. Treating that 0 as "no data" would silently drop
-                    # fieldProfiles for non-empty tables.
+                    # With profile_table_row_count_estimate_only the count comes from
+                    # the catalog, which can report 0 for a table that has rows --
+                    # never analyzed, or stale statistics -- so an estimate of 0 must
+                    # not drop the column profiles.
                     if row_count is None or (
                         row_count == 0 and not self._uses_row_count_estimate(adapter)
                     ):
