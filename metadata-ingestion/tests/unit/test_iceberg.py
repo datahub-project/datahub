@@ -154,6 +154,48 @@ def test_config_deprecated_catalog_configuration():
     assert migrated_config.catalog["test"]["another_prop"] == "another_value"
 
 
+def test_rest_catalog_defaults_snapshot_loading_mode_to_refs() -> None:
+    config = IcebergSourceConfig(
+        catalog={"demo": {"type": "rest", "uri": "http://localhost:8181"}}
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+    ) as load_catalog:
+        config.get_catalog()
+    load_catalog.assert_called_once_with(
+        name="demo",
+        type="rest",
+        uri="http://localhost:8181",
+        **{"snapshot-loading-mode": "refs"},
+    )
+
+
+def test_rest_catalog_keeps_user_snapshot_loading_mode() -> None:
+    config = IcebergSourceConfig(
+        catalog={
+            "demo": {
+                "type": "rest",
+                "uri": "http://localhost:8181",
+                "snapshot-loading-mode": "all",
+            }
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+    ) as load_catalog:
+        config.get_catalog()
+    assert load_catalog.call_args.kwargs["snapshot-loading-mode"] == "all"
+
+
+def test_non_rest_catalog_does_not_get_snapshot_loading_mode() -> None:
+    config = IcebergSourceConfig(catalog={"demo": {"type": "sql", "uri": "sqlite://"}})
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+    ) as load_catalog:
+        config.get_catalog()
+    assert "snapshot-loading-mode" not in load_catalog.call_args.kwargs
+
+
 def test_config_for_tests():
     """
     Test valid iceberg source that will be used in unit tests.

@@ -14,7 +14,7 @@ from pyiceberg.catalog.glue import (
     GLUE_SECRET_ACCESS_KEY,
     GLUE_SESSION_TOKEN,
 )
-from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.catalog.rest import SNAPSHOT_LOADING_MODE, RestCatalog
 from pyiceberg.io import (
     AWS_ACCESS_KEY_ID,
     AWS_REGION,
@@ -123,7 +123,12 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
     processing_threads: int = Field(
-        default=1, description="How many threads will be processing tables"
+        default=1,
+        description=(
+            "How many threads will be processing tables. The default of 1 loads tables strictly "
+            "one after another; each table costs at least one catalog round trip, so raise this "
+            "for catalogs with thousands of tables."
+        ),
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default_factory=dict,
@@ -269,6 +274,9 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         if catalog_config.get("type") == "glue":
             self._custom_glue_catalog_handling(catalog_config)
 
+        if catalog_config.get("type") == "rest":
+            catalog_config = self._with_rest_catalog_defaults(catalog_config)
+
         catalog = load_catalog(name=catalog_name, **catalog_config)
         if isinstance(catalog, RestCatalog):
             logger.debug(
@@ -289,6 +297,16 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
         return catalog
+
+    @staticmethod
+    def _with_rest_catalog_defaults(catalog_config: Dict[str, Any]) -> Dict[str, Any]:
+        # The source only reads the current snapshot (dataset properties, and the
+        # profiler's manifest scan), never the snapshot history. By default the REST
+        # loadTable response carries every snapshot of the table, which for tables with
+        # a long history means megabytes of JSON per table to transfer and parse. Ask for
+        # ref-referenced snapshots only (Iceberg REST `snapshots=refs`), unless the user
+        # configured the mode explicitly.
+        return {SNAPSHOT_LOADING_MODE: "refs", **catalog_config}
 
 
 class TopTableTimings:
