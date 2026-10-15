@@ -46,7 +46,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -113,7 +112,6 @@ public class LineageSearchService {
   private static final String TAG_KIND = "kind";
   private static final String TAG_SEARCH_PATH = "search_path";
   private static final String TAG_CACHE = "cache";
-  private static final String TAG_CALLER = "caller";
   private static final String KIND_IMPACT = "impact";
   private static final String KIND_VISUALIZATION = "visualization";
   private static final String SEARCH_PATH_LIGHTNING = "lightning";
@@ -1305,12 +1303,7 @@ public class LineageSearchService {
                 ? KIND_VISUALIZATION
                 : KIND_IMPACT)
         .tag(TAG_SEARCH_PATH, searchPath)
-        .tag(TAG_CACHE, CACHE_SKIP)
-        .tag(
-            TAG_CALLER,
-            opContext.getRequestContext() != null
-                ? opContext.getRequestContext().getAgentClass().toMetricLabel()
-                : AgentClass.SYSTEM.toMetricLabel());
+        .tag(TAG_CACHE, CACHE_SKIP);
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */

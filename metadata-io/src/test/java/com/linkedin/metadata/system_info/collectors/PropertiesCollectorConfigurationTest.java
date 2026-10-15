@@ -526,7 +526,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.metrics.hookLatency.maxExpectedValue",
           "datahub.metrics.hookLatency.percentiles",
           "datahub.metrics.hookLatency.slo",
-          "datahub.metrics.lineageLatency.slo",
           "datahub.metrics.entityCounts.enabled",
           "datahub.metrics.entityCounts.updateIntervalSeconds",
           "datahub.metrics.entityCounts.initialDelaySeconds",
