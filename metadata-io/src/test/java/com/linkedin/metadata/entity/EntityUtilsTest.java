@@ -290,6 +290,56 @@ public class EntityUtilsTest {
                 opContext, opContext.getRetrieverContext(), List.of(unreadableFromNewer)));
   }
 
+  @Test
+  public void testToSystemAspects_MarksRowsFromANewerVersionBeforeStripping() {
+    // The ownership row references an entity type only a newer version has; the strip removes it,
+    // so only a mark made before the strip can still tell later steps where the value came from.
+    EntityAspect withUnknownReference =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/owned,PROD)",
+            "ownership",
+            "{\"owners\":[{\"owner\":\"urn:li:entityFromNewerBuild:x\",\"type\":\"TECHNICAL_OWNER\"}],"
+                + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}");
+    EntityAspect newerSchema =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/newer,PROD)",
+            STATUS_ASPECT_NAME,
+            "{\"removed\":false}");
+    newerSchema.setSystemMetadata("{\"schemaVersion\":999}");
+    EntityAspect plain =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/plain,PROD)",
+            STATUS_ASPECT_NAME,
+            "{\"removed\":false}");
+
+    Map<String, Boolean> marked =
+        EntityUtils.toSystemAspects(
+                opContext,
+                opContext.getRetrieverContext(),
+                List.of(withUnknownReference, newerSchema, plain))
+            .stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    a -> a.getUrn().toString(), SystemAspect::isFromNewerVersion));
+
+    assertEquals(
+        marked,
+        Map.of(
+            withUnknownReference.getUrn(),
+            true,
+            newerSchema.getUrn(),
+            true,
+            plain.getUrn(),
+            false));
+
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    assertFalse(
+        EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(newerSchema))
+            .get(0)
+            .isFromNewerVersion());
+  }
+
   private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {
     EntityAspect row = new EntityAspect();
     row.setUrn(urn);

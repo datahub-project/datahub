@@ -65,6 +65,28 @@ public final class UnknownEntityUrnStripper {
   }
 
   /**
+   * As {@link #strip}, and also reports whether the aspect referenced an entity type the registry
+   * doesn't know anywhere, including references only required fields hold (which stay in place), in
+   * the same walk.
+   */
+  @Nonnull
+  public static StripResult stripReporting(
+      @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry entityRegistry) {
+    final Walk walk = new Walk(entityRegistry, true);
+    walk.prune(aspect.data(), aspect.schema());
+    return new StripResult(walk.removed, walk.found);
+  }
+
+  /**
+   * @param removed the number of elements removed
+   * @param referencedUnknownEntityType whether the aspect referenced an unknown entity type before
+   *     stripping
+   */
+  public record StripResult(int removed, boolean referencedUnknownEntityType) {
+    public static final StripResult NONE = new StripResult(0, false);
+  }
+
+  /**
    * True if the aspect holds a reference to an entity type the registry doesn't know, anywhere
    * (including ones {@link #strip} leaves in place because only required fields hold them). Does
    * not modify the aspect.

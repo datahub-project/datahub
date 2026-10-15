@@ -116,6 +116,13 @@ public final class StrictHandling implements UnknownDataHandling {
     return 0;
   }
 
+  @Nonnull
+  @Override
+  public UnknownEntityUrnStripper.StripResult stripReporting(
+      @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
+    return UnknownEntityUrnStripper.StripResult.NONE;
+  }
+
   @Override
   public boolean aspectReferencesUnknownEntityType(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {

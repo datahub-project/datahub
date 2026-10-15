@@ -635,6 +635,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @Nonnull
   @Override
+  public Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName) {
+    return EntityUtils.toSystemAspects(
+            opContext,
+            opContext.getRetrieverContext(),
+            getLatestAspect(opContext, Set.of(urn), Set.of(aspectName), false).values())
+        .stream()
+        .findFirst();
+  }
+
+  @Nonnull
+  @Override
   public Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,

@@ -6,7 +6,6 @@ import static com.linkedin.metadata.Constants.DATAHUB_VIEW_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -320,12 +319,9 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
           .headers(versionHeaders(systemMetadata != null ? systemMetadata.getVersion() : null))
           .build(opContext.getAspectRetriever());
     } catch (ValidationException e) {
-      if (!handling()
-          .isFromNewerVersion(
-              prepared.getRecordTemplate(),
-              systemMetadata,
-              prepared.getAspectSpec(),
-              opContext.getEntityRegistry())) {
+      // Decided on the stored value when it was read, before references only a newer version
+      // understands were removed.
+      if (!prepared.isFromNewerVersion()) {
         throw e;
       }
       log.warn(

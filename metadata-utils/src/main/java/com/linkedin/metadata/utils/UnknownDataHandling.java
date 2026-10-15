@@ -83,6 +83,14 @@ public interface UnknownDataHandling {
    */
   int stripUnknownReferences(@Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);
 
+  /**
+   * As {@link #stripUnknownReferences}, also reporting whether the aspect referenced an unknown
+   * entity type before stripping.
+   */
+  @Nonnull
+  UnknownEntityUrnStripper.StripResult stripReporting(
+      @Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);
+
   /** True if the aspect references an entity type the registry doesn't know, anywhere in it. */
   boolean aspectReferencesUnknownEntityType(
       @Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);
