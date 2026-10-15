@@ -11,6 +11,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
+from datahub.ingestion.source.dbt.dbt_artifacts import load_file_as_json
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
@@ -68,6 +69,7 @@ from datahub.testing.doctest import assert_doctest
 from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
+    make_freshness_info,
 )
 
 
@@ -919,10 +921,12 @@ def test_extract_dbt_entities() -> None:
         target_platform="dummy",
     )
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
+    nodes = next(source.load_projects()).nodes
+    assert all(node.database is not None for node in nodes)
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
+    nodes = next(source.load_projects()).nodes
+    assert all(node.database is None for node in nodes)
 
 
 def test_drop_duplicate_sources() -> None:
@@ -2521,54 +2525,6 @@ def test_dbt_cloud_parse_into_dbt_exposure():
     assert exposure.dbt_package_name == "my_project"
 
 
-def test_dbt_core_load_exposures():
-    # Test that DBTCoreSource properly loads exposures
-    ctx = PipelineContext(run_id="test-run-id")
-    config = DBTCoreConfig.model_validate(create_base_dbt_config())
-    source = DBTCoreSource(config, ctx)
-
-    # Manually set exposures to test load_exposures
-    source._exposures = [
-        DBTExposure(
-            name="test_exposure",
-            unique_id="exposure.test.test_exposure",
-            type="dashboard",
-        )
-    ]
-
-    exposures = source.load_exposures()
-    assert len(exposures) == 1
-    assert exposures[0].name == "test_exposure"
-
-
-def test_dbt_cloud_load_exposures():
-    """Test that DBTCloudSource.load_exposures returns stored exposures."""
-    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
-
-    config_dict = {
-        "account_id": "123456",
-        "project_id": "1234567",
-        "job_id": "999999",
-        "token": "test_token",
-        "target_platform": "postgres",
-    }
-    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
-
-    source = object.__new__(DBTCloudSource)
-    source.config = config
-    source._exposures = [
-        DBTExposure(
-            name="cloud_exposure",
-            unique_id="exposure.cloud.cloud_exposure",
-            type="dashboard",
-        )
-    ]
-
-    exposures = source.load_exposures()
-    assert len(exposures) == 1
-    assert exposures[0].name == "cloud_exposure"
-
-
 def test_create_exposure_mcps_basic():
     """Test create_exposure_mcps using real DBTCoreSource to get actual coverage."""
     ctx = PipelineContext(run_id="test-run-id")
@@ -2897,7 +2853,7 @@ def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
 
     mcps = list(
         source.create_test_entity_mcps(
-            [test_node], {}, {"model.project.my_model": model_node}
+            [test_node], {"model.project.my_model": model_node}
         )
     )
 
@@ -2920,19 +2876,43 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
         node_type="source",
         owner="source_owner",
     )
-    source_node.freshness_info = DBTFreshnessInfo(
-        invocation_id="test-123",
-        status="pass",
-        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
-        max_loaded_at_time_ago_in_s=7200.0,
-        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
-        error_after=None,
-    )
+    source_node.freshness_info = make_freshness_info()
 
-    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
     assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
+
+
+def test_create_freshness_assertion_mcps_asserts_on_target_platform_instance():
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        platform_instance="dbt-instance",
+        target_platform_instance="warehouse-instance",
+    )
+    source = DBTCoreSource(config, ctx)
+    source_node = _make_dbt_node(
+        "source.project.raw.users",
+        node_type="source",
+        database="my_db",
+        schema="raw",
+    )
+    source_node.freshness_info = make_freshness_info()
+
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
+
+    expected = mce_builder.make_dataset_urn_with_platform_instance(
+        platform="postgres",
+        name="my_db.raw.users",
+        platform_instance="warehouse-instance",
+        env="PROD",
+    )
+    infos = [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+    events = [m.aspect for m in mcps if isinstance(m.aspect, AssertionRunEventClass)]
+    assert len(infos) == 1 and len(events) == 1
+    assert infos[0].customAssertion is not None
+    assert infos[0].customAssertion.entity == expected
+    assert events[0].asserteeUrn == expected
 
 
 def test_load_run_results_skips_generate():
@@ -2948,8 +2928,7 @@ def test_load_run_results_skips_generate():
     }
     nodes = [_make_dbt_node("model.project.my_model")]
     config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, nodes)
-    assert result is nodes
+    load_run_results(config, run_results_json, {n.dbt_name: n for n in nodes})
     assert len(nodes[0].test_results) == 0
     assert len(nodes[0].model_performances) == 0
 
@@ -2994,7 +2973,11 @@ def test_load_run_results_with_test_and_model():
     model_node = _make_dbt_node("model.project.my_model")
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node, model_node])
+    load_run_results(
+        config,
+        run_results_json,
+        {test_node.dbt_name: test_node, model_node.dbt_name: model_node},
+    )
 
     assert len(test_node.test_results) == 1
     assert test_node.test_results[0].status == "pass"
@@ -3003,6 +2986,39 @@ def test_load_run_results_with_test_and_model():
     assert len(model_node.model_performances) == 1
     assert model_node.model_performances[0].status == "success"
     assert model_node.model_performances[0].run_id == "inv-001"
+
+
+def test_load_run_results_malformed_result_attaches_nothing_from_the_file():
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-005",
+        },
+        "results": [
+            {
+                "unique_id": "model.project.my_model",
+                "status": "success",
+                "timing": [
+                    {
+                        "name": "execute",
+                        "started_at": "2024-01-01T00:00:03Z",
+                        "completed_at": "2024-01-01T00:00:05Z",
+                    }
+                ],
+            },
+            {"status": "success"},
+        ],
+    }
+    model_node = _make_dbt_node("model.project.my_model")
+
+    with pytest.raises(ValidationError):
+        load_run_results(
+            mock.MagicMock(), run_results_json, {model_node.dbt_name: model_node}
+        )
+
+    assert model_node.model_performances == []
 
 
 def test_load_run_results_failed_test():
@@ -3029,7 +3045,7 @@ def test_load_run_results_failed_test():
     )
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node])
+    load_run_results(config, run_results_json, {test_node.dbt_name: test_node})
 
     assert len(test_node.test_results) == 1
     tr = test_node.test_results[0]
@@ -3063,7 +3079,9 @@ def test_load_run_results_skipped_test_has_no_result():
         qualified_test_name="dbt_utils.skipped_test", column_name=None, kw_args={}
     )
 
-    load_run_results(mock.MagicMock(), run_results_json, [test_node])
+    load_run_results(
+        mock.MagicMock(), run_results_json, {test_node.dbt_name: test_node}
+    )
 
     assert test_node.test_results == []
 
@@ -3090,9 +3108,14 @@ def test_load_run_results_unknown_node_skipped():
             },
         ],
     }
-    config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, [])
-    assert result == []
+    other_node = _make_dbt_node("model.project.other_model")
+    # No matching node: the result is dropped rather than raising.
+    load_run_results(
+        mock.MagicMock(), run_results_json, {other_node.dbt_name: other_node}
+    )
+
+    assert other_node.model_performances == []
+    assert other_node.test_results == []
 
 
 def test_load_file_as_json_s3():
@@ -3103,9 +3126,7 @@ def test_load_file_as_json_s3():
         "Body": mock.MagicMock(read=mock.MagicMock(return_value=b'{"key": "value"}'))
     }
 
-    result = DBTCoreSource.load_file_as_json(
-        "s3://my-bucket/path/to/manifest.json", mock_aws
-    )
+    result = load_file_as_json("s3://my-bucket/path/to/manifest.json", mock_aws)
     assert result == {"key": "value"}
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
@@ -3167,7 +3188,7 @@ def test_load_file_as_json_gcs():
         "get_s3_client",
         return_value=mock_s3_client,
     ):
-        result = DBTCoreSource.load_file_as_json(
+        result = load_file_as_json(
             "gs://my-gcs-bucket/path/to/manifest.json",
             None,
             gcs_conn,
@@ -4273,7 +4294,6 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects=meta_aspects,
     )
@@ -4318,7 +4338,6 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     )
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects={
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
@@ -4537,7 +4556,6 @@ def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
     ):
         source._generate_base_dbt_aspects(
             node,
-            additional_custom_props_filtered={},
             mce_platform="dbt",
             meta_aspects={},
             column_meta_aspects=column_meta_aspects,
@@ -4807,12 +4825,12 @@ def test_load_file_as_json_handles_utf8_bom():
     # object-store extraction must keep parsing it rather than choking on the BOM.
     payload = b"\xef\xbb\xbf" + b'{"nodes": {}}'
     with mock.patch(
-        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        "datahub.ingestion.source.dbt.dbt_artifacts.read_file_as_bytes",
         return_value=payload,
     ):
-        assert DBTCoreSource.load_file_as_json(
-            "https://example.com/manifest.json", None
-        ) == {"nodes": {}}
+        assert load_file_as_json("https://example.com/manifest.json", None) == {
+            "nodes": {}
+        }
 
 
 def test_dbt_source_patching_dedupes_existing_owners():

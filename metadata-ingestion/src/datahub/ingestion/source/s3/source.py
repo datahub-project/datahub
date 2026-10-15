@@ -46,6 +46,12 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
+from datahub.ingestion.source.data_lake_common.path_listing import (
+    get_prefix,
+    listing_prefix,
+    resolve_templated_folders,
+    table_marker_prefix,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import (
     FolderTraversalMethod,
     PathSpec,
@@ -199,6 +205,10 @@ class TableData:
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -606,11 +616,7 @@ class S3Source(StatefulIngestionSourceBase):
             yield from self.profiler.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
-        index = re.search(r"[\*|\{]", relative_path)
-        if index:
-            return relative_path[: index.start()]
-        else:
-            return relative_path
+        return get_prefix(relative_path)
 
     def extract_table_name_and_path(
         self, path_spec: PathSpec, path: str
@@ -660,31 +666,7 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
     def resolve_templated_folders(self, prefix: str) -> Iterable[str]:
-        folder_split: List[str] = prefix.split("*", 1)
-        # If the len of split is 1 it means we don't have * in the prefix
-        if len(folder_split) == 1:
-            yield prefix
-            return
-
-        basename_startswith = folder_split[0].split("/")[-1]
-        dirname = folder_split[0].removesuffix(basename_startswith)
-
-        folders = list_folders_path(
-            dirname,
-            startswith=basename_startswith,
-            aws_config=self.source_config.aws_config,
-        )
-        for folder in folders:
-            # Ensure proper path joining - folders from list_folders path never include a
-            # trailing slash, but we need to handle the case where folder_split[1] might
-            # start with a slash
-            remaining_pattern = folder_split[1]
-            if remaining_pattern.startswith("/"):
-                remaining_pattern = remaining_pattern[1:]
-
-            yield from self.resolve_templated_folders(
-                f"{folder.path}/{remaining_pattern}"
-            )
+        return resolve_templated_folders(prefix, self.source_config.aws_config)
 
     def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
         """Emit folder Containers for a folders-only path spec, to the depth defined by
@@ -931,34 +913,7 @@ class S3Source(StatefulIngestionSourceBase):
             logger.info("No {table} marker found in path")
             return
 
-        # STEP 1: Replace template placeholders with stars (except {table}) to enable folder resolution
-        # This is the crucial missing logic from the original implementation
-        matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
-        matches_list = list(matches)
-
-        if matches_list:
-            # Replace all templates with stars except keep {table} as the marker
-            max_start: int = -1
-            include: str = path_spec.include
-            max_match: str = ""
-
-            for match in matches_list:
-                pos = include.find(match.group())
-                if pos > max_start:
-                    if max_match:
-                        include = include.replace(max_match, "*")
-                    max_start = match.start()
-                    max_match = match.group()
-                    # We stop at {table}
-                    if max_match == "{table}":
-                        break
-
-            logger.info(f"Template replacement: {path_spec.include} -> {include}")
-        else:
-            include = path_spec.include
-
-        # Split the path at {table} to get the prefix that needs wildcard resolution
-        prefix_before_table = include.split(table_marker)[0]
+        prefix_before_table = table_marker_prefix(path_spec.include)
         logger.info(f"Prefix before table: {prefix_before_table}")
 
         try:
@@ -1120,10 +1075,7 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(path_spec.include)
-
-        basename_startswith = prefix.split("/")[-1]
-        dirname = prefix.removesuffix(basename_startswith)
+        dirname, basename_startswith = listing_prefix(path_spec.include)
 
         # Iterate through all objects in the bucket matching the prefix
         for obj in list_objects_recursive_path(

@@ -72,6 +72,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -143,6 +144,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -373,6 +376,32 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 verify(mockEntityService)
                     .deleteAspect(
                         any(), eq(TEST_URN.toString()), eq(aspectName), anyMap(), eq(true)));
+  }
+
+  /** A whole-entity delete goes through the hard delete service, with the same response. */
+  @Test
+  public void testDeleteEntityDelegatesToTheHardDeleteService() throws Exception {
+    reset(authorizerChain, mockEntityService);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,5,PROD)");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    // The context is shared by every test here, so the controller gets its own field back.
+    Object controller = AopTestUtils.getUltimateTargetObject(entityController);
+    Object previous = ReflectionTestUtils.getField(controller, "hardDeleteService");
+    ReflectionTestUtils.setField(controller, "hardDeleteService", hardDeleteService);
+    try {
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.delete(
+                      String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful());
+    } finally {
+      ReflectionTestUtils.setField(controller, "hardDeleteService", previous);
+    }
+
+    verify(hardDeleteService).deleteEntity(any(), eq(TEST_URN));
+    verify(mockEntityService, never()).deleteUrn(any(), any(Urn.class));
   }
 
   @Test

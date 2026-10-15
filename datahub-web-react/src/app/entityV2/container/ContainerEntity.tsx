@@ -7,38 +7,54 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
-import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
 import { Preview } from '@app/entityV2/container/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import SidebarContentsSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    AccessManagement,
+    DataProductSection,
+    DocumentationTab,
+    EmbeddedProfile,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
+
+const ContainerSummaryTab = lazyProfileComponent(
+    'ContainerSummaryTab',
+    () => import('@app/entityV2/container/ContainerSummaryTab'),
+);
+
+const ContainerEntitiesTab = lazyProfileComponent('ContainerEntitiesTab', () =>
+    import('@app/entityV2/container/ContainerEntitiesTab').then((module) => ({
+        default: module.ContainerEntitiesTab,
+    })),
+);
+const SidebarContentsSection = lazyProfileComponent(
+    'SidebarContentsSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection'),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
@@ -109,6 +125,7 @@ export class ContainerEntity implements Entity<Container> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ContainerSummaryTab,
                 icon: SUMMARY_TAB_ICON,
                 display: showSummaryTab
@@ -121,6 +138,7 @@ export class ContainerEntity implements Entity<Container> {
             },
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: ContainerEntitiesTab,
                 icon: SquaresFour,
             },
@@ -128,6 +146,7 @@ export class ContainerEntity implements Entity<Container> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -135,11 +154,13 @@ export class ContainerEntity implements Entity<Container> {
                 : []),
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {

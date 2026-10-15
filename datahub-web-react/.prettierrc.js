@@ -11,7 +11,7 @@ module.exports = {
         '^@components/(.*)$',
         // Have to specify all aliases otherwise they're considered third party
         '^(@app|@conf|@providers|@utils|@src)/(.*)$',
-        '^(@graphql/|@graphql-mock/|@types)(.*)$',
+        '^(@graphql/|@types)(.*)$',
         '^@images/(.*)$',
         '^[./]',
     ],

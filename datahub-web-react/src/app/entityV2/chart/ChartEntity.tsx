@@ -12,34 +12,34 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ChartPreview } from '@app/entityV2/chart/preview/ChartPreview';
-import { ChartStatsSummarySubHeader } from '@app/entityV2/chart/profile/stats/ChartStatsSummarySubHeader';
-import ChartSummaryTab from '@app/entityV2/chart/summary/ChartSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import SidebarChartHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Chart/Header/SidebarChartHeaderSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EmbedTab,
+    EmbeddedProfile,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
-import { ChartDashboardsTab } from '@app/entityV2/shared/tabs/Entity/ChartDashboardsTab';
-import { InputFieldsTab } from '@app/entityV2/shared/tabs/Entity/InputFieldsTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
@@ -47,7 +47,6 @@ import {
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
@@ -56,6 +55,31 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '@graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '@types';
+
+const ChartSummaryTab = lazyProfileComponent(
+    'ChartSummaryTab',
+    () => import('@app/entityV2/chart/summary/ChartSummaryTab'),
+);
+
+const ChartStatsSummarySubHeader = lazyProfileComponent('ChartStatsSummarySubHeader', () =>
+    import('@app/entityV2/chart/profile/stats/ChartStatsSummarySubHeader').then((module) => ({
+        default: module.ChartStatsSummarySubHeader,
+    })),
+);
+const SidebarChartHeaderSection = lazyProfileComponent(
+    'SidebarChartHeaderSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Chart/Header/SidebarChartHeaderSection'),
+);
+const ChartDashboardsTab = lazyProfileComponent('ChartDashboardsTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/ChartDashboardsTab').then((module) => ({
+        default: module.ChartDashboardsTab,
+    })),
+);
+const InputFieldsTab = lazyProfileComponent('InputFieldsTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/InputFieldsTab').then((module) => ({
+        default: module.InputFieldsTab,
+    })),
+);
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -123,6 +147,7 @@ export class ChartEntity implements Entity<Chart> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ChartSummaryTab,
                 icon: SUMMARY_TAB_ICON,
                 display: showSummaryTab
@@ -139,6 +164,7 @@ export class ChartEntity implements Entity<Chart> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -146,6 +172,7 @@ export class ChartEntity implements Entity<Chart> {
                 : []),
             {
                 name: i18next.t('entity.types:chart.fieldsTab'),
+                path: EntityTabPath.FIELDS,
                 component: InputFieldsTab,
                 icon: Layout,
                 display: {
@@ -155,6 +182,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -168,6 +196,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -177,11 +206,13 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:dashboard.namePlural'),
+                path: EntityTabPath.DASHBOARDS,
                 component: ChartDashboardsTab,
                 icon: Gauge,
                 display: {
@@ -191,6 +222,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 getCount: (_, chart, loading) => {
                     return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                 },
@@ -282,7 +314,6 @@ export class ChartEntity implements Entity<Chart> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -309,7 +340,6 @@ export class ChartEntity implements Entity<Chart> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}

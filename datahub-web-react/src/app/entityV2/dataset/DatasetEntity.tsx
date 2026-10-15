@@ -19,43 +19,38 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { getGovernanceTabName, getQualityTabName } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
-import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
-import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import SidebarDatasetHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import SidebarLogicalSection from '@app/entityV2/shared/containers/profile/sidebar/Logical/SidebarLogicalSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarDatasetViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { SidebarSiblingsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSiblingsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    AccessManagement,
+    DataProductSection,
+    DocumentationTab,
+    EmbedTab,
+    EmbeddedProfile,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    SchemaTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarQueryOperationsSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
-import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
-import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper';
-import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab';
-import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
@@ -63,17 +58,66 @@ import {
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
-import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
+
+const OperationsTab = lazyProfileComponent('OperationsTab', () =>
+    import('@app/entityV2/dataset/profile/OperationsTab').then((module) => ({
+        default: module.OperationsTab,
+    })),
+);
+const DatasetStatsSummarySubHeader = lazyProfileComponent('DatasetStatsSummarySubHeader', () =>
+    import('@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader').then((module) => ({
+        default: module.DatasetStatsSummarySubHeader,
+    })),
+);
+const SidebarDatasetHeaderSection = lazyProfileComponent(
+    'SidebarDatasetHeaderSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection'),
+);
+const SidebarLogicalSection = lazyProfileComponent(
+    'SidebarLogicalSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Logical/SidebarLogicalSection'),
+);
+const SidebarDatasetViewDefinitionSection = lazyProfileComponent('SidebarDatasetViewDefinitionSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection').then((module) => ({
+        default: module.SidebarDatasetViewDefinitionSection,
+    })),
+);
+const SidebarSiblingsSection = lazyProfileComponent('SidebarSiblingsSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/SidebarSiblingsSection').then((module) => ({
+        default: module.SidebarSiblingsSection,
+    })),
+);
+const QueriesTab = lazyProfileComponent(
+    'QueriesTab',
+    () => import('@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab'),
+);
+const StatsTabWrapper = lazyProfileComponent(
+    'StatsTabWrapper',
+    () => import('@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper'),
+);
+const AcrylValidationsTab = lazyProfileComponent('AcrylValidationsTab', () =>
+    import('@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab').then((module) => ({
+        default: module.AcrylValidationsTab,
+    })),
+);
+const ViewDefinitionTab = lazyProfileComponent(
+    'ViewDefinitionTab',
+    () => import('@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab'),
+);
+const GovernanceTab = lazyProfileComponent('GovernanceTab', () =>
+    import('@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
+        default: module.GovernanceTab,
+    })),
+);
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -152,6 +196,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.summary'),
+                          path: EntityTabPath.SUMMARY,
                           component: SummaryTab,
                           icon: SUMMARY_TAB_ICON,
                       },
@@ -159,12 +204,14 @@ export class DatasetEntity implements Entity<Dataset> {
                 : []),
             {
                 name: i18next.t('common.labels:columns'),
+                path: EntityTabPath.COLUMNS,
                 component: SchemaTab,
                 icon: Layout,
                 getCount: useGetColumnTabCount,
             },
             {
                 name: i18next.t('entity.types:dataset.viewDefinitionTab'),
+                path: EntityTabPath.VIEW_DEFINITION,
                 component: ViewDefinitionTab,
                 icon: Code,
                 display: {
@@ -185,6 +232,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -192,6 +240,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 : []),
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -201,11 +250,13 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
             },
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {
@@ -215,6 +266,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
                 getCount: (_, dataset: GetDatasetQuery) => {
@@ -229,6 +281,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.queries'),
+                path: EntityTabPath.QUERIES,
                 component: QueriesTab,
                 icon: Terminal,
                 display: {
@@ -238,6 +291,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:dataset.statsTab'),
+                path: EntityTabPath.STATS,
                 component: StatsTabWrapper,
                 icon: ChartLine,
                 display: {
@@ -251,11 +305,13 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: getQualityTabName(),
+                path: EntityTabPath.QUALITY,
                 component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 icon: CheckCircle,
             },
             {
                 name: getGovernanceTabName(),
+                path: EntityTabPath.GOVERNANCE,
                 icon: ShieldCheck,
                 component: GovernanceTab,
                 getCount: (_, dataset) => {
@@ -266,6 +322,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.runs'), // TODO: Rename this to DatasetRunsTab.
+                path: EntityTabPath.RUNS,
                 component: OperationsTab,
                 display: {
                     visible: (_, dataset: GetDatasetQuery) => {
@@ -278,6 +335,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dataset) => {
@@ -396,7 +454,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
-                origin={data.origin}
                 subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -431,7 +488,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
-                origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
                     platformNames?.[0] ||

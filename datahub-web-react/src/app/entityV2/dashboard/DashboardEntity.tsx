@@ -13,35 +13,35 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DashboardPreview } from '@app/entityV2/dashboard/preview/DashboardPreview';
-import { DashboardStatsSummarySubHeader } from '@app/entityV2/dashboard/profile/DashboardStatsSummarySubHeader';
-import DashboardSummaryTab from '@app/entityV2/dashboard/summary/DashboardSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import SidebarDashboardHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dashboard/Header/SidebarDashboardHeaderSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    AccessManagement,
+    DataProductSection,
+    DocumentationTab,
+    EmbedTab,
+    EmbeddedProfile,
+    EntityProfile,
+    IncidentTab,
+    LineageTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
-import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
-import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/DashboardDatasetsTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
@@ -49,7 +49,6 @@ import {
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
@@ -60,6 +59,31 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '@types';
+
+const DashboardSummaryTab = lazyProfileComponent(
+    'DashboardSummaryTab',
+    () => import('@app/entityV2/dashboard/summary/DashboardSummaryTab'),
+);
+
+const DashboardStatsSummarySubHeader = lazyProfileComponent('DashboardStatsSummarySubHeader', () =>
+    import('@app/entityV2/dashboard/profile/DashboardStatsSummarySubHeader').then((module) => ({
+        default: module.DashboardStatsSummarySubHeader,
+    })),
+);
+const SidebarDashboardHeaderSection = lazyProfileComponent(
+    'SidebarDashboardHeaderSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Dashboard/Header/SidebarDashboardHeaderSection'),
+);
+const DashboardChartsTab = lazyProfileComponent('DashboardChartsTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/DashboardChartsTab').then((module) => ({
+        default: module.DashboardChartsTab,
+    })),
+);
+const DashboardDatasetsTab = lazyProfileComponent('DashboardDatasetsTab', () =>
+    import('@app/entityV2/shared/tabs/Entity/DashboardDatasetsTab').then((module) => ({
+        default: module.DashboardDatasetsTab,
+    })),
+);
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -128,11 +152,13 @@ export class DashboardEntity implements Entity<Dashboard> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: DashboardChartsTab,
                 icon: SquaresFour,
                 display: {
@@ -144,6 +170,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:dataset.namePlural'),
+                path: EntityTabPath.DATASETS,
                 component: DashboardDatasetsTab,
                 icon: Table,
                 display: {
@@ -155,6 +182,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -162,6 +190,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 : []),
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {
@@ -171,6 +200,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -184,6 +214,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -193,11 +224,13 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 icon: Warning,
                 component: IncidentTab,
                 getCount: (_, dashboard) => {
@@ -289,7 +322,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
@@ -321,7 +353,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name={data.properties?.name}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}

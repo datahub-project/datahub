@@ -10,31 +10,39 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlFeatureTable/preview/Preview';
-import Sources from '@app/entityV2/mlFeatureTable/profile/Sources';
-import MlFeatureTableFeatures from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EntityProfile,
+    IncidentTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+} from '@app/entityV2/shared/profileChunks';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '@types';
+
+const Sources = lazyProfileComponent('Sources', () => import('@app/entityV2/mlFeatureTable/profile/Sources'));
+const MlFeatureTableFeatures = lazyProfileComponent(
+    'MlFeatureTableFeatures',
+    () => import('@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures'),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
@@ -92,26 +100,31 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             tabs={[
                 {
                     name: i18next.t('entity.types:mlFeature.namePlural'),
+                    path: EntityTabPath.FEATURES,
                     component: MlFeatureTableFeatures,
                     icon: Table,
                 },
                 {
                     name: i18next.t('entity.types:mlFeatureTable.sourcesTab'),
+                    path: EntityTabPath.SOURCES,
                     component: Sources,
                     icon: Database,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, mlFeatureTable) => {

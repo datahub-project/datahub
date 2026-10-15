@@ -4,17 +4,19 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkListActions } from '@app/entityV2/shared/components/links/useLinkListActions';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceLinkPill';
-import { Button, Editor } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
-const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;
@@ -28,7 +30,8 @@ const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
         padding: 0;
     }
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0px 8px;
     }
 `;
@@ -97,7 +100,7 @@ export default function SummaryAboutSection() {
                         <Button
                             data-testid="add-documentation"
                             onClick={() =>
-                                routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                                routeToTab({ tabName: EntityTabPath.DOCUMENTATION, tabParams: { editing: true } })
                             }
                         >
                             <PencilSimple /> {t('summary.addDocumentation')}

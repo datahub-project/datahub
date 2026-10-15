@@ -55,7 +55,7 @@ const errorLink = onError((error) => {
     //     const { extensions } = firstError;
     //     const errorCode = extensions && (extensions.code as number);
     //     // Fallback in case the calling component does not handle.
-    //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
+    //     toast.error(`${firstError.message} (code ${errorCode})`, { duration: 3 }); // TODO: Decide if we want this back.
     // }
 });
 
@@ -85,6 +85,14 @@ const client = new ApolloClient({
                         },
                     },
                     entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
                         },

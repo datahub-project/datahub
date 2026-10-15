@@ -541,7 +541,26 @@ class SQLAlchemyQueryCombiner:
             if self.flatten_enabled:
                 self._execute_queue_flattened(pending_queue)
             else:
-                self._execute_cte_combine(pending_queue)
+                self._cte_combine_or_serial(pending_queue, "combined query")
+
+    def _cte_combine_or_serial(self, queue: Dict[str, _QueryFuture], what: str) -> None:
+        # Recovery is scoped to the queue passed in. Letting the failure reach
+        # flush() would fall back the whole queue, so one bad column would
+        # serialize every other query for the table.
+        try:
+            self._execute_cte_combine(queue)
+        except Exception as e:
+            if not self.serial_execution_fallback_enabled:
+                raise
+            self.report.query_exceptions += 1
+            logger.warning(
+                f"Failed to execute {what} of {len(queue)} queries "
+                f"({type(e).__name__}); will run them one at a time."
+            )
+            logger.debug(f"Failed to execute {what}", exc_info=e)
+            self._execute_futures_serially(
+                [fut for fut in queue.values() if not fut.done]
+            )
 
     def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
         # Two or more queries are combined by putting each into its own CTE and
@@ -724,20 +743,7 @@ class SQLAlchemyQueryCombiner:
                         )
 
         if unmatched:
-            try:
-                self._execute_cte_combine(unmatched)
-            except Exception as e:
-                if not self.serial_execution_fallback_enabled:
-                    raise
-                self.report.query_exceptions += 1
-                logger.warning(
-                    f"Failed to execute unmatched CTE combine "
-                    f"({type(e).__name__}); will fallback its futures."
-                )
-                logger.debug("Failed to execute unmatched CTE combine", exc_info=e)
-                self._execute_futures_serially(
-                    [fut for fut in unmatched.values() if not fut.done]
-                )
+            self._cte_combine_or_serial(unmatched, "unmatched CTE combine")
 
     def _execute_flat_group(self, members: List[Tuple[str, _QueryFuture]]) -> None:
         # The group is homogeneous by signature, so it is either all cheap --
@@ -894,8 +900,9 @@ class SQLAlchemyQueryCombiner:
 
     def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
         # flush() calls this when the entire _execute_queue raises; it falls
-        # back the whole queue. Per-unit recovery in the flatten path uses the
-        # scoped _execute_futures_serially directly.
+        # back the whole queue. Both execution paths recover before it gets
+        # that far -- per flat group, or per combine window -- using the scoped
+        # _execute_futures_serially directly.
         full_queue = self._get_queue(main_greenlet)
         self._execute_futures_serially(list(full_queue.values()))
 
