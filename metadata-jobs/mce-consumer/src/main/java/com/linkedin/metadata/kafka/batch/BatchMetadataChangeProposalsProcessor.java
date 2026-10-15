@@ -232,14 +232,17 @@ public class BatchMetadataChangeProposalsProcessor {
       // After a rollback, the topic can still hold MCPs a newer build wrote for entities or aspects
       // this build does not know. Batch validation rejects the whole batch for one such MCP, which
       // would send every valid MCP in it to the failure topic too, so fail these individually.
-      if (!handling()
-          .admitEvent(
-              UNKNOWN_DATA,
-              sliceContext.getEntityRegistry(),
-              sliceContext.getMetricUtils(),
-              mcp.getEntityUrn(),
-              mcp.hasEntityType() ? mcp.getEntityType() : null,
-              mcp.hasAspectName() ? mcp.getAspectName() : null)) {
+      // Checked only when tolerant: reading the urn of a malformed MCP throws, which must keep
+      // failing its batch as before.
+      if (handling().isTolerant()
+          && !handling()
+              .admitEvent(
+                  UNKNOWN_DATA,
+                  sliceContext.getEntityRegistry(),
+                  sliceContext.getMetricUtils(),
+                  mcp.getEntityUrn(),
+                  mcp.hasEntityType() ? mcp.getEntityType() : null,
+                  mcp.hasAspectName() ? mcp.getAspectName() : null)) {
         try {
           kafkaProducer.produceFailedMetadataChangeProposal(
               sliceContext,

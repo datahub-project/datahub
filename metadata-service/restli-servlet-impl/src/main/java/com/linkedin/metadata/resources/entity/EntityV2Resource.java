@@ -159,13 +159,39 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
+    if (!handling().isTolerant()) {
+      // As before tolerance: the whole batch is fetched as the first urn's entity type.
+      final String entityName = urnToEntityName(urns.iterator().next());
+      return RestliUtils.toTask(opContext,
+          () -> {
+            final Set<String> projectedAspects =
+                aspectNames == null
+                    ? opContext.getEntityAspectNames(entityName)
+                    : new HashSet<>(Arrays.asList(aspectNames));
+            try {
+              Map<Urn, EntityResponse> response =
+                  _entityService.getEntitiesV2(
+                      opContext,
+                      entityName,
+                      urns,
+                      projectedAspects,
+                      alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+              EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
+              return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format(
+                      "Failed to batch get entities with urns: %s, projectedAspects: %s",
+                      urns, projectedAspects),
+                  e);
+            }
+          },
+          MetricRegistry.name(this.getClass(), "batchGet"));
+    }
     // A batch can mix entity types (including types only a newer version knows, after a
-    // rollback), so the projected aspects are resolved and fetched per entity type. Without
-    // tolerance the whole batch is fetched as the first urn's entity type, as before.
+    // rollback), so the projected aspects are resolved and fetched per entity type.
     final Map<String, Set<Urn>> urnsByEntityName =
-        handling().isTolerant()
-            ? urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()))
-            : Map.of(urnToEntityName(urns.iterator().next()), urns);
+        urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
     return RestliUtils.toTask(opContext,
         () -> {
           final Map<Urn, EntityResponse> response = new HashMap<>();
