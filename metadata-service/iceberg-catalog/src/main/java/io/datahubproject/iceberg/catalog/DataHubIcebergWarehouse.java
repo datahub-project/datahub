@@ -120,13 +120,27 @@ public class DataHubIcebergWarehouse {
             Set.of("dataHubSecretValue"),
             false);
 
-    DataHubSecretValue clientIdValue =
-        new DataHubSecretValue(credsMap.get(clientIdUrn).get(0).data());
+    List<RecordTemplate> clientIdAspects = credsMap == null ? null : credsMap.get(clientIdUrn);
+    if (clientIdAspects == null || clientIdAspects.isEmpty()) {
+      throw new BadRequestException(
+          "Warehouse '%s' credentials are not fully configured: client ID secret not found."
+              + " Re-register the warehouse to ensure credentials are properly set up.",
+          platformInstance);
+    }
 
+    List<RecordTemplate> clientSecretAspects = credsMap.get(clientSecretUrn);
+    if (clientSecretAspects == null || clientSecretAspects.isEmpty()) {
+      throw new BadRequestException(
+          "Warehouse '%s' credentials are not fully configured: client secret not found."
+              + " Re-register the warehouse to ensure credentials are properly set up.",
+          platformInstance);
+    }
+
+    DataHubSecretValue clientIdValue = new DataHubSecretValue(clientIdAspects.get(0).data());
     String clientId = secretService.decrypt(operationContext, clientIdValue.getValue());
 
     DataHubSecretValue clientSecretValue =
-        new DataHubSecretValue(credsMap.get(clientSecretUrn).get(0).data());
+        new DataHubSecretValue(clientSecretAspects.get(0).data());
     String clientSecret = secretService.decrypt(operationContext, clientSecretValue.getValue());
 
     return new CredentialProvider.StorageProviderCredentials(
