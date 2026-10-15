@@ -11,6 +11,8 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -154,6 +157,26 @@ public class BatchGetEntitiesResolverTest {
     assertEquals(batchGetResponse.get(0), loaded1);
     assertNull(batchGetResponse.get(1));
     assertEquals(batchGetResponse.get(2), loaded2);
+  }
+
+  @AfterMethod
+  public void resetHandling() {
+    UnknownDataHandlings.reset();
+  }
+
+  @Test
+  /** Tests that without tolerance a null placeholder fails the batch, as before. */
+  public void testStrictNullPlaceholderFailsBatch() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Function entityProvider = mock(Function.class);
+    List<Entity> inputEntities = getRequestEntities(ImmutableList.of("urn:li:dataset:1"));
+    when(entityProvider.apply(any())).thenReturn(Arrays.asList(inputEntities.get(0), null));
+
+    BatchGetEntitiesResolver resolver =
+        new BatchGetEntitiesResolver(
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
+
+    assertThrows(NullPointerException.class, () -> resolver.get(_dataFetchingEnvironment));
   }
 
   @Test

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.event;
 
 import static com.linkedin.metadata.graph.GraphIndexUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -154,21 +155,34 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   private List<ChangeEvent> getChangeEvents(
       OperationContext operationContext, MetadataChangeLog logEvent) {
-    // The aspect-name allowlist does not check the entity type: after a version rollback an
-    // allowlisted aspect can arrive for an entity type that does not have it in this build.
-    final Optional<AspectSpec> maybeAspectSpec =
-        operationContext
-            .getEntityRegistry()
-            .findAspectSpec(logEvent.getEntityType(), logEvent.getAspectName());
-    if (maybeAspectSpec.isEmpty()) {
-      UNKNOWN_DATA.skipped(
-          operationContext.getMetricUtils(),
-          logEvent.getEntityType(),
-          logEvent.getAspectName(),
-          logEvent.getEntityUrn());
-      return Collections.emptyList();
+    final AspectSpec aspectSpec;
+    if (handling().isTolerant()) {
+      // The aspect-name allowlist does not check the entity type: after a version rollback an
+      // allowlisted aspect can arrive for an entity type that does not have it in this build.
+      final Optional<AspectSpec> maybeAspectSpec =
+          handling()
+              .aspectSpecForData(
+                  operationContext.getEntityRegistry(),
+                  logEvent.getEntityType(),
+                  logEvent.getAspectName());
+      if (maybeAspectSpec.isEmpty()) {
+        UNKNOWN_DATA.skipped(
+            operationContext.getMetricUtils(),
+            logEvent.getEntityType(),
+            logEvent.getAspectName(),
+            logEvent.getEntityUrn());
+        return Collections.emptyList();
+      }
+      aspectSpec = maybeAspectSpec.get();
+    } else {
+      aspectSpec =
+          handling()
+              .entitySpecForData(operationContext.getEntityRegistry(), logEvent.getEntityType())
+              .map(entitySpec -> entitySpec.getAspectSpec(logEvent.getAspectName()))
+              .orElse(null);
+
+      assert aspectSpec != null;
     }
-    final AspectSpec aspectSpec = maybeAspectSpec.get();
 
     final RecordTemplate fromAspect =
         logEvent.getPreviousAspectValue() != null

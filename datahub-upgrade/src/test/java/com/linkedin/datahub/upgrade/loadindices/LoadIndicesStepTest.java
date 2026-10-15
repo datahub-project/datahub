@@ -26,6 +26,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.ActorContext;
@@ -125,6 +127,7 @@ public class LoadIndicesStepTest {
 
   @AfterMethod
   public void cleanup() {
+    UnknownDataHandlings.reset();
     if (database != null) {
       database.shutdown();
     }
@@ -572,6 +575,36 @@ public class LoadIndicesStepTest {
 
     assertEquals(result.unknownToRegistrySkipped, 2L);
     assertEquals(result.conversionErrorsSkipped, 0L);
+  }
+
+  @Test
+  public void testStrictHandlingDoesNotSkipRowsUnknownToRegistry() throws Exception {
+    // Without tolerance an unknown aspect is not skipped up front; it fails conversion as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleFuture,PROD)",
+        "futureAspect",
+        0,
+        Instant.now(),
+        "testUser");
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("futureAspect");
+    args.skipConversionErrors = true;
+
+    LoadIndicesResult result =
+        loader.load(
+            mockOperationContext,
+            args,
+            msg -> null,
+            null,
+            mockUpdateIndicesService::handleChangeEvents);
+
+    assertEquals(result.unknownToRegistrySkipped, 0L);
+    assertEquals(result.conversionErrorsSkipped, 1L);
   }
 
   @Test

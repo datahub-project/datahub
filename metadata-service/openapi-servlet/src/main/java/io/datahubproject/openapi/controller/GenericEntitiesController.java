@@ -6,6 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -694,11 +695,20 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
-    // silently returning 200 would leave the row in place while telling the caller it is gone.
-    final AspectSpec aspectSpec =
-        RequestInputUtil.requireAspectSpec(
-            entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    final AspectSpec aspectSpec;
+    if (handling().isTolerant()) {
+      // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
+      // silently returning 200 would leave the row in place while telling the caller it is gone.
+      aspectSpec =
+          RequestInputUtil.requireAspectSpec(
+              entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    } else {
+      final Optional<AspectSpec> maybeAspectSpec = lookupAspectSpec(urn, aspectName);
+      if (maybeAspectSpec.isEmpty()) {
+        return;
+      }
+      aspectSpec = maybeAspectSpec.get();
+    }
     if (aspectSpec.isTimeseries()) {
       Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
           timeseriesAspectService.getLatestTimeseriesAspectValues(

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
@@ -231,12 +232,14 @@ public class BatchMetadataChangeProposalsProcessor {
       // After a rollback, the topic can still hold MCPs a newer build wrote for entities or aspects
       // this build does not know. Batch validation rejects the whole batch for one such MCP, which
       // would send every valid MCP in it to the failure topic too, so fail these individually.
-      if (!UNKNOWN_DATA.admitEvent(
-          sliceContext.getEntityRegistry(),
-          sliceContext.getMetricUtils(),
-          mcp.getEntityUrn(),
-          mcp.hasEntityType() ? mcp.getEntityType() : null,
-          mcp.hasAspectName() ? mcp.getAspectName() : null)) {
+      if (!handling()
+          .admitEvent(
+              UNKNOWN_DATA,
+              sliceContext.getEntityRegistry(),
+              sliceContext.getMetricUtils(),
+              mcp.getEntityUrn(),
+              mcp.hasEntityType() ? mcp.getEntityType() : null,
+              mcp.hasAspectName() ? mcp.getAspectName() : null)) {
         try {
           kafkaProducer.produceFailedMetadataChangeProposal(
               sliceContext,

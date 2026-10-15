@@ -42,7 +42,9 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,6 +56,7 @@ import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -67,6 +70,11 @@ public class UpdateIndicesServiceTest {
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -490,6 +498,29 @@ public class UpdateIndicesServiceTest {
         .setAspect(GenericRecordUtils.serializeAspect(aspect))
         .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
         .setCreated(AuditStampUtils.createDefaultAuditStamp());
+  }
+
+  @Test
+  public void testHandleChangeEvents_StrictHandlingFailsOnInvalidEventsFromANewerVersion() {
+    // Strict handling keeps the original behavior: the whole batch fails, nothing is counted.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "strict.invalid",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(context, List.of(unstrippable)));
+    verify(metrics, never()).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
   }
 
   @Test

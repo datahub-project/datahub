@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Documentation;
@@ -271,7 +273,7 @@ public class DocumentMapper {
                     return assetInfo;
                   })
               // Skip assets of entity types the registry doesn't know (e.g. after a rollback).
-              .filter(assetInfo -> assetInfo.getAsset() != null)
+              .filter(assetInfo -> assetInfo.getAsset() != null || !handling().isTolerant())
               .collect(java.util.stream.Collectors.toList()));
     }
 

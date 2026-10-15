@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.validation;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
@@ -14,7 +16,6 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
-import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Objects;
@@ -232,7 +233,7 @@ public class ValidationApiUtils {
     if (aspect != null) {
       // References to entity types this registry doesn't know (written by a newer version before
       // a rollback) are dropped rather than stored or indexed, and don't fail the aspect.
-      reportStripped(UnknownEntityUrnStripper.strip(aspect, entityRegistry), aspect, urn);
+      reportStripped(handling().stripUnknownReferences(aspect, entityRegistry), aspect, urn);
       RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
     }
   }

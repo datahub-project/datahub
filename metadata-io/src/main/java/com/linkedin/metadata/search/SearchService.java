@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -199,6 +200,9 @@ public class SearchService {
           () -> _entityDocCountCache.getNonEmptyEntities(opContext.withSkipTemplateExecution(true)),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
+    }
+    if (!handling().isTolerant()) {
+      return lowercaseEntities;
     }
 
     // Entity types this registry doesn't know (e.g. requested by a client built for a newer version

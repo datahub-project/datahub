@@ -46,6 +46,8 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
@@ -66,6 +68,7 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -87,6 +90,11 @@ public class AspectsBatchImplTest {
             Snapshot.class.getClassLoader().getResourceAsStream("AspectsBatchImplTest.yaml"));
     this.testRegistry =
         new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @BeforeMethod
@@ -431,6 +439,23 @@ public class AspectsBatchImplTest {
                       AuditStampUtils.createDefaultAuditStamp(),
                       retrieverContext));
     }
+  }
+
+  @Test
+  public void strictHandlingValidatesUrnBeforeEntityType() {
+    // Strict handling keeps the original order: urn validation fails first, with the
+    // IllegalArgumentException batch building skips, instead of a ValidationException.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Urn unknownEntityType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            DeleteItemImpl.builder()
+                .urn(unknownEntityType)
+                .aspectName(STATUS_ASPECT_NAME)
+                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .build(mockAspectRetriever));
   }
 
   private static MetadataChangeProposal upsert(Urn urn, String aspectName) {

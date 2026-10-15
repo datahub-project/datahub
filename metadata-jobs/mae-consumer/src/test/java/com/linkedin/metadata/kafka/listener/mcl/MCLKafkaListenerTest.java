@@ -13,7 +13,9 @@ import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityRe
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.trace.TraceServiceImpl;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -111,6 +113,7 @@ public class MCLKafkaListenerTest {
   @AfterMethod
   public void tearDown() {
     MDC.clear();
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -303,6 +306,16 @@ public class MCLKafkaListenerTest {
       verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
       verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
     }
+  }
+
+  @Test
+  public void testStrictHandlingDoesNotSkipUnknownEntityType() throws Exception {
+    // Without tolerance only the aspects-to-drop configuration skips an MCL, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.setEntityType("entityFromNewerBuild");
+
+    assertFalse(MCLKafkaListener.shouldSkipMcl(event, Map.of(), systemOperationContext));
   }
 
   @Test

@@ -1,9 +1,11 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -28,7 +30,6 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UnknownDataGuard;
-import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -283,9 +284,26 @@ public class EntityUtils {
                 raw -> {
                   Urn urn = UrnUtils.getUrn(raw.getUrn());
 
-                  if (!UNKNOWN_DATA.admit(
-                      entityRegistry, metrics, urn.getEntityType(), raw.getAspect(), urn)) {
+                  if (!handling()
+                      .admit(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          metrics,
+                          urn.getEntityType(),
+                          raw.getAspect(),
+                          urn)) {
                     return null;
+                  }
+                  if (!handling().isTolerant()) {
+                    // Strict handling fails on an unknown entity type or aspect, as before.
+                    final AspectSpec aspectSpec =
+                        handling()
+                            .entitySpecForData(entityRegistry, urn.getEntityType())
+                            .map(entitySpec -> entitySpec.getAspectSpec(raw.getAspect()))
+                            .orElse(null);
+                    Preconditions.checkState(
+                        aspectSpec != null,
+                        String.format("Aspect %s could not be found", raw.getAspect()));
                   }
 
                   return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
@@ -300,7 +318,7 @@ public class EntityUtils {
         systemAspect -> {
           if (systemAspect.getRecordTemplate() != null) {
             final int removed =
-                UnknownEntityUrnStripper.strip(systemAspect.getRecordTemplate(), entityRegistry);
+                handling().stripUnknownReferences(systemAspect.getRecordTemplate(), entityRegistry);
             if (removed > 0) {
               UNKNOWN_REFERENCES.skippedBecause(
                   metrics,

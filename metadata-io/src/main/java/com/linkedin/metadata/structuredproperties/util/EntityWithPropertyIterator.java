@@ -74,6 +74,7 @@ public class EntityWithPropertyIterator implements Iterator<ScrollResult> {
     // Every listed type unknown to this build: nothing to scroll. An empty type list must not
     // reach the scroll, where it would search every entity type.
     if (!started
+        && entityRegistry != null
         && definition != null
         && definition.getEntityTypes() != null
         && !definition.getEntityTypes().isEmpty()
