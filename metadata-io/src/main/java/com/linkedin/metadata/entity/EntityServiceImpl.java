@@ -2384,6 +2384,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .filter(
                       result -> { // only versioned MCLs
                         MetadataChangeLog mcl = result.getMetadataChangeLog();
+                        if (!handling().isTolerant()) {
+                          return !opContext
+                              .getEntityRegistry()
+                              .getEntitySpec(mcl.getEntityType())
+                              .getAspectSpec(mcl.getAspectName())
+                              .isTimeseries();
+                        }
                         return handling()
                             .aspectSpecForData(
                                 opContext.getEntityRegistry(),
@@ -3387,6 +3394,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return mcls.stream()
         .map(
             mcl -> {
+              if (!handling().isTolerant()) {
+                Urn entityUrn = mcl.getEntityUrn();
+                AspectSpec aspectSpec =
+                    opContext
+                        .getEntityRegistry()
+                        .getEntitySpec(mcl.getEntityType())
+                        .getAspectSpec(mcl.getAspectName());
+                return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+              }
               Optional<AspectSpec> aspectSpec =
                   handling()
                       .aspectSpecForData(

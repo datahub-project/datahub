@@ -133,7 +133,10 @@ public class TraceServiceImpl implements TraceService {
 
     for (Map.Entry<Urn, List<String>> entry : aspectNames.entrySet()) {
       Urn urn = entry.getKey();
-      if (!handling()
+      if (!handling().isTolerant()) {
+        // As before tolerance: throws for an entity type the registry doesn't know.
+        entityRegistry.getEntitySpec(urn.getEntityType());
+      } else if (!handling()
           .admit(
               UNKNOWN_DATA,
               entityRegistry,
@@ -148,13 +151,12 @@ public class TraceServiceImpl implements TraceService {
       Set<String> remainingAspects = new HashSet<>();
 
       for (String aspectName : entry.getValue()) {
-        Optional<AspectSpec> maybeAspectSpec =
-            handling().aspectSpecForData(entityRegistry, urn.getEntityType(), aspectName);
-        if (maybeAspectSpec.isEmpty()) {
+        Optional<Boolean> timeseries = isTimeseries(urn, aspectName);
+        if (timeseries.isEmpty()) {
           UNKNOWN_DATA.skipped(opContext.getMetricUtils(), urn.getEntityType(), aspectName, urn);
           continue;
         }
-        if (maybeAspectSpec.get().isTimeseries()) {
+        if (timeseries.get()) {
           timeseriesStatuses.put(aspectName, TraceStorageStatus.NO_OP);
         } else {
           remainingAspects.add(aspectName);
@@ -279,9 +281,8 @@ public class TraceServiceImpl implements TraceService {
           entry.getValue().entrySet().stream()
               .filter(
                   aspect ->
-                      handling()
-                          .aspectSpecForData(entityRegistry, urn.getEntityType(), aspect.getKey())
-                          .map(spec -> !spec.isTimeseries())
+                      isTimeseries(urn, aspect.getKey())
+                          .map(timeseries -> !timeseries)
                           .orElse(false))
               .filter(
                   aspect ->
@@ -366,9 +367,7 @@ public class TraceServiceImpl implements TraceService {
 
       for (String aspectName : entry.getValue()) {
         // Unknown aspects are skipped by tracePrimaryInParallel, so they have no primary status
-        if (handling()
-            .aspectSpecForData(entityRegistry, urn.getEntityType(), aspectName)
-            .isEmpty()) {
+        if (handling().isTolerant() && isTimeseries(urn, aspectName).isEmpty()) {
           continue;
         }
         TraceWriteStatus primaryStorageStatus = primaryStatus.get(aspectName).getWriteStatus();
@@ -378,12 +377,7 @@ public class TraceServiceImpl implements TraceService {
               aspectName,
               TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Pending primary storage write."));
         } else if (primaryStorageStatus == TraceWriteStatus.NO_OP) {
-          boolean isTimeseries =
-              handling()
-                  .aspectSpecForData(entityRegistry, urn.getEntityType(), aspectName)
-                  .map(AspectSpec::isTimeseries)
-                  .orElse(false);
-          if (isTimeseries) {
+          if (isTimeseries(urn, aspectName).orElse(false)) {
             finalResponse.put(
                 aspectName, TraceStorageStatus.ok(TraceWriteStatus.TRACE_NOT_IMPLEMENTED));
           } else {
@@ -541,5 +535,24 @@ public class TraceServiceImpl implements TraceService {
       return List.of(new TraceException(fmcp.getError()));
     }
     return List.of(new TraceException("Unable to extract trace exception"));
+  }
+
+  /**
+   * Whether the aspect is timeseries. With unknown data tolerated, empty for an entity type or
+   * aspect the registry doesn't know; otherwise looked up as before tolerance, which throws for
+   * either.
+   */
+  @Nonnull
+  private Optional<Boolean> isTimeseries(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    if (!handling().isTolerant()) {
+      return Optional.of(
+          entityRegistry
+              .getEntitySpec(urn.getEntityType())
+              .getAspectSpec(aspectName)
+              .isTimeseries());
+    }
+    return handling()
+        .aspectSpecForData(entityRegistry, urn.getEntityType(), aspectName)
+        .map(AspectSpec::isTimeseries);
   }
 }
