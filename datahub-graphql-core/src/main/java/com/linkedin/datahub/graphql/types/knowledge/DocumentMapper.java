@@ -29,6 +29,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -318,8 +319,12 @@ public class DocumentMapper {
         new com.linkedin.datahub.graphql.generated.DocumentStatus();
 
     // Map state
+    // A state only a newer version knows never shows as published.
     result.setState(
-        com.linkedin.datahub.graphql.generated.DocumentState.valueOf(status.getState().name()));
+        UnknownEnumValues.map(
+            com.linkedin.datahub.graphql.generated.DocumentState.class,
+            status.getState(),
+            com.linkedin.datahub.graphql.generated.DocumentState.UNPUBLISHED));
 
     return result;
   }
@@ -331,9 +336,12 @@ public class DocumentMapper {
         new com.linkedin.datahub.graphql.generated.DocumentSource();
 
     // Map the PDL enum to the GraphQL enum
+    // A source type only a newer version knows shows as EXTERNAL, keeping its external url and id.
     result.setSourceType(
-        com.linkedin.datahub.graphql.generated.DocumentSourceType.valueOf(
-            source.getSourceType().name()));
+        UnknownEnumValues.map(
+            com.linkedin.datahub.graphql.generated.DocumentSourceType.class,
+            source.getSourceType(),
+            com.linkedin.datahub.graphql.generated.DocumentSourceType.EXTERNAL));
 
     if (source.hasExternalUrl()) {
       result.setExternalUrl(source.getExternalUrl());

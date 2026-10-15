@@ -33,6 +33,7 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -70,11 +71,10 @@ public class IncidentMapper {
       if (handling().isTolerant()) {
         final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
         if (linkedEntity == null) {
+          // Logged only: mapFirst already counted each entity the registry doesn't know, and
+          // entities the registry knows but GraphQL can't show aren't rollback data.
           UNREPRESENTABLE.skippedBecause(
-              KnownEntities.metrics(context),
-              "incident",
-              "none of its entities can be represented",
-              entityUrn);
+              Optional.empty(), "incident", "none of its entities can be represented", entityUrn);
           return null;
         }
         result.setEntity(linkedEntity);
@@ -168,8 +168,15 @@ public class IncidentMapper {
 
   private static IncidentSource mapIncidentSource(
       @Nullable QueryContext context, final com.linkedin.incident.IncidentSource incidentSource) {
+    final IncidentSourceType type =
+        UnknownEnumValues.mapOrNull(IncidentSourceType.class, incidentSource.getType());
+    if (type == null) {
+      // A source type only a newer version knows: leave the optional source out rather than fail
+      // the incident or guess a type.
+      return null;
+    }
     final IncidentSource result = new IncidentSource();
-    result.setType(IncidentSourceType.valueOf(incidentSource.getType().name()));
+    result.setType(type);
     if (incidentSource.hasSourceUrn()) {
       result.setSource(UrnToEntityMapper.map(context, incidentSource.getSourceUrn()));
     }
