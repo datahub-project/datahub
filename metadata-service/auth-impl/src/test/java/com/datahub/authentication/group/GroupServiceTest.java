@@ -1105,6 +1105,28 @@ public class GroupServiceTest {
   }
 
   @Test
+  public void testConditionalSweepFirstAttemptIsOneBatch() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    storeMembership(OTHER_USER_URN, _groupUrn);
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(opContext, _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    verify(_entityClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), eq(false));
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+    assertEquals(conditionalWrites.size(), 2);
+    for (MetadataChangeProposal proposal : conditionalWrites) {
+      assertEquals(ifVersionMatch(proposal), String.valueOf(MEMBERSHIP_VERSION_READ));
+    }
+    assertEquals(storedGroups.get(USER_URN), List.of());
+    assertEquals(storedGroups.get(OTHER_USER_URN), List.of());
+  }
+
+  @Test
   public void testConditionalSweepKeepsAGroupAddedBetweenReadAndWrite() throws Exception {
     storeMembership(USER_URN, _groupUrn);
     pendingAdds.put(USER_URN, 1);
@@ -1218,6 +1240,27 @@ public class GroupServiceTest {
   }
 
   @Test
+  public void testConditionalSweepRetriesMembersAThrownBatchDidNotCommit() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    storeMembership(OTHER_USER_URN, _groupUrn);
+    failingMembers.add(USER_URN);
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    // The thrown batch committed neither member. The one whose write failed stays; the other is
+    // cleared by its own write.
+    assertEquals(writesTo(USER_URN), 2);
+    assertTrue(storedGroups.get(USER_URN).contains(_groupUrn));
+    assertEquals(storedGroups.get(OTHER_USER_URN), List.of());
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(1.0));
+  }
+
+  @Test
   public void testConditionalSweepStopsAtOnceWhenADroppedWriteLeavesTheAspectUnmoved()
       throws Exception {
     storeMembership(USER_URN, _groupUrn);
@@ -1322,6 +1365,17 @@ public class GroupServiceTest {
     when(_entityClient.ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), eq(false)))
         .thenAnswer(invocation -> ingestMembership(invocation.getArgument(1)));
+    when(_entityClient.batchIngestProposals(
+            any(OperationContext.class), anyCollection(), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              Collection<MetadataChangeProposal> proposals = invocation.getArgument(1);
+              List<String> results = new ArrayList<>();
+              for (MetadataChangeProposal proposal : proposals) {
+                results.add(ingestMembership(proposal));
+              }
+              return results;
+            });
   }
 
   private String ingestMembership(MetadataChangeProposal proposal) {

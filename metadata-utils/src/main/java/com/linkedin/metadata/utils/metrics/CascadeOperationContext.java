@@ -65,6 +65,8 @@ public class CascadeOperationContext implements AutoCloseable {
   private final AtomicInteger entitiesProcessed = new AtomicInteger(0);
   private final AtomicInteger errorCount = new AtomicInteger(0);
   private final AtomicInteger hopsCompleted = new AtomicInteger(0);
+  private final java.util.concurrent.ConcurrentHashMap<String, AtomicInteger> outcomeCounts =
+      new java.util.concurrent.ConcurrentHashMap<>();
   private volatile String lastErrorType;
 
   // Saved MDC state for restore-on-close (supports nesting)
@@ -222,6 +224,17 @@ public class CascadeOperationContext implements AutoCloseable {
   }
 
   /**
+   * A kept or otherwise non-failed result. Not an error: it does not increment {@code
+   * datahub.cascade.errors} and does not mark the cascade completed with errors.
+   */
+  public void recordOutcome(String outcome) {
+    if (outcome == null) {
+      return;
+    }
+    outcomeCounts.computeIfAbsent(outcome, ignored -> new AtomicInteger()).incrementAndGet();
+  }
+
+  /**
    * Attach the cascade operation ID to a SystemMetadata instance for cross-service correlation.
    * Mutates the SystemMetadata in-place. Safe to call on PatchItemImpl's SystemMetadata since both
    * the item and its backing MCP share the same object reference.
@@ -300,6 +313,17 @@ public class CascadeOperationContext implements AutoCloseable {
               "error_type",
               lastErrorType != null ? lastErrorType : "unknown");
         }
+        outcomeCounts.forEach(
+            (outcome, count) ->
+                metricUtils.incrementMicrometer(
+                    metricPrefix + ".outcomes",
+                    count.get(),
+                    "operation_type",
+                    operationType,
+                    "trigger_urn_type",
+                    triggerUrnType,
+                    "outcome",
+                    outcome));
       }
 
       // Conditional logging per PR #16577/#16578 guidelines

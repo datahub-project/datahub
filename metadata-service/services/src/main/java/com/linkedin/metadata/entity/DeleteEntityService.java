@@ -999,12 +999,16 @@ public class DeleteEntityService {
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
-            // Only formInfo is rewritten conditionally. forms is rewritten whole and async, since a
-            // safe conditional version needs a patch template that OSS does not have yet.
+            // formInfo and forms are rewritten only if still at the version read, as the graph
+            // phase does. Flag off stays the existing async whole-aspect path.
             if (_conditionalReferenceWrites
                 && aspectName.equals("formInfo")
                 && deletedUrn.getEntityType().equals("structuredProperty")) {
               removePromptsIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
+              return;
+            }
+            if (_conditionalReferenceWrites && aspectName.equals("forms")) {
+              removeFormIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
               return;
             }
             MetadataChangeProposal mcp =
@@ -1072,6 +1076,56 @@ public class DeleteEntityService {
   }
 
   /**
+   * Removes {@code deletedUrn} from an asset's {@code forms} only if it is still at the version
+   * read, as the graph phase does, so a form assignment edited meanwhile is kept. The write is
+   * synchronous: an asynchronous one could not report a version mismatch. Search can name an entity
+   * type that has no forms aspect; do not write in that case.
+   */
+  private void removeFormIfUnchanged(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn,
+      @Nonnull final String aspectName,
+      @Nonnull final CascadeOperationContext cascade) {
+    final AspectSpec aspectSpec =
+        opContext
+            .getEntityRegistry()
+            .getEntitySpec(assetUrn.getEntityType())
+            .getAspectSpec(aspectName);
+    if (aspectSpec == null) {
+      return;
+    }
+    final EnvelopedAspect read = readLatestAspect(opContext, assetUrn, aspectName, aspectSpec);
+    if (read == null) {
+      return;
+    }
+    final Function<Aspect, AtomicReference<Aspect>> removeForm =
+        current -> {
+          final Forms updated =
+              DeleteEntityUtils.removeFormFromForms(new Forms(current.data()), deletedUrn);
+          if (updated == null) {
+            return null;
+          }
+          return new AtomicReference<>(new Aspect(updated.data()));
+        };
+    final AtomicReference<Aspect> updated = removeForm.apply(read.getValue());
+    if (updated == null) {
+      return;
+    }
+    writeIfUnchanged(
+        opContext,
+        assetUrn,
+        aspectName,
+        aspectSpec,
+        read.getValue(),
+        ConditionalWriteValidator.resolveAspectVersion(read),
+        hasStoredVersion(read),
+        updated.get(),
+        removeForm,
+        cascade);
+  }
+
+  /**
    * Hard-deletes an entity that only exists for the deleted one. With conditional reference writes
    * on, the versions of its aspects are captured first and the key is deleted only if nothing was
    * written since. Otherwise the entity stays with its newer rows and only the captured aspects are
@@ -1104,7 +1158,7 @@ public class DeleteEntityService {
               + " what it had then was deleted",
           urn);
       if (cascade != null) {
-        cascade.recordError("referencing_entity_kept");
+        cascade.recordOutcome("referencing_entity_kept");
       }
     }
   }

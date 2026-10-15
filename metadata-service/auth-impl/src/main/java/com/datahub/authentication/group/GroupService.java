@@ -497,11 +497,11 @@ public class GroupService implements ActorGroupMembershipService {
    * nobody re-added, and because authorization reads this aspect rather than the graph, each of
    * them keeps the recreated group's privileges while appearing in no member list at all.
    *
-   * <p>With conditional membership cleanup on, each member is written on its own with {@code
-   * If-Version-Match}: an aspect changed since it was read, such as by another group being added,
-   * is read again and the group removed from what is there now, so that change is kept. A
-   * byte-identical re-add does not change the aspect, so the race above is not caught this way
-   * either.
+   * <p>With conditional membership cleanup on, the first write is one batch of per-member
+   * proposals, each with {@code If-Version-Match}. An aspect changed since it was read, such as by
+   * another group being added, is read again and the group removed from what is there now, so that
+   * change is kept. A byte-identical re-add does not change the aspect, so the race above is not
+   * caught this way either.
    *
    * <p>Best-effort by contract, like {@link #removeGroupMembers}: the caller has already reported
    * the delete itself as successful, so no failure here is surfaced. Unlike that method, the
@@ -523,8 +523,8 @@ public class GroupService implements ActorGroupMembershipService {
 
   /**
    * One aspect read for the whole batch. Unconditionally, that is followed by one write covering
-   * everyone still referencing the group. With conditional cleanup on, it is instead one
-   * conditional write per member (see {@link #removeStaleGroupReferencesIfUnchanged}).
+   * everyone still referencing the group. With conditional cleanup on, it is instead one batch of
+   * per-member conditional writes (see {@link #removeStaleGroupReferencesIfUnchanged}).
    */
   private void removeStaleGroupReferences(
       @Nonnull OperationContext opContext,
@@ -616,8 +616,12 @@ public class GroupService implements ActorGroupMembershipService {
   }
 
   /**
-   * One aspect read for the whole batch, then one conditional write per member still referencing
-   * the group: each member's aspect changes on its own, so each write carries its own version.
+   * One aspect read for the whole batch, then one {@code batchIngestProposals} of per-member
+   * conditional writes, each with its own version. A version mismatch inside a request rejects the
+   * whole batch, so a thrown batch is re-read per member: the first attempt cannot leave a mixed
+   * commit. A failed slot or thrown batch is re-read from primary. A moved aspect is retried one at
+   * a time, counting the batch as write 1. An unmoved member of a thrown multi-member batch is
+   * retried alone, because that batch committed nothing.
    */
   private void removeStaleGroupReferencesIfUnchanged(
       @Nonnull OperationContext opContext,
@@ -629,14 +633,95 @@ public class GroupService implements ActorGroupMembershipService {
       return;
     }
 
-    int failed = 0;
+    final Map<Urn, MetadataChangeProposal> proposals = new LinkedHashMap<>();
+    final Map<Urn, Long> versions = new LinkedHashMap<>();
     for (Urn userUrn : batch) {
+      final EnvelopedAspect aspect = nativeGroupMembershipAspect(responses.get(userUrn));
+      final NativeGroupMembership remaining = withoutGroup(aspect, groupUrn);
+      if (remaining == null) {
+        continue;
+      }
+      final long version = ConditionalWriteValidator.resolveAspectVersion(aspect);
+      final MetadataChangeProposal proposal =
+          buildMetadataChangeProposal(userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, remaining);
+      proposal.setHeaders(
+          new StringMap(
+              Map.of(
+                  ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH,
+                  String.valueOf(version))));
+      proposals.put(userUrn, proposal);
+      versions.put(userUrn, version);
+    }
+    if (proposals.isEmpty()) {
+      return;
+    }
+
+    final List<Urn> proposalOrder = new ArrayList<>(proposals.keySet());
+    final List<Urn> failedSlots = new ArrayList<>();
+    Exception batchRejection = null;
+    try {
+      final List<String> results =
+          _entityClient.batchIngestProposals(opContext, new ArrayList<>(proposals.values()), false);
+      for (int i = 0; i < proposalOrder.size(); i++) {
+        final String result = i < results.size() ? results.get(i) : null;
+        if (result == null) {
+          failedSlots.add(proposalOrder.get(i));
+        }
+      }
+    } catch (Exception e) {
+      // A version mismatch inside a request rejects the whole batch, so the first attempt cannot
+      // leave a mixed commit.
+      batchRejection = e;
+      failedSlots.addAll(proposalOrder);
+    }
+
+    int failed = 0;
+    final boolean thrownBatch = batchRejection != null;
+    final int batchSize = proposalOrder.size();
+    final Map<Urn, EnvelopedAspect> latestByMember = new LinkedHashMap<>();
+    if (!failedSlots.isEmpty()) {
+      try {
+        final Map<Urn, EntityResponse> latestResponses =
+            batchGetUserAspectsNoCache(
+                opContext.withReadPreference(ReadPreference.PRIMARY),
+                new LinkedHashSet<>(failedSlots),
+                Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+        for (Urn userUrn : failedSlots) {
+          latestByMember.put(userUrn, nativeGroupMembershipAspect(latestResponses.get(userUrn)));
+        }
+      } catch (Exception e) {
+        if (batchRejection != null) {
+          e.addSuppressed(batchRejection);
+        }
+        log.error(
+            "Failed to re-read nativeGroupMembership for {} member(s) of deleted group {}; leaving"
+                + " them in place.",
+            failedSlots.size(),
+            groupUrn,
+            e);
+        failed += failedSlots.size();
+      }
+    }
+    for (Urn userUrn : failedSlots) {
+      if (!latestByMember.containsKey(userUrn)) {
+        continue;
+      }
       boolean cleared;
       try {
         cleared =
-            removeGroupIfUnchanged(
-                opContext, groupUrn, userUrn, nativeGroupMembershipAspect(responses.get(userUrn)));
+            settleMemberAfterBatch(
+                opContext,
+                groupUrn,
+                userUrn,
+                latestByMember.get(userUrn),
+                versions.get(userUrn),
+                thrownBatch,
+                batchSize,
+                batchRejection);
       } catch (Exception e) {
+        if (batchRejection != null) {
+          e.addSuppressed(batchRejection);
+        }
         log.error(
             "Failed to clear the reference to deleted group {} from {}; leaving it in place.",
             groupUrn,
@@ -652,9 +737,45 @@ public class GroupService implements ActorGroupMembershipService {
   }
 
   /**
+   * After the batch attempt: the group already gone is success. A moved aspect is a conflict and
+   * the batch counts as write 1. An unmoved aspect on a one-member batch is a storage failure and
+   * is not written again. A thrown multi-member batch committed nothing, so an unmoved member is
+   * retried alone from write 1.
+   */
+  private boolean settleMemberAfterBatch(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn groupUrn,
+      @Nonnull final Urn userUrn,
+      @Nullable final EnvelopedAspect latest,
+      final long sentVersion,
+      final boolean thrownBatch,
+      final int batchSize,
+      @Nullable final Exception batchRejection)
+      throws Exception {
+    if (withoutGroup(latest, groupUrn) == null) {
+      return true;
+    }
+    if (ConditionalWriteValidator.resolveAspectVersion(latest) == sentVersion) {
+      if (thrownBatch && batchSize > 1) {
+        return removeGroupIfUnchanged(opContext, groupUrn, userUrn, latest, 0);
+      }
+      log.error(
+          "Failed to clear the reference to deleted group {} from {} after {} write(s); leaving"
+              + " it in place.",
+          groupUrn,
+          userUrn,
+          1,
+          batchRejection);
+      return false;
+    }
+    return removeGroupIfUnchanged(opContext, groupUrn, userUrn, latest, 1);
+  }
+
+  /**
    * Removes {@code groupUrn} from one member's {@code nativeGroupMembership} only if the aspect is
    * still at the version read. When it has moved on, it is read again and the group removed from
-   * what is there now, up to the configured number of writes in all.
+   * what is there now, up to the configured number of writes in all. {@code writesAlreadyDone}
+   * counts writes already issued for this member, including a batch attempt.
    *
    * @return false when the reference was left in place (logged)
    */
@@ -662,10 +783,11 @@ public class GroupService implements ActorGroupMembershipService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final Urn userUrn,
-      @Nullable final EnvelopedAspect readAspect)
+      @Nullable final EnvelopedAspect readAspect,
+      final int writesAlreadyDone)
       throws Exception {
     EnvelopedAspect current = readAspect;
-    for (int writes = 1; ; writes++) {
+    for (int writes = writesAlreadyDone + 1; ; writes++) {
       final NativeGroupMembership remaining = withoutGroup(current, groupUrn);
       if (remaining == null) {
         return true;
