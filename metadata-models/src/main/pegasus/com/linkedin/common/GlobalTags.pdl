@@ -25,8 +25,7 @@ record GlobalTags {
       "queryByDefault": true,
       "addToFilters": true,
       "hasValuesFieldName": "hasTags",
-      "filterNameOverride": "Tagged With",
-      "searchTier": 2
+      "filterNameOverride": "Tagged With"
     }
   }
   tags: array[TagAssociation]

@@ -19,8 +19,7 @@ record DocumentInfo includes CustomProperties {
       "enableAutocomplete": true,
       "boostScore": 10.0,
       "fieldNameAliases": [ "_entityName" ],
-      "searchLabel": "entityName",
-      "searchTier": 1
+      "searchLabel": "entityName"
     }
     title: optional string
 

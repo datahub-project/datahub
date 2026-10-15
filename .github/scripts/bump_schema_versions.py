@@ -796,6 +796,24 @@ def _strip_field_default(type_text: str) -> str:
 # other field annotations (@deprecated, @compliance, @UrnValidation, ...),
 # which carry no reindex-relevant semantics and stay ignored — these must be
 # treated as a real, bump-worthy schema change.
+def _without_retired_search_tier(annotation_text: str) -> str:
+    """Ignore a retired ``searchTier`` key when comparing ``@Searchable`` values.
+
+    The setting never changed stored aspect data or a production index, so
+    removing it is not a schema migration. Annotations that do not name the key
+    are returned unchanged, including a trailing comma that was already there.
+    """
+    without_trailing_comma = re.sub(
+        r'"searchTier"\s*:\s*-?\d+\s*,', "", annotation_text
+    )
+    if without_trailing_comma != annotation_text:
+        return normalize_pdl_for_compare(without_trailing_comma)
+    without_key = re.sub(r',?\s*"searchTier"\s*:\s*-?\d+', "", annotation_text)
+    if without_key == annotation_text:
+        return annotation_text
+    return normalize_pdl_for_compare(without_key)
+
+
 BUMP_WORTHY_ANNOTATIONS = frozenset(
     {
         "Searchable",
@@ -848,9 +866,12 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 if nxt is None:
                     return None
                 if ann_name in BUMP_WORTHY_ANNOTATIONS:
-                    pending_annotations[ann_name] = normalize_pdl_for_compare(
-                        body[j + 1 : nxt]
-                    )
+                    value = normalize_pdl_for_compare(body[j + 1 : nxt])
+                    if ann_name == "Searchable":
+                        # searchTier never shipped as index or aspect-data behavior.
+                        # Dropping it must not bump schemaVersion.
+                        value = _without_retired_search_tier(value)
+                    pending_annotations[ann_name] = value
                 i = nxt
             i = _skip_ws(body, i)
             continue

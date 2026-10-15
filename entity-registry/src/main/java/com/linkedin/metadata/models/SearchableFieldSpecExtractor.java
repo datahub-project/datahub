@@ -214,7 +214,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.isIncludeQueryEmptyAggregation(),
                 annotation.isIncludeSystemModifiedAt(),
                 annotation.getSystemModifiedAtFieldName(),
-                annotation.getSearchTier(),
                 annotation.getSearchLabel(),
                 annotation.getSearchIndexed(),
                 annotation.getEntityFieldName(),

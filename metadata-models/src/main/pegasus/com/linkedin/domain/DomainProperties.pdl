@@ -20,7 +20,6 @@ record DomainProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   name: string
@@ -30,8 +29,7 @@ record DomainProperties includes CustomProperties {
    */
    @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 

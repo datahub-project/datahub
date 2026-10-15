@@ -408,7 +408,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DatasetProperties()
                         .setName("customers")
                         .setDescription(CUSTOMERS_DESCRIPTION),
-                    // editedName has no searchTier
+                    // editedName is not query-by-default text
                     new EditableDatasetProperties().setName("quarterly ledger"),
                     // owners is not queried by default
                     new Ownership()
@@ -1143,7 +1143,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     }
   }
 
-  /** Every field queried by default is searched, with or without a searchTier annotation. */
+  /** Every field queried by default is searched. */
   @Test
   public void testSearchFieldWithoutSearchTier() {
     assertUrns(

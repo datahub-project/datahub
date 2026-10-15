@@ -157,6 +157,10 @@ and optionality never moved. This whitelist (`BUMP_WORTHY_ANNOTATIONS` in the sc
 narrow: every other field annotation continues to be parsed-and-discarded exactly as before, so it
 never enters the bump decision.
 
+`searchTier` inside `@Searchable` is the exception. It never changed stored aspect data or a
+production index, so the comparison ignores that key. Removing it does not bump `schemaVersion`.
+Any other `@Searchable` change still does.
+
 ### Step 4 — Bump the version
 
 For each affected aspect:

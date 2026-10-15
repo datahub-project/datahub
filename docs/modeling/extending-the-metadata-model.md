@@ -458,11 +458,9 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on `KEYWORD`, `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM` or `URN` fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `_search.tier_{tier}` field is created. Use `queryByDefault` and `enableAutocomplete` to control full-text search and autocomplete.
-
 - **searchLabel**: string (optional) - Unified label for search operations. Copies the field value into `_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. The field stays indexed under its own name too. For string fields on Search V3, the label also names the shared full-text field the value lands in (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
 
-- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (it can only be true together with `searchTier`, on `KEYWORD` or `TEXT` fields), but every searchable field is indexed under its own name regardless.
+- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless. A leftover `searchTier` key is ignored.
 
 - **entityFieldName**: string (optional) - If set, this field is copied into `_search.{entityFieldName}`, so several aspects can fill one entity-level field. `_entityName` aliases `_search.entityName` when a field of the entity sets `entityName`.
 
@@ -554,9 +552,9 @@ large.
 
 The search label system provides a powerful way to organize search fields and create specialized search experiences:
 
-**Search Tiers (`searchTier`) ⚠️ DEPRECATED:**
+**Search Tiers (`searchTier`) — removed:**
 
-Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fields that served Search V3 full-text search. Search V3 now reads the shared `_search` fields described below, so `searchTier` and `searchIndexed` are accepted but ignored, and no `_search.tier_{tier}` field is created.
+Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fields. That mapping never shipped in a production release, and Search V3 reads the shared `_search` fields described below. The setting is no longer part of the model. A custom annotation that still names `searchTier` loads, and the key is ignored. Removing it does not change stored aspect data, so it does not increase an aspect's `schemaVersion`.
 
 **Search Labels (`searchLabel`):**
 
