@@ -88,6 +88,79 @@ describe('useRevealDocumentInTree', () => {
         expect(result.current.expandedUrns.has('urn:li:document:confluence-root')).toBe(true);
     });
 
+    it('ignores a stale nodes-map root until it is back in rootUrns', async () => {
+        mockUseGetDocumentQuery.mockReturnValue({
+            data: {
+                document: {
+                    urn: 'urn:li:document:child',
+                    info: { title: 'Child', lastModified: { time: 1 } },
+                    parentDocuments: {
+                        documents: [{ urn: 'urn:li:document:stale-root', info: { title: 'Stale Root' } }],
+                    },
+                },
+            },
+            loading: false,
+        });
+
+        const { result } = renderHook(
+            () => {
+                const tree = useDocumentTree();
+                useRevealDocumentInTree({
+                    loadChildren,
+                    loadMoreChildren,
+                    hasMoreChildren,
+                    rootsLoading: false,
+                });
+                return tree;
+            },
+            { wrapper },
+        );
+
+        // Scroll a root in, then replace page 0 — mergeInitializedRootUrns drops it from
+        // rootUrns while the nodes map still holds the stale entry.
+        await act(async () => {
+            result.current.initializeTree([
+                makeNode({ urn: 'urn:li:document:page0', title: 'Page0', hasChildren: false }),
+            ]);
+            result.current.appendRootNodes([
+                makeNode({
+                    urn: 'urn:li:document:stale-root',
+                    title: 'Stale Root',
+                    hasChildren: true,
+                }),
+            ]);
+        });
+        await act(async () => {
+            result.current.initializeTree([
+                makeNode({ urn: 'urn:li:document:other-root', title: 'Other', hasChildren: false }),
+            ]);
+        });
+
+        expect(result.current.rootUrns).not.toContain('urn:li:document:stale-root');
+        expect(result.current.getNode('urn:li:document:stale-root')).toBeDefined();
+        // Reveal may have run while the root was briefly in rootUrns; a stale nodes
+        // entry alone must not keep triggering it after the page-0 reset.
+        loadChildren.mockClear();
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(loadChildren).not.toHaveBeenCalled();
+
+        await act(async () => {
+            result.current.appendRootNodes([
+                makeNode({
+                    urn: 'urn:li:document:stale-root',
+                    title: 'Stale Root',
+                    hasChildren: true,
+                }),
+            ]);
+        });
+
+        await waitFor(() => {
+            expect(loadChildren).toHaveBeenCalledWith('urn:li:document:stale-root');
+        });
+    });
+
     it('does not reveal while roots are still initializing', async () => {
         mockUseGetDocumentQuery.mockReturnValue({
             data: undefined,

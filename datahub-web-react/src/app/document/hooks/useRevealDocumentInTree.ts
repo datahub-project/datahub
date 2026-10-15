@@ -37,7 +37,7 @@ export function useRevealDocumentInTree({
 }: RevealLoaders): void {
     const { getCurrentDocumentUrn } = useDocumentNavigation();
     const documentUrn = getCurrentDocumentUrn();
-    const { getNode, expandNode, addNode } = useDocumentTree();
+    const { getNode, expandNode, addNode, rootUrns } = useDocumentTree();
 
     const getNodeRef = useRef(getNode);
     getNodeRef.current = getNode;
@@ -51,6 +51,8 @@ export function useRevealDocumentInTree({
     loadMoreChildrenRef.current = loadMoreChildren;
     const hasMoreChildrenRef = useRef(hasMoreChildren);
     hasMoreChildrenRef.current = hasMoreChildren;
+    const rootUrnsRef = useRef(rootUrns);
+    rootUrnsRef.current = rootUrns;
 
     // Prefer the profile's cached getDocument (same query + includeParentDocuments).
     const { data, loading: documentLoading } = useGetDocumentQuery({
@@ -63,9 +65,10 @@ export function useRevealDocumentInTree({
     const parents = data?.document?.parentDocuments?.documents;
     const rootAncestorUrn =
         data?.document?.urn === documentUrn && parents?.length ? parents[parents.length - 1]?.urn : undefined;
-    // Root docs need no ancestor. Nested docs wait until their root is in context
-    // (including roots appended after page 0 by missing-platform prefetch).
-    const rootAncestorReady = !rootAncestorUrn || !!getNode(rootAncestorUrn);
+    // Use rootUrns, not getNode: initializeTree drops scrolled-off roots from the
+    // visible list but leaves them in the nodes map. A stale getNode hit would make
+    // reveal run against a root that getRootNodes() no longer renders.
+    const rootAncestorReady = !rootAncestorUrn || rootUrns.includes(rootAncestorUrn);
 
     useEffect(() => {
         if (skip || !documentUrn || rootsLoading || documentLoading || !data?.document) {
@@ -101,6 +104,7 @@ export function useRevealDocumentInTree({
                         lastModifiedAt: data.document?.info?.lastModified?.time ?? 0,
                     },
                     getNode: (urn) => getNodeRef.current(urn),
+                    isLoadedRoot: (urn) => rootUrnsRef.current.includes(urn),
                     expandNode: (urn) => expandNodeRef.current(urn),
                     ensureNode: (node) => {
                         if (!getNodeRef.current(node.urn)) {
