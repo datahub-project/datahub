@@ -395,6 +395,9 @@ class TestDynamoDBS3ExportLineage:
         upstream_urns = {u.dataset for u in mcp.aspect.upstreams}
         assert upstream_urns == {upstream_a, upstream_b}
         assert source.report.s3_export_lineage_edges == 2
+        # Two tables, one shared destination: the counter tracks distinct destinations (1), not
+        # (table, destination) pairs (2).
+        assert source.report.s3_export_locations_found == 1
         assert mcp.aspect.fineGrainedLineages is not None
         assert len(mcp.aspect.fineGrainedLineages) == 3
 
@@ -667,9 +670,109 @@ class TestDynamoDBS3ExportLineage:
             dataset_name="us-west-2.x",
         )
         assert mock_client.describe_export.call_count == 2
-        # Truncating from 5 exports to 2 must be surfaced, not silent.
-        assert any(
+        # The described subset all resolved to one destination, so truncation is reported as info
+        # (lineage is almost certainly complete), not a false-alarm warning.
+        assert any("single S3 destination" in i.message for i in source.report.infos)
+        assert not any(
             w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
+        )
+
+    def test_truncation_warns_when_described_subset_fans_out(
+        self, mock_context, lineage_config
+    ):
+        lineage_config.max_exports_per_table = 2
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": f"arn:export/{i}", "ExportStatus": "COMPLETED"}
+                for i in range(5)
+            ]
+        }
+        # The two described exports go to different destinations, so the table demonstrably fans
+        # out and dropped exports may hide further destinations: that is a real warning.
+        mock_client.describe_export.side_effect = [
+            {"ExportDescription": {"S3Bucket": "b", "S3Prefix": "p1"}},
+            {"ExportDescription": {"S3Bucket": "b", "S3Prefix": "p2"}},
+        ]
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+        )
+        assert mock_client.describe_export.call_count == 2
+        assert any(
+            "multiple S3 destinations" in w.message for w in source.report.warnings
+        )
+
+    def test_list_exports_stops_paging_once_max_exports_reached(
+        self, mock_context, lineage_config
+    ):
+        lineage_config.max_exports_per_table = 2
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        # Page one alone already exceeds the cap, so paging must stop before fetching page two.
+        mock_client.list_exports.side_effect = [
+            {
+                "ExportSummaries": [
+                    {"ExportArn": f"arn:export/{i}", "ExportStatus": "COMPLETED"}
+                    for i in range(3)
+                ],
+                "NextToken": "page-2",
+            },
+            {
+                "ExportSummaries": [
+                    {"ExportArn": "arn:export/later", "ExportStatus": "COMPLETED"}
+                ]
+            },
+        ]
+        arns = source._list_completed_export_arns(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_name="us-west-2.x",
+            max_exports=2,
+        )
+        assert mock_client.list_exports.call_count == 1
+        assert len(arns) == 3
+
+    def test_resolved_schema_but_no_upstream_fields_does_not_warn(
+        self, mock_context, lineage_config
+    ):
+        # Column lineage on and the S3 schema resolves, but the DynamoDB side contributed no field
+        # paths. That is not a "schema found, nothing matched" case, so no warning should fire.
+        lineage_config.include_s3_export_column_lineage = True
+        mock_context.graph = MagicMock()
+        mock_context.graph.get_schema_metadata.return_value = SimpleNamespace(
+            fields=[SimpleNamespace(fieldPath="id")]
+        )
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+            field_paths=[],
+        )
+        list(source._emit_s3_export_lineage())
+        assert not any(
+            w.title == "DynamoDB S3 export column lineage produced no matches"
+            for w in source.report.warnings
         )
 
     def test_list_exports_repeating_token_is_bounded(
@@ -693,8 +796,9 @@ class TestDynamoDBS3ExportLineage:
         assert arns == []
         # Two calls: first page, then one more that detects the repeat and stops.
         assert mock_client.list_exports.call_count == 2
+        # Assert on the message, not the title (four distinct warnings share this title).
         assert any(
-            w.title == "DynamoDB S3 Export Lineage" for w in source.report.warnings
+            "repeating pagination token" in w.message for w in source.report.warnings
         )
 
     def test_get_workunits_internal_emits_s3_export_lineage(

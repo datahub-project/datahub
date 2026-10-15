@@ -787,8 +787,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         Error handling lives here (not the caller) so a failure on a later page still returns the
         pages already collected. Collection stops once more than ``max_exports`` ARNs have been
         seen (so ListExports isn't paged past what the caller will describe), and is otherwise
-        bounded by page count and a repeating-token guard. Returning one more than ``max_exports``
-        lets the caller detect — and warn about — truncation.
+        bounded by page count and a repeating-token guard. The stop fires only after a full page
+        is drained, so the result can exceed ``max_exports`` by up to a page; returning more than
+        ``max_exports`` lets the caller detect — and warn about — truncation.
         """
         export_arns: List[str] = []
         next_token: Optional[str] = None
@@ -876,17 +877,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             dataset_name=dataset_name,
             max_exports=max_exports,
         )
-        if len(export_arns) > max_exports:
-            # Truncating here can drop a distinct S3 destination entirely, so surface it rather
-            # than failing silently. Ordering from ListExports is undocumented, so which exports
-            # survive the slice is not guaranteed.
-            self.report.warning(
-                title="DynamoDB S3 Export Lineage",
-                message="Table has more completed exports than max_exports_per_table; only a "
-                "subset is described, so some S3 export destinations may be missing from lineage.",
-                context=f"dataset={dataset_name}; max_exports_per_table={max_exports}",
-                log=False,
-            )
+        truncated = len(export_arns) > max_exports
 
         seen_s3_urns: Set[str] = set()
         # Only retain field paths when column lineage is requested; otherwise they are never read.
@@ -934,6 +925,45 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             seen_s3_urns.add(s3_urn)
             self._s3_export_lineage.setdefault(s3_urn, {})[dataset_urn] = (
                 resolved_field_paths
+            )
+
+        if truncated:
+            self._report_export_truncation(dataset_name, max_exports, len(seen_s3_urns))
+
+    def _report_export_truncation(
+        self, dataset_name: str, max_exports: int, described_destinations: int
+    ) -> None:
+        """Surface export truncation, choosing severity from the destinations actually seen.
+
+        ListExports ordering is undocumented, so we can't know whether the dropped exports went to
+        new destinations without describing them — which is exactly what the cap avoids. But the
+        described subset is evidence: if it already fanned out to >=2 destinations the table
+        demonstrably spreads exports and dropped ones may be missing, so WARN. If every described
+        export resolved to a single destination, truncation is the expected case on a
+        frequently-exported table (the premise ``max_exports_per_table`` exists for) and info is the
+        honest severity.
+        """
+        context = (
+            f"dataset={dataset_name}; max_exports_per_table={max_exports}; "
+            f"described_destinations={described_destinations}"
+        )
+        if described_destinations >= 2:
+            self.report.warning(
+                title="DynamoDB S3 Export Lineage",
+                message="Table has more completed exports than max_exports_per_table and the "
+                "described subset already spans multiple S3 destinations, so some export "
+                "destinations may be missing from lineage.",
+                context=context,
+                log=False,
+            )
+        else:
+            self.report.info(
+                title="DynamoDB S3 Export Lineage",
+                message="Table has more completed exports than max_exports_per_table; the described "
+                "subset all resolved to a single S3 destination, so lineage is likely complete, but "
+                "exports beyond the cap were not checked.",
+                context=context,
+                log=False,
             )
 
     def _resolve_s3_downstream_field_paths(

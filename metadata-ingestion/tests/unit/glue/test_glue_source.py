@@ -3675,6 +3675,9 @@ def test_get_aws_account_id_caps_retries_and_warns_once() -> None:
         if w.title == "Could not resolve AWS account id via STS"
     ]
     assert len(account_id_warnings) == 1
+    # Pin warn-once at the call site, not the report's title-dedup: the warning fired once across
+    # all attempts, so only one context entry was recorded (dropping the flag would record three).
+    assert len(account_id_warnings[0].context) == 1
 
 
 @pytest.mark.parametrize(
