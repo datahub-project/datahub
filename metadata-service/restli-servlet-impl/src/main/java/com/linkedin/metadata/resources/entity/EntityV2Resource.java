@@ -4,6 +4,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -159,9 +160,12 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       return Task.value(Collections.emptyMap());
     }
     // A batch can mix entity types (including types only a newer version knows, after a
-    // rollback), so the projected aspects are resolved and fetched per entity type.
+    // rollback), so the projected aspects are resolved and fetched per entity type. Without
+    // tolerance the whole batch is fetched as the first urn's entity type, as before.
     final Map<String, Set<Urn>> urnsByEntityName =
-        urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+        handling().isTolerant()
+            ? urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()))
+            : Map.of(urnToEntityName(urns.iterator().next()), urns);
     return RestliUtils.toTask(opContext,
         () -> {
           final Map<Urn, EntityResponse> response = new HashMap<>();

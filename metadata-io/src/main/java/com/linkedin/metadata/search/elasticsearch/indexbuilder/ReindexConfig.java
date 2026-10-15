@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -524,14 +525,15 @@ public class ReindexConfig {
     public ReindexConfig build() {
       if (super.exists) {
         /* Consider mapping changes */
+        final Map<String, Object> currentProperties =
+            normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES)));
         final Map<String, Object> targetProperties =
             normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES)));
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                withoutFieldsMissingFromTarget(
-                    normalizeMapForComparison(
-                        getOrDefault(super.currentMappings, List.of(PROPERTIES))),
-                    targetProperties),
+                handling().isTolerant()
+                    ? withoutFieldsMissingFromTarget(currentProperties, targetProperties)
+                    : currentProperties,
                 targetProperties);
 
         super.requiresApplyMappings =

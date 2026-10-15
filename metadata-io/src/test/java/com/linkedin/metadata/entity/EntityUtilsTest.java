@@ -11,6 +11,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -36,6 +39,11 @@ public class EntityUtilsTest {
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -190,6 +198,35 @@ public class EntityUtilsTest {
     assertTrue(
         EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), unknownAspect, false)
             .isEmpty());
+  }
+
+  @Test
+  public void testToSystemAspects_StrictFailsOnUnknownAspect() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    EntityAspect unknownAspect =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
+            "aspectFromNewerBuild",
+            "{\"a\":1}");
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(unknownAspect)));
+  }
+
+  @Test
+  public void testToSystemAspects_StrictFailsOnUnknownEntityType() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    EntityAspect unknownEntity =
+        aspectRow("urn:li:entityFromNewerBuild:abc", STATUS_ASPECT_NAME, "{\"removed\":false}");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(unknownEntity)));
   }
 
   private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {

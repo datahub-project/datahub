@@ -15,6 +15,7 @@ import static com.linkedin.metadata.search.utils.SearchUtils.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -1516,9 +1517,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         MetricRegistry.name(this.getClass(), "filterExistingUrns"));
   }
 
-  /** True when the caller named entity types but none of them is in the registry. */
+  /**
+   * True when the caller named entity types but none of them is in the registry. Always false when
+   * unknown data is not tolerated, which keeps the search across every type.
+   */
   private static boolean onlyUnknownEntityTypes(
       @Nullable final String[] requested, @Nonnull final List<String> known) {
-    return requested != null && requested.length > 0 && known.isEmpty();
+    return handling().isTolerant()
+        && requested != null
+        && requested.length > 0
+        && known.isEmpty();
   }
 }

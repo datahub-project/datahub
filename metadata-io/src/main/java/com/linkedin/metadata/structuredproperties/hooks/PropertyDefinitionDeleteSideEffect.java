@@ -3,6 +3,7 @@ package com.linkedin.metadata.structuredproperties.hooks;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
@@ -121,7 +122,11 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
             .propertyUrn(propertyUrn)
             .definition(definition)
             .searchRetriever(retrieverContext.getSearchRetriever())
-            .entityRegistry(retrieverContext.getAspectRetriever().getEntityRegistry())
+            // Without a registry (strict handling) every listed entity type is searched.
+            .entityRegistry(
+                handling().isTolerant()
+                    ? retrieverContext.getAspectRetriever().getEntityRegistry()
+                    : null)
             .count(SEARCH_SCROLL_SIZE)
             .build();
 
@@ -138,11 +143,12 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
                     // rollback); their properties cannot be patched here.
                     .filter(
                         entity ->
-                            retrieverContext
-                                .getAspectRetriever()
-                                .getEntityRegistry()
-                                .findEntitySpec(entity.getEntity().getEntityType())
-                                .isPresent())
+                            !handling().isTolerant()
+                                || retrieverContext
+                                    .getAspectRetriever()
+                                    .getEntityRegistry()
+                                    .findEntitySpec(entity.getEntity().getEntityType())
+                                    .isPresent())
                     .map(
                         entity -> {
                           GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();

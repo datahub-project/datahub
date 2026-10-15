@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -21,8 +22,8 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import java.util.ArrayList;
@@ -79,8 +80,9 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
           .forEach(
               FormPrompt -> {
                 // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
-                if (PdlEnumMapper.mapDefaultNull(FormPromptType.class, FormPrompt.getType())
-                    != null) {
+                if (!handling().isTolerant()
+                    || UnknownEnumValues.mapOrNull(FormPromptType.class, FormPrompt.getType())
+                        != null) {
                   formPrompts.add(mapFormPrompt(FormPrompt, formUrn));
                 }
               });

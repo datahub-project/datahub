@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers.util;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -10,7 +11,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import java.util.List;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class KnownEntitiesTest {
@@ -20,6 +24,11 @@ public class KnownEntitiesTest {
   private static final Urn FROM_NEWER_BUILD = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
 
   private final QueryContext context = TestUtils.getMockAllowContext();
+
+  @AfterMethod
+  public void resetHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testMapAllKeepsOrderAndDropsUnrepresentable() {
@@ -51,5 +60,18 @@ public class KnownEntitiesTest {
             context, UrnUtils.getUrn("urn:li:monitor:(urn:li:entityFromNewerBuild:x,m)")));
     // Without a registry nothing can be judged, so everything counts as known.
     assertTrue(KnownEntities.isKnown(null, FROM_NEWER_BUILD));
+  }
+
+  @Test
+  public void testStrictMapsEveryUrnAsBefore() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+
+    assertTrue(KnownEntities.isKnown(context, FROM_NEWER_BUILD));
+    List<Entity> entities = KnownEntities.mapAll(context, List.of(FROM_NEWER_BUILD, DATASET));
+    assertEquals(entities.size(), 2);
+    assertNull(entities.get(0));
+    assertEquals(entities.get(1).getUrn(), DATASET.toString());
+    assertNull(KnownEntities.mapFirst(context, List.of(FROM_NEWER_BUILD, DATASET)));
+    assertThrows(IndexOutOfBoundsException.class, () -> KnownEntities.mapFirst(context, List.of()));
   }
 }

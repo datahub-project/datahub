@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.incident;
 
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
@@ -22,7 +23,7 @@ import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
-import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -56,7 +57,7 @@ public class IncidentMapper {
       // Assumption alert! This assumes the incident type in GMS exactly equals that in GraphQL
       // A type only a newer version knows (e.g. after a rollback) shows as CUSTOM.
       result.setIncidentType(
-          PdlEnumMapper.map(IncidentType.class, info.getType(), IncidentType.CUSTOM));
+          UnknownEnumValues.map(IncidentType.class, info.getType(), IncidentType.CUSTOM));
       result.setCustomType(info.getCustomType(GetMode.NULL));
       result.setTitle(info.getTitle(GetMode.NULL));
       result.setDescription(info.getDescription(GetMode.NULL));
@@ -66,16 +67,20 @@ public class IncidentMapper {
       // Incident.entity is non-null: use the first linked entity GraphQL can map, skipping entity
       // types the registry doesn't know (e.g. after a rollback). With none left the incident can't
       // be represented, so it is skipped rather than nulling the list or object that holds it.
-      final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
-      if (linkedEntity == null) {
-        UNREPRESENTABLE.skippedBecause(
-            KnownEntities.metrics(context),
-            "incident",
-            "none of its entities can be represented",
-            entityUrn);
-        return null;
+      if (handling().isTolerant()) {
+        final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
+        if (linkedEntity == null) {
+          UNREPRESENTABLE.skippedBecause(
+              KnownEntities.metrics(context),
+              "incident",
+              "none of its entities can be represented",
+              entityUrn);
+          return null;
+        }
+        result.setEntity(linkedEntity);
+      } else {
+        result.setEntity(UrnToEntityMapper.map(context, info.getEntities().get(0)));
       }
-      result.setEntity(linkedEntity);
       if (info.hasStartedAt()) {
         result.setStartedAt(info.getStartedAt());
       }
@@ -107,11 +112,12 @@ public class IncidentMapper {
     // A state only a newer version knows (e.g. after a rollback) shows as ACTIVE, so the incident
     // stays visible as open rather than looking resolved.
     result.setState(
-        PdlEnumMapper.map(IncidentState.class, incidentStatus.getState(), IncidentState.ACTIVE));
+        UnknownEnumValues.map(
+            IncidentState.class, incidentStatus.getState(), IncidentState.ACTIVE));
     result.setMessage(incidentStatus.getMessage(GetMode.NULL));
     result.setLastUpdated(AuditStampMapper.map(context, incidentStatus.getLastUpdated()));
     if (incidentStatus.hasStage()) {
-      result.setStage(PdlEnumMapper.mapDefaultNull(IncidentStage.class, incidentStatus.getStage()));
+      result.setStage(UnknownEnumValues.mapOrNull(IncidentStage.class, incidentStatus.getStage()));
     }
     return result;
   }

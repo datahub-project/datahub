@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.incident;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -33,7 +34,10 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import java.util.Collections;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class IncidentMapperTest {
@@ -323,6 +327,50 @@ public class IncidentMapperTest {
         incident.getIncidentStatus().getState(),
         com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE);
     assertNull(incident.getIncidentStatus().getStage());
+  }
+
+  @AfterMethod
+  public void resetHandling() {
+    UnknownDataHandlings.reset();
+  }
+
+  @Test
+  public void testStrictMapsFirstEntityAsBefore() throws Exception {
+    // Without tolerance the first linked entity is used even if GraphQL can't map it.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    incidentInfo.setEntities(
+        new com.linkedin.common.UrnArray(
+            ImmutableList.of(
+                UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"),
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.t,PROD)"))));
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertNotNull(incident);
+    assertNull(incident.getEntity());
+  }
+
+  @Test
+  public void testStrictFailsOnUnknownState() throws Exception {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    EntityResponse entityResponse = createBaseEntityResponse();
+    EnvelopedAspect incidentAspect =
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
+    IncidentInfo incidentInfo = new IncidentInfo(incidentAspect.getValue().data());
+    com.linkedin.incident.IncidentStatus status =
+        new com.linkedin.incident.IncidentStatus()
+            .setState(com.linkedin.incident.IncidentState.ACTIVE)
+            .setLastUpdated(incidentInfo.getCreated());
+    status.data().put("state", "STATE_FROM_NEWER_BUILD");
+    incidentInfo.setStatus(status);
+    incidentAspect.setValue(new Aspect(incidentInfo.data()));
+
+    assertThrows(IllegalArgumentException.class, () -> IncidentMapper.map(null, entityResponse));
   }
 
   /** Creates a minimal EntityResponse with a basic IncidentInfo aspect. */

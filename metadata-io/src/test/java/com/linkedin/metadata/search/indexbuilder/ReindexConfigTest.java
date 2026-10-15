@@ -8,12 +8,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.*;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -43,6 +46,11 @@ public class ReindexConfigTest {
   @BeforeMethod
   void setUp() {
     // Reset any static state if needed
+  }
+
+  @AfterMethod
+  void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -273,6 +281,46 @@ public class ReindexConfigTest {
 
     Assert.assertFalse(config.requiresApplyMappings());
     Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStrictHandlingComparesNestedFieldsOnlyInCurrentMapping() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplyMappings());
   }
 
   @Test

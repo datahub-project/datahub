@@ -47,6 +47,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -93,6 +95,7 @@ public class CriterionFilterAspectsBlockingStepTest {
 
   @AfterMethod
   public void tearDown() {
+    UnknownDataHandlings.reset();
     if (entityUtilsMock != null) {
       entityUtilsMock.close();
       entityUtilsMock = null;
@@ -452,6 +455,22 @@ public class CriterionFilterAspectsBlockingStepTest {
     when(stored.getSystemMetadata()).thenReturn(new SystemMetadata());
 
     assertNull(buildStep().toChangeItem(OP_CONTEXT, stored));
+  }
+
+  @Test
+  public void testStrictHandlingFailsOnStoredValueFromNewerVersion() {
+    // Without tolerance a stored value that fails validation fails the step, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    com.linkedin.common.Deprecation deprecation =
+        new com.linkedin.common.Deprecation()
+            .setDeprecated(true)
+            .setNote("moved")
+            .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"));
+    SystemAspect stored = storedDeprecation(deprecation, new SystemMetadata());
+
+    assertThrows(
+        com.linkedin.metadata.entity.validation.ValidationException.class,
+        () -> buildStep().toChangeItem(OP_CONTEXT, stored));
   }
 
   @Test

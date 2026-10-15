@@ -8,9 +8,12 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -28,6 +31,11 @@ public class SearchServiceUnknownEntityTypeTest {
           mock(CachingEntitySearchService.class),
           mock(SearchRanker.class),
           mock(SearchServiceConfiguration.class));
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testUnknownEntityTypesAreDropped() {
@@ -53,5 +61,15 @@ public class SearchServiceUnknownEntityTypeTest {
         searchService
             .getEntitiesToSearch(opContext, List.of("entityFromNewerBuild"), 10)
             .isEmpty());
+  }
+
+  @Test
+  public void testStrictHandlingPassesUnknownEntityTypesThrough() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+
+    assertEquals(
+        searchService.getEntitiesToSearch(
+            opContext, List.of("Dataset", "entityFromNewerBuild"), 10),
+        List.of("dataset", "entityfromnewerbuild"));
   }
 }

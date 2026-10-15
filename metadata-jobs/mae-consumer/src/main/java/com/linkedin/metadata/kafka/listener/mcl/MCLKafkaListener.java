@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
@@ -89,12 +90,14 @@ public class MCLKafkaListener
     // After a rollback, MCLs written by the newer build can name entity types or aspects this build
     // does not know. No hook can process them, and hooks that look up their specs would throw and
     // skip the rest of their batch.
-    return !UNKNOWN_DATA.admitEvent(
-        opContext.getEntityRegistry(),
-        opContext.getMetricUtils(),
-        event.getEntityUrn(),
-        entityType,
-        aspectName);
+    return !handling()
+        .admitEvent(
+            UNKNOWN_DATA,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            event.getEntityUrn(),
+            entityType,
+            aspectName);
   }
 
   @Override

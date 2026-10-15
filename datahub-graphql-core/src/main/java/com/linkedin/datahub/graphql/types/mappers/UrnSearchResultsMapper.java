@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -14,7 +16,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> {
   private static final UnknownDataGuard UNREPRESENTABLE =
       UnknownDataGuard.forSite(UrnSearchResultsMapper.class, "search hit");
@@ -60,10 +64,26 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
    * So hits GraphQL can't represent are left out, one row each, instead: entity types it doesn't
    * model, and entity types the registry doesn't know, including inside the urn's key (e.g. a
    * monitor on an entity type a newer version added, read after a rollback). Totals stay the
-   * backend hit count, as with authorization post-filtering.
+   * backend hit count, as with authorization post-filtering. When unknown data isn't tolerated,
+   * only hits GraphQL doesn't model are left out, without a registry check.
    */
   static List<SearchResult> mapKnownResults(
       @Nullable final QueryContext context, @Nonnull final List<SearchEntity> hits) {
+    if (!handling().isTolerant()) {
+      final List<SearchResult> mappedResults = new ArrayList<>();
+      for (SearchEntity searchEntity : hits) {
+        final SearchResult mapped = MapperUtils.mapResult(context, searchEntity);
+        if (mapped.getEntity() == null) {
+          log.warn(
+              "Search hit {} has no GraphQL entity mapping; excluding it from results rather than "
+                  + "failing the whole result set.",
+              searchEntity.getEntity());
+          continue;
+        }
+        mappedResults.add(mapped);
+      }
+      return mappedResults;
+    }
     final List<SearchResult> mappedResults = new ArrayList<>(hits.size());
     for (SearchEntity hit : hits) {
       final boolean known = KnownEntities.isKnown(context, hit.getEntity());

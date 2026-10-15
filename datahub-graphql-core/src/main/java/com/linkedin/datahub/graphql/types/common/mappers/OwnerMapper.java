@@ -12,7 +12,7 @@ import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
-import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,7 +51,7 @@ public class OwnerMapper {
     final Owner result = new Owner();
     // Deprecated. An ownership type only a newer version knows falls back to CUSTOM.
     final OwnershipType ownershipType =
-        PdlEnumMapper.map(OwnershipType.class, owner.getType(), OwnershipType.CUSTOM);
+        UnknownEnumValues.map(OwnershipType.class, owner.getType(), OwnershipType.CUSTOM);
     result.setType(ownershipType);
 
     if (owner.getTypeUrn() == null) {
