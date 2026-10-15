@@ -1,5 +1,6 @@
 import datetime as dt
 from typing import Any, Dict, List, Set
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -23,6 +24,10 @@ def _source() -> SigmaSource:
     source._upstream_schema_unavailable_warned = set()
     source._dm_recovery_contexts = {}
     source.sigma_dataset_name_by_url_id = {}
+    source.sigma_dataset_urn_by_url_id = {}
+    source._warehouse_ref_by_url_id = {}
+    source.sigma_api = MagicMock()
+    source.sigma_api.get_file_metadata.return_value = None
     return source
 
 
