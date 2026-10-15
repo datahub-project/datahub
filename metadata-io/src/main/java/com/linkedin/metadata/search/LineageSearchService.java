@@ -46,6 +46,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -108,6 +109,22 @@ public class LineageSearchService {
   private static final String DEGREE_FILTER = "degree";
   private static final String PARENT_FILTER = "parent";
 
+  // Tags on datahub.lineage.duration; values are bounded enums to keep series count low
+  private static final String TAG_KIND = "kind";
+  private static final String TAG_SEARCH_PATH = "search_path";
+  private static final String TAG_CACHE = "cache";
+  private static final String TAG_CALLER = "caller";
+  private static final String KIND_IMPACT = "impact";
+  private static final String KIND_VISUALIZATION = "visualization";
+  private static final String SEARCH_PATH_LIGHTNING = "lightning";
+  private static final String SEARCH_PATH_TORTOISE = "tortoise";
+  // The request failed before a path was chosen
+  private static final String SEARCH_PATH_UNKNOWN = "unknown";
+  private static final String CACHE_HIT = "hit";
+  private static final String CACHE_MISS = "miss";
+  // Cache disabled, or the caller set skipCache
+  private static final String CACHE_SKIP = "skip";
+
   /** Filter fields the graph-only path can answer from a urn, without the entity index. */
   private static final Set<String> LIGHTNING_FILTER_FIELDS =
       Set.of("platform", "origin", PARENT_FILTER);
@@ -167,8 +184,7 @@ public class LineageSearchService {
       @Nullable Integer size) {
 
     try (CascadeOperationContext cascade =
-        CascadeOperationContext.begin(
-            metricUtils, "searchAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+        beginLineageOperation(opContext, "searchAcrossLineage", sourceUrn, SEARCH_PATH_UNKNOWN)) {
       final String finalInput = input == null || input.isEmpty() ? "*" : input;
 
       final OperationContext finalOpContext =
@@ -201,6 +217,7 @@ public class LineageSearchService {
         } catch (Exception e) {
           log.warn("Failed to load cacheKey {}", cacheKey, e);
         }
+        cascade.tag(TAG_CACHE, cachedLineageResult == null ? CACHE_MISS : CACHE_HIT);
       }
 
       EntityLineageResult lineageResult;
@@ -278,6 +295,7 @@ public class LineageSearchService {
       if (canDoLightning(
           lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
         codePath = "lightning";
+        cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_LIGHTNING);
         // use lightning approach to return lineage search results
         List<LineageRelationship> countable =
             dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
@@ -302,6 +320,7 @@ public class LineageSearchService {
             unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
       } else {
         codePath = "tortoise";
+        cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_TORTOISE);
         LineageSearchResult lineageSearchResult =
             getSearchResultInBatches(
                 finalOpContext,
@@ -1059,9 +1078,9 @@ public class LineageSearchService {
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       @Nullable Integer size) {
+    // Scroll always answers from the entity index
     try (CascadeOperationContext cascade =
-        CascadeOperationContext.begin(
-            metricUtils, "scrollAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+        beginLineageOperation(opContext, "scrollAcrossLineage", sourceUrn, SEARCH_PATH_TORTOISE)) {
       rejectUnsupportedScrollFlags(opContext.getSearchContext().getLineageFlags());
 
       // Clamp hops the same way searchAcrossLineage does (see applyMaxHopsLimit), before building
@@ -1080,10 +1099,11 @@ public class LineageSearchService {
               opContext.getSearchContext().getLineageFlags() != null
                   ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
                   : null);
-      CachedEntityLineageResult cachedLineageResult =
-          enableCache(opContext.getSearchContext().getSearchFlags())
-              ? cache.get(cacheKey, CachedEntityLineageResult.class)
-              : null;
+      CachedEntityLineageResult cachedLineageResult = null;
+      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+        cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
+        cascade.tag(TAG_CACHE, cachedLineageResult == null ? CACHE_MISS : CACHE_HIT);
+      }
       EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
@@ -1265,6 +1285,32 @@ public class LineageSearchService {
     }
 
     return result;
+  }
+
+  /**
+   * Starts the request-level lineage timer ({@code datahub.lineage.duration}) with every tag key
+   * set, since Prometheus needs one tag-key set per meter name. Cache and search path start at
+   * their fallback values and are refined once known.
+   */
+  private CascadeOperationContext beginLineageOperation(
+      @Nonnull OperationContext opContext,
+      @Nonnull String operationType,
+      @Nonnull Urn sourceUrn,
+      @Nonnull String searchPath) {
+    return CascadeOperationContext.begin(
+            metricUtils, operationType, sourceUrn, -1, "datahub.lineage")
+        .tag(
+            TAG_KIND,
+            isLineageVisualization(opContext.getSearchContext().getLineageFlags())
+                ? KIND_VISUALIZATION
+                : KIND_IMPACT)
+        .tag(TAG_SEARCH_PATH, searchPath)
+        .tag(TAG_CACHE, CACHE_SKIP)
+        .tag(
+            TAG_CALLER,
+            opContext.getRequestContext() != null
+                ? opContext.getRequestContext().getAgentClass().toMetricLabel()
+                : AgentClass.SYSTEM.toMetricLabel());
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */

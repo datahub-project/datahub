@@ -235,7 +235,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           break;
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         int sizeBefore = result.size();
         // Do one hop on the lineage graph
         Stream<Urn> intermediateStream =
@@ -1428,7 +1428,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           }
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         // About to get lineage for `currentLevel`: annotate with `explored`
         currentLevel.forEach(
             urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));

@@ -2,12 +2,17 @@ package com.linkedin.metadata.utils.metrics;
 
 import static org.testng.Assert.*;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.List;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -407,6 +412,81 @@ public class CascadeOperationContextTest {
   }
 
   @Test
+  public void testTagsReachDurationTimerAndLastValueWins() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    String opType = "taggedTest";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, triggerUrn, -1, "datahub.lineage")) {
+      ctx.tag("kind", "impact").tag("cache", "skip");
+      ctx.tag("cache", "miss");
+    }
+
+    Timer timer =
+        meterRegistry
+            .find("datahub.lineage.duration")
+            .tags("operation_type", opType, "kind", "impact", "cache", "miss")
+            .timer();
+    assertNotNull(timer, "duration timer should carry the tags set during the operation");
+    assertEquals(timer.count(), 1L);
+    assertNull(
+        meterRegistry
+            .find("datahub.lineage.duration")
+            .tags("operation_type", opType, "cache", "skip")
+            .timer(),
+        "an overwritten tag value should not be emitted");
+
+    Counter entitiesCounter =
+        meterRegistry
+            .find("datahub.lineage.entities_processed")
+            .tag("operation_type", opType)
+            .counter();
+    assertNotNull(entitiesCounter);
+    assertNull(entitiesCounter.getId().getTag("kind"), "tags apply to the duration timer only");
+  }
+
+  @Test
+  public void testLogLineCarriesMaxPerHopAndTagsOnlyWhenRecorded() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    Logger logger = (Logger) LoggerFactory.getLogger(CascadeOperationContext.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      // The error line is logged whatever the duration, so no need to wait for the slow threshold
+      try (CascadeOperationContext ctx =
+          CascadeOperationContext.begin(
+              metricUtils, "walkTest", triggerUrn, -1, "datahub.lineage.graph_walk")) {
+        ctx.tag("kind", "impact");
+        ctx.recordHop(1);
+        ctx.recordHop(340);
+        ctx.recordHop(95);
+        ctx.recordError("timeout");
+      }
+      try (CascadeOperationContext ctx =
+          CascadeOperationContext.begin(metricUtils, "deleteTest", triggerUrn, -1)) {
+        ctx.recordError("failure");
+      }
+
+      List<String> lines =
+          appender.list.stream()
+              .map(ILoggingEvent::getFormattedMessage)
+              .filter(l -> l.startsWith("Cascade completed"))
+              .toList();
+      String walkLine =
+          lines.stream().filter(l -> l.contains("type=walkTest")).findFirst().orElseThrow();
+      assertTrue(walkLine.contains("hops=3"), walkLine);
+      assertTrue(walkLine.endsWith("ms, maxPerHop=340, kind=impact"), walkLine);
+
+      String deleteLine =
+          lines.stream().filter(l -> l.contains("type=deleteTest")).findFirst().orElseThrow();
+      assertTrue(deleteLine.endsWith("ms"), "no hops and no tags keep the old line: " + deleteLine);
+    } finally {
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
   public void testRecordHop() {
     Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
     String opType = "hopTrackingTest";
@@ -414,11 +494,11 @@ public class CascadeOperationContextTest {
 
     try (CascadeOperationContext ctx =
         CascadeOperationContext.begin(metricUtils, opType, triggerUrn, -1, prefix)) {
-      ctx.recordHop();
+      ctx.recordHop(1);
       ctx.recordEntitiesProcessed(100);
-      ctx.recordHop();
+      ctx.recordHop(1);
       ctx.recordEntitiesProcessed(50);
-      ctx.recordHop();
+      ctx.recordHop(1);
     }
 
     Counter hopsCounter =
@@ -456,7 +536,7 @@ public class CascadeOperationContextTest {
     try (CascadeOperationContext ctx =
         CascadeOperationContext.begin(metricUtils, opType, null, 10, prefix)) {
       ctx.recordEntityProcessed();
-      ctx.recordHop();
+      ctx.recordHop(1);
     }
 
     Counter entitiesCounter =
