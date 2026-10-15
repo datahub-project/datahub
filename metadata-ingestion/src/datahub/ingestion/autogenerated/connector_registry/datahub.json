@@ -1779,6 +1779,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -2563,6 +2569,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },

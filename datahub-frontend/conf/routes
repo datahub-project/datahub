@@ -48,7 +48,11 @@ PATCH         /openapi/*path                                                   c
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
 
-# Known React asset routes - handle both regular and versioned paths
+# Known React asset routes - handle both regular and versioned paths.
+# Content-hashed files directly under /assets (<name>-<hash>.<ext>) get a year-long
+# immutable Cache-Control from ContentHashedAssetCacheFilter. Subdirectories, logo.png,
+# source maps (*.map), and /node_modules keep Play's one-hour default — those URLs are
+# not content-hashed. A source map's hash belongs to the chunk, not the map.
 GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
 GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)
 GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
