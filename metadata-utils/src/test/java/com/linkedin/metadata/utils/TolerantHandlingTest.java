@@ -1,12 +1,14 @@
 package com.linkedin.metadata.utils;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -89,5 +91,30 @@ public class TolerantHandlingTest {
 
     UnknownDataHandlings.reset();
     assertEquals(UnknownDataHandlings.handling(), TolerantHandling.INSTANCE);
+  }
+
+  @Test
+  public void testUnknownEntityTypeIsToleratedOnlyWhenANewerVersionRegisteredIt() {
+    doThrow(new IllegalArgumentException("Failed to find entity"))
+        .when(registry)
+        .getEntitySpec("corpusr");
+    UnknownDataHandling rows =
+        TolerantHandling.forNextVersionEntityTypes("entityFromNewerBuild"::equals);
+
+    assertFalse(
+        rows.admitUrn(site, registry, Optional.empty(), "urn:li:entityFromNewerBuild:x", null));
+    assertTrue(rows.isUnknown(registry, "entityFromNewerBuild", null));
+    assertTrue(rows.entitySpecForData(registry, "entityFromNewerBuild").isEmpty());
+
+    // No entityType row (e.g. a typo): handled as before unknown data was tolerated.
+    assertTrue(rows.admitUrn(site, registry, Optional.empty(), "urn:li:corpusr:bob", null));
+    assertTrue(rows.admit(site, registry, Optional.empty(), "corpusr", "status", "urn"));
+    assertFalse(rows.isUnknown(registry, "corpusr", null));
+    assertFalse(rows.referencesUnknownEntityType(registry, UrnUtils.getUrn("urn:li:corpusr:bob")));
+    expectThrows(IllegalArgumentException.class, () -> rows.entitySpecForData(registry, "corpusr"));
+
+    // Unknown aspects of known types are still tolerated.
+    assertFalse(
+        rows.admit(site, registry, Optional.empty(), "dataset", "aspectFromNewerBuild", "urn"));
   }
 }

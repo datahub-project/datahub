@@ -2,6 +2,7 @@ package com.linkedin.metadata.structuredproperties.util;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -42,7 +43,7 @@ public class EntityWithPropertyIterator implements Iterator<ScrollResult> {
           .map(StructuredPropertyUtils::getValueTypeId)
           .filter(
               entityType ->
-                  entityRegistry == null || entityRegistry.findEntitySpec(entityType).isPresent())
+                  entityRegistry == null || !handling().isUnknown(entityRegistry, entityType, null))
           .collect(Collectors.toList());
     } else {
       return Collections.emptyList();
