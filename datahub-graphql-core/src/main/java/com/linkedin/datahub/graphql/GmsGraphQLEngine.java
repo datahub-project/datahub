@@ -1309,7 +1309,8 @@ public class GmsGraphQLEngine {
                     "bulkEntityDataProducts", new BulkEntityDataProductsResolver(this.entityClient))
                 .dataFetcher("application", getResolver(applicationType))
                 .dataFetcher(
-                    "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
+                    "listDataProductAssets",
+                    new ListDataProductAssetsResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher(
@@ -3369,7 +3370,7 @@ public class GmsGraphQLEngine {
         "Domain",
         typeWiring ->
             typeWiring
-                .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
+                .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient, viewService))
                 .dataFetcher("parentDomains", new ParentDomainsResolver())
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
@@ -3482,7 +3483,9 @@ public class GmsGraphQLEngine {
         "DataProduct",
         typeWiring ->
             typeWiring
-                .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+                .dataFetcher(
+                    "entities",
+                    new ListDataProductAssetsResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "parentDataProducts", new ParentDataProductsResolver(this.entityClient))
                 .dataFetcher(
