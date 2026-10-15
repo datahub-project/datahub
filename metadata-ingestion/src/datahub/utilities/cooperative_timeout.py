@@ -1,5 +1,7 @@
 import contextlib
 import contextvars
+import signal
+import threading
 import time
 from typing import Iterator, Optional
 
@@ -67,3 +69,47 @@ def cooperative_timeout(timeout: Optional[float] = None) -> Iterator[None]:
     else:
         # No-op.
         yield
+
+
+@contextlib.contextmanager
+def interrupt_on_cooperative_deadline() -> Iterator[None]:
+    """Stop the current main-thread call when the active cooperative deadline passes.
+
+    ``cooperative_timeout`` only fires when code calls ``cooperate()``. sqlglot's
+    ``optimizer.optimize`` does not, so a query can sit there past the budget.
+    ``SIGALRM`` interrupts that call. It is delivered to the main thread only, and
+    it does not exist on Windows, so anywhere else this is a no-op and the
+    cooperative checks remain the only limit.
+    """
+    deadline = _cooperation_deadline.get(None)
+    if (
+        deadline is None
+        or threading.current_thread() is not threading.main_thread()
+        or not hasattr(signal, "setitimer")
+        or not hasattr(signal, "SIGALRM")
+    ):
+        yield
+        return
+
+    remaining = (deadline - time.perf_counter_ns()) / 1_000_000_000
+    if remaining <= 0:
+        raise CooperativeTimeoutError("CooperativeTimeout deadline exceeded")
+
+    def _handler(signum: int, frame: object) -> None:
+        raise CooperativeTimeoutError("CooperativeTimeout deadline exceeded")
+
+    previous = signal.signal(signal.SIGALRM, _handler)
+    # setitimer replaces any timer already armed by the caller. Keep the
+    # remaining delay so cleanup can put that timer back.
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    signal.setitimer(signal.ITIMER_REAL, remaining)
+    try:
+        yield
+    finally:
+        # Ignore first so a signal already queued is discarded instead of
+        # running our handler during cleanup and skipping the restore.
+        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        if previous_timer[0] > 0 or previous_timer[1] > 0:
+            signal.setitimer(signal.ITIMER_REAL, previous_timer[0], previous_timer[1])
