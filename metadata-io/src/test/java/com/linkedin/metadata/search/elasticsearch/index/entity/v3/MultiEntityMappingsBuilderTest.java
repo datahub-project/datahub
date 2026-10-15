@@ -421,11 +421,11 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   /**
-   * Deliberate V3 change: full-text search and autocomplete read the shared _search fields, so a
-   * string root field V2 analyzes is a normalized keyword on V3, whose .keyword subfield keeps the
-   * stored casing for filters, facets and sorts, and no root field outside the browse paths is
-   * analyzed. Root fields V2 does not analyze, and the browse paths legacy browse reads by depth,
-   * are mapped as on V2, apart from the fields listed with their reason.
+   * Deliberate V3 change: full-text search reads the shared _search fields, so a string root field
+   * V2 analyzes is a normalized keyword on V3, whose .keyword subfield keeps the stored casing for
+   * filters, facets and sorts, and no root field outside the browse paths is analyzed. Root fields
+   * V2 does not analyze, and the browse paths legacy browse reads by depth, are mapped as on V2,
+   * apart from the fields listed with their reason.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -1424,12 +1424,12 @@ public class MultiEntityMappingsBuilderTest {
                 V3SearchFields.TEXT_SEARCH_ANALYZER,
                 V3SearchFields.STEMMED_ANALYZER,
                 V3SearchFields.STEMMED_SEARCH_ANALYZER,
-                "partial",
                 "browse_path_hierarchy",
                 "slash_pattern",
                 "browse_path_v2_hierarchy")),
         allReferencedAnalyzers.toString());
-    // Deliberate V3 change: no field keeps V2's per-field analysis
+    // Deliberate V3 change: no field keeps V2's per-field analysis, and autocomplete's partial
+    // analyzer is not mapped
     assertTrue(
         allReferencedAnalyzers.stream()
             .noneMatch(
@@ -1438,7 +1438,8 @@ public class MultiEntityMappingsBuilderTest {
                             "urn_component",
                             "word_delimited",
                             "word_gram_2",
-                            "partial_urn_component")
+                            "partial_urn_component",
+                            "partial")
                         .contains(analyzer)),
         allReferencedAnalyzers.toString());
     assertTrue(allReferencedNormalizers.contains("keyword_normalizer"));

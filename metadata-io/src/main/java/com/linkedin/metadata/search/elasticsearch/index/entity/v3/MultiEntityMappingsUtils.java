@@ -350,13 +350,10 @@ public class MultiEntityMappingsUtils {
    *
    * @param entitySpecs collection of entity specs to analyze
    * @param mappings existing mappings to analyze for copy_to destinations
-   * @param partialNgramConfig engine-specific search-as-you-type shape of the autocomplete field
    * @return Map containing the _search section properties
    */
   public static Map<String, Object> buildSearchSection(
-      Collection<EntitySpec> entitySpecs,
-      Map<String, Object> mappings,
-      Map<String, String> partialNgramConfig) {
+      Collection<EntitySpec> entitySpecs, Map<String, Object> mappings) {
     Map<String, Object> searchProperties = new HashMap<>();
     Map<String, Set<String>> searchFieldTypes = new HashMap<>();
 
@@ -397,8 +394,8 @@ public class MultiEntityMappingsUtils {
         }
       }
     }
-    // Shared fields root fields copy into without a label: the long tail, the entity name of an
-    // entity that labels none, and autocomplete
+    // Shared fields root fields copy into without a label: the long tail and the entity name of an
+    // entity that labels none
     for (String destination : rootCopyToSearchFields(mappings)) {
       searchFieldTypes.computeIfAbsent(destination, k -> new HashSet<>(Set.of("keyword")));
     }
@@ -415,11 +412,8 @@ public class MultiEntityMappingsUtils {
       String fieldName = entry.getKey();
       Set<String> types = entry.getValue();
 
-      if (fullTextFields.contains(fieldName) || V3SearchFields.AUTOCOMPLETE.equals(fieldName)) {
-        searchProperties.put(
-            fieldName,
-            V3SearchFields.mapping(
-                fieldName, fullTextFields.contains(fieldName), partialNgramConfig));
+      if (fullTextFields.contains(fieldName)) {
+        searchProperties.put(fieldName, V3SearchFields.mapping(fieldName, true));
         continue;
       }
 

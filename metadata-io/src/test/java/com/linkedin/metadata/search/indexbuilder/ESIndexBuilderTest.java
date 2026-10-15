@@ -463,25 +463,6 @@ public class ESIndexBuilderTest {
             Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
     assertEquals(mappingRebuildErrors("datasetindex_v3", perField, shared), 1);
     assertEquals(mappingRebuildErrors("datasetindex_v2", perField, shared), 0);
-    // Autocomplete reads the ngram subfield of its shared field
-    Map<String, Object> withAutocomplete =
-        Map.of(
-            "properties",
-            Map.of(
-                "_search",
-                Map.of(
-                    "properties",
-                    Map.of(
-                        "autocomplete",
-                        Map.of(
-                            "type",
-                            "keyword",
-                            "fields",
-                            Map.of("ngram", Map.of("type", "search_as_you_type")))))));
-    assertEquals(
-        mappingRebuildErrors(
-            "datasetindex_v3", Map.of("properties", Map.of("urn", Map.of())), withAutocomplete),
-        1);
     // Once the index has them, other unapplied changes only warn
     Map<String, Object> sharedWithOldRoot =
         searchMappings(
