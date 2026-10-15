@@ -79,6 +79,9 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
   private static List<Policy> mapEntities(
       @Nullable QueryContext context, final List<PolicyFetcher.Policy> policies) {
     return policies.stream()
+        .filter(
+            policy ->
+                !PolicyInfoPolicyMapper.isUnrepresentable(policy.getPolicyInfo(), policy.getUrn()))
         .map(
             policy -> {
               Policy mappedPolicy = PolicyInfoPolicyMapper.map(context, policy.getPolicyInfo());
