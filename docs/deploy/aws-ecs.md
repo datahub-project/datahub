@@ -64,7 +64,7 @@ terraform plan -var environment=<environment>
 terraform apply -var environment=<environment>
 ```
 
-Resource names are built from the `environment` variable, not from the Terraform workspace, so the same template can be reused for several environments. Because workspaces are no longer used to separate environments, keep a separate Terraform state for each one (for example a different backend key or a separate working directory per environment).
+Resource names are built from the `environment` variable, not from the Terraform workspace, so the same template can be reused for several environments. Because workspaces are not used to separate environments, keep a separate Terraform state for each one (for example a different backend key or a separate working directory per environment).
 
 Make sure that you are running from the correct Terraform directory, that `environment` is set to the environment you intend to change, and that your Terraform variables and AWS credentials are correctly set.
 
@@ -300,9 +300,7 @@ DATAHUB_TOKEN_SERVICE_SIGNING_KEY
 DATAHUB_TOKEN_SERVICE_SALT
 ```
 
-These are **required on DataHub 1.5 and later**. They are safe to add on v0.14.1, the version this guide was tested with, so you can set them regardless of version.
-
-Treat both values as secrets. Store them in AWS Secrets Manager and provide them to the GMS task through ECS secrets, as with the other credentials in this guide.
+These are **required on DataHub 1.5 and later**.  Treat both values as secrets. Store them in AWS Secrets Manager and provide them to the GMS task through ECS secrets, as with the other credentials in this guide.
 
 ## Deploy the Actions service
 
@@ -453,7 +451,7 @@ After provisioning the infrastructure:
 3. Verify that GMS can be resolved through Cloud Map or the configured load balancer.
 4. Verify that GMS can connect to RDS.
 5. Verify that GMS, Actions, and the System Update task can connect to MSK.
-6. Verify that GMS can authenticate to OpenSearch using the ECS task role.
+6. Verify that GMS can authenticate to OpenSearch using the ECS execution role.
 7. Verify that the ECS tasks can retrieve the required secrets from Secrets Manager.
 8. Verify that Frontend can communicate with GMS.
 9. Verify that Actions can authenticate with GMS and consume Kafka messages.
@@ -486,7 +484,7 @@ Verify:
 - HTTPS configuration
 - `OPENSEARCH_USE_AWS_IAM_AUTH`
 - `AWS_REGION`
-- ECS task-role permissions
+- ECS execution role permissions
 - VPC and security-group connectivity
 
 ### Actions cannot connect to GMS
