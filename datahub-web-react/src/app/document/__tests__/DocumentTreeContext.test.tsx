@@ -83,4 +83,40 @@ describe('DocumentTreeContext root replacement', () => {
 
         expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['page0']);
     });
+
+    it('keeps loaded children when a later page appends the same root', () => {
+        const { result } = renderHook(() => useDocumentTree(), { wrapper });
+
+        act(() => {
+            result.current.initializeTree([makeNode('root')]);
+            result.current.setNodeChildren('root', [makeNode('child', 'root')]);
+        });
+        act(() => {
+            result.current.appendRootNodes([{ ...makeNode('root'), hasChildren: true, children: undefined }]);
+        });
+
+        expect(result.current.getNode('root')?.children?.map((child) => child.urn)).toEqual(['child']);
+    });
+
+    it('keeps a created root across an empty reload and the following page 0', () => {
+        const { result } = renderHook(() => useDocumentTree(), { wrapper });
+
+        act(() => {
+            result.current.initializeTree([makeNode('server')]);
+            result.current.addNode(makeNode('created'), { placement: 'start' });
+            result.current.setNodeChildren('created', [makeNode('created-child', 'created')]);
+        });
+        act(() => {
+            result.current.initializeTree([]);
+        });
+
+        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['created']);
+        expect(result.current.getNode('created-child')?.parentUrn).toBe('created');
+
+        act(() => {
+            result.current.initializeTree([makeNode('next-page')]);
+        });
+
+        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['created', 'next-page']);
+    });
 });

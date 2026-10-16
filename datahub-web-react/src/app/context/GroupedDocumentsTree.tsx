@@ -62,7 +62,9 @@ export default function GroupedDocumentsTree({
         variables: { urn: selectedUrn ?? '', includeParentDocuments: true },
         fetchPolicy: 'cache-first',
     });
-    const selectedDocument = (selectedData?.document ?? null) as Document | null;
+    // cache-first can still hold the previous URL's document while the next one loads.
+    const loadedDocument = (selectedData?.document ?? null) as Document | null;
+    const selectedDocument = loadedDocument?.urn === selectedUrn ? loadedDocument : null;
 
     const activeGroup = useMemo(
         () =>

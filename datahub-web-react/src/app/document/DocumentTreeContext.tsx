@@ -99,6 +99,23 @@ interface DocumentTreeContextType {
 
 export const DocumentTreeContext = React.createContext<DocumentTreeContextType | undefined>(undefined);
 
+/** Keep locally pinned roots and their already-loaded descendants across an empty reload. */
+function retainNodesUnderRoots(
+    nodes: Map<string, DocumentTreeNode>,
+    rootUrns: ReadonlySet<string>,
+): Map<string, DocumentTreeNode> {
+    const kept = new Map<string, DocumentTreeNode>();
+    const visit = (urn: string) => {
+        if (kept.has(urn)) return;
+        const node = nodes.get(urn);
+        if (!node) return;
+        kept.set(urn, node);
+        node.children?.forEach((child) => visit(child.urn));
+    };
+    rootUrns.forEach((urn) => visit(urn));
+    return kept;
+}
+
 export const useDocumentTree = () => {
     const context = useContext(DocumentTreeContext);
     if (!context) {
@@ -372,7 +389,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
         setNodes((prev) => {
             const updated = new Map(prev);
-            newNodes.forEach((n) => updated.set(n.urn, n));
+            newNodes.forEach((n) => updated.set(n.urn, mergeServerChildNode(updated.get(n.urn), n)));
             return updated;
         });
     }, []);
@@ -402,9 +419,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // existed because an earlier page was scrolled in do not.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
         if (rootNodes.length === 0) {
-            localRootPlacementsRef.current.clear();
-            setRootUrns([]);
-            setNodes(new Map());
+            // View changes clear the server window before page 0 returns. Keep
+            // create / move-to-root pins so that next page can still merge them in.
+            const localRoots = localRootPlacementsRef.current;
+            setRootUrns((prev) => prev.filter((urn) => localRoots.has(urn)));
+            setNodes((prev) => retainNodesUnderRoots(prev, new Set(localRoots.keys())));
         } else {
             const serverUrns = rootNodes.map((node) => node.urn);
             serverUrns.forEach((urn) => localRootPlacementsRef.current.delete(urn));

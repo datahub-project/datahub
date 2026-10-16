@@ -8,11 +8,13 @@ import { DEFAULT_DOCUMENT_SIDEBAR_SORT } from '@app/document/utils/documentSideb
 import { EntityType } from '@types';
 
 const mockRefetch = vi.fn();
+let currentUrn = 'urn:li:document:moved';
 let selectedDocument: { urn: string; domain: unknown } | null = null;
+const renderedSections: Array<{ selectedDocument: { urn?: string } | null }> = [];
 
 vi.mock('@app/document/hooks/useDocumentNavigation', () => ({
     useDocumentNavigation: () => ({
-        getCurrentDocumentUrn: () => 'urn:li:document:moved',
+        getCurrentDocumentUrn: () => currentUrn,
     }),
 }));
 
@@ -38,12 +40,17 @@ vi.mock('@app/useEntityRegistry', () => ({
 }));
 
 vi.mock('@app/context/DocumentGroupSection', () => ({
-    default: () => null,
+    default: (props: { selectedDocument: { urn?: string } | null }) => {
+        renderedSections.push({ selectedDocument: props.selectedDocument });
+        return null;
+    },
 }));
 
 describe('GroupedDocumentsTree', () => {
     beforeEach(() => {
         mockRefetch.mockReset();
+        renderedSections.length = 0;
+        currentUrn = 'urn:li:document:moved';
         selectedDocument = {
             urn: 'urn:li:document:moved',
             domain: null,
@@ -78,5 +85,25 @@ describe('GroupedDocumentsTree', () => {
 
         expect(onDocumentMovedBetweenGroups).toHaveBeenCalledTimes(1);
         expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    it('does not apply a cached document from the previous URL', () => {
+        currentUrn = 'urn:li:document:next';
+        selectedDocument = {
+            urn: 'urn:li:document:moved',
+            domain: {
+                domain: { urn: 'urn:li:domain:marketing', type: EntityType.Domain },
+            },
+        };
+
+        render(
+            <GroupedDocumentsTree
+                sort={DEFAULT_DOCUMENT_SIDEBAR_SORT}
+                onSelect={vi.fn()}
+                onDocumentMovedBetweenGroups={vi.fn()}
+            />,
+        );
+
+        expect(renderedSections.every((section) => section.selectedDocument == null)).toBe(true);
     });
 });
