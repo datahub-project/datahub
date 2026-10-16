@@ -9,11 +9,16 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -24,6 +29,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -35,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -108,6 +115,18 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
+    }
+
+    @Bean
+    public RestrictedService restrictedService() {
+      RestrictedService restrictedService = mock(RestrictedService.class);
+      when(restrictedService.encryptRestrictedUrn(any()))
+          .thenAnswer(
+              invocation -> {
+                Urn urn = invocation.getArgument(0);
+                return new Urn("restricted", "redacted-" + urn.getEntityType());
+              });
+      return restrictedService;
     }
   }
 
@@ -1034,6 +1053,92 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertEquals(
         capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
         4);
+  }
+
+  @Test
+  public void testScrollRelationshipsRedactsUnauthorizedEndpoints() throws Exception {
+    String hiddenUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)";
+    String hiddenUserUrn = "urn:li:corpuser:bob";
+    String visibleUrn = "urn:li:corpuser:alice";
+    when(mockGraphService.scrollRelatedEntities(
+            any(), any(), any(), isNull(), anyString(), anyInt(), isNull(), isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                10,
+                "scroll-1",
+                List.of(
+                    new RelatedEntities(
+                        "OwnedBy", hiddenUrn, visibleUrn, RelationshipDirection.OUTGOING, null),
+                    new RelatedEntities(
+                        "OwnedBy",
+                        hiddenUrn,
+                        hiddenUserUrn,
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    try (MockedStatic<AuthUtil> authUtil = mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+          .thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      any(ApiGroup.class),
+                      any(ApiOperation.class),
+                      any()))
+          .thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      eq(List.of(Urn.createFromString(hiddenUrn)))))
+          .thenReturn(false);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      eq(List.of(Urn.createFromString(hiddenUserUrn)))))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(2))
+          .andExpect(
+              jsonPath("$.results[0].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(jsonPath("$.results[0].source.entityType").value("restricted"))
+          .andExpect(jsonPath("$.results[0].destination.urn").value(visibleUrn))
+          .andExpect(
+              jsonPath("$.results[1].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(
+              jsonPath("$.results[1].destination.urn")
+                  .value("urn:li:restricted:redacted-corpuser"));
+
+      authUtil.verify(
+          () ->
+              AuthUtil.isAPIAuthorizedUrns(
+                  any(OperationContext.class),
+                  eq(ApiGroup.RELATIONSHIP),
+                  eq(ApiOperation.READ),
+                  eq(List.of(Urn.createFromString(hiddenUrn)))),
+          times(1));
+    }
   }
 
   @Test

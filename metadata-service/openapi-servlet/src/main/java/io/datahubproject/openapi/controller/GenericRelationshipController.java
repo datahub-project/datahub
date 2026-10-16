@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
@@ -42,6 +43,7 @@ public abstract class GenericRelationshipController {
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private GraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
+  @Autowired private RestrictedService restrictedService;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -307,6 +309,7 @@ public abstract class GenericRelationshipController {
     return ScrollUtils.doScrollRelationships(
         systemOperationContext,
         authorizationChain,
+        restrictedService,
         graphService,
         request,
         "scrollRelationships",

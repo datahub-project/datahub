@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -53,11 +52,13 @@ public final class ScrollUtils {
 
   /**
    * Scrolls generic relationship edges filtered by independent source/destination type and entity
-   * filters.
+   * filters. Endpoints the caller cannot read are replaced with encrypted {@code
+   * urn:li:restricted:…} placeholders, as in {@link #doScrollLineage}.
    */
   public static ResponseEntity<GenericScrollResult<GenericRelationship>> doScrollRelationships(
       OperationContext systemOperationContext,
       AuthorizerChain authorizationChain,
+      RestrictedService restrictedService,
       GraphService graphService,
       HttpServletRequest request,
       String operationName,
@@ -100,27 +101,26 @@ public final class ScrollUtils {
     RelatedEntitiesScrollResult result =
         scrollRelatedEntities(graphService, opContext, graphFilters, scrollId, pitKeepAlive, count);
 
-    Set<Urn> resultUrns =
-        result.getEntities().stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getSourceUrn()),
-                        UrnUtils.getUrn(edge.getDestinationUrn())))
-            .collect(Collectors.toSet());
+    Function<Urn, Urn> cachedRestrict =
+        cachedRestrictFunction(opContext, restrictedService, new HashMap<>());
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(toGenericRelationships(result.getEntities(), cachedRestrict))
             .scrollId(result.getScrollId())
             .build());
   }
 
   static List<GenericRelationship> toGenericRelationships(List<RelatedEntities> relatedEntities) {
+    return toGenericRelationships(relatedEntities, Function.identity());
+  }
+
+  private static List<GenericRelationship> toGenericRelationships(
+      List<RelatedEntities> relatedEntities, Function<Urn, Urn> mapUrn) {
     return relatedEntities.stream()
         .map(
             result -> {
-              Urn source = UrnUtils.getUrn(result.getSourceUrn());
-              Urn dest = UrnUtils.getUrn(result.getDestinationUrn());
+              Urn source = mapUrn.apply(UrnUtils.getUrn(result.getSourceUrn()));
+              Urn dest = mapUrn.apply(UrnUtils.getUrn(result.getDestinationUrn()));
               return GenericRelationship.builder()
                   .relationshipType(result.getRelationshipType())
                   .source(GenericRelationship.GenericNode.fromUrn(source))
