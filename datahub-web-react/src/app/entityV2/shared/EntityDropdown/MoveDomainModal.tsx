@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
-import { useRefetch } from '@app/entity/shared/EntityContext';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
 import { useHandleMoveDomainComplete } from '@app/entityV2/shared/EntityDropdown/useHandleMoveDomainComplete';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';

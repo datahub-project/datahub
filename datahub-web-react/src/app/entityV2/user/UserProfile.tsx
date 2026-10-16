@@ -6,8 +6,8 @@ import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,

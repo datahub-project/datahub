@@ -3,10 +3,10 @@ import React, { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';

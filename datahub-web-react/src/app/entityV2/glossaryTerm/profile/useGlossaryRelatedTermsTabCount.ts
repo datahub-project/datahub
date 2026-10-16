@@ -1,5 +1,5 @@
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { relatedTermsCountVariables, relatedTermsTotal } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 

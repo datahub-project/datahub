@@ -1,0 +1,114 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import useGetPromptInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import { getFormAssociation } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/utils';
+import FormRequestedBy from '@app/entityV2/shared/entityForm/FormSelectionModal/FormRequestedBy';
+import Prompt, { PromptWrapper } from '@app/entityV2/shared/entityForm/prompts/Prompt';
+import { PromptSubTitle } from '@app/entityV2/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import VerificationPrompt from '@app/entityV2/shared/entityForm/prompts/VerificationPrompt';
+import SchemaFieldPrompts from '@app/entityV2/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
+import useShouldShowVerificationPrompt from '@app/entityV2/shared/entityForm/useShouldShowVerificationPrompt';
+import { DeferredRenderComponent } from '@app/sharedV2/DeferredRenderComponent';
+import Loading from '@app/sharedV2/Loading';
+import useHasComponentRendered from '@app/sharedV2/useHasComponentRendered';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+
+import { FormPrompt } from '@types';
+
+const PaddinglessEditor = styled(Editor)`
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
+        padding: 0;
+    }
+`;
+
+const TabWrapper = styled.div`
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    overflow: auto;
+    padding: 24px;
+    flex: 1;
+    max-height: 100%;
+`;
+
+const IntroTitle = styled.div`
+    font-size: 20px;
+    font-weight: 600;
+`;
+
+const HeaderWrapper = styled(PromptWrapper)``;
+
+const SubTitle = styled(PromptSubTitle)`
+    margin-top: 16px;
+`;
+
+const RequestedByWrapper = styled(PromptSubTitle)`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+interface Props {
+    formUrn: string;
+}
+
+function Form({ formUrn }: Props) {
+    const { t } = useTranslation('entity.form');
+    const entityRegistry = useEntityRegistry();
+    const { entityType, entityData, loading } = useEntityData();
+    const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
+    const shouldShowVerificationPrompt = useShouldShowVerificationPrompt(formUrn);
+    const { hasRendered } = useHasComponentRendered();
+
+    const formAssociation = getFormAssociation(formUrn, entityData);
+    const title = formAssociation?.form?.info?.name;
+    const associatedUrn = formAssociation?.associatedUrn;
+    const description = formAssociation?.form?.info?.description;
+    const owners = formAssociation?.form?.ownership?.owners;
+
+    if (!hasRendered || !entityData) return <Loading />;
+
+    return (
+        <TabWrapper>
+            <HeaderWrapper>
+                <IntroTitle>
+                    {title ? (
+                        <>{title}</>
+                    ) : (
+                        <>{t('requirementsTitle', { entityName: entityRegistry.getEntityName(entityType) })}</>
+                    )}
+                </IntroTitle>
+                {owners && owners.length > 0 && (
+                    <RequestedByWrapper>
+                        <FormRequestedBy owners={owners} />
+                    </RequestedByWrapper>
+                )}
+                {description ? (
+                    <SubTitle>
+                        <PaddinglessEditor content={description} readOnly />
+                    </SubTitle>
+                ) : (
+                    <SubTitle>
+                        {t('introDescription', { entityName: entityRegistry.getEntityName(entityType) })}
+                    </SubTitle>
+                )}
+            </HeaderWrapper>
+            {loading && !entityPrompts?.length && <Loading />}
+            {entityPrompts?.map((prompt, index) => (
+                <Prompt
+                    key={`${prompt.id}-${entityData?.urn}`}
+                    promptNumber={index + 1}
+                    prompt={prompt as FormPrompt}
+                    associatedUrn={associatedUrn}
+                />
+            ))}
+            {fieldPrompts.length > 0 && <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />}
+            {shouldShowVerificationPrompt && <VerificationPrompt formUrn={formUrn} associatedUrn={associatedUrn} />}
+        </TabWrapper>
+    );
+}
+
+export default function FormContainer({ formUrn }: Props) {
+    return <DeferredRenderComponent wrappedComponent={<Form formUrn={formUrn} />} />;
+}

@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import useStructuredProperties from '@app/entityV2/summary/properties/hooks/useStructuredProperties';
 import * as governUtils from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -9,7 +9,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType, SummaryElementType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext');
+vi.mock('@app/entityV2/shared/EntityContext');
 vi.mock('@app/useEntityRegistry');
 vi.mock('@graphql/search.generated');
 vi.mock('@app/govern/structuredProperties/utils', async () => {

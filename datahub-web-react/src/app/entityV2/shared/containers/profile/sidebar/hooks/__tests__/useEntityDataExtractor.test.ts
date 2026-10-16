@@ -4,7 +4,7 @@ import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/
 
 const mockUseEntityData = vi.hoisted(() => vi.fn());
 
-vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+vi.mock('@src/app/entityV2/shared/EntityContext', async (importOriginal) => {
     const original = await importOriginal<object>();
     return {
         ...original,

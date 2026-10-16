@@ -6,8 +6,8 @@ import styled from 'styled-components/macro';
 import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';

@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
 import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
-import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
 import { UnionType } from '@app/search/utils/constants';
 
 import { FacetFilterInput, SearchFlags } from '@types';

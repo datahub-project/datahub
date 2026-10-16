@@ -1,0 +1,73 @@
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { DatasetStatsSummarySubHeader } from '@app/entity/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
+import FormInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/FormInfo';
+import { StyledDivider } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import PlatformContent from '@app/entityV2/shared/containers/profile/header/PlatformContent';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+const EntityName = styled.div`
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 24px;
+    margin-bottom: 8px;
+`;
+
+const EntityInfoWrapper = styled.div`
+    padding-top: 20px;
+`;
+
+const StyledLink = styled(Link)`
+    font-size: 14px;
+    line-height: 18px;
+    display: inline-flex;
+    align-items: center;
+
+    svg {
+        height: 14px;
+        width: 14px;
+    }
+`;
+
+const FormInfoWrapper = styled.div`
+    margin-top: 12px;
+`;
+
+interface Props {
+    formUrn: string;
+}
+
+export default function EntityInfo({ formUrn }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const entityRegistry = useEntityRegistry();
+    const { entityType, entityData } = useEntityData();
+    const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
+
+    return (
+        <EntityInfoWrapper>
+            <PlatformContent />
+            <EntityName>{entityName}</EntityName>
+            <StyledLink
+                to={`${entityRegistry.getEntityUrl(entityType, entityData?.urn || '')}/`}
+                target="_blank"
+                rel="noreferrer noopener"
+            >
+                <Trans
+                    t={t}
+                    i18nKey="entityInfo.viewProfile"
+                    components={{ icon: <ArrowSquareOut style={{ marginLeft: '4px' }} /> }}
+                />
+            </StyledLink>
+            <DatasetStatsSummarySubHeader properties={{ shouldWrap: true }} />
+            <FormInfoWrapper>
+                <FormInfo shouldDisplayBackground formUrn={formUrn} />
+            </FormInfoWrapper>
+            <StyledDivider />
+        </EntityInfoWrapper>
+    );
+}

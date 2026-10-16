@@ -5,8 +5,8 @@ import styled from 'styled-components';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import { useDomainsContext } from '@app/domain/DomainsContext';
-import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
-import useListDomains from '@app/domain/useListDomains';
+import useHasDomainChildren from '@app/domainV2/nestedDomains/domainNavigator/useHasDomainChildren';
+import useListDomains from '@app/domainV2/useListDomains';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { BodyContainer, BodyGridExpander } from '@app/sharedV2/components';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';

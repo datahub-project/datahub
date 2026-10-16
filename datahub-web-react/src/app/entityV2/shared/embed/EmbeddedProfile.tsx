@@ -3,8 +3,8 @@ import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';

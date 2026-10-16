@@ -4,7 +4,7 @@ import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     MEMBER_DATASETS_PAGE_SIZE,
     useSemanticModelMemberDatasetsPage,

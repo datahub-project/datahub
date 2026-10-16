@@ -1,4 +1,4 @@
-import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { combineEntityDataWithSiblings } from '@app/entityV2/shared/siblingUtils';
 
 // Wraps the primary entity and its sibling in the shape entity queries return, so the merge runs
 // through the public combineEntityDataWithSiblings API.

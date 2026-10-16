@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { StyledDivider } from '@app/entityV2/summary/styledComponents';

@@ -1,4 +1,4 @@
-import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/siblingUtils';
+import { CombinedEntity, createSiblingEntityCombiner } from '@app/entityV2/shared/siblingUtils';
 
 import { Entity, MatchedField } from '@types';
 

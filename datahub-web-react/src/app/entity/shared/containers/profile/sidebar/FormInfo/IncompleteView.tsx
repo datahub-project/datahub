@@ -3,8 +3,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 import {
     CTAWrapper,
     FlexWrapper,
@@ -13,6 +11,8 @@ import {
     StyledReadFilled,
     Title,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import OptionalPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import RequiredPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 
 const StyledButton = styled(Button)`
     width: 100%;

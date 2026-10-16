@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

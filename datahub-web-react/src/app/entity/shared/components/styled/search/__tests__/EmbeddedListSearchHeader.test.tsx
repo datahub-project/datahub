@@ -3,10 +3,10 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 import EmbeddedListSearchHeader from '@app/entity/shared/components/styled/search/EmbeddedListSearchHeader';
-import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
+import SearchExtendedMenu from '@app/entityV2/shared/components/styled/search/SearchExtendedMenu';
 import TestPageContainer from '@src/utils/test-utils/TestPageContainer';
 
-vi.mock('@app/entity/shared/components/styled/search/SearchExtendedMenu', () => ({
+vi.mock('@app/entityV2/shared/components/styled/search/SearchExtendedMenu', () => ({
     default: vi.fn(() => null),
 }));
 

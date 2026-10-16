@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useIsMultipleDataProductsEnabled } from '@app/sharedV2/hooks/useIsMultipleDataProductsEnabled';

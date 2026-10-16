@@ -4,7 +4,7 @@ import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';

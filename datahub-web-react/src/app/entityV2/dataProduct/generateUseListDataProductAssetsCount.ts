@@ -1,4 +1,4 @@
-import { GetSearchResultsParams } from '@src/app/entity/shared/components/styled/search/types';
+import { GetSearchResultsParams } from '@src/app/entityV2/shared/components/styled/search/types';
 import { useListDataProductAssetsQuery } from '@src/graphql/search.generated';
 
 import { FacetFilterInput } from '@types';

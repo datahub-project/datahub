@@ -5,7 +5,7 @@ import {
     resolveHasRecentUsage,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { useBaseEntity } from '@src/app/entityV2/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
 import {
     GetDatasetQuery,

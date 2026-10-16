@@ -1,12 +1,12 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import { useCanUpdateGlossaryEntity } from '@app/entityV2/summary/shared/useCanUpdateGlossaryEntity';
 
 // Mocks
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import SidebarEntitiesLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesLoadingSection';
 import {
     getContentsSummary,

@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
@@ -20,7 +20,7 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 vi.mock('@graphql/template.generated');
 vi.mock('@graphql/user.generated');
 vi.mock('@graphql/settings.generated');
-vi.mock('@app/entity/shared/EntityContext');
+vi.mock('@app/entityV2/shared/EntityContext');
 vi.mock('@app/sharedV2/reloadableContext/hooks/useReloadableContext');
 
 const mockShowToast = vi.fn();

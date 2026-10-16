@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
 
 type Props = {
     key: string;

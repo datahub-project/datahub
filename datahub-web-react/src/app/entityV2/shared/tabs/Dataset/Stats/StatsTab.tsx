@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import StatsHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsHeader';
 import HistoricalStats from '@app/entityV2/shared/tabs/Dataset/Stats/historical/HistoricalStats';
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';

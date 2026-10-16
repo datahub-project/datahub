@@ -12,7 +12,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/styledComponents';
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { PageTitle } from '@src/alchemy-components';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { useBaseEntity } from '@src/app/entityV2/shared/EntityContext';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Dataset } from '@src/types.generated';
 

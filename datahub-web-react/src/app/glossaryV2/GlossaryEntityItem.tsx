@@ -2,7 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import GlossaryListCard from '@app/glossaryV2/GlossaryListCard';
 import GlossaryNodeCard from '@app/glossaryV2/GlossaryNodeCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';

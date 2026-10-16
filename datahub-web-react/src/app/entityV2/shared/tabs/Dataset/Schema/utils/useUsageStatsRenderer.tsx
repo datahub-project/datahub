@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { useBaseEntity } from '@src/app/entityV2/shared/EntityContext';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { UsageQueryResult } from '@types';
