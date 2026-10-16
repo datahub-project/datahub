@@ -1224,7 +1224,11 @@ transformers:
 
 Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `platform_rules` matches a platform name. `find` and `replace` are a literal substring replacement on that name. The nested `id_rules` are literal find-and-replace operations on the dataset name, and they run only for upstreams whose platform matched that platform rule. Those `id_rules` run in list order, and a later one sees the name produced by the earlier ones. An upstream whose platform matches no rule is left unchanged. When `platform_rules` is empty, the top-level `id_rules` run for every upstream and the platform is left as it is.
 
-Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested.
+Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run.
+
+### Limitation
+
+Top-level `id_rules` are ignored, with no warning, whenever `platform_rules` is set. Put name rules under the platform rule they belong to. Top-level `id_rules` run only when `platform_rules` is empty.
 
 ### Config Details
 
@@ -1241,7 +1245,7 @@ transformers:
       mode: replace
       platform_rules:
         - find: mssql
-          replace: fabric
+          replace: fabric-onelake
           id_rules:
             - find: src_lakehouse
               replace: workspace-id.item-id
@@ -1249,7 +1253,7 @@ transformers:
               replace: ".curated."
 ```
 
-An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric,workspace-id.item-id.curated.bridge_table,PROD)`. An upstream on another platform is not changed.
+An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,workspace-id.item-id.curated.bridge_table,PROD)`. An upstream on another platform is not changed.
 
 With no `platform_rules`, the same name change applies on every platform:
 

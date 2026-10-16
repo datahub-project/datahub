@@ -1,8 +1,14 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
-from datahub.ingestion.api.common import PipelineContext
+from datahub.emitter.mcp_patch_builder import _Patch
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.transformer.rewrite_upstream_urns import (
     RewriteUpstreamUrns,
     RewriteUpstreamUrnsConfig,
@@ -11,6 +17,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeProposalClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -263,6 +270,87 @@ def test_id_rules_apply_to_every_upstream_when_platform_rules_are_empty():
     assert rewritten.upstreams[1].dataset == make_dataset_urn(
         "postgres", "workspace-id.item-id.gold.bridge_table"
     )
+
+
+def _patch_operations(record: MetadataChangeProposalClass) -> list:
+    assert record.aspect is not None
+    payload = json.loads(record.aspect.value)
+    return payload["patch"] if isinstance(payload, dict) else payload
+
+
+def _path_components(path: str) -> list[str]:
+    return [_Patch.unquote_path_component(part) for part in path[1:].split("/")]
+
+
+def test_incremental_lineage_patch_rewrites_matching_upstreams():
+    downstream_field = make_schema_field_urn(DOWNSTREAM, "fund_id")
+    upstream_field = make_schema_field_urn(UPSTREAM, "fund_id")
+    other_field = make_schema_field_urn(OTHER_PLATFORM, "fund_id")
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED"),
+            UpstreamClass(dataset=OTHER_PLATFORM, type="TRANSFORMED"),
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[upstream_field, other_field],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[downstream_field],
+            )
+        ],
+    )
+    proposal = convert_upstream_lineage_to_patch(DOWNSTREAM, lineage, None).metadata
+    transformer = _transformer(
+        platform_rules=[
+            _mssql_rule([{"find": "src_lakehouse", "replace": "workspace-id.item-id"}])
+        ]
+    )
+
+    rewritten = list(
+        transformer.transform([RecordEnvelope(record=proposal, metadata={})])
+    )
+
+    amended = make_dataset_urn("fabric", "workspace-id.item-id.gold.bridge_table")
+    amended_field = make_schema_field_urn(amended, "fund_id")
+    operations = _patch_operations(rewritten[0].record)
+    paths = [_path_components(operation["path"]) for operation in operations]
+    amended_values = [
+        operation["value"]["dataset"]
+        for operation, path in zip(operations, paths, strict=True)
+        if path[:2] == ["upstreams", amended]
+    ]
+    assert amended_values == [amended]
+    assert ["upstreams", amended] in paths
+    assert ["upstreams", UPSTREAM] not in paths
+    assert ["upstreams", OTHER_PLATFORM] in paths
+    assert any(path[-1] == amended_field for path in paths)
+    assert all(path[-1] != upstream_field for path in paths)
+    assert any(downstream_field in path for path in paths)
+
+
+def test_incremental_lineage_patch_add_mode_keeps_the_original_upstream():
+    lineage = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")]
+    )
+    proposal = convert_upstream_lineage_to_patch(DOWNSTREAM, lineage, None).metadata
+    transformer = _transformer(
+        mode="add",
+        platform_rules=[
+            _mssql_rule([{"find": "src_lakehouse", "replace": "workspace-id.item-id"}])
+        ],
+    )
+
+    rewritten = list(
+        transformer.transform([RecordEnvelope(record=proposal, metadata={})])
+    )
+
+    amended = make_dataset_urn("fabric", "workspace-id.item-id.gold.bridge_table")
+    datasets = [
+        _path_components(operation["path"])[1]
+        for operation in _patch_operations(rewritten[0].record)
+    ]
+    assert datasets == [UPSTREAM, amended]
 
 
 def test_platform_urn_is_reduced_to_its_name():
