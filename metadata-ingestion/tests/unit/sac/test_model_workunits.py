@@ -86,7 +86,6 @@ def test_get_model_workunits_emits_platform_instance_as_urn(requests_mock):
 
     dpis = _aspects(workunits, DataPlatformInstanceClass)
     assert len(dpis) == 1
-    # instance must be a dataPlatformInstance urn, not the raw config string.
     assert (
         dpis[0].instance
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sac,myinstance)"
