@@ -1264,16 +1264,34 @@ def test_deprecated_schema_and_properties_emit_deprecation() -> None:
     )
 
 
-def test_deprecated_false_emits_nothing() -> None:
+def test_explicit_deprecated_false_clears_deprecation() -> None:
+    """An explicit `deprecated: false` is a deliberate statement and clears an
+    earlier deprecation; an absent key emits nothing."""
     mcps = _logical_mcps(
         [
             {
                 "name": "t",
                 "deprecated": False,
-                "properties": [{"name": "col_a", "deprecated": False}],
+                "properties": [
+                    {"name": "col_a", "deprecated": False},
+                    {"name": "col_b"},
+                ],
             }
         ]
     )
+    (dataset_dep,) = _aspects_for(mcps, LOGICAL_URN, DeprecationClass)
+    assert dataset_dep.deprecated is False
+    (field_dep,) = _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), DeprecationClass
+    )
+    assert field_dep.deprecated is False
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), DeprecationClass
+    )
+
+
+def test_absent_deprecated_emits_nothing() -> None:
+    mcps = _logical_mcps([{"name": "t", "properties": [{"name": "col_a"}]}])
     assert not [m for m in mcps if isinstance(m.aspect, DeprecationClass)]
 
 

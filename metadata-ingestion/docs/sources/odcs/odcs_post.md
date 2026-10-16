@@ -165,11 +165,11 @@ in place.
   reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
 - **ODCS v3.2 coverage.** `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a
-  `deprecation` aspect on the logical dataset or field (absent/false emits nothing); property
+  `deprecation` aspect on the logical dataset or field, and an explicit `deprecated: false`
+  clears it (an absent key emits nothing); property
   `synonyms` map to the field's AI context synonyms (`locale`, `source`, `status` are dropped).
-  Both are one-way: removing `deprecated: true` (or setting it to `false`) does not
-  un-deprecate what an earlier run marked deprecated, and removing all `synonyms` does not clear
-  previously ingested ones. The field's AI context aspect is written as a whole, replacing any
+  To un-deprecate, set `deprecated: false` — deleting the key does not undo an earlier run.
+  Removing all `synonyms` does not clear previously ingested ones. The field's AI context aspect is written as a whole, replacing any
   instructions or examples set on that field of the logical dataset.
   Accepted but not yet mapped: `context`, schema-object `synonyms`, `enum`, `semanticType`, and
   the server fields `encoding`, `workgroup`, `catalogUrl`, `namespace`. These may land in a

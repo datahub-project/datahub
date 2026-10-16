@@ -646,10 +646,10 @@ def _institutional_memory_mcp(
     )
 
 
-def _deprecation(contract: ODCSContract) -> DeprecationClass:
+def _deprecation(contract: ODCSContract, deprecated: bool) -> DeprecationClass:
     return DeprecationClass(
-        deprecated=True,
-        note=f"Marked deprecated in ODCS contract {contract.id}",
+        deprecated=deprecated,
+        note=f"Marked deprecated in ODCS contract {contract.id}" if deprecated else "",
         actor=DEPRECATION_ACTOR,
     )
 
@@ -659,16 +659,17 @@ def _field_aspect_mcps(
 ) -> List[MetadataChangeProposalWrapper]:
     """Per-field `deprecation` and `aiContext` aspects (ODCS v3.2).
 
-    Only truthy values emit: an absent or false `deprecated` must not
-    un-deprecate a field deprecated elsewhere.
+    An explicit `deprecated` (true or false) is asserted, so reverting the flag
+    in the contract clears the deprecation; an absent key emits nothing.
     """
     mcps: List[MetadataChangeProposalWrapper] = []
     for field_path, prop in _walk_properties(schema_entry.properties):
         field_urn = make_schema_field_urn(logical_urn, field_path)
-        if prop.deprecated:
+        if prop.deprecated is not None:
             mcps.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=field_urn, aspect=_deprecation(contract)
+                    entityUrn=field_urn,
+                    aspect=_deprecation(contract, prop.deprecated),
                 )
             )
         names = [s if isinstance(s, str) else s.synonym for s in prop.synonyms or []]
@@ -780,10 +781,11 @@ def odcs_to_logical_dataset_mcps(
     if inst_mem is not None:
         mcps.append(inst_mem)
 
-    if schema_entry.deprecated:
+    if schema_entry.deprecated is not None:
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=logical_urn, aspect=_deprecation(contract)
+                entityUrn=logical_urn,
+                aspect=_deprecation(contract, schema_entry.deprecated),
             )
         )
     mcps.extend(_field_aspect_mcps(contract, schema_entry, logical_urn))
