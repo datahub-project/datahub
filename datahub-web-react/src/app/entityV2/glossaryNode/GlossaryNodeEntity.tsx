@@ -39,6 +39,7 @@ const ChildrenTabWrapper = lazyProfileComponent(
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.EDIT_GLOSSARY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,

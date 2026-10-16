@@ -28,7 +28,7 @@ import { EntityTab } from '@app/entityV2/shared/types';
 import { useGetMetricQuery } from '@graphql/metric.generated';
 import { EntityType, Metric, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE]);
+const headerDropdownItems = new Set([EntityMenuItems.CHANGE_HISTORY, EntityMenuItems.SHARE]);
 
 export class MetricEntity implements Entity<Metric> {
     type: EntityType = EntityType.Metric;

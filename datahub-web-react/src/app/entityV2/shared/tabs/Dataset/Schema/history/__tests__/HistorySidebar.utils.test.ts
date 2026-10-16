@@ -72,25 +72,67 @@ describe('getCategoryOptions', () => {
         expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
-    it.each([EntityType.DataFlow, EntityType.DataJob])(
-        'returns Documentation, Tags, Terms, Owners, Domains, Properties, Applications for %s',
-        (entityType) => {
-            const options = getCategoryOptions(entityType);
-            const values = options.map((o) => o.value);
+    it.each([
+        EntityType.DataFlow,
+        EntityType.DataJob,
+        EntityType.Chart,
+        EntityType.Dashboard,
+        EntityType.Metric,
+        EntityType.SemanticModel,
+        EntityType.MlmodelGroup,
+        EntityType.Mlfeature,
+        EntityType.MlfeatureTable,
+        EntityType.MlprimaryKey,
+        EntityType.Container,
+    ])('returns the catalog categories plus Applications for %s', (entityType) => {
+        const values = getCategoryOptions(entityType).map((o) => o.value);
 
-            expect(values).toEqual([
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ]);
-            expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-            expect(values).not.toContain(CATEGORY_VERSIONING);
-        },
-    );
+        expect(values).toEqual([
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.GlossaryTerm,
+            ChangeCategoryType.Ownership,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
+        ]);
+        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
+        expect(values).not.toContain(CATEGORY_VERSIONING);
+    });
+
+    it('returns the catalog categories plus Applications and Versions for ML models', () => {
+        const values = getCategoryOptions(EntityType.Mlmodel).map((o) => o.value);
+
+        expect(values).toEqual([
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.GlossaryTerm,
+            ChangeCategoryType.Ownership,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
+            CATEGORY_VERSIONING,
+        ]);
+    });
+
+    it('omits Terms for glossary nodes and Applications for applications', () => {
+        expect(getCategoryOptions(EntityType.GlossaryNode).map((o) => o.value)).toEqual([
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.Ownership,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
+        ]);
+        expect(getCategoryOptions(EntityType.Application).map((o) => o.value)).toEqual([
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.GlossaryTerm,
+            ChangeCategoryType.Ownership,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+        ]);
+    });
 
     it('returns all supported categories including Assets for data products', () => {
         const options = getCategoryOptions(EntityType.DataProduct);
@@ -110,7 +152,7 @@ describe('getCategoryOptions', () => {
     });
 
     it('falls back to all categories for entity types without a mapping', () => {
-        const options = getCategoryOptions(EntityType.Chart);
+        const options = getCategoryOptions(EntityType.CorpUser);
         expect(options).toEqual(ALL_CATEGORY_OPTIONS);
     });
 

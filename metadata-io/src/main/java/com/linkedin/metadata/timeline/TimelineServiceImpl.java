@@ -5,7 +5,14 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.application.ApplicationProperties;
+import com.linkedin.chart.ChartInfo;
+import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.container.ContainerProperties;
+import com.linkedin.container.EditableContainerProperties;
+import com.linkedin.dashboard.DashboardInfo;
+import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.datajob.DataJobInfo;
@@ -40,6 +47,19 @@ import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGe
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.VersionPropertiesChangeEventGenerator;
+import com.linkedin.metric.MetricInfo;
+import com.linkedin.ml.metadata.EditableMLFeatureProperties;
+import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
+import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
+import com.linkedin.ml.metadata.EditableMLModelProperties;
+import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
+import com.linkedin.ml.metadata.MLFeatureProperties;
+import com.linkedin.ml.metadata.MLFeatureTableProperties;
+import com.linkedin.ml.metadata.MLModelGroupProperties;
+import com.linkedin.ml.metadata.MLModelProperties;
+import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
+import com.linkedin.repository.RepositoryProperties;
+import com.linkedin.semanticmodel.SemanticModelInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
@@ -502,37 +522,101 @@ public class TimelineServiceImpl implements TimelineService {
     entityTypeElementAspectRegistry.put(
         AGENT_SKILL_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AGENT_SKILL_ENTITY_NAME));
 
-    entityTypeElementAspectRegistry.put(
+    registerCatalogEntity(
         DATA_FLOW_ENTITY_NAME,
-        buildDataJobFamilyTimelineRegistry(
-            DATA_FLOW_ENTITY_NAME,
+        Map.of(
             DATA_FLOW_INFO_ASPECT_NAME,
             DataFlowInfo.class,
             EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME,
             EditableDataFlowProperties.class));
-    entityTypeElementAspectRegistry.put(
+    registerCatalogEntity(
         DATA_JOB_ENTITY_NAME,
-        buildDataJobFamilyTimelineRegistry(
-            DATA_JOB_ENTITY_NAME,
+        Map.of(
             DATA_JOB_INFO_ASPECT_NAME,
             DataJobInfo.class,
             EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME,
             EditableDataJobProperties.class));
+    registerCatalogEntity(
+        CHART_ENTITY_NAME,
+        Map.of(
+            CHART_INFO_ASPECT_NAME,
+            ChartInfo.class,
+            EDITABLE_CHART_PROPERTIES_ASPECT_NAME,
+            EditableChartProperties.class));
+    registerCatalogEntity(
+        DASHBOARD_ENTITY_NAME,
+        Map.of(
+            DASHBOARD_INFO_ASPECT_NAME,
+            DashboardInfo.class,
+            EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME,
+            EditableDashboardProperties.class));
+    registerCatalogEntity(METRIC_ENTITY_NAME, Map.of(METRIC_INFO_ASPECT_NAME, MetricInfo.class));
+    registerCatalogEntity(
+        SEMANTIC_MODEL_ENTITY_NAME,
+        Map.of(SEMANTIC_MODEL_INFO_ASPECT_NAME, SemanticModelInfo.class));
+    registerCatalogEntity(
+        ML_MODEL_ENTITY_NAME,
+        Map.of(
+            ML_MODEL_PROPERTIES_ASPECT_NAME,
+            MLModelProperties.class,
+            ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableMLModelProperties.class));
+    registerCatalogEntity(
+        ML_MODEL_GROUP_ENTITY_NAME,
+        Map.of(
+            ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+            MLModelGroupProperties.class,
+            ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableMLModelGroupProperties.class));
+    registerCatalogEntity(
+        ML_FEATURE_ENTITY_NAME,
+        Map.of(
+            ML_FEATURE_PROPERTIES_ASPECT_NAME,
+            MLFeatureProperties.class,
+            ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableMLFeatureProperties.class));
+    registerCatalogEntity(
+        ML_FEATURE_TABLE_ENTITY_NAME,
+        Map.of(
+            ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
+            MLFeatureTableProperties.class,
+            ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableMLFeatureTableProperties.class));
+    registerCatalogEntity(
+        ML_PRIMARY_KEY_ENTITY_NAME,
+        Map.of(
+            ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
+            MLPrimaryKeyProperties.class,
+            ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableMLPrimaryKeyProperties.class));
+    registerCatalogEntity(
+        CONTAINER_ENTITY_NAME,
+        Map.of(
+            CONTAINER_PROPERTIES_ASPECT_NAME,
+            ContainerProperties.class,
+            CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+            EditableContainerProperties.class));
+    registerCatalogEntity(GLOSSARY_NODE_ENTITY_NAME, Map.of());
+    registerCatalogEntity(
+        APPLICATION_ENTITY_NAME,
+        Map.of(APPLICATION_PROPERTIES_ASPECT_NAME, ApplicationProperties.class));
+    registerCatalogEntity(
+        REPOSITORY_ENTITY_NAME,
+        Map.of(REPOSITORY_PROPERTIES_ASPECT_NAME, RepositoryProperties.class));
   }
 
   /**
-   * Builds the timeline registry for a pipeline-family entity (dataFlow, dataJob). Both carry the
-   * standard catalog aspects plus a single domain and application membership. Descriptions can come
-   * from either the ingested info aspect or the UI-editable properties aspect, so DOCUMENTATION
-   * watches both; without this registration getTimeline throws UnsupportedOperationException for
-   * these urns regardless of stored history.
+   * Registers a catalog entity (pipelines, charts, ML assets, containers, ...) with the standard
+   * catalog categories plus a single domain, application membership, structured properties and
+   * version milestones. {@code descriptionAspects} maps each aspect whose top-level {@code
+   * description} field feeds DOCUMENTATION (typically the ingested info aspect and the UI-editable
+   * properties aspect) to its record class. Categories whose aspect the entity does not carry are
+   * harmless: no rows ever exist for them. Without a registration getTimeline throws
+   * UnsupportedOperationException for the entity's urns regardless of stored history.
    */
-  private HashMap<ChangeCategory, Set<String>> buildDataJobFamilyTimelineRegistry(
+  private void registerCatalogEntity(
       final String entityType,
-      final String infoAspectName,
-      final Class<? extends RecordTemplate> infoAspectClass,
-      final String editableAspectName,
-      final Class<? extends RecordTemplate> editableAspectClass) {
+      final Map<String, Class<? extends RecordTemplate>> descriptionAspects) {
     final HashMap<ChangeCategory, Set<String>> registry =
         buildAgentFamilyTimelineRegistry(entityType);
     registry.computeIfAbsent(ChangeCategory.DOMAIN, k -> new HashSet<>()).add(DOMAINS_ASPECT_NAME);
@@ -557,21 +641,26 @@ public class TimelineServiceImpl implements TimelineService {
         ChangeCategory.STRUCTURED_PROPERTY,
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         new StructuredPropertyChangeEventGenerator());
+    registry
+        .computeIfAbsent(ChangeCategory.VERSIONING, k -> new HashSet<>())
+        .add(VERSION_PROPERTIES_ASPECT_NAME);
+    _entityChangeEventGeneratorFactory.addGenerator(
+        entityType,
+        ChangeCategory.VERSIONING,
+        VERSION_PROPERTIES_ASPECT_NAME,
+        new VersionPropertiesChangeEventGenerator());
     final Set<String> documentationAspects =
         registry.computeIfAbsent(ChangeCategory.DOCUMENTATION, k -> new HashSet<>());
-    documentationAspects.add(infoAspectName);
-    _entityChangeEventGeneratorFactory.addGenerator(
-        entityType,
-        ChangeCategory.DOCUMENTATION,
-        infoAspectName,
-        new PropertiesDescriptionChangeEventGenerator<>(infoAspectName, infoAspectClass));
-    documentationAspects.add(editableAspectName);
-    _entityChangeEventGeneratorFactory.addGenerator(
-        entityType,
-        ChangeCategory.DOCUMENTATION,
-        editableAspectName,
-        new PropertiesDescriptionChangeEventGenerator<>(editableAspectName, editableAspectClass));
-    return registry;
+    descriptionAspects.forEach(
+        (aspectName, aspectClass) -> {
+          documentationAspects.add(aspectName);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              ChangeCategory.DOCUMENTATION,
+              aspectName,
+              new PropertiesDescriptionChangeEventGenerator<>(aspectName, aspectClass));
+        });
+    entityTypeElementAspectRegistry.put(entityType, registry);
   }
 
   private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(

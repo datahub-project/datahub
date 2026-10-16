@@ -47,7 +47,12 @@ const ApplicationEntitiesTab = lazyProfileComponent('ApplicationEntitiesTab', ()
     })),
 );
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.DELETE, EntityMenuItems.EDIT]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+]);
 
 type ApplicationWithChildren = Application & {
     children?: {

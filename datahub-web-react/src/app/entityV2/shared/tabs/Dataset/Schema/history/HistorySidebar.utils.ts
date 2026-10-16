@@ -105,16 +105,16 @@ function getAllCategoryOptions(): CategoryOption[] {
     ];
 }
 
-// Pipelines and tasks share one registration on the backend (buildDataJobFamilyTimelineRegistry).
-const PIPELINE_FAMILY_CATEGORIES: Set<ChangeCategoryValue> = new Set([
+// Catalog entities registered through TimelineServiceImpl.registerCatalogEntity share one shape.
+const CATALOG_CATEGORIES: ChangeCategoryValue[] = [
     ChangeCategoryType.Documentation,
     ChangeCategoryType.Tag,
     ChangeCategoryType.GlossaryTerm,
     ChangeCategoryType.Ownership,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
-    CATEGORY_APPLICATION,
-]);
+];
+const CATALOG_WITH_APPLICATIONS: Set<ChangeCategoryValue> = new Set([...CATALOG_CATEGORIES, CATEGORY_APPLICATION]);
 
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
 const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
@@ -153,8 +153,29 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
         CATEGORY_APPLICATION,
         CATEGORY_ASSET_MEMBERSHIP,
     ]),
-    [EntityType.DataFlow]: PIPELINE_FAMILY_CATEGORIES,
-    [EntityType.DataJob]: PIPELINE_FAMILY_CATEGORIES,
+    [EntityType.DataFlow]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.DataJob]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Chart]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Dashboard]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Metric]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.SemanticModel]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Mlmodel]: new Set([...CATALOG_CATEGORIES, CATEGORY_APPLICATION, CATEGORY_VERSIONING]),
+    [EntityType.MlmodelGroup]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Mlfeature]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.MlfeatureTable]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.MlprimaryKey]: CATALOG_WITH_APPLICATIONS,
+    [EntityType.Container]: CATALOG_WITH_APPLICATIONS,
+    // glossaryNode carries no glossaryTerms aspect
+    [EntityType.GlossaryNode]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    // application carries no applications aspect of its own
+    [EntityType.Application]: new Set(CATALOG_CATEGORIES),
 };
 
 export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
