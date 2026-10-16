@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.migrations;
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.StringMap;
@@ -11,6 +12,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -202,6 +204,10 @@ public class MigrateAspectsStep implements UpgradeStep {
                                   EntityUtils.toSystemAspectFromEbeanAspects(
                                       opContext, opContext.getRetrieverContext(), Set.of(ea))
                                       .stream())
+                          // The sweep selects rows not at the target version, which includes rows
+                          // a newer version wrote (e.g. read after a rollback). Rewriting them
+                          // here would drop what only that version understands, so leave them.
+                          .filter(systemAspect -> !writtenByNewerSchema(systemAspect))
                           .map(
                               systemAspect ->
                                   ChangeItemImpl.builder()
@@ -269,6 +275,20 @@ public class MigrateAspectsStep implements UpgradeStep {
       context.report().addLine("State updated: " + getUpgradeIdUrn());
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  private boolean writtenByNewerSchema(@Nonnull SystemAspect systemAspect) {
+    if (!handling()
+        .isWrittenByNewerSchema(systemAspect.getSystemMetadata(), systemAspect.getAspectSpec())) {
+      return false;
+    }
+    log.warn(
+        "{}: leaving {}/{} as stored: it was written under a newer schema version than {}",
+        id(),
+        systemAspect.getUrn(),
+        systemAspect.getAspectName(),
+        systemAspect.getAspectSpec().getSchemaVersion());
+    return true;
   }
 
   private static Map<String, String> versionHeaders(@Nullable String version) {
