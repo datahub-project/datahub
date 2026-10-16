@@ -3,7 +3,17 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
@@ -217,10 +227,22 @@ class SACSourceConfig(
             "this root in each resource's `ancestorPath` localized to the resource's "
             "language (e.g. 'Public' in English, 'Öffentlich' in German), which would "
             "otherwise split the same physical root into one browse-path tree per "
-            "language. The first `ancestorPath` segment of public content is rewritten "
-            "to this value so the same physical root does not fan out per language. "
-            "User-created sub-folders keep their given name. Set to null to disable "
-            "rewriting and keep the raw localized name."
+            "language. Only a first `ancestorPath` segment matching "
+            "`public_root_folder_aliases` is rewritten to this value; other roots are "
+            "left untouched. User-created sub-folders keep their given name. Set to null "
+            "to disable rewriting and keep the raw localized name."
+        ),
+    )
+
+    public_root_folder_aliases: List[str] = Field(
+        default=["Public", "Öffentlich"],
+        description=(
+            "Root folder display names that identify SAC's built-in public root across "
+            "tenant languages. `isPublic eq 1` can also return other shared roots (e.g. a "
+            "team/workspace root such as 'Default'), so only a first `ancestorPath` "
+            "segment matching one of these labels (case-insensitive) is rewritten to "
+            "`public_root_folder_name` — any other root is preserved rather than merged "
+            "into the public tree. Add your tenant language's label if it is not listed."
         ),
     )
 
@@ -304,6 +326,17 @@ class SACSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @field_validator("public_root_folder_name", mode="after")
+    @classmethod
+    def _reject_blank_public_root_folder_name(cls, v: Optional[str]) -> Optional[str]:
+        # null disables canonicalization; a blank label would instead rewrite the root to
+        # an empty segment (e.g. "/sac//Folder 1"), so treat it as a config typo.
+        if v is not None and not v.strip():
+            raise ValueError(
+                "public_root_folder_name must be a non-empty string, or null to disable canonicalization"
+            )
+        return v
 
 
 @dataclass
@@ -951,19 +984,47 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             ancestor_path_raw = entity.get("ancestorPath")
             if ancestor_path_raw:
+                # Without a browse path the resource skips the folder_pattern check below,
+                # so warn instead of swallowing a malformed ancestorPath silently.
+                ancestors: Optional[List[str]] = None
                 try:
+                    parsed = json.loads(ancestor_path_raw)
+                except json.JSONDecodeError as e:
+                    self.report.warning(
+                        title="Unparseable SAC ancestor path",
+                        message="Resource has no browse path and is not matched against folder_pattern",
+                        context=f"resource_id={resource_id}",
+                        exc=e,
+                    )
+                else:
+                    if isinstance(parsed, list):
+                        ancestors = parsed
+                    else:
+                        self.report.warning(
+                            title="Unexpected SAC ancestor path shape",
+                            message="Resource has no browse path and is not matched against folder_pattern",
+                            context=f"resource_id={resource_id}, ancestorPath={ancestor_path_raw!r}",
+                        )
+
+                if ancestors is not None:
+                    folder_type = folder_types_by_resource_id.get(resource_id)
                     ancestors = _canonicalize_ancestor_folders(
-                        json.loads(ancestor_path_raw),
+                        ancestors,
                         self._canonical_root_folder_name(
-                            folder_types_by_resource_id.get(resource_id),
+                            folder_type,
                             _is_truthy_flag(entity.get("isPublic")),
                         ),
+                        # The PRIVATE root is identified authoritatively by `folderType`,
+                        # so it is rewritten unconditionally; the public root is gated by
+                        # recognized aliases so a shared/team root returned under
+                        # `isPublic` is not merged into the public tree.
+                        None
+                        if folder_type == "PRIVATE"
+                        else self.config.public_root_folder_aliases,
                     )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
                     )
-                except json.JSONDecodeError:
-                    pass
 
             if ancestor_path and not self.config.folder_pattern.allowed(ancestor_path):
                 continue
@@ -1406,17 +1467,27 @@ def _is_truthy_flag(value: Any) -> bool:
 
 
 def _canonicalize_ancestor_folders(
-    ancestors: List[str], canonical_root: Optional[str]
+    ancestors: List[str],
+    canonical_root: Optional[str],
+    recognized_aliases: Optional[Collection[str]] = None,
 ) -> List[str]:
     # SAC returns the first `ancestorPath` segment (the built-in root folder: Public,
     # My Files, ...) under a display name localized to the resource's language, which
     # would otherwise fan the same physical root out into one browse-path tree per tenant
-    # language. When the caller resolves a canonical name for that root, the first segment
-    # is rewritten to it. User-created sub-folders are not localized, so only the first
-    # segment is touched. A null `canonical_root` (e.g. an unrecognized non-public root)
-    # leaves the localized name untouched.
-    if not ancestors or not canonical_root:
+    # language. The caller resolves a canonical name for that root and the first segment
+    # is rewritten to it; user-created sub-folders are not localized, so only the first
+    # segment is touched. When `recognized_aliases` is given, only a first segment
+    # matching one of them (case-insensitive) is rewritten — this guards the public root,
+    # since `isPublic eq 1` can also return other shared roots (e.g. a team/workspace root
+    # like "Default") that must not be merged into the public tree. A None `canonical_root`
+    # (rewrite disabled, or an unresolved/unrecognized root) leaves the localized name.
+    if not ancestors or canonical_root is None:
         return ancestors
+
+    if recognized_aliases is not None:
+        aliases = {alias.casefold() for alias in recognized_aliases}
+        if ancestors[0].casefold() not in aliases:
+            return ancestors
 
     return [canonical_root, *ancestors[1:]]
 
