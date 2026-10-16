@@ -109,6 +109,46 @@ in
     }
 
 
+def test_rename_columns_around_table_combine_maps_each_source() -> None:
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    customers = Source{[Schema="gold",Item="dim_customers"]}[Data],
+    orders = Source{[Schema="gold",Item="dim_orders"]}[Data],
+    combined = Table.Combine({customers, orders}),
+    #"Renamed Columns" = Table.RenameColumns(combined, {{"CustomerAccount", "Customer Account"}})
+in
+    #"Renamed Columns"
+"""
+    config = _config()
+    lineages = mquery_parser.get_upstream_tables(
+        table=Table(
+            name="dim_customers",
+            full_name="ws.ds.dim_customers",
+            expression=expression,
+            columns=[_column("Customer Account")],
+        ),
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    mapped = {
+        lineage.upstreams[0].urn: {
+            info.downstream.column: [ref.column for ref in info.upstreams]
+            for info in lineage.column_lineage
+        }
+        for lineage in lineages
+    }
+    orders = "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.gold.dim_orders,PROD)"
+    assert mapped == {
+        _UPSTREAM: {"Customer Account": ["CustomerAccount"]},
+        orders: {"Customer Account": ["CustomerAccount"]},
+    }
+
+
 def test_rename_columns_without_pairs_keeps_field_names() -> None:
     expression = """\
 let
@@ -124,6 +164,7 @@ in
 def test_apply_renames_sql_output_to_powerbi_field() -> None:
     lineage = Lineage(
         upstreams=[],
+        downstream_names_are_powerbi_fields=False,
         column_lineage=[
             ColumnLineageInfo(
                 downstream=DownstreamColumnRef(column="CustomerAccount"),
@@ -147,6 +188,39 @@ def test_apply_renames_sql_output_to_powerbi_field() -> None:
     )
     assert result.column_lineage[0].downstream.column == "Customer Account"
     assert result.column_lineage[0].upstreams[0].column == "CustomerAccount"
+
+
+def test_apply_renames_sql_output_when_name_matches_another_field() -> None:
+    lineage = Lineage(
+        upstreams=[],
+        downstream_names_are_powerbi_fields=False,
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="City"),
+                upstreams=[ColumnRef(table=_UPSTREAM, column="City")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="Name"),
+                upstreams=[ColumnRef(table=_UPSTREAM, column="Name")],
+            ),
+        ],
+    )
+    result = apply_table_rename_columns(
+        lineage,
+        [
+            ColumnRenameStep(
+                renames=[
+                    ColumnRename(source_name="Name", renamed_name="City"),
+                    ColumnRename(source_name="City", renamed_name="Name"),
+                ]
+            )
+        ],
+        [_column("City"), _column("Name")],
+    )
+    assert {
+        info.upstreams[0].column: info.downstream.column
+        for info in result.column_lineage
+    } == {"City": "Name", "Name": "City"}
 
 
 def test_apply_renames_is_noop_without_steps() -> None:

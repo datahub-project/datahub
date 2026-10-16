@@ -331,10 +331,10 @@ def apply_table_rename_columns(
 ) -> Lineage:
     """Point column lineage at Table.RenameColumns names.
 
-    Table navigation copies each Power BI field name onto the upstream column.
-    Those fields are the names after the rename, so the upstream column has to
-    be mapped back to the source. Native SQL lineage is the other way around:
-    its downstream name is the query output, which the rename then changes.
+    Which side of the edge still has the pre-rename name comes from the lineage
+    producer, not from whether the name happens to match a Power BI field. A
+    native-query output can share a name with a field that a different column
+    was renamed to.
     """
     if not column_rename_steps or not lineage.column_lineage:
         return lineage
@@ -347,7 +347,7 @@ def apply_table_rename_columns(
             updated.append(info)
             continue
 
-        if downstream_name in pbi_names:
+        if lineage.downstream_names_are_powerbi_fields:
             source_name = _name_before_renames(downstream_name, column_rename_steps)
             if source_name == downstream_name:
                 updated.append(info)
@@ -382,7 +382,11 @@ def apply_table_rename_columns(
                 logic=info.logic,
             )
         )
-    return Lineage(upstreams=lineage.upstreams, column_lineage=updated)
+    return Lineage(
+        upstreams=lineage.upstreams,
+        column_lineage=updated,
+        downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
+    )
 
 
 def make_urn(
@@ -896,6 +900,7 @@ class AbstractLineage(ABC):
         return Lineage(
             upstreams=dataplatform_tables,
             column_lineage=column_lineage,
+            downstream_names_are_powerbi_fields=False,
         )
 
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:

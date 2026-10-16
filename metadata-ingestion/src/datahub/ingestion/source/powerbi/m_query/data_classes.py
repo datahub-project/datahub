@@ -77,6 +77,9 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
+    # Table navigation copies Power BI field names onto both sides of an edge.
+    # Native SQL lineage still has the query's output names on the downstream side.
+    downstream_names_are_powerbi_fields: bool = True
 
     @staticmethod
     def empty() -> "Lineage":
