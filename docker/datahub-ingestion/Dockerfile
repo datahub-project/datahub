@@ -141,11 +141,65 @@ FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
 # =============================================================================
-# ADD-CODE STAGES - Separate stages for each variant to avoid caching issues
-# with parameterized FROM statements in multi-platform builds
+# DEPS + ADD-CODE STAGES - Split external dependency install from source copy
+# so routine Python edits do not re-run the expensive dependency download step.
 # =============================================================================
 
-FROM ingestion-base-slim AS add-code-slim
+FROM ingestion-base-slim AS add-deps-slim
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+COPY --chown=datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/pyproject.toml /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/README.md /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/build-constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+    echo "-e /metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" \
+    | uv pip compile /dev/stdin \
+    | grep -v "\-e" \
+    | UV_LINK_MODE=copy uv pip install -r /dev/stdin
+
+FROM ingestion-base-full AS add-deps-full
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+COPY --chown=datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/pyproject.toml /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/README.md /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/build-constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+    echo "-e /metadata-ingestion/[all]" \
+    | uv pip compile /dev/stdin \
+    | grep -v "\-e" \
+    | UV_LINK_MODE=copy uv pip install -r /dev/stdin
+
+FROM ingestion-base-locked AS add-deps-locked
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+COPY --chown=datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/pyproject.toml /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/README.md /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/build-constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/constraints.txt /metadata-ingestion/
+COPY --chown=datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+    echo "-e /metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" \
+    | uv pip compile /dev/stdin \
+    | grep -v "\-e" \
+    | UV_LINK_MODE=copy uv pip install -r /dev/stdin
+
+FROM add-deps-slim AS add-code-slim
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
@@ -153,7 +207,7 @@ RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prio
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-FROM ingestion-base-full AS add-code-full
+FROM add-deps-full AS add-code-full
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
@@ -161,7 +215,7 @@ RUN test -d /metadata-ingestion/src/datahub/metadata
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-FROM ingestion-base-locked AS add-code-locked
+FROM add-deps-locked AS add-code-locked
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"

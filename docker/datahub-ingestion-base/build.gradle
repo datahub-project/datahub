@@ -4,6 +4,7 @@ plugins {
 
 apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
+apply from: "../../gradle/docker/python-docker.gradle"
 
 ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -31,6 +32,5 @@ docker {
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
-    dockerBuildArgs.PIP_MIRROR_URL = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
-    buildArgs(dockerBuildArgs)
+    buildArgs(resolveUvBuildArgs(dockerBuildArgs))
 }
