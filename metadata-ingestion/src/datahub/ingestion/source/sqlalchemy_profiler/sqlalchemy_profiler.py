@@ -91,34 +91,21 @@ def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
     aspect, so a size would change the profile of an unchanged table.
     """
     if applied.partition is not None:
-        return _partitioned(
-            f"{applied.partition} SAMPLE" if applied.sampled else applied.partition
+        return PartitionSpecClass(
+            type=PartitionTypeClass.PARTITION,
+            partition=f"{applied.partition} SAMPLE"
+            if applied.sampled
+            else applied.partition,
         )
     if applied.sampled:
-        return _sampled()
+        return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
     if applied.limit is not None or applied.offset is not None:
-        return _limited(applied.limit, applied.offset)
-    return _full_table()
-
-
-def _full_table() -> PartitionSpecClass:
+        return PartitionSpecClass(
+            type=PartitionTypeClass.QUERY,
+            partition=json.dumps(dict(limit=applied.limit, offset=applied.offset)),
+        )
     return PartitionSpecClass(
         type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
-    )
-
-
-def _partitioned(partition: str) -> PartitionSpecClass:
-    return PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition=partition)
-
-
-def _sampled() -> PartitionSpecClass:
-    return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
-
-
-def _limited(limit: Optional[int], offset: Optional[int]) -> PartitionSpecClass:
-    return PartitionSpecClass(
-        type=PartitionTypeClass.QUERY,
-        partition=json.dumps(dict(limit=limit, offset=offset)),
     )
 
 
