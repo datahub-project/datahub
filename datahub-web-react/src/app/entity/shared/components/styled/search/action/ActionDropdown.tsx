@@ -5,7 +5,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
 
 const DownArrow = styled(CaretDown)`
     && {

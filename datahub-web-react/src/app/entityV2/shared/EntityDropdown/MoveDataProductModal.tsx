@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import DataProductParentSelect from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { CONTENTS_MODULE_URN, DATA_SOURCES_MODULE_URN } from '@app/entityV2/summary/modules/assets/constants';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';

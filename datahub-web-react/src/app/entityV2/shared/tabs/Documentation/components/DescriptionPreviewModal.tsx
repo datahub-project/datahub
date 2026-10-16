@@ -2,7 +2,7 @@ import { Modal } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreview';
 import ClickOutside from '@app/sharedV2/ClickOutside';

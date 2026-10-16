@@ -5,7 +5,7 @@ import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/sharedV2/ClickOutside';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';

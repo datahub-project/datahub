@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';

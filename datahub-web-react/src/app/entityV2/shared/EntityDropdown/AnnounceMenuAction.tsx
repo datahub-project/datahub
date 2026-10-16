@@ -3,7 +3,7 @@ import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple'
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     ActionMenuItem,
     ENTITY_HEADER_ACTION_ICON_SIZE,

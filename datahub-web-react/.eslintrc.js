@@ -198,6 +198,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/app/glossary/**',
     // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
     'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
+    // Moved from app/entity; colors not yet migrated to semantic tokens.
+    'src/app/entityV2/shared/tabs/Dataset/Governance/TestResultsSummary.tsx',
     'src/app/ingest/**',
     // Mock fixtures, tests, and Storybook demos — never production UI.
     'src/graphql-mock/**',

@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { Editor } from '@components/components/Editor';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';

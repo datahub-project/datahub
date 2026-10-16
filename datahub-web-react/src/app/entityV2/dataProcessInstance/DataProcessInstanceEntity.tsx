@@ -19,7 +19,7 @@ import { DataProcessInstance, EntityType, Entity as GraphQLEntity, SearchResult 
 
 const DataProcessInstanceSummary = lazyProfileComponent(
     'DataProcessInstanceSummary',
-    () => import('@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary'),
+    () => import('@src/app/entityV2/dataProcessInstance/profile/DataProcessInstanceSummary'),
 );
 
 const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {

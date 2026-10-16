@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { DocumentModal } from '@app/entityV2/document/DocumentModal';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkModal';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkListActions } from '@app/entityV2/shared/components/links/useLinkListActions';

@@ -8,9 +8,9 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
-import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
+import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
+import { FormattedBytesStat } from '@app/entityV2/dataset/shared/FormattedBytesStat';
 import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';

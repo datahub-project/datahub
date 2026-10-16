@@ -7,8 +7,8 @@ import { CreateButton, SiblingSelectionDropdownLink } from '@app/entityV2/shared
 import { CreateIncidentButtonProps, EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
 import { useSiblingOptionsForIncidentBuilder } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Tooltip } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import AddPhysicalChildAction from '@app/entityV2/shared/containers/profile/sidebar/Logical/AddPhysicalChildAction';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';

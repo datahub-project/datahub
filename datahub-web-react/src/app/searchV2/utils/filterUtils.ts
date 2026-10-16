@@ -1,4 +1,4 @@
-import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
 import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
 

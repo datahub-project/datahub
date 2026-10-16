@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import ActorPill from '@app/sharedV2/owners/ActorPill';

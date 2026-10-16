@@ -2,8 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import { UserDefaultViewIcon } from '@app/entity/view/shared/UserDefaultViewIcon';
+import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
 
 type Props = {
     key: string;

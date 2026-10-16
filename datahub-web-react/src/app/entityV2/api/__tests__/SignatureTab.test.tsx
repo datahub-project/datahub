@@ -9,7 +9,7 @@ import { SchemaFieldDataType } from '@types';
 
 // The tab reads the base entity from context; drive it directly per test.
 const mockUseBaseEntity = vi.fn();
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useBaseEntity: () => mockUseBaseEntity(),
 }));
 

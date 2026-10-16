@@ -3,8 +3,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
 import {
     CTAWrapper,
     FlexWrapper,
@@ -13,6 +11,8 @@ import {
     StyledReadOutlined,
     Title,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import OptionalPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import VerificationAuditStamp from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
 
 const StyledLink = styled(Link)`
     margin-top: 8px;

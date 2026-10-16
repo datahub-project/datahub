@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import CreatedProperty from '@app/entityV2/summary/properties/property/properties/CreatedProperty';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 

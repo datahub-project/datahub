@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { usePropagationDetails } from '@app/entity/shared/propagation/utils';
+import { usePropagationDetails } from '@app/entityV2/shared/propagation/utils';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { parsePropagationContext } from '@app/sharedV2/propagation/utils';

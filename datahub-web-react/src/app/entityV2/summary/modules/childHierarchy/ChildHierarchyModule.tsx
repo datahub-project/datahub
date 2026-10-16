@@ -2,7 +2,7 @@ import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getChildHierarchyModule } from '@app/entityV2/summary/modules/childHierarchy/utils';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';

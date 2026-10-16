@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import BusinessAttributeGroup from '@app/sharedV2/businessAttribute/BusinessAttributeGroup';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
 

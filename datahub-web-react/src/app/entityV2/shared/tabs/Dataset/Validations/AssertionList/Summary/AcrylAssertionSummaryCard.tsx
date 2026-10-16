@@ -21,7 +21,7 @@ import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/ac
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { Button } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { AssertionType, EntityType } from '@src/types.generated';
 

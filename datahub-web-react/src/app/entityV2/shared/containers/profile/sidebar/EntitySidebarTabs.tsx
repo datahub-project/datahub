@@ -6,7 +6,7 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 

@@ -9,7 +9,7 @@ import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { useBuildAssertionPrimaryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Assertion, AssertionRunEvent, DataContract, DataPlatform, EntityType, Maybe } from '@src/types.generated';

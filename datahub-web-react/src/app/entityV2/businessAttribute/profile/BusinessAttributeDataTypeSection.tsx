@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { useEntityData, useRefetch } from '@src/app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@src/app/entityV2/shared/EntityContext';
 
 import { useUpdateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 

@@ -16,7 +16,7 @@ import TestPageContainer from '@utils/test-utils/TestPageContainer';
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cells_ds,PROD)';
 
 // Keep the real module (contexts, useBaseEntity, ...) and pin only the entity identity.
-vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/EntityContext', async (importOriginal) => ({
     ...(await importOriginal<any>()),
     useEntityData: () => ({ urn: DATASET_URN, entityType: 'DATASET', entityData: null }),
     useMutationUrn: () => DATASET_URN,

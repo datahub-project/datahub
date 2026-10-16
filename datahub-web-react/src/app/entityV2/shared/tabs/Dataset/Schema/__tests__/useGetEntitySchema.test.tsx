@@ -25,7 +25,7 @@ const OTHER_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,other_ds,PROD)';
 // Mutable so a test can simulate in-tab navigation to another dataset.
 const mockEntity = { urn: TEST_URN };
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ urn: mockEntity.urn, entityType: 'DATASET', entityData: null }),
 }));
 

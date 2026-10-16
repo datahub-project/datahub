@@ -3,7 +3,7 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import AddAssetsModal from '@app/entityV2/summary/modules/assets/AddAssetsModal';
 import { ENTITIES_TO_ADD_TO_ASSETS } from '@app/entityV2/summary/modules/assets/constants';
 import { useGetAssets } from '@app/entityV2/summary/modules/assets/useGetAssets';
