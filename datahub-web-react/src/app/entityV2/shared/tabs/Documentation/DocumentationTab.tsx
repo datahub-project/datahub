@@ -10,7 +10,6 @@ import styled from 'styled-components';
 import { Editor } from '@components/components/Editor';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
@@ -19,7 +18,6 @@ import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
 
 const DOCUMENTATION_TAB = 'documentation';
@@ -58,8 +56,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const { t: tc } = useTranslation('common.actions');
     const { t: ts } = useTranslation('entity.shared.containers');
     const hideLinksButton = properties?.hideLinksButton;
-    const { urn, entityData, entityType } = useEntityData();
-    const entityRegistry = useEntityRegistry();
+    const { urn, entityData } = useEntityData();
     const canEditDescription = !!entityData?.privileges?.canEditDescription;
     const noPermissionTooltip = canEditDescription ? '' : ts('sidebar.noPermissionTooltip');
 
@@ -67,11 +64,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         entityProperties: entityData,
     });
     const links = entityData?.institutionalMemory?.elements || [];
-    // If the entity supports related Documents, always show the content area so
-    // RelatedSection gets a chance to render them — even when there is no inline
-    // description and no institutional-memory links.
-    const supportedCapabilities = entityType ? entityRegistry.getSupportedEntityCapabilities(entityType) : new Set();
-    const supportsRelatedDocuments = !hideLinksButton && supportedCapabilities.has(EntityCapabilityType.RELATED_DOCUMENTS);
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
     const routeToTab = useRouteToTab();
@@ -92,7 +84,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         <DescriptionEditor onComplete={() => routeToTab({ tabName: EntityTabPath.DOCUMENTATION })} />
     ) : (
         <>
-            {displayedDescription || links.length || supportsRelatedDocuments ? (
+            {displayedDescription || links.length ? (
                 <>
                     <StyledTabToolbar>
                         <div>
@@ -149,7 +141,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 </Text>
                             </DocumentationContainer>
                         )}
-                        {!hideLinksButton && <RelatedSection />}
                     </div>
                 </>
             ) : (
@@ -180,6 +171,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}
+            {!hideLinksButton && <RelatedSection />}
             {showModal && (
                 <DescriptionPreviewModal
                     editMode={(isEditing && true) || false}
