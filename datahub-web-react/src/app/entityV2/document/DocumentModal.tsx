@@ -3,8 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
-import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import {
     DiscardUnsavedChangesConfirmationProvider,

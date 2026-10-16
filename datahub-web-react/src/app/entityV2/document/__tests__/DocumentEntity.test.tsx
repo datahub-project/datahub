@@ -4,11 +4,11 @@ import React from 'react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { PreviewType } from '@app/entityV2/Entity';
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DocumentNativeProfile } from '@app/entityV2/document/DocumentNativeProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mocks } from '@src/Mocks';

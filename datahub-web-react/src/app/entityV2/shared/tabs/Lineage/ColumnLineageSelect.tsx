@@ -7,8 +7,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import updateQueryParams from '@app/sharedV2/updateQueryParams';
 

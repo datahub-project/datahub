@@ -7,7 +7,7 @@ import styled, { useTheme } from 'styled-components';
 import { getAssertionSummaryCardHeaderByStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 

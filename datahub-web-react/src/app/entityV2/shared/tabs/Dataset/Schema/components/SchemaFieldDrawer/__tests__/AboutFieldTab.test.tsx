@@ -11,7 +11,7 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/S
         properties.fieldProfile ? <div data-testid="stats-tab-wrapper" /> : null,
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useMutationUrn: () => 'urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)',
     useBaseEntity: () => ({}),
     useRouteToTab: () => vi.fn(),

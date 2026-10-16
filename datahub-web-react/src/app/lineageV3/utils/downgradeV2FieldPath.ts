@@ -1,4 +1,4 @@
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
+import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null): string | null | undefined;

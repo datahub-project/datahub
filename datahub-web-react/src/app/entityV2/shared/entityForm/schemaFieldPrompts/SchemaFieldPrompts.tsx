@@ -1,0 +1,42 @@
+import { Divider } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import SchemaFieldDropdown from '@app/entityV2/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown';
+import VirtualScrollChild from '@app/sharedV2/VirtualScrollChild';
+
+import { FormPrompt, SchemaField } from '@types';
+
+const FieldPromptsTitle = styled.div`
+    margin-bottom: 16px;
+    font-size: 16px;
+    font-weight: 600;
+`;
+
+interface Props {
+    prompts: FormPrompt[];
+    associatedUrn?: string;
+}
+
+export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
+    const { t } = useTranslation('entity.form');
+    const { entityWithSchema } = useGetEntityWithSchema();
+
+    if (!entityWithSchema?.schemaMetadata || !entityWithSchema.schemaMetadata.fields.length) return null;
+
+    return (
+        <>
+            <Divider />
+            <FieldPromptsTitle data-testid="field-level-requirements">
+                {t('fieldLevelRequirementsTitle')}
+            </FieldPromptsTitle>
+            {entityWithSchema?.schemaMetadata?.fields?.map((field) => (
+                <VirtualScrollChild key={field.fieldPath} height={50} triggerOnce>
+                    <SchemaFieldDropdown prompts={prompts} field={field as SchemaField} associatedUrn={associatedUrn} />
+                </VirtualScrollChild>
+            ))}
+        </>
+    );
+}

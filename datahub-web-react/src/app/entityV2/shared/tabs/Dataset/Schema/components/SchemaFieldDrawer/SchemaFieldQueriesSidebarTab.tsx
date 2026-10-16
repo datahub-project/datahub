@@ -3,13 +3,13 @@ import React, { useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import Loading from '@app/sharedV2/Loading';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import dayjs from '@utils/dayjs';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';

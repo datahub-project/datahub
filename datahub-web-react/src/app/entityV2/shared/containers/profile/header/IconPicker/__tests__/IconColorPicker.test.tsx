@@ -11,7 +11,7 @@ import { EntityType, IconLibrary } from '@types';
 const refetchMock = vi.fn();
 const mutateMock = vi.fn();
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({
         urn: 'urn:li:domain:test',
         entityType: EntityType.Domain,

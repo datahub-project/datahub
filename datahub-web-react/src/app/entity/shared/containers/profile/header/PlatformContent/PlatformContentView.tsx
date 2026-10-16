@@ -4,13 +4,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
-import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
 import {
     Ellipsis,
     ParentNodesWrapper as ParentContainersWrapper,
     StyledRightOutlined,
     StyledTooltip,
 } from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import DatasetLink from '@app/entityV2/shared/containers/profile/header/PlatformContent/DatasetLink';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 

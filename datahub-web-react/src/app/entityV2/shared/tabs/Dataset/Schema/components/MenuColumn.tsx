@@ -11,7 +11,7 @@ import styled from 'styled-components/macro';
 import { ItemType } from '@components/components/Menu/types';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData, useMutationUrn, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { useUndeprecateResource } from '@app/entityV2/shared/EntityDropdown/useUndeprecateResource';
 import { canShowEditDeprecation } from '@app/entityV2/shared/EntityDropdown/utils';

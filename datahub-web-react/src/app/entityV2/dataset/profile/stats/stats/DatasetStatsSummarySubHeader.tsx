@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { DatasetStatsSummary } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';

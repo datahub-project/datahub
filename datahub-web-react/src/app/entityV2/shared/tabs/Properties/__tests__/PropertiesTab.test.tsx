@@ -12,7 +12,7 @@ vi.mock('@app/entityV2/shared/tabs/Properties/useStructuredProperties', () => ({
     default: () => mockUseStructuredProperties(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ entityData: null }),
 }));
 

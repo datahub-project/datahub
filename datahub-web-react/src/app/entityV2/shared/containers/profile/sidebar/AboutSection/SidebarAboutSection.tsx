@@ -3,7 +3,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
@@ -14,7 +14,7 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
 import useIsLineageMode from '@src/app/lineageV3/utils/useIsLineageMode';
 import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';

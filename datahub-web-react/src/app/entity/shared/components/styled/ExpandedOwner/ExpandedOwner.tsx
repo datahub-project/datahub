@@ -5,9 +5,9 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import OwnerContent from '@app/entity/shared/components/styled/ExpandedOwner/OwnerContent';
 import { getNameFromType } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
 import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';

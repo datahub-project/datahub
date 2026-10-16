@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES } from '@app/entityV2/summary/properties/constants';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import {

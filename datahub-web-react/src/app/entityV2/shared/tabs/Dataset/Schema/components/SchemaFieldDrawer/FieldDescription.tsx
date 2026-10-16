@@ -9,7 +9,7 @@ import { EditorProps } from '@components/components/Editor/types';
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';

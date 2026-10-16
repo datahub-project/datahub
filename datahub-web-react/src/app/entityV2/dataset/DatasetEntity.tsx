@@ -113,7 +113,7 @@ const ViewDefinitionTab = lazyProfileComponent(
     () => import('@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab'),
 );
 const GovernanceTab = lazyProfileComponent('GovernanceTab', () =>
-    import('@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
+    import('@src/app/entityV2/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
         default: module.GovernanceTab,
     })),
 );

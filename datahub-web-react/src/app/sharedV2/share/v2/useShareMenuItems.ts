@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 

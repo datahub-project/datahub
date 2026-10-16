@@ -3,8 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { PropertyTypeBadge } from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+import { PropertyTypeBadge } from '@app/entityV2/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
 
 import { PropertyCardinality, StructuredPropertyEntity } from '@types';
 

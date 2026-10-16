@@ -9,7 +9,7 @@ import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/share
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { ModalButtonContainer } from '@src/app/sharedV2/button/styledComponents';
 import handleGraphQLError from '@src/app/sharedV2/handleGraphQLError';
 import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';

@@ -2,7 +2,6 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
 import {
     sampleSchema,
@@ -11,6 +10,7 @@ import {
     sampleSchemaWithTags,
     sampleSchemaWithoutFields,
 } from '@app/entityV2/dataset/profile/stories/sampleSchema';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { mocks } from '@src/Mocks';

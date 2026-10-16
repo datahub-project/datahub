@@ -1,6 +1,6 @@
-import { SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { CorpGroup, CorpUser, EntityType } from '@types';

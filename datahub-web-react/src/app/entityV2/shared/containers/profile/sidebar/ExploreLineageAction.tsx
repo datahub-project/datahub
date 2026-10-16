@@ -4,7 +4,7 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import CompactContext from '@src/app/sharedV2/CompactContext';

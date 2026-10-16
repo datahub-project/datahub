@@ -7,9 +7,9 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { DomainsPaginationContainer } from '@app/domain/DomainsList';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';

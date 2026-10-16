@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useGetOutputPorts } from '@app/entityV2/summary/modules/outputPorts/useGetOutputPorts';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
@@ -9,7 +9,7 @@ import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 import { useListDataProductAssetsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 vi.mock('@app/homeV3/module/context/ModuleContext', () => ({

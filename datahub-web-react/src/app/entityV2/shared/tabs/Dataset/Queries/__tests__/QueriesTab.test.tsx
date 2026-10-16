@@ -3,16 +3,16 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/EntityContext', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useBaseEntity: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/siblingUtils', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/siblingUtils', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useIsSeparateSiblingsMode: vi.fn().mockReturnValue(false),
 }));

@@ -2,8 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 
 import useGetTimeseriesCapabilities from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeseriesCapabilities';
 import { SectionKeys, getSiblingEntityWithStats } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { useBaseEntity } from '@src/app/entityV2/shared/EntityContext';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Entity } from '@src/types.generated';
 

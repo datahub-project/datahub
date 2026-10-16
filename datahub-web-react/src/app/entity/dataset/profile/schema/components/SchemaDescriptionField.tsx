@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import PropagationDetails from '@app/entityV2/shared/propagation/PropagationDetails';
 import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { Button } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';

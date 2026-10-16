@@ -6,11 +6,11 @@ import { useLocation } from 'react-router';
 import styled, { keyframes } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
     getSearchCsvDownloadHeader,
     transformResultsToCsvRow,
 } from '@app/entity/shared/components/styled/search/downloadAsCsvUtil';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';

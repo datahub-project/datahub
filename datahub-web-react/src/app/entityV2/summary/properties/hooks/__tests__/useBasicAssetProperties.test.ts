@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     CREATED_PROPERTY,
     DOMAIN_PROPERTY,
@@ -13,7 +13,7 @@ import useBasicAssetProperties from '@app/entityV2/summary/properties/hooks/useB
 
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: vi.fn(),
 }));
 

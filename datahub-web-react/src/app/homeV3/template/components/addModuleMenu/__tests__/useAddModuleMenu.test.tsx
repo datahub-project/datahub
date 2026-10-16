@@ -84,7 +84,7 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: mockUsePageTemplateContext,
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: mockUseEntityData,
 }));
 

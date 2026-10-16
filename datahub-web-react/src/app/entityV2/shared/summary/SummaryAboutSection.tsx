@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { Editor } from '@components/components/Editor';
 
-import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkListActions } from '@app/entityV2/shared/components/links/useLinkListActions';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
