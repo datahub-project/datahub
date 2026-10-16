@@ -187,7 +187,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
@@ -195,7 +195,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
@@ -203,7 +203,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
@@ -211,7 +211,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer_snapshot,PROD)",
@@ -470,7 +470,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
@@ -478,7 +478,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD)",
@@ -841,7 +841,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
@@ -849,7 +849,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
@@ -857,7 +857,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
@@ -865,7 +865,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
@@ -873,7 +873,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
@@ -881,7 +881,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
@@ -1272,7 +1272,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD)",
@@ -1602,7 +1602,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
@@ -1881,7 +1881,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
@@ -2306,7 +2306,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
@@ -2512,7 +2512,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
@@ -2658,7 +2658,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
@@ -2816,7 +2816,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
@@ -2980,7 +2980,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
@@ -3210,7 +3210,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
@@ -3392,7 +3392,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
@@ -3593,7 +3593,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
@@ -3775,7 +3775,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
@@ -3957,7 +3957,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
@@ -4139,7 +4139,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
@@ -4321,7 +4321,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1643871600000,
+                                    "time": 0,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
@@ -4351,7 +4351,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 1643871600000,
+                        "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
@@ -4406,7 +4406,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 1643871600000,
+                        "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
@@ -4475,7 +4475,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 1643871600000,
+                        "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
@@ -4523,7 +4523,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 1643871600000,
+                        "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
@@ -4680,11 +4680,7 @@
                 "logic": "select\n    *\nfrom \"pagila\".\"public\".\"actor\"\nwhere last_update < (now() - interval '100 years')"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -4773,11 +4769,7 @@
                 "logic": "\n\n    select *\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where email not like '%@%'\n\n"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -4865,11 +4857,7 @@
                 }
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -4957,11 +4945,7 @@
                 }
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5058,11 +5042,7 @@
                 "logic": "monthly_billing_with_cust.customer_id referential integrity to customer_details.customer_id"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5159,11 +5139,7 @@
                 "logic": "monthly_billing_with_cust.customer_id referential integrity to customer_details.customer_id"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5251,11 +5227,7 @@
                 }
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5349,11 +5321,7 @@
                 }
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5433,11 +5401,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5522,11 +5486,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5611,11 +5571,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5700,11 +5656,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5789,11 +5741,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5878,11 +5826,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -5967,11 +5911,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -6056,11 +5996,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -6145,11 +6081,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -6234,11 +6166,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -6323,11 +6251,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },
@@ -6412,11 +6336,7 @@
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)"
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },

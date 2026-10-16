@@ -735,7 +735,9 @@ def match_resources(request, context):
                     "modifiedTime": "/Date(1673279414272)/",
                     "isMobile": 0,
                     "openURL": "/sap/fpa/ui/tenants/3c44c/bo/story/EOYLU41PIILXTH4JCE36NLYPU9XRYM26",
-                    "ancestorPath": '["Public","Folder 1","Folder 2"]',
+                    # Localized to German, yet this resource's golden still asserts
+                    # /sac/Public/Folder 1/Folder 2: revert the canonicalization and it fails.
+                    "ancestorPath": '["Öffentlich","Folder 1","Folder 2"]',
                 },
             ],
         },

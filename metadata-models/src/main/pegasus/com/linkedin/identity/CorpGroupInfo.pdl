@@ -24,7 +24,6 @@ record CorpGroupInfo {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   displayName: optional string
@@ -72,8 +71,7 @@ record CorpGroupInfo {
    * A description of the group.
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "searchTier": 2
+    "fieldType": "TEXT_PARTIAL"
   }
   description: optional string
 

@@ -14,6 +14,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
@@ -312,8 +313,35 @@ class ProfilingConfig(ProfilingBaseConfig):
             "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
             " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
+            " Resolving these tags queries the DataHub server. When that lookup"
+            " fails, the table is treated as tagged rather than untagged: row,"
+            " null and distinct counts are still profiled, but column values"
+            " (sample values, min/max/mean, stddev, median, histograms,"
+            " quantiles and distinct value frequencies) are not, and a warning"
+            " is reported."
         ),
     )
+
+    @field_validator("tags_to_ignore_sampling")
+    @classmethod
+    def _validate_tags_to_ignore_sampling(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        # Parsed here so a typo fails the recipe with the offending entry. The
+        # profiler parses these again while resolving tags, inside a handler
+        # that answers any failure with "treat the table as tagged" -- so an
+        # unvalidated typo would silently drop every column value for every
+        # table, reported as a DataHub outage. Same call the profiler makes, so
+        # parse time and profile time accept exactly the same set.
+        for tag in value or []:
+            try:
+                TagUrn(tag)
+            except Exception as e:
+                raise ValueError(
+                    f"tags_to_ignore_sampling entry {tag!r} is not a valid tag "
+                    f"name or tag URN: {e}"
+                ) from e
+        return value
 
     profile_nested_fields: bool = Field(
         default=False,
