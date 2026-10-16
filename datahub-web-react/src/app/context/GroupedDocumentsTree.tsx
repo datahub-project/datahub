@@ -78,19 +78,21 @@ export default function GroupedDocumentsTree({
     );
 
     const { groups, loading, refetch } = useDocumentGroupRoots(t('context.groupBy.unassigned'), activeGroup, viewUrn);
-    const previousActiveGroupKeyRef = useRef<string | null | undefined>(undefined);
+    const previousActiveGroupRef = useRef<{ urn: string | null; groupKey: string | null } | undefined>(undefined);
 
     useEffect(() => {
-        const nextKey = activeGroup?.key ?? null;
-        const previousKey = previousActiveGroupKeyRef.current;
-        previousActiveGroupKeyRef.current = nextKey;
-        if (!shouldRefetchDocumentDomainGroups(previousKey, nextKey)) return;
+        const next = { urn: selectedDocument?.urn ?? null, groupKey: activeGroup?.key ?? null };
+        const previous = previousActiveGroupRef.current;
+        previousActiveGroupRef.current = next;
+        if (!shouldRefetchDocumentDomainGroups(previous?.urn, previous?.groupKey, next.urn, next.groupKey)) {
+            return;
+        }
         refetch();
         // Header refetch is not enough: expanded group pages stay cached by group
-        // key. Remounting drops them so selecting another document cannot put the
-        // moved doc back in the group it left.
+        // key. Remount only when this same document changed domains, so selecting
+        // another document cannot put the moved doc back in the group it left.
         onDocumentMovedBetweenGroups?.();
-    }, [activeGroup, onDocumentMovedBetweenGroups, refetch]);
+    }, [activeGroup, onDocumentMovedBetweenGroups, refetch, selectedDocument]);
 
     /**
      * Groups start collapsed: each expanded group runs its own paginated search,

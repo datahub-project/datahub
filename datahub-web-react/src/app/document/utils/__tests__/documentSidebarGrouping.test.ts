@@ -152,12 +152,16 @@ describe('document sidebar grouping', () => {
         );
     });
 
-    it('refetches domain headers only when the open document changes groups', () => {
-        expect(shouldRefetchDocumentDomainGroups(undefined, domain.urn)).toBe(false);
-        expect(shouldRefetchDocumentDomainGroups(null, domain.urn)).toBe(false);
-        expect(shouldRefetchDocumentDomainGroups(domain.urn, null)).toBe(false);
-        expect(shouldRefetchDocumentDomainGroups(domain.urn, domain.urn)).toBe(false);
-        expect(shouldRefetchDocumentDomainGroups(UNASSIGNED_DOMAIN_GROUP_KEY, domain.urn)).toBe(true);
+    it('refetches domain pages only when the same document changes groups', () => {
+        const urn = 'urn:li:document:moved';
+        expect(shouldRefetchDocumentDomainGroups(undefined, undefined, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(null, null, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, domain.urn, null, null)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, domain.urn, urn, domain.urn)).toBe(false);
+        expect(shouldRefetchDocumentDomainGroups(urn, UNASSIGNED_DOMAIN_GROUP_KEY, urn, domain.urn)).toBe(true);
+        expect(
+            shouldRefetchDocumentDomainGroups(urn, UNASSIGNED_DOMAIN_GROUP_KEY, 'urn:li:document:other', domain.urn),
+        ).toBe(false);
     });
 
     it('reads sidebar title and parent breadcrumb helpers', () => {

@@ -150,14 +150,23 @@ export function documentsInDomainGroup<T extends DomainGroupDocument>(
 }
 
 /**
- * Refetch domain headers only after the open document moves between groups.
+ * Refetch domain group pages only when the same open document moves between groups.
+ * Opening a different document in another group must not remount the tree.
  * First resolution and navigate-away must not refetch.
  */
 export function shouldRefetchDocumentDomainGroups(
+    previousUrn: string | null | undefined,
     previousGroupKey: string | null | undefined,
-    nextGroupKey: string | null,
+    nextUrn: string | null | undefined,
+    nextGroupKey: string | null | undefined,
 ): boolean {
-    return !!previousGroupKey && !!nextGroupKey && previousGroupKey !== nextGroupKey;
+    return (
+        !!previousUrn &&
+        previousUrn === nextUrn &&
+        !!previousGroupKey &&
+        !!nextGroupKey &&
+        previousGroupKey !== nextGroupKey
+    );
 }
 
 export function getDocumentSidebarTitle(document: Document, untitledFallback: string): string {

@@ -87,6 +87,35 @@ describe('GroupedDocumentsTree', () => {
         expect(mockRefetch).toHaveBeenCalled();
     });
 
+    it('does not remount group pages when opening a different document in another domain', () => {
+        const onDocumentMovedBetweenGroups = vi.fn();
+        const { rerender } = render(
+            <GroupedDocumentsTree
+                sort={DEFAULT_DOCUMENT_SIDEBAR_SORT}
+                onSelect={vi.fn()}
+                onDocumentMovedBetweenGroups={onDocumentMovedBetweenGroups}
+            />,
+        );
+
+        currentUrn = 'urn:li:document:other';
+        selectedDocument = {
+            urn: 'urn:li:document:other',
+            domain: {
+                domain: { urn: 'urn:li:domain:marketing', type: EntityType.Domain },
+            },
+        };
+        rerender(
+            <GroupedDocumentsTree
+                sort={DEFAULT_DOCUMENT_SIDEBAR_SORT}
+                onSelect={vi.fn()}
+                onDocumentMovedBetweenGroups={onDocumentMovedBetweenGroups}
+            />,
+        );
+
+        expect(onDocumentMovedBetweenGroups).not.toHaveBeenCalled();
+        expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
     it('does not apply a cached document from the previous URL', () => {
         currentUrn = 'urn:li:document:next';
         selectedDocument = {
