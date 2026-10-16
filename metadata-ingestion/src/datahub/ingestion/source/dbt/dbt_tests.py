@@ -13,6 +13,8 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    AssertionSourceClass,
+    AssertionSourceTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -275,6 +277,16 @@ def _make_custom_assertion_info(
     )
 
 
+def _dbt_assertion_source() -> AssertionSourceClass:
+    """External dbt test definition. created is for Native assertions and is omitted.
+
+    dbt does not record when a test definition was created. Stamping the
+    ingestion clock onto source.created makes an unchanged definition look modified.
+    Execution time stays on AssertionRunEvent.
+    """
+    return AssertionSourceClass(type=AssertionSourceTypeClass.EXTERNAL)
+
+
 def make_assertion_from_test(
     extra_custom_props: Dict[str, str],
     node: "DBTNode",
@@ -343,7 +355,7 @@ def make_assertion_from_test(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=extra_custom_props,
-        source=mce_builder.make_assertion_source(),
+        source=_dbt_assertion_source(),
         customAssertion=custom_assertion,
     )
 
@@ -407,7 +419,7 @@ def make_assertion_from_freshness(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_props,
-        source=mce_builder.make_assertion_source(),
+        source=_dbt_assertion_source(),
         customAssertion=CustomAssertionInfoClass(
             type="dbt Freshness", entity=upstream_urn
         ),

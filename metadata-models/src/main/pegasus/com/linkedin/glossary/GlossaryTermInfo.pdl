@@ -28,7 +28,6 @@ record GlossaryTermInfo includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   name: optional string
@@ -37,8 +36,7 @@ record GlossaryTermInfo includes CustomProperties {
    * Definition of business term.
    */
   @Searchable = {
-    "fieldType": "TEXT",
-    "searchTier": 2
+    "fieldType": "TEXT"
   }
   definition: string
 

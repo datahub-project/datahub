@@ -14,8 +14,14 @@ import javax.annotation.Nullable;
 
 public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGraphSnapshot> {
 
-  /** Payload format version (first field in every serialized snapshot). */
+  /**
+   * Payload version written when no direction is a trusted full walk. Pods that have not picked up
+   * version 2 can still read these snapshots.
+   */
   public static final int SERIALIZER_VERSION = 1;
+
+  /** Payload version written only while some direction has trusted seeds. */
+  public static final int TRUSTED_FULL_WALK_VERSION = 2;
 
   @Override
   public int getTypeId() {
@@ -25,7 +31,8 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
   @Override
   public void write(@Nonnull ObjectDataOutput out, @Nonnull EntityGraphSnapshot snapshot)
       throws IOException {
-    out.writeInt(SERIALIZER_VERSION);
+    int version = versionFor(snapshot);
+    out.writeInt(version);
     out.writeString(snapshot.getGraphId());
     out.writeString(snapshot.getCacheKey());
     out.writeLong(snapshot.getGeneration());
@@ -34,7 +41,7 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
     out.writeInt(snapshot.getVertexCount());
     out.writeInt(snapshot.getEdgeCount());
     out.writeString(snapshot.getTopologyFingerprint());
-    writeCoverage(out, snapshot.getTraversalCoverage());
+    writeCoverage(out, snapshot.getTraversalCoverage(), version);
     String cacheStatus = snapshot.getCacheStatus();
     out.writeBoolean(cacheStatus != null);
     if (cacheStatus != null) {
@@ -56,12 +63,14 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
   @Nonnull
   public EntityGraphSnapshot read(@Nonnull ObjectDataInput in) throws IOException {
     int version = in.readInt();
-    if (version != SERIALIZER_VERSION) {
+    if (version != SERIALIZER_VERSION && version != TRUSTED_FULL_WALK_VERSION) {
       throw new IOException(
           "Unsupported EntityGraphSnapshot serializer version: "
               + version
               + " (expected "
               + SERIALIZER_VERSION
+              + " or "
+              + TRUSTED_FULL_WALK_VERSION
               + ")");
     }
     String graphId = in.readString();
@@ -72,7 +81,7 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
     int vertexCount = in.readInt();
     int edgeCount = in.readInt();
     String fingerprint = in.readString();
-    TraversalCoverage coverage = readCoverage(in);
+    TraversalCoverage coverage = readCoverage(in, version);
     String cacheStatus = in.readBoolean() ? in.readString() : null;
     int edgeSize = in.readInt();
     List<DirectedEdge> edges = new ArrayList<>(edgeSize);
@@ -99,8 +108,16 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
         .build();
   }
 
+  static int versionFor(@Nonnull EntityGraphSnapshot snapshot) {
+    TraversalCoverage coverage = snapshot.getTraversalCoverage();
+    return coverage != null && coverage.hasTrustedFullWalk()
+        ? TRUSTED_FULL_WALK_VERSION
+        : SERIALIZER_VERSION;
+  }
+
   private static void writeCoverage(
-      @Nonnull ObjectDataOutput out, @Nullable TraversalCoverage coverage) throws IOException {
+      @Nonnull ObjectDataOutput out, @Nullable TraversalCoverage coverage, int version)
+      throws IOException {
     if (coverage == null) {
       out.writeInt(-1);
       return;
@@ -118,11 +135,24 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
       if (reason != null) {
         out.writeString(reason);
       }
+      if (version >= TRUSTED_FULL_WALK_VERSION) {
+        List<String> trustedSeeds = direction.getTrustedSeeds();
+        out.writeInt(trustedSeeds.size());
+        for (String seed : trustedSeeds) {
+          out.writeString(seed);
+        }
+        List<String> trustedEdgeLines = direction.getTrustedEdgeLines();
+        out.writeInt(trustedEdgeLines.size());
+        for (String edgeLine : trustedEdgeLines) {
+          out.writeString(edgeLine);
+        }
+      }
     }
   }
 
   @Nullable
-  private static TraversalCoverage readCoverage(@Nonnull ObjectDataInput in) throws IOException {
+  private static TraversalCoverage readCoverage(@Nonnull ObjectDataInput in, int version)
+      throws IOException {
     int size = in.readInt();
     if (size < 0) {
       return null;
@@ -135,6 +165,26 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
       int configuredMaxDepth = in.readInt();
       boolean complete = in.readBoolean();
       String truncationReason = in.readBoolean() ? in.readString() : null;
+      List<String> trustedSeeds = List.of();
+      List<String> trustedEdgeLines = List.of();
+      if (version >= TRUSTED_FULL_WALK_VERSION) {
+        int seedCount = in.readInt();
+        if (seedCount > 0) {
+          List<String> seeds = new ArrayList<>(seedCount);
+          for (int seedIndex = 0; seedIndex < seedCount; seedIndex++) {
+            seeds.add(in.readString());
+          }
+          trustedSeeds = List.copyOf(seeds);
+        }
+        int edgeCount = in.readInt();
+        if (edgeCount > 0) {
+          List<String> lines = new ArrayList<>(edgeCount);
+          for (int edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++) {
+            lines.add(in.readString());
+          }
+          trustedEdgeLines = List.copyOf(lines);
+        }
+      }
       builder.direction(
           DirectionCoverage.builder()
               .direction(direction)
@@ -143,6 +193,8 @@ public class EntityGraphSnapshotSerializer implements StreamSerializer<EntityGra
               .configuredMaxDepth(configuredMaxDepth)
               .complete(complete)
               .truncationReason(truncationReason)
+              .trustedSeeds(trustedSeeds)
+              .trustedEdgeLines(trustedEdgeLines)
               .build());
     }
     return builder.build();

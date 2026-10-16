@@ -54,16 +54,22 @@ import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 
+/**
+ * Builds the keyword query of the V2 entity indices: per-analyzer simple query strings with AND
+ * semantics plus exact and prefix matches, summed under a bool query. Search V3 keyword reads use
+ * {@link com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder}.
+ */
 @Slf4j
 public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
-  private final ExactMatchConfiguration exactMatchConfiguration;
-  private final PartialConfiguration partialConfiguration;
+
+  protected final ExactMatchConfiguration exactMatchConfiguration;
+  protected final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
-  private final SearchValidationConfiguration searchValidationConfiguration;
+  protected final SearchValidationConfiguration searchValidationConfiguration;
   private final Pattern validationRegex;
 
-  private final CustomizedQueryHandler customizedQueryHandler;
+  protected final CustomizedQueryHandler customizedQueryHandler;
 
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
@@ -86,11 +92,35 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    return buildQuery(opContext, entitySpecs, query, fulltext, false);
+  }
+
+  /**
+   * Builds the query, optionally the light Stage 1 query.
+   *
+   * @param skipExpensiveClauses on Search V3, build the light query: one multi_match instead of the
+   *     fuzzy simple queries, and no wildcard, synonym-priority or full exact/prefix clauses.
+   *     Callers run the full query (false) when the light query matches nothing. V2 queries ignore
+   *     it.
+   * @return the query, or null for a light query that a custom configuration leaves without any
+   *     clause
+   */
+  @Nullable
+  public QueryBuilder buildQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext,
+      boolean skipExpensiveClauses) {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
+    // V2 ignores skipExpensiveClauses; the Search V3 builder overrides this method and uses it.
     final QueryBuilder queryBuilder =
         buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    if (queryBuilder == null) {
+      return null;
+    }
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
 
@@ -338,7 +368,8 @@ public class SearchQueryBuilder {
             .build());
   }
 
-  private Set<SearchFieldConfig> getStandardFields(
+  /** The fields one entity searches, with the urn. */
+  protected Set<SearchFieldConfig> getStandardFields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
@@ -361,7 +392,19 @@ public class SearchQueryBuilder {
     return fields;
   }
 
-  private Optional<QueryBuilder> getSimpleQuery(
+  /**
+   * The fields of these entities that the field configuration {@code label} keeps, or {@code
+   * fields} when it names none.
+   */
+  protected Set<SearchFieldConfig> applySearchFieldConfiguration(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull Set<SearchFieldConfig> fields,
+      @Nullable String label) {
+    return customizedQueryHandler.applySearchFieldConfiguration(fields, label);
+  }
+
+  protected Optional<QueryBuilder> getSimpleQuery(
       @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
@@ -387,7 +430,9 @@ public class SearchQueryBuilder {
               .collect(Collectors.toSet());
 
       Set<SearchFieldConfig> configuredFields =
-          customizedQueryHandler.applySearchFieldConfiguration(
+          applySearchFieldConfiguration(
+              operationContext,
+              entitySpecs,
               baseFields,
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
@@ -547,7 +592,7 @@ public class SearchQueryBuilder {
     return result;
   }
 
-  static FunctionScoreQueryBuilder buildScoreFunctions(
+  protected static FunctionScoreQueryBuilder buildScoreFunctions(
       @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,

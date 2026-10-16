@@ -67,3 +67,12 @@ def make_sqlalchemy_uri(
         database=db,
         query=uri_opts or {},
     ).render_as_string(hide_password=False)
+
+
+def url_dialect_and_driver(url: str) -> Tuple[str, str]:
+    """The `dialect+driver` a SQLAlchemy URL names, lowercased; driver is ""
+    when the URL names none. Read from the string, so it never raises and
+    needs no dialect installed."""
+    head = url.split("://", 1)[0].lower()
+    dialect, _, driver = head.partition("+")
+    return dialect, driver

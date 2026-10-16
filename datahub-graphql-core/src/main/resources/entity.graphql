@@ -2219,6 +2219,10 @@ enum IconLibrary {
   Icons from the Material UI icon library
   """
   MATERIAL
+  """
+  Icons from the Phosphor icon library
+  """
+  PHOSPHOR
 }
 
 type FineGrainedLineage {
@@ -13632,6 +13636,11 @@ type QueryEntity implements Entity {
   Platform from which the Query was detected
   """
   platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges @noAspects
 }
 
 """

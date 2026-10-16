@@ -189,3 +189,28 @@ def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> N
         f"stdout: {result.stdout.decode()}\n"
         f"stderr: {result.stderr.decode()}"
     )
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [
+        ["my_tag"],
+        ["urn:li:tag:my_tag"],
+        ["my_tag", "urn:li:tag:other"],
+        None,
+        [],
+    ],
+)
+def test_tags_to_ignore_sampling_accepts_names_and_urns(tags):
+    assert ProfilingConfig(tags_to_ignore_sampling=tags).tags_to_ignore_sampling == tags
+
+
+@pytest.mark.parametrize("bad", ["urn:li:corpuser:alice", "urn:li:tag:"])
+def test_tags_to_ignore_sampling_rejects_a_malformed_entry(bad):
+    # Caught at config-parse time on purpose. The profiler resolves these tags
+    # behind a handler that answers any failure with "treat the table as
+    # tagged", so a typo reaching that handler would drop every column value
+    # for every table and blame the DataHub server for it.
+    with pytest.raises(Exception) as err:
+        ProfilingConfig(tags_to_ignore_sampling=[bad])
+    assert bad in str(err.value)

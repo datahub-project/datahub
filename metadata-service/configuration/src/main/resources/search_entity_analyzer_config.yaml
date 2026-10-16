@@ -15,6 +15,64 @@ entity_analyzer_config:
             tokenizer: unit_separator_path_tokenizer
           unit_separator_pattern:
             tokenizer: unit_separator_pattern_tokenizer
+          # Analyzers of the shared _search fields, the only full-text fields of a V3 index.
+          # They split on anything that is not a letter, a digit, a combining mark (the vowel
+          # signs of Indic and Thai scripts are marks) or an underscore, in any script, fold case
+          # and accents, add the parts of an identifier such as customer_id next to it (after
+          # the synonyms on the search side, so they see whole identifiers), and drop stop words
+          # and words shorter than ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH on both sides, as V2
+          # does; db_id stays whole although its parts are short. datahub_stop_words,
+          # default_syn_graph, stem_override and min_length are the V2 filters that V3 indices
+          # also define.
+          v3_text:
+            tokenizer: v3_word_tokenizer
+            filter:
+              - asciifolding
+              - lowercase
+              - v3_underscore_parts
+              - datahub_stop_words
+              - stop
+              - min_length
+          v3_text_search:
+            tokenizer: v3_word_tokenizer
+            filter:
+              - asciifolding
+              - lowercase
+              - default_syn_graph
+              - v3_underscore_parts
+              - datahub_stop_words
+              - stop
+              - min_length
+          v3_stemmed:
+            tokenizer: v3_word_tokenizer
+            filter:
+              - asciifolding
+              - lowercase
+              - v3_underscore_parts
+              - datahub_stop_words
+              - stop
+              - stem_override
+              - snowball
+              - min_length
+          v3_stemmed_search:
+            tokenizer: v3_word_tokenizer
+            filter:
+              - asciifolding
+              - lowercase
+              - default_syn_graph
+              - v3_underscore_parts
+              - datahub_stop_words
+              - stop
+              - stem_override
+              - snowball
+              - min_length
+        filter:
+          # The parts of a token around its underscores, next to the token itself
+          v3_underscore_parts:
+            type: pattern_capture
+            preserve_original: true
+            patterns:
+              - "([^_]+)"
         tokenizer:
           unit_separator_path_tokenizer:
             type: path_hierarchy
@@ -22,3 +80,6 @@ entity_analyzer_config:
           unit_separator_pattern_tokenizer:
             type: pattern
             pattern: "␟"
+          v3_word_tokenizer:
+            type: pattern
+            pattern: "[^\\p{L}\\p{N}\\p{M}_]+"

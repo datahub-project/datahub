@@ -486,7 +486,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -512,7 +511,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -538,7 +536,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -1322,5 +1319,16 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     for (String query : wildcardQueries) {
       TEST_BUILDER.validateSearchQuery(query);
     }
+  }
+
+  @Test
+  public void testV2IgnoresLightQueryFlag() {
+    QueryBuilder full =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, false);
+    QueryBuilder light =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, true);
+    assertEquals(light, full);
   }
 }

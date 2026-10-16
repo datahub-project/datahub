@@ -20,7 +20,6 @@ import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,9 +53,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private final List<Pair<String, String>> _defaultAutocompleteFields;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
-  // Keyed by the V3 read decision too: a handler scopes and filters requests for V2 or V3 from its
-  // configuration
-  private static final Map<Pair<EntitySpec, Boolean>, AutocompleteRequestHandler>
+  private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
   private final CustomizedQueryHandler customizedQueryHandler;
@@ -120,9 +117,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        Pair.of(
-            entitySpec,
-            EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())),
+        entitySpec,
         k ->
             new AutocompleteRequestHandler(
                 systemOperationContext,
@@ -154,13 +149,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     // Initial query with input filters
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-                ? ESUtils.toV3EntityFilter(opContext, filter)
-                : filter,
-            false,
-            searchableFieldTypes,
-            opContext,
-            queryFilterRewriteChain);
+            filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
     baseQuery.filter(filterQuery);
 
     // Apply field configuration to autocomplete fields

@@ -1,5 +1,8 @@
-import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Popover, Tooltip } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -138,7 +141,7 @@ const IncidentResolvedButton = styled(Button)`
     line-height: 20px;
 `;
 
-const MenuIcon = styled(MoreOutlined)`
+const MenuIcon = styled(DotsThreeVertical)`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -327,7 +330,8 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     )}
                                 </IncidentResolvedText>
                             </Popover>
-                            <CheckCircleFilled
+                            <CheckCircle
+                                weight="fill"
                                 style={{ fontSize: '28px', color: theme.colors.iconSuccess, marginLeft: '16px' }}
                             />
                             <Dropdown menu={{ items }} trigger={['click']}>
@@ -337,13 +341,14 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     ) : (
                         <IncidentResolvedContainer>
                             <IncidentResolvedButton
-                                icon={<CheckOutlined />}
+                                icon={<Check className="anticon" />}
                                 onClick={() => handleResolved()}
                                 data-testid="resolve-incident"
                             >
                                 {t('resolution.resolveButton')}
                             </IncidentResolvedButton>
-                            <WarningFilled
+                            <Warning
+                                weight="fill"
                                 style={{ fontSize: '28px', marginLeft: '16px', color: theme.colors.iconError }}
                             />
                         </IncidentResolvedContainer>

@@ -42,6 +42,9 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.FieldConfiguration;
+import com.linkedin.metadata.config.search.custom.HighlightFields;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -53,6 +56,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -62,7 +66,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
+import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -81,11 +87,13 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.DisMaxQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -839,34 +847,350 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
-  /** V3 root fields carry the V2 subfields, so V3 runs the V2 full-text query and highlights. */
+  private static final ElasticSearchConfiguration V3_READ_CONFIG =
+      testQueryConfig.toBuilder()
+          .entityIndex(
+              EntityIndexConfiguration.builder()
+                  .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                  .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                  .build())
+          .build();
+
+  // The root fields of _search.columns, an array each, as long as the dataset's schema
+  private static final Set<String> COLUMN_ARRAYS =
+      Set.of(
+          "fieldPaths",
+          "fieldLabels",
+          "fieldDescriptions",
+          "editedFieldDescriptions",
+          "fieldTags",
+          "editedFieldTags",
+          "fieldGlossaryTerms",
+          "editedFieldGlossaryTerms");
+
+  /**
+   * V3 runs the Stage 1 query, with a dis_max root, where V2 runs the V2 query. V3 finds matched
+   * fields from the fetched values instead of highlighting.
+   */
   @Test
-  public void testV3FullTextQueryMatchesV2() {
-    ElasticSearchConfiguration v3Config =
-        testQueryConfig.toBuilder()
-            .entityIndex(
-                EntityIndexConfiguration.builder()
-                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
-                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
-                    .build())
-            .build();
+  public void testV3FullTextQueryUsesStage1() {
     OperationContext fulltext = operationContext.withSearchFlags(flags -> flags.setFulltext(true));
     for (String query :
         List.of("test query", "\"test query\"", STRUCTURED_QUERY_PREFIX + "name:test")) {
       SearchSourceBuilder v2 = getDatasetSearchSource(fulltext, testQueryConfig, query);
-      SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, v3Config, query);
-      assertEquals(((BoolQueryBuilder) v3.query()).must(), ((BoolQueryBuilder) v2.query()).must());
-      assertEquals(v3.highlighter(), v2.highlighter(), query);
+      SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, query);
+      assertTrue(relevancyQuery(v2) instanceof BoolQueryBuilder, query);
+      assertTrue(relevancyQuery(v3) instanceof DisMaxQueryBuilder, query);
+      assertNotNull(v2.highlighter(), query);
+      assertNull(v3.highlighter(), query);
     }
+  }
+
+  /**
+   * Deliberate V3 change: the full-text query reads the shared _search fields, and matched fields
+   * come from the fetched root values that feed them, so V3 sets no highlighter. The columns'
+   * arrays are searched but never fetched: a fetch cannot cut them short, so a dataset with
+   * thousands of fields would send all of them with every hit.
+   */
+  @Test
+  public void testV3FullTextQueryReadsSharedFieldsWithoutFetchingColumnArrays() {
+    OperationContext fulltext =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, "test query");
+
+    String query = v3.query().toString();
+    assertTrue(query.contains("_search.entityName.text"), query);
+    assertTrue(query.contains("_search.columns.text"), query);
+    assertTrue(query.contains("_search.columns.stemmed"), query);
+    assertTrue(query.contains("_search.structuredProperties.text"), query);
+    assertFalse(query.contains(".delimited"), query);
+    assertNull(v3.highlighter());
+    Set<String> fetched = Set.of(v3.fetchSource().includes());
+    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(
+        fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
+    // Structured property values are searched, never fetched for matched fields
+    assertTrue(
+        fetched.stream().noneMatch(field -> field.startsWith("structuredProperties")),
+        fetched.toString());
+  }
+
+  /** V3 fetches no matched-field sources when highlighting is skipped or configured off. */
+  @Test
+  public void testV3MatchedFieldSourcesFollowHighlightSettings() {
+    OperationContext skipped =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(true));
+    assertEquals(
+        Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn"));
+
+    // Naming a column array does not fetch it either
+    OperationContext custom =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(
+                            List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
+    assertEquals(
+        Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn", "name"));
+    // V2 highlight fields name subfields, which V3 reads from their root field
+    OperationContext v2Subfields =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(
+                            List.of("name.delimited", "name.keyword", "description.*"))));
+    assertEquals(
+        Set.of(
+            getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
+        Set.of("urn", "name", "description"));
+
+    CustomSearchConfiguration highlightConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "names",
+                    FieldConfiguration.builder()
+                        .highlightFields(HighlightFields.builder().replace(List.of("name")).build())
+                        .build(),
+                    // V2 highlight fields name subfields, and a field the query does not read
+                    // cannot match
+                    "subfields",
+                    FieldConfiguration.builder()
+                        .highlightFields(
+                            HighlightFields.builder()
+                                .replace(List.of("name.delimited", "notSearched"))
+                                .build())
+                        .build(),
+                    "off",
+                    FieldConfiguration.builder()
+                        .highlightFields(HighlightFields.builder().enabled(false).build())
+                        .build(),
+                    // As the bundled excludeColumnHighlight configuration writes it, which
+                    // changes nothing on V3, where the columns' arrays are never fetched
+                    "noColumns",
+                    FieldConfiguration.builder()
+                        .highlightFields(
+                            HighlightFields.builder()
+                                .remove(List.of("fieldPaths", "fieldPaths.*"))
+                                .build())
+                        .build()))
+            .build();
+    for (Map.Entry<String, Set<String>> expected :
+        Map.of(
+                "names",
+                Set.of("urn", "name"),
+                "subfields",
+                Set.of("urn", "name"),
+                "off",
+                Set.of("urn"))
+            .entrySet()) {
+      OperationContext configured =
+          operationContext.withSearchFlags(
+              flags ->
+                  flags
+                      .setFulltext(true)
+                      .setSkipHighlighting(false)
+                      .setFieldConfiguration(expected.getKey()));
+      SearchSourceBuilder source =
+          getDatasetSearchSource(configured, V3_READ_CONFIG, highlightConfig, "test");
+      assertEquals(Set.of(source.fetchSource().includes()), expected.getValue(), expected.getKey());
+    }
+
+    OperationContext noColumns =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setFieldConfiguration("noColumns"));
+    Set<String> fetched =
+        Set.of(
+            getDatasetSearchSource(noColumns, V3_READ_CONFIG, highlightConfig, "test")
+                .fetchSource()
+                .includes());
+    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
+    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+
+    // A query of only stop words can match no field, so nothing is fetched for it
+    OperationContext highlighting =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    assertEquals(
+        Set.of(
+            getDatasetSearchSource(highlighting, V3_READ_CONFIG, "the").fetchSource().includes()),
+        Set.of("urn"));
+  }
+
+  /**
+   * Of _search.other, V3 matched fields fetch only what names or tags an entity: a document's text,
+   * semantic text and custom properties are searched but never fetched, even when highlighting
+   * names them.
+   */
+  @Test
+  public void testV3DocumentSearchFetchesNoFreeText() {
+    Set<String> freeText = Set.of("text", "semanticText", "customProperties");
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("document"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    OperationContext fulltext =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+    SearchSourceBuilder source =
+        handler.getSearchRequest(fulltext, "runbook", null, null, 0, 10, List.of()).source();
+
+    String query = source.query().toString();
+    assertTrue(query.contains("_search.other.text"), query);
+    Set<String> fetched = Set.of(source.fetchSource().includes());
+    assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
+    assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
+
+    OperationContext naming =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(
+                        new StringArray(List.of("title", "text", "customProperties"))));
+    assertEquals(
+        Set.of(
+            handler
+                .getSearchRequest(naming, "runbook", null, null, 0, 10, List.of())
+                .source()
+                .fetchSource()
+                .includes()),
+        Set.of("urn", "title"));
+  }
+
+  /**
+   * On V3 the fields a hit matched on come from its fetched values and the search input; a
+   * structured query or a missing input reports none.
+   */
+  @Test
+  public void testV3ExtractResultFindsMatchedFieldsFromSource() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchResponse response = mock(SearchResponse.class);
+    SearchHits hits = mock(SearchHits.class);
+    when(response.getHits()).thenReturn(hits);
+    when(hits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mock(SearchHit.class);
+    // A wide schema's column array, which the engine may still return (as an extra field to
+    // fetch) but which matching never reads
+    List<Object> fieldPaths =
+        new AbstractList<>() {
+          @Override
+          public Object get(int index) {
+            throw new AssertionError("Matched fields read a column array");
+          }
+
+          @Override
+          public int size() {
+            return 5000;
+          }
+        };
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            Map.of(
+                "urn",
+                "urn:li:dataset:(urn:li:dataPlatform:hive,db.revenue,PROD)",
+                "name",
+                "orders table",
+                "description",
+                "daily revenue",
+                "fieldPaths",
+                fieldPaths));
+    when(hits.getHits()).thenReturn(new SearchHit[] {hit});
+    OperationContext highlighting =
+        operationContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+
+    MatchedFieldArray matched =
+        handler
+            .extractResult(highlighting, response, null, 0, 10, "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields();
+    assertEquals(matched.size(), 1, matched.toString());
+    assertEquals(matched.get(0).getName(), "name");
+    assertEquals(matched.get(0).getValue(), "orders table");
+    // Scrolling finds them the same way
+    when(hit.getSortValues()).thenReturn(new Object[] {"orders"});
+    assertEquals(
+        handler
+            .extractScrollResult(highlighting, response, null, "5m", 10, true, "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields(),
+        matched);
+
+    // A search that is not full text runs a structured query too
+    assertTrue(
+        handler
+            .extractResult(
+                highlighting.withSearchFlags(flags -> flags.setFulltext(false)),
+                response,
+                null,
+                0,
+                10,
+                "orders")
+            .getEntities()
+            .get(0)
+            .getMatchedFields()
+            .isEmpty());
+    for (String input : Arrays.asList(STRUCTURED_QUERY_PREFIX + "name:orders", null)) {
+      assertTrue(
+          handler
+              .extractResult(highlighting, response, null, 0, 10, input)
+              .getEntities()
+              .get(0)
+              .getMatchedFields()
+              .isEmpty(),
+          String.valueOf(input));
+    }
+  }
+
+  private static QueryBuilder relevancyQuery(SearchSourceBuilder source) {
+    return ((FunctionScoreQueryBuilder) ((BoolQueryBuilder) source.query()).must().get(0)).query();
   }
 
   private SearchSourceBuilder getDatasetSearchSource(
       OperationContext opContext, ElasticSearchConfiguration config, String query) {
+    return getDatasetSearchSource(opContext, config, null, query);
+  }
+
+  private SearchSourceBuilder getDatasetSearchSource(
+      OperationContext opContext,
+      ElasticSearchConfiguration config,
+      CustomSearchConfiguration customConfig,
+      String query) {
     return SearchRequestHandler.getBuilder(
             operationContext,
             operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
             config,
-            null,
+            customConfig,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG)
         .getSearchRequest(opContext, query, null, null, 0, 10, List.of())

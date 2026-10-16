@@ -1,8 +1,12 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
+
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.Embed;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.url.Url;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupEditableInfo;
@@ -12,10 +16,14 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
+import com.linkedin.metadata.aspect.patch.builder.InstitutionalMemoryLinkUrls;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonString;
+import jakarta.json.JsonValue;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -23,6 +31,7 @@ import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -122,6 +131,21 @@ public class UrlValidator extends AspectPayloadValidator {
           Embed embed = item.getAspect(Embed.class);
           if (embed != null && embed.hasRenderUrl()) {
             validateEmbedRenderUrl(item, embed.getRenderUrl(), "renderUrl", exceptions);
+          }
+        }
+      } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(aspectName)) {
+        // Generic patch, OpenAPI, Rest.li, and MCP writes do not go through
+        // InstitutionalMemoryPatchBuilder.addLink. The link has to be checked here.
+        if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+          validateInstitutionalMemoryPatch((MCPItem) item, exceptions);
+        } else {
+          InstitutionalMemory memory = item.getAspect(InstitutionalMemory.class);
+          if (memory != null && memory.hasElements()) {
+            for (InstitutionalMemoryMetadata element : memory.getElements()) {
+              if (element.hasUrl()) {
+                validateInstitutionalMemoryUrl(item, element.getUrl().toString(), exceptions);
+              }
+            }
           }
         }
       }
@@ -234,6 +258,70 @@ public class UrlValidator extends AspectPayloadValidator {
                             // Unparseable delta — schema validation rejects it at merge time.
                           }
                         }));
+  }
+
+  private void validateInstitutionalMemoryPatch(
+      MCPItem item, ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op -> validateInstitutionalMemoryJson(item, op.getSecond(), op.getFirst(), exceptions));
+  }
+
+  /**
+   * Add/replace values are either a link object ({@code url} field), a full aspect ({@code
+   * elements} array), or a string written to a {@code /url} path.
+   */
+  private void validateInstitutionalMemoryJson(
+      BatchItem item, JsonValue value, String path, ValidationExceptionCollection exceptions) {
+    if (value == null || value.getValueType() == JsonValue.ValueType.NULL) {
+      return;
+    }
+    if (value.getValueType() == JsonValue.ValueType.STRING) {
+      if (path.endsWith("/url") || "/url".equals(path)) {
+        validateInstitutionalMemoryUrl(item, ((JsonString) value).getString(), exceptions);
+      }
+      return;
+    }
+    if (value.getValueType() == JsonValue.ValueType.OBJECT) {
+      JsonObject object = value.asJsonObject();
+      if (object.containsKey("url")
+          && object.get("url").getValueType() == JsonValue.ValueType.STRING) {
+        validateInstitutionalMemoryUrl(item, object.getString("url"), exceptions);
+      }
+      if (object.containsKey("elements")) {
+        validateInstitutionalMemoryJson(item, object.get("elements"), path, exceptions);
+      }
+      return;
+    }
+    if (value.getValueType() == JsonValue.ValueType.ARRAY) {
+      for (JsonValue element : value.asJsonArray()) {
+        validateInstitutionalMemoryJson(item, element, path, exceptions);
+      }
+    }
+  }
+
+  private void validateInstitutionalMemoryUrl(
+      BatchItem item, String rawUrl, ValidationExceptionCollection exceptions) {
+    if (rawUrl == null || rawUrl.isBlank()) {
+      exceptions.addException(
+          AspectValidationException.forItem(item, "URL for 'url' must not be empty."));
+      return;
+    }
+    URI uri = parseUri(item, rawUrl, "url", exceptions);
+    if (uri == null) {
+      return;
+    }
+    String scheme = uri.getScheme();
+    if (scheme == null
+        || !InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES.contains(scheme.toLowerCase(Locale.ROOT))) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "URL scheme '%s' is not allowed for 'url'. Only HTTP, HTTPS, FTP, or mailto"
+                      + " URLs are accepted.",
+                  scheme)));
+    }
   }
 
   /**

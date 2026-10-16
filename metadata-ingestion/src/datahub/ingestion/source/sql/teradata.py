@@ -1595,6 +1595,10 @@ class LineageQuery:
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class TeradataSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

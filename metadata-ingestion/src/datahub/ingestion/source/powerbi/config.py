@@ -1,7 +1,16 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from typing import (
+    Annotated,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 import pydantic
 from pydantic import field_validator, model_validator
@@ -11,15 +20,25 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
+    Filters,
     HiddenFromDocs,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
-from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    ACTIVE_WORKSPACE_STATE,
+    probe_workspace_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -137,7 +156,7 @@ class Constant:
     ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
     APP_SUB_TYPE = "App"
     STATE = "state"
-    ACTIVE = "Active"
+    ACTIVE = ACTIVE_WORKSPACE_STATE
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
     M_QUERY_NULL = '"null"'
@@ -547,7 +566,9 @@ class PowerBiDashboardSourceConfig(
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
     # PowerBi workspace name
-    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+    workspace_name_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.POWERBI_WORKSPACE)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI workspaces in ingestion by name."
         " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
@@ -662,10 +683,13 @@ class PowerBiDashboardSourceConfig(
         description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
         "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
-    # Enable/Disable extracting report information
-    extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
-    )
+    # Enable/Disable extracting report information. When off,
+    # PowerBiAPI.fill_regular_metadata_detail skips the report listing outright.
+    extract_reports: Annotated[
+        bool,
+        Enables(BIAssetSubTypes.REPORT),
+        Enables(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
+    ] = pydantic.Field(default=True, description="Whether reports should be ingested")
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
         default=OwnershipMapping(),
@@ -675,9 +699,13 @@ class PowerBiDashboardSourceConfig(
         default=None,
         description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
-    extract_dashboards: bool = pydantic.Field(
-        default=True,
-        description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+    # When off, PowerBiAPI.fill_regular_metadata_detail skips the dashboard
+    # listing outright.
+    extract_dashboards: Annotated[bool, Enables(BIAssetSubTypes.DASHBOARD)] = (
+        pydantic.Field(
+            default=True,
+            description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+        )
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
@@ -818,6 +846,46 @@ class PowerBiDashboardSourceConfig(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: powerbi_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.powerbi.powerbi_probe import (
+            PowerBiMetadataProbe,
+        )
+
+        return PowerBiMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Reports and dashboards are ingested whole for every workspace the
+        recipe keeps; no pattern applies below a workspace (powerbi.py filters
+        only in get_allowed_workspaces)."""
+        return {
+            str(BIAssetSubTypes.REPORT),
+            str(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
+            str(BIAssetSubTypes.DASHBOARD),
+        }
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Reports and dashboards are fetched only for allowed workspaces
+        (get_workunits_internal iterates get_allowed_workspaces). A parent
+        judged this way is judged by name only, since --parent carries no id
+        or type; the override below warns about the other two halves."""
+        return ancestors_in(
+            (str(BIContainerSubTypes.POWERBI_WORKSPACE),),
+            kind,
+            self.probe_unfiltered_kinds(),
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        return probe_workspace_verdict(
+            self,
+            ctx,
+            workspace_kind=str(BIContainerSubTypes.POWERBI_WORKSPACE),
+            child_kinds=self.probe_unfiltered_kinds(),
+        )
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
