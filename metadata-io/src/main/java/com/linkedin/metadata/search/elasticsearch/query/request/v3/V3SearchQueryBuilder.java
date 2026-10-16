@@ -53,7 +53,6 @@ import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 
 /**
@@ -1668,38 +1667,11 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
           shared.add(field);
         }
       }
-      QueryStringQueryBuilder sharedQuery = structuredQuery(sanitizedQuery, shared, false);
-      // A property mapped on only some indices of a multi-index search must not fail the request.
-      QueryStringQueryBuilder propertyQuery = structuredQuery(sanitizedQuery, properties, true);
-      if (sharedQuery != null && propertyQuery != null) {
-        result =
-            Optional.of(
-                QueryBuilders.boolQuery()
-                    .should(sharedQuery)
-                    .should(propertyQuery)
-                    .minimumShouldMatch(1));
-      } else if (sharedQuery != null) {
-        result = Optional.of(sharedQuery);
-      } else if (propertyQuery != null) {
-        result = Optional.of(propertyQuery);
-      }
+      // query_string ignores fields() when the query names a field, so the same fielded text must
+      // not run on both clauses. Property fields stay lenient; every other field stays strict.
+      result = StructuredQueryRouting.build(sanitizedQuery, shared, properties);
     }
     return result;
-  }
-
-  @Nullable
-  private static QueryStringQueryBuilder structuredQuery(
-      @Nonnull String query, @Nonnull List<SearchFieldConfig> fields, boolean lenient) {
-    if (fields.isEmpty()) {
-      return null;
-    }
-    QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(query);
-    queryBuilder.defaultOperator(Operator.AND);
-    if (lenient) {
-      queryBuilder.lenient(true);
-    }
-    fields.forEach(field -> queryBuilder.field(field.fieldName(), field.boost()));
-    return queryBuilder;
   }
 
   @Override
