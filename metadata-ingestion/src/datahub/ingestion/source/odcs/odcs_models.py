@@ -6,13 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 # walker in odcs_source.py classifies YAML keys three ways: declared on the
 # model (parsed), listed here (spec-valid but unmapped -- one aggregate info per
 # file, no warning), or neither (genuinely unknown -- a per-field warning).
-# These sets are the union of the property keys declared in the vendored v3.0.2
-# and v3.1.0 JSON Schemas minus the model fields; the drift-guard unit test in
+# These sets are the union of the property keys declared in the vendored v3.0.2,
+# v3.1.0 and v3.2.0 JSON Schemas minus the model fields; the drift-guard unit test in
 # tests/unit/odcs/test_odcs_models.py enforces that invariant so a future spec
 # bump fails loudly instead of producing spurious "check spelling" warnings.
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
+        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -23,22 +24,27 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
+        "context",
         "customProperties",
         "dataGranularityDescription",
         "id",
         "relationships",
+        "synonyms",
     )
 )
 
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
+        "enum",
         "examples",
         "id",
         "items",
         "logicalTypeOptions",
+        "map",
         "physicalName",
         "relationships",
+        "semanticType",
         "transformDescription",
         "transformLogic",
         "transformSourceObjects",
@@ -49,17 +55,21 @@ KNOWN_UNMAPPED_QUALITY_FIELDS: frozenset = frozenset()
 
 KNOWN_UNMAPPED_SERVER_FIELDS = frozenset(
     (
+        "catalogUrl",
         "customProperties",
         "delimiter",
+        "encoding",
         "endpointUrl",
         "format",
         "id",
+        "namespace",
         "path",
         "regionName",
         "roles",
         "serviceName",
         "stagingDir",
         "stream",
+        "workgroup",
     )
 )
 
@@ -117,6 +127,13 @@ class ODCSDescription(ODCSBaseModel):
     limitations: Optional[str] = None
 
 
+class ODCSSynonym(ODCSBaseModel):
+    # v3.2 (RFC 0041). Only `synonym` is mapped; `locale`, `source`, `status`
+    # etc. are dropped. Optional so one malformed entry can't fail the whole
+    # contract's model validation.
+    synonym: Optional[str] = None
+
+
 class ODCSProperty(ODCSBaseModel):
     name: str
     logicalType: Optional[str] = None
@@ -136,6 +153,9 @@ class ODCSProperty(ODCSBaseModel):
     properties: Optional[List["ODCSProperty"]] = None
     customProperties: Optional[List[ODCSCustomProperty]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
+    deprecated: Optional[bool] = None
+    # Spec shape is a list of objects; bare strings are accepted leniently.
+    synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -149,6 +169,7 @@ class ODCSSchemaObject(ODCSBaseModel):
     properties: Optional[List[ODCSProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
+    deprecated: Optional[bool] = None
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -267,7 +288,7 @@ class ODCSServer(ODCSBaseModel):
 class ODCSContract(ODCSBaseModel):
     """Top-level ODCS contract document.
 
-    Field set is the v3.0.x / v3.1.x union of the sections this source maps.
+    Field set is the v3.0.x–v3.2.x union of the sections this source maps.
     Spec-valid-but-unmapped fields are listed in
     `KNOWN_UNMAPPED_CONTRACT_FIELDS`; genuinely unknown fields get a warning
     from the source layer.

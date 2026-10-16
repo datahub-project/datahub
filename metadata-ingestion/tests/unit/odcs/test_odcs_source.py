@@ -1632,6 +1632,35 @@ def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
     )
 
 
+def test_v32_api_version_is_accepted_and_validated(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path, strict_validation=True)
+    raw_dict: Dict[str, Any] = {
+        "apiVersion": "v3.2.0",
+        "kind": "DataContract",
+        "id": "x",
+        "version": "1.0.0",
+        "status": "active",
+        "context": "Use for hourly reporting only.",
+        "schema": [
+            {
+                "name": "t",
+                "deprecated": True,
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "logicalType": "vector",
+                        "logicalTypeOptions": {"dimensions": 3},
+                        "synonyms": [{"synonym": "alias_a"}],
+                    }
+                ],
+            }
+        ],
+    }
+    assert src._validate(raw_dict, str(tmp_path / "v32.yaml"))
+    assert src.report.validation_errors == 0
+    assert "3.2.0" in src._validators
+
+
 def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
     """A document that passes lenient schema validation but cannot be coerced
     into the model (missing required `id`) is skipped, not crashed."""

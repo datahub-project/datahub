@@ -12,6 +12,7 @@ The Bitol Project is part of the Linux Foundation AI & Data Foundation.
 | ------------------ | ------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `odcs-v3.0.2.json` | `v3.0.2`     | <https://github.com/bitol-io/open-data-contract-standard/blob/v3.0.2/schema/odcs-json-schema-v3.0.2.json> | `fc9d774ea73d13b473a52868eb8e66784f3a031794d1d22dd94d76f8c9c07c79` |
 | `odcs-v3.1.0.json` | `v3.1.0`     | <https://github.com/bitol-io/open-data-contract-standard/blob/v3.1.0/schema/odcs-json-schema-v3.1.0.json> | `2cb7dd6fe43344d2233e0406438622681dc3ebadcf8f0d606a15b40c8f6752c0` |
+| `odcs-v3.2.0.json` | `v3.2.0`     | <https://github.com/bitol-io/open-data-contract-standard/blob/v3.2.0/schema/odcs-json-schema-v3.2.0.json> | `edb41f33ec46e84780e99872ab2bd67f074959d2bf3e9c9fc54e61f8982b0d93` |
 
 The authoritative checksums are tracked in `CHECKSUMS.sha256` next to
 the schemas. Any change to a schema file must be accompanied by a
@@ -23,7 +24,7 @@ Run `metadata-ingestion/scripts/refresh_odcs_schemas.sh` to update one
 or more vendored copies from upstream:
 
 ```bash
-# Refresh both pinned versions
+# Refresh all pinned versions
 metadata-ingestion/scripts/refresh_odcs_schemas.sh
 
 # Refresh only v3.1.0

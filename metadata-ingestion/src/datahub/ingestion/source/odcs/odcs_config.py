@@ -212,7 +212,7 @@ class ODCSSourceConfig(
         ),
     )
     odcs_versions: List[str] = Field(
-        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
+        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0", "3.2.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
         "outside this list are skipped with a warning.",
     )
