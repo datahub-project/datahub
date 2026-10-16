@@ -105,18 +105,9 @@ function getAllCategoryOptions(): CategoryOption[] {
     ];
 }
 
-// Catalog entities registered through TimelineServiceImpl.registerCatalogEntity share one shape.
-const CATALOG_CATEGORIES: ChangeCategoryValue[] = [
-    ChangeCategoryType.Documentation,
-    ChangeCategoryType.Tag,
-    ChangeCategoryType.GlossaryTerm,
-    ChangeCategoryType.Ownership,
-    CATEGORY_DOMAIN,
-    CATEGORY_STRUCTURED_PROPERTY,
-];
-const CATALOG_WITH_APPLICATIONS: Set<ChangeCategoryValue> = new Set([...CATALOG_CATEGORIES, CATEGORY_APPLICATION]);
-
-// Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
+// Supported categories per entity type. Entries for the catalog entities are derived from the aspects each
+// entity carries in the entity registry; the backend registers the matching categories via
+// TimelineServiceImpl.registerCatalogEntity.
 const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
     [EntityType.Dataset]: new Set([
         ChangeCategoryType.TechnicalSchema,
@@ -131,6 +122,7 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
     ]),
     [EntityType.GlossaryTerm]: new Set([
         ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
         ChangeCategoryType.GlossaryTerm,
         ChangeCategoryType.Ownership,
         CATEGORY_DOMAIN,
@@ -153,19 +145,115 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
         CATEGORY_APPLICATION,
         CATEGORY_ASSET_MEMBERSHIP,
     ]),
-    [EntityType.DataFlow]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.DataJob]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Chart]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Dashboard]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Metric]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.SemanticModel]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Mlmodel]: new Set([...CATALOG_CATEGORIES, CATEGORY_APPLICATION, CATEGORY_VERSIONING]),
-    [EntityType.MlmodelGroup]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Mlfeature]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.MlfeatureTable]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.MlprimaryKey]: CATALOG_WITH_APPLICATIONS,
-    [EntityType.Container]: CATALOG_WITH_APPLICATIONS,
-    // glossaryNode carries no glossaryTerms aspect
+    [EntityType.DataFlow]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.DataJob]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Chart]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Dashboard]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Metric]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.SemanticModel]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Mlmodel]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+        CATEGORY_VERSIONING,
+    ]),
+    [EntityType.MlmodelGroup]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Mlfeature]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.MlfeatureTable]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.MlprimaryKey]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Container]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
     [EntityType.GlossaryNode]: new Set([
         ChangeCategoryType.Documentation,
         ChangeCategoryType.Tag,
@@ -174,8 +262,23 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
     ]),
-    // application carries no applications aspect of its own
-    [EntityType.Application]: new Set(CATALOG_CATEGORIES),
+    [EntityType.Application]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+    ]),
+    [EntityType.Api]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_VERSIONING,
+    ]),
 };
 
 export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {

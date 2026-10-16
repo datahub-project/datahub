@@ -37,22 +37,35 @@ public class PropertiesDescriptionChangeEventGenerator<T extends RecordTemplate>
 
   private final String aspectName;
   private final Class<T> aspectClass;
+  private final String descriptionFieldName;
 
   public PropertiesDescriptionChangeEventGenerator(
       @Nonnull final String aspectName, @Nonnull final Class<T> aspectClass) {
+    this(aspectName, aspectClass, DESCRIPTION_FIELD);
+  }
+
+  /**
+   * @param descriptionFieldName the top-level string field holding the free-text description when
+   *     the aspect does not call it {@code description} (e.g. {@code glossaryNodeInfo.definition}).
+   */
+  public PropertiesDescriptionChangeEventGenerator(
+      @Nonnull final String aspectName,
+      @Nonnull final Class<T> aspectClass,
+      @Nonnull final String descriptionFieldName) {
     this.aspectName = aspectName;
     this.aspectClass = aspectClass;
+    this.descriptionFieldName = descriptionFieldName;
   }
 
   @Nullable
-  private static String getDescription(@Nullable final RecordTemplate properties) {
+  private String getDescription(@Nullable final RecordTemplate properties) {
     if (properties == null) {
       return null;
     }
-    return (String) properties.data().get(DESCRIPTION_FIELD);
+    return (String) properties.data().get(descriptionFieldName);
   }
 
-  private static List<ChangeEvent> computeDiffs(
+  private List<ChangeEvent> computeDiffs(
       @Nullable final RecordTemplate baseProperties,
       @Nullable final RecordTemplate targetProperties,
       @Nonnull final String entityUrn,
