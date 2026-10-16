@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     )
 
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
 )
@@ -84,6 +85,9 @@ from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -92,6 +96,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset, parse_cll_mapping
 from datahub.sdk.entity import Entity
@@ -770,14 +775,88 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
         except Exception as e:
-            # A warning would leave this item with no emitted tables, and stale
-            # entity removal would soft-delete every table it had ingested before.
-            self.report.failure(
+            # warning(), not failure(). A source failure makes stale entity
+            # removal skip soft-deletes for every workspace. Carry this item's
+            # previous URNs forward so only this item is left unchanged.
+            self.report.warning(
                 title="Failed to Process Tables",
-                message="Unable to retrieve tables from item.",
+                message=(
+                    "Unable to retrieve tables from item. Tables previously "
+                    "ingested for this item are left in place."
+                ),
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
                 log=False,
+            )
+            self._preserve_item_urns_from_last_checkpoint(
+                workspace.id, item_id, item_type
+            )
+
+    def _stale_entity_removal_handler(self) -> Optional[StaleEntityRemovalHandler]:
+        handlers = getattr(self.state_provider, "_usecase_handlers", {})
+        for handler in handlers.values():
+            if isinstance(handler, StaleEntityRemovalHandler):
+                return handler
+        return None
+
+    def _preserve_item_urns_from_last_checkpoint(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+    ) -> None:
+        """Copy this item's datasets and schema containers from the last run.
+
+        Stale entity removal then still soft-deletes other items. A source
+        failure would have skipped removal for the whole run.
+        """
+        handler = self._stale_entity_removal_handler()
+        if handler is None or not handler.is_checkpointing_enabled():
+            return
+        last_checkpoint = handler.state_provider.get_last_checkpoint(
+            handler.job_id, handler.state_type_class
+        )
+        if last_checkpoint is None or not last_checkpoint.state:
+            return
+
+        prefix = f"{workspace_id}.{item_id}."
+        if self.config.platform_instance:
+            prefix = f"{self.config.platform_instance}.{prefix}"
+        prefix_key = prefix.casefold()
+        platform_urn = make_data_platform_urn(PLATFORM)
+
+        schemas: set[str] = set()
+        preserved = 0
+        for urn in last_checkpoint.state.urns:
+            if not urn.startswith("urn:li:dataset:"):
+                continue
+            dataset_urn = DatasetUrn.from_string(urn)
+            if str(dataset_urn.platform) != platform_urn:
+                continue
+            if not dataset_urn.name.casefold().startswith(prefix_key):
+                continue
+            handler.add_entity_to_state("dataset", urn)
+            preserved += 1
+            schema_name, separator, _table_name = dataset_urn.name[
+                len(prefix) :
+            ].partition(".")
+            if separator and schema_name:
+                schemas.add(schema_name)
+
+        if self.config.extract_schemas:
+            for schema_name in schemas:
+                handler.add_entity_to_state(
+                    "container",
+                    self._make_schema_key(
+                        workspace_id, item_id, item_type, schema_name
+                    ).as_urn(),
+                )
+                preserved += 1
+
+        if preserved:
+            logger.info(
+                f"Kept {preserved} previously ingested entity URN(s) for "
+                f"{item_type} {item_id} because its table listing did not finish."
             )
 
     def _get_columns(

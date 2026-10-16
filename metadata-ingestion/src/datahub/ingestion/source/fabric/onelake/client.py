@@ -575,7 +575,9 @@ class OneLakeClient(BaseFabricClient):
 
         System schemas (`sys`, `INFORMATION_SCHEMA`, `queryinsights`) are
         skipped. A 404 means the item has no OneLake catalog (for example a
-        staging warehouse) and yields nothing.
+        staging warehouse) and raises IncompleteCatalogListing. The caller
+        keeps tables from the previous run instead of treating the warehouse
+        as empty.
 
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
