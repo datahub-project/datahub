@@ -204,6 +204,8 @@ source:
         kerberos_service_name: hive
 ```
 
+> **Note**: Hive Kerberos authentication also needs the `kerberos` Python package, which the `hive` plugin does not include. Add `kerberos` to the ingestion source's `extra_pip_requirements`; without it the source fails with an error asking you to `pip install kerberos`. The package builds against the system Kerberos libraries (e.g. `libkrb5-dev`), so confirm your executor image provides them. The `hive-metastore` plugin already bundles `kerberos`.
+
 **TGT lifetime**: Kerberos TGTs typically expire after 10 hours, which is sufficient for most
 ingestion runs. The init container runs `kinit` once and nothing renews the ticket afterwards, so an
 ingestion must finish within the ticket lifetime. For longer runs, ask your KDC administrator to
