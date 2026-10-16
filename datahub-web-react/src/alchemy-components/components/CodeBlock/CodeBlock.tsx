@@ -128,6 +128,7 @@ export function CodeBlock({
     const copyResetTimeoutRef = useRef<number | null>(null);
     const isMountedRef = useRef(true);
     const validateRequestIdRef = useRef(0);
+    const formatRequestIdRef = useRef(0);
     const isCopied = isCopiedProp ?? internalCopied;
     const showDiff = shouldRenderCodeBlockDiff(code, diffAgainst);
     const isEditable = isCodeBlockEditable({ isReadOnly: isReadOnly || showDiff, onChange });
@@ -168,9 +169,10 @@ export function CodeBlock({
         };
     }, []);
 
-    // Stale findings after edits would be misleading — clear until Validate runs again.
+    // Edits and language changes retire in-flight validate and format results.
     useEffect(() => {
         validateRequestIdRef.current += 1;
+        formatRequestIdRef.current += 1;
         setSyntaxIssue(null);
         setIsValidating(false);
     }, [activeLanguage, code]);
@@ -225,41 +227,55 @@ export function CodeBlock({
 
     const handleFormat = useCallback(() => {
         if (!onChange || isDisabled) {
-            return;
+            return Promise.resolve();
         }
-        formatCode(code, activeLanguage).then((result) => {
-            if (!isMountedRef.current) {
-                return;
-            }
-            if (!isFormatCodeSuccess(result)) {
-                if (result.error === 'invalid') {
-                    // Inline only while editing — avoids toast + message double noise.
-                    const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage)
-                        ? 'warning'
-                        : 'error';
-                    if (validateSyntax) {
-                        const requestId = validateRequestIdRef.current + 1;
-                        validateRequestIdRef.current = requestId;
-                        validateCode(code, activeLanguage).then((validation) => {
-                            if (!isMountedRef.current || requestId !== validateRequestIdRef.current) {
-                                return;
-                            }
-                            setSyntaxIssue(
-                                validation.valid
-                                    ? { severity, details: [] }
-                                    : { severity: validation.severity, details: validation.details },
-                            );
-                        });
-                    } else {
-                        setSyntaxIssue({ severity, details: [] });
-                    }
+        const requestId = formatRequestIdRef.current + 1;
+        formatRequestIdRef.current = requestId;
+        const isCurrent = () => isMountedRef.current && requestId === formatRequestIdRef.current;
+        return formatCode(code, activeLanguage)
+            .then((result) => {
+                if (!isCurrent()) {
+                    return;
                 }
-                return;
-            }
-            onChange(result.formatted);
-            setSyntaxIssue(null);
-            toast.success(t('codeBlock.formatSuccess'));
-        });
+                if (!isFormatCodeSuccess(result)) {
+                    if (result.error === 'invalid') {
+                        // Inline only while editing — avoids toast + message double noise.
+                        const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage)
+                            ? 'warning'
+                            : 'error';
+                        if (validateSyntax) {
+                            const validationRequestId = validateRequestIdRef.current + 1;
+                            validateRequestIdRef.current = validationRequestId;
+                            validateCode(code, activeLanguage).then((validation) => {
+                                if (
+                                    !isMountedRef.current ||
+                                    validationRequestId !== validateRequestIdRef.current ||
+                                    !isCurrent()
+                                ) {
+                                    return;
+                                }
+                                setSyntaxIssue(
+                                    validation.valid
+                                        ? { severity, details: [] }
+                                        : { severity: validation.severity, details: validation.details },
+                                );
+                            });
+                        } else {
+                            setSyntaxIssue({ severity, details: [] });
+                        }
+                    }
+                    return;
+                }
+                onChange(result.formatted);
+                setSyntaxIssue(null);
+                toast.success(t('codeBlock.formatSuccess'));
+            })
+            .catch(() => {
+                if (!isCurrent()) {
+                    return;
+                }
+                toast.error(t('codeBlock.formatFailed'));
+            });
     }, [activeLanguage, code, isDisabled, onChange, t, validateSyntax]);
 
     const handleCopy = useCallback(() => {

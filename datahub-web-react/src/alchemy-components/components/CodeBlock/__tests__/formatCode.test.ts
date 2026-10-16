@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    cacheSuccessfulImport,
     formatCode,
     isFormatCodeSuccess,
     resolveCodeLanguage,
@@ -27,6 +28,24 @@ describe('resolveSqlFormatterLanguage', () => {
         expect(resolveSqlFormatterLanguage('Snowflake')).toBe('snowflake');
         expect(resolveSqlFormatterLanguage('databricks')).toBe('spark');
         expect(resolveSqlFormatterLanguage('json')).toBeUndefined();
+    });
+});
+
+describe('cacheSuccessfulImport', () => {
+    it('retries after a rejected load and then reuses the success', async () => {
+        let calls = 0;
+        const load = cacheSuccessfulImport(async () => {
+            calls += 1;
+            if (calls === 1) {
+                throw new Error('chunk');
+            }
+            return 'formatter';
+        });
+
+        await expect(load()).rejects.toThrow('chunk');
+        await expect(load()).resolves.toBe('formatter');
+        await expect(load()).resolves.toBe('formatter');
+        expect(calls).toBe(2);
     });
 });
 

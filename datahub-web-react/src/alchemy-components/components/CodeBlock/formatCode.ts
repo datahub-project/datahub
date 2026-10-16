@@ -57,20 +57,33 @@ type SqlFormatterLanguage = (typeof SQL_FORMATTER_LANGUAGES)[keyof typeof SQL_FO
 
 type SqlFormatterModule = typeof import('sql-formatter');
 
-let sqlFormatterPromise: Promise<SqlFormatterModule> | null = null;
+/**
+ * Caches a successful load and drops a rejected one so the next call can retry.
+ * A failed chunk fetch must not stick for the rest of the page.
+ *
+ * @param load - Loads the module
+ * @returns Loader that reuses the in-flight or successful promise
+ */
+export function cacheSuccessfulImport<T>(load: () => Promise<T>): () => Promise<T> {
+    let pending: Promise<T> | null = null;
+    return () => {
+        if (!pending) {
+            pending = load().catch((error: unknown) => {
+                pending = null;
+                throw error;
+            });
+        }
+        return pending;
+    };
+}
 
 /**
  * sql-formatter is only needed when the user formats SQL. A static import
- * puts the whole dialect bundle on the logged-in shell.
+ * puts the dialect bundle on the home and entity chunks.
  *
- * @returns sql-formatter module, cached after the first format
+ * @returns sql-formatter module, cached after the first successful format
  */
-function loadSqlFormatter(): Promise<SqlFormatterModule> {
-    if (!sqlFormatterPromise) {
-        sqlFormatterPromise = import('sql-formatter');
-    }
-    return sqlFormatterPromise;
-}
+const loadSqlFormatter = cacheSuccessfulImport<SqlFormatterModule>(() => import('sql-formatter'));
 
 const SQL_FORMAT_OPTIONS = {
     tabWidth: 2,
@@ -154,8 +167,8 @@ function formatYaml(code: string): FormatCodeResult {
 }
 
 async function formatSql(code: string, sqlLanguage: SqlFormatterLanguage): Promise<FormatCodeResult> {
+    const { format: formatSqlQuery } = await loadSqlFormatter();
     try {
-        const { format: formatSqlQuery } = await loadSqlFormatter();
         const formatted = withTrailingNewline(
             formatSqlQuery(code, {
                 language: sqlLanguage,

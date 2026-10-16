@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -143,7 +143,7 @@ describe('CodeBlock', () => {
         renderCodeBlock(<CodeBlock code='{"a":1}' language="json" languageLabel="JSON" onChange={onChange} />);
 
         await user.click(screen.getByTestId('code-block-format'));
-        expect(onChange).toHaveBeenCalledWith('{\n  "a": 1\n}\n');
+        await waitFor(() => expect(onChange).toHaveBeenCalledWith('{\n  "a": 1\n}\n'));
     });
 
     it('should stay read-only when isReadOnly is set even with onChange', () => {

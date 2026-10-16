@@ -5,7 +5,7 @@ import React from 'react';
 import { Positioner, defaultAbsolutePosition, hasStateChanged, isPositionVisible } from 'remirror/extensions';
 import styled from 'styled-components';
 
-import { CODE_BLOCK_LANGUAGES } from '@components/components/CodeBlock/codeBlockLanguages';
+import { listEditorCodeLanguages } from '@components/components/Editor/editorCodeLanguages';
 import { ToolbarContainer } from '@components/components/Editor/toolbar/FloatingToolbar';
 
 const StyledSelect = styled(Select)`
@@ -58,8 +58,7 @@ const CodeBlockMenu = () => {
     const commands = useCommands();
     const value = (useAttrs(true).codeBlock()?.language as string) ?? 'markup';
 
-    // listLanguages() from refractor loads every grammar just to name them.
-    const options = CODE_BLOCK_LANGUAGES.map((language) => ({ value: language }));
+    const options = listEditorCodeLanguages().map((language) => ({ value: language }));
 
     const onChange = (language) => {
         commands.updateCodeBlock({ language });
