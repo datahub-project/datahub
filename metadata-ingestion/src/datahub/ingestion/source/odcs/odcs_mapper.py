@@ -671,10 +671,8 @@ def _field_aspect_mcps(
                     entityUrn=field_urn, aspect=_deprecation(contract)
                 )
             )
-        synonyms = [
-            s if isinstance(s, str) else s.synonym for s in prop.synonyms or []
-        ]
-        synonyms = [s for s in synonyms if s]
+        names = [s if isinstance(s, str) else s.synonym for s in prop.synonyms or []]
+        synonyms = [name for name in names if name]
         if synonyms:
             mcps.append(
                 MetadataChangeProposalWrapper(
