@@ -21,6 +21,16 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientRe
 
 logger = logging.getLogger(__name__)
 
+
+class IncompleteCatalogListing(Exception):
+    """The OneLake catalog listing did not finish.
+
+    A partial page or an empty response from a failed request is not the full
+    set of tables. Callers must surface this as a source failure so stale
+    entity removal does not soft-delete tables that were never listed.
+    """
+
+
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
@@ -234,12 +244,12 @@ class OneLakeClient(BaseFabricClient):
             if not next_token:
                 break
             if next_token in seen_tokens:
-                # Guard against an endpoint that keeps returning the same token.
-                logger.warning(
+                # A repeated token means the catalog is truncated. Returning the
+                # pages already seen would look like a complete listing.
+                raise IncompleteCatalogListing(
                     f"Repeated page token while listing {description}; stopping "
                     f"after {page} page(s)."
                 )
-                break
             seen_tokens.add(next_token)
             request_params["page_token"] = next_token
             page += 1
@@ -261,7 +271,8 @@ class OneLakeClient(BaseFabricClient):
             workspace_id: Workspace GUID
             item_id: Lakehouse or Warehouse GUID
             item_label: Used in log messages
-            missing_ok: When True, a 404 yields nothing instead of failing
+            missing_ok: When True, a 404 raises IncompleteCatalogListing instead of
+                looking like a catalog that simply has no schemas
 
         Yields:
             Schema names
@@ -290,11 +301,10 @@ class OneLakeClient(BaseFabricClient):
                 logger.error(f"Failed to list schemas for {item_label} {item_id}: {e}")
                 raise
             if missing_ok and e.response.status_code == 404:
-                logger.warning(
+                raise IncompleteCatalogListing(
                     f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
                     "(404). Tables will not be listed for this item."
-                )
-                return
+                ) from e
             self.report.report_error()
             logger.error(
                 f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}: {e.response.text}"
@@ -408,17 +418,14 @@ class OneLakeClient(BaseFabricClient):
                         workspace_id, lakehouse_id, schema_name
                     )
             except requests.exceptions.HTTPError as e:
-                # If OneLake APIs fail with 401/403, it might be an authentication/permission issue
-                # Log warning and return empty (don't fail the entire ingestion)
-                if e.response.status_code in (401, 403):
-                    logger.warning(
-                        f"OneLake Delta Table APIs require additional permissions or different authentication. "
-                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id}. "
-                        f"Error: {e.response.text}. "
-                        f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
-                    )
-                    # Return empty iterator instead of raising
-                    return
+                # 401/403 is not an empty lakehouse. Returning nothing would
+                # soft-delete every table previously ingested for this item.
+                if e.response is not None and e.response.status_code in (401, 403):
+                    raise IncompleteCatalogListing(
+                        f"OneLake Delta Table APIs denied listing tables for "
+                        f"schemas-enabled lakehouse {lakehouse_id} "
+                        f"({e.response.status_code})."
+                    ) from e
                 else:
                     logger.error(
                         f"Failed to list tables for schemas-enabled lakehouse {lakehouse_id}: {e}"
