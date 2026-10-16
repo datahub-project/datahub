@@ -20,6 +20,7 @@ from datahub.ingestion.source.sac.sac import (
 )
 from datahub.ingestion.source.sac.sac_common import ResourceModel
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DatasetKeyClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -539,6 +540,11 @@ def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock
     assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
     assert source.report.dwc_lineage_resolved == 1
 
+    # The Models browse path is emitted for every model, including live/DWC ones.
+    browse_v2 = _first_aspect(workunits, BrowsePathsV2Class)
+    assert browse_v2 is not None
+    assert [entry.id for entry in browse_v2.path] == ["Models"]
+
 
 def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
     # With the flag off a DWC model must not emit upstream lineage and, crucially, must not
@@ -735,7 +741,9 @@ def match_resources(request, context):
                     "modifiedTime": "/Date(1673279414272)/",
                     "isMobile": 0,
                     "openURL": "/sap/fpa/ui/tenants/3c44c/bo/story/EOYLU41PIILXTH4JCE36NLYPU9XRYM26",
-                    "ancestorPath": '["Public","Folder 1","Folder 2"]',
+                    # Localized to German, yet this resource's golden still asserts
+                    # /sac/Public/Folder 1/Folder 2: revert the canonicalization and it fails.
+                    "ancestorPath": '["Öffentlich","Folder 1","Folder 2"]',
                 },
             ],
         },
