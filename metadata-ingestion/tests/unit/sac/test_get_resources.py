@@ -14,6 +14,8 @@ _TOKEN_URL = "http://tenant.authentication/oauth/token"
 # Same physical public root, returned localized: story as "Public", application as "Öffentlich".
 _STORY_RESOURCE_ID = "LXTH4JCE36EOYLU41PIINLYPU9XRYM26"
 _APPLICATION_RESOURCE_ID = "EOYLU41PIILXTH4JCE36NLYPU9XRYM26"
+# A shared team/workspace root ("Default") that also comes back under isPublic=1.
+_WORKSPACE_RESOURCE_ID = "NLYPU9XRYM26LXTH4JCE36EOYLU41PII"
 
 
 def _resource_entity(
@@ -114,6 +116,22 @@ def test_disabling_canonicalization_preserves_localized_root(requests_mock):
         _APPLICATION_RESOURCE_ID
     }
     assert resources[0].ancestor_path == "Öffentlich/Folder 1/Folder 2"
+
+
+def test_unrecognized_root_is_not_merged_into_public(requests_mock):
+    # A team/workspace root ("Default") returned under isPublic=1 keeps its own root
+    # instead of being rewritten to the public root and merged into the public tree.
+    _, resources = _get_resources(
+        requests_mock,
+        [
+            (_STORY_RESOURCE_ID, '["Public","Folder 1"]'),
+            (_WORKSPACE_RESOURCE_ID, '["Default","Folder 1"]'),
+        ],
+    )
+
+    paths = {resource.resource_id: resource.ancestor_path for resource in resources}
+    assert paths[_STORY_RESOURCE_ID] == "Public/Folder 1"
+    assert paths[_WORKSPACE_RESOURCE_ID] == "Default/Folder 1"
 
 
 def test_unparseable_ancestor_path_warns_and_drops_browse_path(requests_mock):
