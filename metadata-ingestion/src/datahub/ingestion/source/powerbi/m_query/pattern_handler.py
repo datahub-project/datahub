@@ -35,6 +35,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRenames,
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -302,6 +303,82 @@ def _remap_column_lineage_to_pbi_fields(
                 )
         remapped.append(cll_info)
     return remapped
+
+
+def _name_before_renames(name: str, column_renames: ColumnRenames) -> str:
+    """Walk outermost-first. Each step is applied as a set, so a swap holds."""
+    for step in column_renames:
+        new_to_old = {new: old for old, new in step}
+        name = new_to_old.get(name, name)
+    return name
+
+
+def _name_after_renames(name: str, column_renames: ColumnRenames) -> str:
+    for step in reversed(column_renames):
+        old_to_new = {old: new for old, new in step}
+        name = old_to_new.get(name, name)
+    return name
+
+
+def apply_table_rename_columns(
+    lineage: Lineage,
+    column_renames: ColumnRenames,
+    pbi_columns: Optional[List[Column]],
+) -> Lineage:
+    """Point column lineage at Table.RenameColumns names.
+
+    Table navigation copies each Power BI field name onto the upstream column.
+    Those fields are the names after the rename, so the upstream column has to
+    be mapped back to the source. Native SQL lineage is the other way around:
+    its downstream name is the query output, which the rename then changes.
+    """
+    if not column_renames or not lineage.column_lineage:
+        return lineage
+
+    pbi_names = {col.name for col in pbi_columns} if pbi_columns else set()
+    updated: List[ColumnLineageInfo] = []
+    for info in lineage.column_lineage:
+        downstream_name = info.downstream.column if info.downstream else ""
+        if not downstream_name:
+            updated.append(info)
+            continue
+
+        if downstream_name in pbi_names:
+            source_name = _name_before_renames(downstream_name, column_renames)
+            if source_name == downstream_name:
+                updated.append(info)
+                continue
+            updated.append(
+                ColumnLineageInfo(
+                    downstream=info.downstream,
+                    upstreams=[
+                        ColumnRef(table=ref.table, column=source_name)
+                        if ref.column == downstream_name
+                        else ref
+                        for ref in info.upstreams
+                    ],
+                    logic=info.logic,
+                )
+            )
+            continue
+
+        renamed = _name_after_renames(downstream_name, column_renames)
+        if renamed == downstream_name or (pbi_names and renamed not in pbi_names):
+            updated.append(info)
+            continue
+        updated.append(
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=info.downstream.table,
+                    column=renamed,
+                    column_type=info.downstream.column_type,
+                    native_column_type=info.downstream.native_column_type,
+                ),
+                upstreams=info.upstreams,
+                logic=info.logic,
+            )
+        )
+    return Lineage(upstreams=lineage.upstreams, column_lineage=updated)
 
 
 def make_urn(

@@ -181,6 +181,12 @@ def get_upstream_tables(
                 reporter=reporter,
                 platform_instance_resolver=platform_instance_resolver,
             ).create_lineage(f_detail)
+            if f_detail.column_renames:
+                lineage = pattern_handler.apply_table_rename_columns(
+                    lineage,
+                    f_detail.column_renames,
+                    table.columns,
+                )
             if lineage.upstreams:
                 lineages.append(lineage)
 

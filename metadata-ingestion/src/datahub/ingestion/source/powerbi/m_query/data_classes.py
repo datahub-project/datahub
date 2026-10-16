@@ -1,12 +1,18 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 
 TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
+
+# Table.RenameColumns steps wrapping a data-access call, outermost first.
+# Each step is the (source_name, renamed_name) pairs from one call, applied
+# together — a later pair in the same call must not see the earlier pair's
+# new name.
+ColumnRenames = Tuple[Tuple[Tuple[str, str], ...], ...]
 
 
 @dataclass
@@ -44,6 +50,7 @@ class DataAccessFunctionDetail:
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
+    column_renames: ColumnRenames = ()
 
 
 @dataclass
