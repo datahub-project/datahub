@@ -24,6 +24,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_constants import (
     ASSERTION_SCHEMA_COMPLIANCE,
+    DEPRECATION_ACTOR,
     LOGICAL_TYPE_MAP,
     METRIC_DUPLICATE_COUNT,
     METRIC_DUPLICATE_VALUES,
@@ -76,6 +77,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -90,6 +92,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DataQualityContractClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     EdgeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
@@ -624,6 +627,44 @@ def _institutional_memory_mcp(
     )
 
 
+def _deprecation(contract: ODCSContract) -> DeprecationClass:
+    return DeprecationClass(
+        deprecated=True,
+        note=f"Marked deprecated in ODCS contract {contract.id}",
+        actor=DEPRECATION_ACTOR,
+    )
+
+
+def _field_aspect_mcps(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject, logical_urn: str
+) -> List[MetadataChangeProposalWrapper]:
+    """Per-field `deprecation` and `aiContext` aspects (ODCS v3.2).
+
+    Only truthy values emit: an absent or false `deprecated` must not
+    un-deprecate a field deprecated elsewhere.
+    """
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for field_path, prop in _walk_properties(schema_entry.properties):
+        field_urn = make_schema_field_urn(logical_urn, field_path)
+        if prop.deprecated:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=field_urn, aspect=_deprecation(contract)
+                )
+            )
+        synonyms = [
+            s if isinstance(s, str) else s.synonym for s in prop.synonyms or []
+        ]
+        synonyms = [s for s in synonyms if s]
+        if synonyms:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=field_urn, aspect=AiContextClass(synonyms=synonyms)
+                )
+            )
+    return mcps
+
+
 def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -721,6 +762,14 @@ def odcs_to_logical_dataset_mcps(
     inst_mem = _institutional_memory_mcp(logical_urn, schema_entry, contract)
     if inst_mem is not None:
         mcps.append(inst_mem)
+
+    if schema_entry.deprecated:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=logical_urn, aspect=_deprecation(contract)
+            )
+        )
+    mcps.extend(_field_aspect_mcps(contract, schema_entry, logical_urn))
 
     return mcps, schema_result.unmapped_types
 

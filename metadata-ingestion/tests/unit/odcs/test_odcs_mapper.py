@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.odcs.odcs_config import (
     ODCSSourceConfig,
     SchemaAssertionCompatibility,
@@ -28,6 +29,8 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSSchemaObject,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
+    ArrayTypeClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -38,6 +41,7 @@ from datahub.metadata.schema_classes import (
     CustomAssertionInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
@@ -1193,3 +1197,109 @@ def test_data_product_urn_takes_id_or_full_urn() -> None:
 def test_data_product_display_name_cannot_be_an_id() -> None:
     with pytest.raises(InvalidUrnError):
         odcs_to_data_product_urn("Orders, Retail (EU)")
+
+
+def _logical_mcps(schema: List[Dict[str, Any]]) -> List[Any]:
+    contract = _make_contract(api_version="v3.2.0", schema=schema)
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract, _first_schema(contract), LOGICAL_URN
+    )
+    return mcps
+
+
+def _aspects_for(mcps: List[Any], urn: str, cls: type) -> List[Any]:
+    return [m.aspect for m in mcps if m.entityUrn == urn and isinstance(m.aspect, cls)]
+
+
+def test_vector_maps_to_array_type() -> None:
+    contract = _make_contract(
+        api_version="v3.2.0",
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "logicalType": "vector",
+                        "physicalType": "vector(3)",
+                    }
+                ],
+            }
+        ],
+    )
+    result = build_schema_metadata(_first_schema(contract))
+    assert result.schema_metadata is not None
+    field = result.schema_metadata.fields[0]
+    assert isinstance(field.type.type, ArrayTypeClass)
+    assert field.nativeDataType == "vector(3)"
+    assert result.unmapped_types == []
+
+
+def test_deprecated_schema_and_properties_emit_deprecation() -> None:
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "deprecated": True,
+                "properties": [
+                    {"name": "col_a", "deprecated": True},
+                    {
+                        "name": "obj",
+                        "properties": [{"name": "col_b", "deprecated": True}],
+                    },
+                    {"name": "col_c"},
+                ],
+            }
+        ]
+    )
+    (dataset_dep,) = _aspects_for(mcps, LOGICAL_URN, DeprecationClass)
+    assert dataset_dep.deprecated is True
+    assert dataset_dep.actor == "urn:li:corpuser:datahub"
+    assert "c1" in dataset_dep.note
+    for path in ("col_a", "obj.col_b"):
+        field_urn = make_schema_field_urn(LOGICAL_URN, path)
+        assert len(_aspects_for(mcps, field_urn, DeprecationClass)) == 1
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_c"), DeprecationClass
+    )
+
+
+def test_deprecated_false_emits_nothing() -> None:
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "deprecated": False,
+                "properties": [{"name": "col_a", "deprecated": False}],
+            }
+        ]
+    )
+    assert not [m for m in mcps if isinstance(m.aspect, DeprecationClass)]
+
+
+def test_property_synonyms_emit_field_ai_context() -> None:
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "synonyms": [
+                            {"synonym": "alias_a", "locale": "en"},
+                            "alias_b",
+                            {"description": "entry missing synonym"},
+                        ],
+                    },
+                    {"name": "col_b", "synonyms": []},
+                ],
+            }
+        ]
+    )
+    (ai,) = _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+    assert ai.synonyms == ["alias_a", "alias_b"]
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
+    )

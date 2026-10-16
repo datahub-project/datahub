@@ -41,6 +41,9 @@ METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
 METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
 METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
 
+# Actor recorded on `deprecation` aspects derived from ODCS `deprecated: true`.
+DEPRECATION_ACTOR = "urn:li:corpuser:datahub"
+
 UNIT_ROWS = "rows"
 UNIT_PERCENT = "percent"
 
@@ -118,6 +121,9 @@ LOGICAL_TYPE_MAP: Dict[str, Type] = {
     "variant": RecordTypeClass,
     "array": ArrayTypeClass,
     "list": ArrayTypeClass,
+    # v3.2 (RFC 0042): embeddings. Dimensions/elementType stay in
+    # logicalTypeOptions, which is not mapped.
+    "vector": ArrayTypeClass,
     "map": MapTypeClass,
     "bytes": BytesTypeClass,
     "binary": BytesTypeClass,

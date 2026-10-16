@@ -1009,7 +1009,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
-            yield mcp.as_workunit()
+            # Field-level aspects (v3.2 deprecation/aiContext) are not
+            # primary-source: a schemaField URN in the checkpoint would be
+            # soft-deleted once a later contract drops the flag.
+            yield mcp.as_workunit(
+                is_primary_source=not (mcp.entityUrn or "").startswith(
+                    "urn:li:schemaField:"
+                )
+            )
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
