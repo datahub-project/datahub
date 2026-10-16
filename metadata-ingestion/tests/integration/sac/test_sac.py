@@ -20,6 +20,7 @@ from datahub.ingestion.source.sac.sac import (
 )
 from datahub.ingestion.source.sac.sac_common import ResourceModel
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DatasetKeyClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -538,6 +539,11 @@ def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock
     assert subtype is not None
     assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
     assert source.report.dwc_lineage_resolved == 1
+
+    # The Models browse path is emitted for every model, including live/DWC ones.
+    browse_v2 = _first_aspect(workunits, BrowsePathsV2Class)
+    assert browse_v2 is not None
+    assert [entry.id for entry in browse_v2.path] == ["Models"]
 
 
 def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
