@@ -174,6 +174,175 @@ public class PostgresSqlSetupPropertiesTest {
     props.validateForUse(DatabaseType.POSTGRES);
   }
 
+  @Test
+  public void buildPgTimeseriesOptions_defaultsForceOverwriteFalse() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgTimeseriesSetupOptions o = props.buildPgTimeseriesOptions();
+    assertEquals(o.getDefaultStoreName(), "default");
+    assertEquals(o.getDefaultStore().isForceOverwritePartmanConfig(), false);
+    assertEquals(o.getDefaultStore().getRetentionMaxAgeSeconds(), 7776000);
+    assertEquals(o.resolveStore("dataset", "datasetProfile").getName(), "default");
+  }
+
+  @Test
+  public void buildPgTimeseriesOptions_forceOverwritePartmanConfig() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPartitioning().setForceOverwritePartmanConfig(true);
+    props.validateForUse(DatabaseType.POSTGRES);
+    assertEquals(
+        props.buildPgTimeseriesOptions().getDefaultStore().isForceOverwritePartmanConfig(), true);
+  }
+
+  @Test
+  public void buildPgTimeseriesOptions_routesNamedStore() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig longStore =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    longStore.setTablePrefix("metadata_timeseries_long");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 month");
+    partitioning.setPartmanPremake(4);
+    longStore.setPartitioning(partitioning);
+    PostgresSqlSetupProperties.PgTimeseries.Retention retention =
+        new PostgresSqlSetupProperties.PgTimeseries.Retention();
+    retention.setMaxAgeSeconds(46656000);
+    longStore.setRetention(retention);
+    props.getPgTimeseries().getStores().put("long", longStore);
+    props.getPgTimeseries().getRouting().put("dataset.datasetprofile", "long");
+    props.validateForUse(DatabaseType.POSTGRES);
+
+    PgTimeseriesSetupOptions o = props.buildPgTimeseriesOptions();
+    assertEquals(o.resolveStore("dataset", "datasetProfile").getName(), "long");
+    assertEquals(
+        o.resolveStore("dataset", "datasetProfile").getTablePrefix(), "metadata_timeseries_long");
+    assertEquals(o.resolveStore("dataset", "operation").getName(), "default");
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void validatePgTimeseries_rejectsUnknownRouteTarget() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getRouting().put("dataset.datasetprofile", "missing");
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void normalizeRoutingKey_trimsSegmentsAroundDot() {
+    assertEquals(
+        PostgresSqlSetupProperties.normalizeRoutingKey(" dataset. datasetprofile "),
+        "dataset.datasetprofile");
+  }
+
+  @Test
+  public void buildPgTimeseriesOptions_normalizesRoutingWhitespace() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig longStore =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    longStore.setTablePrefix("metadata_timeseries_long");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 month");
+    partitioning.setPartmanPremake(4);
+    longStore.setPartitioning(partitioning);
+    props.getPgTimeseries().getStores().put("long", longStore);
+    props.getPgTimeseries().getRouting().put(" dataset. datasetprofile ", "long");
+    props.validateForUse(DatabaseType.POSTGRES);
+    assertEquals(
+        props.buildPgTimeseriesOptions().resolveStore("dataset", "datasetProfile").getName(),
+        "long");
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void validatePgQueue_rejectsUnrepresentableCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    props.getPgQueue().getMaintenance().setCronEnabled(true);
+    props.getPgQueue().getMaintenance().setIntervalSeconds(5400);
+    props.getPgCron().getAdmin().setJdbcUrl("jdbc:postgresql://localhost:5432/datahub");
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void validatePgTimeseries_rejectsInheritedCronWithBadInterval() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getMaintenance().setCronEnabled(true);
+    props.getPgTimeseries().getMaintenance().setIntervalSeconds(3600);
+    props.getPgCron().getAdmin().setJdbcUrl("jdbc:postgresql://localhost:5432/datahub");
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig named =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    named.setTablePrefix("metadata_timeseries_named");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 day");
+    partitioning.setPartmanPremake(4);
+    named.setPartitioning(partitioning);
+    PostgresSqlSetupProperties.PgTimeseries.Maintenance maintenance =
+        new PostgresSqlSetupProperties.PgTimeseries.Maintenance();
+    // cronEnabled omitted (null) → inherits true from default; bad interval must still fail.
+    maintenance.setIntervalSeconds(5400);
+    named.setMaintenance(maintenance);
+    props.getPgTimeseries().getStores().put("named", named);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void namedStore_urlOnly_leavesCredentialsBlankForEbeanFallback() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPool().setUsername("default_user");
+    props.getPgTimeseries().getPool().setPassword("default_pass");
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig named =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    named.setTablePrefix("metadata_timeseries_named");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 day");
+    partitioning.setPartmanPremake(4);
+    named.setPartitioning(partitioning);
+    PostgresSqlSetupProperties.PgTimeseries.Pool pool =
+        new PostgresSqlSetupProperties.PgTimeseries.Pool();
+    pool.setUrl("jdbc:postgresql://other-host:5432/datahub");
+    named.setPool(pool);
+    props.getPgTimeseries().getStores().put("named", named);
+
+    PgTimeseriesStoreOptions built = props.buildPgTimeseriesOptions().getStores().get("named");
+    assertNull(built.getPoolUsername());
+    assertNull(built.getPoolPassword());
+    assertEquals(built.getPoolUrl(), "jdbc:postgresql://other-host:5432/datahub");
+  }
+
+  @Test
+  public void namedStore_withoutUrl_inheritsDefaultCredentials() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPool().setUsername("default_user");
+    props.getPgTimeseries().getPool().setPassword("default_pass");
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig named =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    named.setTablePrefix("metadata_timeseries_named");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 day");
+    partitioning.setPartmanPremake(4);
+    named.setPartitioning(partitioning);
+    props.getPgTimeseries().getStores().put("named", named);
+
+    PgTimeseriesStoreOptions built = props.buildPgTimeseriesOptions().getStores().get("named");
+    assertEquals(built.getPoolUsername(), "default_user");
+    assertEquals(built.getPoolPassword(), "default_pass");
+  }
+
+  private static PostgresSqlSetupProperties basePgTimeseriesProps() {
+    PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
+    props.setSchema("public");
+    props.getPgTimeseries().setEnabled(true);
+    props.getPgTimeseries().setDefaultStore("default");
+    props.getPgTimeseries().setTablePrefix("metadata_timeseries");
+    props.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
+    props.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    props.getPgTimeseries().getRetention().setMaxAgeSeconds(7776000);
+    props.getPgTimeseries().getMaintenance().setCronEnabled(false);
+    return props;
+  }
+
   private static PostgresSqlSetupProperties basePgQueueProps() {
     PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
     props.setSchema("public");

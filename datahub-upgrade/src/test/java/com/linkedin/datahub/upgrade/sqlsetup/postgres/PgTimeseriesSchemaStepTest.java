@@ -1,0 +1,62 @@
+package com.linkedin.datahub.upgrade.sqlsetup.postgres;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.sqlsetup.postgres.PostgresPartmanSqlSetupSupport;
+import io.ebean.Database;
+import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+public class PgTimeseriesSchemaStepTest {
+
+  private Database mockDatabase;
+  private PgTimeseriesSchemaStep step;
+
+  @BeforeMethod
+  public void setUp() {
+    mockDatabase = Mockito.mock(Database.class);
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    props.getPgTimeseries().setEnabled(true);
+    step = new PgTimeseriesSchemaStep(mockDatabase, props);
+  }
+
+  @Test
+  public void testId() {
+    assertEquals(step.id(), "PgTimeseriesSchemaStep");
+  }
+
+  @Test
+  public void testTimeseriesPartmanRetentionUpdateSqlEmptyWhenNull() {
+    assertEquals(
+        PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
+            "partman", "datahub", null, "pgtimeseries_aspect"),
+        "");
+    assertEquals(
+        PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
+            "partman", "datahub", "", "pgtimeseries_aspect"),
+        "");
+  }
+
+  @Test
+  public void testTimeseriesPartmanRetentionUpdateSqlNonEmpty() {
+    String sql =
+        PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
+            "partman", "datahub", "9 days", "pgtimeseries_aspect");
+    assertTrue(sql.contains("UPDATE \"partman\".part_config"));
+    assertTrue(sql.contains("datahub.pgtimeseries_aspect"));
+    assertTrue(sql.contains("'9 days'"));
+  }
+
+  @Test
+  public void testTimeseriesPartmanRetentionClearSql() {
+    String sql =
+        PostgresPartmanSqlSetupSupport.partmanRetentionClearSql(
+            "partman", "datahub", "pgtimeseries_aspect");
+    assertTrue(sql.contains("UPDATE \"partman\".part_config"));
+    assertTrue(sql.contains("SET retention = NULL"));
+    assertTrue(sql.contains("datahub.pgtimeseries_aspect"));
+  }
+}

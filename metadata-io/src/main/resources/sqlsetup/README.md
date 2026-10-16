@@ -34,3 +34,8 @@ SELECT * FROM queue.metadata_queue_schema_migration ORDER BY version_rank;
 ## pgQueue
 
 See [pgQueue design doc](../../../../../docs/pgqueue-design.md) and `PgQueueSqlMigrationModules`.
+
+## pgTimeseries
+
+See [pgTimeseries design doc](../../../../../docs/pgtimeseries-design.md), `pgtimeseries/migrations`,
+and `PgTimeseriesSqlMigrationModules`.

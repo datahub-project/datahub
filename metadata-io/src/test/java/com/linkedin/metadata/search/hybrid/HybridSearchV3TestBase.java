@@ -302,6 +302,7 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             searchService,
             new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
             mock(TimeseriesAspectService.class),
+            "MD5",
             null,
             new Sha256UrnEntityDocumentIdHasher(),
             List.of(),

@@ -23,6 +23,7 @@ from tests.e2e.utils import (
     get_queue_ingest_prometheus_url,
 )
 from utilities.domains import Domain
+from utilities.messaging_transport import is_pgqueue_transport
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +48,11 @@ def _usage_aggregation_exported(prom_url: str) -> bool:
 
 
 @pytest.mark.dependency()
-def test_queue_ingest_metadata_ingest_metric_on_mce():
+def test_queue_ingest_metadata_ingest_metric_on_mce(auth_session):
     """Direct Kafka MCP ingest increments metadata_ingest (messaging) on MCE or embedded GMS."""
+    if is_pgqueue_transport(auth_session):
+        pytest.skip("Kafka is not the active messaging transport (pgQueue is enabled)")
+
     prom_url, source = get_queue_ingest_prometheus_url()
     if prom_url is None:
         pytest.skip(

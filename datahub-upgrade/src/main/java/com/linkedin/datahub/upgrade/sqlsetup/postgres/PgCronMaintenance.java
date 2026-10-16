@@ -34,6 +34,12 @@ public final class PgCronMaintenance {
 
   private PgCronMaintenance() {}
 
+  /** Escape a value embedded in a PostgreSQL single-quoted string literal. */
+  @Nonnull
+  public static String escapeSqlStringLiteral(@Nonnull String raw) {
+    return raw.replace("'", "''");
+  }
+
   /**
    * Builds a deterministic pg_cron {@code jobname} from the target database (as in {@code
    * schedule_in_database}), application schema, and table prefix so jobs do not collide across
