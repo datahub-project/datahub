@@ -75,10 +75,27 @@ public class TolerantHandlingTest {
     assertFalse(handling.isUnknown(registry, "dataset", "status"));
     assertTrue(handling.isUnknownUrn(registry, "urn:li:entityFromNewerBuild:x", null));
     assertFalse(handling.isUnknownUrn(registry, "not-a-urn", null));
+    assertFalse(handling.isUnknownUrn(registry, "urn:li:dataset:x", "status"));
     assertTrue(
         handling.referencesUnknownEntityType(
             registry, UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)")));
     assertTrue(handling.isTolerant());
+  }
+
+  @Test
+  public void testUrnCountsAsUnknownExactlyWhenItsRowIsSkipped() {
+    // Rollback counts the rows it leaves in place with isUnknownUrn and skips them with admitUrn.
+    for (String urn :
+        new String[] {
+          "urn:li:entityFromNewerBuild:x",
+          "urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)",
+          "urn:li:dataset:x"
+        }) {
+      assertEquals(
+          handling.isUnknownUrn(registry, urn, "status"),
+          !handling.admitUrn(site, registry, Optional.empty(), urn, "status"),
+          urn);
+    }
   }
 
   @Test

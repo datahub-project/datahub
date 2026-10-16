@@ -54,7 +54,8 @@ public interface UnknownDataHandling {
 
   /**
    * As {@link #isUnknown}, for a urn string that may be null or unparseable (which is not unknown,
-   * so validation still reports it).
+   * so validation still reports it). A urn whose key nests an unknown entity type is unknown too,
+   * matching what {@link #admitUrn} skips.
    */
   boolean isUnknownUrn(
       @Nonnull EntityRegistry registry, @Nullable String urn, @Nullable String aspectName);
