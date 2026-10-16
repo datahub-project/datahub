@@ -5,11 +5,7 @@ from typing import List, Optional, cast
 from pydantic import Field, field_validator
 
 from datahub.configuration.common import ConfigEnum, ConfigModel
-from datahub.emitter.mce_builder import (
-    Aspect,
-    make_data_platform_urn,
-    make_schema_field_urn,
-)
+from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
@@ -29,7 +25,14 @@ class RewriteUpstreamMode(ConfigEnum):
     ADD = auto()
 
 
-class RewriteUpstreamUrnRule(ConfigModel):
+def _short_platform(value: str) -> str:
+    platform = value.strip()
+    if platform.startswith(_PLATFORM_URN_PREFIX):
+        platform = platform[len(_PLATFORM_URN_PREFIX) :]
+    return platform
+
+
+class RewriteUpstreamNameRule(ConfigModel):
     """Literal find-and-replace applied to an upstream dataset's name."""
 
     find: str = Field(description="Substring to find in the dataset name.")
@@ -43,38 +46,50 @@ class RewriteUpstreamUrnRule(ConfigModel):
         return value
 
 
-class RewriteUpstreamUrnsConfig(ConfigModel):
-    """Rewrite upstream dataset URNs: optionally set the platform, then apply name rules in order."""
+class RewriteUpstreamPlatformRule(ConfigModel):
+    """Match a platform, replace it, then rewrite the dataset name."""
 
-    platform: Optional[str] = Field(
-        default=None,
-        description="Platform name written onto every upstream dataset URN, "
-        "for example 'fabric'. A dataPlatform URN is accepted and reduced to its name. "
-        "When omitted, each upstream keeps its original platform.",
+    find: str = Field(
+        description="Substring to find in the platform name, for example 'mssql'."
     )
-    rules: List[RewriteUpstreamUrnRule] = Field(
+    replace: str = Field(description="Platform name that replaces each match of find.")
+    id_rules: List[RewriteUpstreamNameRule] = Field(
         default_factory=list,
-        description="Find-and-replace rules applied to the dataset name, in list order. "
-        "Each rule sees the name produced by the previous rule. Matching is a literal "
-        "substring replace, not a regular expression.",
+        description="Name rules applied only to upstreams whose platform matched find. "
+        "They run in list order, and each rule sees the name produced by the previous one.",
+    )
+
+    @field_validator("find", "replace")
+    @classmethod
+    def normalize_platform_token(cls, value: str) -> str:
+        platform = _short_platform(value)
+        if not platform:
+            raise ValueError("platform find and replace must not be empty")
+        return platform
+
+
+class RewriteUpstreamUrnsConfig(ConfigModel):
+    """Rewrite upstream dataset URNs by platform, then by name within that platform."""
+
+    platform_rules: List[RewriteUpstreamPlatformRule] = Field(
+        default_factory=list,
+        description="Platform rules applied in list order. A rule runs only when its "
+        "find is present in the platform name at that point. Nested id_rules then "
+        "run for that upstream. Matching is a literal substring replace, not a "
+        "regular expression. An upstream whose platform matches no rule is left unchanged. "
+        "When this list is empty, id_rules below apply to every upstream and the "
+        "platform is left as it is.",
+    )
+    id_rules: List[RewriteUpstreamNameRule] = Field(
+        default_factory=list,
+        description="Name rules applied to every upstream when platform_rules is empty. "
+        "They run in list order. Each rule sees the name produced by the previous one.",
     )
     mode: RewriteUpstreamMode = Field(
         default=RewriteUpstreamMode.REPLACE,
         description="replace overwrites each upstream URN. add keeps the original "
         "upstream and also emits the rewritten URN.",
     )
-
-    @field_validator("platform")
-    @classmethod
-    def normalize_platform(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        platform = value.strip()
-        if platform.startswith(_PLATFORM_URN_PREFIX):
-            platform = platform[len(_PLATFORM_URN_PREFIX) :]
-        if not platform:
-            raise ValueError("platform must not be empty")
-        return platform
 
 
 class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
@@ -89,9 +104,6 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         super().__init__()
         self.config = config
         self.ctx = ctx
-        self._platform_urn = (
-            make_data_platform_urn(config.platform) if config.platform else None
-        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "RewriteUpstreamUrns":
@@ -160,10 +172,22 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         except InvalidUrnError:
             return urn
 
+        platform_name = dataset_urn.get_data_platform_urn().platform_name
         name = dataset_urn.name
-        for rule in self.config.rules:
-            name = name.replace(rule.find, rule.replace)
-        platform = self._platform_urn or dataset_urn.platform
-        if name == dataset_urn.name and platform == dataset_urn.platform:
+        if self.config.platform_rules:
+            for rule in self.config.platform_rules:
+                if rule.find not in platform_name:
+                    continue
+                platform_name = platform_name.replace(rule.find, rule.replace)
+                for name_rule in rule.id_rules:
+                    name = name.replace(name_rule.find, name_rule.replace)
+        else:
+            for name_rule in self.config.id_rules:
+                name = name.replace(name_rule.find, name_rule.replace)
+
+        if (
+            platform_name == dataset_urn.get_data_platform_urn().platform_name
+            and name == dataset_urn.name
+        ):
             return urn
-        return str(DatasetUrn(platform=platform, name=name, env=dataset_urn.env))
+        return str(DatasetUrn(platform=platform_name, name=name, env=dataset_urn.env))

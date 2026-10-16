@@ -1222,32 +1222,45 @@ transformers:
 
 ## Rewrite upstream URNs
 
-Rewrites every upstream dataset URN on the `upstreamLineage` aspect. When `platform` is set, it replaces the platform on every upstream. When it is omitted, each upstream keeps its original platform. Each entry in `rules` is a literal find-and-replace on the dataset name (the asset id between the platform and the environment), and the rules run in list order. A later rule sees the name produced by the earlier rules.
+Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `platform_rules` matches a platform name. `find` and `replace` are a literal substring replacement on that name. The nested `id_rules` are literal find-and-replace operations on the dataset name, and they run only for upstreams whose platform matched that platform rule. Those `id_rules` run in list order, and a later one sees the name produced by the earlier ones. An upstream whose platform matches no rule is left unchanged. When `platform_rules` is empty, the top-level `id_rules` run for every upstream and the platform is left as it is.
 
 Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested.
 
 ### Config Details
 
-| Field      | Required | Type         | Default   | Description                                                                                                               |
-| ---------- | -------- | ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `platform` |          | string       |           | Platform name written onto every upstream dataset URN, for example `fabric`. When omitted, the original platform is kept. |
-| `rules`    |          | list[object] | `[]`      | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace.            |
-| `mode`     |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.               |
+| Field            | Required | Type         | Default   | Description                                                                                                                                                                                                                                                                                        |
+| ---------------- | -------- | ------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform_rules` |          | list[object] | `[]`      | Platform rules, in list order. Each object has `find`, `replace`, and nested `id_rules`. A rule applies only when `find` is in the platform name. Nested `id_rules` then rewrite the dataset name. When this list is empty, top-level `id_rules` apply to every upstream and the platform is kept. |
+| `id_rules`       |          | list[object] | `[]`      | Name rules applied to every upstream when `platform_rules` is empty. Each object has `find` and `replace`.                                                                                                                                                                                         |
+| `mode`           |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.                                                                                                                                                                                        |
 
 ```yaml
 transformers:
   - type: "rewrite_upstream_urns"
     config:
-      platform: fabric
       mode: replace
-      rules:
-        - find: src_lakehouse
-          replace: workspace-id.item-id
-        - find: ".gold."
-          replace: ".curated."
+      platform_rules:
+        - find: mssql
+          replace: fabric
+          id_rules:
+            - find: src_lakehouse
+              replace: workspace-id.item-id
+            - find: ".gold."
+              replace: ".curated."
 ```
 
-An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric,workspace-id.item-id.curated.bridge_table,PROD)`.
+An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric,workspace-id.item-id.curated.bridge_table,PROD)`. An upstream on another platform is not changed.
+
+With no `platform_rules`, the same name change applies on every platform:
+
+```yaml
+transformers:
+  - type: "rewrite_upstream_urns"
+    config:
+      id_rules:
+        - find: src_lakehouse
+          replace: workspace-id.item-id
+```
 
 ## Clean User URN in DatasetUsageStatistics Aspect
 
