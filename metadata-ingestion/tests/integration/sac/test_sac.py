@@ -506,6 +506,66 @@ def test_resolve_datasphere_upstream_synthetic_name_is_unresolved(requests_mock)
     assert source.report.dwc_lineage_unresolved == 1
 
 
+def test_resolve_datasphere_upstream_trims_suffix_when_base_exists(requests_mock):
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == base_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert urn == base_urn
+    assert source.report.dwc_lineage_suffix_corrected == 1
+
+
+def test_resolve_datasphere_upstream_keeps_name_ending_in_digit_when_it_exists(
+    requests_mock,
+):
+    as_is_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fact_v2,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == as_is_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("FACT_V2"))
+
+    assert urn == as_is_urn
+    assert source.report.dwc_lineage_suffix_corrected == 0
+
+
+def test_resolve_datasphere_upstream_keeps_as_is_when_nothing_in_graph(requests_mock):
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    assert source.report.dwc_lineage_suffix_corrected == 0
+
+
 def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
     # Drives a DWC model through the full workunit emission (not just the resolver) so the
     # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
