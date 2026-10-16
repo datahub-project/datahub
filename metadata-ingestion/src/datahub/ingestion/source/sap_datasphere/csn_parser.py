@@ -112,13 +112,17 @@ def parse_csn_elements_to_schema_fields(
             cds_type, (NullTypeClass, cds_type or "UNKNOWN")
         )
         native = _native_type_string(native_root, element)
-        description = element.get(CSN_ATTR_LABEL)
+        # @EndUserText.label is a business label, not a description; unset when it just
+        # repeats the technical name.
+        label = element.get(CSN_ATTR_LABEL)
+        if not isinstance(label, str) or not label or label == col_name:
+            label = None
         fields.append(
             SchemaFieldClass(
                 fieldPath=col_name,
                 type=SchemaFieldDataTypeClass(type=type_ctor()),
                 nativeDataType=native,
-                description=description,
+                label=label,
                 nullable=True,
             )
         )

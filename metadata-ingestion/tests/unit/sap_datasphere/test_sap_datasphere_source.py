@@ -73,7 +73,7 @@ def _default_csn_endpoint_404(requests_mock):
     """Default empty design-time lists + 404 CSN fallback; tests override."""
     requests_mock.get(
         re.compile(
-            r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)$"
+            r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)(\?.*)?$"
         ),
         json=[],
     )
@@ -446,7 +446,7 @@ def test_client_does_not_fetch_token_in_init():
     assert client is not None
 
 
-def test_dataset_picks_up_entity_label_and_custom_props_from_edmx(requests_mock):
+def test_dataset_picks_up_custom_props_from_edmx(requests_mock):
     edmx_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
@@ -507,18 +507,16 @@ def test_dataset_picks_up_entity_label_and_custom_props_from_edmx(requests_mock)
     props = aspect_as(props_wu, DatasetPropertiesClass)
     assert props.customProperties.get("sap_dimension_type") == "Time"
     assert props.customProperties.get("sap_is_measure") == "true"
-
-    # Description is stored in EditableDatasetPropertiesClass when running outside
-    # the ingestion pipeline (SDK default attribution); check both aspects.
-    description_candidates = []
-    for wu in workunits:
-        aspect = aspect_of(wu)
-        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass)):
-            if aspect.description:
-                description_candidates.append(aspect.description)
-    assert any("Monthly Revenue" in d for d in description_candidates), (
-        f"Expected 'Monthly Revenue' in a description aspect, got: {description_candidates}"
-    )
+    # Catalog label is the display name; EDMX Common.Label must not leak into a description.
+    assert props.name == "Revenue"
+    description_candidates = [
+        aspect.description
+        for wu in workunits
+        for aspect in [aspect_of(wu)]
+        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
+        and aspect.description
+    ]
+    assert not any("Monthly Revenue" in d for d in description_candidates)
 
 
 def test_client_fetches_refresh_token_lazily(requests_mock):
@@ -3699,6 +3697,68 @@ def test_discover_unexposed_views_emits_missing_catalog_views(requests_mock):
     assert "COL_B" in upstream_schemas[0]
 
 
+def test_discover_unexposed_views_use_csn_label_for_name_not_description(requests_mock):
+    """An unexposed view's CSN @EndUserText.label populates the display name, not a description."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "UNEXPOSED_VIEW"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        json=[],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/UNEXPOSED_VIEW",
+        json={
+            "definitions": {
+                "UNEXPOSED_VIEW": {
+                    "kind": "entity",
+                    "@EndUserText.label": "Monthly Revenue by Region",
+                    "elements": {"COL_A": {"type": "cds.String", "length": 10}},
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(
+        base_url=tenant,
+        token="t",
+        include_lineage=True,
+        discover_unexposed_views=True,
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    props = [
+        aspect_as(wu, DatasetPropertiesClass)
+        for wu in workunits
+        if "unexposed_view" in (entity_urn_of(wu) or "")
+        and aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass"
+    ]
+    assert props, "Expected the unexposed view to be emitted with DatasetProperties"
+    assert props[0].name == "Monthly Revenue by Region"
+
+    # The label must not leak into any description aspect.
+    descriptions = [
+        aspect.description
+        for wu in workunits
+        if "unexposed_view" in (entity_urn_of(wu) or "")
+        for aspect in [aspect_of(wu)]
+        if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
+        and aspect.description
+    ]
+    assert "Monthly Revenue by Region" not in descriptions
+
+
 def test_discover_unexposed_views_emits_analytic_model(requests_mock):
     """Design-time Analytic Models get the Analytic Model subtype."""
     tenant = "https://test.eu10.hcs.cloud.sap"
@@ -6746,8 +6806,10 @@ def test_schema_fields_from_csn_appends_calculated_formula():
     fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
     assert fields is not None
     by_path = {f.fieldPath: f for f in fields}
-    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
-    assert by_path["QTY"].description == "Quantity"
+    assert by_path["TOTAL"].label == "Total"
+    assert by_path["TOTAL"].description == "formula: PRICE * QTY"
+    assert by_path["QTY"].label == "Quantity"
+    assert by_path["QTY"].description is None
     assert source.report.calculated_column_formulas_emitted == 1
 
 

@@ -479,7 +479,6 @@
                 "sap_datasphere_asset": "BASE_TABLE"
             },
             "name": "Base Table",
-            "description": "Base Table for Lineage Test",
             "tags": []
         }
     },
@@ -798,7 +797,6 @@
                 "sap_variables": "P_DATE"
             },
             "name": "Revenue Analytic Model",
-            "description": "Revenue Analytic Model",
             "tags": []
         }
     },
@@ -1114,7 +1112,6 @@
                 "sap_datasphere_asset": "MID_VIEW"
             },
             "name": "Mid View on Base Table",
-            "description": "Mid View on Base Table",
             "tags": []
         }
     },

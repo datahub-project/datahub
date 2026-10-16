@@ -24,7 +24,8 @@ def test_parses_string_type():
     f = fields[0]
     assert f.fieldPath == "MONTH"
     assert isinstance(f.type.type, StringTypeClass)
-    assert "Month" in (f.description or "")
+    assert f.label == "Month"
+    assert f.description is None
     assert "2" in f.nativeDataType
 
 

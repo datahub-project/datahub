@@ -463,7 +463,7 @@
                 {
                     "fieldPath": "QUANTITY",
                     "nullable": true,
-                    "description": "Quantity sold",
+                    "label": "Quantity sold",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -476,7 +476,7 @@
                 {
                     "fieldPath": "AMOUNT_USD",
                     "nullable": true,
-                    "description": "Amount in USD",
+                    "label": "Amount in USD",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -581,7 +581,6 @@
                 "sap_datasphere_asset": "FACT_SALES"
             },
             "name": "Sales Fact Table",
-            "description": "Sales Transactions Fact Table",
             "tags": []
         }
     },
@@ -800,7 +799,7 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "description": "Month",
+                    "label": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -813,7 +812,7 @@
                 {
                     "fieldPath": "MONTH_INT",
                     "nullable": true,
-                    "description": "Month (Number)",
+                    "label": "Month (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -970,7 +969,7 @@
                 {
                     "fieldPath": "DATE_SQL",
                     "nullable": false,
-                    "description": "Calendar Date",
+                    "label": "Calendar Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -1146,7 +1145,6 @@
                 "sap_is_dimension": "true"
             },
             "name": "Day Dimension",
-            "description": "Day Dimension Table",
             "tags": []
         }
     },
@@ -1524,7 +1522,7 @@
                 {
                     "fieldPath": "TOTAL_REVENUE",
                     "nullable": true,
-                    "description": "Total Revenue",
+                    "label": "Total Revenue",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1630,7 +1628,6 @@
                 "sap_is_measure": "true"
             },
             "name": "Revenue Analytical Model",
-            "description": "Monthly Revenue Analytical Model",
             "tags": []
         }
     },

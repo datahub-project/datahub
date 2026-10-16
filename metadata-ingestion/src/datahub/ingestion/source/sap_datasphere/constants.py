@@ -56,6 +56,12 @@ OBJECT_TYPE_TASK_CHAINS: Final[str] = "taskchains"
 # hang off this; hoisted so the three call sites in client.py can't drift.
 DWAAS_SPACES_BASE: Final[str] = "/dwaas-core/api/v1/spaces"
 
+# dwaas-core list endpoints take BARE `top`/`skip`, not the OData `$`-prefixed ones
+# the consumption catalog uses. Page size for walking them.
+DWAAS_LIST_PAGE_SIZE: Final[int] = 200
+DWAAS_PARAM_TOP: Final[str] = "top"
+DWAAS_PARAM_SKIP: Final[str] = "skip"
+
 # The catalog's supportsAnalyticalQueries flag routes a CSN fetch to views vs
 # analyticmodels, but it is not a reliable indicator of the design-time type, so
 # a 404 on the primary route is retried under the sibling type. localtables has

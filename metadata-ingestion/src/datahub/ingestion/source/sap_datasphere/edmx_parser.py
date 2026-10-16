@@ -109,7 +109,11 @@ class EdmxParser:
 
             prop_target = f"{entity_target}/{prop_name}"
             prop_annots = annotations_map.get(prop_target, {})
-            description = prop_annots.get("Common.Label")
+            # Common.Label is a business label, not a description; unset when it just
+            # repeats the technical name.
+            label = prop_annots.get("Common.Label")
+            if not isinstance(label, str) or not label or label == prop_name:
+                label = None
 
             custom_props: Dict[str, str] = {}
             for term, cal_value in _CALENDAR_TERMS.items():
@@ -126,17 +130,17 @@ class EdmxParser:
             if "Analytics.Measure" in prop_annots:
                 custom_props[PROP_SAP_IS_MEASURE] = PROP_VALUE_TRUE
 
-            schema_fields.append(
-                build_schema_field(
-                    name=prop_name,
-                    edm_type=edm_type,
-                    nullable=nullable,
-                    is_key=prop_name in key_props,
-                    description=description,
-                    native_type=native_type,
-                    unknown_sink=unknown_edm_types_local,
-                )
+            field = build_schema_field(
+                name=prop_name,
+                edm_type=edm_type,
+                nullable=nullable,
+                is_key=prop_name in key_props,
+                description=None,
+                native_type=native_type,
+                unknown_sink=unknown_edm_types_local,
             )
+            field.label = label
+            schema_fields.append(field)
             if custom_props:
                 field_custom_props[prop_name] = custom_props
 

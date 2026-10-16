@@ -2,7 +2,7 @@
   "definitions": {
     "FINANCE_DATASALES_A": {
       "kind": "entity",
-      "@EndUserText.label": "Sales (source object projected by Test_Analytic_Model)",
+      "@EndUserText.label": "Sales",
       "elements": {
         "BW_ORDERVALUE": {
           "type": "cds.Decimal",

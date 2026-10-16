@@ -1156,6 +1156,34 @@ def test_list_local_tables_still_works(requests_mock):
     ]
 
 
+def test_list_dwaas_objects_paginates_with_top_skip(requests_mock):
+    """A space larger than one page is walked to completion via bare top/skip."""
+    cfg = _make_config()
+    url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
+    all_objects = [{"technicalName": f"T{i}"} for i in range(450)]
+
+    def respond(request, context):
+        skip = int(request.qs.get("skip", ["0"])[0])
+        top = int(request.qs.get("top", ["200"])[0])
+        return all_objects[skip : skip + top]
+
+    requests_mock.get(url, json=respond)
+    client = SapDatasphereClient(cfg)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert [r["technicalName"] for r in result] == [f"T{i}" for i in range(450)]
+
+
+def test_list_dwaas_objects_terminates_when_server_ignores_skip(requests_mock):
+    """A server that ignores skip and re-serves the same page terminates via the dedup guard."""
+    cfg = _make_config()
+    url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
+    full_page = [{"technicalName": f"T{i}"} for i in range(200)]
+    requests_mock.get(url, json=full_page)
+    client = SapDatasphereClient(cfg)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert [r["technicalName"] for r in result] == [f"T{i}" for i in range(200)]
+
+
 def test_api_timing_recorded_for_catalog_list(requests_mock):
     """list_spaces routes through _get(operation="catalog_list"), so the report must gain a catalog_list timing bucket."""
     cfg = _make_config()

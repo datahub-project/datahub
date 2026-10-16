@@ -62,10 +62,11 @@ def test_parser_marks_key_field():
     assert key_fields == {"DATE_SQL"}
 
 
-def test_parser_extracts_field_descriptions_from_common_label():
+def test_parser_extracts_field_labels_from_common_label():
     result = EdmxParser.parse(_MINIMAL_EDMX)
     date_field = next(f for f in result.fields if f.fieldPath == "DATE_SQL")
-    assert date_field.description == "Calendar Date"
+    assert date_field.label == "Calendar Date"
+    assert date_field.description is None
 
 
 def test_parser_tags_calendar_fields():

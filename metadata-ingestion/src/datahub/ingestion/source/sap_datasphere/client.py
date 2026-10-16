@@ -7,6 +7,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     cast,
 )
 from urllib.parse import quote, urljoin
@@ -25,7 +26,11 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CONNECTIONS_TRUNCATION_THRESHOLD,
     CSN_CONTENT_TYPE,
     DEFAULT_PAGE_SIZE,
+    DWAAS_LIST_PAGE_SIZE,
+    DWAAS_PARAM_SKIP,
+    DWAAS_PARAM_TOP,
     DWAAS_SPACES_BASE,
+    FIELD_TECHNICAL_NAME,
     FORM_URLENCODED,
     GRANT_CLIENT_CREDENTIALS,
     GRANT_REFRESH_TOKEN,
@@ -452,27 +457,55 @@ class SapDatasphereClient:
     ) -> Generator[JsonDict, None, None]:
         # dwaas-core per-type endpoint returning bare-array {"technicalName": ...}
         # entries. HTTP 403 means the principal is not a member of the space.
+        #
+        # It pages at a small default (~25 rows) with no cursor or count, so a space
+        # with more objects than one page silently loses the tail. Walk it with bare
+        # top/skip until a short page, deduping on technicalName so a server that
+        # ignores `skip` terminates instead of looping forever.
         url = self._dwaas_object_url(space, object_type)
-        try:
-            resp = self._get(url, operation="dwaas_list")
-        except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 403:
-                self._warn_not_a_member(space, object_type)
+        seen: Set[str] = set()
+        skip = 0
+        while True:
+            try:
+                resp = self._get(
+                    url,
+                    params={
+                        DWAAS_PARAM_TOP: DWAAS_LIST_PAGE_SIZE,
+                        DWAAS_PARAM_SKIP: skip,
+                    },
+                    operation="dwaas_list",
+                )
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code == 403:
+                    self._warn_not_a_member(space, object_type)
+                    return
+                raise
+            try:
+                data = resp.json()
+            except ValueError:
+                self._warn_unexpected_list_response(
+                    url, "got a non-JSON response (possibly a proxy/login HTML page)"
+                )
                 return
-            raise
-        try:
-            data = resp.json()
-        except ValueError:
-            self._warn_unexpected_list_response(
-                url, "got a non-JSON response (possibly a proxy/login HTML page)"
-            )
-            return
-        if not isinstance(data, list):
-            self._warn_unexpected_list_response(
-                url, f"got a {type(data).__name__} instead of a list"
-            )
-            return
-        yield from data
+            if not isinstance(data, list):
+                self._warn_unexpected_list_response(
+                    url, f"got a {type(data).__name__} instead of a list"
+                )
+                return
+            new_in_page = 0
+            for entry in data:
+                name = (
+                    entry.get(FIELD_TECHNICAL_NAME) if isinstance(entry, dict) else None
+                )
+                if isinstance(name, str):
+                    if name in seen:
+                        continue
+                    seen.add(name)
+                new_in_page += 1
+                yield entry
+            if len(data) < DWAAS_LIST_PAGE_SIZE or new_in_page == 0:
+                return
+            skip += len(data)
 
     def _warn_not_a_member(self, space: str, object_type: str) -> None:
         msg = (
