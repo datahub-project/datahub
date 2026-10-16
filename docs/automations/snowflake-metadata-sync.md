@@ -142,14 +142,14 @@ DataHub descriptions will be synced as Snowflake comments on tables and columns,
 
 Descriptions written in DataHub come first. If someone wrote a description in DataHub, in the UI or through the API, that is what Snowflake gets, even when ingestion later brings in different text. If nobody wrote one, Snowflake gets the description from ingestion or from a YAML file applied with `datahub dataset upsert`, each time that text changes.
 
-When you delete a description you wrote in DataHub, the Snowflake comment is cleared too. DataHub then writes nothing else to it until someone writes a new description in DataHub.
+When you delete a description you wrote in DataHub, in the UI or through the API, the Snowflake comment is cleared too. After a delete in the UI, DataHub writes nothing else to it until someone writes a new description in DataHub. After a removal through the API, a later change to the description from ingestion is synced again.
 
 The Snowflake comment is not cleared when:
 
 - an ingestion run is rolled back, or the dataset is deleted in DataHub
 - you delete a description that came from Snowflake itself
 - you remove a description from a YAML file
-- a description is removed through the API by setting it to null or deleting the editable-description record (setting it to an empty string, as the UI does, clears it)
+- the whole editable-description record of a table, or of its columns, is deleted through the API (setting a description to null or to an empty string clears it)
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
