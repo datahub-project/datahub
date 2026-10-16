@@ -42,12 +42,6 @@ export const EntityProfile = lazyProfileComponent('EntityProfile', () =>
     })),
 );
 
-export const IncidentDetailDrawer = lazyProfileComponent('IncidentDetailDrawer', () =>
-    import('@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer').then((module) => ({
-        default: module.IncidentDetailDrawer,
-    })),
-);
-
 export const IncidentTab = lazyProfileComponent('IncidentTab', () =>
     import('@app/entityV2/shared/tabs/Incident/IncidentTab').then((module) => ({
         default: module.IncidentTab,
