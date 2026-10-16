@@ -26,6 +26,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     _ResultProxyFake,
     _RowProxyFake,
     flattenable_query,
+    gate_query,
     get_query_columns,
     is_single_row_query,
     single_row_query,
@@ -119,6 +120,7 @@ def _schedule(
     multiparams: Any = (),
     combinable: bool = True,
     flattenable: bool = True,
+    gate: bool = False,
 ) -> _Capture:
     """Schedule a query on the combiner.
 
@@ -131,6 +133,8 @@ def _schedule(
         query = single_row_query(query)
         if flattenable:
             query = flattenable_query(query)
+    if gate:
+        query = gate_query(query)
 
     def execute() -> None:
         try:
@@ -142,6 +146,61 @@ def _schedule(
 
     qc.run(execute)
     return cap
+
+
+class TestGateQueries:
+    """A table that cannot be read must not cost one failure per column."""
+
+    def test_failed_gate_abandons_the_rest(self, engine, test_table):
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        others = [
+            sa.select(sa.func.count(sa.column("nope")).label(f"c{i}")).select_from(
+                test_table
+            )
+            for i in range(5)
+        ]
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, bad, gate=True)
+            caps = [_schedule(qc, conn, q) for q in others]
+            qc.flush()
+
+        assert gate.exc is not None
+        # Every one resolves, with the gate's error, but only the gate ran.
+        assert all(c.done and c.exc is not None for c in caps)
+        assert combiner.report.queries_skipped_after_gate == len(others)
+        assert combiner.report.uncombined_queries_issued == 1
+
+    def test_a_healthy_gate_does_not_suppress_anything(self, engine, test_table):
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, good, gate=True)
+            other = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert gate.result.scalar() == 3
+        assert other.result.scalar() == 3
+        assert combiner.report.queries_skipped_after_gate == 0
+
+    def test_a_failed_gate_does_not_leak_into_the_next_flush(self, engine, test_table):
+        # One main greenlet profiles one table after another.
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            _schedule(qc, conn, bad, gate=True)
+            qc.flush()
+
+            later = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert later.exc is None
+        assert later.result.scalar() == 3
 
 
 class TestBatchingAndPartitioning:
@@ -851,6 +910,39 @@ class TestFlattenPath:
 
         assert cap.done and cap.exc is None
         assert cap.result.fetchall() == []
+
+    def test_default_mode_failure_does_not_demote_out_of_window_futures(
+        self, engine, test_table
+    ):
+        # The non-flatten counterpart of the test below. Recovery is scoped to
+        # the window that was attempted; letting the failure reach flush() would
+        # fall back the whole queue, so one bad column would serialize every
+        # other query for the table.
+        bad = sa.select(
+            sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        good_count = MAX_QUERIES_TO_COMBINE_AT_ONCE + 10
+        good = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(good_count)
+        ]
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in [bad] + good]
+            qc.flush()
+
+        assert caps[0].exc is not None
+        assert all(c.done and c.exc is None for c in caps[1:])
+        assert all(c.result.scalar() == 3 for c in caps[1:])
+        # Only the window holding the bad query goes one at a time.
+        assert (
+            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
+        # Two combine attempts: the window that failed, then the rest, which
+        # were still combined rather than demoted with it. The counter is bumped
+        # before the statement is issued, so only the second one succeeded.
+        assert combiner.report.combined_queries_issued == 2
+        assert combiner.report.query_exceptions == 1
 
     def test_failing_unit_does_not_demote_out_of_window_futures(
         self, engine, test_table

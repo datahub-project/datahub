@@ -800,6 +800,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SQLServerSource(SQLAlchemySource):
     """
     Source that extracts metadata from Microsoft SQL Server via SQLAlchemy.

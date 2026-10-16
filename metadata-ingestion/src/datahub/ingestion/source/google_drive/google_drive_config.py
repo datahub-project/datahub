@@ -1,15 +1,18 @@
-from typing import List, Optional
+from typing import Annotated, List, Optional, Sequence
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
     DOCUMENT_URN_PREFIX,
     DRIVE_ID_RE,
     DRIVE_URL_FOLDER_ID_RE,
     DRIVE_URL_QUERY_ID_RE,
+    KIND_GOOGLE_DOC,
     PLATFORM_INSTANCE_RE,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -62,14 +65,16 @@ class GoogleDriveSourceConfig(
         description="Whether to walk subfolders. When false, only Google Docs directly "
         "inside each root are ingested and no subfolder documents are emitted.",
     )
-    folder_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns matched against folder paths such as "
-        "'Root/Engineering/Archive' (the root folder's name comes first). A denied "
-        "folder is skipped together with everything beneath it. Configured roots are "
-        "never filtered.",
+    folder_pattern: Annotated[AllowDenyPattern, Filters(DocumentSubTypes.FOLDER)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description="Regex patterns matched against folder paths such as "
+            "'Root/Engineering/Archive' (the root folder's name comes first). A denied "
+            "folder is skipped together with everything beneath it. Configured roots are "
+            "never filtered.",
+        )
     )
-    document_pattern: AllowDenyPattern = Field(
+    document_pattern: Annotated[AllowDenyPattern, Filters(KIND_GOOGLE_DOC)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns matched against Google Doc titles.",
     )
@@ -190,3 +195,26 @@ class GoogleDriveSourceConfig(
                 f"max_text_length ({self.max_text_length})"
             )
         return self
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Lazy, so ingestion never loads the probe module.
+        from datahub.ingestion.source.google_drive.google_drive_probe import (
+            GoogleDriveMetadataProbe,
+        )
+
+        return GoogleDriveMetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # Lazy, so ingestion never loads the probe module.
+        from datahub.ingestion.source.google_drive.google_drive_probe import (
+            probe_verdict,
+        )
+
+        return probe_verdict(self, ctx)
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Folders and Docs are judged on their whole folder chain by
+        # probe_verdict_override, from the listing's own facts, so the framework is
+        # not asked to judge a --parent separately.
+        return ()

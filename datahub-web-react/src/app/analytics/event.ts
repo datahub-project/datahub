@@ -74,8 +74,6 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
-    ShowV2ThemeEvent,
-    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -612,14 +610,6 @@ export interface ShowSimplifiedHomepageEvent extends BaseEvent {
 
 export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
-}
-
-export interface ShowV2ThemeEvent extends BaseEvent {
-    type: EventType.ShowV2ThemeEvent;
-}
-
-export interface RevertV2ThemeEvent extends BaseEvent {
-    type: EventType.RevertV2ThemeEvent;
 }
 
 export interface HomePageExploreAllClickEvent extends BaseEvent {
@@ -1468,8 +1458,6 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | ShowV2ThemeEvent
-    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent
