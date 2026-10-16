@@ -135,7 +135,7 @@ public class TraceServiceImpl implements TraceService {
       Urn urn = entry.getKey();
       if (!handling().isTolerant()) {
         // As before tolerance: throws for an entity type the registry doesn't know.
-        entityRegistry.getEntitySpec(urn.getEntityType());
+        handling().entitySpecForData(entityRegistry, urn.getEntityType());
       } else if (!handling()
           .admit(
               UNKNOWN_DATA,
@@ -546,8 +546,9 @@ public class TraceServiceImpl implements TraceService {
   private Optional<Boolean> isTimeseries(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     if (!handling().isTolerant()) {
       return Optional.of(
-          entityRegistry
-              .getEntitySpec(urn.getEntityType())
+          handling()
+              .entitySpecForData(entityRegistry, urn.getEntityType())
+              .orElseThrow()
               .getAspectSpec(aspectName)
               .isTimeseries());
     }
