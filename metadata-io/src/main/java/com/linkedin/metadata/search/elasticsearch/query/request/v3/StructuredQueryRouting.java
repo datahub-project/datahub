@@ -404,6 +404,8 @@ final class StructuredQueryRouting {
       int start = i;
       String field = tryReadField();
       if (field != null) {
+        // Query-string syntax allows whitespace between the colon and the value.
+        skipWs();
         readValue();
         if (i == start) {
           throw new IllegalArgumentException("Empty fielded clause");

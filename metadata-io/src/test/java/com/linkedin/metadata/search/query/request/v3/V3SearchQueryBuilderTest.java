@@ -592,6 +592,48 @@ public class V3SearchQueryBuilderTest {
     assertEquals(group.get(0).lenient(), Boolean.TRUE);
   }
 
+  /** A space after the field colon is valid query-string syntax and must keep the split. */
+  @Test
+  public void testFieldedStructuredQueryAllowsSpaceAfterColon() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> named =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: orders", false));
+    assertEquals(named.size(), 1, named.toString());
+    assertEquals(named.get(0).queryString(), "name: orders");
+    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+
+    List<QueryStringQueryBuilder> quoted =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: \"foo\"", false));
+    assertEquals(quoted.size(), 1, quoted.toString());
+    assertEquals(quoted.get(0).queryString(), "name: \"foo\"");
+    assertNotEquals(Boolean.TRUE, quoted.get(0).lenient());
+
+    List<QueryStringQueryBuilder> property =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.retentionPolicy: gold", false));
+    assertEquals(property.size(), 1, property.toString());
+    assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy: gold");
+    assertEquals(property.get(0).lenient(), Boolean.TRUE);
+
+    List<QueryStringQueryBuilder> both =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context,
+                dataset,
+                "name: orders AND structuredProperties.retentionPolicy: gold",
+                false));
+    assertEquals(both.size(), 2, both.toString());
+    assertEquals(
+        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
+        Set.of("name: orders", "structuredProperties.retentionPolicy: gold"));
+    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+  }
+
   @Test
   public void testUnqualifiedStructuredQueryStaysOneSplit() {
     OperationContext context = propertyContext();
