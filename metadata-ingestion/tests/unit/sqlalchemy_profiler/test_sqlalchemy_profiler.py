@@ -5,7 +5,7 @@ import logging
 import sqlite3
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,6 +24,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
     GenericAdapter,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    AppliedProfile,
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
@@ -31,13 +32,13 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
+    _partition_spec_for,
     format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
-    PartitionSpecClass,
     PartitionTypeClass,
 )
 from datahub.utilities.stats_collections import float_top_k_dict
@@ -1559,58 +1560,60 @@ class TestFormatProfileValue:
         assert format_profile_value(42, ProfilerDataType.STRING) == "42"
 
 
-class TestSampledPartitionSpec:
-    """A sampled profile's partitionSpec must be reproducible.
+class TestPartitionSpecRendering:
+    """Scope (full table, named partition) x reduction (none, sample, bound).
 
-    It is part of the emitted aspect, so anything derived from the sample's
-    actual size makes an unchanged table produce a different profile each run --
-    a BERNOULLI sample never lands on the same row count twice.
+    The sample marker never carries the sample's achieved size: partitionSpec is
+    part of the emitted aspect, and a BERNOULLI sample never lands on the same
+    row count twice, so a size would change the profile of an unchanged table.
     """
 
-    @staticmethod
-    def _partition_spec_for(
-        profiler: SQLAlchemyProfiler, spec: Optional[PartitionSpecClass]
-    ) -> PartitionSpecClass:
-        profile = DatasetProfileClass(timestampMillis=0, partitionSpec=spec)
-        context = ProfilingContext(pretty_name="t", table="t", is_sampled=True)
-
-        row_count = MagicMock()
-        row_count.result.return_value = 997
-
-        measured = profiler._extract_row_count(
-            row_count_future=row_count,
-            profile=profile,
-            context=context,
-            pretty_name="t",
-        )
-
-        assert measured == 997
-        assert profile.partitionSpec is not None
-        return profile.partitionSpec
-
-    def test_full_table_becomes_a_bare_sample_marker(
-        self, profiler: SQLAlchemyProfiler
-    ) -> None:
-        spec = self._partition_spec_for(
-            profiler,
-            PartitionSpecClass(
-                type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+    @pytest.mark.parametrize(
+        "applied,expected_type,expected_partition",
+        [
+            (AppliedProfile(), PartitionTypeClass.FULL_TABLE, "FULL_TABLE_SNAPSHOT"),
+            (
+                AppliedProfile(sample_percentage=1.5),
+                PartitionTypeClass.QUERY,
+                "SAMPLE",
             ),
-        )
-
-        assert spec.type == PartitionTypeClass.QUERY
-        assert spec.partition == "SAMPLE"
-
-    def test_partition_keeps_its_id_and_gains_only_the_marker(
-        self, profiler: SQLAlchemyProfiler
+            (
+                AppliedProfile(sample_rows=10_000),
+                PartitionTypeClass.QUERY,
+                "SAMPLE",
+            ),
+            (
+                AppliedProfile(limit=100, offset=25),
+                PartitionTypeClass.QUERY,
+                '{"limit": 100, "offset": 25}',
+            ),
+            (
+                AppliedProfile(limit=100),
+                PartitionTypeClass.QUERY,
+                '{"limit": 100, "offset": null}',
+            ),
+            (
+                AppliedProfile(partition="20230906"),
+                PartitionTypeClass.PARTITION,
+                "20230906",
+            ),
+            (
+                AppliedProfile(partition="20230906", sample_percentage=1.5),
+                PartitionTypeClass.PARTITION,
+                "20230906 SAMPLE",
+            ),
+        ],
+    )
+    def test_renders(
+        self,
+        applied: AppliedProfile,
+        expected_type: str,
+        expected_partition: str,
     ) -> None:
-        spec = self._partition_spec_for(
-            profiler,
-            PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition="20230906"),
-        )
+        spec = _partition_spec_for(applied)
 
-        assert spec.type == PartitionTypeClass.PARTITION
-        assert spec.partition == "20230906 SAMPLE"
+        assert spec.type == expected_type
+        assert spec.partition == expected_partition
 
 
 class TestColumnQueriesShareOneBatch:
@@ -2081,100 +2084,139 @@ class TestEndToEndFailureHandling:
         assert profiler.report.query_combiner.queries_skipped_empty_table == 0
 
 
-class TestLimitOffsetContract:
-    """A profile is labelled as limited only when the adapter applied the limit.
+class TestAppliedBoundContract:
+    """The label follows what the adapter reports, not what it could do.
 
-    Sampling is off throughout: the config drops limit/offset whenever it is on.
+    A capability flag cannot express the first case below: the adapter emitted
+    no SQL, because a limit above the row count bounds nothing, yet the rows
+    profiled genuinely respect it. Inferring the label from "this platform
+    supports limits" is right here only by accident, and wrong the moment an
+    adapter declines a limit it supports -- which the later cases cover.
     """
 
     @staticmethod
     def _profile(
         profiler: SQLAlchemyProfiler,
         sqlite_engine: sa.engine.Engine,
-        supports_limit_offset: bool,
+        report: Callable[[AppliedProfile], None],
     ) -> Optional[DatasetProfileClass]:
         request = ProfilerRequest(
             pretty_name="test.test_table",
             batch_kwargs={"table": "test_table", "schema": None},
         )
-        context = ProfilingContext(
-            schema=None, table="test_table", pretty_name="test.test_table"
-        )
-        context.sql_table = sa.Table(
-            "test_table", sa.MetaData(), sa.Column("id", sa.Integer)
-        )
+
+        def setup_profiling(context: ProfilingContext, _conn: Any) -> ProfilingContext:
+            context.sql_table = sa.Table(
+                "test_table", sa.MetaData(), sa.Column("id", sa.Integer)
+            )
+            report(context.applied)
+            return context
 
         adapter = MagicMock()
-        adapter.supports_limit_offset.return_value = supports_limit_offset
-        adapter.setup_profiling.return_value = context
+        adapter.setup_profiling.side_effect = setup_profiling
 
         with (
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             # Stop after the table-level stage; the partition spec is set by then.
             patch.object(profiler, "_extract_row_count", return_value=0),
-            patch(
-                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter",
-                return_value=adapter,
-            ),
+            # Not get_adapter: the profiler caches one adapter per thread, so a
+            # second call in the same test would reuse the first stand-in.
+            patch.object(profiler, "_thread_adapter", return_value=adapter),
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             _, profile = profiler._generate_profile_from_request(MagicMock(), request)
         return profile
 
     @staticmethod
-    def _limit_warnings(mock_report: Any) -> List[Any]:
+    def _unapplied_warnings(mock_report: Any) -> List[str]:
         return [
-            call
+            call.kwargs["title"]
             for call in mock_report.warning.call_args_list
-            if call.kwargs["title"]
-            == "Profiling: limit/offset not supported on this platform"
+            if call.kwargs["title"].startswith("Profiling: ")
+            and "was not applied" in call.kwargs["title"]
         ]
 
-    def test_unsupported_limit_warns_and_is_not_labelled(
+    def test_a_limit_applied_without_sql_is_still_labelled(
         self, profiler, profiler_config, sqlite_engine, mock_report
     ):
-        profiler_config.use_sampling = False
         profiler_config.limit = 100
 
-        profile = self._profile(profiler, sqlite_engine, supports_limit_offset=False)
-
-        assert profile is not None
-        assert profile.partitionSpec is not None
-        # Not labelled as a bounded query: nothing bounded it.
-        assert profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
-        assert len(self._limit_warnings(mock_report)) == 1
-
-    def test_unsupported_limit_logs_once_across_tables(
-        self, profiler, profiler_config, sqlite_engine, mock_report
-    ):
-        profiler_config.use_sampling = False
-        profiler_config.limit = 100
-
-        self._profile(profiler, sqlite_engine, supports_limit_offset=False)
-        self._profile(profiler, sqlite_engine, supports_limit_offset=False)
-
-        assert [call.kwargs["log"] for call in self._limit_warnings(mock_report)] == [
-            True,
-            False,
-        ]
-
-    # An offset never arrives without a limit: the config nulls it.
-    @pytest.mark.parametrize("limit,offset", [(100, None), (100, 25)])
-    def test_supported_limit_is_labelled_as_a_bounded_query(
-        self, profiler, profiler_config, sqlite_engine, mock_report, limit, offset
-    ):
-        profiler_config.use_sampling = False
-        profiler_config.limit = limit
-        profiler_config.offset = offset
-
-        profile = self._profile(profiler, sqlite_engine, supports_limit_offset=True)
+        profile = self._profile(
+            profiler,
+            sqlite_engine,
+            lambda applied: setattr(applied, "limit", 100),
+        )
 
         assert profile is not None
         assert profile.partitionSpec is not None
         assert profile.partitionSpec.type == PartitionTypeClass.QUERY
         assert json.loads(profile.partitionSpec.partition) == {
-            "limit": limit,
-            "offset": offset,
+            "limit": 100,
+            "offset": None,
         }
-        assert self._limit_warnings(mock_report) == []
+        assert self._unapplied_warnings(mock_report) == []
+
+    def test_a_limit_the_adapter_did_not_apply_warns_and_is_not_labelled(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.limit = 100
+
+        profile = self._profile(profiler, sqlite_engine, lambda applied: None)
+
+        assert profile is not None
+        assert profile.partitionSpec is not None
+        # Not labelled as a bounded query: nothing bounded it.
+        assert profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
+        assert self._unapplied_warnings(mock_report) == [
+            "Profiling: limit was not applied"
+        ]
+
+    def test_a_declined_offset_warns_while_an_honoured_one_does_not(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.offset = 25
+
+        self._profile(profiler, sqlite_engine, lambda applied: None)
+        assert self._unapplied_warnings(mock_report) == [
+            "Profiling: offset was not applied"
+        ]
+
+        mock_report.warning.reset_mock()
+        self._profile(
+            profiler, sqlite_engine, lambda applied: setattr(applied, "offset", 25)
+        )
+        assert self._unapplied_warnings(mock_report) == []
+
+    def test_sampling_that_displaces_a_limit_warns_and_is_labelled_a_sample(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.use_sampling = True
+        profiler_config.limit = 100
+
+        profile = self._profile(
+            profiler,
+            sqlite_engine,
+            lambda applied: setattr(applied, "sample_percentage", 1.5),
+        )
+
+        assert profile is not None
+        assert profile.partitionSpec is not None
+        assert profile.partitionSpec.partition == "SAMPLE"
+        assert self._unapplied_warnings(mock_report) == [
+            "Profiling: limit was not applied"
+        ]
+
+    def test_the_unapplied_warning_logs_once_across_tables(
+        self, profiler, profiler_config, sqlite_engine, mock_report
+    ):
+        profiler_config.limit = 100
+
+        self._profile(profiler, sqlite_engine, lambda applied: None)
+        self._profile(profiler, sqlite_engine, lambda applied: None)
+
+        assert [
+            call.kwargs["log"]
+            for call in mock_report.warning.call_args_list
+            if call.kwargs["title"] == "Profiling: limit was not applied"
+        ] == [True, False]

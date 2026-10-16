@@ -56,18 +56,22 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
     ] = Field(
         default=None,
         description="Max number of rows to profile, taken in storage order — not a random "
-        "sample, use `sample_size` for that. Ignored when `use_sampling` is enabled. "
-        "Only BigQuery, Dremio and Snowflake support this. By default, profiles all rows.",
+        "sample, use `sample_size` for that. Sampling takes precedence: where "
+        "`use_sampling` applies, the table is sampled and this is not applied. Only "
+        "BigQuery, Dremio and Snowflake apply it; wherever it is not applied the run "
+        "warns and the profile is labelled as covering the full table. By default, "
+        "profiles all rows.",
     )
     offset: Annotated[
         Optional[pydantic.NonNegativeInt],
         SupportedSources(["bigquery", "dremio", "snowflake"]),
     ] = Field(
         default=None,
-        description="Number of rows to skip before the profiled window. Requires `limit` — "
-        "on its own it bounds nothing and is ignored. Ignored when "
-        "`use_sampling` is enabled. Only BigQuery, Dremio and Snowflake support this. "
-        "By default, uses no offset.",
+        description="Number of rows to skip before the profiled window. Whether it applies "
+        "without a `limit` is up to the source: the SQL profiler declines an offset on its "
+        "own, because skipping rows without bounding them scans more rather than less. "
+        "Only BigQuery, Dremio and Snowflake apply it; wherever it is not applied the run "
+        "warns. By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -354,43 +358,6 @@ class ProfilingConfig(ProfilingBaseConfig):
         "Lower values prevent recursion errors but may truncate deeply nested data. "
         "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
-
-    @model_validator(mode="after")
-    def drop_limit_offset_when_sampling(self) -> "ProfilingConfig":
-        # limit/offset and sampling are two answers to the same question -- how to
-        # profile a big table cheaply. limit/offset is cheap and biased (storage
-        # order, and without an ORDER BY not even stable between runs); sampling
-        # costs more and is statistically valid. Composing them samples randomly
-        # from an arbitrary subset, which pays for sampling and loses the only
-        # thing it buys, so they are mutually exclusive and sampling wins.
-        # Nulling them here keeps the rule in one place, and the adapters that
-        # implement both assert it. Warn rather than raise: a recipe carrying a
-        # leftover limit should keep profiling.
-        if self.use_sampling and (self.limit is not None or self.offset is not None):
-            logger.warning(
-                "profiling.limit and profiling.offset are ignored while "
-                "profiling.use_sampling is enabled: they bound a profile to an "
-                "arbitrary slice of the table, which defeats the random sample. "
-                "Set use_sampling to false to apply them instead."
-            )
-            self.limit = None
-            self.offset = None
-        return self
-
-    @model_validator(mode="after")
-    def drop_offset_without_limit(self) -> "ProfilingConfig":
-        # limit/offset exist here to bound how much data gets scanned. An offset
-        # with no limit bounds nothing -- it profiles every row after it, which
-        # costs more than leaving it unset, not less. Pairing them is our choice
-        # about what these knobs are for, not a restriction SQL imposes.
-        if self.offset is not None and self.limit is None:
-            logger.warning(
-                "profiling.offset is ignored without profiling.limit: on its own "
-                "it bounds nothing, profiling every row after the offset, which "
-                "costs more than leaving it unset, not less."
-            )
-            self.offset = None
-        return self
 
     @model_validator(mode="after")
     def warn_if_flatten_without_query_combiner(self) -> "ProfilingConfig":

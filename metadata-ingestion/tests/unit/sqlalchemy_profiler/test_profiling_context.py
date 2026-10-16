@@ -3,6 +3,7 @@
 import pytest
 
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    AppliedProfile,
     ProfilingContext,
 )
 
@@ -70,61 +71,35 @@ class TestProfilingContextValidation:
                 custom_sql=None,
             )
 
-    def test_valid_sample_percentage_zero(self):
-        """ProfilingContext should accept sample_percentage=0."""
+    def test_requested_partition_is_reported_as_applied(self):
+        """The source narrows to the partition before any adapter runs."""
         context = ProfilingContext(
-            pretty_name="public.users",
-            table="users",
+            pretty_name="public.events",
+            table="events",
             schema="public",
-            custom_sql=None,
-            sample_percentage=0,
+            partition="20230906",
         )
-        assert context.sample_percentage == 0
 
-    def test_valid_sample_percentage_hundred(self):
-        """ProfilingContext should accept sample_percentage=100."""
-        context = ProfilingContext(
-            pretty_name="public.users",
-            table="users",
-            schema="public",
-            custom_sql=None,
-            sample_percentage=100,
-        )
-        assert context.sample_percentage == 100
+        assert context.applied.partition == "20230906"
+        assert not context.applied.sampled
 
-    def test_valid_sample_percentage_fifty(self):
-        """ProfilingContext should accept sample_percentage=50."""
-        context = ProfilingContext(
-            pretty_name="public.users",
-            table="users",
-            schema="public",
-            custom_sql=None,
-            sample_percentage=50.5,
-        )
-        assert context.sample_percentage == 50.5
 
-    def test_invalid_sample_percentage_negative(self):
-        """ProfilingContext should reject negative sample_percentage."""
+class TestAppliedProfile:
+    @pytest.mark.parametrize("percentage", [0, 50.5, 100])
+    def test_accepts_a_percentage_in_range(self, percentage):
+        assert AppliedProfile(sample_percentage=percentage).sampled
+
+    @pytest.mark.parametrize("percentage", [-1, 101])
+    def test_rejects_a_percentage_out_of_range(self, percentage):
         with pytest.raises(
-            ValueError, match="sample_percentage must be in \\[0, 100\\], got -1"
+            ValueError, match=r"sample_percentage must be in \[0, 100\]"
         ):
-            ProfilingContext(
-                pretty_name="public.users",
-                table="users",
-                schema="public",
-                custom_sql=None,
-                sample_percentage=-1,
-            )
+            AppliedProfile(sample_percentage=percentage)
 
-    def test_invalid_sample_percentage_over_hundred(self):
-        """ProfilingContext should reject sample_percentage > 100."""
-        with pytest.raises(
-            ValueError, match="sample_percentage must be in \\[0, 100\\], got 101"
-        ):
-            ProfilingContext(
-                pretty_name="public.users",
-                table="users",
-                schema="public",
-                custom_sql=None,
-                sample_percentage=101,
-            )
+    def test_a_fixed_size_sample_is_a_sample(self):
+        # The fraction is unknown when the row count is, so sample_rows is the
+        # only thing reported -- it still has to read as sampled.
+        assert AppliedProfile(sample_rows=10_000).sampled
+
+    def test_a_bound_is_not_a_sample(self):
+        assert not AppliedProfile(limit=100, offset=25).sampled

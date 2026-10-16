@@ -50,18 +50,28 @@ class BigQueryAdapter(PlatformAdapter):
         """
         logger.debug(f"BigQuery setup for {context.pretty_name}")
 
-        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table. An offset
-        # without a limit never arrives -- the config nulls it.
-        if context.custom_sql or self.config.limit:
+        # Sampling and limit/offset are two answers to the same question -- how
+        # to profile a big table cheaply -- and they do not compose: sampling an
+        # already-bounded slice pays sampling's cost and loses the validity it
+        # buys. Sampling wins; the profiler warns that the limit went unapplied.
+        #
+        # custom_sql wins over both: it is the source's own query (a partition
+        # filter), passed through untouched, so a limit is not applied there
+        # either. An offset with no limit is declined -- it bounds nothing, and
+        # BigQuery has no spelling for OFFSET without LIMIT.
+        bound = bool(self.config.limit) and not (
+            context.custom_sql or self.config.use_sampling
+        )
+
+        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table.
+        if context.custom_sql or bound:
             context = self._create_temp_table_for_query(context)
+            if bound:
+                context.applied.limit = self.config.limit
+                context.applied.offset = self.config.offset
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
-        # The ProfilingConfig validators drop limit/offset whenever sampling is on.
         if self.config.use_sampling:
-            assert not (self.config.limit or self.config.offset), (
-                f"sampling reached the adapter with limit/offset set "
-                f"(table: {context.pretty_name})"
-            )
             context = self._setup_sampling(context, conn)
 
         # Step 3: Create SQLAlchemy table object
@@ -83,9 +93,6 @@ class BigQueryAdapter(PlatformAdapter):
             )
 
         return context
-
-    def supports_limit_offset(self) -> bool:
-        return True
 
     def cleanup(self, context: ProfilingContext) -> None:
         """
@@ -138,9 +145,8 @@ class BigQueryAdapter(PlatformAdapter):
                 schema=context.schema,
             )
 
-            # Build SELECT * query using query builder. The config constrains
-            # limit to a positive int and drops an offset that has no limit, so
-            # both values are usable as they stand.
+            # Build SELECT * query using query builder. Only reached with a
+            # limit set, and the config constrains it to a positive int.
             query = sa.select(sa.text("*")).select_from(table_obj)
             if self.config.limit:
                 query = query.limit(self.config.limit)
@@ -336,8 +342,7 @@ class BigQueryAdapter(PlatformAdapter):
         context = self._create_temp_table_for_query(context)
         context.custom_sql = old_custom_sql  # Restore
 
-        context.is_sampled = True
-        context.sample_percentage = sample_pc
+        context.applied.sample_percentage = sample_pc
 
         return context
 

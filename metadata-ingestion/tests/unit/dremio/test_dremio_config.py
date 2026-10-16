@@ -270,12 +270,7 @@ def test_stateful_ingestion_accepts_stale_removal_fields():
     assert config.stateful_ingestion.remove_stale_metadata is False
 
 
-def test_profiling_limit_survives_because_dremio_does_not_sample():
-    # Dremio implements limit/offset but has no sampling at all, so it must not
-    # opt into use_sampling -- that would drop the limit for a sample that never
-    # runs. It is the only limit/offset source in that position.
-    config = ProfileConfig.model_validate({"limit": 100, "offset": 25})
-
-    assert config.use_sampling is False
-    assert config.limit == 100
-    assert config.offset == 25
+def test_dremio_does_not_opt_into_sampling():
+    # Dremio implements limit/offset in its own profiler but has no sampling at
+    # all, so it must not opt into use_sampling -- there is nothing to turn on.
+    assert ProfileConfig.model_validate({}).use_sampling is False

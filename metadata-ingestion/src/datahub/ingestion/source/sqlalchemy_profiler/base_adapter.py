@@ -176,6 +176,9 @@ class PlatformAdapter(ABC):
         - Creating temp tables/views for custom SQL or partitions
         - Setting up table sampling for large tables
         - Creating the SQLAlchemy Table object
+        - Reporting what it applied on `context.applied`, which is what the
+          profile's partitionSpec is rendered from. Anything the config asked
+          for and `applied` does not report is warned about centrally.
 
         Default implementation: Creates SQLAlchemy table object with no special handling.
         Platforms like BigQuery, Athena, and Trino override this for custom behavior.
@@ -333,29 +336,6 @@ class PlatformAdapter(ABC):
             SQLAlchemy expression for AVG
         """
         return sa.func.avg(sa.column(column) * 1.0)
-
-    # =========================================================================
-    # Optional Capabilities
-    # =========================================================================
-
-    def supports_limit_offset(self) -> bool:
-        """
-        Whether `setup_profiling` bounds the profiled rows by `limit`/`offset`.
-
-        `limit` is not a sample: it takes the first N rows in whatever order the
-        storage returns them. Adapters that cannot apply it leave this False, and
-        the profiler then warns and refrains from labelling the profile as limited.
-
-        This answers only for the SQLAlchemy profiler. Sources with their own
-        profiling engine never build an adapter, so they are invisible here --
-        Dremio honours `limit`/`offset` in `dremio_profiling.py` without one.
-        `ProfilingConfig.limit`'s SupportedSources list is the full answer to
-        which sources apply it.
-
-        Returns:
-            True if the adapter honours config.limit and config.offset
-        """
-        return False
 
     # =========================================================================
     # Row Count Estimation

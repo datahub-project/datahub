@@ -25,7 +25,8 @@ class ClickHouseAdapter(PlatformAdapter):
     ) -> ProfilingContext:
         # ClickHouse session-scoped temp tables are incompatible with connection-pool
         # cross-connection reads, so this adapter never creates temp tables.
-        # limit/offset are reported centrally via supports_limit_offset().
+        # limit/offset go unapplied here, which the profiler warns about
+        # centrally from what this adapter does not report on context.applied.
         if context.custom_sql:
             self.report.warning(
                 title="Profiling: ClickHouse SQLAlchemy profiler options ignored",

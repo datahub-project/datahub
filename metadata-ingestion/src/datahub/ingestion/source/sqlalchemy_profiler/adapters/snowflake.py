@@ -62,16 +62,27 @@ class SnowflakeAdapter(PlatformAdapter):
             f"(table: {context.pretty_name})"
         )
 
-        # The ProfilingConfig validators drop limit/offset whenever sampling is
-        # on, and null an offset that has no limit. A bound needs no
-        # denominator, so this also short-circuits the row-count lookup below.
+        # Sampling and limit/offset are two answers to the same question -- how
+        # to profile a big table cheaply -- and they do not compose: sampling an
+        # already-bounded slice pays sampling's cost and loses the validity it
+        # buys. Sampling wins; the profiler warns that the limit went unapplied.
+        if self.config.use_sampling:
+            return self._setup_sampling(context, conn)
+
+        # An offset with no limit is declined: honouring it would materialize
+        # every row after the offset, which costs more than leaving it unset.
         if self.config.limit:
-            assert not self.config.use_sampling, (
-                f"limit/offset reached the adapter with sampling enabled "
-                f"(table: {context.pretty_name})"
-            )
             return self._create_limited_temp_table(context, conn)
 
+        context.sql_table = self._create_sqlalchemy_table(
+            schema=context.schema,
+            table=context.table,
+        )
+        return context
+
+    def _setup_sampling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
         # Prefer the row count already on the context (from the schema crawl)
         # to avoid a redundant INFORMATION_SCHEMA round-trip per table.
         row_count = (
@@ -79,29 +90,18 @@ class SnowflakeAdapter(PlatformAdapter):
             if context.row_count is not None
             else self._get_row_count_from_metadata(context, conn)
         )
-        if self.config.use_sampling:
-            if row_count is not None and row_count <= self.config.sample_size:
-                # Table is small enough — profile directly without sampling
-                context.sql_table = self._create_sqlalchemy_table(
-                    schema=context.schema,
-                    table=context.table,
-                )
-            elif row_count is None:
-                # A sampling fraction needs a denominator. Rather than invent
-                # one, hand Snowflake a row count and let it size the sample.
-                context = self._create_fixed_size_sampled_temp_table(context, conn)
-            else:
-                context = self._create_sampled_temp_table(context, conn, row_count)
-        else:
+        if row_count is not None and row_count <= self.config.sample_size:
+            # Table is small enough — profile directly without sampling
             context.sql_table = self._create_sqlalchemy_table(
                 schema=context.schema,
                 table=context.table,
             )
-
-        return context
-
-    def supports_limit_offset(self) -> bool:
-        return True
+            return context
+        if row_count is None:
+            # A sampling fraction needs a denominator. Rather than invent
+            # one, hand Snowflake a row count and let it size the sample.
+            return self._create_fixed_size_sampled_temp_table(context, conn)
+        return self._create_sampled_temp_table(context, conn, row_count)
 
     def _get_row_count_from_metadata(
         self, context: ProfilingContext, conn: Connection
@@ -230,9 +230,8 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        return self._reflect_temp_table_into_context(
-            context, conn, temp_name, is_sampled=True, sample_percentage=bernoulli_pc
-        )
+        context.applied.sample_percentage = bernoulli_pc
+        return self._reflect_temp_table_into_context(context, conn, temp_name)
 
     def _create_fixed_size_sampled_temp_table(
         self, context: ProfilingContext, conn: Connection
@@ -278,9 +277,8 @@ class SnowflakeAdapter(PlatformAdapter):
         )
 
         # A fixed row count out of an unknown total is an unknown fraction.
-        return self._reflect_temp_table_into_context(
-            context, conn, temp_name, is_sampled=True, sample_percentage=None
-        )
+        context.applied.sample_rows = sample_rows
+        return self._reflect_temp_table_into_context(context, conn, temp_name)
 
     def _create_limited_temp_table(
         self, context: ProfilingContext, conn: Connection
@@ -289,8 +287,8 @@ class SnowflakeAdapter(PlatformAdapter):
         Materialize `LIMIT`/`OFFSET` rows into a session-scoped temp table.
 
         Unlike TABLESAMPLE this is not a sample: it is whatever rows Snowflake
-        returns first, so `is_sampled` stays False and the profile is labelled a
-        bounded query rather than a sample.
+        returns first, so it is reported as a bound rather than as a sample and
+        the profile is labelled a bounded query.
         """
         assert context.schema is not None, (
             f"schema is required for limiting {context.pretty_name}"
@@ -304,9 +302,8 @@ class SnowflakeAdapter(PlatformAdapter):
             quote=True,
             quote_schema=True,
         )
-        # The config rejects a non-positive limit and drops an offset that has
-        # no limit, so a limit is always present here. That also keeps the
-        # dialect off its bare-offset path, which compiles to `LIMIT -1`.
+        # Only reached with a limit set, which also keeps the dialect off its
+        # bare-offset path -- that compiles to the invalid `LIMIT -1 OFFSET n`.
         query = sa.select(sa.text("*")).select_from(table_obj).limit(self.config.limit)
         if self.config.offset:
             query = query.offset(self.config.offset)
@@ -326,9 +323,9 @@ class SnowflakeAdapter(PlatformAdapter):
             f"(limit: {self.config.limit}, offset: {self.config.offset})",
         )
 
-        return self._reflect_temp_table_into_context(
-            context, conn, temp_name, is_sampled=False, sample_percentage=None
-        )
+        context.applied.limit = self.config.limit
+        context.applied.offset = self.config.offset
+        return self._reflect_temp_table_into_context(context, conn, temp_name)
 
     @staticmethod
     def _temp_table_name(prefix: str) -> str:
@@ -346,12 +343,7 @@ class SnowflakeAdapter(PlatformAdapter):
         conn.execute(sa.text(create_sql))
 
     def _reflect_temp_table_into_context(
-        self,
-        context: ProfilingContext,
-        conn: Connection,
-        temp_name: str,
-        is_sampled: bool,
-        sample_percentage: Optional[float],
+        self, context: ProfilingContext, conn: Connection, temp_name: str
     ) -> ProfilingContext:
         # Reflect the temp table as a real sa.Table. CTAS carries case-only
         # duplicate columns through to the sample, so this needs the same
@@ -360,8 +352,6 @@ class SnowflakeAdapter(PlatformAdapter):
         context.sql_table = self._use_stored_column_names(
             sa.Table(temp_name, metadata, autoload_with=conn), conn
         )
-        context.is_sampled = is_sampled
-        context.sample_percentage = sample_percentage
         context.temp_table = temp_name
 
         logger.info(f"Created temp table {temp_name} for {context.pretty_name}")

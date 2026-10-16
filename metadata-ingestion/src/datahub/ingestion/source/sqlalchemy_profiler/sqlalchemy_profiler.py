@@ -42,6 +42,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    AppliedProfile,
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
@@ -76,6 +77,49 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+
+def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
+    """Render a profile's partitionSpec from what the adapter reported.
+
+    Scope (the whole table, or one named partition) and reduction (none, a
+    sample, a bound) are independent axes -- a sampled partition is real, and
+    reports both.
+
+    The sample marker never carries the sample's size: a BERNOULLI sample lands
+    on a different row count every run, and partitionSpec is part of the emitted
+    aspect, so a size would change the profile of an unchanged table.
+    """
+    if applied.partition is not None:
+        return _partitioned(
+            f"{applied.partition} SAMPLE" if applied.sampled else applied.partition
+        )
+    if applied.sampled:
+        return _sampled()
+    if applied.limit is not None or applied.offset is not None:
+        return _limited(applied.limit, applied.offset)
+    return _full_table()
+
+
+def _full_table() -> PartitionSpecClass:
+    return PartitionSpecClass(
+        type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+    )
+
+
+def _partitioned(partition: str) -> PartitionSpecClass:
+    return PartitionSpecClass(type=PartitionTypeClass.PARTITION, partition=partition)
+
+
+def _sampled() -> PartitionSpecClass:
+    return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
+
+
+def _limited(limit: Optional[int], offset: Optional[int]) -> PartitionSpecClass:
+    return PartitionSpecClass(
+        type=PartitionTypeClass.QUERY,
+        partition=json.dumps(dict(limit=limit, offset=offset)),
+    )
 
 
 def _get_columns_to_ignore_sampling(
@@ -306,8 +350,8 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
-        # Same, for a limit/offset the platform adapter cannot apply.
-        self._limit_unsupported_warning_logged = False
+        # Same, per bound (limit/offset) the platform adapter did not apply.
+        self._unapplied_bound_logged: Set[str] = set()
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -967,11 +1011,10 @@ class SQLAlchemyProfiler:
         self,
         row_count_future: FutureResult[int],
         profile: DatasetProfileClass,
-        context: ProfilingContext,
         pretty_name: str,
     ) -> Optional[int]:
         """
-        Extract the row count and update the partition spec if sampling was applied.
+        Extract the row count onto the profile.
 
         Returns:
             Row count (or None if unavailable)
@@ -996,23 +1039,6 @@ class SQLAlchemyProfiler:
             )
             profile.rowCount = None
             row_count = None
-
-        # Record that sampling happened, never the sample's size: a BERNOULLI
-        # sample lands on a different row count every run, and partitionSpec is
-        # emitted, so a size would change the profile for an unchanged table.
-        if context.is_sampled:
-            if (
-                profile.partitionSpec
-                and profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
-            ):
-                profile.partitionSpec = PartitionSpecClass(
-                    type=PartitionTypeClass.QUERY, partition="SAMPLE"
-                )
-            elif (
-                profile.partitionSpec
-                and profile.partitionSpec.type == PartitionTypeClass.PARTITION
-            ):
-                profile.partitionSpec.partition += " SAMPLE"
 
         return row_count
 
@@ -1554,28 +1580,36 @@ class SQLAlchemyProfiler:
             setattr(self._adapter_local, platform, adapter)
         return adapter
 
-    def _limit_is_applied(
-        self, adapter: PlatformAdapter, pretty_name: str, platform: str
-    ) -> bool:
-        """Whether a configured limit will actually bound this profile.
+    def _warn_unapplied_bounds(
+        self, applied: AppliedProfile, pretty_name: str, platform: str
+    ) -> None:
+        """Report every bound the recipe asked for that the adapter did not apply.
 
-        An offset only ever accompanies a limit -- the config nulls it
-        otherwise -- so the limit alone decides.
+        An adapter declines a bound when it cannot implement it at all, when
+        sampling takes precedence, or when the bound is meaningless (an offset
+        with no limit). The profile is labelled from what it did apply, so the
+        label never claims a bound that was not honoured -- this says so.
         """
-        if self.config.limit is None:
-            return False
-        if adapter.supports_limit_offset():
-            return True
-        self.report.warning(
-            title="Profiling: limit/offset not supported on this platform",
-            message="This platform's profiler cannot bound the rows it reads, "
-            "so the whole table is profiled and the profile is not labelled "
-            "as limited.",
-            context=f"Asset: {pretty_name}; platform={platform}",
-            log=not self._limit_unsupported_warning_logged,
-        )
-        self._limit_unsupported_warning_logged = True
-        return False
+        for name, requested, was_applied in (
+            ("limit", self.config.limit, applied.limit),
+            ("offset", self.config.offset, applied.offset),
+        ):
+            if requested is None or was_applied is not None:
+                continue
+            self.report.warning(
+                title=f"Profiling: {name} was not applied",
+                message=f"This source did not apply profiling.{name} to this "
+                "asset, so the rows profiled are not bounded by it and the "
+                "profile is not labelled as bounded. A source applies no bound "
+                "while sampling takes precedence over it, when it does not "
+                "implement limit/offset, or for an offset with no limit.",
+                context=(
+                    f"Asset: {pretty_name}; platform={platform}; "
+                    f"{name}={requested}; use_sampling={self.config.use_sampling}"
+                ),
+                log=name not in self._unapplied_bound_logged,
+            )
+            self._unapplied_bound_logged.add(name)
 
     def _generate_single_profile(
         self,
@@ -1614,8 +1648,6 @@ class SQLAlchemyProfiler:
 
         # Get platform-specific adapter
         adapter = self._thread_adapter(platform)
-
-        limit_applied = self._limit_is_applied(adapter, pretty_name, platform)
 
         with PerfTimer() as timer:
             try:
@@ -1682,6 +1714,8 @@ class SQLAlchemyProfiler:
                             raise
                         return None
 
+                    self._warn_unapplied_bounds(context.applied, pretty_name, platform)
+
                     # Validate that we have a sql_table to profile
                     if context.sql_table is None:
                         self.report.warning(
@@ -1707,21 +1741,7 @@ class SQLAlchemyProfiler:
                     profile = DatasetProfileClass(timestampMillis=get_sys_time())
                     profile.columnCount = len(sql_table.columns)
 
-                    # Handle partition spec
-                    if partition:
-                        profile.partitionSpec = PartitionSpecClass(partition=partition)
-                    elif limit_applied:
-                        profile.partitionSpec = PartitionSpecClass(
-                            type=PartitionTypeClass.QUERY,
-                            partition=json.dumps(
-                                dict(limit=self.config.limit, offset=self.config.offset)
-                            ),
-                        )
-                    elif custom_sql or context.is_sampled:
-                        # custom_sql or adapter-driven sampling via temp table
-                        profile.partitionSpec = PartitionSpecClass(
-                            type=PartitionTypeClass.QUERY, partition="SAMPLE"
-                        )
+                    profile.partitionSpec = _partition_spec_for(context.applied)
 
                     # ================================================================
                     # QUERY BATCHING PATTERN
@@ -1808,7 +1828,6 @@ class SQLAlchemyProfiler:
                     row_count = self._extract_row_count(
                         row_count_future=row_count_future,
                         profile=profile,
-                        context=context,
                         pretty_name=pretty_name,
                     )
 

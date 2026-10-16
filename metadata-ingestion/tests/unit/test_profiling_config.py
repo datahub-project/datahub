@@ -146,37 +146,21 @@ def test_flatten_without_query_combiner_warns_but_does_not_raise(
     assert any("has no effect" in r.message for r in caplog.records)
 
 
-def test_sampling_takes_precedence_over_limit_and_offset(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    # Bounding a sample to an arbitrary slice of the table pays sampling's cost
-    # and loses what it buys, so the config drops the bound and says so.
-    with caplog.at_level(logging.WARNING):
-        config = ProfilingConfig.model_validate(
-            {"use_sampling": True, "limit": 100, "offset": 25}
-        )
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"use_sampling": True, "limit": 100, "offset": 25},
+        {"use_sampling": False, "offset": 25},
+    ],
+)
+def test_the_config_keeps_what_the_recipe_asked_for(values: dict) -> None:
+    # Whether a bound can be honoured is the source's call, made per asset and
+    # reported from there. The config neither decides it nor rewrites the
+    # recipe, so what is read back is what was written.
+    config = ProfilingConfig.model_validate(values)
 
-    assert config.limit is None
-    assert config.offset is None
-    assert any("use_sampling is enabled" in r.message for r in caplog.records)
-
-
-def test_limit_and_offset_survive_when_sampling_is_off() -> None:
-    config = ProfilingConfig.model_validate(
-        {"use_sampling": False, "limit": 100, "offset": 25}
-    )
-
-    assert config.limit == 100
-    assert config.offset == 25
-
-
-def test_offset_without_limit_is_dropped(caplog: pytest.LogCaptureFixture) -> None:
-    # An offset alone bounds nothing, so it is dropped rather than applied.
-    with caplog.at_level(logging.WARNING):
-        config = ProfilingConfig.model_validate({"use_sampling": False, "offset": 25})
-
-    assert config.offset is None
-    assert any("ignored without profiling.limit" in r.message for r in caplog.records)
+    assert config.limit == values.get("limit")
+    assert config.offset == values.get("offset")
 
 
 @pytest.mark.parametrize(
@@ -188,15 +172,16 @@ def test_offset_without_limit_is_dropped(caplog: pytest.LogCaptureFixture) -> No
     ],
 )
 def test_out_of_range_limit_and_offset_are_rejected(values: dict) -> None:
-    # Caught at config-parse time rather than as a database error mid-run --
-    # `limit: 0` used to fall through to a full-table profile silently.
+    # These are field constraints, not validators: caught at config-parse time
+    # rather than as a database error mid-run -- `limit: 0` used to fall through
+    # to a full-table profile silently.
     with pytest.raises(ValidationError):
         ProfilingConfig.model_validate({"use_sampling": False, **values})
 
 
 def test_sampling_is_off_by_default() -> None:
-    # The shared default is off: most sources do not implement sampling, and a
-    # flag that is on where it does nothing also silently drops limit/offset.
+    # The shared default is off: most sources do not implement sampling, so a
+    # flag that is on where it does nothing only misleads.
     assert ProfilingConfig().use_sampling is False
 
 
@@ -205,6 +190,9 @@ def test_sources_that_sample_turn_sampling_on() -> None:
     # that matters after flipping the shared default: a missing override -- or a
     # subclass that exists but is not wired to the source's `profiling` field --
     # means a large table is profiled in full rather than sampled.
+    #
+    # Dremio stays off, and tests/unit/dremio/ pins that: it applies
+    # limit/offset but cannot sample, so opting in would cost it the bound.
     from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
     from datahub.ingestion.source.excel.config import ExcelSourceConfig
     from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
