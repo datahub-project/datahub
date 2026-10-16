@@ -1057,6 +1057,92 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   }
 
   @Test
+  public void testScrollRelationshipsRedactsUnauthorizedEndpoints() throws Exception {
+    String hiddenUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)";
+    String hiddenUserUrn = "urn:li:corpuser:bob";
+    String visibleUrn = "urn:li:corpuser:alice";
+    when(mockGraphService.scrollRelatedEntities(
+            any(), any(), any(), isNull(), anyString(), anyInt(), isNull(), isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                10,
+                "scroll-1",
+                List.of(
+                    new RelatedEntities(
+                        "OwnedBy", hiddenUrn, visibleUrn, RelationshipDirection.OUTGOING, null),
+                    new RelatedEntities(
+                        "OwnedBy",
+                        hiddenUrn,
+                        hiddenUserUrn,
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    try (MockedStatic<AuthUtil> authUtil = mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+          .thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      any(ApiGroup.class),
+                      any(ApiOperation.class),
+                      any()))
+          .thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      eq(List.of(Urn.createFromString(hiddenUrn)))))
+          .thenReturn(false);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      eq(List.of(Urn.createFromString(hiddenUserUrn)))))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(2))
+          .andExpect(
+              jsonPath("$.results[0].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(jsonPath("$.results[0].source.entityType").value("restricted"))
+          .andExpect(jsonPath("$.results[0].destination.urn").value(visibleUrn))
+          .andExpect(
+              jsonPath("$.results[1].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(
+              jsonPath("$.results[1].destination.urn")
+                  .value("urn:li:restricted:redacted-corpuser"));
+
+      authUtil.verify(
+          () ->
+              AuthUtil.isAPIAuthorizedUrns(
+                  any(OperationContext.class),
+                  eq(ApiGroup.RELATIONSHIP),
+                  eq(ApiOperation.READ),
+                  eq(List.of(Urn.createFromString(hiddenUrn)))),
+          times(1));
+    }
+  }
+
+  @Test
   public void testScrollRelationshipsAllParameters() throws Exception {
     String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,src,PROD)";
     String destUrn = "urn:li:chart:(looker,chart1)";
