@@ -57,10 +57,11 @@ function ProfileChunkFallback() {
     );
 }
 
-type ChunkModule = { default: React.ComponentType<any> };
+type ChunkModule<C> = { default: C };
 
-export type LazyProfileComponent = React.FunctionComponent<any> & {
-    preload: () => Promise<ChunkModule>;
+/** The loaded component, plus `preload` to start its import ahead of the first render. */
+export type LazyProfileComponent<C extends React.FunctionComponent<any>> = C & {
+    preload: () => Promise<ChunkModule<C>>;
 };
 
 /**
@@ -69,14 +70,19 @@ export type LazyProfileComponent = React.FunctionComponent<any> & {
  * The import() call site must stay next to a literal path; Rollup will not split a variable path
  * hidden inside this helper.
  *
- * Props stay loose so the wrapper assigns to the tab and sidebar component slots. Sidebars key
- * sections by displayName, so each wrapper sets that to the component name.
+ * The wrapper is typed as the component it loads, so callers keep its real props and generics
+ * (e.g. inline `tabs` passed to `EntityProfile` are checked against `EntityTab`). Loaded components
+ * must be plain function components: the wrapper forwards no refs and copies no statics. Sidebars
+ * key sections by displayName, so each wrapper sets that to the component name.
  *
  * `preload` starts that same import. The wrapper always renders the lazy component, so a
  * later parent render keeps the mounted section instead of swapping in another element type.
  */
-export function lazyProfileComponent(displayName: string, loader: () => Promise<ChunkModule>): LazyProfileComponent {
-    let pending: Promise<ChunkModule> | undefined;
+export function lazyProfileComponent<C extends React.FunctionComponent<any>>(
+    displayName: string,
+    loader: () => Promise<ChunkModule<C>>,
+): LazyProfileComponent<C> {
+    let pending: Promise<ChunkModule<C>> | undefined;
 
     function load() {
         pending ??= loader();
@@ -101,5 +107,6 @@ export function lazyProfileComponent(displayName: string, loader: () => Promise<
         );
     }
 
-    return Object.assign(ProfileComponent, { displayName, preload: load });
+    // Props are forwarded unchanged, so the wrapper can stand in for the loaded component.
+    return Object.assign(ProfileComponent, { displayName, preload: load }) as unknown as LazyProfileComponent<C>;
 }

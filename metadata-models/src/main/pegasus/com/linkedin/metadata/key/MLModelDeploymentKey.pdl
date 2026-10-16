@@ -23,7 +23,6 @@ record MLModelDeploymentKey {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   name: string

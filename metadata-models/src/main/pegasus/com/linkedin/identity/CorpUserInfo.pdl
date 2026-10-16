@@ -32,7 +32,6 @@ record CorpUserInfo includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   displayName: optional string
@@ -42,8 +41,7 @@ record CorpUserInfo includes CustomProperties {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "queryByDefault": true,
-    "searchTier": 1
+    "queryByDefault": true
   }
   email: optional EmailAddress
 
