@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { getHomePageRoute } from '@app/defaultLandingPage';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
@@ -67,7 +68,11 @@ export default function NavBarHeader({ logotype }: Props) {
 
     return (
         <Container>
-            <StyledLink to="/" onClick={handleLogoClick} data-testid="nav-bar-home-logo">
+            <StyledLink
+                to={getHomePageRoute(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE)}
+                onClick={handleLogoClick}
+                data-testid="nav-bar-home-logo"
+            >
                 <Logotype data-testid="datahub-logo-svg">{logotype}</Logotype>
                 {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>

@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import { getHomePageRoute } from '@app/defaultLandingPage';
 import { useAppConfig } from '@app/useAppConfig';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
@@ -22,7 +23,7 @@ export default function AppLogoLink() {
     const themeConfig = useTheme();
 
     return (
-        <StyledLink to="/">
+        <StyledLink to={getHomePageRoute(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE)}>
             <LogoImage
                 src={
                     appConfig.config !== DEFAULT_APP_CONFIG
