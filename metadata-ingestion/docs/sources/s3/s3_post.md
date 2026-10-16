@@ -254,6 +254,31 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
+##### File type detection
+
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz`, `.gzip`, or `.bz2` (when `enable_compression` is enabled on the path_spec, which is the default), the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
+
+This means file names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. When compression is enabled, such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise; when compression is disabled, compressed files are skipped.
+
+If your files have no real format extension (or, with compression enabled, have only a compression extension like `.gz`), set `default_extension` on the path_spec to tell the connector how to parse them:
+
+```yaml
+path_specs:
+  - include: s3://my-bucket/{table}/
+    default_extension: json
+```
+
+With `default_extension` set, any file whose format cannot be inferred from its name is parsed as that format. This includes stray files that happen to sit under the path — for example `.crc` checksum files or `.txt` manifests — which will be read as the default format and may produce a "could not infer schema" warning. Use the path_spec `exclude` patterns to filter such files out:
+
+```yaml
+path_specs:
+  - include: s3://my-bucket/{table}/
+    default_extension: json
+    exclude:
+      - "**/*.crc"
+      - "**/*.txt"
+```
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:
@@ -272,6 +297,51 @@ This plugin extracts:
 Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and no longer requires Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `s3` extra, and no `s3a://` configuration is needed — the profiler reads files over the same `s3://` path used for schema inference. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.
 
 Enabling profiling will slow down ingestion runs.
+
+#### Checking path_specs before you ingest
+
+`datahub recipe probe` lists what your recipe can see and judges it with the same `path_specs`
+rules ingestion uses, without ingesting anything:
+
+```shell
+datahub recipe probe methods --recipe s3.yml
+datahub recipe probe run buckets --recipe s3.yml
+datahub recipe probe run folders --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run objects --recipe s3.yml --bucket my-bucket --prefix data/
+datahub recipe probe run datasets --recipe s3.yml --path-spec 0 --report-to datasets.json
+datahub recipe probe filter --recipe s3.yml --from-run datasets.json
+datahub recipe probe filter --recipe s3.yml --kind Table --name s3://my-bucket/data/events
+datahub recipe probe run path_spec_folders --recipe s3.yml --path-spec 1 --report-to folders.json
+datahub recipe probe filter --recipe s3.yml --kind Folder --from-run folders.json
+datahub recipe probe run tags --recipe s3.yml --bucket my-bucket --key data/a.csv
+```
+
+- The listing commands only list (`ListBuckets`, `ListObjectsV2`). They never read object
+  contents. `tags` is the one command beyond those two: it calls `GetBucketTagging` /
+  `GetObjectTagging`, and only the lookups your recipe turns on (`use_s3_bucket_tags`,
+  `use_s3_object_tags`). Use it to check that ingestion can read object tags: a denied
+  `GetObjectTagging` fails an ingestion run. A failed `GetBucketTagging` is a warning:
+  ingestion logs it and attaches no bucket tags.
+- A probe-only IAM identity needs `s3:ListAllMyBuckets` and `s3:ListBucket`. It does not need
+  `s3:GetObject`. Add `s3:GetBucketTagging` / `s3:GetObjectTagging` only to check tags.
+- `datasets` lists candidates, including the ones `path_specs` drop; `probe filter` says which
+  rule drops each one (for example `path_specs[0].tables_filter_pattern`).
+- For a `{table}` path_spec the verdict is decided at the table folder. `exclude`, `file_types`
+  and the files in the selected partitions are applied per file during ingestion, so a table
+  folder whose files all fail them is reported as included, with a warning.
+- `folders` lists the folders one level under a bucket and prefix, to write an include against.
+  For an `emit_folders_only` path_spec, `datasets` lists nothing: list its folders with
+  `path_spec_folders --path-spec N` and judge them with `probe filter --kind Folder`.
+- A listing denied while `datasets` or `path_spec_folders` walks a path_spec (resolving its
+  wildcards, or listing its table folders) is reported as a failure, at any depth: ingestion
+  stops the whole run on it, so later path_specs are not ingested either. The rows listed
+  before the denial are still returned. A missing bucket under a `{table}` path_spec is only a
+  warning, because ingestion warns "Missing bucket" and skips that path_spec.
+- With `use_s3_content_type: true`, file extensions are not checked, the same as in ingestion.
+- `buckets` needs `s3:ListAllMyBuckets`, and so does a path_spec whose bucket is a wildcard. A
+  credential scoped to named buckets reports a failure, not an empty list.
+- Recipes over local paths (platform `file`) cannot be probed, and a recipe without
+  `aws_config` is refused, as ingestion refuses it.
 
 ### Limitations
 

@@ -3,8 +3,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { CodeBlock } from '@components/components/CodeBlock';
+import { Editor } from '@components/components/Editor';
+
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
-import { CodeBlock, Editor, Modal } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -31,7 +34,8 @@ const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }

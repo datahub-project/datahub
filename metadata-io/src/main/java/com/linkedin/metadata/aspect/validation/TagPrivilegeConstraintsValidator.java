@@ -15,7 +15,6 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -23,7 +22,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
@@ -136,18 +134,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         currentTagsAspect == null
             ? null
             : RecordUtils.toRecordTemplate(GlobalTags.class, currentTagsAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      newTags = patchItem.applyPatch(currentTags, aspectRetriever).getAspect(GlobalTags.class);
-    } else {
-      newTags = item.getAspect(GlobalTags.class);
-    }
+    newTags =
+        PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
       if (!AuthUtil.isAPIAuthorizedForTagModification(
@@ -192,19 +180,9 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         currentSchemaAspect == null
             ? null
             : RecordUtils.toRecordTemplate(SchemaMetadata.class, currentSchemaAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      schemaMetadata =
-          patchItem.applyPatch(currentSchema, aspectRetriever).getAspect(SchemaMetadata.class);
-    } else {
-      schemaMetadata = item.getAspect(SchemaMetadata.class);
-    }
+    schemaMetadata =
+        PatchItemImpl.resolveProposedAspect(
+            item, currentSchema, aspectRetriever, SchemaMetadata.class);
     if (schemaMetadata != null) {
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {
@@ -250,21 +228,9 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
             ? null
             : RecordUtils.toRecordTemplate(
                 EditableSchemaMetadata.class, currentSchemaAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      editableSchemaMetadata =
-          patchItem
-              .applyPatch(currentSchema, aspectRetriever)
-              .getAspect(EditableSchemaMetadata.class);
-    } else {
-      editableSchemaMetadata = item.getAspect(EditableSchemaMetadata.class);
-    }
+    editableSchemaMetadata =
+        PatchItemImpl.resolveProposedAspect(
+            item, currentSchema, aspectRetriever, EditableSchemaMetadata.class);
     if (editableSchemaMetadata != null) {
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {

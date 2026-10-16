@@ -43,7 +43,7 @@ export class ViewSelectPage extends BasePage {
     this.menuItemSetDefault = page.getByTestId('menu-item-set-default');
     this.menuItemRemoveDefault = page.getByTestId('menu-item-remove-default');
     this.menuItemDelete = page.getByTestId('menu-item-delete');
-    this.confirmDeleteYes = page.getByRole('button', { name: 'Yes' });
+    this.confirmDeleteYes = page.getByRole('dialog').getByTestId('modal-confirm-button');
     this.viewsButton = page.getByTestId('views-button');
     this.viewSelectItem = page.getByTestId('view-select-item');
     this.closeIcon = page.getByTestId('views-clear-button');
@@ -175,6 +175,10 @@ export class ViewSelectPage extends BasePage {
     await this.expectTextVisible(`of ${count} results`);
   }
 
+  async verifyViewNotApplied(viewName: string): Promise<void> {
+    await expect(this.viewsButton).not.toContainText(viewName);
+  }
+
   async verifyDatasetVisible(datasetName: string): Promise<void> {
     await expect(this.entityTitle.filter({ hasText: datasetName })).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
@@ -211,15 +215,17 @@ export class ViewSelectPage extends BasePage {
     await dropdownTrigger.click();
   }
 
-  async editViewFromSelect(currentName: string, newName: string): Promise<void> {
-    await this.openViewDropdown(currentName);
+  async openViewEditor(viewName: string): Promise<void> {
+    await this.openViewDropdown(viewName);
     await this.menuItemEdit.click();
-
     await this.viewNameInput.waitFor({ state: 'visible' });
+    await this.waitForPopoverClose();
+  }
+
+  async renameAndSaveView(newName: string): Promise<void> {
     await this.viewNameInput.clear();
     await this.viewNameInput.fill(newName);
     await this.saveView();
-    await this.waitForPopoverClose();
   }
 
   async setViewAsDefault(viewName: string): Promise<void> {
@@ -240,6 +246,7 @@ export class ViewSelectPage extends BasePage {
     await this.openViewDropdown(viewName);
     await this.menuItemDelete.click();
 
+    await expect(this.confirmDeleteYes).toBeVisible();
     await this.confirmDeleteYes.click();
     await this.page.waitForLoadState('networkidle');
     await this.waitForPopoverClose();

@@ -1,4 +1,3 @@
-import { Text } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
@@ -24,6 +23,7 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getRowKey, getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
+import { Text } from '@components/components/Text';
 
 // Placeholder token for the unsorted state inside React row keys (programmatic, not user-facing).
 const NO_SORT_KEY = 'none';

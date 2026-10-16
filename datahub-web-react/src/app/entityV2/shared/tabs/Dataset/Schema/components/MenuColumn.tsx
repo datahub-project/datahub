@@ -15,6 +15,7 @@ import { useEntityData, useMutationUrn, useRefetch, useRouteToTab } from '@app/e
 import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { useUndeprecateResource } from '@app/entityV2/shared/EntityDropdown/useUndeprecateResource';
 import { canShowEditDeprecation } from '@app/entityV2/shared/EntityDropdown/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import DeleteLogicalModelColumnButton from '@app/entityV2/shared/logicalModels/DeleteLogicalModelColumnButton';
 import EditLogicalModelColumnModal from '@app/entityV2/shared/logicalModels/EditLogicalModelColumnModal';
 import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
@@ -23,8 +24,6 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 import { useAppConfig } from '@app/useAppConfig';
 
 import { SchemaField, SchemaFieldDataType, SubResourceType } from '@types';
-
-const LINEAGE_TAB = 'Lineage';
 
 export const ImpactAnalysisIcon = styled(TreeStructure).attrs({ size: 18 })`
     flex-shrink: 0;
@@ -76,7 +75,7 @@ export default function MenuColumn({ field }: Props) {
             key: 'column-lineage',
             title: t('menuColumn.seeColumnLineage'),
             icon: ImpactAnalysisIcon,
-            onClick: () => routeToTab({ tabName: LINEAGE_TAB, tabParams: { column: field.fieldPath } }),
+            onClick: () => routeToTab({ tabName: EntityTabPath.LINEAGE, tabParams: { column: field.fieldPath } }),
         },
     ];
 

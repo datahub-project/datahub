@@ -1,9 +1,11 @@
-import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -11,13 +13,13 @@ import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/Descr
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { Editor, Tooltip } from '@src/alchemy-components';
+import { Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { MetadataAttribution } from '@types';
 
-const EditIcon = styled(EditOutlined)`
+const EditIcon = styled(PencilSimple).attrs({ size: 14 })`
     cursor: pointer;
     display: none;
     color: ${(props) => props.theme.colors.iconSuccess};
@@ -85,7 +87,8 @@ const StyledViewer = styled(Editor)`
     padding-right: 8px;
     display: block;
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         font-size: 12px;
         font-weight: 400;

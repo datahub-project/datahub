@@ -1,7 +1,9 @@
 import logging
 import pathlib
-from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, Set, TypeVar
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Dict, Iterable, List, Optional, Set, TypeVar
+from urllib.parse import unquote
 
 from databricks.sdk.service.sql import QueryStatementType
 
@@ -11,22 +13,30 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Query, TableReference
+from datahub.ingestion.source.unity.proxy_types import (
+    Query,
+    TableReference,
+    escape_unity_name,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
     SqlParsingAggregator,
     UrnStr,
+    strip_platform_instance,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +64,35 @@ _STATEMENT_TYPE_TO_QUERY_TYPE = {
     QueryStatementType.REPLACE: QueryType.CREATE_TABLE_AS_SELECT,
 }
 
+_SYSTEM_CATALOG = "system"
+_INFORMATION_SCHEMA = "information_schema"
+
+
+def _is_system_table(catalog: str, schema: str) -> bool:
+    # The system catalog and each catalog's information_schema hold Databricks
+    # metadata views, which are datasets only when a recipe ingests them.
+    return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == _INFORMATION_SCHEMA
+
+
+class _LineageNameKind(Enum):
+    INGESTED = "ingested"
+    NOT_INGESTED = "not_ingested"
+    SYSTEM_TABLE = "system_table"
+    MALFORMED = "malformed"
+
+
+@dataclass(frozen=True)
+class _LineageName:
+    kind: _LineageNameKind
+    urn: Optional[UrnStr] = None
+
+
+@dataclass
+class _ResolvedLineage:
+    upstreams: List[UrnStr]
+    targets: List[UrnStr]
+    kinds: Set[_LineageNameKind]
+
 
 @dataclass(eq=False)
 class UnityCatalogUsageExtractor:
@@ -64,6 +103,10 @@ class UnityCatalogUsageExtractor:
     user_urn_builder: Callable[[str], str]
     schema_resolver: SchemaResolver
     platform: str = "databricks"
+    # Lineage names repeat across many queries; the resolver does not cache misses.
+    _lineage_names: Dict[str, _LineageName] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
@@ -77,7 +120,7 @@ class UnityCatalogUsageExtractor:
 
     def _build_aggregator(
         self,
-        is_allowed_table: Optional[Callable[[str], bool]] = None,
+        is_allowed_table: Callable[[str], bool],
     ) -> SqlParsingAggregator:
         # UnityCatalogSourceConfig extends BaseUsageConfig so self.config satisfies
         # the usage_config parameter type.
@@ -136,42 +179,126 @@ class UnityCatalogUsageExtractor:
             return None
         return CorpUserUrn.from_string(self.user_urn_builder(query.user_name))
 
-    def _full_name_to_urn(self, full_name: str) -> Optional[UrnStr]:
+    def _classify_lineage_name(self, full_name: str) -> _LineageName:
+        cached = self._lineage_names.get(full_name)
+        if cached is not None:
+            return cached
         parts = split_databricks_identifier(full_name)
         if parts is None or len(parts) != 3:
+            result = _LineageName(_LineageNameKind.MALFORMED)
+        else:
+            catalog, schema, table = parts
+            # Tables this run ingested are registered in the resolver under the URN
+            # they were emitted with; a SchemaInfo marks the hit.
+            urn, schema_info = self.schema_resolver.resolve_table_parts(
+                database=catalog, db_schema=schema, table=table
+            )
+            if schema_info is not None:
+                result = _LineageName(_LineageNameKind.INGESTED, urn)
+            elif _is_system_table(catalog, schema):
+                result = _LineageName(_LineageNameKind.SYSTEM_TABLE)
+            else:
+                # A table this run did not ingest still becomes a URN, built the same
+                # way as an ingested one, so queries spanning catalogs keep it as a
+                # subject. is_allowed_table limits usage and operations.
+                result = _LineageName(
+                    _LineageNameKind.NOT_INGESTED,
+                    self.table_urn_builder(
+                        TableReference(
+                            metastore=None, catalog=catalog, schema=schema, table=table
+                        )
+                    ),
+                )
+        self._lineage_names[full_name] = result
+        return result
+
+    def _resolve_lineage_name(self, full_name: str) -> _LineageName:
+        name = self._classify_lineage_name(full_name)
+        if name.kind is _LineageNameKind.MALFORMED:
             logger.debug("Skipping unexpected table full name: %s", full_name)
             self.report.num_lineage_tables_unresolvable += 1
             self.report.lineage_tables_unresolvable_sample.append(full_name)
-            return None
-        catalog, schema, table = parts
-        # resolve_table_parts always returns a (synthesized) URN; the SchemaInfo is
-        # the resolution signal. It is None when the table is not in the schema
-        # resolver cache, i.e. not one this recipe ingested. Treating those as
-        # unresolvable keeps preparsed usage scoped to known datasets and lets the
-        # caller fall back to sqlglot instead of emitting confident lineage to a
-        # possibly-nonexistent URN.
-        urn, schema_info = self.schema_resolver.resolve_table_parts(
-            database=catalog, db_schema=schema, table=table
-        )
-        if schema_info is None:
-            logger.debug(
-                "Could not resolve lineage table name to a known dataset: %s",
-                full_name,
-            )
-            self.report.num_lineage_tables_unresolvable += 1
-            self.report.lineage_tables_unresolvable_sample.append(full_name)
-            return None
-        return urn
+        elif name.kind is _LineageNameKind.SYSTEM_TABLE:
+            self.report.num_lineage_tables_system_skipped += 1
+        elif name.kind is _LineageNameKind.NOT_INGESTED:
+            self.report.num_lineage_tables_not_ingested += 1
+            self.report.lineage_tables_not_ingested_sample.add(full_name)
+        return name
 
-    def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
-        urns: List[UrnStr] = []
-        seen: Set[UrnStr] = set()
-        for full_name in full_names:
-            urn = self._full_name_to_urn(full_name)
-            if urn and urn not in seen:
-                seen.add(urn)
-                urns.append(urn)
-        return urns
+    def _is_usage_only_recipe(self) -> bool:
+        return not (self.config.include_tables or self.config.include_views)
+
+    def _make_allowed_table_predicate(
+        self, ingested_urns: Set[str]
+    ) -> Callable[[str], bool]:
+        # Only tables this run ingested are allowed, so usage statistics and
+        # operations are never written for datasets another recipe owns; tables from
+        # other catalogs still reach the aggregator as query subjects. A usage-only
+        # recipe (include_tables and include_views disabled) is scoped by its filter
+        # patterns instead. The mode comes from config rather than from whether any
+        # table was found: metric views always land in table_refs, and a metadata
+        # recipe whose table listing failed must not widen to its patterns.
+        if not self._is_usage_only_recipe():
+            # The aggregator passes the percent-encoded DatasetUrn name with the
+            # resolver's platform_instance stripped, so derive the names from the URNs
+            # this run emitted rather than from the raw table names.
+            instance = self.schema_resolver.platform_instance
+            ingested = {
+                strip_platform_instance(
+                    DatasetUrn.from_string(urn).name, instance
+                ).lower()
+                for urn in ingested_urns
+            }
+            return lambda name: name.lower() in ingested
+        catalogs = self._recipe_catalogs()
+        # The aggregator asks once per table per query; distinct names are bounded.
+        allowed: Dict[str, bool] = {}
+
+        def is_allowed_by_patterns(name: str) -> bool:
+            if name not in allowed:
+                allowed[name] = self._is_allowed_by_patterns(name, catalogs)
+            return allowed[name]
+
+        return is_allowed_by_patterns
+
+    def _recipe_catalogs(self) -> Set[str]:
+        return {c.lower() for c in self.config.catalogs or []}
+
+    def _is_catalog_in_scope(self, catalog: str, catalogs: Set[str]) -> bool:
+        # Like the source's catalog listing: hive_metastore is listed only with
+        # include_hive_metastore, and an empty catalogs list is unrestricted.
+        if catalog.lower() == HIVE_METASTORE and not self.config.include_hive_metastore:
+            return False
+        return (
+            not catalogs or catalog.lower() in catalogs
+        ) and self.config.catalog_pattern.allowed(escape_unity_name(catalog))
+
+    def _covers_hive_metastore(self, table_refs: Set[TableReference]) -> bool:
+        if self._is_usage_only_recipe():
+            return self._is_catalog_in_scope(HIVE_METASTORE, self._recipe_catalogs())
+        return any(ref.catalog == HIVE_METASTORE for ref in table_refs)
+
+    def _is_allowed_by_patterns(self, name: str, catalogs: Set[str]) -> bool:
+        # Applies the catalogs / catalog_pattern / schema_pattern / table_pattern checks
+        # the source uses when listing tables, against the escaped ids it builds (the
+        # deprecated include_metastore prefix is not known here). The name comes from
+        # a dataset URN: reserved characters are percent-encoded and identifier quoting
+        # is gone, so a catalog or schema containing dots cannot be told apart from the
+        # next part. Catalog and schema filters use the leading parts, and
+        # table_pattern sees the full name, the same string the source matches.
+        name = unquote(name)
+        parts = name.split(".")
+        # System and information_schema tables are metadata reads on every route,
+        # including sqlglot, where lineage names are not classified first.
+        if len(parts) < 3 or _is_system_table(parts[0], parts[1]):
+            return False
+        return (
+            self._is_catalog_in_scope(parts[0], catalogs)
+            and self.config.schema_pattern.allowed(
+                f"{escape_unity_name(parts[0])}.{escape_unity_name(parts[1])}"
+            )
+            and self.config.table_pattern.allowed(name)
+        )
 
     @staticmethod
     def _query_type(statement_type: Optional[QueryStatementType]) -> QueryType:
@@ -229,7 +356,9 @@ class UnityCatalogUsageExtractor:
             "total=%s preparsed=%s (%.1f%%) "
             "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
             "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s "
-            "redacted=%s",
+            "not_ingested_lineage_tables=%s system_lineage_tables_skipped=%s "
+            "skipped_system_tables_only=%s skipped_no_ingested_tables=%s "
+            "hive_metastore_sqlglot=%s redacted=%s",
             total,
             preparsed,
             preparsed_pct,
@@ -238,6 +367,11 @@ class UnityCatalogUsageExtractor:
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
+            self.report.num_lineage_tables_not_ingested,
+            self.report.num_lineage_tables_system_skipped,
+            self.report.num_queries_skipped_system_tables_only,
+            self.report.num_queries_skipped_no_ingested_tables,
+            self.report.num_queries_hive_metastore_fallback_to_sqlglot,
             redacted,
         )
 
@@ -276,9 +410,62 @@ class UnityCatalogUsageExtractor:
             base = f"unity-stmt-{query.query_id}"
             return f"{base}-{secondary_id}" if secondary_id else base
 
-    def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
-        upstreams = self._resolve_table_urns(query.source_table_full_names)
-        targets = self._resolve_table_urns(query.target_table_full_names)
+    def _resolve_lineage(self, query: Query) -> _ResolvedLineage:
+        kinds: Set[_LineageNameKind] = set()
+
+        def resolve(full_names: Iterable[str]) -> List[UrnStr]:
+            urns: List[UrnStr] = []
+            for full_name in full_names:
+                name = self._resolve_lineage_name(full_name)
+                kinds.add(name.kind)
+                if name.urn and name.urn not in urns:
+                    urns.append(name.urn)
+            return urns
+
+        return _ResolvedLineage(
+            upstreams=resolve(query.source_table_full_names),
+            targets=resolve(query.target_table_full_names),
+            kinds=kinds,
+        )
+
+    def _is_hive_metastore_urn(self, urn: UrnStr) -> bool:
+        name = strip_platform_instance(
+            DatasetUrn.from_string(urn).name, self.schema_resolver.platform_instance
+        )
+        return name.lower().startswith(f"{HIVE_METASTORE}.")
+
+    def _with_hive_metastore_tables(
+        self, query: Query, lineage: _ResolvedLineage
+    ) -> Optional[_ResolvedLineage]:
+        """Adds the hive_metastore tables the SQL text names, which table_lineage omits.
+
+        Only names qualified with hive_metastore count: the lineage names Unity
+        Catalog tables, so a two-part name may resolve to a Unity Catalog catalog.
+        """
+        if HIVE_METASTORE not in query.query_text.lower():
+            return None
+        self.report.num_queries_hive_metastore_fallback_to_sqlglot += 1
+        parsed = sqlglot_lineage(
+            query.query_text,
+            schema_resolver=self.schema_resolver,
+            generate_column_lineage=False,
+        )
+        upstreams = [
+            urn for urn in parsed.in_tables if self._is_hive_metastore_urn(urn)
+        ]
+        targets = [urn for urn in parsed.out_tables if self._is_hive_metastore_urn(urn)]
+        if not upstreams and not targets:
+            return None
+        return _ResolvedLineage(
+            upstreams=list(dict.fromkeys(lineage.upstreams + upstreams)),
+            targets=list(dict.fromkeys(lineage.targets + targets)),
+            kinds=lineage.kinds,
+        )
+
+    def _to_preparsed_queries(
+        self, query: Query, lineage: _ResolvedLineage
+    ) -> List[PreparsedQuery]:
+        upstreams, targets = lineage.upstreams, lineage.targets
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
@@ -342,11 +529,49 @@ class UnityCatalogUsageExtractor:
         )
         self.report.num_queries_observed_sqlglot += 1
 
+    def _add_preparsed_queries(
+        self,
+        aggregator: SqlParsingAggregator,
+        query: Query,
+        lineage: _ResolvedLineage,
+    ) -> None:
+        if len(lineage.targets) > 1:
+            # Only the first target carries the execution count, so put the targets
+            # the aggregator will emit first.
+            lineage.targets.sort(key=lambda urn: not aggregator.is_allowed_table(urn))
+        preparsed_queries = self._to_preparsed_queries(query, lineage)
+        for preparsed in preparsed_queries:
+            aggregator.add_preparsed_query(preparsed)
+        self.report.num_queries_preparsed_from_lineage += 1
+        logger.debug(
+            "Usage query routed to preparsed lineage path "
+            "(statement_id=%s statement_type=%s "
+            "lineage_sources=%s lineage_targets=%s "
+            "resolved_upstream_urns=%s resolved_downstream_urns=%s)",
+            query.query_id,
+            self._statement_type_label(query),
+            query.source_table_full_names,
+            query.target_table_full_names,
+            len(lineage.upstreams),
+            len(lineage.targets),
+        )
+
+    @staticmethod
+    def _log_route(route: str, query: Query) -> None:
+        logger.debug(
+            "Usage query %s (statement_id=%s lineage_sources=%s lineage_targets=%s)",
+            route,
+            query.query_id,
+            query.source_table_full_names,
+            query.target_table_full_names,
+        )
+
     def _add_query_to_aggregator(
         self,
         aggregator: SqlParsingAggregator,
         query: Query,
         default_db: Optional[str],
+        covers_hive_metastore: bool = False,
     ) -> None:
         # Count every redacted query at the top so the warning fires regardless
         # of which branch below handles it. The preparsed branch still emits
@@ -365,30 +590,49 @@ class UnityCatalogUsageExtractor:
             return
 
         if self._can_use_preparsed_query(query):
-            preparsed_queries = self._to_preparsed_queries(query)
-            if preparsed_queries and (
-                any(p.upstreams for p in preparsed_queries)
-                or any(p.downstream for p in preparsed_queries)
-            ):
-                for preparsed in preparsed_queries:
-                    aggregator.add_preparsed_query(preparsed)
-                self.report.num_queries_preparsed_from_lineage += 1
-                logger.debug(
-                    "Usage query routed to preparsed lineage path "
-                    "(statement_id=%s statement_type=%s "
-                    "lineage_sources=%s lineage_targets=%s "
-                    "resolved_upstream_urns=%s resolved_downstream_urns=%s)",
-                    query.query_id,
-                    self._statement_type_label(query),
-                    query.source_table_full_names,
-                    query.target_table_full_names,
-                    sum(len(p.upstreams) for p in preparsed_queries),
-                    sum(1 for p in preparsed_queries if p.downstream),
+            lineage = self._resolve_lineage(query)
+            names_other_tables = _LineageNameKind.NOT_INGESTED in lineage.kinds
+            if _LineageNameKind.INGESTED in lineage.kinds or (
+                names_other_tables
+                and self._is_usage_only_recipe()
+                and any(
+                    aggregator.is_allowed_table(urn)
+                    for urn in lineage.upstreams + lineage.targets
                 )
+            ):
+                self._add_preparsed_queries(aggregator, query, lineage)
                 return
 
-            # System-table lineage was present but produced no resolvable
-            # dataset URNs. For redacted queries we can't run sqlglot either,
+            if covers_hive_metastore and not query.is_query_text_redacted:
+                hive_metastore_lineage = self._with_hive_metastore_tables(
+                    query, lineage
+                )
+                if hive_metastore_lineage is not None:
+                    self._log_route(
+                        "parsed with sqlglot for hive_metastore tables", query
+                    )
+                    self._add_preparsed_queries(
+                        aggregator, query, hive_metastore_lineage
+                    )
+                    return
+
+            if names_other_tables:
+                # Every table the lineage names is outside this recipe's scope, so
+                # nothing would be emitted; skip it before fingerprinting and storing it.
+                self.report.num_queries_skipped_no_ingested_tables += 1
+                self._log_route("skipped: lineage names no ingested table", query)
+                return
+
+            # When every lineage name is a system / information_schema table, the
+            # query is a metadata read with nothing to attribute usage to, and sqlglot
+            # would find the same tables.
+            if lineage.kinds == {_LineageNameKind.SYSTEM_TABLE}:
+                self.report.num_queries_skipped_system_tables_only += 1
+                self._log_route("skipped: lineage names only system tables", query)
+                return
+
+            # System-table lineage was present but produced no usable dataset
+            # URNs. For redacted queries we can't run sqlglot either,
             # so drop silently — bumping num_queries_preparsed_fallback_to_sqlglot
             # would produce a "parsed with sqlglot" warning that isn't true.
             if query.is_query_text_redacted:
@@ -397,7 +641,7 @@ class UnityCatalogUsageExtractor:
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
             logger.debug(
                 "Usage query fell back to sqlglot: system-table lineage present but "
-                "no resolvable dataset URNs "
+                "no usable dataset URNs "
                 "(statement_id=%s statement_type=%s "
                 "lineage_sources=%s lineage_targets=%s preview=%r)",
                 query.query_id,
@@ -459,8 +703,9 @@ class UnityCatalogUsageExtractor:
             (
                 self.report.num_queries_preparsed_fallback_to_sqlglot,
                 "System-table lineage fell back to SQL parsing",
-                "Queries had table lineage from system tables but no resolvable "
-                "dataset URNs; those queries were parsed with sqlglot instead.",
+                "Queries had table lineage from system tables but no usable table "
+                "names (not catalog.schema.table identifiers); those queries were "
+                "parsed with sqlglot instead.",
             ),
         ):
             if count > 0:
@@ -506,8 +751,9 @@ class UnityCatalogUsageExtractor:
             self.report.warning(
                 title="Unresolvable lineage table names",
                 message=(
-                    "Table names from system.access.table_lineage could not be mapped "
-                    "to dataset URNs and were omitted from preparsed usage."
+                    "Table names from system.access.table_lineage were not "
+                    "catalog.schema.table identifiers and were omitted from "
+                    "preparsed usage."
                 ),
                 context=context,
                 log=False,
@@ -556,11 +802,46 @@ class UnityCatalogUsageExtractor:
             log=False,
         )
 
+    def _report_usage_scope_warnings(self, table_refs: Set[TableReference]) -> None:
+        if not table_refs and not self._is_usage_only_recipe():
+            self.report.warning(
+                title="No ingested tables to attribute usage to",
+                message="Usage statistics, operations and Query entities are emitted "
+                "only for tables this recipe ingests, and it ingested none. To collect "
+                "usage without ingesting tables, set include_tables and include_views "
+                "to false; the recipe's filter patterns then scope usage.",
+            )
+        if self.config.include_metastore:
+            self.report.warning(
+                title="Usage with include_metastore is not attributed to tables",
+                message="With the deprecated include_metastore option, dataset URNs "
+                "include the metastore id while query history does not, so usage "
+                "cannot be matched to ingested tables. Disable include_metastore to "
+                "collect usage.",
+            )
+
+    @staticmethod
+    def _mark_tables_not_ingested_non_primary(
+        stream: Iterable[MetadataWorkUnit], ingested_urns: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        # Usage and operations a usage-only recipe writes for tables another recipe
+        # ingests must not make this recipe their owner: non-primary workunits are
+        # skipped by the automatic status aspect and by stale-entity removal.
+        for wu in stream:
+            urn = wu.get_urn()
+            if (
+                guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+                and urn not in ingested_urns
+            ):
+                wu.is_primary_source = False
+            yield wu
+
     def _parse_buffered_queries(
         self,
         aggregator: SqlParsingAggregator,
         buffered_queries: FileBackedList[Query],
         default_db: Optional[str],
+        covers_hive_metastore: bool,
     ) -> None:
         # Iterate by index so a single unreadable row (e.g. a corrupt cached entry) can
         # be skipped without aborting the rest — a generator closes on the first raise.
@@ -593,7 +874,12 @@ class UnityCatalogUsageExtractor:
                 )
                 continue
             try:
-                self._add_query_to_aggregator(aggregator, query, default_db=default_db)
+                self._add_query_to_aggregator(
+                    aggregator,
+                    query,
+                    default_db=default_db,
+                    covers_hive_metastore=covers_hive_metastore,
+                )
             except (
                 MemoryError,
                 SystemExit,
@@ -615,45 +901,13 @@ class UnityCatalogUsageExtractor:
                     log=False,
                 )
 
-    @staticmethod
-    def _make_allowed_table_predicate(
-        locally_discovered: Set[str],
-        resolver: SchemaResolver,
-    ) -> Optional[Callable[[str], bool]]:
-        """Build the is_allowed_table predicate for the usage aggregator.
-
-        Locally-discovered tables pass via fast set membership. When the schema
-        resolver has a graph, tables that exist in DataHub but were not discovered
-        by this recipe are also allowed — so queries referencing tables from other
-        catalogs produce query entities instead of being silently dropped.
-        """
-        if not locally_discovered:
-            return None
-
-        def _is_allowed_table(name: str) -> bool:
-            if name.lower() in locally_discovered:
-                return True
-            if resolver.graph is not None:
-                urn, schema_info = resolver.resolve_table_parts(
-                    database=None, db_schema=None, table=name
-                )
-                return schema_info is not None
-            return False
-
-        return _is_allowed_table
-
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
-        # The aggregator's _name_from_urn strips the platform_instance prefix from
-        # the URN, yielding a bare "catalog.schema.table" name that it passes to the
-        # predicate. TableReference.qualified_table_name returns the same 3-part bare
-        # form, so we use it directly — using DatasetUrn.name here would include the
-        # platform_instance prefix when one is configured, causing a mismatch.
-        locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
-        is_allowed_table = self._make_allowed_table_predicate(
-            locally_discovered, self.schema_resolver
-        )
+        ingested_urns = {self.table_urn_builder(ref) for ref in table_refs}
+        is_allowed_table = self._make_allowed_table_predicate(ingested_urns)
+        covers_hive_metastore = self._covers_hive_metastore(table_refs)
+        self._report_usage_scope_warnings(table_refs)
 
         # Databricks query history has no per-query session catalog/schema (unlike
         # Snowflake), so we can't derive a per-query default_db.  When the recipe
@@ -774,13 +1028,17 @@ class UnityCatalogUsageExtractor:
                 self._report_no_queries()
 
             with self.report.usage_parsing_timer:
-                self._parse_buffered_queries(aggregator, buffered_queries, default_db)
+                self._parse_buffered_queries(
+                    aggregator, buffered_queries, default_db, covers_hive_metastore
+                )
             self._log_usage_routing_summary()
             self._report_usage_lineage_warnings()
 
             yield from auto_empty_dataset_usage_statistics(
-                auto_workunit(aggregator.gen_metadata()),
-                dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
+                self._mark_tables_not_ingested_non_primary(
+                    auto_workunit(aggregator.gen_metadata()), ingested_urns
+                ),
+                dataset_urns=set(ingested_urns),
                 config=self.config,
             )
         finally:
