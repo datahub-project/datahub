@@ -279,7 +279,18 @@ def _compose_physical_name(
     `(name, None, passthrough)` on success or `(None, reason, False)` when the
     name cannot be composed. Lowercasing applies only to platforms whose
     connectors lowercase by default (see LOWERCASE_BY_DEFAULT_PLATFORMS).
+    Values containing an unresolved `${...}` variable are refused.
     """
+    # ODCS v3.2 (RFC 0050) allows ${VAR} / ${VAR:-default} in any string. This
+    # source does not resolve them; composing one into a URN would bind the
+    # logical dataset to a dataset that does not exist.
+    if "${" in table:
+        return (
+            None,
+            f"physicalName '{table}' contains an unresolved ODCS variable; "
+            "resolve it or supply a physical_urn_overrides entry",
+            False,
+        )
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
@@ -295,6 +306,14 @@ def _compose_physical_name(
     missing: List[str] = []
     for attr in parts_spec:
         value = getattr(server, attr)
+        if value and "${" in str(value):
+            return (
+                None,
+                f"server '{server.server}' {attr.rstrip('_')} '{value}' contains an "
+                "unresolved ODCS variable; resolve it or supply a "
+                "physical_urn_overrides entry",
+                False,
+            )
         if value:
             values.append(str(value))
         else:

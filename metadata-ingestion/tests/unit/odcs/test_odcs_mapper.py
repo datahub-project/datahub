@@ -1303,3 +1303,33 @@ def test_property_synonyms_emit_field_ai_context() -> None:
     assert not _aspects_for(
         mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
     )
+
+
+@pytest.mark.parametrize(
+    "server_db,physical_name",
+    [
+        ("${DB}", "tbl"),  # variable in a composed server field
+        ("${DB:-analytics}", "tbl"),  # POSIX default form is still unresolved
+        ("analytics", "${TABLE}"),  # variable in the table name
+        ("analytics", "${DB}.public.tbl"),  # dotted pass-through name
+    ],
+)
+def test_binding_unresolved_variable_leaves_unbound(
+    server_db: str, physical_name: str
+) -> None:
+    contract = _make_contract(
+        api_version="v3.2.0",
+        servers=[
+            {
+                "server": "srv",
+                "type": "postgres",
+                "database": server_db,
+                "schema": "public",
+            }
+        ],
+        schema=[{"name": "t1", "physicalName": physical_name}],
+    )
+    bindings = odcs_to_physical_bindings(contract, _config())
+    assert bindings[0].physical_urn is None
+    assert bindings[0].unmapped_reason is not None
+    assert "unresolved ODCS variable" in bindings[0].unmapped_reason
