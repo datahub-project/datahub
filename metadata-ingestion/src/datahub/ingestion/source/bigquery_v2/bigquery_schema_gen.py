@@ -1522,8 +1522,8 @@ class BigQuerySchemaGenerator:
                         )
                     )
 
-                # We have to add complex type comments to the correct level
-                if col.comment:
+                # Attach complex field metadata at the matching level, not its parent.
+                if col.comment or col.policy_tags:
                     for idx, field in enumerate(schema_fields):
                         # Remove all the [version=2.0].[type=struct]. tags to get the field path
                         if (
@@ -1536,7 +1536,15 @@ class BigQuerySchemaGenerator:
                             )
                             == col.field_path.lower()
                         ):
-                            field.description = col.comment
+                            if col.comment:
+                                field.description = col.comment
+                            if col.policy_tags:
+                                field.globalTags = GlobalTagsClass(
+                                    tags=[
+                                        TagAssociationClass(make_tag_urn(policy_tag))
+                                        for policy_tag in col.policy_tags
+                                    ]
+                                )
                             schema_fields[idx] = field
                             break
             else:
