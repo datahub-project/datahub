@@ -6813,8 +6813,10 @@ def test_schema_fields_from_csn_appends_calculated_formula():
     # carries just the formula. "Quantity" is genuine text and becomes the description.
     assert by_path["TOTAL"].description == "formula: PRICE * QTY"
     assert by_path["QTY"].description == "Quantity"
+    # The suppressed "Total" label leaves the label slot empty; "Quantity" populates it
+    # (the label slot backs the fieldLabels search index).
     assert by_path["TOTAL"].label is None
-    assert by_path["QTY"].label is None
+    assert by_path["QTY"].label == "Quantity"
     assert source.report.calculated_column_formulas_emitted == 1
 
 

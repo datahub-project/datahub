@@ -110,7 +110,11 @@ class EdmxParser:
 
             prop_target = f"{entity_target}/{prop_name}"
             prop_annots = annotations_map.get(prop_target, {})
-            description = description_from_source_label(
+            # SAP's single business label feeds both the visible description (the schema
+            # UI does not render the deprecated label slot) and the label slot itself,
+            # which still backs the fieldLabels search index. Dropped when it only repeats
+            # the name.
+            source_label = description_from_source_label(
                 prop_annots.get("Common.Label"), prop_name
             )
 
@@ -134,10 +138,11 @@ class EdmxParser:
                 edm_type=edm_type,
                 nullable=nullable,
                 is_key=prop_name in key_props,
-                description=description,
+                description=source_label,
                 native_type=native_type,
                 unknown_sink=unknown_edm_types_local,
             )
+            field.label = source_label
             schema_fields.append(field)
             if custom_props:
                 field_custom_props[prop_name] = custom_props

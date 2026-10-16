@@ -48,10 +48,11 @@ def test_byte_type_mapped_to_number():
 def test_common_label_becomes_field_description():
     result = _parse()
     date_sql = next(f for f in result.fields if f.fieldPath == "DATE_SQL")
-    # The deprecated SchemaField.label is not rendered by the schema UI, so the single
-    # source label is surfaced as the visible description instead.
+    # The source label is surfaced as the visible description (the schema UI does not
+    # render the deprecated label slot) and also kept in the label slot for the
+    # fieldLabels search index.
     assert date_sql.description == "Date"
-    assert date_sql.label is None
+    assert date_sql.label == "Date"
 
 
 def test_calendar_annotation_in_custom_props():

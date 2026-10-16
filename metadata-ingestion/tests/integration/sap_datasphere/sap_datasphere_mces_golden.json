@@ -464,6 +464,7 @@
                     "fieldPath": "QUANTITY",
                     "nullable": true,
                     "description": "Quantity sold",
+                    "label": "Quantity sold",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -477,6 +478,7 @@
                     "fieldPath": "AMOUNT_USD",
                     "nullable": true,
                     "description": "Amount in USD",
+                    "label": "Amount in USD",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -813,6 +815,7 @@
                     "fieldPath": "MONTH_INT",
                     "nullable": true,
                     "description": "Month (Number)",
+                    "label": "Month (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -970,6 +973,7 @@
                     "fieldPath": "DATE_SQL",
                     "nullable": false,
                     "description": "Calendar Date",
+                    "label": "Calendar Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -1524,6 +1528,7 @@
                     "fieldPath": "TOTAL_REVENUE",
                     "nullable": true,
                     "description": "Total Revenue",
+                    "label": "Total Revenue",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}

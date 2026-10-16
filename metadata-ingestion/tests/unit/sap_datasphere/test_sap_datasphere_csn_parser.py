@@ -28,10 +28,10 @@ def test_parses_string_type():
     f = fields[0]
     assert f.fieldPath == "MONTH"
     assert isinstance(f.type.type, StringTypeClass)
-    # The single source label becomes the visible description; the deprecated label
-    # slot is left unset.
+    # The single source label becomes the visible description and is also kept in the
+    # label slot, which backs the fieldLabels search index.
     assert f.description == "Calendar Month"
-    assert f.label is None
+    assert f.label == "Calendar Month"
     assert "2" in f.nativeDataType
 
 
