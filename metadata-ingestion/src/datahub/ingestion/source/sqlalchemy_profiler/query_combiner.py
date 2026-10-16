@@ -41,6 +41,12 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
 
+
+def _never_a_timeout(e: Exception) -> bool:
+    """Default for a combiner built without an adapter, as the tests are."""
+    return False
+
+
 _StatementT = TypeVar("_StatementT")
 
 SINGLE_ROW_EXECUTION_OPTION = "datahub_single_row"
@@ -55,7 +61,7 @@ row-filtering WHERE.
 
 WHY IT MATTERS: SQLAlchemyQueryCombiner folds tagged statements into a single
 round-trip by wrapping each one in a CTE and cross-joining up to
-MAX_QUERIES_TO_COMBINE_AT_ONCE of them. That transform is only valid when every
+max_queries_to_combine of them. That transform is only valid when every
 CTE yields exactly one row. A tagged statement that returns zero rows (a
 filtered catalog lookup that misses) or two rows (an OFFSET/LIMIT window)
 collapses or multiplies the join, trips the row-count assertion in
@@ -383,6 +389,13 @@ class SQLAlchemyQueryCombinerReport(Report):
 
     query_exceptions: int = 0
 
+    # Of those, how many the server ended on query_timeout_seconds. Without
+    # this the user sees only "Unable to Calculate Max/Min" and nothing ties it
+    # to the limit they set. A table whose exact row count is skipped has no
+    # query that can fail first and stop the rest, so every query pays the
+    # limit on its own -- which this is the signal for.
+    query_timeouts: int = 0
+
     # Rollbacks before a retry that raised. Non-zero means the retried queries
     # likely ran in an aborted transaction, so their failures are collateral.
     rollback_failures: int = 0
@@ -408,6 +421,11 @@ class SQLAlchemyQueryCombiner:
     flatten_enabled: bool = False
     # See DEFAULT_MAX_DISTINCT_PER_STATEMENT.
     max_distinct_per_statement: int = DEFAULT_MAX_DISTINCT_PER_STATEMENT
+    # See MAX_QUERIES_TO_COMBINE_AT_ONCE.
+    max_queries_to_combine: int = MAX_QUERIES_TO_COMBINE_AT_ONCE
+    # Supplied by the profiler from the platform adapter. Kept as a predicate
+    # rather than an adapter reference so the combiner stays unaware of them.
+    is_query_timeout: Callable[[Exception], bool] = _never_a_timeout
 
     # The Python GIL ensures that modifications to the report's counters
     # are safe.
@@ -461,6 +479,11 @@ class SQLAlchemyQueryCombiner:
     def _generate_query_id() -> str:
         # Short 5-character ID for correlating query execution logs.
         return "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+
+    def _count_exception(self, e: Exception) -> None:
+        self.report.query_exceptions += 1
+        if self.is_query_timeout(e):
+            self.report.query_timeouts += 1
 
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
@@ -590,7 +613,7 @@ class SQLAlchemyQueryCombiner:
                     f"Failed to execute query normally, using fallback: {str(query)}"
                 )
                 logger.debug("Failed to execute query normally", exc_info=e)
-                self.report.query_exceptions += 1
+                self._count_exception(e)
                 return _sa_execute_underlying_method(conn, query, *args, **kwargs)
             else:
                 if handled:
@@ -660,7 +683,7 @@ class SQLAlchemyQueryCombiner:
         pending_queue = dict(
             itertools.islice(
                 sorted(pending_queue.items(), key=lambda kv: not kv[1].is_gate),
-                MAX_QUERIES_TO_COMBINE_AT_ONCE,
+                self.max_queries_to_combine,
             )
         )
 
@@ -679,7 +702,7 @@ class SQLAlchemyQueryCombiner:
         except Exception as e:
             if not self.serial_execution_fallback_enabled:
                 raise
-            self.report.query_exceptions += 1
+            self._count_exception(e)
             gated = (
                 " Queries behind it are skipped rather than run."
                 if any(fut.is_gate for fut in queue.values())
@@ -852,7 +875,7 @@ class SQLAlchemyQueryCombiner:
                 self.report.flat_group_failures += 1
                 if not self.serial_execution_fallback_enabled:
                     raise
-                self.report.query_exceptions += 1
+                self._count_exception(e)
                 logger.warning(
                     f"Failed to execute flat group of {len(members)} queries "
                     f"over {froms} ({type(e).__name__}); will attempt CTE "
@@ -891,6 +914,17 @@ class SQLAlchemyQueryCombiner:
                             k: fut for k, fut in group_queue.items() if not fut.done
                         }
                     if not group_queue:
+                        continue
+                    if self.is_query_timeout(e):
+                        # The CTE re-route cross-joins one subquery per query,
+                        # so it scans the table once per query where the flat
+                        # statement scanned it once. A statement the server ran
+                        # out of time on cannot finish in a shape that costs
+                        # more; attempting it just spends the limit again.
+                        self.report.flat_group_serial_fallbacks += 1
+                        self._execute_futures_serially(
+                            [fut for _, fut in members if not fut.done]
+                        )
                         continue
                     try:
                         self._execute_cte_combine(group_queue)
@@ -1156,7 +1190,7 @@ class SQLAlchemyQueryCombiner:
                     "Failed to execute queue using combiner, will fallback to execute one by one."
                 )
                 logger.debug("Failed to execute queue using combiner", exc_info=e)
-                self.report.query_exceptions += 1
+                self._count_exception(e)
                 self._execute_queue_fallback(main_greenlet)
 
             for let in list(pool):

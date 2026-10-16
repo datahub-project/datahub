@@ -267,6 +267,21 @@ class TestBatchingAndPartitioning:
         assert cap.result.scalar() == 3
         assert not any("WITH" in s.upper() for s in statements)
 
+    def test_max_queries_to_combine_knob_splits_the_batch(self, engine, test_table):
+        # 4 queries with a cap of 2 take two statements; the module default of
+        # 40 would take one.
+        queries = [
+            sa.select(sa.func.count().label(f"rowcount_{i}")).select_from(test_table)
+            for i in range(4)
+        ]
+        combiner = _make_combiner(max_queries_to_combine=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.result.scalar() == 3 for c in caps)
+        assert combiner.report.combined_queries_issued == 2
+
     def test_untagged_query_goes_uncombined(self, engine, test_table):
         # The single-row tag partitions the queue: an untagged query is NOT
         # batched — it goes out via uncombined and runs normally. This is the
@@ -1012,6 +1027,48 @@ class TestFlattenPath:
 
         assert calls[:2] == ["rollback", "cte"]
         assert combiner.report.flat_group_cte_recoveries == 1
+        assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
+
+    def test_a_timed_out_flat_group_skips_the_cte_reroute(self, engine, test_table):
+        # The re-route cross-joins one subquery per query, so it scans the
+        # table once per query where the flat statement scanned it once. A
+        # statement the server ran out of time on cannot finish in a shape that
+        # costs more, and attempting it spends the limit a second time.
+        queries = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(2)
+        ]
+        combiner = _make_combiner(flatten_enabled=True, is_query_timeout=lambda e: True)
+        calls: List[str] = []
+
+        def _cte_must_not_run(queue: Any) -> None:
+            # Raises rather than returning: a stub that "succeeds" without
+            # resolving the futures leaves flush() waiting forever, so a
+            # regression here would hang the suite instead of failing it.
+            calls.append("cte")
+            raise sa.exc.OperationalError("SELECT", {}, Exception("x"))
+
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(
+                combiner,
+                "_execute_flat_select",
+                side_effect=sa.exc.OperationalError("SELECT", {}, Exception("x")),
+            ),
+            patch.object(
+                combiner, "_execute_cte_combine", side_effect=_cte_must_not_run
+            ),
+        ):
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert calls == []
+        assert combiner.report.flat_group_cte_recoveries == 0
+        assert combiner.report.flat_group_serial_fallbacks == 1
+        assert combiner.report.query_timeouts == 1
+        # Serial still runs: one scan computing one aggregate can finish where
+        # one scan computing many did not.
         assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
 
 

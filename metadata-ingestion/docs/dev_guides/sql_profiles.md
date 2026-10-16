@@ -76,6 +76,40 @@ Only single-aggregate-over-a-whole-table queries are flattened. Anything the pro
 
 `max_distinct_per_statement` (default 5) caps how many `COUNT(DISTINCT)` columns share one statement. The default is a starting point rather than a measured optimum.
 
+`max_queries_to_combine` (default 40) caps how many **queries** share one statement — not columns. A 12-column numeric table issues 109 queries under default settings, 85 of them combinable, because each column contributes several and an unsampled median adds more; a table of strings queues far fewer. Raising it cuts round trips, and with flattening on it also cuts scans, because a flattened statement is one aggregate list over one table. With flattening off each merged query is still its own aggregate, so only round trips fall.
+
+The database bounds how far it can usefully be raised: a merged statement cross-joins one subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that every merged statement fails and is retried one query at a time. A value above the limit is therefore slower than not combining at all; the profiler warns at startup when it can tell, which it can for MySQL, MariaDB and SQLite.
+
+A flattened statement does not join, so its normal path is not subject to that limit. Its recovery is: a flat statement that fails is re-routed through the joining path, so above the limit that recovery skips straight to one query at a time.
+
+The other trade is that a statement which fails is retried one query at a time, and that retry is scoped to the batch that failed — so a bigger batch means a bigger retry.
+
+Measured on a 20-column numeric SQLite table (101 queued queries, with sample values, median and stddev off):
+
+| `max_queries_to_combine` | flattening off | flattening on, flat form rejected |
+| ------------------------ | -------------- | --------------------------------- |
+| 40                       | 3 statements   | 6 statements                      |
+| 100 (above SQLite's 64)  | 102 statements | 83 statements                     |
+
+### Bounding how long one statement runs
+
+Combining and flattening reduce how many statements run, but not how long one of them takes, and a single aggregate over a very large table holds a read view for its whole duration — growing the InnoDB undo log on MySQL, blocking `VACUUM` on Postgres.
+
+`profiling.query_timeout_seconds` puts a server-side limit on each profiling statement (`max_execution_time` on MySQL, `statement_timeout` on Postgres; only these two are implemented, and every other platform — MariaDB included, despite having `max_statement_time` — ignores the option). The limit is set on the profiling connection and the session's previous value put back when the table is done, so it neither leaks to the connection pool that metadata extraction shares nor discards a limit the session already carried.
+
+**Pair it with `profiling_isolation_level: AUTOCOMMIT`.** The isolation level decides whether the limit does its job, and the profiler warns when it does not:
+
+- On Postgres a timed-out statement leaves the transaction aborted, at every level below `AUTOCOMMIT`. The combiner rolls back before each of its own retries, but the per-column queries that follow — quantiles, histograms, value frequencies, sample values — do not, so the whole table loses them. Under AUTOCOMMIT only the slow column loses its metrics.
+- On MySQL nothing is lost that way at any level, but the default `REPEATABLE READ` holds the read view from the first statement until the commit, so a per-statement limit does not bound the thing this option exists to bound. `AUTOCOMMIT` or `READ COMMITTED` restores the bound, and neither is warned about.
+
+Under AUTOCOMMIT, a statement that exceeds the limit does not cost the whole table. It is retried one query at a time, so columns whose own query then succeeds are still profiled and only the slow ones lose their metrics; a table is left without field profiles only when the row count itself times out.
+
+Size it with that retry in mind: a table whose columns are each slow enough to time out costs roughly the limit **per profiling query**, which on a wide table is many multiples of it.
+
+**Do not pair it with `profile_table_row_count_estimate_only: true` on a table that cannot be scanned inside the limit.** The exact row count is what stops such a table early: it runs first, times out, and the rest of the table is skipped. Replace it with a catalog estimate and no query can fail first, so every query pays the limit on its own. Measured on a table whose full scan takes about 1.5 s with a 1 s limit: 4 statements and 6.2 s with no limit, against 64 statements and 62.6 s with one — ten times the server work, and the field profiles lost either way. `query_timeouts` in the report is the signal; a value near the number of profiling queries means this is happening.
+
+Behind a connection pooler in transaction mode (PgBouncer and similar) the limit is not reliable: the `SET` is committed in its own transaction and so is the restore, and each may land on a different server connection.
+
 #### Reading the report
 
 Flattening trades round trips for scans, so `combined_queries_issued` can rise while scans fall — read it together with `scans_avoided` rather than treating the rise as a regression.
@@ -98,6 +132,10 @@ Two more counters are about the row-count gate rather than flattening, and a hig
 | ----------------------------- | -------------------------------------------------------------------------------------------------- |
 | `queries_skipped_after_gate`  | queries never issued because the table's row count failed on its own, so it could not be read      |
 | `queries_skipped_empty_table` | queries never issued because the exact row count was 0, so their results would have been discarded |
+
+| counter          | meaning                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `query_timeouts` | statements the server ended on `query_timeout_seconds`; a subset of `query_exceptions` |
 
 ### Sampling
 
