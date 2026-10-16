@@ -192,6 +192,39 @@ public class JavaEntityClientTest {
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
   }
 
+  /**
+   * A refused submit reaches the system client's caller as a failure: nothing is deleted in-process
+   * instead. The hard-delete dispatcher throws when the delete it took cannot be submitted.
+   */
+  @Test
+  void testTheSystemClientThrowsWhenTheDispatcherRefusesTheDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:systemClientRefused");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    when(dispatcher.dispatch(any(), any())).thenThrow(new IllegalStateException("refused"));
+    SystemJavaEntityClient client =
+        new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            rollbackService,
+            _eventProducer,
+            new EntityClientCacheConfig(),
+            EntityClientConfig.builder().batchGetV2Size(1).build(),
+            _metricUtils,
+            hardDeleteService(true, dispatcher));
+
+    assertThrows(IllegalStateException.class, () -> client.deleteEntity(opContext, urn));
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verify(_entityService, never())
+        .deleteUrn(any(OperationContext.class), any(Urn.class), any(DeleteCeiling.class));
+  }
+
   @Test
   void testDeleteEntityFailureDoesNotFallBackToInlineDelete() {
     Urn urn = UrnUtils.getUrn("urn:li:tag:serviceFails");
