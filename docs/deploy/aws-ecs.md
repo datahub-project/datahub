@@ -48,7 +48,7 @@ MAE and MCE can also be deployed as separate ECS services when they need to be s
 The deployment also uses a one-time ECS task for DataHub System Update. The DataHub Docker images include `acryldata/datahub-upgrade`, which runs System Update and performs SQL and search-index setup when configured to do so.
 
 <p align="center">
-  <img width="90%" src="aws-ecs-architecture.svg"/>
+  <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-ecs-architecture.svg"/>
 </p>
 
 *If your environment should not be publicly accessible at all, remove the ALB from the public subnet, and reach Frontend through a VPN or other private connectivity.*
