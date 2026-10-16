@@ -1742,7 +1742,7 @@ class TestLimitOffsetContract:
             sqlite_engine.connect() as conn,
             patch.object(profiler, "base_engine") as mock_engine,
             # Stop after the table-level stage; the partition spec is set by then.
-            patch.object(profiler, "_profile_row_count", return_value=0),
+            patch.object(profiler, "_extract_row_count", return_value=0),
             patch(
                 "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter",
                 return_value=adapter,
