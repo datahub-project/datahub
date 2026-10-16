@@ -302,11 +302,14 @@ public class FormAssignmentAuthorizationValidatorTest {
                 + "\"}}]");
     Mockito.when(item.getAspectSpec())
         .thenReturn(registry.getEntitySpec("dataset").getAspectSpec(FORMS_ASPECT_NAME));
-    Mockito.when(item.getGenericJsonPatch())
-        .thenReturn(
-            GenericJsonPatch.builder()
-                .arrayPrimaryKeys(Map.of("incompleteForms", List.of("urn")))
-                .build());
+    // Built before stubbing: a failure inside when(...) leaves an unfinished stub that breaks the
+    // next test's setup.
+    final GenericJsonPatch generic =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("incompleteForms", List.of("urn")))
+            .patch(List.of())
+            .build();
+    Mockito.when(item.getGenericJsonPatch()).thenReturn(generic);
 
     Assert.assertNull(
         FormAssignmentAuthorizationValidator.resolveProposed(
