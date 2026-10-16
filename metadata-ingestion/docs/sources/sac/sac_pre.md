@@ -45,11 +45,11 @@ To also ingest **non-public** content (private `My Files` and team folders), ena
 `ingest_private_content`. What you actually get back depends on the OAuth client's permissions,
 because SAC scopes results to the requesting principal:
 
-| Mode | Recipe | OAuth client permissions | What is ingested |
-| --- | --- | --- | --- |
-| **Public only** (default) | _(none)_ | `Story Listing` | All public stories and applications. |
-| **What the client can see** | `ingest_private_content: true` | `Story Listing` + `File Repository Read` | Public content **plus** any private/team content directly shared with the OAuth client. A client-credentials client owns no personal content, so in practice this adds only content explicitly shared with it. |
-| **Tenant-wide** | `ingest_private_content: true`<br/>`apply_manage_privilege: true` | `Story Listing` + `File Repository Read` + a role with the **Manage** privilege on **Private Files** and/or **Public Files** | Public content **plus all** private and team content on the tenant (SAC's administrative `System` view). |
+| Mode                        | Recipe                                                            | OAuth client permissions                                                                                                     | What is ingested                                                                                                                                                                                               |
+| --------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Public only** (default)   | _(none)_                                                          | `Story Listing`                                                                                                              | All public stories and applications.                                                                                                                                                                           |
+| **What the client can see** | `ingest_private_content: true`                                    | `Story Listing` + `File Repository Read`                                                                                     | Public content **plus** any private/team content directly shared with the OAuth client. A client-credentials client owns no personal content, so in practice this adds only content explicitly shared with it. |
+| **Tenant-wide**             | `ingest_private_content: true`<br/>`apply_manage_privilege: true` | `Story Listing` + `File Repository Read` + a role with the **Manage** privilege on **Private Files** and/or **Public Files** | Public content **plus all** private and team content on the tenant (SAC's administrative `System` view).                                                                                                       |
 
 `apply_manage_privilege` appends `applyManagePrivilege=true` to the resource requests. Without the
 Manage privilege on the OAuth client it has no effect, so combine it with the permission grant above.
@@ -58,6 +58,12 @@ When `ingest_private_content` is enabled the connector reads each resource's `fo
 SAC File Repository API (`/api/v1/filerepository/Resources`) so the built-in root folders are
 labeled by type rather than by their language-localized display name. The canonical labels are configurable via `public_root_folder_name` (default `Public`) and
 `private_root_folder_name` (default `My Files`). Team folders and other roots keep their given names.
+
+All private content shares a single `private_root_folder_name` root. When `apply_manage_privilege`
+surfaces other users' private content, their stories are grouped under the same `My Files` browse tree
+rather than a per-user folder; each asset's owner is still recorded individually via its `createdBy`
+ownership.
+
 If the File Repository API is unavailable, or a public resource is missing from it (a permission
 skew between `Story Listing` and `File Repository Read`, or paging truncation), public roots are
 still canonicalized from each resource's own `isPublic` flag; only non-public roots then fall back to
