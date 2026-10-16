@@ -26,7 +26,9 @@ import com.linkedin.metadata.config.search.custom.FieldConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
@@ -1834,6 +1836,18 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     return configured != null ? configured : fields;
   }
 
+  /** Search V3 queries the resolved annotation. A {@code v3} override does not change Search V2. */
+  @Override
+  @Nonnull
+  protected Optional<SearchableAnnotation> unqualifiedQueryAnnotation(
+      @Nonnull SearchableFieldSpec fieldSpec) {
+    final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    if (!resolved.isV3Searchable() || !resolved.isQueryByDefault()) {
+      return Optional.empty();
+    }
+    return Optional.of(resolved);
+  }
+
   @Override
   public Set<SearchFieldConfig> getStandardFields(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
@@ -1966,7 +1980,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
             .collect(Collectors.toCollection(HashSet::new));
     for (String name : fullTextFields.keySet()) {
       final Set<String> subfields = analyzerSubfields.getOrDefault(name, Set.of());
-      final float boost = weight(name) * partialConfiguration.getFactor();
+      final float boost = weight(entitySpecs, name) * partialConfiguration.getFactor();
       final String indexed = name;
       if (subfields.contains(TEXT)) {
         fields.add(sharedField(indexed, name, TEXT, TEXT_SEARCH_ANALYZER, boost));

@@ -253,6 +253,18 @@ public class SearchQueryBuilder {
   }
 
   /**
+   * The annotation an unqualified query uses for this field. Search V2 uses the annotation as
+   * written. Search V3 uses the resolved annotation, so a {@code v3} override replaces the
+   * top-level {@code queryByDefault} and {@code boostScore}.
+   */
+  @Nonnull
+  protected Optional<SearchableAnnotation> unqualifiedQueryAnnotation(
+      @Nonnull SearchableFieldSpec fieldSpec) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+    return annotation.isQueryByDefault() ? Optional.of(annotation) : Optional.empty();
+  }
+
+  /**
    * Return query by default fields
    *
    * @param entityRegistry entity registry with search annotations
@@ -265,24 +277,24 @@ public class SearchQueryBuilder {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
-      if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
+      Optional<SearchableAnnotation> queryAnnotation = unqualifiedQueryAnnotation(fieldSpec);
+      if (queryAnnotation.isEmpty()) {
         continue;
       }
+      SearchableAnnotation annotation = queryAnnotation.get();
 
-      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(fieldSpec);
+      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(annotation);
       fields.add(searchFieldConfig);
 
-      if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasDelimitedSubfield()) {
-        final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
-
+      if (searchFieldConfig.hasDelimitedSubfield()) {
         fields.add(
             SearchFieldConfig.detectSubFieldType(
                 searchFieldConfig.fieldName() + ".delimited",
                 searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                searchableAnnotation.getFieldType(),
-                searchableAnnotation.isQueryByDefault()));
+                annotation.getFieldType(),
+                true));
 
-        if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
+        if (searchFieldConfig.hasWordGramSubfields()) {
           addWordGramSearchConfig(fields, searchFieldConfig);
         }
       }
