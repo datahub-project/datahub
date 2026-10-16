@@ -9,7 +9,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
 )
 from datahub.ingestion.source.powerbi.m_query import parser as mquery_parser
-from datahub.ingestion.source.powerbi.m_query.data_classes import Lineage
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRename,
+    ColumnRenameStep,
+    Lineage,
+)
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     apply_table_rename_columns,
 )
@@ -129,7 +133,16 @@ def test_apply_renames_sql_output_to_powerbi_field() -> None:
     )
     result = apply_table_rename_columns(
         lineage,
-        ((("CustomerAccount", "Customer Account"),),),
+        [
+            ColumnRenameStep(
+                renames=[
+                    ColumnRename(
+                        source_name="CustomerAccount",
+                        renamed_name="Customer Account",
+                    )
+                ]
+            )
+        ],
         [_column("Customer Account")],
     )
     assert result.column_lineage[0].downstream.column == "Customer Account"
@@ -138,4 +151,4 @@ def test_apply_renames_sql_output_to_powerbi_field() -> None:
 
 def test_apply_renames_is_noop_without_steps() -> None:
     lineage = Lineage(upstreams=[], column_lineage=[])
-    assert apply_table_rename_columns(lineage, (), None) is lineage
+    assert apply_table_rename_columns(lineage, [], None) is lineage

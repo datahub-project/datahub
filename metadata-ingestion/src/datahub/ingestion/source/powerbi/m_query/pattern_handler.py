@@ -35,7 +35,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    ColumnRenames,
+    ColumnRenameStep,
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -305,24 +305,28 @@ def _remap_column_lineage_to_pbi_fields(
     return remapped
 
 
-def _name_before_renames(name: str, column_renames: ColumnRenames) -> str:
+def _name_before_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
     """Walk outermost-first. Each step is applied as a set, so a swap holds."""
-    for step in column_renames:
-        new_to_old = {new: old for old, new in step}
+    for step in column_rename_steps:
+        new_to_old = {
+            rename.renamed_name: rename.source_name for rename in step.renames
+        }
         name = new_to_old.get(name, name)
     return name
 
 
-def _name_after_renames(name: str, column_renames: ColumnRenames) -> str:
-    for step in reversed(column_renames):
-        old_to_new = {old: new for old, new in step}
+def _name_after_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
+    for step in reversed(column_rename_steps):
+        old_to_new = {
+            rename.source_name: rename.renamed_name for rename in step.renames
+        }
         name = old_to_new.get(name, name)
     return name
 
 
 def apply_table_rename_columns(
     lineage: Lineage,
-    column_renames: ColumnRenames,
+    column_rename_steps: List[ColumnRenameStep],
     pbi_columns: Optional[List[Column]],
 ) -> Lineage:
     """Point column lineage at Table.RenameColumns names.
@@ -332,7 +336,7 @@ def apply_table_rename_columns(
     be mapped back to the source. Native SQL lineage is the other way around:
     its downstream name is the query output, which the rename then changes.
     """
-    if not column_renames or not lineage.column_lineage:
+    if not column_rename_steps or not lineage.column_lineage:
         return lineage
 
     pbi_names = {col.name for col in pbi_columns} if pbi_columns else set()
@@ -344,7 +348,7 @@ def apply_table_rename_columns(
             continue
 
         if downstream_name in pbi_names:
-            source_name = _name_before_renames(downstream_name, column_renames)
+            source_name = _name_before_renames(downstream_name, column_rename_steps)
             if source_name == downstream_name:
                 updated.append(info)
                 continue
@@ -362,7 +366,7 @@ def apply_table_rename_columns(
             )
             continue
 
-        renamed = _name_after_renames(downstream_name, column_renames)
+        renamed = _name_after_renames(downstream_name, column_rename_steps)
         if renamed == downstream_name or (pbi_names and renamed not in pbi_names):
             updated.append(info)
             continue
