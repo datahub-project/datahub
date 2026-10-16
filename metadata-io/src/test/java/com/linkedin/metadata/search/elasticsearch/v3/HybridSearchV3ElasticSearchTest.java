@@ -1,7 +1,8 @@
-package com.linkedin.metadata.search.elasticsearch;
+package com.linkedin.metadata.search.elasticsearch.v3;
 
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchSuite;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.search.hybrid.HybridSearchV3TestBase;
+import com.linkedin.metadata.search.hybrid.v3.HybridSearchV3TestBase;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;

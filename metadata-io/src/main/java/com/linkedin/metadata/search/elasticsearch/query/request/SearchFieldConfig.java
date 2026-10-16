@@ -10,7 +10,9 @@ import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -27,10 +29,18 @@ public class SearchFieldConfig {
   public static final float DEFAULT_BOOST = 1.0f;
 
   // Fields that can be filtered on directly, without appending the ".keyword" suffix.
+  // System fields come from MappingConstants. The deprecation aspect's boolean stays here because
+  // V2 matches filter names rather than annotations; Search V3 resolves it from that aspect.
   // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not
   // hardcoded.
-  public static final Set<String> KEYWORD_FIELDS =
-      Set.of("urn", "runId", "_index", "_entityType", "deprecated");
+  public static final Set<String> KEYWORD_FIELDS = keywordFields();
+
+  private static Set<String> keywordFields() {
+    Set<String> fields = new LinkedHashSet<>(MappingConstants.SYSTEM_KEYWORD_FIELDS);
+    fields.add("deprecated");
+    return Set.copyOf(fields);
+  }
+
   public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
   public static final float URN_BOOST_SCORE = 10.0f;
 

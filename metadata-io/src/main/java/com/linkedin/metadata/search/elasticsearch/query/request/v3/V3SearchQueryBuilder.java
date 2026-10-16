@@ -1,6 +1,19 @@
 package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.DESCRIPTION;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.ENTITY_NAME;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.OTHER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.QUALIFIED_NAME;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.STEMMED;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.STEMMED_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.analyzerSubfields;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.fullTextFields;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.indexGroupSpecs;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.path;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.weight;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
@@ -15,6 +28,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
@@ -25,7 +41,6 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.SynonymMapLoader;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,11 +75,12 @@ import org.opensearch.index.query.SimpleQueryStringBuilder;
  * the best matching clause sets the score. The Stage 1 methods keep DataHub Cloud's {@code V2_5}
  * names so the code stays easy to merge.
  *
- * <p>Analyzed clauses read each shared {@code _search} field's {@code text} subfield, and its
- * {@code stemmed} subfield at half that weight (see {@link V3SearchFields}). Exact matches read the
- * keywords of the root fields and the urn, as on V2. A field configuration names the shared fields
- * to search, either directly or by a field that feeds one. A structured property is named by {@code
- * structuredProperties} or by its full field path, and is not a shared field.
+ * <p>Analyzed clauses read each shared root field's {@code text} subfield, and its {@code stemmed}
+ * subfield at half that weight (see {@link
+ * com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields}). Exact matches read
+ * the keywords of the root fields and the urn, as on V2. A field configuration names the shared
+ * fields to search, either directly or by a field that feeds one. A structured property is named by
+ * {@code structuredProperties} or by its full field path, and is not a shared field.
  */
 @Slf4j
 public class V3SearchQueryBuilder extends SearchQueryBuilder {
@@ -896,6 +912,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
                   CustomConfiguration::getSearchFieldConfigDefault));
+      configuredFields = supportedFields(configuredFields, entitySpecs);
 
       if (skipExpensiveClauses) {
         return getLightSimpleQuery(
@@ -1176,6 +1193,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
             customizedQueryHandler.resolveFieldConfiguration(
                 operationContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getSearchFieldConfigDefault));
+    configuredFields = supportedFields(configuredFields, entitySpecs);
 
     Map<String, List<SearchFieldConfig>> analyzerGroup =
         configuredFields.stream()
@@ -1463,8 +1481,13 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
 
     // Filter to core identity fields only. Reduces clause count significantly.
     // Non-core fields still get recall via SQS clauses.
+    SearchFieldResolver v3FieldResolver = resolver(entitySpecs);
     uniqueFields.values().stream()
         .filter(cfg -> EXACT_MATCH_CORE_FIELDS.contains(cfg.shortName()))
+        .filter(
+            cfg ->
+                !v3FieldResolver.contains(cfg.fieldName())
+                    || v3FieldResolver.supports(cfg.fieldName(), Intent.EXACT))
         .forEach(
             searchFieldConfig -> {
               boolean caseSensitivityEnabled =
@@ -1524,8 +1547,13 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
               if (canExactMatch && isExactQuery) {
                 // Use .keyword subfield for non-keyword fields (preserves case info)
                 String keywordField =
-                    ESUtils.toKeywordField(
-                        null, searchFieldConfig.fieldName(), false, opContext.getAspectRetriever());
+                    v3FieldResolver.contains(searchFieldConfig.fieldName())
+                        ? v3FieldResolver.exactPath(searchFieldConfig.fieldName(), Intent.EXACT)
+                        : ESUtils.toKeywordField(
+                            null,
+                            searchFieldConfig.fieldName(),
+                            false,
+                            opContext.getAspectRetriever());
 
                 // Exact match case-sensitive via keyword field (highest boost).
                 if (caseSensitivityEnabled) {
@@ -1650,6 +1678,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       if (requestedConfig != null) {
         fields = applySearchFieldConfiguration(opContext, entitySpecs, fields, requestedConfig);
       }
+      fields = supportedFields(fields, entitySpecs);
       List<SearchFieldConfig> shared = new ArrayList<>();
       List<SearchFieldConfig> properties = new ArrayList<>();
       for (SearchFieldConfig field : fields) {
@@ -1720,22 +1749,32 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   private static final float STEMMED_FACTOR = 0.5f;
 
   // The Stage 1 field a shared field stands for, where its name differs
-  private static final Map<String, String> STAGE_1_NAMES =
-      Map.of(V3SearchFields.ENTITY_NAME, "name");
+  private static final Map<String, String> STAGE_1_NAMES = Map.of(ENTITY_NAME, "name");
 
   private static final Set<String> IDENTITY_TEXT_FIELDS =
-      Set.of(textField(V3SearchFields.ENTITY_NAME), textField(V3SearchFields.QUALIFIED_NAME));
+      Set.of(textField(ENTITY_NAME), textField(QUALIFIED_NAME));
 
   // The shared fields of each searched entity list, derived once from the same annotations that
   // build the mapping
   private final Map<List<String>, Map<String, List<String>>> fullTextFieldsByEntities =
       new ConcurrentHashMap<>();
+  private final Map<List<String>, Map<String, Set<String>>> analyzerSubfieldsByEntities =
+      new ConcurrentHashMap<>();
   private final StructuredPropertySearchCatalog structuredPropertySearchCatalog;
+  @Nullable private final SearchFieldResolver v3SearchFieldResolver;
 
   public V3SearchQueryBuilder(
       @Nonnull final SearchConfiguration searchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration) {
+    this(searchConfiguration, customSearchConfiguration, null);
+  }
+
+  public V3SearchQueryBuilder(
+      @Nonnull final SearchConfiguration searchConfiguration,
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      @Nullable final SearchFieldResolver v3SearchFieldResolver) {
     super(searchConfiguration, customSearchConfiguration);
+    this.v3SearchFieldResolver = v3SearchFieldResolver;
     this.structuredPropertySearchCatalog =
         new StructuredPropertySearchCatalog(searchConfiguration.getStructuredProperties());
   }
@@ -1769,7 +1808,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   public Map<String, List<String>> searchedFields(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
     final Map<String, List<String>> fields =
-        fullTextFields(opContext.getEntityRegistry(), entitySpecs);
+        cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs);
     final Map<String, List<String>> configured =
         configuredFields(
             fields,
@@ -1782,20 +1821,26 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Override
   public Set<SearchFieldConfig> getStandardFields(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return withSharedFields(
-        super.getStandardFields(opContext, entitySpecs),
-        fullTextFields(opContext.getEntityRegistry(), entitySpecs),
-        opContext,
+    return supportedFields(
+        withSharedFields(
+            super.getStandardFields(opContext, entitySpecs),
+            cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs),
+            cachedAnalyzerSubfields(opContext.getEntityRegistry(), entitySpecs),
+            opContext,
+            entitySpecs),
         entitySpecs);
   }
 
   @Override
   protected Set<SearchFieldConfig> getStandardFields(
       @Nonnull OperationContext opContext, @Nonnull EntitySpec entitySpec) {
-    return withSharedFields(
-        super.getStandardFields(opContext, entitySpec),
-        fullTextFields(opContext.getEntityRegistry(), List.of(entitySpec)),
-        opContext,
+    return supportedFields(
+        withSharedFields(
+            super.getStandardFields(opContext, entitySpec),
+            cachedFullTextFields(opContext.getEntityRegistry(), List.of(entitySpec)),
+            cachedAnalyzerSubfields(opContext.getEntityRegistry(), List.of(entitySpec)),
+            opContext,
+            List.of(entitySpec)),
         List.of(entitySpec));
   }
 
@@ -1811,7 +1856,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       @Nonnull Set<SearchFieldConfig> fields,
       @Nullable String label) {
     final Map<String, List<String>> fullTextFields =
-        fullTextFields(opContext.getEntityRegistry(), entitySpecs);
+        cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs);
     final Map<String, List<String>> selected = configuredFields(fullTextFields, label);
     if (selected == null) {
       // A replace that names only property paths selects no shared field, which otherwise falls
@@ -1834,13 +1879,18 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         fields.stream()
             .filter(field -> !StructuredPropertyUtils.isStructuredPropertyField(field.fieldName()))
             .filter(
-                field ->
-                    field.fieldName().startsWith(V3SearchFields.path(""))
-                        ? selected.containsKey(baseName(field.fieldName()))
-                        : destinations
-                            .getOrDefault(field.fieldName(), Set.of(V3SearchFields.OTHER))
-                            .stream()
-                            .anyMatch(selected::containsKey))
+                field -> {
+                  final String fieldName = field.fieldName();
+                  final String name = baseName(fieldName);
+                  if (isSharedAnalyzerField(fieldName, fullTextFields.keySet())) {
+                    return selected.containsKey(name);
+                  }
+                  if (selected.containsKey(name)) {
+                    return true;
+                  }
+                  return destinations.getOrDefault(name, Set.of(OTHER)).stream()
+                      .anyMatch(selected::containsKey);
+                })
             .collect(Collectors.toCollection(HashSet::new));
     // A property path starts with structuredProperties., which baseName would collapse to the
     // category, and it must not fall through to other.
@@ -1853,11 +1903,11 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
 
   protected List<String> fqnMatchFields() {
     // On V3 an id is matched analyzed only in other
-    return List.of(textField(V3SearchFields.QUALIFIED_NAME), textField(V3SearchFields.OTHER));
+    return List.of(textField(QUALIFIED_NAME), textField(OTHER));
   }
 
   protected String descriptionPhraseField() {
-    return textField(V3SearchFields.DESCRIPTION);
+    return textField(DESCRIPTION);
   }
 
   protected boolean isDelimitedIdentityField(@Nonnull SearchFieldConfig cfg) {
@@ -1865,24 +1915,23 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   @Nonnull
-  private Map<String, List<String>> fullTextFields(
+  private Map<String, List<String>> cachedFullTextFields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
     return fullTextFieldsByEntities.computeIfAbsent(
         entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()),
-        k ->
-            V3SearchFields.fullTextFields(
-                V3SearchFields.indexGroupSpecs(entityRegistry, entitySpecs)));
+        key -> fullTextFields(indexGroupSpecs(entityRegistry, entitySpecs)));
   }
 
   /**
    * The root fields of these standard fields that a V3 index searches, and the analyzed subfields
-   * of its shared fields. A root field has no analyzed subfields on V3, and a URN root field holds
-   * the whole urn: {@code _search.other} searches its parts.
+   * its labels declare. A label without {@code text} is not a full-text target. A root field that
+   * is not a shared label has no analyzed subfields on V3.
    */
   @Nonnull
   private Set<SearchFieldConfig> withSharedFields(
       @Nonnull final Set<SearchFieldConfig> standardFields,
       @Nonnull final Map<String, List<String>> fullTextFields,
+      @Nonnull final Map<String, Set<String>> analyzerSubfields,
       @Nonnull final OperationContext opContext,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
     final Set<SearchFieldConfig> fields =
@@ -1900,15 +1949,14 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
                         .build())
             .collect(Collectors.toCollection(HashSet::new));
     for (String name : fullTextFields.keySet()) {
-      final float boost = V3SearchFields.weight(name) * partialConfiguration.getFactor();
-      fields.add(
-          sharedField(name, V3SearchFields.TEXT, V3SearchFields.TEXT_SEARCH_ANALYZER, boost));
-      fields.add(
-          sharedField(
-              name,
-              V3SearchFields.STEMMED,
-              V3SearchFields.STEMMED_SEARCH_ANALYZER,
-              boost * STEMMED_FACTOR));
+      final Set<String> subfields = analyzerSubfields.getOrDefault(name, Set.of());
+      final float boost = weight(name) * partialConfiguration.getFactor();
+      if (subfields.contains(TEXT)) {
+        fields.add(sharedField(name, TEXT, TEXT_SEARCH_ANALYZER, boost));
+      }
+      if (subfields.contains(STEMMED)) {
+        fields.add(sharedField(name, STEMMED, STEMMED_SEARCH_ANALYZER, boost * STEMMED_FACTOR));
+      }
     }
     final float factor = partialConfiguration.getFactor();
     for (StructuredPropertySearchCatalog.IndexedProperty property :
@@ -1916,19 +1964,63 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       fields.add(
           propertyField(
               property.fieldPath(),
-              V3SearchFields.TEXT,
-              V3SearchFields.TEXT_SEARCH_ANALYZER,
+              TEXT,
+              TEXT_SEARCH_ANALYZER,
               property.textWeight() * factor,
               property.queryByDefault()));
       fields.add(
           propertyField(
               property.fieldPath(),
-              V3SearchFields.STEMMED,
-              V3SearchFields.STEMMED_SEARCH_ANALYZER,
+              STEMMED,
+              STEMMED_SEARCH_ANALYZER,
               property.stemmedWeight() * factor,
               property.queryByDefault()));
     }
     return fields;
+  }
+
+  @Nonnull
+  private Map<String, Set<String>> cachedAnalyzerSubfields(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
+    return analyzerSubfieldsByEntities.computeIfAbsent(
+        entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()),
+        key -> analyzerSubfields(indexGroupSpecs(entityRegistry, entitySpecs)));
+  }
+
+  @Nonnull
+  private SearchFieldResolver resolver(@Nonnull Collection<EntitySpec> entitySpecs) {
+    return v3SearchFieldResolver != null
+        ? v3SearchFieldResolver
+        : new SearchFieldResolver(entitySpecs);
+  }
+
+  @Nonnull
+  private Set<SearchFieldConfig> supportedFields(
+      @Nonnull Set<SearchFieldConfig> fields, @Nonnull Collection<EntitySpec> entitySpecs) {
+    SearchFieldResolver fieldResolver = resolver(entitySpecs);
+    return fields.stream()
+        .filter(
+            field ->
+                !fieldResolver.contains(field.fieldName())
+                    || fieldResolver.supports(
+                        field.fieldName(),
+                        field.fieldName().endsWith("." + TEXT)
+                                || field.fieldName().endsWith("." + STEMMED)
+                            ? Intent.FULL_TEXT
+                            : Intent.EXACT))
+        .collect(Collectors.toSet());
+  }
+
+  private static boolean isSharedAnalyzerField(
+      @Nonnull final String fieldName, @Nonnull final Set<String> sharedFields) {
+    for (String sharedField : sharedFields) {
+      final String sharedPath = path(sharedField);
+      if (fieldName.equals(sharedPath + "." + TEXT)
+          || fieldName.equals(sharedPath + "." + STEMMED)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Nonnull
@@ -1994,13 +2086,12 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
 
   @Nonnull
   private static String stripSearchPrefix(@Nonnull String name) {
-    final String prefix = V3SearchFields.path("");
-    return name.startsWith(prefix) ? name.substring(prefix.length()) : name;
+    return name.startsWith("_search.") ? name.substring("_search.".length()) : name;
   }
 
   @Nonnull
   private static String withoutAnalyzedSuffix(@Nonnull String name) {
-    for (String suffix : List.of("." + V3SearchFields.TEXT, "." + V3SearchFields.STEMMED)) {
+    for (String suffix : List.of("." + TEXT, "." + STEMMED)) {
       if (name.endsWith(suffix)) {
         return name.substring(0, name.length() - suffix.length());
       }
@@ -2055,7 +2146,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       @Nonnull final String analyzer,
       final float boost) {
     return SearchFieldConfig.builder()
-        .fieldName(V3SearchFields.path(name) + "." + subfield)
+        .fieldName(path(name) + "." + subfield)
         // After the field name, which resets them: the Stage 1 query picks its name and analyzed
         // clauses by these
         .shortName(STAGE_1_NAMES.getOrDefault(name, name))
@@ -2140,7 +2231,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         .filter(
             field ->
                 baseNames.contains(field.getKey())
-                    || (!V3SearchFields.OTHER.equals(field.getKey())
+                    || (!OTHER.equals(field.getKey())
                         && field.getValue().stream().anyMatch(baseNames::contains)))
         .collect(
             Collectors.toMap(
@@ -2149,17 +2240,13 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
 
   @Nonnull
   private static String baseName(@Nonnull final String configuredName) {
-    final String prefix = V3SearchFields.path("");
-    final String name =
-        configuredName.startsWith(prefix)
-            ? configuredName.substring(prefix.length())
-            : configuredName;
+    final String name = stripSearchPrefix(configuredName);
     final int subfield = name.indexOf('.');
     return subfield > 0 ? name.substring(0, subfield) : name;
   }
 
   @Nonnull
   private static String textField(@Nonnull final String field) {
-    return V3SearchFields.path(field) + "." + V3SearchFields.TEXT;
+    return path(field) + "." + TEXT;
   }
 }

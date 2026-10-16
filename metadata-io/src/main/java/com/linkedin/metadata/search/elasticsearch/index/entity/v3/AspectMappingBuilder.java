@@ -1,11 +1,15 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +57,7 @@ public class AspectMappingBuilder {
                         aspectFields.putAll(
                             MultiEntityMappingsBuilder.getAspectMappingsForField(
                                 searchableFieldSpec, aspectName));
+                        copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
                       });
 
               // Add system metadata to each aspect using the projector's serialized field name.
@@ -65,6 +70,31 @@ public class AspectMappingBuilder {
             });
 
     return aspectsMappings;
+  }
+
+  /**
+   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
+   * never holds both true and false.
+   */
+  private static void copySharedHasValues(
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull SearchableFieldSpec fieldSpec,
+      @Nonnull Map<String, Object> aspectFields) {
+    final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    if (!resolved.isV3Searchable()) {
+      return;
+    }
+    resolved
+        .getSearchLabel()
+        .filter(label -> !label.isEmpty())
+        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .ifPresent(
+            booleanName -> {
+              Map<String, Object> mapping = new HashMap<>();
+              mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
+              mapping.put(COPY_TO, List.of(booleanName));
+              aspectFields.put(booleanName, mapping);
+            });
   }
 
   /**

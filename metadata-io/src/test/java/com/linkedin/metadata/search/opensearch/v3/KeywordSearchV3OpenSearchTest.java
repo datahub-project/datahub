@@ -1,6 +1,8 @@
-package com.linkedin.metadata.search.opensearch;
+package com.linkedin.metadata.search.opensearch.v3;
 
-import com.linkedin.metadata.search.semantic.SemanticSearchV3TestBase;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.opensearch.OpenSearchSuite;
+import com.linkedin.metadata.search.query.v3.KeywordSearchV3TestBase;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
@@ -13,6 +15,7 @@ import org.springframework.context.annotation.Import;
   SearchCommonTestConfiguration.class,
   SearchTestContainerConfiguration.class
 })
-public class SemanticSearchV3OpenSearchTest extends SemanticSearchV3TestBase {
+public class KeywordSearchV3OpenSearchTest extends KeywordSearchV3TestBase {
   @Getter @Autowired private SearchClientShim<?> searchClient;
+  @Getter @Autowired private ESBulkProcessor bulkProcessor;
 }

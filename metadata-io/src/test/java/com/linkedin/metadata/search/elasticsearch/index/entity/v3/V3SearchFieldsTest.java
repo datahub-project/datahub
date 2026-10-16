@@ -13,6 +13,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -30,16 +31,7 @@ import org.testng.annotations.Test;
 public class V3SearchFieldsTest {
 
   private static final EntityRegistry REGISTRY = TestOperationContexts.defaultEntityRegistry();
-  private static final List<String> COLUMN_ARRAYS =
-      List.of(
-          "fieldPaths",
-          "fieldLabels",
-          "fieldDescriptions",
-          "editedFieldDescriptions",
-          "fieldTags",
-          "editedFieldTags",
-          "fieldGlossaryTerms",
-          "editedFieldGlossaryTerms");
+  private static final List<String> COLUMN_ARRAYS = List.copyOf(V3SearchFields.COLUMN_ARRAY_FIELDS);
 
   @Test
   public void testDatasetFullTextFieldsAndTheirSources() {
@@ -48,22 +40,25 @@ public class V3SearchFieldsTest {
     assertEquals(fields.keySet(), Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, COLUMNS, OTHER));
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
-    assertTrue(fields.get(ENTITY_NAME).contains("name"), fields.toString());
-    // The sortable name holds one value per entity, so an edited name is searched in other
-    assertFalse(fields.get(ENTITY_NAME).contains("editedName"), fields.toString());
-    assertTrue(fields.get(OTHER).contains("editedName"), fields.toString());
+    assertTrue(
+        fields.get(ENTITY_NAME).containsAll(List.of("name", "editedName")), fields.toString());
     assertEquals(fields.get(QUALIFIED_NAME), List.of("qualifiedName"));
     assertTrue(
-        fields.get(DESCRIPTION).containsAll(List.of("description", "editedDescription")),
-        fields.toString());
-    assertTrue(
         fields
-            .get(COLUMNS)
+            .get(DESCRIPTION)
             .containsAll(
                 List.of(
-                    "fieldPaths", "fieldDescriptions", "editedFieldDescriptions", "fieldLabels")),
+                    "description",
+                    "editedDescription",
+                    "fieldDescriptions",
+                    "editedFieldDescriptions")),
         fields.toString());
-    assertTrue(fields.get(OTHER).containsAll(List.of("tags", "platform")), fields.toString());
+    assertTrue(
+        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
+    assertFalse(fields.containsKey("tags"), fields.toString());
+    assertFalse(fields.containsKey("glossaryTerms"), fields.toString());
+    assertTrue(fields.get(OTHER).contains("platform"), fields.toString());
+    assertFalse(fields.get(OTHER).contains("tags"), fields.toString());
     // A field that feeds a named shared field does not also land in other
     assertTrue(
         fields.get(OTHER).stream()
@@ -75,7 +70,8 @@ public class V3SearchFieldsTest {
   @Test
   public void testMatchedFieldSourcesLeaveOutTheColumnArrays() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
-    assertTrue(fields.get(COLUMNS).containsAll(COLUMN_ARRAYS), fields.toString());
+    assertTrue(
+        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
 
     List<String> sources = V3SearchFields.matchedFieldSources(fields);
 
@@ -90,16 +86,17 @@ public class V3SearchFieldsTest {
   }
 
   /**
-   * Of other, matched fields fetch only what names or tags the entity: a document's text, custom
-   * properties and other lists of urns are searched but could be any size.
+   * Of other, matched fields fetch only what names the entity: a document's text, custom properties
+   * and lists of URNs are not full-text fields and could be any size.
    */
   @Test
   public void testMatchedFieldSourcesKeepOnlyNamesAndTagsOfOther() {
     List<String> datasetSources =
         V3SearchFields.matchedFieldSources(V3SearchFields.fullTextFields(List.of(dataset())));
     assertTrue(
-        datasetSources.containsAll(List.of("name", "editedName", "tags", "glossaryTerms")),
-        datasetSources.toString());
+        datasetSources.containsAll(List.of("name", "editedName")), datasetSources.toString());
+    assertFalse(datasetSources.contains("tags"), datasetSources.toString());
+    assertFalse(datasetSources.contains("glossaryTerms"), datasetSources.toString());
     assertTrue(
         datasetSources.stream()
             .noneMatch(List.of("customProperties", "platform", "domains")::contains),
@@ -141,7 +138,7 @@ public class V3SearchFieldsTest {
 
   @Test
   public void testLabelWinsOverTheOtherFallback() {
-    SearchableFieldSpec labeled = fieldSpec(FieldType.TEXT, "entityName", false);
+    SearchableFieldSpec labeled = fieldSpec(FieldType.TEXT, "name", false);
     SearchableFieldSpec unlabeled = fieldSpec(FieldType.TEXT, null, false);
 
     // Two sources of one root field: the root copies into the label only
@@ -175,10 +172,7 @@ public class V3SearchFieldsTest {
     Map<String, Object> stemmed =
         Map.of("type", "text", "analyzer", "v3_stemmed", "search_analyzer", "v3_stemmed_search");
 
-    // A name keeps a normalized keyword for exact match and sorting, with the stored casing in
-    // .keyword
-    assertEquals(
-        V3SearchFields.mapping(ENTITY_NAME, true),
+    Map<String, Object> indexedFullText =
         Map.of(
             "type",
             "keyword",
@@ -193,10 +187,13 @@ public class V3SearchFieldsTest {
                 "stemmed",
                 stemmed,
                 "keyword",
-                Map.of("type", "keyword", "ignore_above", 8191))));
-    // Other full-text fields only hold their subfields
+                Map.of("type", "keyword", "ignore_above", 8191)));
+    // Model labels are not shaped by name. The built-in helper's indexed form keeps a keyword.
+    assertEquals(V3SearchFields.mapping(ENTITY_NAME, true), indexedFullText);
+    assertEquals(V3SearchFields.mapping(DESCRIPTION, true), indexedFullText);
+    // other and structuredProperties are search-only: the root is not an exact field
     assertEquals(
-        V3SearchFields.mapping(DESCRIPTION, true),
+        V3SearchFields.mapping(V3SearchFields.OTHER, true),
         Map.of(
             "type",
             "keyword",
@@ -206,19 +203,7 @@ public class V3SearchFieldsTest {
             false,
             "fields",
             Map.of("text", text, "stemmed", stemmed)));
-    // A label a model names stays an indexed keyword for its sorts and filters, analyzed too when
-    // a field queried by default feeds it
-    assertEquals(
-        V3SearchFields.mapping("owner", true),
-        Map.of(
-            "type",
-            "keyword",
-            "normalizer",
-            "keyword_normalizer",
-            "ignore_above",
-            8191,
-            "fields",
-            Map.of("text", text, "stemmed", stemmed)));
+    assertEquals(V3SearchFields.mapping("owner", true), indexedFullText);
     // A label no full-text field feeds stays a plain keyword
     assertEquals(
         V3SearchFields.mapping("origin", false),
@@ -240,8 +225,20 @@ public class V3SearchFieldsTest {
     List<EntitySpec> roleIndex = V3SearchFields.indexGroupSpecs(registry, List.of(role));
     assertEquals(Set.copyOf(roleIndex), Set.of(dataset, role));
     assertEquals(V3SearchFields.indexGroupSpecs(registry, List.of(chart)), List.of(chart));
-    // The dataset's label sends every name in the index to entityName, the role's included
+    // The dataset's label sends every name in the index to name, the role's included
     assertTrue(V3SearchFields.fullTextFields(roleIndex).get(ENTITY_NAME).contains("name"));
+  }
+
+  /** The V3 test entity names its text field as the shared name label. */
+  @Test
+  public void testEntityTextFieldFeedsName() {
+    Map<String, List<String>> fields =
+        V3SearchFields.fullTextFields(List.of(TestEntitySpecBuilder.getSpec()));
+
+    assertTrue(fields.get(ENTITY_NAME).contains("textFieldOverride"), fields.toString());
+    assertEquals(
+        V3SearchFields.analyzerSubfields(List.of(TestEntitySpecBuilder.getSpec())).get(ENTITY_NAME),
+        Set.of("text", "stemmed"));
   }
 
   /**
@@ -271,7 +268,7 @@ public class V3SearchFieldsTest {
             .collect(Collectors.toSet());
     Set<String> declared =
         Stream.concat(
-                V3SearchFields.DECLARED_FIELDS.keySet().stream(),
+                V3SearchFields.COLUMN_ARRAY_FIELDS.stream(),
                 V3SearchFields.MATCHED_OTHER_FIELDS.stream())
             .collect(Collectors.toSet());
 
@@ -291,6 +288,8 @@ public class V3SearchFieldsTest {
     when(annotation.getFieldType()).thenReturn(fieldType);
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.empty());
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
     when(annotation.isQueryByDefault()).thenReturn(fieldType != FieldType.KEYWORD);
     when(annotation.isEnableAutocomplete()).thenReturn(autocomplete);
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);

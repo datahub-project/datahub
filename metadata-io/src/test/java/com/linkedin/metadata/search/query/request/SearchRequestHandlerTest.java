@@ -56,6 +56,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -738,7 +740,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
   }
 
-  /** V3 root fields keep the V2 .keyword subfield, so filters and value counts use it as on V2. */
+  /** V3 resolves exact paths from the declared root rather than field-name heuristics. */
   @Test
   public void testV3FiltersAndValueCountsUseKeywordSubfields() {
     EntityIndexConfiguration entityIndex =
@@ -796,7 +798,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * V3 root fields keep the V2 .keyword subfield, so filters resolve as on V2; entity type enum
+   * V3 strips caller-supplied legacy subfields and resolves from the registry; entity type enum
    * names, as the UI sends them, still match the V3 _entityType field.
    */
   @Test
@@ -847,6 +849,125 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
+  @Test
+  public void testV3RejectsExactDescriptionFilter() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("description", Condition.EQUAL, "daily revenue")))));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex()));
+  }
+
+  @Test
+  public void testV3DescriptionSupportsExistenceButRejectsFacetsAndSorts() {
+    Filter existenceFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("hasDescription", Condition.EQUAL, "true")))));
+    String query =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                existenceFilter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex())
+            .toString();
+    assertTrue(query.contains("\"hasDescription\""), query);
+    assertFalse(query.contains("hasDescription.keyword"), query);
+
+    String missingDescription =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "hasDescription", Condition.EQUAL, "false"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex())
+            .toString();
+    assertTrue(missingDescription.contains("must_not"), missingDescription);
+    assertTrue(missingDescription.contains("exists"), missingDescription);
+    assertFalse(missingDescription.contains("\"value\" : false"), missingDescription);
+
+    String unlabeledFalse =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.EQUAL, "false"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex())
+            .toString();
+    assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
+    assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.getAggregationRequest(operationContext, "description", null, 10));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
+                "*",
+                null,
+                null,
+                0,
+                10,
+                List.of("description")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(new SortCriterion().setField("description").setOrder(SortOrder.ASCENDING)),
+                0,
+                10,
+                List.of()));
+  }
+
   private static final ElasticSearchConfiguration V3_READ_CONFIG =
       testQueryConfig.toBuilder()
           .entityIndex(
@@ -856,7 +977,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   .build())
           .build();
 
-  // The root fields of _search.columns, an array each, as long as the dataset's schema
+  // Schema-field arrays. They are searched through their labels and never fetched: a fetch cannot
+  // cut them short, so a dataset with thousands of fields would send all of them with every hit.
   private static final Set<String> COLUMN_ARRAYS =
       Set.of(
           "fieldPaths",
@@ -900,10 +1022,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, "test query");
 
     String query = v3.query().toString();
-    assertTrue(query.contains("_search.entityName.text"), query);
-    assertTrue(query.contains("_search.columns.text"), query);
-    assertTrue(query.contains("_search.columns.stemmed"), query);
-    assertFalse(query.contains("_search.structuredProperties"), query);
+    assertTrue(query.contains("name.text"), query);
+    assertTrue(query.contains("columns.text"), query);
+    assertTrue(query.contains("columns.stemmed"), query);
+    assertFalse(query.contains("_search."), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
@@ -1033,7 +1155,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Of _search.other, V3 matched fields fetch only what names or tags an entity: a document's text,
+   * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
    * semantic text and custom properties are searched but never fetched, even when highlighting
    * names them.
    */
@@ -1055,7 +1177,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         handler.getSearchRequest(fulltext, "runbook", null, null, 0, 10, List.of()).source();
 
     String query = source.query().toString();
-    assertTrue(query.contains("_search.other.text"), query);
+    assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
     assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());

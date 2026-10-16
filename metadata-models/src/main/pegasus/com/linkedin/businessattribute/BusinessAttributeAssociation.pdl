@@ -9,7 +9,8 @@ record BusinessAttributeAssociation {
      "fieldName": "schemaFieldBusinessAttribute",
      "queryByDefault": false,
      "includeSystemModifiedAt": true,
-     "systemModifiedAtFieldName": "schemaFieldBusinessAttributeModifiedAt"
+     "systemModifiedAtFieldName": "schemaFieldBusinessAttributeModifiedAt",
+     "v3": { "includeSystemModifiedAt": false }
   }
    businessAttributeUrn: BusinessAttributeUrn
 }

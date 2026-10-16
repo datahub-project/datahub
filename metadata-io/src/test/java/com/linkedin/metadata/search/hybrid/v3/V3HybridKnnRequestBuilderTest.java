@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.hybrid;
+package com.linkedin.metadata.search.hybrid.v3;
 
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.testng.Assert.assertEquals;
@@ -138,7 +138,7 @@ public class V3HybridKnnRequestBuilderTest {
     return Map.of("terms", Map.of(INDEX_VIRTUAL_FIELD, List.of("document")));
   }
 
-  static SemanticSearchConfiguration semanticSearch(boolean enabled) {
+  public static SemanticSearchConfiguration semanticSearch(boolean enabled) {
     return new SemanticSearchConfiguration(
         enabled, Set.of("document"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null);
   }
