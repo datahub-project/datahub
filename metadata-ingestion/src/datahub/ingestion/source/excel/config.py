@@ -1,8 +1,8 @@
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Union
 
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, SupportedSources
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
@@ -17,7 +17,9 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 
 
 class ExcelProfilingConfig(ProfilingConfig):
-    use_sampling: bool = Field(
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["excel"])] = Field(
         # On by default here, unlike the shared config: Excel implements
         # sampling, and with it off the profiler sets sample_size to 0.
         default=True,

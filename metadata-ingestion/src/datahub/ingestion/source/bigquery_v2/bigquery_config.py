@@ -28,6 +28,7 @@ from datahub.configuration.common import (
     Filters,
     HiddenFromDocs,
     Qualifier,
+    SupportedSources,
 )
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
@@ -115,7 +116,9 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 
 
 class BigQueryProfilingConfig(ProfilingConfig):
-    use_sampling: bool = Field(
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["bigquery"])] = Field(
         # On by default here, unlike the shared config: BigQuery implements sampling.
         default=True,
         description="Whether to profile column level stats on a sample of the table rather "

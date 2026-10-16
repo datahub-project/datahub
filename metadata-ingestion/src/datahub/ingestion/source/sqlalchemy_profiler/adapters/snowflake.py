@@ -160,7 +160,7 @@ class SnowflakeAdapter(PlatformAdapter):
         profiling queries see the exact same rows. Without SEED,
         TABLESAMPLE BERNOULLI also works on views.
         """
-        temp_name = f"dh_sample_{uuid.uuid4().hex[:8]}"
+        temp_name = self._temp_table_name("sample")
         sample_pc = self.config.sample_size / row_count
 
         assert context.schema is not None, (
@@ -199,17 +199,14 @@ class SnowflakeAdapter(PlatformAdapter):
             )
 
         # Try the sampling SQL; if BLOCK fails (views), fall back to BERNOULLI only
-        # Temp table name is unquoted so Snowflake stores it as uppercase,
-        # matching SQLAlchemy's unquoted references in generated SQL.
-        create_sql = f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {sample_sql}"
-
         try:
-            logger.info(
-                f"Creating sampled temp table for {context.pretty_name} (rows: {row_count:,}, "
-                f"sample: {self.config.sample_size:,})"
+            self._materialize_temp_table(
+                conn,
+                temp_name,
+                sample_sql,
+                f"Creating sampled temp table for {context.pretty_name} "
+                f"(rows: {row_count:,}, sample: {self.config.sample_size:,})",
             )
-            logger.debug(f"SQL: {create_sql}")
-            conn.execute(sa.text(create_sql))
         except SQLAlchemyError as e:
             if use_block_presample:
                 self.report.warning(
@@ -224,11 +221,12 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"SELECT * FROM {tablename}"
                     f" TABLESAMPLE BERNOULLI ({bernoulli_pc:.8f})"
                 )
-                create_sql = (
-                    f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {fallback_sql}"
+                self._materialize_temp_table(
+                    conn,
+                    temp_name,
+                    fallback_sql,
+                    f"Retrying {context.pretty_name} with BERNOULLI-only sampling",
                 )
-                logger.debug(f"Fallback SQL: {create_sql}")
-                conn.execute(sa.text(create_sql))
             else:
                 raise
 
@@ -270,20 +268,14 @@ class SnowflakeAdapter(PlatformAdapter):
         tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
             db_name=None, schema_name=context.schema, table_name=context.table
         )
-        # Temp table name is unquoted so Snowflake stores it as uppercase,
-        # matching SQLAlchemy's unquoted references in generated SQL.
-        temp_name = f"dh_sample_{uuid.uuid4().hex[:8]}"
-        create_sql = (
-            f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS"
-            f" SELECT * FROM {tablename} TABLESAMPLE BERNOULLI ({sample_rows} ROWS)"
-        )
-
-        logger.info(
+        temp_name = self._temp_table_name("sample")
+        self._materialize_temp_table(
+            conn,
+            temp_name,
+            f"SELECT * FROM {tablename} TABLESAMPLE BERNOULLI ({sample_rows} ROWS)",
             f"Creating fixed-size sampled temp table for {context.pretty_name} "
-            f"(row count unavailable, sample: {sample_rows:,} rows)"
+            f"(row count unavailable, sample: {sample_rows:,} rows)",
         )
-        logger.debug(f"SQL: {create_sql}")
-        conn.execute(sa.text(create_sql))
 
         # A fixed row count out of an unknown total is an unknown fraction.
         return self._reflect_temp_table_into_context(
@@ -325,21 +317,33 @@ class SnowflakeAdapter(PlatformAdapter):
                 compile_kwargs={"literal_binds": True},
             )
         )
-        # Temp table name is unquoted so Snowflake stores it as uppercase,
-        # matching SQLAlchemy's unquoted references in generated SQL.
-        temp_name = f"dh_limit_{uuid.uuid4().hex[:8]}"
-        create_sql = f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {select_sql}"
-
-        logger.info(
+        temp_name = self._temp_table_name("limit")
+        self._materialize_temp_table(
+            conn,
+            temp_name,
+            select_sql,
             f"Creating limited temp table for {context.pretty_name} "
-            f"(limit: {self.config.limit}, offset: {self.config.offset})"
+            f"(limit: {self.config.limit}, offset: {self.config.offset})",
         )
-        logger.debug(f"SQL: {create_sql}")
-        conn.execute(sa.text(create_sql))
 
         return self._reflect_temp_table_into_context(
             context, conn, temp_name, is_sampled=False, sample_percentage=None
         )
+
+    @staticmethod
+    def _temp_table_name(prefix: str) -> str:
+        # Unquoted so Snowflake stores it uppercase, matching SQLAlchemy's
+        # unquoted references in the SQL it generates against the temp table.
+        return f"dh_{prefix}_{uuid.uuid4().hex[:8]}"
+
+    def _materialize_temp_table(
+        self, conn: Connection, temp_name: str, select_sql: str, log_message: str
+    ) -> None:
+        """Fill a session-scoped temp table from `select_sql`."""
+        create_sql = f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {select_sql}"
+        logger.info(log_message)
+        logger.debug(f"SQL: {create_sql}")
+        conn.execute(sa.text(create_sql))
 
     def _reflect_temp_table_into_context(
         self,

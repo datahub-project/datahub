@@ -15,6 +15,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Filters,
     HiddenFromDocs,
+    SupportedSources,
 )
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
@@ -486,7 +487,9 @@ class SnowflakeConfig(
 
 
 class SnowflakeProfilingConfig(ProfilingConfig):
-    use_sampling: bool = Field(
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["snowflake"])] = Field(
         # On by default here, unlike the shared config: Snowflake implements
         # sampling (TABLESAMPLE materialized into a temp table).
         default=True,
