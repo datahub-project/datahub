@@ -1,6 +1,11 @@
+import { renderHook } from '@testing-library/react-hooks';
+import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
+import { useRoutedTab } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityTab } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 
@@ -121,5 +126,30 @@ describe('getEntityPath', () => {
         expect(result).toBe(
             '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset,PROD)/properties?is_lineage_mode=true&separate_siblings=true&sort=name&view=list',
         );
+    });
+});
+
+describe('useRoutedTab', () => {
+    // Display names as they appear with a non-English UI language; paths stay in English.
+    const tabs: EntityTab[] = [
+        { name: 'Sammanfattning', path: 'Summary', component: () => null },
+        { name: 'Kolumner', path: 'Columns', component: () => null },
+    ];
+
+    const renderAt = (pathname: string) =>
+        renderHook(() => useRoutedTab(tabs), {
+            wrapper: ({ children }) => <MemoryRouter initialEntries={[pathname]}>{children}</MemoryRouter>,
+        }).result.current;
+
+    it('matches the tab by its path regardless of the translated display name', () => {
+        expect(renderAt('/dataset/urn:li:dataset:test/Columns')?.path).toBe('Columns');
+    });
+
+    it('does not match a tab by its translated display name', () => {
+        expect(renderAt('/dataset/urn:li:dataset:test/Kolumner')).toBeUndefined();
+    });
+
+    it('returns undefined for an unknown tab', () => {
+        expect(renderAt('/dataset/urn:li:dataset:test/Unknown')).toBeUndefined();
     });
 });

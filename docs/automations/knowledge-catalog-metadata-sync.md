@@ -1,155 +1,163 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Knowledge Catalog Metadata Sync Automation
+# Google Cloud Knowledge Catalog (Dataplex) Metadata Sync
 
 <FeatureAvailability saasOnly />
 
 :::info
 
-This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below.
+This feature is in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you run into issues.
 
 :::
 
-## Introduction
+## What it does
 
-Knowledge Catalog Metadata Sync is an automation that synchronizes DataHub Tags, Glossary Terms, and Structured Properties with
-Google Cloud Knowledge Catalog. This enables you to manage metadata centrally in DataHub and automatically propagate it to Knowledge Catalog, where it appears as custom aspects, native Business Glossary terms, and entry links on your BigQuery assets. This automation is exclusively available in DataHub Cloud.
+This automation pushes DataHub Tags, Glossary Terms, and Structured Properties to Google Cloud Knowledge Catalog (Dataplex). Tags and Structured Properties become custom aspects on Google Cloud Knowledge Catalog (Dataplex) entries. Glossary Terms become native Google Cloud Knowledge Catalog (Dataplex) Business Glossary terms with entry links to your data assets. Only available in DataHub Cloud.
 
-## Use Cases
+In the DataHub UI, the automation is still listed as **Dataplex Metadata Sync**.
 
-- Maintain consistent metadata across DataHub and Google Cloud Knowledge Catalog
-- Improve data discovery by making DataHub governance metadata visible in the Google Cloud console
-- Enhance data governance by syncing DataHub Glossary Terms to Knowledge Catalog Business Glossary terms with full category hierarchies
-- Streamline data classification by syncing DataHub Tags to Knowledge Catalog custom aspects
-- Propagate DataHub Structured Properties to Knowledge Catalog for unified metadata views
-- Support compliance efforts by automatically associating glossary terms with data assets via entry links
+## Why use it
 
-## Sync Capabilities
+- Keep metadata in sync between DataHub and Google Cloud Knowledge Catalog (Dataplex) without manual work
+- Make DataHub governance metadata (tags, glossary terms) visible in the Google Cloud console
+- Map DataHub Glossary Node hierarchies to Google Cloud Knowledge Catalog (Dataplex) Business Glossary categories
+- Sync Structured Properties to Google Cloud Knowledge Catalog (Dataplex) so teams using the Google Cloud console see the same metadata
 
-| DataHub Source        | Knowledge Catalog Target       | Sync Direction              | Notes                                                                     |
-| --------------------- | ------------------------------ | --------------------------- | ------------------------------------------------------------------------- |
-| Column Tags           | Custom Aspect (`datahub-tags`) | DataHub → Knowledge Catalog | Stored as key-value map in a custom aspect on the Knowledge Catalog entry |
-| Column Glossary Terms | Native Business Glossary Term  | DataHub → Knowledge Catalog | Creates native glossary terms, categories, and entry links                |
-| Table Glossary Terms  | Native Business Glossary Term  | DataHub → Knowledge Catalog | Creates native glossary terms, categories, and entry links                |
-| Structured Properties | Custom Aspect (`datahub`)      | DataHub → Knowledge Catalog | All structured properties synced as a single map aspect                   |
+## Supported platforms
+
+The automation syncs metadata for assets on these Google Cloud platforms:
+
+- BigQuery
+- Cloud SQL
+- Spanner
+- Pub/Sub
+- Bigtable
+- Vertex AI
+
+The asset must already have an entry in Google Cloud Knowledge Catalog (Dataplex), and its DataHub URN must match the one the [Dataplex ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/dataplex) produces. Assets ingested by other connectors with a different naming scheme are skipped. Other platforms, such as Dataproc Metastore and Cloud Storage, are not supported.
+
+## What gets synced
+
+| DataHub source        | Google Cloud Knowledge Catalog (Dataplex) target | Notes                                                     |
+| --------------------- | ------------------------------------------------ | --------------------------------------------------------- |
+| Column Tags           | Custom Aspect (`datahub-tags`)                   | Stored as a key-value map in a custom aspect on the entry |
+| Table Tags            | Custom Aspect (`datahub-tags`)                   | All supported platforms except BigQuery (see note below)  |
+| Column Glossary Terms | Native Business Glossary Term                    | Creates glossary terms, categories, and entry links       |
+| Table Glossary Terms  | Native Business Glossary Term                    | Creates glossary terms, categories, and entry links       |
+| Structured Properties | Custom Aspect (`datahub-properties`)             | All structured properties synced as a single map aspect   |
+
+All sync is one-way: DataHub → Google Cloud Knowledge Catalog (Dataplex).
 
 :::note
 
-- **Table-level Tags** are not synced to Knowledge Catalog custom aspects. Table-level tag propagation for BigQuery is handled by the [BigQuery Metadata Sync](bigquery-metadata-sync.md) automation via BigQuery Labels.
-- **Glossary Term hierarchy** is preserved: DataHub Glossary Node hierarchies are mapped to Knowledge Catalog Business Glossary categories (up to 3 levels deep, per Knowledge Catalog limits).
-- **Term renames** are detected and automatically synced — if a glossary term or category display name changes in DataHub, Knowledge Catalog is updated accordingly.
+- Table-level Tags on BigQuery tables are _not_ synced here. [BigQuery Metadata Sync](bigquery-metadata-sync.md) handles them as BigQuery Labels.
+- Glossary Node hierarchies map to Google Cloud Knowledge Catalog (Dataplex) Business Glossary categories (up to 3 levels deep, the most the Business Glossary allows).
+- Term renames are detected automatically. If a glossary term or category display name changes in DataHub, Google Cloud Knowledge Catalog (Dataplex) gets updated too.
 
 :::
 
-## How It Works
+## How it works
 
 ### Tags
 
-When a Tag is applied to a BigQuery column in DataHub, the automation:
+When you tag a supported asset or one of its columns in DataHub, the automation:
 
-1. Looks up the corresponding Knowledge Catalog entry for the BigQuery table
-2. Writes the tag as a key-value pair in a `datahub-tags` custom aspect, scoped to the column
-3. Tracks the mapping via a platform resource for removal support
+1. Looks up the Google Cloud Knowledge Catalog (Dataplex) entry for that asset
+2. Writes the tag as a key-value pair in a `datahub-tags` custom aspect, scoped to the column for column-level tags
+3. Tracks the mapping so the tag can be removed later if needed
 
 ### Glossary Terms
 
-When a Glossary Term is applied to a BigQuery table or column in DataHub, the automation:
+When you apply a Glossary Term to a supported asset or one of its columns, the automation:
 
-1. Ensures the Knowledge Catalog Business Glossary exists (created once, named `datahub` by default)
-2. Recreates the DataHub glossary node hierarchy as Knowledge Catalog categories (up to 3 levels)
-3. Creates a native Knowledge Catalog glossary term under the appropriate category
-4. Creates an entry link between the glossary term and the BigQuery data asset (with column path for column-level terms)
-5. When a term is removed in DataHub, the corresponding entry link is deleted from Knowledge Catalog
+1. Creates the Google Cloud Knowledge Catalog (Dataplex) Business Glossary if it doesn't exist yet (named `datahub` by default)
+2. Recreates the DataHub glossary node hierarchy as Google Cloud Knowledge Catalog (Dataplex) categories (up to 3 levels)
+3. Creates a Google Cloud Knowledge Catalog (Dataplex) glossary term under the right category
+4. Links the glossary term to the asset via an entry link (with column path for column-level terms)
+5. Deletes the entry link when you remove the term in DataHub
+
+If DataHub ingestion has recorded that a term link on an entry was created directly in Google Cloud Knowledge Catalog (Dataplex), the automation leaves that link alone rather than overwriting it.
 
 ### Structured Properties
 
-When Structured Properties are added or modified on a BigQuery asset in DataHub, the automation:
+When Structured Properties change on a supported asset, the automation:
 
-1. Fetches all structured property assignments for the entity from DataHub
-2. Resolves display names from structured property definitions
-3. Writes all properties as a single `datahub` custom aspect map on the Knowledge Catalog entry
+1. Fetches all structured property assignments for the entity
+2. Resolves display names from the property definitions
+3. Writes everything as a single `datahub-properties` custom aspect map on the Google Cloud Knowledge Catalog (Dataplex) entry
 
 ## Prerequisites
 
-### Required GCP Permissions
+### GCP permissions
 
-Ensure your service account has the following permissions:
+Your service account needs these permissions:
 
-| Task                         | Required Permissions                                                                                                                                                                   | Suggested Role           |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Knowledge Catalog Access     | `dataplex.entries.get`<br/>`dataplex.entries.update`<br/>`dataplex.aspectTypes.create`<br/>`dataplex.aspectTypes.update`<br/>`dataplex.aspectTypes.get`                                | Knowledge Catalog Editor |
-| Data Catalog Lookup          | `datacatalog.entries.get`                                                                                                                                                              | Data Catalog Viewer      |
-| Business Glossary Management | `dataplex.glossaries.create`<br/>`dataplex.glossaryTerms.create`<br/>`dataplex.glossaryTerms.update`<br/>`dataplex.glossaryCategories.create`<br/>`dataplex.glossaryCategories.update` | Knowledge Catalog Editor |
-| Entry Link Management        | `dataplex.entryLinks.create`<br/>`dataplex.entryLinks.delete`                                                                                                                          | Knowledge Catalog Editor |
-| Project Number Resolution    | `resourcemanager.projects.get`                                                                                                                                                         | Browser                  |
+| Task                                             | Required Permissions                                                                                                                                                                   | Suggested Role                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Google Cloud Knowledge Catalog (Dataplex) Access | `dataplex.entries.get`<br/>`dataplex.entries.update`<br/>`dataplex.aspectTypes.create`<br/>`dataplex.aspectTypes.update`<br/>`dataplex.aspectTypes.get`                                | Google Cloud Knowledge Catalog (Dataplex) Editor |
+| Data Catalog Lookup                              | `datacatalog.entries.get`                                                                                                                                                              | Data Catalog Viewer                              |
+| Business Glossary Management                     | `dataplex.glossaries.create`<br/>`dataplex.glossaryTerms.create`<br/>`dataplex.glossaryTerms.update`<br/>`dataplex.glossaryCategories.create`<br/>`dataplex.glossaryCategories.update` | Google Cloud Knowledge Catalog (Dataplex) Editor |
+| Entry Link Management                            | `dataplex.entryLinks.create`<br/>`dataplex.entryLinks.delete`                                                                                                                          | Google Cloud Knowledge Catalog (Dataplex) Editor |
+| Project Number Resolution                        | `resourcemanager.projects.get`                                                                                                                                                         | Browser                                          |
 
-**Note**: Permissions must be granted in every GCP project where metadata sync is needed. The Data Catalog Viewer role is required because the automation uses Data Catalog to discover the GCP region of BigQuery assets (BigQuery URNs don't contain region information).
+**Note**: Grant these in every GCP project where you want metadata synced, for every platform you sync. Data Catalog Viewer is needed because BigQuery, Pub/Sub, and Bigtable URNs in DataHub don't include region info, so the automation uses Data Catalog to look up which region the asset lives in. Cloud SQL, Spanner, and Vertex AI URNs already include it.
 
-### Connection Requirements
+### Connection requirements
 
-- Valid GCP service account credentials (or application default credentials)
-- Network connectivity from DataHub to Google Cloud APIs
-- BigQuery assets must already be registered in Knowledge Catalog (this happens automatically for BigQuery tables)
+- GCP service account credentials (or application default credentials)
+- Network access from DataHub to Google Cloud APIs
+- Assets registered in Google Cloud Knowledge Catalog (Dataplex) (automatic for the supported platforms)
 
-## Setup Instructions
+## Setup
 
-### Step 1: Access Automations
+### Step 1: Open Automations
 
-1. Navigate to **Govern** > **Automations** in the navigation bar.
+1. Go to **Govern** > **Automations** in the navigation bar.
 
 <p align="center">
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
 </p>
 
-### Step 2: Create Knowledge Catalog Automation
+### Step 2: Create the automation
 
-1. Click the **Create** button
-2. Select **Knowledge Catalog Metadata Sync** from the available automation types
+1. Click **Create**
+2. Select **Dataplex Metadata Sync**
 
-### Step 3: Configure Sync Options
+### Step 3: Pick what to sync
 
-Choose the types of metadata to synchronize:
+Each automation syncs one type of metadata. To sync more than one, create one automation per type.
 
-| Propagation Type      | Description                                                               |
-| --------------------- | ------------------------------------------------------------------------- |
-| Tags                  | Sync DataHub column Tags to Knowledge Catalog custom aspects              |
-| Glossary Terms        | Sync DataHub Glossary Terms to native Knowledge Catalog Business Glossary |
-| Structured Properties | Sync DataHub Structured Properties to Knowledge Catalog custom aspects    |
+| Type                   | What happens                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| Column Tags as Aspects | Tags → Google Cloud Knowledge Catalog (Dataplex) custom aspects                     |
+| Glossary Terms         | Glossary Terms → native Google Cloud Knowledge Catalog (Dataplex) Business Glossary |
+| Structured Properties  | Structured Properties → Google Cloud Knowledge Catalog (Dataplex) custom aspects    |
 
 :::note
 
-You can limit Tag and Glossary Term propagation to specific Tags or Terms. If none are selected, ALL Tags or Glossary Terms will be propagated. The recommended approach is to not specify a filter to avoid inconsistent states.
+You can limit Tag and Glossary Term sync to specific Tags or Terms. If you don't pick any filter, everything gets synced. We recommend leaving the filter empty to avoid inconsistent states.
 
 :::
 
-### Step 4: Configure Connection Settings
+### Step 4: Configure the connection
 
-Fill in the required fields:
+Enter the details from your GCP service account JSON key: project ID, private key ID, private key, client email, and client ID.
 
-- **Service Account Credentials**: GCP service account JSON key (or leave blank for application default credentials)
-- **Project ID**: The GCP project where custom aspect types and the Business Glossary will be created
-- **Glossary ID**: The Knowledge Catalog Business Glossary ID (default: `datahub`)
-- **Glossary Location**: GCP region for the Business Glossary (default: `global`)
+The automation creates its custom aspect types and the Business Glossary in the service account's project. The Business Glossary uses the ID `datahub` in the `global` location.
 
-#### Optional Filters
+### Step 5: Save and run
 
-- **Project IDs**: Restrict sync to specific GCP projects
-- **Project ID Pattern**: Regex pattern to filter projects
-- **Dataset Pattern**: Regex pattern to filter BigQuery datasets
+Click **Save and Run**. The automation will:
 
-### Step 5: Save and Run
+1. Create custom aspect types in Google Cloud Knowledge Catalog (Dataplex) (`datahub-tags` and `datahub-properties`) if they don't exist
+2. Start listening for metadata change events in DataHub
+3. Push changes to Google Cloud Knowledge Catalog (Dataplex) in real time
 
-Click **Save and Run** to activate the automation. The automation will:
+## Back-filling existing assets
 
-1. Create custom aspect types in Knowledge Catalog (`datahub-tags` and `datahub`) if they don't exist
-2. Begin listening for metadata change events in DataHub
-3. Propagate changes to Knowledge Catalog in real-time
+If you already have Tags or Glossary Terms on your BigQuery assets, you can back-fill them to Google Cloud Knowledge Catalog (Dataplex). This may take a while depending on how many BigQuery assets you have.
 
-## Propagating for Existing Assets
-
-To ensure that all existing Tags, Glossary Terms, and Structured Properties are propagated to Knowledge Catalog, you can backfill historical data. Note that the initial backfilling process may take some time, depending on the number of BigQuery assets you have.
-
-1. Navigate to the Automation you created above
+1. Open the automation you created above
 2. Click the three-dot **More** menu
 
 <p align="left">
@@ -162,64 +170,78 @@ To ensure that all existing Tags, Glossary Terms, and Structured Properties are 
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will trigger the backfilling process. If you only want to begin propagating metadata going forward, you can skip this step.
+This is a one-time step. If you only want to sync metadata going forward, skip it.
 
-## Viewing Synced Metadata
+:::note
 
-### Custom Aspects (Tags and Structured Properties)
+Back-fill covers Tags and Glossary Terms on BigQuery assets only. Structured Properties, and assets on the other supported platforms, sync as they change from then on.
 
-Synced Tags and Structured Properties are visible in the Knowledge Catalog entry details in the Google Cloud console. Look for custom aspects named `datahub-tags` and `datahub` on your BigQuery entries.
+:::
+
+## Viewing synced metadata
+
+### Tags and Structured Properties
+
+In the Google Cloud console, open the Google Cloud Knowledge Catalog (Dataplex) entry for an asset. You'll see custom aspects named `datahub-tags` and `datahub-properties` with the synced values.
 
 ### Glossary Terms
 
-Synced Glossary Terms appear in the Knowledge Catalog Business Glossary section of the Google Cloud console:
+In the Google Cloud console, go to the Google Cloud Knowledge Catalog (Dataplex) Business Glossary section:
 
-- **Business Glossary**: Named `datahub` by default, contains all synced terms and categories
-- **Categories**: Mirror the DataHub Glossary Node hierarchy (up to 3 levels)
-- **Terms**: Linked to data assets via entry links, visible on the entry's relationships
+- The glossary is named `datahub` by default
+- Categories mirror the DataHub Glossary Node hierarchy (up to 3 levels)
+- Terms are linked to data assets via entry links, visible on the entry's relationships
 
 ## Troubleshooting
 
-### Q: What BigQuery assets are supported?
+### Why is an asset not syncing?
 
-A: The automation supports BigQuery tables. The asset must be discoverable via Data Catalog (which is automatic for BigQuery tables). The automation uses Data Catalog to resolve the GCP region, then constructs the Knowledge Catalog entry path.
+Check that it's on one of the [supported platforms](#supported-platforms), that it has a Google Cloud Knowledge Catalog (Dataplex) entry, and that it was ingested into DataHub by the Dataplex ingestion source. Assets the automation can't find in Google Cloud Knowledge Catalog (Dataplex) are skipped.
 
-### Q: Why do I need Data Catalog Viewer permissions?
+### Why do I need Data Catalog Viewer permissions?
 
-A: BigQuery URNs in DataHub don't include GCP region information (e.g., `us-east1`, `eu`). The automation uses the Data Catalog LookupEntry API to discover which region a BigQuery table is in, then constructs the Knowledge Catalog entry path from that.
+BigQuery, Pub/Sub, and Bigtable URNs in DataHub don't include region info (e.g., `us-east1`, `eu`). The automation calls the Data Catalog LookupEntry API to find which region an asset is in, then builds the Google Cloud Knowledge Catalog (Dataplex) entry path from that.
 
-### Q: What happens if a Glossary Term hierarchy is deeper than 3 levels?
+### I see a custom aspect named `datahub` on older entries
 
-A: Knowledge Catalog Business Glossary supports a maximum of 3 nested category levels. If a DataHub Glossary Term has a hierarchy deeper than 3 levels, the sync is skipped for that term and a warning is logged.
+Earlier versions of this automation wrote Structured Properties to an aspect named `datahub`. They now go to `datahub-properties`. Entries synced before the change may still carry the old aspect.
 
-### Q: Where should I manage my Business Glossary?
+### Will the Dataplex ingestion source import this metadata back into DataHub?
 
-A: Author and manage the glossary in DataHub. Glossary terms in Knowledge Catalog should be treated as a reflection of the DataHub glossary, not as the primary source of truth.
+No. The Dataplex ingestion source skips custom aspects whose type starts with `datahub-`. When it ingests glossary terms this automation created, it maps them back to the original DataHub terms instead of creating duplicates. Mapping terms back requires the ingestion run to be connected to DataHub (not a dry run or file sink).
 
-### Q: Are there limitations on resource IDs?
+### What if a Glossary Term hierarchy is deeper than 3 levels?
 
-A: Knowledge Catalog resource IDs must match `^[a-z][a-z0-9-]{0,62}$`. The automation automatically sanitizes DataHub names to comply: lowercasing, replacing special characters with hyphens, collapsing consecutive hyphens, and prefixing with `t-` if the result starts with a digit. Names are truncated to 63 characters.
+Google Cloud Knowledge Catalog (Dataplex) Business Glossary only supports 3 nested category levels. If a term's hierarchy goes deeper, that term is skipped and a warning is logged.
 
-### Q: What happens if I rename a Glossary Term in DataHub?
+### Where should I manage my Business Glossary?
 
-A: The automation detects display name changes and updates the corresponding Knowledge Catalog glossary term or category. The resource ID (derived from the original name) remains unchanged — only the display name and description are updated.
+In DataHub. Treat the Google Cloud Knowledge Catalog (Dataplex) glossary as a read-only mirror, not the source of truth.
 
-### Q: How frequently are changes synced?
+### Are there limitations on resource IDs?
 
-A: Changes are synced in real-time (within a few seconds) when they occur in DataHub. The automation listens for metadata change events and processes them immediately.
+Google Cloud Knowledge Catalog (Dataplex) resource IDs must match `^[a-z][a-z0-9-]{0,62}$`. The automation sanitizes DataHub names automatically: lowercasing, replacing special characters with hyphens, collapsing consecutive hyphens, and prefixing with `t-` if the result starts with a digit. Names are truncated to 63 characters.
 
-### Q: What happens if Knowledge Catalog API calls fail?
+### What happens if I rename a Glossary Term in DataHub?
 
-A: The automation has built-in error rate limiting. If more than 15 errors occur within an hour (configurable), it will temporarily stop processing events to avoid cascading failures. Transient errors (like permission denied or network issues) are logged but don't permanently block sync.
+The automation detects the display name change and updates the Google Cloud Knowledge Catalog (Dataplex) glossary term or category. The resource ID (derived from the original name) stays the same. Only the display name and description change.
 
-### Q: Can I use this alongside BigQuery Metadata Sync?
+### How fast are changes synced?
 
-A: Yes. Table-level tag propagation is handled by [BigQuery Metadata Sync](bigquery-metadata-sync.md) (as BigQuery Labels), while Knowledge Catalog Metadata Sync handles column-level tags (as custom aspects), glossary terms (as native Business Glossary), and structured properties. The two automations are complementary.
+Within a few seconds. The automation listens for metadata change events and processes them as they arrive.
 
-## Related Documentation
+### What happens if Google Cloud Knowledge Catalog (Dataplex) API calls fail?
 
-- [DataHub Tags Documentation](https://docs.datahub.com/docs/tags/)
-- [DataHub Glossary Documentation](https://docs.datahub.com/docs/glossary/business-glossary/)
-- [BigQuery Metadata Sync Automation](bigquery-metadata-sync.md)
-- [Knowledge Catalog Documentation](https://cloud.google.com/dataplex/docs/catalog-overview)
-- [Knowledge Catalog Business Glossary Documentation](https://cloud.google.com/dataplex/docs/create-glossary)
+The automation has error rate limiting built in. If more than 15 errors happen within an hour (configurable), it pauses event processing to avoid cascading failures. Transient errors (permission denied, network issues) are logged but don't permanently block sync.
+
+### Can I use this alongside BigQuery Metadata Sync?
+
+Yes. [BigQuery Metadata Sync](bigquery-metadata-sync.md) handles BigQuery table-level tags (as BigQuery Labels). This automation handles column-level tags (as custom aspects), glossary terms (as native Business Glossary), and structured properties. They work well together.
+
+## Related docs
+
+- [DataHub Tags](https://docs.datahub.com/docs/tags/)
+- [DataHub Glossary](https://docs.datahub.com/docs/glossary/business-glossary/)
+- [BigQuery Metadata Sync](bigquery-metadata-sync.md)
+- [Google Cloud Knowledge Catalog (Dataplex) overview](https://cloud.google.com/dataplex/docs/catalog-overview)
+- [Google Cloud Knowledge Catalog (Dataplex) Business Glossary](https://cloud.google.com/dataplex/docs/create-glossary)
