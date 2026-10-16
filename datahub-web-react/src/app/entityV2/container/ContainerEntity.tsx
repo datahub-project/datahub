@@ -10,6 +10,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/container/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -124,6 +125,7 @@ export class ContainerEntity implements Entity<Container> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ContainerSummaryTab,
                 icon: SUMMARY_TAB_ICON,
                 display: showSummaryTab
@@ -136,6 +138,7 @@ export class ContainerEntity implements Entity<Container> {
             },
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: ContainerEntitiesTab,
                 icon: SquaresFour,
             },
@@ -143,6 +146,7 @@ export class ContainerEntity implements Entity<Container> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -150,11 +154,13 @@ export class ContainerEntity implements Entity<Container> {
                 : []),
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
                 component: AccessManagement,
                 icon: LockOpen,
                 display: {

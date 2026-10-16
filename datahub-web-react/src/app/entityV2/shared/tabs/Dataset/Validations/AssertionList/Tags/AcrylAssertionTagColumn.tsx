@@ -1,5 +1,5 @@
+import { toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -159,7 +159,11 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(newTags, e, t('tags.failedToAddEntities')));
+            const { content, duration } = handleBatchError(newTags, e, {
+                content: t('tags.failedToAddEntities'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         }
     };
 
@@ -175,7 +179,11 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(removedTags, e, t('tags.failedToRemoveEntities')));
+            const { content, duration } = handleBatchError(removedTags, e, {
+                content: t('tags.failedToRemoveEntities'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         }
     };
 
@@ -192,7 +200,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 }
 
                 // Notify success and refresh UI
-                message.success(t('tags.tagsUpdated'), 2);
+                toast.success(t('tags.tagsUpdated'), { duration: 2 });
                 setPopoverVisible(false);
                 refetch?.();
             } catch (e) {
