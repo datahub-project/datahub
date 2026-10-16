@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -47,7 +46,6 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
-import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -59,28 +57,15 @@ public class AggregationQueryBuilder {
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
-  private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
-
-  /** Search V3 documents store their entity type; V2 derives it from the index name. */
-  private final boolean v3KeywordReadEnabled;
+  protected final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
   private Map<String, String> filtersToDisplayName;
 
-  /** V2 facets only; production passes the V3 read decision through the other constructor. */
-  @VisibleForTesting
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
-    this(configs, entitySearchAnnotations, false);
-  }
-
-  public AggregationQueryBuilder(
-      @Nonnull final SearchConfiguration configs,
-      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
-      final boolean v3KeywordReadEnabled) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
-    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -201,33 +186,20 @@ public class AggregationQueryBuilder {
     return lastAggBuilder;
   }
 
-  /** V3 documents store their entity type; V2 derives it from the index name. */
-  private String entityTypeField() {
-    return v3KeywordReadEnabled ? INDEX_VIRTUAL_FIELD : ES_INDEX_FIELD;
+  /** V2 derives the entity type from the index name. Search V3 overrides this. */
+  protected String entityTypeField() {
+    return ES_INDEX_FIELD;
   }
 
-  private TermsAggregationBuilder entityTypeAggregation(
+  protected TermsAggregationBuilder entityTypeAggregation(
       @Nonnull OperationContext opContext, @Nonnull String name, int maxTermBuckets) {
-    TermsAggregationBuilder aggBuilder =
-        AggregationBuilders.terms(name)
-            .field(
-                getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
-            .size(maxTermBuckets)
-            .minDocCount(0);
-    if (v3KeywordReadEnabled) {
-      // A V3 index can hold several entity types. Report only the requested ones, including those
-      // without hits, like the per-index buckets on V2.
-      aggBuilder.includeExclude(
-          new IncludeExclude(
-              entitySearchAnnotations.keySet().stream()
-                  .map(EntitySpec::getName)
-                  .toArray(String[]::new),
-              null));
-    }
-    return aggBuilder;
+    return AggregationBuilders.terms(name)
+        .field(getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
+        .size(maxTermBuckets)
+        .minDocCount(0);
   }
 
-  private String getAggregationField(
+  protected String getAggregationField(
       @Nullable final Object opContext,
       final String facet,
       @Nullable AspectRetriever aspectRetriever) {

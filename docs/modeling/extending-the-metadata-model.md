@@ -429,7 +429,7 @@ It takes the following parameters:
   `_search.other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
 
 - **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
-  On Search V3, these fields copy into `_search.autocomplete`, the one field autocomplete reads.
+  Search V2 reads the field for typeahead. Search V3 does not serve autocomplete, so the flag has no effect on a V3 index.
 
 - **addToFilters**: boolean (optional) - Whether or not to add field to filters. Defaults to false
 
@@ -458,11 +458,9 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on `KEYWORD`, `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM` or `URN` fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `_search.tier_{tier}` field is created. Use `queryByDefault` and `enableAutocomplete` to control full-text search and autocomplete.
-
 - **searchLabel**: string (optional) - Unified label for search operations. Copies the field value into `_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. The field stays indexed under its own name too. For string fields on Search V3, the label also names the shared full-text field the value lands in (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
 
-- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (it can only be true together with `searchTier`, on `KEYWORD` or `TEXT` fields), but every searchable field is indexed under its own name regardless.
+- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless.
 
 - **entityFieldName**: string (optional) - If set, this field is copied into `_search.{entityFieldName}`, so several aspects can fill one entity-level field. `_entityName` aliases `_search.entityName` when a field of the entity sets `entityName`.
 
@@ -554,10 +552,6 @@ large.
 
 The search label system provides a powerful way to organize search fields and create specialized search experiences:
 
-**Search Tiers (`searchTier`) ⚠️ DEPRECATED:**
-
-Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fields that served Search V3 full-text search. Search V3 now reads the shared `_search` fields described below, so `searchTier` and `searchIndexed` are accepted but ignored, and no `_search.tier_{tier}` field is created.
-
 **Search Labels (`searchLabel`):**
 
 - Fields with `searchLabel` are copied to `_search.{label}` fields (without prefixes)
@@ -573,7 +567,8 @@ Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fiel
 <a name="shared-search-fields-on-search-v3"></a>
 **Shared search fields on Search V3:**
 
-Search V3 full-text search and autocomplete read a few shared `_search` fields instead of every searchable field.
+Search V3 full-text search reads a few shared `_search` fields instead of every searchable field.
+Search V3 does not serve autocomplete.
 These are the only full-text fields; the fields under their own names (and under `_aspects`) are keywords, numbers,
 dates and booleans for filters, facets and sorts, except the root browse paths, which keep their path analyzers. Each searchable string field copies into:
 
@@ -586,8 +581,7 @@ dates and booleans for filters, facets and sorts, except the root browse paths, 
 - otherwise, when the field is queried by default, `_search.other`, so V3 still searches every field V2 searches. An
   entity none of whose fields names `entityName` sends the field its `_entityName` alias names to
   `_search.entityName` instead. The urn and the fields queried by default of an entity a reference field names
-  (`@SearchableRef`) only ever copy into `_search.other`;
-- and, with `enableAutocomplete`, also `_search.autocomplete`.
+  (`@SearchableRef`) only ever copy into `_search.other`.
 
 Structured property values of type `string`, `rich_text` and `urn` copy into `_search.structuredProperties`, which
 every V3 entity index maps, unless the property's definition sets `excludeFromFullTextSearch` in its
@@ -596,8 +590,7 @@ every V3 entity index maps, unless the property's definition sets `excludeFromFu
 A shared field fed by several fields holds all of their values, so an ingested and an edited description are both
 searchable. An edited display name (`editedName`) lands in `_search.other`, so the name entities sort by stays the
 ingested one, as on V2. A shared field that a field queried by default feeds is analyzed (`text` and `stemmed`, with
-an identifier such as `customer_id` indexed whole and by its parts, short parts such as `id` dropped like any short word), and `_search.autocomplete` has a
-search-as-you-type `ngram` subfield; the other
+an identifier such as `customer_id` indexed whole and by its parts, short parts such as `id` dropped like any short word); the other
 shared fields stay keywords, dates or numbers. A label a model names keeps its indexed keyword for sorts and filters
 even when it is analyzed, except `description`, `columns`, `structuredProperties` and `other`, which hold only their analyzed subfields. Matches in `_search.entityName` and
 `_search.qualifiedName` weigh 10, in `_search.structuredProperties` 0.8, in `_search.other` 0.5, and in every other

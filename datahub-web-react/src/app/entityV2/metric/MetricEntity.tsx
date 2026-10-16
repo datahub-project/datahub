@@ -164,6 +164,10 @@ export class MetricEntity implements Entity<Metric> {
         return data?.info?.name || data?.id || data?.urn;
     };
 
+    createdTime = (data: Metric) => {
+        return data?.info?.created?.time;
+    };
+
     getLineageVizConfig = (entity: Metric) => {
         return {
             urn: entity?.urn,

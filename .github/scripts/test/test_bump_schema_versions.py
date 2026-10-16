@@ -902,6 +902,91 @@ def test_is_bc_change_schema_version_removal_only(tmp_path, monkeypatch):
     assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
 
 
+def test_is_bc_change_search_tier_removal_is_compatible(tmp_path, monkeypatch):
+    # searchTier never shipped as stored aspect data, so dropping it is not a migration.
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"searchTier\": 1\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\"\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_search_tier_only_annotation_is_compatible(tmp_path, monkeypatch):
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"searchTier\": 2\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_trailing_comma_without_search_tier_is_compatible(tmp_path, monkeypatch):
+    text = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT_PARTIAL\",\n"
+        "    \"fieldName\": \"editedName\",\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", text)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: text)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_searchable_field_type_still_incompatible(tmp_path, monkeypatch):
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = { \"fieldType\": \"KEYWORD\", \"searchTier\": 1 }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = { \"fieldType\": \"TEXT\" }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is False
+
+
 def test_is_bc_change_aspect_name_change_is_incompatible(tmp_path, monkeypatch):
     # A change to @Aspect beyond schemaVersion must not be waved through.
     base = 'namespace x\n@Aspect = { "name": "foo" }\nrecord Foo { a: boolean }'

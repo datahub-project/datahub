@@ -384,7 +384,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
 
     assertTrue(result.containsKey("dynamic"));
     assertTrue(result.containsKey("properties"));
@@ -394,7 +394,6 @@ public class MultiEntityMappingsUtilsTest {
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
     assertTrue(properties.containsKey("name"));
     assertTrue(properties.containsKey("score"));
-    // searchTier is ignored: no tier field is created
     assertFalse(properties.containsKey("tier_1"));
   }
 
@@ -407,7 +406,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Arrays.asList(entitySpec1, entitySpec2);
 
     // This should throw an IllegalArgumentException due to type conflicts
-    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
+    MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
   }
 
   @Test
@@ -415,7 +414,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.emptyList();
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
 
     @SuppressWarnings("unchecked")
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
@@ -431,7 +430,7 @@ public class MultiEntityMappingsUtilsTest {
     Collection<EntitySpec> entitySpecs = Collections.singletonList(entitySpec);
 
     Map<String, Object> result =
-        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>(), Map.of());
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, new HashMap<>());
 
     // Verify basic structure
     assertNotNull(result, "Result should not be null");
@@ -495,11 +494,11 @@ public class MultiEntityMappingsUtilsTest {
 
     // Create fields with different copy_to destinations
     SearchableFieldSpec sortField =
-        createSearchableFieldSpecWithCopyTo("sortField", FieldType.KEYWORD, "name", null, null);
+        createSearchableFieldSpecWithCopyTo("sortField", FieldType.KEYWORD, "name", null);
     SearchableFieldSpec boostField =
-        createSearchableFieldSpecWithCopyTo("boostField", FieldType.KEYWORD, "score", null, null);
+        createSearchableFieldSpecWithCopyTo("boostField", FieldType.KEYWORD, "score", null);
     SearchableFieldSpec tierField =
-        createSearchableFieldSpecWithCopyTo("tierField", FieldType.KEYWORD, null, 1, null);
+        createSearchableFieldSpecWithCopyTo("tierField", FieldType.KEYWORD, null, null);
 
     when(aspectSpec.getSearchableFieldSpecs())
         .thenReturn(Arrays.asList(sortField, boostField, tierField));
@@ -515,7 +514,7 @@ public class MultiEntityMappingsUtilsTest {
     when(aspectSpec.getName()).thenReturn("testAspect");
 
     SearchableFieldSpec field =
-        createSearchableFieldSpecWithCopyTo("testField", fieldType, searchLabel, null, null);
+        createSearchableFieldSpecWithCopyTo("testField", fieldType, searchLabel, null);
 
     when(aspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(field));
     when(entitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(aspectSpec));
@@ -524,17 +523,12 @@ public class MultiEntityMappingsUtilsTest {
   }
 
   private SearchableFieldSpec createSearchableFieldSpecWithCopyTo(
-      String fieldName,
-      FieldType fieldType,
-      String searchLabel,
-      Integer searchTier,
-      String entityFieldName) {
+      String fieldName, FieldType fieldType, String searchLabel, String entityFieldName) {
     SearchableAnnotation annotation = mock(SearchableAnnotation.class);
     when(annotation.getFieldType()).thenReturn(fieldType);
     when(annotation.getFieldName()).thenReturn(fieldName);
 
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
-    when(annotation.getSearchTier()).thenReturn(Optional.ofNullable(searchTier));
     when(annotation.getEntityFieldName()).thenReturn(Optional.ofNullable(entityFieldName));
     when(annotation.getSearchIndexed()).thenReturn(Optional.empty());
 
@@ -552,23 +546,20 @@ public class MultiEntityMappingsUtilsTest {
 
     // Create fields with various copy_to destinations
     SearchableFieldSpec sortNameField =
-        createSearchableFieldSpecWithCopyTo("sortNameField", FieldType.KEYWORD, "name", null, null);
+        createSearchableFieldSpecWithCopyTo("sortNameField", FieldType.KEYWORD, "name", null);
     SearchableFieldSpec sortTitleField =
-        createSearchableFieldSpecWithCopyTo(
-            "sortTitleField", FieldType.KEYWORD, "title", null, null);
+        createSearchableFieldSpecWithCopyTo("sortTitleField", FieldType.KEYWORD, "title", null);
     SearchableFieldSpec boostScoreField =
-        createSearchableFieldSpecWithCopyTo(
-            "boostScoreField", FieldType.KEYWORD, "score", null, null);
+        createSearchableFieldSpecWithCopyTo("boostScoreField", FieldType.KEYWORD, "score", null);
     SearchableFieldSpec boostRelevanceField =
         createSearchableFieldSpecWithCopyTo(
-            "boostRelevanceField", FieldType.KEYWORD, "relevance", null, null);
+            "boostRelevanceField", FieldType.KEYWORD, "relevance", null);
     SearchableFieldSpec tier1Field =
-        createSearchableFieldSpecWithCopyTo("tier1Field", FieldType.KEYWORD, null, 1, null);
+        createSearchableFieldSpecWithCopyTo("tier1Field", FieldType.KEYWORD, null, null);
     SearchableFieldSpec tier2Field =
-        createSearchableFieldSpecWithCopyTo("tier2Field", FieldType.KEYWORD, null, 2, null);
+        createSearchableFieldSpecWithCopyTo("tier2Field", FieldType.KEYWORD, null, null);
     SearchableFieldSpec customField =
-        createSearchableFieldSpecWithCopyTo(
-            "customField", FieldType.KEYWORD, null, null, "customField");
+        createSearchableFieldSpecWithCopyTo("customField", FieldType.KEYWORD, null, "customField");
 
     when(aspectSpec.getSearchableFieldSpecs())
         .thenReturn(
