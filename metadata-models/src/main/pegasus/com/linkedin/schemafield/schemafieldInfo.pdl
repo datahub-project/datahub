@@ -10,7 +10,6 @@ record SchemaFieldInfo {
     @Searchable = {
         "fieldType": "KEYWORD",
         "fieldNameAliases": [ "_entityName" ],
-        "searchTier": 1,
         "searchLabel": "entityName"
     }
     name: optional string

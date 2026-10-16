@@ -19,8 +19,7 @@ record Owner {
     "addToFilters": true,
     "hasValuesFieldName": "hasOwners",
     "queryByDefault": false,
-    "filterNameOverride": "Owned By",
-    "searchTier": 2
+    "filterNameOverride": "Owned By"
   }
   owner: Urn
 

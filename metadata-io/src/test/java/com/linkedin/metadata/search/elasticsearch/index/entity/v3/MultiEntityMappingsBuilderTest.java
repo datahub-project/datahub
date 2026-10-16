@@ -835,7 +835,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             "_entityName",
             "datasetProperties",
-            Optional.of(1),
             Optional.of("entityName"),
             Optional.empty());
 
@@ -889,7 +888,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             "_entityName",
             "datasetProperties",
-            Optional.of(1),
             Optional.of("entityName"),
             Optional.empty());
 
@@ -930,7 +928,6 @@ public class MultiEntityMappingsBuilderTest {
             "headline",
             "dashboardInfo",
             Optional.empty(),
-            Optional.empty(),
             Optional.empty());
     when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
     when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
@@ -955,7 +952,6 @@ public class MultiEntityMappingsBuilderTest {
             "_entityName",
             "dashboardInfo",
             Optional.empty(),
-            Optional.empty(),
             Optional.empty());
     EntitySpec named =
         createMockEntitySpecWithSearchMetadata(
@@ -964,7 +960,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             "_entityName",
             "chartInfo",
-            Optional.empty(),
             Optional.empty(),
             Optional.empty());
     when(titled.getSearchGroup()).thenReturn("default");
@@ -1000,7 +995,6 @@ public class MultiEntityMappingsBuilderTest {
             null,
             "dashboardInfo",
             Optional.empty(),
-            Optional.empty(),
             Optional.empty());
     EntitySpec wordGramEntity =
         createMockEntitySpecWithSearchMetadata(
@@ -1009,7 +1003,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.WORD_GRAM,
             null,
             "chartInfo",
-            Optional.of(1),
             Optional.of("entityName"),
             Optional.empty());
 
@@ -1103,7 +1096,6 @@ public class MultiEntityMappingsBuilderTest {
             null,
             "aspect1",
             Optional.empty(),
-            Optional.empty(),
             Optional.empty());
     EntitySpec entitySpec2 =
         createMockEntitySpecWithSearchMetadata(
@@ -1112,7 +1104,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             null,
             "aspect2",
-            Optional.empty(),
             Optional.empty(),
             Optional.empty());
 
@@ -1268,7 +1259,6 @@ public class MultiEntityMappingsBuilderTest {
             null,
             "countAspect",
             Optional.empty(),
-            Optional.empty(),
             Optional.empty());
     for (SearchableFieldSpec countSpec :
         List.of(
@@ -1283,7 +1273,6 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.DATETIME,
             null,
             "dateAspect",
-            Optional.empty(),
             Optional.empty(),
             Optional.empty());
     when(counted.getSearchGroup()).thenReturn("primary");
@@ -1604,7 +1593,6 @@ public class MultiEntityMappingsBuilderTest {
         fieldNameAlias,
         aspectName,
         Optional.empty(),
-        Optional.empty(),
         Optional.empty());
   }
 
@@ -1614,7 +1602,6 @@ public class MultiEntityMappingsBuilderTest {
       FieldType fieldType,
       String fieldNameAlias,
       String aspectName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<String> entityFieldName) {
     EntitySpec entitySpec = mock(EntitySpec.class);
@@ -1629,19 +1616,13 @@ public class MultiEntityMappingsBuilderTest {
     // Create aspect specs with given aspect name so alias paths differ across entities
     List<AspectSpec> aspectSpecs =
         createMockAspectSpecsWithSearchMetadata(
-            fieldName,
-            fieldType,
-            fieldNameAlias,
-            aspectName,
-            searchTier,
-            searchLabel,
-            entityFieldName);
+            fieldName, fieldType, fieldNameAlias, aspectName, searchLabel, entityFieldName);
     when(entitySpec.getAspectSpecs()).thenReturn(aspectSpecs);
 
     // Create searchable field specs
     List<SearchableFieldSpec> searchableFields =
         createMockSearchableFieldSpecsWithSearchMetadata(
-            fieldName, fieldType, fieldNameAlias, searchTier, searchLabel, entityFieldName);
+            fieldName, fieldType, fieldNameAlias, searchLabel, entityFieldName);
     when(entitySpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
 
     // Create searchable ref field specs
@@ -1668,13 +1649,7 @@ public class MultiEntityMappingsBuilderTest {
   private List<AspectSpec> createMockAspectSpecsWithAliasAndAspect(
       String fieldName, FieldType fieldType, String fieldNameAlias, String aspectName) {
     return createMockAspectSpecsWithSearchMetadata(
-        fieldName,
-        fieldType,
-        fieldNameAlias,
-        aspectName,
-        Optional.empty(),
-        Optional.empty(),
-        Optional.empty());
+        fieldName, fieldType, fieldNameAlias, aspectName, Optional.empty(), Optional.empty());
   }
 
   private List<AspectSpec> createMockAspectSpecsWithSearchMetadata(
@@ -1682,7 +1657,6 @@ public class MultiEntityMappingsBuilderTest {
       FieldType fieldType,
       String fieldNameAlias,
       String aspectName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<String> entityFieldName) {
     List<AspectSpec> aspectSpecs = new ArrayList<>();
@@ -1693,7 +1667,7 @@ public class MultiEntityMappingsBuilderTest {
     // Create mock searchable field specs for the aspect
     List<SearchableFieldSpec> searchableFields =
         createMockSearchableFieldSpecsWithSearchMetadata(
-            fieldName, fieldType, fieldNameAlias, searchTier, searchLabel, entityFieldName);
+            fieldName, fieldType, fieldNameAlias, searchLabel, entityFieldName);
     when(aspectSpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
     aspectSpecs.add(aspectSpec);
 
@@ -1712,14 +1686,13 @@ public class MultiEntityMappingsBuilderTest {
   private List<SearchableFieldSpec> createMockSearchableFieldSpecsWithAlias(
       String fieldName, FieldType fieldType, String fieldNameAlias) {
     return createMockSearchableFieldSpecsWithSearchMetadata(
-        fieldName, fieldType, fieldNameAlias, Optional.empty(), Optional.empty(), Optional.empty());
+        fieldName, fieldType, fieldNameAlias, Optional.empty(), Optional.empty());
   }
 
   private List<SearchableFieldSpec> createMockSearchableFieldSpecsWithSearchMetadata(
       String fieldName,
       FieldType fieldType,
       String fieldNameAlias,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<String> entityFieldName) {
     List<SearchableFieldSpec> searchableFields = new ArrayList<>();
@@ -1730,7 +1703,6 @@ public class MultiEntityMappingsBuilderTest {
     when(searchableAnnotation.getFieldType()).thenReturn(fieldType);
     when(searchableAnnotation.getFieldNameAliases())
         .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
-    when(searchableAnnotation.getSearchTier()).thenReturn(searchTier);
     when(searchableAnnotation.getSearchLabel()).thenReturn(searchLabel);
     when(searchableAnnotation.getEntityFieldName()).thenReturn(entityFieldName);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);

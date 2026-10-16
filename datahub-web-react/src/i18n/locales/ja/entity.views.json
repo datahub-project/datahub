@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Viewを検索...",
     "viewSelect.searchPlaceholderLegacy": "検索",
     "viewSelect.selectYourView": "Viewを選択",
+    "viewSelect.buttonLabel": "View",
+    "viewSelect.clearView": "Viewをクリア",
     "viewType.privateDescription": "<bold>プライベート</bold> - 自分のみ表示可能。",
     "viewType.publicDescription": "<bold>パブリック</bold> - 全員に表示可能。"
 }
