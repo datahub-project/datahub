@@ -1222,21 +1222,19 @@ transformers:
 
 ## Rewrite upstream URNs
 
-Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `platform_rules` matches a platform name. `find` and `replace` are a literal substring replacement on that name. The nested `id_rules` are literal find-and-replace operations on the dataset name, and they run only for upstreams whose platform matched that platform rule. Those `id_rules` run in list order, and a later one sees the name produced by the earlier ones. An upstream whose platform matches no rule is left unchanged. When `platform_rules` is empty, the top-level `id_rules` run for every upstream and the platform is left as it is.
+Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `platform_rules` matches a platform name exactly: `find` must equal the upstream's platform (for example `mssql`, not `sql`), and `replace` is the platform the upstream moves to. Only the first matching rule applies. Its nested `id_rules` are literal find-and-replace operations on the dataset name. They run in list order, and a later one sees the name produced by the earlier ones. An upstream whose platform matches no rule is left unchanged.
 
-Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run.
+Top-level `id_rules` apply to every upstream and keep its platform. They cannot be combined with `platform_rules`; put name rules under the platform rule they belong to.
 
-### Limitation
-
-Top-level `id_rules` are ignored, with no warning, whenever `platform_rules` is set. Put name rules under the platform rule they belong to. Top-level `id_rules` run only when `platform_rules` is empty.
+Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run. When a rewrite produces an upstream that is already listed, the duplicate is dropped.
 
 ### Config Details
 
-| Field            | Required | Type         | Default   | Description                                                                                                                                                                                                                                                                                        |
-| ---------------- | -------- | ------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform_rules` |          | list[object] | `[]`      | Platform rules, in list order. Each object has `find`, `replace`, and nested `id_rules`. A rule applies only when `find` is in the platform name. Nested `id_rules` then rewrite the dataset name. When this list is empty, top-level `id_rules` apply to every upstream and the platform is kept. |
-| `id_rules`       |          | list[object] | `[]`      | Name rules applied to every upstream when `platform_rules` is empty. Each object has `find` and `replace`.                                                                                                                                                                                         |
-| `mode`           |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.                                                                                                                                                                                        |
+| Field            | Required | Type         | Default   | Description                                                                                                                                                                                                                                          |
+| ---------------- | -------- | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform_rules` |          | list[object] | `[]`      | Platform rules. Each object has `find`, `replace`, and nested `id_rules`. The first rule whose `find` equals the upstream's platform applies, and its nested `id_rules` then rewrite the dataset name. Cannot be combined with top-level `id_rules`. |
+| `id_rules`       |          | list[object] | `[]`      | Name rules applied to every upstream, keeping its platform. Each object has `find` and `replace`. Cannot be combined with `platform_rules`.                                                                                                          |
+| `mode`           |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.                                                                                                                                          |
 
 ```yaml
 transformers:

@@ -1,9 +1,9 @@
 import copy
 import json
 from enum import auto
-from typing import Any, Iterable, List, Optional, cast
+from typing import Any, Iterable, List, Optional, Set, cast
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
@@ -59,9 +59,11 @@ class RewriteUpstreamPlatformRule(ConfigModel):
     """Match a platform, replace it, then rewrite the dataset name."""
 
     find: str = Field(
-        description="Substring to find in the platform name, for example 'mssql'."
+        description="Platform name to match exactly, for example 'mssql'."
     )
-    replace: str = Field(description="Platform name that replaces each match of find.")
+    replace: str = Field(
+        description="Platform name that replaces the matched platform."
+    )
     id_rules: List[RewriteUpstreamNameRule] = Field(
         default_factory=list,
         description="Name rules applied only to upstreams whose platform matched find. "
@@ -82,23 +84,35 @@ class RewriteUpstreamUrnsConfig(ConfigModel):
 
     platform_rules: List[RewriteUpstreamPlatformRule] = Field(
         default_factory=list,
-        description="Platform rules applied in list order. A rule runs only when its "
-        "find is present in the platform name at that point. Nested id_rules then "
-        "run for that upstream. Matching is a literal substring replace, not a "
-        "regular expression. An upstream whose platform matches no rule is left unchanged. "
-        "When this list is empty, id_rules below apply to every upstream and the "
-        "platform is left as it is.",
+        description="Platform rules. The first rule whose find equals the upstream's "
+        "platform name is applied, and its nested id_rules then run for that upstream. "
+        "An upstream whose platform matches no rule is left unchanged. "
+        "Cannot be combined with top-level id_rules.",
     )
     id_rules: List[RewriteUpstreamNameRule] = Field(
         default_factory=list,
-        description="Name rules applied to every upstream when platform_rules is empty. "
-        "They run in list order. Each rule sees the name produced by the previous one.",
+        description="Name rules applied to every upstream, keeping its platform. "
+        "They run in list order. Each rule sees the name produced by the previous one. "
+        "Cannot be combined with platform_rules; put name rules under a platform rule instead.",
     )
     mode: RewriteUpstreamMode = Field(
         default=RewriteUpstreamMode.REPLACE,
         description="replace overwrites each upstream URN. add keeps the original "
         "upstream and also emits the rewritten URN.",
     )
+
+    @model_validator(mode="after")
+    def reject_top_level_id_rules_with_platform_rules(
+        self,
+    ) -> "RewriteUpstreamUrnsConfig":
+        # Top-level id_rules only run when platform_rules is empty, so allowing both
+        # would silently drop the top-level rules.
+        if self.platform_rules and self.id_rules:
+            raise ValueError(
+                "id_rules cannot be combined with platform_rules. "
+                "Move the name rules under the platform rule they apply to."
+            )
+        return self
 
 
 class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
@@ -164,30 +178,39 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         return cast(Aspect, lineage)
 
     def _rewrite_upstreams(self, upstreams: List[UpstreamClass]) -> List[UpstreamClass]:
-        rewritten = []
+        # A rewrite can land on a URN that is already an upstream, or two upstreams
+        # can rewrite to the same URN. Keep the first entry for each dataset.
+        rewritten: List[UpstreamClass] = []
+        seen: Set[str] = set()
+
+        def _keep(upstream: UpstreamClass) -> None:
+            if upstream.dataset not in seen:
+                seen.add(upstream.dataset)
+                rewritten.append(upstream)
+
         for upstream in upstreams:
             new_urn = self._rewrite_urn(upstream.dataset)
             if (
                 self.config.mode == RewriteUpstreamMode.ADD
                 and new_urn != upstream.dataset
             ):
-                rewritten.append(upstream)
+                _keep(upstream)
                 added = copy.deepcopy(upstream)
                 added.dataset = new_urn
-                rewritten.append(added)
+                _keep(added)
             else:
                 upstream.dataset = new_urn
-                rewritten.append(upstream)
+                _keep(upstream)
         return rewritten
 
     def _rewrite_urn_list(self, urns: List[str]) -> List[str]:
-        rewritten = []
+        rewritten: List[str] = []
         for urn in urns:
             new_urn = self._rewrite_urn(urn)
             if self.config.mode == RewriteUpstreamMode.ADD and new_urn != urn:
                 rewritten.append(urn)
             rewritten.append(new_urn)
-        return rewritten
+        return list(dict.fromkeys(rewritten))
 
     def _rewrite_urn(self, urn: str) -> str:
         try:
@@ -209,10 +232,16 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         platform_name = dataset_urn.get_data_platform_urn().platform_name
         name = dataset_urn.name
         if self.config.platform_rules:
-            for rule in self.config.platform_rules:
-                if rule.find not in platform_name:
-                    continue
-                platform_name = platform_name.replace(rule.find, rule.replace)
+            # Platform names are identifiers, so match them exactly. A substring
+            # match would turn "mysql" into "my<replace>" for find "sql". Only the
+            # first matching rule applies, so a later rule cannot re-match the
+            # platform an earlier rule produced.
+            rule = next(
+                (r for r in self.config.platform_rules if r.find == platform_name),
+                None,
+            )
+            if rule is not None:
+                platform_name = rule.replace
                 for name_rule in rule.id_rules:
                     name = name.replace(name_rule.find, name_rule.replace)
         else:
@@ -290,6 +319,13 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
 
         if components == ["upstreams"] and isinstance(value, list):
             rewritten_value = []
+            seen_datasets: Set[str] = set()
+
+            def _keep(item: dict) -> None:
+                if item["dataset"] not in seen_datasets:
+                    seen_datasets.add(item["dataset"])
+                    rewritten_value.append(item)
+
             for item in value:
                 if not isinstance(item, dict) or not isinstance(
                     item.get("dataset"), str
@@ -297,13 +333,11 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
                     rewritten_value.append(item)
                     continue
                 new_item = _rewrite_upstream_value(self, item)
-                if (
-                    self.config.mode == RewriteUpstreamMode.ADD
-                    and isinstance(new_item, dict)
-                    and new_item.get("dataset") != item.get("dataset")
-                ):
-                    rewritten_value.append(item)
-                rewritten_value.append(new_item)
+                if self.config.mode == RewriteUpstreamMode.ADD and new_item.get(
+                    "dataset"
+                ) != item.get("dataset"):
+                    _keep(item)
+                _keep(new_item)
             if rewritten_value == value:
                 return [operation]
             return [_replace_operation(operation, components, rewritten_value)]

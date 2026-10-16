@@ -366,3 +366,86 @@ def test_platform_urn_is_reduced_to_its_name():
     )
     assert config.platform_rules[0].find == "mssql"
     assert config.platform_rules[0].replace == "fabric"
+
+
+def test_platform_rule_matches_the_whole_platform_name():
+    transformer = _transformer(platform_rules=[{"find": "sql", "replace": "fabric"}])
+    mysql = make_dataset_urn("mysql", "db.table")
+    aspect = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED"),
+            UpstreamClass(dataset=mysql, type="TRANSFORMED"),
+        ]
+    )
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert [u.dataset for u in rewritten.upstreams] == [UPSTREAM, mysql]
+
+
+def test_only_the_first_matching_platform_rule_applies():
+    transformer = _transformer(
+        platform_rules=[
+            _mssql_rule(replace="fabric"),
+            {"find": "fabric", "replace": "other"},
+        ]
+    )
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")]
+    )
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert rewritten.upstreams[0].dataset == make_dataset_urn(
+        "fabric", "src_lakehouse.gold.bridge_table"
+    )
+
+
+@pytest.mark.parametrize("mode", ["replace", "add"])
+def test_rewrite_onto_an_existing_upstream_is_not_duplicated(mode: str):
+    existing = make_dataset_urn("fabric", "workspace-id.item-id.gold.bridge_table")
+    transformer = _transformer(
+        mode=mode,
+        platform_rules=[
+            _mssql_rule([{"find": "src_lakehouse", "replace": "workspace-id.item-id"}])
+        ],
+    )
+    aspect = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED"),
+            UpstreamClass(dataset=existing, type="TRANSFORMED"),
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[
+                    make_schema_field_urn(UPSTREAM, "fund_id"),
+                    make_schema_field_urn(existing, "fund_id"),
+                ],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(DOWNSTREAM, "fund_id")],
+            )
+        ],
+    )
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    expected = [UPSTREAM, existing] if mode == "add" else [existing]
+    assert [u.dataset for u in rewritten.upstreams] == expected
+    assert rewritten.fineGrainedLineages is not None
+    assert rewritten.fineGrainedLineages[0].upstreams == [
+        make_schema_field_urn(urn, "fund_id") for urn in expected
+    ]
+
+
+def test_id_rules_cannot_be_combined_with_platform_rules():
+    with pytest.raises(ValidationError):
+        RewriteUpstreamUrnsConfig.model_validate(
+            {
+                "platform_rules": [_mssql_rule()],
+                "id_rules": [{"find": "src_lakehouse", "replace": "workspace"}],
+            }
+        )
