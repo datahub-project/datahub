@@ -22,6 +22,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                                                                                                                                                                                |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)<br/> - [Domain Mapping Based on Tags](#domain-mapping-based-on-tags)                                                                                                                                                                   |
 | `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)                                                                                                                                                            |
+| `upstreamLineage`   | - [Rewrite upstream URNs](#rewrite-upstream-urns)                                                                                                                                                                                                                                                                                                                     |
 
 ## Extract Ownership from Tags
 
@@ -1218,6 +1219,33 @@ transformers:
       input_pattern: '\b\w*hub\b'
       replacement: "sub"
 ```
+
+## Rewrite upstream URNs
+
+Rewrites every upstream dataset URN on the `upstreamLineage` aspect. The platform is replaced with `platform`. Each entry in `rules` is a literal find-and-replace on the dataset name (the asset id between the platform and the environment), and the rules run in list order. A later rule sees the name produced by the earlier rules.
+
+Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested.
+
+### Config Details
+
+| Field      | Required | Type         | Default | Description                                                                                                    |
+| ---------- | -------- | ------------ | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `platform` | ✅       | string       |         | Platform name written onto every upstream dataset URN, for example `fabric`.                                   |
+| `rules`    |          | list[object] | `[]`    | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace. |
+
+```yaml
+transformers:
+  - type: "rewrite_upstream_urns"
+    config:
+      platform: fabric
+      rules:
+        - find: src_lakehouse
+          replace: workspace-id.item-id
+        - find: ".gold."
+          replace: ".curated."
+```
+
+An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric,workspace-id.item-id.curated.bridge_table,PROD)`.
 
 ## Clean User URN in DatasetUsageStatistics Aspect
 
