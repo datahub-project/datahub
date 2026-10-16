@@ -64,6 +64,12 @@ The following report counters are available for operational visibility:
 | `dm_customsql_column_lineage_emitted`       | Elements with at least one column lineage entry emitted                                        |
 | `dm_customsql_fgl_downstream_unmapped`      | Individual FGL downstream fields dropped (SQL column name not found in Sigma formula metadata) |
 
+#### Data Model columns that name a warehouse table
+
+A Data Model column whose formula names a warehouse table the element reads, such as `Upper([ORDERS/Order Id])`, gets column lineage to that table. When the formula is just the ref and Sigma's column id carries the native column name, the edge is exact (confidence score 1.0). Otherwise the column name is derived from the display name (`Order Id` -> `order_id`) and the edge carries a confidence score of 0.5; this is done only where identifiers are lowercased (Snowflake), since the derived case is a guess. No edge is emitted when the name could mean something else the element reads (another table, a Sigma Dataset on another source, another Data Model's element, or a source whose name could not be looked up, including a Data Model this run did not load), or for a three-part `[Element/Relationship/Column]` ref. Those refs are counted under `data_model_element_fgl_warehouse_table_name_declined`.
+
+With `ingest_datasets: false`, the names of Sigma Datasets are unknown, so an element that reads any Sigma Dataset gets no such edges.
+
 #### Workbook customSQL chart lineage
 
 When `extract_lineage: true` (default), workbook chart elements whose data source is a customSQL definition

@@ -12,10 +12,14 @@ Coverage:
   - URN identity: schemaField parent Dataset URN matches entity-level warehouse URN
   - _build_dm_element_fine_grained_lineages: a column with no ref to follow
     (only an empty formula gets the columnId edge)
+  - _try_emit_warehouse_table_name_fgl: a ref naming a warehouse table the
+    element reads, for a column with no inode columnId
 
 Counters verified:
   data_model_element_fgl_warehouse_resolved
   data_model_element_fgl_warehouse_passthrough_deferred
+  data_model_element_fgl_warehouse_table_name_resolved
+  data_model_element_fgl_warehouse_table_name_declined
 """
 
 import datetime as dt
@@ -670,6 +674,8 @@ class TestColumnWithNoRefToFollow:
         self, column_id: str, formula: Optional[str]
     ) -> None:
         source = _make_source()
+        # As the element-level upstream lookup has done by now in a real run.
+        source._warehouse_ref_by_url_id[_SF_URL_ID] = None
         col = _column(column_id, "Email", formula)
         elem = _element("el-customers", "Customers", [col], [_SF_INODE_SOURCE])
 
@@ -823,3 +829,399 @@ class TestExplicitCaseFlagScope:
             "urn:li:dataset:(urn:li:dataPlatform:redshift,Analytics.Demo.BaseTable,PROD)",
             "CustomerId",
         )
+
+
+class TestWarehouseTableNameRef:
+    """A ref naming a warehouse table the element reads, on a column with no
+    ``inode-<url_id>/<COL>`` columnId."""
+
+    @staticmethod
+    def _upstreams(fgls: List[FineGrainedLineageClass]) -> List[tuple]:
+        return [(f.upstreams, f.confidenceScore) for f in fgls]
+
+    def test_a_calculated_column_gets_a_derived_column_edge(self) -> None:
+        source = _make_source()
+        col = _column("opaque-1", "Upper Email", "Upper([Customers/Email Address])")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email_address")], 0.5)
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 1
+        assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+    def test_a_self_named_element_uses_the_native_name_in_its_column_id(
+        self,
+    ) -> None:
+        """Sigma spells this pass-through's columnId ``<url_id>/<NATIVE>``."""
+        source = _make_source()
+        col = _column(f"{_SF_URL_ID}/E_MAIL", "Email", "[CUSTOMERS/Email]")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": [elem.elementId]},
+        )
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "e_mail")], 1.0)
+        ]
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+
+    def test_each_column_a_formula_names_gets_an_edge(self) -> None:
+        source = _make_source()
+        col = _column(
+            "opaque-1", "Name", 'Concat([CUSTOMERS/First Name], " ", [CUSTOMERS/Last])'
+        )
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert sorted(u for f in fgls for u in f.upstreams or []) == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "first_name"),
+            builder.make_schema_field_urn(_SF_DATASET_URN, "last"),
+        ]
+
+    def test_a_case_preserving_platform_gets_no_derived_column(self) -> None:
+        """The derived name's case is a guess, so it is only used where
+        identifiers are lowercased."""
+        source = _make_source()
+        col = _column("opaque-1", "Upper Id", "Upper([base_table/Customer Id])")
+        elem = _element("el-summary", "Summary", [col], [_RS_INODE_SOURCE])
+
+        assert _build_fgls(source, elem, warehouse_map=_RS_WAREHOUSE_MAP) == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 1
+
+    @pytest.mark.parametrize(
+        "ref",
+        ["[CUSTOMERS/Revenue (USD)]", "[CUSTOMERS/Rev\\/Cost]", "[CUSTOMERS/9 Day]"],
+    )
+    def test_a_derived_name_that_is_no_identifier_gets_no_edge(self, ref: str) -> None:
+        source = _make_source()
+        col = _column("opaque-1", "Value", f"Sum({ref})")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        assert _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 1
+
+    def test_a_case_preserving_platform_still_gets_an_exact_column(self) -> None:
+        source = _make_source()
+        col = _column(
+            f"{_RS_URL_ID}/customer_id", "Customer Id", "[base_table/Customer Id]"
+        )
+        elem = _element("el-base", "base_table", [col], [_RS_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_RS_WAREHOUSE_MAP,
+            element_name_to_eids={"base_table": [elem.elementId]},
+        )
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_RS_DATASET_URN, "customer_id")], 1.0)
+        ]
+
+    def test_a_column_id_naming_the_element_is_not_exact(self) -> None:
+        source = _make_source()
+        col = _column("el-summary/E_MAIL", "Email", "[CUSTOMERS/Email]")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_a_native_name_with_a_slash_is_still_exact(self) -> None:
+        source = _make_source()
+        col = _column(f"{_SF_URL_ID}/REV/COST", "Cost", "[CUSTOMERS/Cost]")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "rev/cost")], 1.0)
+        ]
+
+    def test_a_calculated_column_id_is_not_a_native_name(self) -> None:
+        """Only a formula that is just the ref passes the column through."""
+        source = _make_source()
+        col = _column("el-summary/UPPER_EMAIL", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_an_inode_column_id_is_left_to_the_passthrough_path(self) -> None:
+        """A second ref on a passthrough column gains no derived edge."""
+        source = _make_source()
+        col = _column(
+            f"inode-{_SF_URL_ID}/EMAIL",
+            "Email",
+            "Coalesce([CUSTOMERS/Email], [CUSTOMERS/Alt])",
+        )
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 1.0)
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 0
+
+    def test_a_table_the_element_does_not_read_gets_no_edge(self) -> None:
+        source = _make_source()
+        col = _column("opaque-1", "Email", "[ORDERS/Email]")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        assert _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 0
+
+    def test_two_read_tables_with_the_name_get_no_edge(self) -> None:
+        other = _WarehouseTableRef(
+            connection_id=_SF_CONN_ID, db="PROD_DB", schema="STAGING", table="CUSTOMERS"
+        )
+        source = _make_source()
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element(
+            "el-summary", "Summary", [col], [_SF_INODE_SOURCE, "inode-other"]
+        )
+
+        fgls = _build_fgls(
+            source, elem, warehouse_map={**_SF_WAREHOUSE_MAP, "other": other}
+        )
+
+        assert fgls == []
+
+    def test_a_guessed_column_on_a_self_named_element(self) -> None:
+        source = _make_source()
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": [elem.elementId]},
+        )
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_the_table_name_matches_case_insensitively(self) -> None:
+        source = _make_source()
+        col = _column("opaque-1", "Email", "Upper([customers/Email])")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_a_three_part_ref_gets_no_edge(self) -> None:
+        """``[Element/Relationship/Column]``: the column belongs to the
+        relationship's target table, not the one the ref names."""
+        source = _make_source()
+        outside = _column("opaque-1", "Email", "Upper([CUSTOMERS/Orders/Email])")
+        summary = _element("el-summary", "Summary", [outside], [_SF_INODE_SOURCE])
+        self_named = _column("opaque-2", "Total", "[CUSTOMERS/Orders/Total]")
+        customers = _element(
+            "el-customers", "CUSTOMERS", [self_named], [_SF_INODE_SOURCE]
+        )
+
+        assert _build_fgls(source, summary, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert (
+            _build_fgls(
+                source,
+                customers,
+                warehouse_map=_SF_WAREHOUSE_MAP,
+                element_name_to_eids={"customers": [customers.elementId]},
+            )
+            == []
+        )
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 2
+
+    def test_a_source_whose_name_is_unknown_blocks_the_edge(self) -> None:
+        """The table that resolved is not known to be the only one by that name."""
+        source = _make_source()
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element(
+            "el-summary", "Summary", [col], [_SF_INODE_SOURCE, "inode-gone"]
+        )
+
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert fgls == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 1
+
+    def test_a_sigma_dataset_by_the_same_name_blocks_the_edge(self) -> None:
+        source = _make_source()
+        source.sigma_dataset_urn_by_url_id["sd-1"] = "urn:li:dataset:sd-1"
+        source.sigma_dataset_name_by_url_id["sd-1"] = "Customers"
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element(
+            "el-summary", "Summary", [col], [_SF_INODE_SOURCE, "inode-sd-1"]
+        )
+
+        assert _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP) == []
+
+    def test_a_sigma_dataset_by_another_name_does_not_block_the_edge(self) -> None:
+        source = _make_source()
+        source.sigma_dataset_urn_by_url_id["sd-1"] = "urn:li:dataset:sd-1"
+        source.sigma_dataset_name_by_url_id["sd-1"] = "Orders"
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element(
+            "el-summary", "Summary", [col], [_SF_INODE_SOURCE, "inode-sd-1"]
+        )
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_a_sigma_dataset_on_the_tables_own_inode_does_not_block_the_edge(
+        self,
+    ) -> None:
+        source = _make_source()
+        source.sigma_dataset_name_by_url_id[_SF_URL_ID] = "Customers"
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    @staticmethod
+    def _with_cross_dm_customers(source: SigmaSource, columns: Dict[str, str]) -> str:
+        other = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-other.el-cust,PROD)"
+        source.dm_element_urn_by_name = {"dm-other": {"customers": [other]}}
+        source.dm_element_urn_to_cols = {other: columns}
+        return other
+
+    def test_another_data_models_element_by_the_name_keeps_its_edge(self) -> None:
+        """Both paths keep the checked cross-DM edge over the table's guess."""
+        source = _make_source()
+        other = self._with_cross_dm_customers(source, {"email": "Email"})
+        sources = [_SF_INODE_SOURCE, "dm-other/el-cust"]
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        summary = _element("el-summary", "Summary", [col], sources)
+        customers = _element("el-customers", "CUSTOMERS", [col], sources)
+
+        expected = [([builder.make_schema_field_urn(other, "Email")], 1.0)]
+        assert (
+            self._upstreams(
+                _build_fgls(source, summary, warehouse_map=_SF_WAREHOUSE_MAP)
+            )
+            == expected
+        )
+        assert (
+            self._upstreams(
+                _build_fgls(
+                    source,
+                    customers,
+                    warehouse_map=_SF_WAREHOUSE_MAP,
+                    element_name_to_eids={"customers": [customers.elementId]},
+                )
+            )
+            == expected
+        )
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 0
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 0
+
+    def test_another_data_models_element_by_the_name_blocks_the_table(self) -> None:
+        """Its column is not there, but the name is still ambiguous."""
+        source = _make_source()
+        self._with_cross_dm_customers(source, {"phone": "Phone"})
+        sources = [_SF_INODE_SOURCE, "dm-other/el-cust"]
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        summary = _element("el-summary", "Summary", [col], sources)
+        customers = _element("el-customers", "CUSTOMERS", [col], sources)
+
+        assert _build_fgls(source, summary, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert (
+            _build_fgls(
+                source,
+                customers,
+                warehouse_map=_SF_WAREHOUSE_MAP,
+                element_name_to_eids={"customers": [customers.elementId]},
+            )
+            == []
+        )
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 2
+
+    def test_an_unloaded_data_model_blocks_the_table(self) -> None:
+        """Its element names are unknown, so one may be the ref's."""
+        source = _make_source()
+        sources = [_SF_INODE_SOURCE, "dm-gone/el-x"]
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        summary = _element("el-summary", "Summary", [col], sources)
+        customers = _element("el-customers", "CUSTOMERS", [col], sources)
+
+        assert _build_fgls(source, summary, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert (
+            _build_fgls(
+                source,
+                customers,
+                warehouse_map=_SF_WAREHOUSE_MAP,
+                element_name_to_eids={"customers": [customers.elementId]},
+            )
+            == []
+        )
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 2
+
+    def test_a_loaded_data_model_without_the_name_keeps_the_edge(self) -> None:
+        source = _make_source()
+        source.dm_element_urn_by_name = {
+            "dm-other": {"orders": ["urn:li:dataset:dm-other.el-orders"]}
+        }
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element(
+            "el-summary", "Summary", [col], [_SF_INODE_SOURCE, "dm-other/el-orders"]
+        )
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert self._upstreams(fgls) == [
+            ([builder.make_schema_field_urn(_SF_DATASET_URN, "email")], 0.5)
+        ]
+
+    def test_unlowercased_snowflake_gets_no_derived_column(self) -> None:
+        override = WarehouseConnectionConfig.model_validate(
+            {"convert_urns_to_lowercase": False}
+        )
+        source = _make_source(conn_overrides={_SF_CONN_ID: override})
+        # A ref repeated in one formula is declined once.
+        col = _column(
+            "opaque-1", "Email", "Coalesce([CUSTOMERS/Email], Upper([CUSTOMERS/Email]))"
+        )
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        assert _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP) == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 1
+
+    def test_an_unmappable_connection_gets_no_edge(self) -> None:
+        table = _WarehouseTableRef(
+            connection_id=_UNMAPPABLE_CONN_ID, db="DB", schema="S", table="CUSTOMERS"
+        )
+        source = _make_source()
+        col = _column("opaque-1", "Email", "Upper([CUSTOMERS/Email])")
+        elem = _element("el-summary", "Summary", [col], [_SF_INODE_SOURCE])
+
+        assert _build_fgls(source, elem, warehouse_map={_SF_URL_ID: table}) == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_declined == 1

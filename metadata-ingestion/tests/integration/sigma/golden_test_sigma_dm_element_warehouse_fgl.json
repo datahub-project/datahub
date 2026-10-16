@@ -531,6 +531,19 @@
                     "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Phone",
+                    "nullable": false,
+                    "description": "Phone",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -616,6 +629,17 @@
                     "downstreamType": "FIELD",
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,81e9980c-3ec8-4bbf-a38e-78f9fe472ce0.byF6DckhFw,PROD),Last Name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse_coffee_company.public.customers,PROD),phone)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,81e9980c-3ec8-4bbf-a38e-78f9fe472ce0.byF6DckhFw,PROD),Phone)"
                     ],
                     "confidenceScore": 1.0
                 }
