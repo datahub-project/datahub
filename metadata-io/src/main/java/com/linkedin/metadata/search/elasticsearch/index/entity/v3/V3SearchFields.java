@@ -7,7 +7,6 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD;
@@ -36,8 +35,8 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 /**
- * The shared search fields of a Search V3 entity index. Full-text search and autocomplete read a
- * few {@code _search.<name>} fields instead of every searchable field:
+ * The shared search fields of a Search V3 entity index. Full-text search reads a few {@code
+ * _search.<name>} fields instead of every searchable field:
  *
  * <ul>
  *   <li>a searchable field copies into the shared field its {@code searchLabel} or {@code
@@ -50,8 +49,6 @@ import javax.annotation.Nonnull;
  *       sends the field its {@code _entityName} alias names to {@code entityName} instead. The urn
  *       and fields of an entity a reference field names ({@code @SearchableRef}) only ever copy
  *       into {@code _search.other}, and matched fields do not report them;
- *   <li>a string field with {@code enableAutocomplete} also copies into {@code
- *       _search.autocomplete}, the only field with an ngram subfield;
  *   <li>a structured property's {@code string}, {@code rich_text} and {@code urn} values copy into
  *       {@code _search.structuredProperties} from the property's own field (see {@link
  *       StructuredPropertyMappingBuilder}), unless its definition opts out. No searchable field
@@ -77,16 +74,12 @@ public final class V3SearchFields {
   public static final String COLUMNS = "columns";
   public static final String OTHER = "other";
   public static final String STRUCTURED_PROPERTIES = "structuredProperties";
-  public static final String AUTOCOMPLETE = "autocomplete";
 
   /** Word subfield of every full-text shared field. */
   public static final String TEXT = "text";
 
   /** Stemmed subfield of every full-text shared field. */
   public static final String STEMMED = "stemmed";
-
-  /** Search-as-you-type subfield of {@code _search.autocomplete}. */
-  public static final String NGRAM = "ngram";
 
   public static final String TEXT_ANALYZER = "v3_text";
   public static final String TEXT_SEARCH_ANALYZER = "v3_text_search";
@@ -186,9 +179,6 @@ public final class V3SearchFields {
           .map(fieldSpec -> entityNameFallbacks.contains(fieldSpec) ? ENTITY_NAME : OTHER)
           .forEach(destinations::add);
     }
-    if (sourceFieldSpecs.stream().anyMatch(V3SearchFields::isAutocompleted)) {
-      destinations.add(AUTOCOMPLETE);
-    }
     return destinations;
   }
 
@@ -232,9 +222,6 @@ public final class V3SearchFields {
               final boolean queriedByDefault =
                   fieldSpecs.stream().anyMatch(V3SearchFields::isQueriedByDefault);
               for (String destination : destinations(fieldSpecs, fallbacks)) {
-                if (AUTOCOMPLETE.equals(destination)) {
-                  continue;
-                }
                 sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
                 if (queriedByDefault) {
                   queried.add(destination);
@@ -318,10 +305,10 @@ public final class V3SearchFields {
   }
 
   /**
-   * Whether the target mapping has an analyzed shared field, one with a {@code text} or {@code
-   * ngram} subfield, that the current mapping lacks. Full-text search and autocomplete read those
-   * subfields, so an index without them quietly matches nothing; the mapping diff cannot show it,
-   * since it leaves out the dynamic {@code _search} object.
+   * Whether the target mapping has an analyzed shared field, one with a {@code text} subfield, that
+   * the current mapping lacks. Full-text search reads those subfields, so an index without them
+   * quietly matches nothing; the mapping diff cannot show it, since it leaves out the dynamic
+   * {@code _search} object.
    */
   public static boolean lacksSharedSearchFields(
       @Nonnull final Map<String, Object> currentMappings,
@@ -344,32 +331,7 @@ public final class V3SearchFields {
   private static boolean isAnalyzed(final Object mapping) {
     return mapping instanceof Map<?, ?> fieldMapping
         && fieldMapping.get(FIELDS) instanceof Map<?, ?> subfields
-        && (subfields.containsKey(TEXT) || subfields.containsKey(NGRAM));
-  }
-
-  /**
-   * The root fields that feed {@code _search.autocomplete}: first those copied into {@code
-   * entityName}, then the rest, each group in declaration order.
-   */
-  @Nonnull
-  public static List<String> autocompleteFields(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
-    final Map<Boolean, Set<String>> byName = new HashMap<>();
-    entitySpecs.stream()
-        .flatMap(V3SearchFields::sourceFieldSpecs)
-        .filter(V3SearchFields::isAutocompleted)
-        .forEach(
-            fieldSpec ->
-                byName
-                    .computeIfAbsent(
-                        destinations(List.of(fieldSpec), fallbacks).contains(ENTITY_NAME),
-                        k -> new LinkedHashSet<>())
-                    .add(fieldSpec.getSearchableAnnotation().getFieldName()));
-    return Stream.concat(
-            byName.getOrDefault(true, Set.of()).stream(),
-            byName.getOrDefault(false, Set.of()).stream())
-        .distinct()
-        .collect(Collectors.toList());
+        && subfields.containsKey(TEXT);
   }
 
   /**
@@ -377,25 +339,12 @@ public final class V3SearchFields {
    * subfields; a field that names the entity also keeps an indexed normalized keyword for exact
    * match, sorting and name suggestions, with a {@code keyword} subfield that keeps the casing for
    * case-sensitive exact match, and the others only hold their subfields, unless a model names them
-   * as a label. {@code autocomplete} is a normalized keyword with a search-as-you-type {@code
-   * ngram} subfield, in the engine's shape.
+   * as a label.
    */
   @Nonnull
-  public static Map<String, Object> mapping(
-      @Nonnull final String name,
-      final boolean fullText,
-      @Nonnull final Map<String, String> partialNgramConfig) {
+  public static Map<String, Object> mapping(@Nonnull final String name, final boolean fullText) {
     final Map<String, Object> mapping = new HashMap<>();
     mapping.put(TYPE, KEYWORD_FIELD_TYPE);
-    if (AUTOCOMPLETE.equals(name)) {
-      final Map<String, Object> ngram = new HashMap<>(partialNgramConfig);
-      ngram.put(ANALYZER, PARTIAL_ANALYZER);
-      mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-      mapping.put(IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE);
-      mapping.put(DOC_VALUES, false);
-      mapping.put(FIELDS, Map.of(NGRAM, ngram));
-      return mapping;
-    }
     if (!fullText || !TEXT_ONLY_FIELDS.contains(name)) {
       mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
       mapping.put(IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE);
@@ -437,11 +386,6 @@ public final class V3SearchFields {
   private static boolean isQueriedByDefault(@Nonnull final SearchableFieldSpec fieldSpec) {
     final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
     return annotation.isQueryByDefault() && isStringFieldType(annotation.getFieldType());
-  }
-
-  private static boolean isAutocompleted(@Nonnull final SearchableFieldSpec fieldSpec) {
-    final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-    return annotation.isEnableAutocomplete() && isStringFieldType(annotation.getFieldType());
   }
 
   /**

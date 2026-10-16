@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
@@ -112,7 +113,7 @@ public class PlatformEntityCounts {
     QueryBuilder query = QueryBuilders.matchAllQuery();
     if (useV3) {
       QueryBuilder entityTypeQuery =
-          EntitySearchIndexResolver.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
+          EntityFilter.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
       if (entityTypeQuery != null) {
         query = entityTypeQuery;
       }

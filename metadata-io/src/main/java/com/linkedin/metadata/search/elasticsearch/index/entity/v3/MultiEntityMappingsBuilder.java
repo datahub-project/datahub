@@ -25,7 +25,6 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -112,9 +111,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   private final int keywordMaxLength;
 
-  /** Engine-specific search-as-you-type shape of the {@code _search.autocomplete} ngram field. */
-  @Nonnull private final Map<String, String> partialNgramConfig;
-
   @Nonnull private final List<V3MappingContributor> mappingContributors;
 
   /**
@@ -131,20 +127,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
-    this(entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, ESUtils.KEYWORD_MAXLENGTH, List.of());
+    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH, List.of());
   }
 
   public MultiEntityMappingsBuilder(
       @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
       throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, List.of());
+    this(entityIndexConfiguration, keywordMaxLength, List.of());
   }
 
   public MultiEntityMappingsBuilder(
@@ -152,29 +141,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       int keywordMaxLength,
       @Nonnull List<V3MappingContributor> mappingContributors)
       throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, mappingContributors);
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim,
-      int keywordMaxLength)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, keywordMaxLength, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim,
-      int keywordMaxLength,
-      @Nonnull List<V3MappingContributor> mappingContributors)
-      throws IOException {
-
     this.entityIndexConfiguration = entityIndexConfiguration;
-    this.partialNgramConfig =
-        searchClientShim != null
-            ? searchClientShim.partialNgramConfig()
-            : FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG;
     this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
     this.mappingContributors =
         mappingContributors == null ? List.of() : List.copyOf(mappingContributors);
@@ -487,8 +454,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     // Build _search section with all copy_to destination fields
     Map<String, Object> searchSection =
-        MultiEntityMappingsUtils.buildSearchSection(
-            entitySpecs, combinedMappings, partialNgramConfig);
+        MultiEntityMappingsUtils.buildSearchSection(entitySpecs, combinedMappings);
     if (!searchSection.isEmpty()) {
       @SuppressWarnings("unchecked")
       Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");

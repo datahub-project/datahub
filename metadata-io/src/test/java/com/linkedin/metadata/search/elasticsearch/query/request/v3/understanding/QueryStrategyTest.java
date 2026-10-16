@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch.query.request.understanding;
+package com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding;
 
 import static org.testng.Assert.*;
 

@@ -3,10 +3,21 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
+from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
@@ -96,6 +107,14 @@ _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\
 # name plus the per-connection datasphere_space rather than a parsed external id.
 _DWC_SYSTEM_TYPE = "DWC"
 _DATASPHERE_PLATFORM = "sap-datasphere"
+
+# SAC models are discovered through the stories that consume them, so SAC exposes no
+# folder for a model on that path (and most are private/embedded models created by a
+# data import, which have no standalone folder at all). Without an explicit browse path,
+# GMS derives one by splitting the dotted dataset name (`t.4.<hash>:<hash>`) into a
+# meaningless `t` > `4` tree. Group all models under a single synthetic "Models" root
+# instead. SAC has no such folder — the connector invents this root.
+_MODEL_BROWSE_ROOT = "Models"
 
 
 class ConnectionMappingConfig(EnvConfigMixin):
@@ -192,7 +211,84 @@ class SACSourceConfig(
 
     folder_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
-        description="Patterns for selecting folders that are to be included",
+        description=(
+            "Patterns for selecting folders that are to be included. Matched against the "
+            "browse path whose built-in root folder has already been canonicalized (e.g. "
+            "`Public/...`), not SAC's raw localized `ancestorPath`; write rules against "
+            "the canonical `public_root_folder_name` value rather than a language-specific "
+            "root such as `Öffentlich`. Only story and application browse paths are "
+            "matched; model browse paths (the synthetic `Models` root) are not filtered."
+        ),
+    )
+
+    public_root_folder_name: Optional[str] = Field(
+        default="Public",
+        description=(
+            "Canonical display name for SAC's built-in public root folder. SAC returns "
+            "this root in each resource's `ancestorPath` localized to the resource's "
+            "language (e.g. 'Public' in English, 'Öffentlich' in German), which would "
+            "otherwise split the same physical root into one browse-path tree per "
+            "language. Only a first `ancestorPath` segment matching "
+            "`public_root_folder_aliases` is rewritten to this value; other roots are "
+            "left untouched. User-created sub-folders keep their given name. Set to null "
+            "to disable rewriting and keep the raw localized name."
+        ),
+    )
+
+    public_root_folder_aliases: List[str] = Field(
+        default=["Public", "Öffentlich"],
+        description=(
+            "Root folder display names that identify SAC's built-in public root across "
+            "tenant languages. `isPublic eq 1` can also return other shared roots (e.g. a "
+            "team/workspace root such as 'Default'), so only a first `ancestorPath` "
+            "segment matching one of these labels (case-insensitive) is rewritten to "
+            "`public_root_folder_name` — any other root is preserved rather than merged "
+            "into the public tree. Add your tenant language's label if it is not listed. "
+            "When `ingest_private_content` is enabled and a resource's `folderType` is "
+            "known from the File Repository, that type is authoritative and the public "
+            "root is canonicalized regardless of this list; the aliases only gate the "
+            "fallback where `folderType` is unavailable."
+        ),
+    )
+
+    private_root_folder_name: Optional[str] = Field(
+        default="My Files",
+        description=(
+            "Canonical display name for SAC's built-in private (`My Files`) root folder. "
+            "Only relevant when `ingest_private_content` is enabled; the first "
+            "`ancestorPath` segment of a resource whose `folderType` is `PRIVATE` is "
+            "rewritten to this value (the same localization dedup as "
+            "`public_root_folder_name`, applied to the private root). Set to null to keep "
+            "the raw localized name."
+        ),
+    )
+
+    ingest_private_content: bool = Field(
+        default=False,
+        description=(
+            "By default the connector ingests only public content (`isPublic eq 1`). "
+            "When enabled, the `isPublic` filter is dropped so private and team content "
+            "the OAuth client can see is ingested as well. With a client-credentials "
+            "OAuth client (a technical user that owns no content), this alone typically "
+            "surfaces little beyond public content unless `apply_manage_privilege` is "
+            "also enabled and the client holds the Manage privilege on Private/Public "
+            "Files. When enabled, the connector additionally reads each resource's "
+            "`folderType` from the File Repository API to canonicalize root folders "
+            "correctly (public vs. private) rather than assuming everything is public."
+        ),
+    )
+
+    apply_manage_privilege: bool = Field(
+        default=False,
+        description=(
+            "Append `applyManagePrivilege=true` to resource requests, which asks SAC to "
+            "return all content on the tenant (the administrative `System` view) instead "
+            "of only what the OAuth client can see directly. This requires the OAuth "
+            "client to be assigned a role with the Manage privilege on Private Files "
+            "and/or Public Files; without that privilege the parameter has no effect. "
+            "Intended to be combined with `ingest_private_content` to ingest non-public "
+            "content tenant-wide."
+        ),
     )
 
     connection_mapping: Dict[str, ConnectionMappingConfig] = Field(
@@ -238,6 +334,21 @@ class SACSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @field_validator(
+        "public_root_folder_name", "private_root_folder_name", mode="after"
+    )
+    @classmethod
+    def _reject_blank_root_folder_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        # null disables canonicalization; a blank label would instead rewrite the root to
+        # an empty segment (e.g. "/sac//Folder 1"), so treat it as a config typo.
+        if v is not None and not v.strip():
+            raise ValueError(
+                f"{info.field_name} must be a non-empty string, or null to disable canonicalization"
+            )
+        return v
 
 
 @dataclass
@@ -506,6 +617,18 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsClass(paths=[f"/{self.platform}/{_MODEL_BROWSE_ROOT}"]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=_MODEL_BROWSE_ROOT)]
+            ),
+        ).as_workunit()
+
         if model.is_import and self.config.ingest_import_data_model_schema_metadata:
             primary_fields: List[str] = []
             schema_fields: List[SchemaFieldClass] = []
@@ -713,7 +836,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return session
 
     def _query_odata_entities(
-        self, path: str, select: str, filter: Optional[str] = None
+        self,
+        path: str,
+        select: str,
+        filter: Optional[str] = None,
+        extra_params: Optional[Dict[str, str]] = None,
     ) -> Iterator[Dict[str, Any]]:
         # We query the OData endpoints directly instead of going through a metadata-driven OData
         # client. The "Resources" data endpoints are stable across SAC tenant generations, whereas
@@ -723,6 +850,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         query: Dict[str, str] = {"$format": "json", "$select": select}
         if filter is not None:
             query["$filter"] = filter
+        if extra_params is not None:
+            query.update(extra_params)
 
         url: Optional[str] = f"{self.config.tenant_url}/api/v1/{path}"
         params: Optional[Dict[str, str]] = query
@@ -731,23 +860,98 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             response = self.session.get(url=url, params=params)
             response.raise_for_status()
 
-            # OData verbose JSON always wraps the payload in a top-level "d"; a missing key means an
-            # unexpected response, which we want to surface rather than silently ingest nothing.
-            payload = response.json()["d"]
-            if isinstance(payload, dict):
-                yield from payload.get("results", [])
-                # follow server-driven paging; "__next" is an absolute URL with the query baked in
-                url = payload.get("__next")
+            # SAC exposes two OData services with different envelopes: the classic
+            # `/api/v1/Resources` service is OData v2 (verbose JSON under a top-level "d",
+            # with server-driven paging via "results"/"__next"), while the File Repository
+            # service (`/api/v1/filerepository`) is OData v4 ("value" with "@odata.nextLink").
+            # Support both; a response carrying neither is unexpected and surfaced rather
+            # than silently ingesting nothing.
+            payload = response.json()
+            if "d" in payload:
+                body = payload["d"]
+                if isinstance(body, dict):
+                    yield from body.get("results", [])
+                    next_link = body.get("__next")
+                else:
+                    yield from body
+                    next_link = None
+            elif "value" in payload:
+                yield from payload["value"]
+                next_link = payload.get("@odata.nextLink")
             else:
-                yield from payload
-                url = None
+                raise KeyError(
+                    "unexpected OData response: neither 'd' (v2) nor 'value' (v4) present"
+                )
 
+            # Both the v2 `__next` and v4 `@odata.nextLink` cursors carry the query baked
+            # in, but v4/CAP tenants may hand back a relative link that `session.get`
+            # cannot fetch on its own; resolve it against the current request URL so
+            # folder-type enrichment keeps paging past the first page.
+            url = urljoin(response.url, next_link) if next_link else None
             params = None
+
+    def _get_folder_types_by_resource_id(
+        self, extra_params: Optional[Dict[str, str]]
+    ) -> Dict[str, str]:
+        # `folderType` is not exposed by the `Resources` endpoint the connector reads for
+        # stories and models; it lives on the separate File Repository OData service. We
+        # fetch it once and join on `resourceId` so root folders can be canonicalized by
+        # type (public vs. private) rather than by localized display name. Any failure
+        # (endpoint unavailable, missing `File Repository Read` access, unexpected schema)
+        # degrades to an empty map: root folders then keep their raw localized names
+        # instead of aborting the whole ingestion.
+        folder_types: Dict[str, str] = {}
+        try:
+            for entity in self._query_odata_entities(
+                "filerepository/Resources",
+                select="resourceId,folderType",
+                extra_params=extra_params,
+            ):
+                resource_id = entity.get("resourceId")
+                folder_type = entity.get("folderType")
+                if resource_id and folder_type:
+                    folder_types[resource_id] = folder_type
+        except Exception as e:
+            self.report.warning(
+                title="Could not read folder types from the File Repository API",
+                message=(
+                    "Root folders of non-public content may keep their raw localized "
+                    "names. Ensure the OAuth client has 'File Repository Read' access."
+                ),
+                context=str(e),
+            )
+        return folder_types
+
+    def _canonical_root_folder_name(
+        self, folder_type: Optional[str], is_public: bool
+    ) -> Optional[str]:
+        # When only public content is ingested the `isPublic` filter guarantees the root
+        # is public, so no per-resource `folderType` is needed.
+        if not self.config.ingest_private_content:
+            return self.config.public_root_folder_name
+        if folder_type == "PUBLIC":
+            return self.config.public_root_folder_name
+        if folder_type == "PRIVATE":
+            return self.config.private_root_folder_name
+        # A missing `folderType` (permission skew between Story Listing and the File
+        # Repository join, paging truncation, or a null value) must not silently drop
+        # public content back to a localized root. The primary `Resources` row carries
+        # `isPublic` — the same signal public-only mode already trusts — so fall back to
+        # it before giving up on canonicalization.
+        if folder_type is None and is_public:
+            return self.config.public_root_folder_name
+        # Team folders, samples, or a non-public root we cannot type: leave the localized
+        # first segment untouched rather than risk mislabeling it.
+        return None
 
     def get_resources(self) -> Iterable[Resource]:
         import_data_model_ids = self.get_import_data_model_ids()
 
-        filter = "isTemplate eq 0 and isSample eq 0 and isPublic eq 1"
+        filter = "isTemplate eq 0 and isSample eq 0"
+        # By default restrict to public content; dropping this gate lets the OAuth client
+        # ingest any private/team content it can see (see `ingest_private_content`).
+        if not self.config.ingest_private_content:
+            filter += " and isPublic eq 1"
         if self.config.ingest_stories and self.config.ingest_applications:
             filter += " and ((resourceType eq 'STORY' and resourceSubtype eq '') or (resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'))"
         elif self.config.ingest_stories and not self.config.ingest_applications:
@@ -757,10 +961,28 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 " and resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'"
             )
 
-        select = "resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile"
+        extra_params = (
+            {"applyManagePrivilege": "true"}
+            if self.config.apply_manage_privilege
+            else None
+        )
+
+        # `ancestorPath` roots are localized (e.g. Public vs. Öffentlich). When ingesting
+        # only public content the first segment is always the public root, so it can be
+        # rewritten unconditionally. Once private/team content is in play we need each
+        # resource's `folderType` (only exposed by the File Repository API) to know which
+        # canonical root name applies; if that join misses we still canonicalize public
+        # roots from the row's own `isPublic` flag and otherwise leave the localized name.
+        folder_types_by_resource_id: Dict[str, str] = (
+            self._get_folder_types_by_resource_id(extra_params)
+            if self.config.ingest_private_content
+            else {}
+        )
+
+        select = "resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile,isPublic"
 
         for entity in self._query_odata_entities(
-            "Resources", select=select, filter=filter
+            "Resources", select=select, filter=filter, extra_params=extra_params
         ):
             resource_id: str = entity["resourceId"]
             entity_name = entity.get("name")
@@ -775,13 +997,49 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             ancestor_path_raw = entity.get("ancestorPath")
             if ancestor_path_raw:
+                # Without a browse path the resource skips the folder_pattern check below,
+                # so warn instead of swallowing a malformed ancestorPath silently.
+                ancestors: Optional[List[str]] = None
                 try:
-                    ancestors = json.loads(ancestor_path_raw)
+                    parsed = json.loads(ancestor_path_raw)
+                except json.JSONDecodeError as e:
+                    self.report.warning(
+                        title="Unparseable SAC ancestor path",
+                        message="Resource has no browse path and is not matched against folder_pattern",
+                        context=f"resource_id={resource_id}",
+                        exc=e,
+                    )
+                else:
+                    if isinstance(parsed, list):
+                        ancestors = parsed
+                    else:
+                        self.report.warning(
+                            title="Unexpected SAC ancestor path shape",
+                            message="Resource has no browse path and is not matched against folder_pattern",
+                            context=f"resource_id={resource_id}, ancestorPath={ancestor_path_raw!r}",
+                        )
+
+                if ancestors is not None:
+                    folder_type = folder_types_by_resource_id.get(resource_id)
+                    ancestors = _canonicalize_ancestor_folders(
+                        ancestors,
+                        self._canonical_root_folder_name(
+                            folder_type,
+                            _is_truthy_flag(entity.get("isPublic")),
+                        ),
+                        # An authoritative `folderType` (PUBLIC or PRIVATE from the File
+                        # Repository join) identifies the root on its own, so it is
+                        # rewritten unconditionally. Only the fallback where `folderType`
+                        # is unknown and we are trusting `isPublic` is alias-gated, so a
+                        # shared/team root returned under `isPublic` is not merged into
+                        # the public tree.
+                        self.config.public_root_folder_aliases
+                        if folder_type is None
+                        else None,
+                    )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
                     )
-                except json.JSONDecodeError:
-                    pass
 
             if ancestor_path and not self.config.folder_pattern.allowed(ancestor_path):
                 continue
@@ -794,10 +1052,28 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             # OData string keys escape a single quote by doubling it
             escaped_resource_id = resource_id.replace("'", "''")
-            for nav_entity in self._query_odata_entities(
-                f"Resources('{escaped_resource_id}')/resourceModels",
-                select=models_select,
-            ):
+            # Forward applyManagePrivilege so model expansion is scoped the same way as the
+            # listing above; without it a private story surfaced only via the manage
+            # privilege could not expand its models. A per-resource failure (e.g. a story
+            # the client can list but not expand) must not abort the whole run, so degrade
+            # to no models for that resource rather than letting the error propagate.
+            try:
+                nav_entities = list(
+                    self._query_odata_entities(
+                        f"Resources('{escaped_resource_id}')/resourceModels",
+                        select=models_select,
+                        extra_params=extra_params,
+                    )
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Could not read models for a resource",
+                    message="Lineage for this story or application may be incomplete.",
+                    context=f"{resource_id}: {e}",
+                )
+                nav_entities = []
+
+            for nav_entity in nav_entities:
                 # the model id can have a different structure, commonly all model ids have a namespace (the part before the colon) and the model id itself
                 # t.4.sap.fpa.services.userFriendlyPerfLog:ACTIVITY_LOG is a builtin model without a possiblity to get more metadata about the model
                 # t.4.YV67EM4QBRU035A7TVKERZ786N:YV67EM4QBRU035A7TVKERZ786N is a model id where the model id itself also appears as part of the namespace
@@ -1255,6 +1531,39 @@ def _add_sap_sac_custom_auth_header(
 ) -> Tuple[str, Dict[str, str], Any]:
     headers["x-sap-sac-custom-auth"] = "true"
     return url, headers, body
+
+
+def _is_truthy_flag(value: Any) -> bool:
+    # SAC OData returns boolean-ish flags (e.g. `isPublic`) inconsistently across tenant
+    # generations: an integer 1, a boolean true, or the strings "1"/"true". A plain
+    # `bool(value)` would wrongly read the string "0" as True, so normalize explicitly.
+    return str(value).strip().lower() in ("1", "true")
+
+
+def _canonicalize_ancestor_folders(
+    ancestors: List[str],
+    canonical_root: Optional[str],
+    recognized_aliases: Optional[Collection[str]] = None,
+) -> List[str]:
+    # SAC returns the first `ancestorPath` segment (the built-in root folder: Public,
+    # My Files, ...) under a display name localized to the resource's language, which
+    # would otherwise fan the same physical root out into one browse-path tree per tenant
+    # language. The caller resolves a canonical name for that root and the first segment
+    # is rewritten to it; user-created sub-folders are not localized, so only the first
+    # segment is touched. When `recognized_aliases` is given, only a first segment
+    # matching one of them (case-insensitive) is rewritten — this guards the public root,
+    # since `isPublic eq 1` can also return other shared roots (e.g. a team/workspace root
+    # like "Default") that must not be merged into the public tree. A None `canonical_root`
+    # (rewrite disabled, or an unresolved/unrecognized root) leaves the localized name.
+    if not ancestors or canonical_root is None:
+        return ancestors
+
+    if recognized_aliases is not None:
+        aliases = {alias.casefold() for alias in recognized_aliases}
+        if ancestors[0].casefold() not in aliases:
+            return ancestors
+
+    return [canonical_root, *ancestors[1:]]
 
 
 def _parse_sac_datetime(value: str) -> datetime:
