@@ -3,7 +3,7 @@ import logging
 import re
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, cast
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, TypeVar, cast
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
@@ -120,17 +120,20 @@ _DESCRIBE_DEFAULT_INDEX = 4
 # (`hll HLL_UNION`) and complex types (`array<int>`) defeat its column regex
 # outright, so the parse yields no comments at all. information_schema serves the
 # same comments unescaped; one query per database covers every table in it.
-# An external catalog keys its rows by the bare database name by default, but by
-# `catalog.database` once the global show_full_dbname_in_info_schema_db is on, so
-# both forms are matched rather than reading that server setting first.
+# The filter must stay a single equality: Doris pushes only `TABLE_SCHEMA = <literal>`
+# down into the information_schema scan, and anything else (IN, OR) makes it walk
+# every database and table in the catalog first, which on an external catalog means
+# loading every remote schema and can run for minutes.
 _COLUMN_COMMENTS_SQL = (
     "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS "
-    "WHERE TABLE_SCHEMA IN (:database, :qualified_database)"
+    "WHERE TABLE_SCHEMA = :schema"
 )
 _TABLE_COMMENTS_SQL = (
     "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
-    "WHERE TABLE_SCHEMA IN (:database, :qualified_database)"
+    "WHERE TABLE_SCHEMA = :schema"
 )
+
+_CommentValue = TypeVar("_CommentValue")
 
 
 @dataclass(frozen=True)
@@ -180,6 +183,21 @@ def _non_empty_comment(value: Any) -> Optional[str]:
         return None
     comment = str(value)
     return comment if comment.strip() else None
+
+
+def _lookup_comment(
+    comments: Mapping[str, _CommentValue], name: str
+) -> Optional[_CommentValue]:
+    # Doris 4.0.8+ keeps external-catalog names in their source case where earlier
+    # versions lower-cased them, so DDL and information_schema can disagree on case.
+    # An exact match always wins over a case-insensitive one.
+    if name in comments:
+        return comments[name]
+    folded = name.casefold()
+    for key, value in comments.items():
+        if key.casefold() == folded:
+            return value
+    return None
 
 
 @functools.lru_cache(maxsize=None)
@@ -344,13 +362,19 @@ class DorisDialect(MySQLDialect_pymysql):
 
         scope = self._comment_scope(connection, schema)
         if scope is not None:
-            table_comments = self._column_comments(
-                connection, scope.database, scope.qualified_database, **kw
-            ).get(table_name, {})
+            table_comments = (
+                _lookup_comment(
+                    self._column_comments(
+                        connection, scope.database, scope.qualified_database, **kw
+                    ),
+                    table_name,
+                )
+                or {}
+            )
             for col in columns:
                 # information_schema wins: it has the comment unescaped, and the DDL
                 # parse only ever recovers the rare single-quoted one.
-                comment = table_comments.get(col["name"])
+                comment = _lookup_comment(table_comments, col["name"])
                 if comment is not None:
                     col["comment"] = comment
 
@@ -372,9 +396,12 @@ class DorisDialect(MySQLDialect_pymysql):
         if scope is None:
             return table_comment
 
-        comment = self._table_comments(
-            connection, scope.database, scope.qualified_database, **kw
-        ).get(table_name)
+        comment = _lookup_comment(
+            self._table_comments(
+                connection, scope.database, scope.qualified_database, **kw
+            ),
+            table_name,
+        )
         if comment is None:
             return table_comment
         return ReflectedTableComment(text=comment)
@@ -413,12 +440,19 @@ class DorisDialect(MySQLDialect_pymysql):
         qualified_database: str,
     ) -> List[Sequence[Any]]:
         try:
-            return list(
-                connection.execute(
-                    text(sql),
-                    {"database": database, "qualified_database": qualified_database},
-                )
+            # An external catalog keys its rows by the bare database name by default,
+            # and by `catalog.database` once the global
+            # show_full_dbname_in_info_schema_db is on. Trying the bare name first
+            # and the qualified one only on a miss keeps each query an equality the
+            # server can push down; a miss costs one cheap empty query.
+            rows: List[Sequence[Any]] = list(
+                connection.execute(text(sql), {"schema": database})
             )
+            if not rows and qualified_database != database:
+                rows = list(
+                    connection.execute(text(sql), {"schema": qualified_database})
+                )
+            return rows
         except SQLAlchemyError as e:
             # Comments are lost but the tables are not. The empty result is what the
             # reflection cache memoises, so a database whose lookup fails costs one
