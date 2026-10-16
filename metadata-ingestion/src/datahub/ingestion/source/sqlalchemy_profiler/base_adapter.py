@@ -346,6 +346,12 @@ class PlatformAdapter(ABC):
         storage returns them. Adapters that cannot apply it leave this False, and
         the profiler then warns and refrains from labelling the profile as limited.
 
+        This answers only for the SQLAlchemy profiler. Sources with their own
+        profiling engine never build an adapter, so they are invisible here --
+        Dremio honours `limit`/`offset` in `dremio_profiling.py` without one.
+        `ProfilingConfig.limit`'s SupportedSources list is the full answer to
+        which sources apply it.
+
         Returns:
             True if the adapter honours config.limit and config.offset
         """
