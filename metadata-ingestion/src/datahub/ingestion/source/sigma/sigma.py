@@ -145,6 +145,8 @@ _FGL_CONFIDENCE_SQL_PARSED: float = (
     0.2  # aggregator-derived; matches SqlParsingAggregator
 )
 _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
+# The table is exact, but the column is derived from its display name.
+_FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED: float = 0.5
 
 
 def _dm_column_ranks_above(
@@ -2651,6 +2653,126 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_element_fgl_cross_dm_resolved += 1
         return True
 
+    def _resolve_ref_outside_data_model(
+        self,
+        *,
+        ref: "BracketRef",
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        entity_level_upstream_urns: Set[str],
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+    ) -> None:
+        """A ref naming no element of this Data Model: a warehouse table the
+        element reads, else an element of another Data Model that Sigma's
+        /lineage reported for this element."""
+        if self._try_emit_warehouse_table_name_fgl(
+            ref=ref,
+            column=column,
+            element=element,
+            downstream_field=downstream_field,
+            warehouse_url_id_map=warehouse_url_id_map,
+            emitted_pairs=emitted_pairs,
+            fgls=fgls,
+        ):
+            return
+        cross_dm_fgl = self._resolve_cross_dm_fgl(
+            ref=ref,
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            entity_level_upstream_urns=entity_level_upstream_urns,
+            downstream_field=downstream_field,
+        )
+        if cross_dm_fgl is None:
+            return
+        assert cross_dm_fgl.upstreams
+        pair = (downstream_field, cross_dm_fgl.upstreams[0])
+        if pair not in emitted_pairs:
+            emitted_pairs.add(pair)
+            cross_dm_fgls.append(cross_dm_fgl)
+            self.reporter.data_model_element_fgl_cross_dm_resolved += 1
+
+    def _try_emit_warehouse_table_name_fgl(
+        self,
+        *,
+        ref: "BracketRef",
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+    ) -> bool:
+        """Lineage for a ref naming a warehouse table the element reads,
+        e.g. ``[ORDERS/Order Id]``, on a column whose columnId is not
+        ``inode-<url_id>/<COL>``; that one is the passthrough path's.
+
+        The table must be one the element's ``source_ids`` name, and the only
+        one by that name. The column is exact when the formula is just this
+        ref and the columnId is ``<elementId>/<NATIVE>``; otherwise it is
+        derived from the display name, only where identifiers are lowercased,
+        since the derived case is a guess.
+        """
+        if ref.column is None or (column.columnId or "").startswith("inode-"):
+            return False
+        # The element-level lookup already asked /files for these url_ids, so
+        # this makes no new API calls.
+        tables: Set[_WarehouseTableRef] = set()
+        for sid in element.source_ids:
+            if not sid.startswith("inode-"):
+                continue
+            declared = self._dm_warehouse_ref(
+                sid[len("inode-") :], warehouse_url_id_map
+            )
+            if declared is not None and declared.table.lower() == ref.source.lower():
+                tables.add(declared)
+        if len(tables) != 1:
+            return False
+        wh_ref = next(iter(tables))
+        parent_urn = self._warehouse_ref_to_urn(wh_ref)
+        record = self.connection_registry.get(wh_ref.connection_id)
+        if parent_urn is None or record is None:
+            return False
+        conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        prefix, _, native = (column.columnId or "").rpartition("/")
+        exact = (
+            prefix == element.elementId
+            and bool(native)
+            and (column.formula or "").strip() == ref.raw
+        )
+        if not exact:
+            if not _should_lowercase_identifiers(
+                record.datahub_platform, lowercase=lowercase, explicit=False
+            ):
+                return False
+            # Sigma shows a warehouse column ORDER_ID as "Order Id".
+            native = ref.column.replace(" ", "_")
+        upstream_field = builder.make_schema_field_urn(
+            parent_urn,
+            _normalize_warehouse_identifier(native, record.datahub_platform, lowercase),
+        )
+        pair = (downstream_field, upstream_field)
+        if pair not in emitted_pairs:
+            emitted_pairs.add(pair)
+            fgls.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[downstream_field],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[upstream_field],
+                    confidenceScore=(
+                        1.0 if exact else _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED
+                    ),
+                )
+            )
+            self.reporter.data_model_element_fgl_warehouse_table_name_resolved += 1
+        return True
+
     def _resolve_cross_dm_fgl(
         self,
         *,
@@ -2920,6 +3042,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         ):
                             continue
                         # No cross-DM match; element is named after its warehouse source.
+                        if self._try_emit_warehouse_table_name_fgl(
+                            ref=ref,
+                            column=column,
+                            element=element,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                            emitted_pairs=emitted_pairs,
+                            fgls=fgls,
+                        ):
+                            continue
                         if not warehouse_consumed:
                             warehouse_consumed = True
                             if warehouse_fgl is None:
@@ -2953,22 +3085,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                             continue
 
-                    # Source not in this DM — resolve via cross-DM sources that
-                    # Sigma's /lineage explicitly reported for this element.
-                    cross_dm_fgl = self._resolve_cross_dm_fgl(
+                    self._resolve_ref_outside_data_model(
                         ref=ref,
+                        column=column,
                         element=element,
                         element_dataset_urn=element_dataset_urn,
                         entity_level_upstream_urns=entity_level_upstream_urns,
                         downstream_field=downstream_field,
+                        warehouse_url_id_map=warehouse_url_id_map,
+                        emitted_pairs=emitted_pairs,
+                        fgls=fgls,
+                        cross_dm_fgls=cross_dm_fgls,
                     )
-                    if cross_dm_fgl is not None:
-                        assert cross_dm_fgl.upstreams
-                        pair = (downstream_field, cross_dm_fgl.upstreams[0])
-                        if pair not in emitted_pairs:
-                            emitted_pairs.add(pair)
-                            cross_dm_fgls.append(cross_dm_fgl)
-                            self.reporter.data_model_element_fgl_cross_dm_resolved += 1
                     continue
 
                 self._resolve_intra_dm_fgl(

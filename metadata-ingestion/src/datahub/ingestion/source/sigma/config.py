@@ -341,6 +341,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Covers both the self-ref case and the case where the formula source is
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
+    # FGL emitted for a ref naming a warehouse table the element reads, for a
+    # column with no inode-<url_id>/<COL> columnId.
+    data_model_element_fgl_warehouse_table_name_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
     # also found no match; dropped to avoid orphan FGL the UI silently rejects.
