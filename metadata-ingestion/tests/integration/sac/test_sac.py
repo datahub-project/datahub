@@ -1059,6 +1059,52 @@ def test_get_resources_ingests_private_content_with_canonical_roots(requests_moc
 
 
 @pytest.mark.integration
+def test_get_resources_canonicalizes_public_root_outside_aliases_via_folder_type(
+    requests_mock,
+):
+    # A successful File Repository join reporting folderType PUBLIC is authoritative, so the
+    # public root is canonicalized even when its localized label (here French "Publique") is
+    # not in public_root_folder_aliases. The alias gate only guards the join-miss fallback.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Publique", "Sales"]),
+                ]
+            }
+        },
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        json={"value": [{"resourceId": "PUB1", "folderType": "PUBLIC"}]},
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-public-outside-aliases-test")
+    )
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+
+
+@pytest.mark.integration
 def test_get_resources_canonicalizes_public_root_on_folder_type_join_miss(
     requests_mock,
 ):

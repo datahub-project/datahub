@@ -17,7 +17,7 @@ from typing import (
 from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
@@ -243,7 +243,11 @@ class SACSourceConfig(
             "team/workspace root such as 'Default'), so only a first `ancestorPath` "
             "segment matching one of these labels (case-insensitive) is rewritten to "
             "`public_root_folder_name` — any other root is preserved rather than merged "
-            "into the public tree. Add your tenant language's label if it is not listed."
+            "into the public tree. Add your tenant language's label if it is not listed. "
+            "When `ingest_private_content` is enabled and a resource's `folderType` is "
+            "known from the File Repository, that type is authoritative and the public "
+            "root is canonicalized regardless of this list; the aliases only gate the "
+            "fallback where `folderType` is unavailable."
         ),
     )
 
@@ -328,14 +332,18 @@ class SACSourceConfig(
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @field_validator("public_root_folder_name", mode="after")
+    @field_validator(
+        "public_root_folder_name", "private_root_folder_name", mode="after"
+    )
     @classmethod
-    def _reject_blank_public_root_folder_name(cls, v: Optional[str]) -> Optional[str]:
+    def _reject_blank_root_folder_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
         # null disables canonicalization; a blank label would instead rewrite the root to
         # an empty segment (e.g. "/sac//Folder 1"), so treat it as a config typo.
         if v is not None and not v.strip():
             raise ValueError(
-                "public_root_folder_name must be a non-empty string, or null to disable canonicalization"
+                f"{info.field_name} must be a non-empty string, or null to disable canonicalization"
             )
         return v
 
@@ -1013,13 +1021,15 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                             folder_type,
                             _is_truthy_flag(entity.get("isPublic")),
                         ),
-                        # The PRIVATE root is identified authoritatively by `folderType`,
-                        # so it is rewritten unconditionally; the public root is gated by
-                        # recognized aliases so a shared/team root returned under
-                        # `isPublic` is not merged into the public tree.
-                        None
-                        if folder_type == "PRIVATE"
-                        else self.config.public_root_folder_aliases,
+                        # An authoritative `folderType` (PUBLIC or PRIVATE from the File
+                        # Repository join) identifies the root on its own, so it is
+                        # rewritten unconditionally. Only the fallback where `folderType`
+                        # is unknown and we are trusting `isPublic` is alias-gated, so a
+                        # shared/team root returned under `isPublic` is not merged into
+                        # the public tree.
+                        self.config.public_root_folder_aliases
+                        if folder_type is None
+                        else None,
                     )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
