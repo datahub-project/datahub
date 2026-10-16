@@ -86,6 +86,14 @@ def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
     sample, a bound) are independent axes -- a sampled partition is real, and
     reports both.
 
+    The `partition` string carries the meaning, not `type`: PartitionSpec.type
+    is @deprecated and documented "Unused!", and the UI classifies on the string
+    alone (FULL_TABLE_SNAPSHOT or empty is the whole table, a SAMPLE prefix is a
+    sample, a leading brace is machine-readable, anything else is a partition
+    id). We still set `type` consistently -- deprecated is not removed, and
+    GenericProfiler does branch on it to decide whether rowCount comes from
+    source metadata -- but it is the string that has to be right.
+
     The sample marker never carries the sample's size: a BERNOULLI sample lands
     on a different row count every run, and partitionSpec is part of the emitted
     aspect, so a size would change the profile of an unchanged table.
