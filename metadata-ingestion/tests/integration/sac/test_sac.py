@@ -17,7 +17,6 @@ from datahub.ingestion.source.sac.sac import (
     ConnectionMappingConfig,
     SACSource,
     SACSourceConfig,
-    _canonicalize_ancestor_folders,
 )
 from datahub.ingestion.source.sac.sac_common import ResourceModel
 from datahub.metadata.schema_classes import (
@@ -662,34 +661,6 @@ def test_get_model_workunits_emits_canonical_models_browse_path(requests_mock):
     assert browse_v1.paths == ["/sac/Models"]
 
 
-def test_canonicalize_ancestor_folders_rewrites_localized_public_root():
-    # The connector only ingests public content, so the first segment is always the
-    # built-in public root under a name localized to the resource's language. Both the
-    # German ("Öffentlich") and English ("Public") roots collapse to the one canonical
-    # label, sharing a single browse-path tree. Only the first segment is rewritten.
-    assert _canonicalize_ancestor_folders(
-        ["Öffentlich", "Folder 1", "Folder 2"], "Public"
-    ) == ["Public", "Folder 1", "Folder 2"]
-    assert _canonicalize_ancestor_folders(
-        ["Public", "Folder 1", "Folder 2"], "Public"
-    ) == ["Public", "Folder 1", "Folder 2"]
-    # The canonical label is configurable.
-    assert _canonicalize_ancestor_folders(["Öffentlich", "Folder 1"], "Shared") == [
-        "Shared",
-        "Folder 1",
-    ]
-
-
-def test_canonicalize_ancestor_folders_respects_disabled_and_empty():
-    # A null canonical name disables rewriting (raw localized name preserved), and an
-    # empty path stays empty rather than gaining a fabricated root.
-    assert _canonicalize_ancestor_folders(["Öffentlich", "Folder 1"], None) == [
-        "Öffentlich",
-        "Folder 1",
-    ]
-    assert _canonicalize_ancestor_folders([], "Public") == []
-
-
 def _first_aspect(workunits: List[Any], aspect_type: Any) -> Any:
     for workunit in workunits:
         aspect = workunit.get_aspect_of_type(aspect_type)
@@ -784,8 +755,8 @@ def match_resources(request, context):
                     "modifiedTime": "/Date(1673279414272)/",
                     "isMobile": 0,
                     "openURL": "/sap/fpa/ui/tenants/3c44c/bo/story/EOYLU41PIILXTH4JCE36NLYPU9XRYM26",
-                    # Same physical Public root, returned localized to German. The connector
-                    # canonicalizes the first segment so both resources share one browse tree.
+                    # Localized to German, yet this resource's golden still asserts
+                    # /sac/Public/Folder 1/Folder 2: revert the canonicalization and it fails.
                     "ancestorPath": '["Öffentlich","Folder 1","Folder 2"]',
                 },
             ],
