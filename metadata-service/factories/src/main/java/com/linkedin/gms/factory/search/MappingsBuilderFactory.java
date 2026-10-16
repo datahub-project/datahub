@@ -76,8 +76,7 @@ public class MappingsBuilderFactory {
         "Creating MultiEntityMappingsBuilder bean (engineType={}; document V3 embeddings when semanticSearch is on)",
         v3Client.getEngineType());
     try {
-      return new MultiEntityMappingsBuilder(
-          entityIndexConfig, v3Client, keywordMaxLength, contributors);
+      return new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength, contributors);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);

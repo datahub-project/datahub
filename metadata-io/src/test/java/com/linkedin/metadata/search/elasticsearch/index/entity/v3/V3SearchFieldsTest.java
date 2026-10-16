@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.AUTOCOMPLETE;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.COLUMNS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.DESCRIPTION;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.ENTITY_NAME;
@@ -32,8 +31,6 @@ import org.testng.annotations.Test;
 public class V3SearchFieldsTest {
 
   private static final EntityRegistry REGISTRY = TestOperationContexts.defaultEntityRegistry();
-  private static final Map<String, String> PARTIAL_NGRAM_CONFIG =
-      Map.of("type", "search_as_you_type", "max_shingle_size", "4");
   private static final List<String> COLUMN_ARRAYS =
       List.of(
           "fieldPaths",
@@ -158,7 +155,7 @@ public class V3SearchFieldsTest {
     assertEquals(V3SearchFields.destinations(List.of(unlabeled), Set.of()), Set.of(OTHER));
     assertEquals(
         V3SearchFields.destinations(List.of(fieldSpec(FieldType.TEXT, null, true)), Set.of()),
-        Set.of(OTHER, AUTOCOMPLETE));
+        Set.of(OTHER));
     // A keyword not queried by default feeds no shared field
     assertEquals(
         V3SearchFields.destinations(List.of(fieldSpec(FieldType.KEYWORD, null, false)), Set.of()),
@@ -174,16 +171,6 @@ public class V3SearchFieldsTest {
 
     assertEquals(fields.get(ENTITY_NAME), List.of("displayName"));
     assertFalse(fields.get(OTHER).contains("displayName"), fields.toString());
-    assertEquals(V3SearchFields.autocompleteFields(List.of(service)).get(0), "displayName");
-  }
-
-  @Test
-  public void testAutocompleteFieldsPutTheNameFirst() {
-    List<String> fields = V3SearchFields.autocompleteFields(List.of(dataset()));
-
-    // The key fields come first in the dataset's aspects; the name still leads
-    assertEquals(fields.get(0), "name");
-    assertTrue(fields.containsAll(List.of("qualifiedName", "id", "platform")), fields.toString());
   }
 
   @Test
@@ -196,7 +183,7 @@ public class V3SearchFieldsTest {
     // A name keeps a normalized keyword for exact match and sorting, with the stored casing in
     // .keyword
     assertEquals(
-        V3SearchFields.mapping(ENTITY_NAME, true, PARTIAL_NGRAM_CONFIG),
+        V3SearchFields.mapping(ENTITY_NAME, true),
         Map.of(
             "type",
             "keyword",
@@ -214,7 +201,7 @@ public class V3SearchFieldsTest {
                 Map.of("type", "keyword", "ignore_above", 8191))));
     // Other full-text fields only hold their subfields
     assertEquals(
-        V3SearchFields.mapping(DESCRIPTION, true, PARTIAL_NGRAM_CONFIG),
+        V3SearchFields.mapping(DESCRIPTION, true),
         Map.of(
             "type",
             "keyword",
@@ -224,31 +211,10 @@ public class V3SearchFieldsTest {
             false,
             "fields",
             Map.of("text", text, "stemmed", stemmed)));
-    assertEquals(
-        V3SearchFields.mapping(AUTOCOMPLETE, true, PARTIAL_NGRAM_CONFIG),
-        Map.of(
-            "type",
-            "keyword",
-            "normalizer",
-            "keyword_normalizer",
-            "ignore_above",
-            8191,
-            "doc_values",
-            false,
-            "fields",
-            Map.of(
-                "ngram",
-                Map.of(
-                    "type",
-                    "search_as_you_type",
-                    "max_shingle_size",
-                    "4",
-                    "analyzer",
-                    "partial"))));
     // A label a model names stays an indexed keyword for its sorts and filters, analyzed too when
     // a field queried by default feeds it
     assertEquals(
-        V3SearchFields.mapping("owner", true, PARTIAL_NGRAM_CONFIG),
+        V3SearchFields.mapping("owner", true),
         Map.of(
             "type",
             "keyword",
@@ -260,7 +226,7 @@ public class V3SearchFieldsTest {
             Map.of("text", text, "stemmed", stemmed)));
     // A label no full-text field feeds stays a plain keyword
     assertEquals(
-        V3SearchFields.mapping("origin", false, PARTIAL_NGRAM_CONFIG),
+        V3SearchFields.mapping("origin", false),
         Map.of("type", "keyword", "normalizer", "keyword_normalizer", "ignore_above", 8191));
   }
 

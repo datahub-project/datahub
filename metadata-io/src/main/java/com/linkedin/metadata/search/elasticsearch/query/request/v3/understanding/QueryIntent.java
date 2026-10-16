@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch.query.request.understanding;
+package com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding;
 
 /**
  * V2.5 query intent classification. Determines which query strategy to use as the starting tier.

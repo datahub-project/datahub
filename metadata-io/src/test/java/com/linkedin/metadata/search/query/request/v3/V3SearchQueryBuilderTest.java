@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query.request;
+package com.linkedin.metadata.search.query.request.v3;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
@@ -14,7 +14,8 @@ import com.linkedin.metadata.config.search.custom.FieldConfiguration;
 import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
-import com.linkedin.metadata.search.elasticsearch.query.request.V3SearchQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
+import com.linkedin.metadata.search.query.request.SearchQueryBuilderTest;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;

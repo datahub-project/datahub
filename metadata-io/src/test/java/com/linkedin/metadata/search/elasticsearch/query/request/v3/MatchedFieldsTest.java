@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch.query.request;
+package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-public class V3MatchedFieldsTest {
+public class MatchedFieldsTest {
 
   @Test
   public void testReportsTheFirstMatchingValuePerFieldInFieldOrder() {
@@ -21,7 +21,7 @@ public class V3MatchedFieldsTest {
             "platform", "urn:li:dataPlatform:hive");
 
     List<MatchedField> matched =
-        new V3MatchedFields("order", 0)
+        new MatchedFields("order", 0)
             .find(source, List.of("name", "platform", "fieldPaths", "description"));
 
     assertEquals(names(matched), List.of("name", "fieldPaths", "description"));
@@ -33,9 +33,9 @@ public class V3MatchedFieldsTest {
     Map<String, Object> source = Map.of("name", "Café Revenue");
 
     assertEquals(
-        names(new V3MatchedFields("CAFE rev", 0).find(source, List.of("name"))), List.of("name"));
+        names(new MatchedFields("CAFE rev", 0).find(source, List.of("name"))), List.of("name"));
     // Only the start of a word matches
-    assertTrue(new V3MatchedFields("venue", 0).find(source, List.of("name")).isEmpty());
+    assertTrue(new MatchedFields("venue", 0).find(source, List.of("name")).isEmpty());
   }
 
   @Test
@@ -43,24 +43,21 @@ public class V3MatchedFieldsTest {
     Map<String, Object> source =
         Map.of("urn", "urn:li:corpuser:jdoe", "description", "the table of contents");
 
-    assertTrue(new V3MatchedFields("li", 0).find(source, List.of("urn")).isEmpty());
-    assertTrue(new V3MatchedFields("ur", 0).find(source, List.of("urn")).isEmpty());
-    assertTrue(new V3MatchedFields("th", 0).find(source, List.of("description")).isEmpty());
-    assertEquals(names(new V3MatchedFields("jdo", 0).find(source, List.of("urn"))), List.of("urn"));
+    assertTrue(new MatchedFields("li", 0).find(source, List.of("urn")).isEmpty());
+    assertTrue(new MatchedFields("ur", 0).find(source, List.of("urn")).isEmpty());
+    assertTrue(new MatchedFields("th", 0).find(source, List.of("description")).isEmpty());
+    assertEquals(names(new MatchedFields("jdo", 0).find(source, List.of("urn"))), List.of("urn"));
   }
 
   @Test
   public void testQueryWordFindsWordsWithTheSameStem() {
     assertEquals(
-        names(
-            new V3MatchedFields("tables", 0).find(Map.of("name", "sales table"), List.of("name"))),
+        names(new MatchedFields("tables", 0).find(Map.of("name", "sales table"), List.of("name"))),
         List.of("name"));
     // Words that only share a prefix with the query word do not stem alike
-    assertTrue(new V3MatchedFields("dbs", 0).find(Map.of("name", "db"), List.of("name")).isEmpty());
+    assertTrue(new MatchedFields("dbs", 0).find(Map.of("name", "db"), List.of("name")).isEmpty());
     assertTrue(
-        new V3MatchedFields("card", 0)
-            .find(Map.of("name", "car rental"), List.of("name"))
-            .isEmpty());
+        new MatchedFields("card", 0).find(Map.of("name", "car rental"), List.of("name")).isEmpty());
   }
 
   /**
@@ -72,14 +69,14 @@ public class V3MatchedFieldsTest {
   public void testOnlyTheLastQueryWordMatchesAsAPrefix() {
     Map<String, Object> source = Map.of("name", "datasets");
 
-    assertTrue(new V3MatchedFields("data platform", 0).find(source, List.of("name")).isEmpty());
+    assertTrue(new MatchedFields("data platform", 0).find(source, List.of("name")).isEmpty());
     assertEquals(
-        names(new V3MatchedFields("platform data", 0).find(source, List.of("name"))),
+        names(new MatchedFields("platform data", 0).find(source, List.of("name"))),
         List.of("name"));
-    assertTrue(new V3MatchedFields("da", 3).find(source, List.of("name")).isEmpty());
+    assertTrue(new MatchedFields("da", 3).find(source, List.of("name")).isEmpty());
     // A minus is plain text, as in the query, so the word after it matches too
     assertEquals(
-        names(new V3MatchedFields("orders -datasets", 0).find(source, List.of("name"))),
+        names(new MatchedFields("orders -datasets", 0).find(source, List.of("name"))),
         List.of("name"));
   }
 
@@ -91,10 +88,10 @@ public class V3MatchedFieldsTest {
   public void testIdentifiersMatchWholeAndByTheirParts() {
     Map<String, Object> source = Map.of("fieldPaths", List.of("db_name", "db_id", "customer_id"));
 
-    List<MatchedField> whole = new V3MatchedFields("db_id", 3).find(source, List.of("fieldPaths"));
+    List<MatchedField> whole = new MatchedFields("db_id", 3).find(source, List.of("fieldPaths"));
     assertEquals(whole.get(0).getValue(), "db_id");
     List<MatchedField> part =
-        new V3MatchedFields("customers report", 3).find(source, List.of("fieldPaths"));
+        new MatchedFields("customers report", 3).find(source, List.of("fieldPaths"));
     assertEquals(part.get(0).getValue(), "customer_id");
   }
 
@@ -104,14 +101,14 @@ public class V3MatchedFieldsTest {
    */
   @Test
   public void testWordsFoldAsTheAnalyzersFoldThem() {
-    V3MatchedFields indic = new V3MatchedFields("नाम", 3);
+    MatchedFields indic = new MatchedFields("नाम", 3);
     assertTrue(indic.hasQueryWords());
     assertEquals(names(indic.find(Map.of("name", "ग्राहक नाम"), List.of("name"))), List.of("name"));
     assertEquals(
-        names(new V3MatchedFields("strasse", 0).find(Map.of("name", "Straße"), List.of("name"))),
+        names(new MatchedFields("strasse", 0).find(Map.of("name", "Straße"), List.of("name"))),
         List.of("name"));
     assertEquals(
-        names(new V3MatchedFields("Straße", 0).find(Map.of("name", "strasse"), List.of("name"))),
+        names(new MatchedFields("Straße", 0).find(Map.of("name", "strasse"), List.of("name"))),
         List.of("name"));
   }
 
@@ -122,21 +119,20 @@ public class V3MatchedFieldsTest {
   @Test
   public void testStemOverridesApplyBeforeStemming() {
     assertTrue(
-        new V3MatchedFields("customer", 0)
+        new MatchedFields("customer", 0)
             .find(Map.of("name", "Custom fields"), List.of("name"))
             .isEmpty());
     assertEquals(
-        names(
-            new V3MatchedFields("customers", 0).find(Map.of("name", "customer"), List.of("name"))),
+        names(new MatchedFields("customers", 0).find(Map.of("name", "customer"), List.of("name"))),
         List.of("name"));
   }
 
   /** A query of only stop words or short words has no word a field could match. */
   @Test
   public void testQueryWithoutWordsHasNothingToMatch() {
-    assertFalse(new V3MatchedFields("the of", 0).hasQueryWords());
-    assertFalse(new V3MatchedFields("id", 3).hasQueryWords());
-    assertTrue(new V3MatchedFields("orders", 3).hasQueryWords());
+    assertFalse(new MatchedFields("the of", 0).hasQueryWords());
+    assertFalse(new MatchedFields("id", 3).hasQueryWords());
+    assertTrue(new MatchedFields("orders", 3).hasQueryWords());
   }
 
   @Test
@@ -144,7 +140,7 @@ public class V3MatchedFieldsTest {
     String value = "x".repeat(300) + " revenue " + "y".repeat(300);
 
     String matched =
-        new V3MatchedFields("revenue", 0)
+        new MatchedFields("revenue", 0)
             .find(Map.of("description", value), List.of("description"))
             .get(0)
             .getValue();
@@ -158,7 +154,7 @@ public class V3MatchedFieldsTest {
     // An accented word matches its folded query word
     String accented = "x".repeat(300) + " café " + "y".repeat(300);
     assertTrue(
-        new V3MatchedFields("cafe", 0)
+        new MatchedFields("cafe", 0)
             .find(Map.of("description", accented), List.of("description"))
             .get(0)
             .getValue()
@@ -166,7 +162,7 @@ public class V3MatchedFieldsTest {
     // The query word inside a longer word that does not match is not the anchor
     String embedded = "metadata " + "x".repeat(300) + " data " + "y".repeat(300);
     assertTrue(
-        new V3MatchedFields("data", 0)
+        new MatchedFields("data", 0)
             .find(Map.of("description", embedded), List.of("description"))
             .get(0)
             .getValue()
