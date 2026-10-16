@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
-    from werkzeug.wrappers import Request as WerkzeugRequest
+    from werkzeug.wrappers import (
+        Request as WerkzeugRequest,
+        Response as WerkzeugResponse,
+    )
 
 RECORDED_DIR = Path(__file__).parent / "fixtures" / "recorded"
 
@@ -45,12 +48,14 @@ def _fixture_text(rel: str) -> str:
     return (RECORDED_DIR / rel).read_text()
 
 
-def _paged_list_handler(payload: str) -> Callable[["WerkzeugRequest"], object]:
+def _paged_list_handler(
+    payload: str,
+) -> Callable[["WerkzeugRequest"], "WerkzeugResponse"]:
     # The dwaas-core list endpoints page via bare top/skip and end on an empty page.
     # Fixtures fit in one page, so serve them at skip=0 and an empty list afterward.
     from werkzeug.wrappers import Response as WerkzeugResponse
 
-    def handler(request: "WerkzeugRequest") -> object:
+    def handler(request: "WerkzeugRequest") -> "WerkzeugResponse":
         skip = int(request.args.get("skip", "0"))
         body = payload if skip == 0 else "[]"
         return WerkzeugResponse(body, content_type="application/json")
