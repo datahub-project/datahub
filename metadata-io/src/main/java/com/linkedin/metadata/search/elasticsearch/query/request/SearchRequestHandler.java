@@ -573,21 +573,39 @@ public class SearchRequestHandler extends BaseRequestHandler {
             V3SearchFields.matchedFieldSources(
                 v3SearchQueryBuilder.searchedFields(opContext, entitySpecs)));
     sources.add("urn");
+    final List<String> matched;
     // Only a field the query reads can match, as V2 highlights only those
     if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
       Set<String> custom = v3SourceFields(searchFlags.getCustomHighlightingFields());
-      return sources.stream().filter(custom::contains).collect(Collectors.toList());
+      matched = sources.stream().filter(custom::contains).collect(Collectors.toList());
+    } else {
+      // A highlight configuration names V2 fields and subfields; read them as root fields. Only a
+      // field the query reads can match, as V2 highlights only those, so added fields change
+      // nothing
+      HighlightFields highlightFields = getHighlightFields(fieldConfigLabel);
+      if (highlightFields != null && !highlightFields.getReplace().isEmpty()) {
+        Set<String> replace = v3SourceFields(highlightFields.getReplace());
+        matched = sources.stream().filter(replace::contains).collect(Collectors.toList());
+      } else {
+        Set<String> remove =
+            highlightFields == null ? Set.of() : v3SourceFields(highlightFields.getRemove());
+        matched =
+            sources.stream().filter(field -> !remove.contains(field)).collect(Collectors.toList());
+      }
     }
-    // A highlight configuration names V2 fields and subfields; read them as root fields. Only a
-    // field the query reads can match, as V2 highlights only those, so added fields change nothing
-    HighlightFields highlightFields = getHighlightFields(fieldConfigLabel);
-    if (highlightFields != null && !highlightFields.getReplace().isEmpty()) {
-      Set<String> replace = v3SourceFields(highlightFields.getReplace());
-      return sources.stream().filter(replace::contains).collect(Collectors.toList());
+    // A property copied into a searched shared field is not in that field's _source
+    List<String> copied =
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs);
+    if (copied.isEmpty()) {
+      return matched;
     }
-    Set<String> remove =
-        highlightFields == null ? Set.of() : v3SourceFields(highlightFields.getRemove());
-    return sources.stream().filter(field -> !remove.contains(field)).collect(Collectors.toList());
+    List<String> withCopied = new ArrayList<>(matched);
+    for (String field : copied) {
+      if (!withCopied.contains(field)) {
+        withCopied.add(field);
+      }
+    }
+    return withCopied;
   }
 
   @Nullable

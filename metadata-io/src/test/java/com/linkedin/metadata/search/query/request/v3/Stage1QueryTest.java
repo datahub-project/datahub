@@ -540,11 +540,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
     assertEquals(
         multiMatch.fields().keySet(),
-        Set.of(
-            "_search.entityName.text",
-            "_search.entityName.stemmed",
-            "_search.structuredProperties.text",
-            "_search.structuredProperties.stemmed"));
+        Set.of("_search.entityName.text", "_search.entityName.stemmed"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
@@ -576,9 +572,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             "_search.entityName.text",
             "_search.entityName.stemmed",
             "_search.other.text",
-            "_search.other.stemmed",
-            "_search.structuredProperties.text",
-            "_search.structuredProperties.stemmed"));
+            "_search.other.stemmed"));
   }
 
   @Test
