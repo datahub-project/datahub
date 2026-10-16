@@ -26,6 +26,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CONNECTIONS_TRUNCATION_THRESHOLD,
     CSN_CONTENT_TYPE,
     DEFAULT_PAGE_SIZE,
+    DWAAS_LIST_MAX_PAGES,
     DWAAS_LIST_PAGE_SIZE,
     DWAAS_PARAM_SKIP,
     DWAAS_PARAM_TOP,
@@ -460,12 +461,13 @@ class SapDatasphereClient:
         #
         # It pages at a small default (~25 rows) with no cursor or count, so a space
         # with more objects than one page silently loses the tail. Walk it with bare
-        # top/skip until a short page, deduping on technicalName so a server that
-        # ignores `skip` terminates instead of looping forever.
+        # top/skip until an empty page, deduping on technicalName. A page that adds no
+        # new names (a server ignoring `skip`) or an overrun of the page budget is
+        # reported as a failure rather than quietly truncating the listing.
         url = self._dwaas_object_url(space, object_type)
         seen: Set[str] = set()
         skip = 0
-        while True:
+        for _page in range(DWAAS_LIST_MAX_PAGES):
             try:
                 resp = self._get(
                     url,
@@ -477,22 +479,30 @@ class SapDatasphereClient:
                 )
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code == 403:
-                    self._warn_not_a_member(space, object_type)
+                    self._fail_not_a_member(space, object_type)
                     return
                 raise
             try:
                 data = resp.json()
             except ValueError:
-                self._warn_unexpected_list_response(
-                    url, "got a non-JSON response (possibly a proxy/login HTML page)"
+                self._fail_dwaas_list(
+                    space,
+                    object_type,
+                    "got a non-JSON response (possibly a proxy/login HTML page)",
                 )
                 return
             if not isinstance(data, list):
-                self._warn_unexpected_list_response(
-                    url, f"got a {type(data).__name__} instead of a list"
+                self._fail_dwaas_list(
+                    space,
+                    object_type,
+                    f"got a {type(data).__name__} instead of a list",
                 )
                 return
-            new_in_page = 0
+            if not data:
+                # An empty page is the only reliable end-of-listing signal: the
+                # endpoint reports no total and a full page can still be the last one.
+                return
+            new_names = 0
             for entry in data:
                 name = (
                     entry.get(FIELD_TECHNICAL_NAME) if isinstance(entry, dict) else None
@@ -501,23 +511,73 @@ class SapDatasphereClient:
                     if name in seen:
                         continue
                     seen.add(name)
-                new_in_page += 1
+                    new_names += 1
                 yield entry
-            if len(data) < DWAAS_LIST_PAGE_SIZE or new_in_page == 0:
+            if new_names == 0:
+                # A non-empty page that adds nothing new means the server is ignoring
+                # `skip` and re-serving earlier rows; the tail is unreachable, so fail
+                # rather than silently truncate (which would let stale-entity removal
+                # soft-delete the objects we could not list).
+                self._fail_dwaas_list(
+                    space,
+                    object_type,
+                    "the server returned no new entries (it appears to ignore `skip`)",
+                )
                 return
             skip += len(data)
+        else:
+            self._fail_dwaas_list(
+                space,
+                object_type,
+                f"exceeded the {DWAAS_LIST_MAX_PAGES}-page walk limit",
+            )
 
     def _warn_not_a_member(self, space: str, object_type: str) -> None:
+        # Per-asset CSN/EDMX fetches route here: a single 403 loses one asset's
+        # lineage/schema (recorded under assets_csn_fetch_failed), so it is an
+        # actionable warning, not a run-level failure.
         msg = (
-            f"Received HTTP 403 listing {object_type} in space {space!r}. The "
-            f"ingestion principal is not a member of this space, so its objects "
-            f"will be skipped. Add the ingestion user/client as a member of the "
-            f"space in SAP Datasphere to ingest it."
+            f"Received HTTP 403 for {object_type} in space {space!r}. The ingestion "
+            f"principal is not a member of this space. Add the ingestion user/client "
+            f"as a member of the space in SAP Datasphere to ingest it."
         )
         logger.warning(msg)
         if self._report is not None:
             self._report.warning(
                 title="Not a member of SAP Datasphere space",
+                message=msg,
+                context=space,
+            )
+
+    def _fail_not_a_member(self, space: str, object_type: str) -> None:
+        msg = (
+            f"Received HTTP 403 listing {object_type} in space {space!r}. The "
+            f"ingestion principal is not a member of this space, so its objects "
+            f"cannot be listed. Add the ingestion user/client as a member of the "
+            f"space in SAP Datasphere to ingest it."
+        )
+        logger.warning(msg)
+        if self._report is not None:
+            # A failure (not a warning) so stale-entity removal does not soft-delete
+            # this space's previously-ingested objects just because the whole listing
+            # was lost.
+            self._report.failure(
+                title="Cannot list SAP Datasphere space (not a member)",
+                message=msg,
+                context=space,
+            )
+
+    def _fail_dwaas_list(self, space: str, object_type: str, detail: str) -> None:
+        msg = (
+            f"Listing {object_type} in space {space!r} did not complete: {detail}. "
+            f"The listing may be incomplete."
+        )
+        logger.warning(msg)
+        if self._report is not None:
+            # A failure (not a warning) so an incomplete listing does not let
+            # stale-entity removal soft-delete the objects we could not enumerate.
+            self._report.failure(
+                title="Incomplete SAP Datasphere object listing",
                 message=msg,
                 context=space,
             )

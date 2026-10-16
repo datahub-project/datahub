@@ -479,6 +479,7 @@
                 "sap_datasphere_asset": "BASE_TABLE"
             },
             "name": "Base Table",
+            "description": "Base Table for Lineage Test",
             "tags": []
         }
     },

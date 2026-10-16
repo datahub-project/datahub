@@ -45,11 +45,13 @@ def test_byte_type_mapped_to_number():
     assert isinstance(day_int.type.type, NumberTypeClass)
 
 
-def test_common_label_becomes_field_label():
+def test_common_label_becomes_field_description():
     result = _parse()
     date_sql = next(f for f in result.fields if f.fieldPath == "DATE_SQL")
-    assert date_sql.label == "Date"
-    assert date_sql.description is None
+    # The deprecated SchemaField.label is not rendered by the schema UI, so the single
+    # source label is surfaced as the visible description instead.
+    assert date_sql.description == "Date"
+    assert date_sql.label is None
 
 
 def test_calendar_annotation_in_custom_props():

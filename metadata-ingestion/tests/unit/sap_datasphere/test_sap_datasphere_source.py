@@ -507,16 +507,17 @@ def test_dataset_picks_up_custom_props_from_edmx(requests_mock):
     props = aspect_as(props_wu, DatasetPropertiesClass)
     assert props.customProperties.get("sap_dimension_type") == "Time"
     assert props.customProperties.get("sap_is_measure") == "true"
-    # Catalog label is the display name; EDMX Common.Label must not leak into a description.
+    # Catalog label is the display name; the distinct EDMX Common.Label is the
+    # dataset's visible description (it carries text beyond the display name).
     assert props.name == "Revenue"
-    description_candidates = [
+    descriptions = [
         aspect.description
         for wu in workunits
         for aspect in [aspect_of(wu)]
         if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
         and aspect.description
     ]
-    assert not any("Monthly Revenue" in d for d in description_candidates)
+    assert "Monthly Revenue" in descriptions
 
 
 def test_client_fetches_refresh_token_lazily(requests_mock):
@@ -3697,8 +3698,9 @@ def test_discover_unexposed_views_emits_missing_catalog_views(requests_mock):
     assert "COL_B" in upstream_schemas[0]
 
 
-def test_discover_unexposed_views_use_csn_label_for_name_not_description(requests_mock):
-    """An unexposed view's CSN @EndUserText.label populates the display name, not a description."""
+def test_discover_unexposed_views_use_csn_label_as_description_not_name(requests_mock):
+    """An unexposed view keeps its technical name as the display name; the CSN
+    @EndUserText.label becomes the visible description."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3745,9 +3747,10 @@ def test_discover_unexposed_views_use_csn_label_for_name_not_description(request
         and aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass"
     ]
     assert props, "Expected the unexposed view to be emitted with DatasetProperties"
-    assert props[0].name == "Monthly Revenue by Region"
+    # The technical name stays the display name; the label is not promoted to the title.
+    assert props[0].name == "UNEXPOSED_VIEW"
 
-    # The label must not leak into any description aspect.
+    # The label is surfaced as the dataset's description instead.
     descriptions = [
         aspect.description
         for wu in workunits
@@ -3756,7 +3759,7 @@ def test_discover_unexposed_views_use_csn_label_for_name_not_description(request
         if isinstance(aspect, (DatasetPropertiesClass, EditableDatasetPropertiesClass))
         and aspect.description
     ]
-    assert "Monthly Revenue by Region" not in descriptions
+    assert "Monthly Revenue by Region" in descriptions
 
 
 def test_discover_unexposed_views_emits_analytic_model(requests_mock):
@@ -6806,10 +6809,12 @@ def test_schema_fields_from_csn_appends_calculated_formula():
     fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
     assert fields is not None
     by_path = {f.fieldPath: f for f in fields}
-    assert by_path["TOTAL"].label == "Total"
+    # "Total" only repeats TOTAL (case-insensitive), so it is suppressed and the field
+    # carries just the formula. "Quantity" is genuine text and becomes the description.
     assert by_path["TOTAL"].description == "formula: PRICE * QTY"
-    assert by_path["QTY"].label == "Quantity"
-    assert by_path["QTY"].description is None
+    assert by_path["QTY"].description == "Quantity"
+    assert by_path["TOTAL"].label is None
+    assert by_path["QTY"].label is None
     assert source.report.calculated_column_formulas_emitted == 1
 
 

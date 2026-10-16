@@ -9,6 +9,7 @@ from datahub.ingestion.source.sap_common.edmx import (
     edm_decimal_native_type,
     parse_edmx_document,
 )
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import (
     EdmxParseResult,
     UnknownColumnType,
@@ -109,11 +110,9 @@ class EdmxParser:
 
             prop_target = f"{entity_target}/{prop_name}"
             prop_annots = annotations_map.get(prop_target, {})
-            # Common.Label is a business label, not a description; unset when it just
-            # repeats the technical name.
-            label = prop_annots.get("Common.Label")
-            if not isinstance(label, str) or not label or label == prop_name:
-                label = None
+            description = description_from_source_label(
+                prop_annots.get("Common.Label"), prop_name
+            )
 
             custom_props: Dict[str, str] = {}
             for term, cal_value in _CALENDAR_TERMS.items():
@@ -135,11 +134,10 @@ class EdmxParser:
                 edm_type=edm_type,
                 nullable=nullable,
                 is_key=prop_name in key_props,
-                description=None,
+                description=description,
                 native_type=native_type,
                 unknown_sink=unknown_edm_types_local,
             )
-            field.label = label
             schema_fields.append(field)
             if custom_props:
                 field_custom_props[prop_name] = custom_props

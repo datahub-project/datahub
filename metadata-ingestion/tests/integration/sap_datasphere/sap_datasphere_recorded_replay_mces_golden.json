@@ -798,7 +798,7 @@
                 {
                     "fieldPath": "BusinessPartnerCategory_Busin",
                     "nullable": true,
-                    "label": "BusinessPartnerCategory",
+                    "description": "BusinessPartnerCategory",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -818,7 +818,7 @@
                 {
                     "fieldPath": "BusinessPartnerName_Busin",
                     "nullable": true,
-                    "label": "BusinessPartnerName",
+                    "description": "BusinessPartnerName",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -838,7 +838,7 @@
                 {
                     "fieldPath": "CreationDate_Busin",
                     "nullable": true,
-                    "label": "CreationDate",
+                    "description": "CreationDate",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -858,7 +858,7 @@
                 {
                     "fieldPath": "LastChangeDate_Busin",
                     "nullable": true,
-                    "label": "LastChangeDate",
+                    "description": "LastChangeDate",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -878,7 +878,7 @@
                 {
                     "fieldPath": "BusinessPartnerIsBlocked_Busin",
                     "nullable": true,
-                    "label": "BusinessPartnerIsBlocked",
+                    "description": "BusinessPartnerIsBlocked",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -898,7 +898,7 @@
                 {
                     "fieldPath": "IsBusinessPurposeComplet_Busin",
                     "nullable": true,
-                    "label": "IsBusinessPurposeCompleted",
+                    "description": "IsBusinessPurposeCompleted",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -918,7 +918,7 @@
                 {
                     "fieldPath": "OrganizationBPName1_Busin",
                     "nullable": true,
-                    "label": "OrganizationBPName",
+                    "description": "OrganizationBPName",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -938,7 +938,7 @@
                 {
                     "fieldPath": "InternationalLocationNum_Busin",
                     "nullable": true,
-                    "label": "InternationalLocationNumber",
+                    "description": "InternationalLocationNumber",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -958,7 +958,7 @@
                 {
                     "fieldPath": "LegalForm_Busin",
                     "nullable": true,
-                    "label": "LegalForm",
+                    "description": "LegalForm",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -978,7 +978,7 @@
                 {
                     "fieldPath": "IsNaturalPerson_Busin",
                     "nullable": true,
-                    "label": "IsNaturalPerson",
+                    "description": "IsNaturalPerson",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -998,7 +998,7 @@
                 {
                     "fieldPath": "BusinessPartnerGrouping_Busin",
                     "nullable": true,
-                    "label": "BusinessPartnerGrouping",
+                    "description": "BusinessPartnerGrouping",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1018,7 +1018,7 @@
                 {
                     "fieldPath": "BusinessPartnerType_Busin",
                     "nullable": true,
-                    "label": "BusinessPartnerType",
+                    "description": "BusinessPartnerType",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1038,7 +1038,7 @@
                 {
                     "fieldPath": "Risk_Class_Busin",
                     "nullable": true,
-                    "label": "Risk_Class",
+                    "description": "Risk_Class",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1058,7 +1058,7 @@
                 {
                     "fieldPath": "Rating_Payment_Behav_Busin",
                     "nullable": true,
-                    "label": "Rating_Payment_Behav",
+                    "description": "Rating_Payment_Behav",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1078,7 +1078,7 @@
                 {
                     "fieldPath": "Country_Bus1",
                     "nullable": true,
-                    "label": "Country",
+                    "description": "Country",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1098,7 +1098,7 @@
                 {
                     "fieldPath": "Region_Bus1",
                     "nullable": true,
-                    "label": "Region",
+                    "description": "Region",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1118,7 +1118,7 @@
                 {
                     "fieldPath": "State_Bus1",
                     "nullable": true,
-                    "label": "State",
+                    "description": "State",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1138,7 +1138,7 @@
                 {
                     "fieldPath": "City_Bus1",
                     "nullable": true,
-                    "label": "City",
+                    "description": "City",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1158,7 +1158,7 @@
                 {
                     "fieldPath": "City_Population_Bus1",
                     "nullable": true,
-                    "label": "City_Population",
+                    "description": "City_Population",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1178,7 +1178,7 @@
                 {
                     "fieldPath": "Average_income_per_head_y_Bus1",
                     "nullable": true,
-                    "label": "Average_income_per_head_year",
+                    "description": "Average_income_per_head_year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1198,7 +1198,7 @@
                 {
                     "fieldPath": "Purchasing_Power_per_Year_Bus1",
                     "nullable": true,
-                    "label": "Purchasing_Power_per_Year",
+                    "description": "Purchasing_Power_per_Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -1218,7 +1218,7 @@
                 {
                     "fieldPath": "Location_Bus1",
                     "nullable": true,
-                    "label": "Location",
+                    "description": "Location",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -2108,7 +2108,7 @@
                 {
                     "fieldPath": "DATE_SQL",
                     "nullable": false,
-                    "label": "Date",
+                    "description": "Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -2128,7 +2128,7 @@
                 {
                     "fieldPath": "DATE_SAP",
                     "nullable": true,
-                    "label": "Date (String)",
+                    "description": "Date (String)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2148,7 +2148,7 @@
                 {
                     "fieldPath": "DAY_OF_WEEK",
                     "nullable": true,
-                    "label": "Day of Week",
+                    "description": "Day of Week",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2161,7 +2161,7 @@
                 {
                     "fieldPath": "CALWEEK",
                     "nullable": true,
-                    "label": "Calendar Week",
+                    "description": "Calendar Week",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2174,7 +2174,7 @@
                 {
                     "fieldPath": "CALMONTH",
                     "nullable": true,
-                    "label": "Calendar Month",
+                    "description": "Calendar Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2194,7 +2194,6 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "label": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2214,7 +2213,7 @@
                 {
                     "fieldPath": "CALQUARTER",
                     "nullable": true,
-                    "label": "Calendar Quarter",
+                    "description": "Calendar Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2227,7 +2226,6 @@
                 {
                     "fieldPath": "QUARTER",
                     "nullable": true,
-                    "label": "Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2240,7 +2238,6 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "label": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2260,7 +2257,7 @@
                 {
                     "fieldPath": "DAY_INT",
                     "nullable": true,
-                    "label": "Day (Number)",
+                    "description": "Day (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -2718,7 +2715,7 @@
                 {
                     "fieldPath": "CALQUARTER",
                     "nullable": false,
-                    "label": "Calendar Quarter",
+                    "description": "Calendar Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2731,7 +2728,6 @@
                 {
                     "fieldPath": "QUARTER",
                     "nullable": true,
-                    "label": "Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2744,7 +2740,6 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "label": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3007,7 +3002,7 @@
                 {
                     "fieldPath": "CALMONTH",
                     "nullable": false,
-                    "label": "Calendar Month",
+                    "description": "Calendar Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3027,7 +3022,6 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "label": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3047,7 +3041,7 @@
                 {
                     "fieldPath": "CALQUARTER",
                     "nullable": true,
-                    "label": "Calendar Quarter",
+                    "description": "Calendar Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3060,7 +3054,6 @@
                 {
                     "fieldPath": "QUARTER",
                     "nullable": true,
-                    "label": "Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3073,7 +3066,6 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "label": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3368,7 +3360,6 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": false,
-                    "label": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3605,7 +3596,8 @@
                 "sap_datasphere_space": "DEMO_SPACE",
                 "sap_datasphere_asset": "FINANCE_DATASALES_A"
             },
-            "name": "Sales",
+            "name": "FINANCE_DATASALES_A",
+            "description": "Sales (source object projected by Test_Analytic_Model)",
             "tags": []
         }
     },
@@ -3779,7 +3771,6 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "label": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3792,7 +3783,7 @@
                 {
                     "fieldPath": "MONTH_INT",
                     "nullable": true,
-                    "label": "Month (Number)",
+                    "description": "Month (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3805,7 +3796,7 @@
                 {
                     "fieldPath": "MONTH_LAST_DAY",
                     "nullable": true,
-                    "label": "Month Last Day",
+                    "description": "Month Last Day",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3818,7 +3809,6 @@
                 {
                     "fieldPath": "QUARTER",
                     "nullable": true,
-                    "label": "Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3831,7 +3821,7 @@
                 {
                     "fieldPath": "QUARTER_INT",
                     "nullable": true,
-                    "label": "Quarter (Number)",
+                    "description": "Quarter (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3844,7 +3834,6 @@
                 {
                     "fieldPath": "SECOND",
                     "nullable": true,
-                    "label": "Second",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3857,7 +3846,7 @@
                 {
                     "fieldPath": "SECOND_INT",
                     "nullable": true,
-                    "label": "Second (Number)",
+                    "description": "Second (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3870,7 +3859,7 @@
                 {
                     "fieldPath": "TZNTSTMPL",
                     "nullable": true,
-                    "label": "UTC Timestamp (long form)",
+                    "description": "UTC Timestamp (long form)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3883,7 +3872,7 @@
                 {
                     "fieldPath": "TZNTSTMPS",
                     "nullable": true,
-                    "label": "UTC Timestamp (short form)",
+                    "description": "UTC Timestamp (short form)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3896,7 +3885,6 @@
                 {
                     "fieldPath": "WEEK",
                     "nullable": true,
-                    "label": "Week",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3909,7 +3897,7 @@
                 {
                     "fieldPath": "WEEK_INT",
                     "nullable": true,
-                    "label": "Week (Number)",
+                    "description": "Week (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3922,7 +3910,7 @@
                 {
                     "fieldPath": "WEEK_YEAR",
                     "nullable": true,
-                    "label": "Week Year",
+                    "description": "Week Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3935,7 +3923,7 @@
                 {
                     "fieldPath": "WEEK_YEAR_INT",
                     "nullable": true,
-                    "label": "Week Year (Number)",
+                    "description": "Week Year (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3948,7 +3936,6 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "label": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3961,7 +3948,7 @@
                 {
                     "fieldPath": "YEAR_INT",
                     "nullable": true,
-                    "label": "Year (Number)",
+                    "description": "Year (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3974,7 +3961,7 @@
                 {
                     "fieldPath": "MINUTE_INT",
                     "nullable": true,
-                    "label": "Minute (Number)",
+                    "description": "Minute (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -3987,7 +3974,6 @@
                 {
                     "fieldPath": "MINUTE",
                     "nullable": true,
-                    "label": "Minute",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4000,7 +3986,7 @@
                 {
                     "fieldPath": "HOUR_INT",
                     "nullable": true,
-                    "label": "Hour (Number)",
+                    "description": "Hour (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -4013,7 +3999,6 @@
                 {
                     "fieldPath": "HOUR",
                     "nullable": true,
-                    "label": "Hour",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4026,7 +4011,7 @@
                 {
                     "fieldPath": "DAY_OF_WEEK_INT",
                     "nullable": true,
-                    "label": "Day of Week (Number)",
+                    "description": "Day of Week (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -4039,7 +4024,7 @@
                 {
                     "fieldPath": "DAY_OF_WEEK",
                     "nullable": true,
-                    "label": "Day of Week",
+                    "description": "Day of Week",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4052,7 +4037,7 @@
                 {
                     "fieldPath": "DAY_INT",
                     "nullable": true,
-                    "label": "Day (Number)",
+                    "description": "Day (Number)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -4065,7 +4050,6 @@
                 {
                     "fieldPath": "DAY",
                     "nullable": true,
-                    "label": "Day",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4078,7 +4062,7 @@
                 {
                     "fieldPath": "DATE_SQL",
                     "nullable": true,
-                    "label": "Date",
+                    "description": "Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -4091,7 +4075,7 @@
                 {
                     "fieldPath": "DATE_SAP",
                     "nullable": true,
-                    "label": "Date (String)",
+                    "description": "Date (String)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4104,7 +4088,7 @@
                 {
                     "fieldPath": "DATETIME_SAP",
                     "nullable": true,
-                    "label": "Timestamp (String)",
+                    "description": "Timestamp (String)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4117,7 +4101,7 @@
                 {
                     "fieldPath": "DATETIMESTAMP",
                     "nullable": true,
-                    "label": "Timestamp",
+                    "description": "Timestamp",
                     "type": {
                         "type": {
                             "com.linkedin.schema.TimeType": {}
@@ -4130,7 +4114,7 @@
                 {
                     "fieldPath": "CALWEEK",
                     "nullable": true,
-                    "label": "Calendar Week",
+                    "description": "Calendar Week",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4143,7 +4127,7 @@
                 {
                     "fieldPath": "CALQUARTER",
                     "nullable": true,
-                    "label": "Calendar Quarter",
+                    "description": "Calendar Quarter",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4156,7 +4140,7 @@
                 {
                     "fieldPath": "CALMONTH",
                     "nullable": true,
-                    "label": "Calendar Month",
+                    "description": "Calendar Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4326,7 +4310,7 @@
                 {
                     "fieldPath": "ID",
                     "nullable": true,
-                    "label": "Identifier",
+                    "description": "Identifier",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4339,7 +4323,7 @@
                 {
                     "fieldPath": "_DESCRIPTION",
                     "nullable": true,
-                    "label": "Day Name",
+                    "description": "Day Name",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4352,7 +4336,7 @@
                 {
                     "fieldPath": "_LANGU",
                     "nullable": true,
-                    "label": "Language",
+                    "description": "Language",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4497,7 +4481,7 @@
                 {
                     "fieldPath": "ID",
                     "nullable": true,
-                    "label": "Identifier",
+                    "description": "Identifier",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4510,7 +4494,7 @@
                 {
                     "fieldPath": "_DESCRIPTION",
                     "nullable": true,
-                    "label": "Month Name",
+                    "description": "Month Name",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4523,7 +4507,7 @@
                 {
                     "fieldPath": "_LANGU",
                     "nullable": true,
-                    "label": "Language",
+                    "description": "Language",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4668,7 +4652,7 @@
                 {
                     "fieldPath": "ID",
                     "nullable": true,
-                    "label": "Identifier",
+                    "description": "Identifier",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4681,7 +4665,7 @@
                 {
                     "fieldPath": "_DESCRIPTION",
                     "nullable": true,
-                    "label": "Quarter Name",
+                    "description": "Quarter Name",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4694,7 +4678,7 @@
                 {
                     "fieldPath": "_LANGU",
                     "nullable": true,
-                    "label": "Language",
+                    "description": "Language",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}

@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import UnknownColumnType
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ATTR_LABEL,
@@ -112,17 +113,15 @@ def parse_csn_elements_to_schema_fields(
             cds_type, (NullTypeClass, cds_type or "UNKNOWN")
         )
         native = _native_type_string(native_root, element)
-        # @EndUserText.label is a business label, not a description; unset when it just
-        # repeats the technical name.
-        label = element.get(CSN_ATTR_LABEL)
-        if not isinstance(label, str) or not label or label == col_name:
-            label = None
+        description = description_from_source_label(
+            element.get(CSN_ATTR_LABEL), col_name
+        )
         fields.append(
             SchemaFieldClass(
                 fieldPath=col_name,
                 type=SchemaFieldDataTypeClass(type=type_ctor()),
                 nativeDataType=native,
-                label=label,
+                description=description,
                 nullable=True,
             )
         )

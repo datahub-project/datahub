@@ -61,6 +61,9 @@ DWAAS_SPACES_BASE: Final[str] = "/dwaas-core/api/v1/spaces"
 DWAAS_LIST_PAGE_SIZE: Final[int] = 200
 DWAAS_PARAM_TOP: Final[str] = "top"
 DWAAS_PARAM_SKIP: Final[str] = "skip"
+# Ceiling on pages walked per listing so a server that ignores `skip` (re-serving the
+# first page forever) can't loop unbounded; at 200 rows this still covers 200k objects.
+DWAAS_LIST_MAX_PAGES: Final[int] = 1000
 
 # The catalog's supportsAnalyticalQueries flag routes a CSN fetch to views vs
 # analyticmodels, but it is not a reliable indicator of the design-time type, so
