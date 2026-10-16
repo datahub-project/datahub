@@ -22,13 +22,17 @@ import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -249,6 +253,64 @@ public class FormAssignmentAuthorizationValidatorTest {
     stubCurrentForms(formsWithPromptArrays(FORM_A));
 
     Assert.assertTrue(validate(List.of(unresolvablePatch())).findAny().isEmpty());
+  }
+
+  /**
+   * A keyed patch, as {@code FormsPatchBuilder} writes it ({@code /forms/<urn>}), resolves through
+   * the aspect's template like the write itself. Applied raw it threw, the check failed closed, and
+   * a hard delete's form cleanup was refused.
+   */
+  @Test
+  public void testKeyedPatchResolvesThroughTheTemplate() {
+    final EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    final AspectRetriever retriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(retriever.getEntityRegistry()).thenReturn(registry);
+    final PatchMCP item =
+        TestPatchMCP.of(
+            TEST_DATASET_URN,
+            FORMS_ASPECT_NAME,
+            "[{\"op\":\"remove\",\"path\":\"/forms/" + FORM_A + "\"}]");
+    Mockito.when(item.getAspectSpec())
+        .thenReturn(registry.getEntitySpec("dataset").getAspectSpec(FORMS_ASPECT_NAME));
+
+    final Forms after =
+        FormAssignmentAuthorizationValidator.resolveProposed(
+            item, formsWithPromptArrays(FORM_A, FORM_B), retriever);
+
+    Assert.assertNotNull(after, "a keyed patch must resolve, not fail closed");
+    Assert.assertEquals(
+        after.getIncompleteForms().stream().map(FormAssociation::getUrn).toList(), List.of(FORM_B));
+  }
+
+  /**
+   * A generic patch with array keys is written by the generic template, not FormsTemplate. Through
+   * FormsTemplate this add would resolve to "no change" and skip the check; it must fail closed.
+   */
+  @Test
+  public void testAGenericPatchDoesNotResolveThroughTheFormsTemplate() {
+    final EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    final AspectRetriever retriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(retriever.getEntityRegistry()).thenReturn(registry);
+    final PatchMCP item =
+        TestPatchMCP.of(
+            TEST_DATASET_URN,
+            FORMS_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/incompleteForms/"
+                + FORM_B
+                + "\",\"value\":{\"urn\":\""
+                + FORM_B
+                + "\"}}]");
+    Mockito.when(item.getAspectSpec())
+        .thenReturn(registry.getEntitySpec("dataset").getAspectSpec(FORMS_ASPECT_NAME));
+    Mockito.when(item.getGenericJsonPatch())
+        .thenReturn(
+            GenericJsonPatch.builder()
+                .arrayPrimaryKeys(Map.of("incompleteForms", List.of("urn")))
+                .build());
+
+    Assert.assertNull(
+        FormAssignmentAuthorizationValidator.resolveProposed(
+            item, formsWithPromptArrays(FORM_A), retriever));
   }
 
   private static BatchItem unresolvablePatch() {

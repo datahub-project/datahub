@@ -6,22 +6,26 @@ import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.common.FormAssociation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import jakarta.json.Json;
-import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonReader;
 import java.io.StringReader;
@@ -100,7 +104,7 @@ public class FormAssignmentAuthorizationValidator extends AbstractAspectAuthoriz
 
       for (BatchItem item : formsItems) {
         final Forms before = currentForms(current, item.getUrn());
-        final Forms after = resolveProposed(item, before);
+        final Forms after = resolveProposed(item, before, retrieverContext.getAspectRetriever());
         if (after != null && assignedFormUrns(before).equals(assignedFormUrns(after))) {
           continue;
         }
@@ -142,10 +146,16 @@ public class FormAssignmentAuthorizationValidator extends AbstractAspectAuthoriz
 
   /**
    * The proposed {@code forms} value, or null when it cannot be determined so the caller fails
-   * closed. For PATCH the full JsonPatch is applied on top of the current value.
+   * closed. For PATCH the full JsonPatch is applied on top of the current value: first through the
+   * aspect's template, as the write itself applies it, then raw. {@code FormsPatchBuilder}
+   * addresses forms by key ({@code /forms/<urn>}), which only the template maps onto the stored
+   * {@code completedForms}/{@code incompleteForms} arrays; applied raw only, every keyed patch
+   * failed and the check failed closed, so a hard delete's form cleanup was refused. Index paths
+   * into the stored arrays still resolve raw.
    */
   @Nullable
-  private static Forms resolveProposed(@Nonnull BatchItem item, @Nullable Forms current) {
+  static Forms resolveProposed(
+      @Nonnull BatchItem item, @Nullable Forms current, @Nonnull AspectRetriever aspectRetriever) {
     if (!ChangeType.PATCH.equals(item.getChangeType()) || !(item instanceof MCPItem)) {
       return item.getAspect(Forms.class);
     }
@@ -153,15 +163,51 @@ public class FormAssignmentAuthorizationValidator extends AbstractAspectAuthoriz
     if (patch == null) {
       return null;
     }
+    // The write uses the generic template, not FormsTemplate, for these (PatchItemImpl.applyPatch).
+    // FormsTemplate would accept and then drop an add at /incompleteForms/<urn>, so the check would
+    // see no change and let the assignment through.
+    final GenericJsonPatch generic = PatchOperationUtils.resolveGenericJsonPatch((MCPItem) item);
+    final boolean writtenGenerically =
+        generic != null
+            && (!generic.getArrayPrimaryKeys().isEmpty() || generic.isForceGenericPatch());
+    final Forms viaTemplate =
+        writtenGenerically ? null : applyThroughTemplate(item, current, patch, aspectRetriever);
+    if (viaTemplate != null) {
+      return viaTemplate;
+    }
     final Forms base = current != null ? current : new Forms(new DataMap());
     try (JsonReader reader = Json.createReader(new StringReader(RecordUtils.toJsonString(base)))) {
-      final JsonObject patched = patch.apply(reader.readObject());
-      return RecordUtils.toRecordTemplate(Forms.class, patched.toString());
+      return RecordUtils.toRecordTemplate(Forms.class, patch.apply(reader.readObject()).toString());
     } catch (RuntimeException e) {
       log.warn(
           "Unable to apply forms PATCH for authorization check on {}; failing closed: {}",
           item.getUrn(),
           e.toString());
+      return null;
+    }
+  }
+
+  /** The patch applied as the write applies it, or null when the template cannot apply it. */
+  @Nullable
+  private static Forms applyThroughTemplate(
+      @Nonnull BatchItem item,
+      @Nullable Forms current,
+      @Nonnull JsonPatch patch,
+      @Nonnull AspectRetriever aspectRetriever) {
+    final EntityRegistry registry = aspectRetriever.getEntityRegistry();
+    if (registry == null || item.getAspectSpec() == null) {
+      return null;
+    }
+    final AspectTemplateEngine templates = registry.getAspectTemplateEngine();
+    final RecordTemplate base =
+        current != null ? current : templates.getDefaultTemplate(FORMS_ASPECT_NAME);
+    if (base == null) {
+      return null;
+    }
+    try {
+      return RecordUtils.toRecordTemplate(
+          Forms.class, templates.applyPatch(base, patch, item.getAspectSpec()).data());
+    } catch (JsonProcessingException | RuntimeException e) {
       return null;
     }
   }
