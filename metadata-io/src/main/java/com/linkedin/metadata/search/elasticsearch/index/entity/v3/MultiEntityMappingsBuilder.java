@@ -1036,9 +1036,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
             continue;
           }
-          fieldSpec
-              .getSearchableAnnotation()
-              .getHasValuesFieldName()
+          SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+          resolved
+              .indexedHasValuesFieldName()
               .ifPresent(
                   fieldName ->
                       rootFields.putIfAbsent(

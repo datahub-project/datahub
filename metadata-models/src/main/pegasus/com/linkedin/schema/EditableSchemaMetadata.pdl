@@ -7,11 +7,36 @@ import com.linkedin.common.ChangeAuditStamps
  * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.
  */
 @Aspect = {
-  "name": "editableSchemaMetadata"
+  "name": "editableSchemaMetadata",
+  "schemaVersion": 2
 }
 record EditableSchemaMetadata includes ChangeAuditStamps {
   /**
-   * Client provided a list of fields from document schema.
+   * Client provided a list of fields from document schema. Descriptions, tags and glossary
+   * terms on these columns are one step from the entity, so they index as degree 1.
    */
+  @Searchable = {
+    "/*/description": {
+      "v3": {
+        "degree": 1,
+        "boostScore": 0.5,
+        "queryByDefault": false
+      }
+    },
+    "/*/globalTags/tags/*/tag": {
+      "v3": {
+        "degree": 1,
+        "boostScore": 0.25,
+        "queryByDefault": false
+      }
+    },
+    "/*/glossaryTerms/terms/*/urn": {
+      "v3": {
+        "degree": 1,
+        "boostScore": 0.25,
+        "queryByDefault": false
+      }
+    }
+  }
   editableSchemaFieldInfo: array[EditableSchemaFieldInfo]
 }

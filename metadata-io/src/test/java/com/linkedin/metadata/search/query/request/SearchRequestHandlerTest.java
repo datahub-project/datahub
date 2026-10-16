@@ -900,15 +900,35 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   /** Existence of an unindexed description is the shared hasDescription boolean. */
   @Test
   public void testV3UnindexedLabelExistenceUsesHasValuesField() {
-    for (String field : List.of("description", "editedDescription", "fieldDescriptions")) {
-      assertHasDescriptionExistence(v3Filter(buildExistsCriterion(field)), field, false);
-      assertHasDescriptionExistence(v3Filter(buildIsNullCriterion(field)), field, true);
-    }
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("description")), "description", "hasDescription", false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("description")), "description", "hasDescription", true);
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("editedDescription")),
+        "editedDescription",
+        "hasDescription",
+        false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("editedDescription")),
+        "editedDescription",
+        "hasDescription",
+        true);
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("fieldDescriptions")),
+        "fieldDescriptions",
+        "hasDescription_1",
+        false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("fieldDescriptions")),
+        "fieldDescriptions",
+        "hasDescription_1",
+        true);
   }
 
-  private static void assertHasDescriptionExistence(
-      String query, String sourceField, boolean missing) {
-    int fieldAt = query.indexOf("\"field\" : \"hasDescription\"");
+  private static void assertHasValuesExistence(
+      String query, String sourceField, String booleanField, boolean missing) {
+    int fieldAt = query.indexOf("\"field\" : \"" + booleanField + "\"");
     assertTrue(fieldAt > 0, sourceField + " " + query);
     String around = query.substring(Math.max(0, fieldAt - 120), fieldAt);
     assertTrue(around.contains("\"exists\""), sourceField + " " + around);
@@ -958,8 +978,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     String fieldDescriptions =
         v3Filter(buildCriterion("fieldDescriptions", Condition.CONTAIN, "data warehouse"));
-    assertTrue(fieldDescriptions.contains("\"description.text\""), fieldDescriptions);
-    assertTrue(fieldDescriptions.contains("\"description.stemmed\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description_1.text\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description_1.stemmed\""), fieldDescriptions);
     assertTrue(fieldDescriptions.contains("\"fieldDescriptions\""), fieldDescriptions);
     assertFalse(fieldDescriptions.contains("wildcard"), fieldDescriptions);
   }
@@ -967,7 +987,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testV3ContainOnKeywordLabelStaysOnKeyword() {
     String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
-    assertTrue(query.contains("columns.keyword"), query);
+    assertTrue(query.contains("name_1.keyword"), query);
     assertTrue(query.contains("wildcard"), query);
     assertTrue(query.contains("*user_id*"), query);
     assertFalse(query.contains("description.text"), query);
@@ -1141,10 +1161,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Deliberate V3 change: the full-text query reads the shared _search fields, and matched fields
-   * come from the fetched root values that feed them, so V3 sets no highlighter. The columns'
-   * arrays are searched but never fetched: a fetch cannot cut them short, so a dataset with
-   * thousands of fields would send all of them with every hit.
+   * Deliberate V3 change: the full-text query reads the shared fields, and matched fields come from
+   * the fetched root values that feed them, so V3 sets no highlighter. Column fields index as
+   * degree 1 and are not in an unqualified query, and their arrays are never fetched: a fetch
+   * cannot cut them short, so a dataset with thousands of fields would send all of them with every
+   * hit.
    */
   @Test
   public void testV3FullTextQueryReadsSharedFieldsWithoutFetchingColumnArrays() {
@@ -1155,8 +1176,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     String query = v3.query().toString();
     assertTrue(query.contains("name.text"), query);
-    assertTrue(query.contains("columns.text"), query);
-    assertTrue(query.contains("columns.stemmed"), query);
+    assertFalse(query.contains("name_1.text"), query);
+    assertFalse(query.contains("name_1.stemmed"), query);
     assertFalse(query.contains("_search."), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
@@ -1572,7 +1593,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .put(
                 EntityType.CORP_USER,
                 Stream.concat(
-                        COMMON.stream(), Stream.of("skills", "teams", "ldap", "fullName", "email"))
+                        COMMON.stream(),
+                        Stream.of(
+                            "skills", "teams", "ldap", "fullName", "email", "slackDisplayName"))
                     .collect(Collectors.toSet()))
             .put(
                 EntityType.DOMAIN,

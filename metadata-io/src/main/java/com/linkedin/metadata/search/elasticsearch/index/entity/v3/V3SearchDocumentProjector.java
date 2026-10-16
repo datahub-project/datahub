@@ -98,8 +98,7 @@ public class V3SearchDocumentProjector {
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
-    final Set<String> sharedHasValues =
-        placeSharedHasValues(event.getEntitySpec(), aspectSpec, projectedFields);
+    final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
     final List<EntitySpec> indexGroup =
         V3SearchFields.indexGroupSpecs(entityRegistry, List.of(event.getEntitySpec()));
@@ -213,15 +212,14 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * A shared-label hasValues boolean is written under the aspect only when a source in this aspect
-   * is populated. {@code copy_to} ORs those trues onto the root name. The root value is cleared so
-   * a stored false is not indexed beside a copied true.
+   * A shared-label hasValues boolean is written under the aspect, at the declared name, only when a
+   * source in this aspect is populated. {@code copy_to} sends that true to the degree's root name
+   * ({@code hasDescription} or {@code hasDescription_1}). The declared name is cleared on the root
+   * so a column value is not indexed as the entity's own boolean.
    */
   @Nonnull
   private static Set<String> placeSharedHasValues(
-      @Nonnull final EntitySpec entitySpec,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final ObjectNode projectedFields) {
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
     final Set<String> names = new LinkedHashSet<>();
     final Set<String> populated = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -230,11 +228,12 @@ public class V3SearchDocumentProjector {
       if (!resolved.isV3Searchable()) {
         continue;
       }
-      final Optional<String> label = resolved.getSearchLabel().filter(name -> !name.isEmpty());
+      final Optional<String> label = resolved.indexedFieldName();
       if (label.isEmpty()) {
         continue;
       }
-      V3SearchFields.hasValuesFieldName(entitySpec, label.get())
+      resolved
+          .getHasValuesFieldName()
           .ifPresent(
               booleanName -> {
                 names.add(booleanName);

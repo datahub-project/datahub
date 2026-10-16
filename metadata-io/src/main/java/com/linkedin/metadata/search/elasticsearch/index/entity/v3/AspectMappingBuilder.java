@@ -69,7 +69,7 @@ public class AspectMappingBuilder {
                           aspectFields.putAll(
                               MultiEntityMappingsBuilder.getAspectMappingsForField(
                                   searchableFieldSpec, aspectName));
-                          copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
+                          copySharedHasValues(searchableFieldSpec, aspectFields);
                         });
               }
 
@@ -90,8 +90,8 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * One indexed keyword per URN field. {@code copy_to} follows the field's search label, or {@code
-   * other} when the URN is included in full text and has no label.
+   * One indexed keyword per URN field. {@code copy_to} follows the field's degree-qualified label,
+   * or {@code other} when the URN is included in full text and has no label.
    */
   private static void addParsedUrnFields(
       @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec,
@@ -118,27 +118,26 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
-   * never holds both true and false.
+   * The aspect boolean keeps the name the document writes and copies onto the degree's root name.
+   * Degree 0 copies {@code hasDescription} onto {@code hasDescription}. Degree 1 copies it onto
+   * {@code hasDescription_1}. Only a true is written, so the root field never holds both true and
+   * false.
    */
   private static void copySharedHasValues(
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull SearchableFieldSpec fieldSpec,
-      @Nonnull Map<String, Object> aspectFields) {
+      @Nonnull SearchableFieldSpec fieldSpec, @Nonnull Map<String, Object> aspectFields) {
     final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-    if (!resolved.isV3Searchable()) {
+    if (!resolved.isV3Searchable() || resolved.indexedFieldName().isEmpty()) {
       return;
     }
     resolved
-        .getSearchLabel()
-        .filter(label -> !label.isEmpty())
-        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .getHasValuesFieldName()
         .ifPresent(
-            booleanName -> {
+            declaredName -> {
+              String rootName = resolved.indexedHasValuesFieldName().orElse(declaredName);
               Map<String, Object> mapping = new HashMap<>();
               mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
-              mapping.put(COPY_TO, List.of(booleanName));
-              aspectFields.put(booleanName, mapping);
+              mapping.put(COPY_TO, List.of(rootName));
+              aspectFields.put(declaredName, mapping);
             });
   }
 

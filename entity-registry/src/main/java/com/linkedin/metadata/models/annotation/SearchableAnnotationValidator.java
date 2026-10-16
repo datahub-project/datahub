@@ -17,9 +17,9 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
- * Validator for cross-annotation validation of SearchableAnnotation fields. Fields with the same
- * searchLabel share one indexed field, so they must have compatible types, the same boostScore, and
- * the same hasValuesFieldName.
+ * Validator for cross-annotation validation of SearchableAnnotation fields. Fields that share an
+ * indexed name (a search label at one degree of separation) share one indexed field, so they must
+ * have compatible types, the same resolved boost, and the same hasValuesFieldName.
  */
 public class SearchableAnnotationValidator {
 
@@ -68,10 +68,11 @@ public class SearchableAnnotationValidator {
   }
 
   /**
-   * Fields that share a search label must agree on PDL type, field type, boostScore, and
-   * hasValuesFieldName. Search V3 also requires one root and one subfield set for each label and
-   * entity field. A label with no boostScore uses the annotation default of 1. Every source of a
-   * label declares the same hasValues name, or none of them declare one.
+   * Fields that share an indexed name must agree on PDL type, field type, resolved boost, resolved
+   * {@code queryByDefault}, and hasValuesFieldName. Search V3 also requires one root and one
+   * subfield set for each indexed name and entity field. A farther degree of one label must score
+   * lower than a nearer one. {@code queryByDefault} may differ across degrees. One aspect location
+   * has one degree.
    */
   public static void validateSharedLabels(@Nonnull Collection<EntitySpec> entitySpecs) {
     final List<AnnotatedField> fields = new ArrayList<>();
@@ -91,39 +92,142 @@ public class SearchableAnnotationValidator {
       }
     }
     validateCrossAnnotationCompatibility(fields);
+    validateDegreeByLocation(entitySpecs);
   }
 
   /**
-   * Validates that all fields with the same searchLabel have compatible types, one weight, and one
-   * hasValuesFieldName.
+   * Validates that all fields with the same indexed name have compatible types, one weight, one
+   * queryByDefault, and one hasValuesFieldName, and that a label's score falls as the degree rises.
    */
   public static void validateCrossAnnotationCompatibility(
       @Nonnull List<AnnotatedField> annotatedFields) {
-    Map<String, List<AnnotatedField>> v3SearchLabelGroups = new HashMap<>();
+    Map<String, List<AnnotatedField>> indexedNameGroups = new HashMap<>();
+    Map<String, List<AnnotatedField>> labelGroups = new HashMap<>();
     for (AnnotatedField field : annotatedFields) {
       SearchableAnnotation annotation = field.getAnnotation();
       if (!annotation.isV3Searchable()) {
         continue;
       }
       SearchableAnnotation resolved = annotation.resolvedForV3();
-      if (resolved.getSearchLabel().isPresent()) {
-        v3SearchLabelGroups
-            .computeIfAbsent(resolved.getSearchLabel().get(), key -> new ArrayList<>())
-            .add(new AnnotatedField(resolved, field.getSchemaType(), field.getContext()));
-      }
+      AnnotatedField resolvedField =
+          new AnnotatedField(resolved, field.getSchemaType(), field.getContext());
+      resolved
+          .indexedFieldName()
+          .ifPresent(
+              indexedName ->
+                  indexedNameGroups
+                      .computeIfAbsent(indexedName, key -> new ArrayList<>())
+                      .add(resolvedField));
+      resolved
+          .getSearchLabel()
+          .filter(label -> !label.isEmpty())
+          .ifPresent(
+              label ->
+                  labelGroups.computeIfAbsent(label, key -> new ArrayList<>()).add(resolvedField));
     }
-    for (Map.Entry<String, List<AnnotatedField>> entry : v3SearchLabelGroups.entrySet()) {
-      validateFieldGroup(entry.getKey(), entry.getValue(), "searchLabel");
+    for (Map.Entry<String, List<AnnotatedField>> entry : indexedNameGroups.entrySet()) {
+      validateFieldGroup(entry.getKey(), entry.getValue(), "indexed field");
       validateHasValuesFieldName(entry.getKey(), entry.getValue());
       validateV3Label(entry.getKey(), entry.getValue());
     }
+    labelGroups.forEach(SearchableAnnotationValidator::validateNonIncreasingBoost);
     validateV3Mappings(annotatedFields);
     validateV3Destinations(annotatedFields, SearchableAnnotation::getEntityFieldName);
   }
 
   /**
-   * A label publishes one hasValues boolean. Every source declares that name, or none do. A source
-   * that omits it, or names a different boolean, would make a false filter miss some of the label.
+   * The same aspect location uses one degree on every entity. The location is the aspect name plus
+   * the schema path of the annotation in effect.
+   */
+  private static void validateDegreeByLocation(@Nonnull Collection<EntitySpec> entitySpecs) {
+    Map<String, AnnotatedField> degreeByLocation = new HashMap<>();
+    for (EntitySpec entitySpec : entitySpecs) {
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+          if (!resolved.isV3Searchable() || resolved.getSearchLabel().isEmpty()) {
+            continue;
+          }
+          String location = aspectSpec.getName() + fieldSpec.getPath().toString();
+          AnnotatedField current =
+              new AnnotatedField(
+                  resolved,
+                  fieldSpec.getPegasusSchema().getDereferencedType(),
+                  entitySpec.getName() + "." + location);
+          AnnotatedField previous = degreeByLocation.putIfAbsent(location, current);
+          if (previous != null && previous.getAnnotation().getDegree() != resolved.getDegree()) {
+            throw new ModelValidationException(
+                String.format(
+                    "Failed to validate @%s annotations: aspect location '%s' must have one degree."
+                        + " Field at %s has degree %s, but field at %s has degree %s",
+                    SearchableAnnotation.ANNOTATION_NAME,
+                    location,
+                    previous.getContext(),
+                    previous.getAnnotation().getDegree(),
+                    current.getContext(),
+                    resolved.getDegree()));
+          }
+        }
+      }
+    }
+  }
+
+  /** A farther degree of one label must have a lower schema score than a nearer degree. */
+  private static void validateNonIncreasingBoost(
+      @Nonnull String label, @Nonnull List<AnnotatedField> fields) {
+    Map<Integer, AnnotatedField> byDegree = new HashMap<>();
+    for (AnnotatedField field : fields) {
+      int degree = field.getAnnotation().getDegree();
+      AnnotatedField previous = byDegree.putIfAbsent(degree, field);
+      if (previous != null
+          && Double.compare(
+                  previous.getAnnotation().getBoostScore(), field.getAnnotation().getBoostScore())
+              != 0) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotations: fields with indexed field '%s' must have the"
+                    + " same boostScore. Field at %s has boostScore %s, but field at %s has"
+                    + " boostScore %s",
+                SearchableAnnotation.ANNOTATION_NAME,
+                SearchableAnnotation.indexedFieldName(label, degree),
+                previous.getContext(),
+                previous.getAnnotation().getBoostScore(),
+                field.getContext(),
+                field.getAnnotation().getBoostScore()));
+      }
+    }
+    AnnotatedField nearer = null;
+    int furthest = byDegree.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+    for (int degree = 0; degree <= furthest; degree++) {
+      AnnotatedField current = byDegree.get(degree);
+      if (current == null) {
+        continue;
+      }
+      if (nearer != null
+          && current.getAnnotation().getBoostScore() >= nearer.getAnnotation().getBoostScore()) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotations: boostScore of label '%s' must decrease with"
+                    + " degree. Degree %s at %s has boostScore %s, but degree %s at %s has"
+                    + " boostScore %s",
+                SearchableAnnotation.ANNOTATION_NAME,
+                label,
+                nearer.getAnnotation().getDegree(),
+                nearer.getContext(),
+                nearer.getAnnotation().getBoostScore(),
+                current.getAnnotation().getDegree(),
+                current.getContext(),
+                current.getAnnotation().getBoostScore()));
+      }
+      nearer = current;
+    }
+  }
+
+  /**
+   * An indexed field publishes one hasValues boolean. Every source declares that name, or none do.
+   * Search V3 indexes degree 0 as the declared name and degree n as {@code <name>_<n>}. V2 keeps
+   * the declared name. A source that omits it, or names a different boolean, would make a false
+   * filter miss some of the field.
    */
   private static void validateHasValuesFieldName(
       @Nonnull String label, @Nonnull List<AnnotatedField> fields) {
@@ -140,7 +244,7 @@ public class SearchableAnnotationValidator {
       }
       throw new ModelValidationException(
           String.format(
-              "Failed to validate @%s annotations: fields with the same searchLabel '%s' must"
+              "Failed to validate @%s annotations: fields with the same indexed field '%s' must"
                   + " declare the same hasValuesFieldName. Field at %s has %s, but field at %s has"
                   + " %s",
               SearchableAnnotation.ANNOTATION_NAME,
@@ -297,6 +401,23 @@ public class SearchableAnnotationValidator {
                 firstField.getAnnotation().getBoostScore(),
                 currentField.getContext(),
                 currentField.getAnnotation().getBoostScore()));
+      }
+
+      // One indexed field has one default-query flag. Degrees of one label may differ.
+      if (firstField.getAnnotation().isQueryByDefault()
+          != currentField.getAnnotation().isQueryByDefault()) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotations: fields with the same %s '%s' must have the same"
+                    + " queryByDefault. Field at %s has queryByDefault %s, but field at %s has"
+                    + " queryByDefault %s",
+                SearchableAnnotation.ANNOTATION_NAME,
+                labelType,
+                labelValue,
+                firstField.getContext(),
+                firstField.getAnnotation().isQueryByDefault(),
+                currentField.getContext(),
+                currentField.getAnnotation().isQueryByDefault()));
       }
     }
   }

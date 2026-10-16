@@ -252,6 +252,11 @@ public class MultiEntityMappingsUtilsTest {
     when(annotation.getFieldName()).thenReturn(fieldName);
 
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.ofNullable(entityFieldName));
     when(annotation.isV3Searchable()).thenReturn(true);
     when(annotation.resolvedForV3()).thenReturn(annotation);
@@ -534,6 +539,11 @@ public class MultiEntityMappingsUtilsTest {
     when(annotation.getFieldName()).thenReturn(fieldName);
 
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.ofNullable(entityFieldName));
     when(annotation.getSearchIndexed()).thenReturn(Optional.empty());
     when(annotation.isV3Searchable()).thenReturn(true);
