@@ -1,6 +1,5 @@
 import { parse as parseGraphqlDocument, print as printGraphqlDocument } from 'graphql';
 import yaml from 'js-yaml';
-import { type SqlLanguage, format as formatSqlQuery } from 'sql-formatter';
 
 export type FormatCodeSuccess = {
     formatted: string;
@@ -38,7 +37,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
     md: 'markdown',
 };
 
-const SQL_FORMATTER_LANGUAGES: Record<string, SqlLanguage> = {
+const SQL_FORMATTER_LANGUAGES = {
     sql: 'sql',
     ansi: 'sql',
     snowflake: 'snowflake',
@@ -52,7 +51,26 @@ const SQL_FORMATTER_LANGUAGES: Record<string, SqlLanguage> = {
     mysql: 'mysql',
     tsql: 'tsql',
     transactsql: 'transactsql',
-};
+} as const;
+
+type SqlFormatterLanguage = (typeof SQL_FORMATTER_LANGUAGES)[keyof typeof SQL_FORMATTER_LANGUAGES];
+
+type SqlFormatterModule = typeof import('sql-formatter');
+
+let sqlFormatterPromise: Promise<SqlFormatterModule> | null = null;
+
+/**
+ * sql-formatter is only needed when the user formats SQL. A static import
+ * puts the whole dialect bundle on the logged-in shell.
+ *
+ * @returns sql-formatter module, cached after the first format
+ */
+function loadSqlFormatter(): Promise<SqlFormatterModule> {
+    if (!sqlFormatterPromise) {
+        sqlFormatterPromise = import('sql-formatter');
+    }
+    return sqlFormatterPromise;
+}
 
 const SQL_FORMAT_OPTIONS = {
     tabWidth: 2,
@@ -85,9 +103,12 @@ export function resolveCodeLanguage(language: string): string {
  * @param language - Prism id or dialect such as `snowflake`
  * @returns sql-formatter language id, or undefined when this is not SQL
  */
-export function resolveSqlFormatterLanguage(language: string): SqlLanguage | undefined {
+export function resolveSqlFormatterLanguage(language: string): SqlFormatterLanguage | undefined {
     const normalized = language.trim().toLowerCase();
-    return SQL_FORMATTER_LANGUAGES[normalized];
+    if (!(normalized in SQL_FORMATTER_LANGUAGES)) {
+        return undefined;
+    }
+    return SQL_FORMATTER_LANGUAGES[normalized as keyof typeof SQL_FORMATTER_LANGUAGES];
 }
 
 /**
@@ -132,8 +153,9 @@ function formatYaml(code: string): FormatCodeResult {
     }
 }
 
-function formatSql(code: string, sqlLanguage: SqlLanguage): FormatCodeResult {
+async function formatSql(code: string, sqlLanguage: SqlFormatterLanguage): Promise<FormatCodeResult> {
     try {
+        const { format: formatSqlQuery } = await loadSqlFormatter();
         const formatted = withTrailingNewline(
             formatSqlQuery(code, {
                 language: sqlLanguage,
@@ -182,7 +204,7 @@ function tidyWhitespace(code: string): string {
  * @param language - Prism / dialect id (e.g. `sql`, `snowflake`, `json`, `yaml`, `graphql`)
  * @returns Formatted source, `unchanged`, or `invalid` when parsing fails
  */
-export function formatCode(code: string, language: string): FormatCodeResult {
+export async function formatCode(code: string, language: string): Promise<FormatCodeResult> {
     if (!code.trim()) {
         return { error: 'unchanged' };
     }

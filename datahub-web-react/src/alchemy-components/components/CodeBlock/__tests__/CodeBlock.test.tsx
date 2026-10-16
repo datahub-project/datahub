@@ -10,9 +10,8 @@ import { CodeBlock } from '@components/components/CodeBlock/CodeBlock';
 import themeV2 from '@conf/theme/themeV2';
 import i18n from '@src/i18n/i18n';
 
-vi.mock('react-syntax-highlighter', () => ({
-    __esModule: true,
-    Prism: ({ children }: { children: string }) => <pre data-testid="mock-highlighter">{children}</pre>,
+vi.mock('@components/components/CodeBlock/highlighter', () => ({
+    SyntaxHighlighter: ({ children }: { children: string }) => <pre data-testid="mock-highlighter">{children}</pre>,
 }));
 
 vi.mock('@components/components/Toast', () => ({

@@ -2,10 +2,10 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
 import {
     FILE_ATTRS,

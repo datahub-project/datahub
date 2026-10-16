@@ -5,7 +5,6 @@ import { MagicWand } from '@phosphor-icons/react/dist/csr/MagicWand';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
@@ -34,6 +33,7 @@ import {
     resolveCodeLanguage,
     resolveSqlFormatterLanguage,
 } from '@components/components/CodeBlock/formatCode';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
 import { CodeBlockProps } from '@components/components/CodeBlock/types';
 import {
@@ -227,33 +227,39 @@ export function CodeBlock({
         if (!onChange || isDisabled) {
             return;
         }
-        const result = formatCode(code, activeLanguage);
-        if (isFormatCodeSuccess(result)) {
+        formatCode(code, activeLanguage).then((result) => {
+            if (!isMountedRef.current) {
+                return;
+            }
+            if (!isFormatCodeSuccess(result)) {
+                if (result.error === 'invalid') {
+                    // Inline only while editing — avoids toast + message double noise.
+                    const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage)
+                        ? 'warning'
+                        : 'error';
+                    if (validateSyntax) {
+                        const requestId = validateRequestIdRef.current + 1;
+                        validateRequestIdRef.current = requestId;
+                        validateCode(code, activeLanguage).then((validation) => {
+                            if (!isMountedRef.current || requestId !== validateRequestIdRef.current) {
+                                return;
+                            }
+                            setSyntaxIssue(
+                                validation.valid
+                                    ? { severity, details: [] }
+                                    : { severity: validation.severity, details: validation.details },
+                            );
+                        });
+                    } else {
+                        setSyntaxIssue({ severity, details: [] });
+                    }
+                }
+                return;
+            }
             onChange(result.formatted);
             setSyntaxIssue(null);
             toast.success(t('codeBlock.formatSuccess'));
-            return;
-        }
-        if (result.error === 'invalid') {
-            // Inline only while editing — avoids toast + message double noise.
-            const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage) ? 'warning' : 'error';
-            if (validateSyntax) {
-                const requestId = validateRequestIdRef.current + 1;
-                validateRequestIdRef.current = requestId;
-                validateCode(code, activeLanguage).then((validation) => {
-                    if (!isMountedRef.current || requestId !== validateRequestIdRef.current) {
-                        return;
-                    }
-                    setSyntaxIssue(
-                        validation.valid
-                            ? { severity, details: [] }
-                            : { severity: validation.severity, details: validation.details },
-                    );
-                });
-            } else {
-                setSyntaxIssue({ severity, details: [] });
-            }
-        }
+        });
     }, [activeLanguage, code, isDisabled, onChange, t, validateSyntax]);
 
     const handleCopy = useCallback(() => {
