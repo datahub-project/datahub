@@ -19,7 +19,8 @@ import java.util.stream.Stream;
 import org.testng.annotations.Test;
 
 /**
- * Ratchet against new {@code getEntitySpec(<something>.getEntityType())} lookups in server code.
+ * Ratchet against new {@code getEntitySpec(<something>.getEntityType())} and {@code
+ * getEntitySpec(urnToEntityName(<urn>))} lookups in server code.
  *
  * <p>An entity type taken from a urn comes from data, and after a zero-downtime upgrade rollback
  * that data can name entity types this version's registry doesn't know. {@code getEntitySpec}
@@ -43,8 +44,11 @@ public class UrnDerivedRegistryLookupLintTest {
           "datahub-upgrade",
           "datahub-graphql-core");
 
+  // getEntitySpec(<urn>.getEntityType()) or getEntitySpec(urnToEntityName(<urn>)).
   private static final Pattern LOOKUP =
-      Pattern.compile("getEntitySpec\\([^;]*?getEntityType\\(\\)\\s*\\)", Pattern.DOTALL);
+      Pattern.compile(
+          "getEntitySpec\\((?:[^;]*?getEntityType\\(\\)\\s*\\)|\\s*(?:\\w+\\.)*urnToEntityName\\()",
+          Pattern.DOTALL);
 
   private static final String BASELINE = "/urn-derived-registry-lookups.baseline";
 
@@ -63,7 +67,8 @@ public class UrnDerivedRegistryLookupLintTest {
             });
     if (!violations.isEmpty()) {
       fail(
-          "New getEntitySpec(<urn>.getEntityType()) lookups. They throw for entity types the "
+          "New getEntitySpec(<urn>.getEntityType()) or getEntitySpec(urnToEntityName(<urn>)) lookups."
+              + " They throw for entity types the "
               + "registry doesn't know (data from a newer version after a rollback). Use "
               + "findEntitySpec/findAspectSpec, RegistryKnowledge or UnknownDataGuard instead:\n  "
               + String.join("\n  ", violations));
