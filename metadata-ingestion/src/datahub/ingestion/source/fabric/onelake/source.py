@@ -770,7 +770,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
         except Exception as e:
-            self.report.warning(
+            # A warning would leave this item with no emitted tables, and stale
+            # entity removal would soft-delete every table it had ingested before.
+            self.report.failure(
                 title="Failed to Process Tables",
                 message="Unable to retrieve tables from item.",
                 context=f"item_id={item_id}, item_type={item_type}",
