@@ -8,7 +8,7 @@ title: "Deploying DataHub on AWS ECS"
 
 > **Scope.** This guide describes a functional reference deployment. It does not cover full production hardening, observability, high availability, or cost optimization. Treat every configuration value in this guide as a starting point, not a sizing recommendation.
 
-> **Tested version.** This guide was tested with DataHub **v0.14.1**. On DataHub **1.5 and later**, GMS also requires a token service signing key and salt, and Frontend requires `DATAHUB_SECRET` — see [Configure the token service signing key and salt](#configure-the-token-service-signing-key-and-salt) and [Enable metadata service authentication](#enable-metadata-service-authentication).
+> The Terraform templates are a generalized version of a real DataHub v0.14.1 deployment on ECS. They are not the exact files used in that deployment and have not been deployed as is, so review and test them in your own environment before use.
 
 > DataHub's environment variables and default configuration change between releases. If you are following this guide with a different DataHub version or need information on other configuration not listed here, cross-check the variables below against the current [Deployment Environment Variables](https://docs.datahub.com/docs/deploy/environment-vars) and [Docker Images](https://docs.datahub.com/docs/docker) reference before applying them.
 
