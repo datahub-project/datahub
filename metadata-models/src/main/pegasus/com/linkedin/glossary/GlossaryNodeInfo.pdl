@@ -15,8 +15,7 @@ record GlossaryNodeInfo includes CustomProperties {
    * Definition of business node
    */
   @Searchable = {
-    "fieldType": "TEXT",
-    "searchTier": 2
+    "fieldType": "TEXT"
   }
   definition: string
 
@@ -43,8 +42,7 @@ record GlossaryNodeInfo includes CustomProperties {
       "enableAutocomplete": true,
       "boostScore": 10.0,
       "fieldNameAliases": [ "_entityName" ],
-      "searchLabel": "entityName",
-      "searchTier": 1
+      "searchLabel": "entityName"
     }
     name: optional string
 
