@@ -1222,17 +1222,17 @@ transformers:
 
 ## Rewrite upstream URNs
 
-Rewrites every upstream dataset URN on the `upstreamLineage` aspect. The platform is replaced with `platform`. Each entry in `rules` is a literal find-and-replace on the dataset name (the asset id between the platform and the environment), and the rules run in list order. A later rule sees the name produced by the earlier rules.
+Rewrites every upstream dataset URN on the `upstreamLineage` aspect. When `platform` is set, it replaces the platform on every upstream. When it is omitted, each upstream keeps its original platform. Each entry in `rules` is a literal find-and-replace on the dataset name (the asset id between the platform and the environment), and the rules run in list order. A later rule sees the name produced by the earlier rules.
 
 Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested.
 
 ### Config Details
 
-| Field      | Required | Type         | Default   | Description                                                                                                    |
-| ---------- | -------- | ------------ | --------- | -------------------------------------------------------------------------------------------------------------- |
-| `platform` | ✅       | string       |           | Platform name written onto every upstream dataset URN, for example `fabric`.                                   |
-| `rules`    |          | list[object] | `[]`      | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace. |
-| `mode`     |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.    |
+| Field      | Required | Type         | Default   | Description                                                                                                               |
+| ---------- | -------- | ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `platform` |          | string       |           | Platform name written onto every upstream dataset URN, for example `fabric`. When omitted, the original platform is kept. |
+| `rules`    |          | list[object] | `[]`      | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace.            |
+| `mode`     |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.               |
 
 ```yaml
 transformers:

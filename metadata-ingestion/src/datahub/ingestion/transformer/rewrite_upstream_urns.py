@@ -44,11 +44,13 @@ class RewriteUpstreamUrnRule(ConfigModel):
 
 
 class RewriteUpstreamUrnsConfig(ConfigModel):
-    """Rewrite upstream dataset URNs: set the platform, then apply name rules in order."""
+    """Rewrite upstream dataset URNs: optionally set the platform, then apply name rules in order."""
 
-    platform: str = Field(
+    platform: Optional[str] = Field(
+        default=None,
         description="Platform name written onto every upstream dataset URN, "
-        "for example 'fabric'. A dataPlatform URN is accepted and reduced to its name."
+        "for example 'fabric'. A dataPlatform URN is accepted and reduced to its name. "
+        "When omitted, each upstream keeps its original platform.",
     )
     rules: List[RewriteUpstreamUrnRule] = Field(
         default_factory=list,
@@ -64,7 +66,9 @@ class RewriteUpstreamUrnsConfig(ConfigModel):
 
     @field_validator("platform")
     @classmethod
-    def normalize_platform(cls, value: str) -> str:
+    def normalize_platform(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         platform = value.strip()
         if platform.startswith(_PLATFORM_URN_PREFIX):
             platform = platform[len(_PLATFORM_URN_PREFIX) :]
@@ -85,7 +89,9 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         super().__init__()
         self.config = config
         self.ctx = ctx
-        self._platform_urn = make_data_platform_urn(config.platform)
+        self._platform_urn = (
+            make_data_platform_urn(config.platform) if config.platform else None
+        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "RewriteUpstreamUrns":
@@ -157,8 +163,7 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         name = dataset_urn.name
         for rule in self.config.rules:
             name = name.replace(rule.find, rule.replace)
-        if name == dataset_urn.name and self._platform_urn == dataset_urn.platform:
+        platform = self._platform_urn or dataset_urn.platform
+        if name == dataset_urn.name and platform == dataset_urn.platform:
             return urn
-        return str(
-            DatasetUrn(platform=self._platform_urn, name=name, env=dataset_urn.env)
-        )
+        return str(DatasetUrn(platform=platform, name=name, env=dataset_urn.env))

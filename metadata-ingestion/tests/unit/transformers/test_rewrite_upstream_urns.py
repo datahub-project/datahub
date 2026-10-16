@@ -164,3 +164,27 @@ def test_platform_urn_is_reduced_to_its_name():
         {"platform": "urn:li:dataPlatform:fabric"}
     )
     assert config.platform == "fabric"
+
+
+def test_omitted_platform_keeps_the_original():
+    transformer = RewriteUpstreamUrns(
+        RewriteUpstreamUrnsConfig.model_validate(
+            {"rules": [{"find": "src_lakehouse", "replace": "workspace-id.item-id"}]}
+        ),
+        PipelineContext(run_id="test"),
+    )
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")]
+    )
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert rewritten.upstreams[0].dataset == make_dataset_urn(
+        "mssql", "workspace-id.item-id.gold.bridge_table"
+    )
+
+
+def test_empty_platform_is_rejected():
+    with pytest.raises(ValidationError):
+        RewriteUpstreamUrnsConfig.model_validate({"platform": "  "})
