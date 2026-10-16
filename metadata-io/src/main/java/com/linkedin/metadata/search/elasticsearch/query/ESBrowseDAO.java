@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
@@ -460,7 +461,7 @@ public class ESBrowseDAO {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     BoolQueryBuilder query =
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(URN, urn.toString()));
-    EntitySearchIndexResolver.applyEntityTypeFilter(
+    EntityFilter.applyEntityTypeFilter(
         query, List.of(entityName), searchConfiguration.getEntityIndex());
     searchRequest.source(new SearchSourceBuilder().query(query));
     final SearchHit[] searchHits;
