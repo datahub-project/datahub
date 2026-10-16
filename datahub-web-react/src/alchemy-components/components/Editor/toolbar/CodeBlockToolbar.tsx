@@ -54,11 +54,11 @@ const codeBlockPositioner = Positioner.create<any>({
     },
 });
 
+const LANGUAGE_OPTIONS = listEditorCodeLanguages().map((language) => ({ value: language }));
+
 const CodeBlockMenu = () => {
     const commands = useCommands();
     const value = (useAttrs(true).codeBlock()?.language as string) ?? 'markup';
-
-    const options = listEditorCodeLanguages().map((language) => ({ value: language }));
 
     const onChange = (language) => {
         commands.updateCodeBlock({ language });
@@ -70,7 +70,7 @@ const CodeBlockMenu = () => {
             <StyledSelect
                 value={value}
                 size="small"
-                options={options}
+                options={LANGUAGE_OPTIONS}
                 onChange={onChange}
                 dropdownMatchSelectWidth={100}
                 showSearch

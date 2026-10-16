@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     cacheSuccessfulImport,
@@ -18,6 +18,11 @@ describe('resolveCodeLanguage', () => {
         expect(resolveCodeLanguage('py')).toBe('python');
         expect(resolveCodeLanguage('shell')).toBe('bash');
         expect(resolveCodeLanguage('jsonschema')).toBe('json');
+    });
+
+    it('should not resolve inherited object keys as aliases', () => {
+        expect(resolveCodeLanguage('constructor')).toBe('constructor');
+        expect(resolveSqlFormatterLanguage('constructor')).toBeUndefined();
     });
 });
 
@@ -155,5 +160,19 @@ tags: [finance,  prod]`,
     it('should leave empty input unchanged', async () => {
         expect(await formatCode('', 'sql')).toEqual({ error: 'unchanged' });
         expect(await formatCode('   ', 'json')).toEqual({ error: 'unchanged' });
+    });
+
+    it('should report the SQL formatter as unavailable when its chunk fails to load', async () => {
+        vi.resetModules();
+        vi.doMock('sql-formatter', () => {
+            throw new Error('chunk');
+        });
+        try {
+            const isolated = await import('@components/components/CodeBlock/formatCode');
+            expect(await isolated.formatCode('select 1', 'sql')).toEqual({ error: 'unavailable' });
+        } finally {
+            vi.doUnmock('sql-formatter');
+            vi.resetModules();
+        }
     });
 });

@@ -36,6 +36,7 @@ import {
 import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
 import { CodeBlockProps } from '@components/components/CodeBlock/types';
+import { useHighlightLanguage } from '@components/components/CodeBlock/useHighlightLanguage';
 import {
     getCodeBlockTestId,
     isCodeBlockEditable,
@@ -125,6 +126,7 @@ export function CodeBlock({
     const [internalCopied, setInternalCopied] = useState(false);
     const [syntaxIssue, setSyntaxIssue] = useState<SyntaxIssue | null>(null);
     const [isValidating, setIsValidating] = useState(false);
+    const [isFormatting, setIsFormatting] = useState(false);
     const copyResetTimeoutRef = useRef<number | null>(null);
     const isMountedRef = useRef(true);
     const validateRequestIdRef = useRef(0);
@@ -143,6 +145,7 @@ export function CodeBlock({
     });
     const activeLanguage = selectedLanguage ?? language;
     const highlightLanguage = resolveCodeLanguage(language);
+    useHighlightLanguage(highlightLanguage);
     const prismStyle = getCodeBlockPrismStyle(theme.colors);
     const bodyMaxHeight = resolveCodeBlockBodyMaxHeight({ isEditable, maxHeight });
     const isHeightCapped = isCodeBlockHeightCapped(bodyMaxHeight);
@@ -175,6 +178,7 @@ export function CodeBlock({
         formatRequestIdRef.current += 1;
         setSyntaxIssue(null);
         setIsValidating(false);
+        setIsFormatting(false);
     }, [activeLanguage, code]);
 
     const showCodeHeader = shouldShowCodeBlockHeader({
@@ -226,18 +230,23 @@ export function CodeBlock({
     }, [activeLanguage, code, isDisabled, isValidating, t]);
 
     const handleFormat = useCallback(() => {
-        if (!onChange || isDisabled) {
+        if (!onChange || isDisabled || isFormatting) {
             return Promise.resolve();
         }
         const requestId = formatRequestIdRef.current + 1;
         formatRequestIdRef.current = requestId;
         const isCurrent = () => isMountedRef.current && requestId === formatRequestIdRef.current;
+        setIsFormatting(true);
         return formatCode(code, activeLanguage)
             .then((result) => {
                 if (!isCurrent()) {
                     return;
                 }
                 if (!isFormatCodeSuccess(result)) {
+                    if (result.error === 'unavailable') {
+                        toast.error(t('codeBlock.formatFailed'));
+                        return;
+                    }
                     if (result.error === 'invalid') {
                         // Inline only while editing — avoids toast + message double noise.
                         const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage)
@@ -270,13 +279,12 @@ export function CodeBlock({
                 setSyntaxIssue(null);
                 toast.success(t('codeBlock.formatSuccess'));
             })
-            .catch(() => {
-                if (!isCurrent()) {
-                    return;
+            .finally(() => {
+                if (isCurrent()) {
+                    setIsFormatting(false);
                 }
-                toast.error(t('codeBlock.formatFailed'));
             });
-    }, [activeLanguage, code, isDisabled, onChange, t, validateSyntax]);
+    }, [activeLanguage, code, isDisabled, isFormatting, onChange, t, validateSyntax]);
 
     const handleCopy = useCallback(() => {
         const text = copyText ?? code;
@@ -421,6 +429,7 @@ export function CodeBlock({
                                     color="gray"
                                     size="sm"
                                     onClick={handleFormat}
+                                    isLoading={isFormatting}
                                     icon={{ icon: MagicWand }}
                                     iconPosition="left"
                                     data-testid={getCodeBlockTestId(dataTestId, 'format', 'code-block-format')}

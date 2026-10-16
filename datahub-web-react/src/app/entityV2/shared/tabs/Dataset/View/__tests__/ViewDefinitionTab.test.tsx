@@ -14,6 +14,7 @@ vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
 
 vi.mock('@components/components/CodeBlock/highlighter', () => ({
     SyntaxHighlighter: ({ children }: { children: string }) => <pre>{children}</pre>,
+    loadHighlightLanguage: () => Promise.resolve(false),
 }));
 
 vi.mock('@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery', () => ({
