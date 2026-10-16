@@ -14,6 +14,14 @@ import lombok.experimental.Accessors;
 public class SearchConfiguration {
   private int maxTermBucketSize;
   private boolean pointInTimeCreationEnabled;
+
+  /**
+   * Hide non-primary members of dataset sibling groups from search, autocomplete and browse so a
+   * group surfaces as one result. Callers whose filter references the siblings fields are exempt.
+   * Env var: {@code ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS}.
+   */
+  private boolean hideNonPrimarySiblings;
+
   private ExactMatchConfiguration exactMatch;
   private PartialConfiguration partial;
   private CustomConfiguration custom;

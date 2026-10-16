@@ -290,6 +290,7 @@ public class ESBrowseDAO {
 
     applyDefaultSearchFilters(
         opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
+    ESUtils.filterNonPrimarySiblings(null, queryBuilder, searchConfiguration.getSearch());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));
@@ -730,13 +731,16 @@ public class ESBrowseDAO {
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            List.of(entityName),
+        ESUtils.filterNonPrimarySiblings(
             filter,
-            entitySpec.getSearchableFieldTypes(),
-            queryFilterRewriteChain,
-            searchConfiguration.getEntityIndex()));
+            SearchRequestHandler.getFilterQuery(
+                finalOpContext,
+                List.of(entityName),
+                filter,
+                entitySpec.getSearchableFieldTypes(),
+                queryFilterRewriteChain,
+                searchConfiguration.getEntityIndex()),
+            searchConfiguration.getSearch()));
 
     return queryBuilder;
   }
@@ -790,13 +794,16 @@ public class ESBrowseDAO {
     final List<String> entityNames =
         entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            entityNames,
+        ESUtils.filterNonPrimarySiblings(
             filter,
-            searchableFields,
-            queryFilterRewriteChain,
-            searchConfiguration.getEntityIndex()));
+            SearchRequestHandler.getFilterQuery(
+                finalOpContext,
+                entityNames,
+                filter,
+                searchableFields,
+                queryFilterRewriteChain,
+                searchConfiguration.getEntityIndex()),
+            searchConfiguration.getSearch()));
 
     return queryBuilder;
   }

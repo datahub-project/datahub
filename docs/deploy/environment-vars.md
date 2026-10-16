@@ -660,6 +660,7 @@ upstream filter-chain changes continue to apply on upgrades.
 | Environment Variable                                    | Default              | Description                                    | Components |
 | ------------------------------------------------------- | -------------------- | ---------------------------------------------- | ---------- |
 | `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                       | GMS        |
+| `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS`        | `false`              | Hide non-primary dataset siblings from search  | GMS        |
 | `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes    | GMS        |
 | `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results    | GMS        |
 | `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match    | GMS        |

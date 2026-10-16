@@ -1186,6 +1186,7 @@ elasticsearch:
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or Elasticsearch >= 8. Regardless of this flag's value, PIT will be created for sliced scrolls.
+    hideNonPrimarySiblings: ${ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS:false} # Hide non-primary dataset siblings from search, autocomplete and browse so a sibling group appears once. Needs the siblingsPrimary index field populated (reindex datasets after upgrading).
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
