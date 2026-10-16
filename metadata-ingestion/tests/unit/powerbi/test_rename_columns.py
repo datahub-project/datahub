@@ -15,6 +15,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    OdbcLineage,
     apply_table_rename_columns,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -221,6 +222,31 @@ def test_apply_renames_sql_output_when_name_matches_another_field() -> None:
         info.upstreams[0].column: info.downstream.column
         for info in result.column_lineage
     } == {"City": "Name", "Name": "City"}
+
+
+def test_athena_urn_transform_keeps_sql_rename_direction() -> None:
+    lineage = Lineage(
+        upstreams=[],
+        downstream_names_are_powerbi_fields=False,
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="City"),
+                upstreams=[ColumnRef(table=_UPSTREAM, column="City")],
+            )
+        ],
+    )
+    transformed = OdbcLineage._transform_lineage_urns(lineage, lambda urn: urn)
+    result = apply_table_rename_columns(
+        transformed,
+        [
+            ColumnRenameStep(
+                renames=[ColumnRename(source_name="City", renamed_name="Town")]
+            )
+        ],
+        [_column("Town"), _column("City")],
+    )
+    assert result.column_lineage[0].downstream.column == "Town"
+    assert result.column_lineage[0].upstreams[0].column == "City"
 
 
 def test_apply_renames_is_noop_without_steps() -> None:

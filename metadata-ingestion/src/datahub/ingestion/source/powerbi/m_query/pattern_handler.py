@@ -2266,6 +2266,7 @@ class OdbcLineage(AbstractLineage):
         return Lineage(
             upstreams=updated_upstreams,
             column_lineage=updated_column_lineage,
+            downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
         )
 
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
