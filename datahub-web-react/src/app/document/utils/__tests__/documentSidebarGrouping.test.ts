@@ -137,6 +137,21 @@ describe('document sidebar grouping', () => {
         expect(documentsInDomainGroup([moved, other], domain.urn, moved)).toEqual([moved, other]);
     });
 
+    it('stops correcting a moved document once a different document is selected', () => {
+        const moved = {
+            urn: 'urn:li:document:moved',
+            domain: { domain: { urn: domain.urn, type: EntityType.Domain } },
+        } as Document;
+        const next = { urn: 'urn:li:document:next', domain: null } as Document;
+        const staleUnassignedPage = [moved, next];
+
+        // Overlay only applies to the open document. After the user opens another
+        // doc, stale group pages must already have been refetched.
+        expect(documentsInDomainGroup(staleUnassignedPage, UNASSIGNED_DOMAIN_GROUP_KEY, next)).toEqual(
+            staleUnassignedPage,
+        );
+    });
+
     it('refetches domain headers only when the open document changes groups', () => {
         expect(shouldRefetchDocumentDomainGroups(undefined, domain.urn)).toBe(false);
         expect(shouldRefetchDocumentDomainGroups(null, domain.urn)).toBe(false);

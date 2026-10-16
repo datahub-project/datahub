@@ -11,6 +11,7 @@ import {
 } from '@app/document/utils/documentSidebarSort';
 import {
     SOURCE_SECTION_FACET_MAX,
+    SOURCE_SECTION_HEADER_COUNT,
     positiveFacetAggregationValues,
     sourcePlatformsMissingFromRoots,
 } from '@app/document/utils/documentTreeGrouping';
@@ -137,8 +138,9 @@ export function useLoadDocumentTree(
     }, []);
 
     // Root pagination is global (one sorted window). A platform that doesn't appear
-    // in that window would have no section until the user scrolled to it. Fetch the
-    // first page of each missing platform so its header is present immediately.
+    // in that window would have no section until the user scrolled to it. Fetch one
+    // root per missing platform so its header is present without a full page of
+    // child-count queries on every load, sort, and View change.
     const loadMissingSourceSectionRoots = useCallback(
         async (loadedRoots: DocumentTreeNode[], generation: number) => {
             if (!isCurrentRootLoad(generation)) return;
@@ -177,7 +179,7 @@ export function useLoadDocumentTree(
                                 rootOnly: true,
                                 platforms: [platformUrn],
                                 start: 0,
-                                count: DOCUMENT_PAGE_SIZE,
+                                count: SOURCE_SECTION_HEADER_COUNT,
                                 viewUrn,
                                 sortInput,
                             },
@@ -191,7 +193,8 @@ export function useLoadDocumentTree(
             if (!isCurrentRootLoad(generation)) return;
 
             pages.forEach((page) => {
-                if (page.length > 0) appendRootNodes(page);
+                // Prefetch must not unpin a create or move-to-root that search returns here.
+                if (page.length > 0) appendRootNodes(page, { preserveLocalPlacement: true });
             });
         },
         [appendRootNodes, isCurrentRootLoad, searchDocumentsQuery, sortInput, toTreeNodes, viewUrn],

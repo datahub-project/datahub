@@ -359,6 +359,17 @@ describe('useLoadDocumentTree', () => {
         expect(mockAppendRootNodes.mock.calls[0][0].map((node: { urn: string }) => node.urn)).toEqual([
             'urn:li:document:confluence',
         ]);
+        expect(mockAppendRootNodes.mock.calls[0][1]).toEqual({ preserveLocalPlacement: true });
+        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({
+                        platforms: ['urn:li:dataPlatform:confluence'],
+                        count: 1,
+                    }),
+                }),
+            }),
+        );
     });
 
     it('clears the root spinner before missing source sections finish loading', async () => {

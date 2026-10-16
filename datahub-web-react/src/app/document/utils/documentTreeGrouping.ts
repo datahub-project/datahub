@@ -40,6 +40,12 @@ export interface DocumentSourceGroup {
 /** Raised facet cap so every source section can render without waiting on root pagination. */
 export const SOURCE_SECTION_FACET_MAX = 100;
 
+/**
+ * One root per missing platform is enough to render its header. A full page
+ * plus a child-count query per row ran on every Source load, sort, and View change.
+ */
+export const SOURCE_SECTION_HEADER_COUNT = 1;
+
 export type DocumentSourceSection =
     | { kind: 'native' }
     | { kind: 'platform'; platformUrn: string; platform: DataPlatform; label: string };

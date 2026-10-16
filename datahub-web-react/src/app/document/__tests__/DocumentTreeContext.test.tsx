@@ -50,4 +50,37 @@ describe('DocumentTreeContext root replacement', () => {
 
         expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['child', 'parent']);
     });
+
+    it('keeps a local root pin when a platform prefetch appends that urn', () => {
+        const { result } = renderHook(() => useDocumentTree(), { wrapper });
+
+        act(() => {
+            result.current.addNode(makeNode('created'), { placement: 'start' });
+            result.current.appendRootNodes([makeNode('created'), makeNode('other-platform-root')], {
+                preserveLocalPlacement: true,
+            });
+        });
+        act(() => {
+            result.current.initializeTree([makeNode('page0')]);
+        });
+
+        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['created', 'page0']);
+    });
+
+    it('drops a local root pin once a global scroll page includes it', () => {
+        const { result } = renderHook(() => useDocumentTree(), { wrapper });
+
+        act(() => {
+            result.current.initializeTree([makeNode('page0')]);
+            result.current.addNode(makeNode('created'), { placement: 'start' });
+        });
+        act(() => {
+            result.current.appendRootNodes([makeNode('created')]);
+        });
+        act(() => {
+            result.current.initializeTree([makeNode('page0')]);
+        });
+
+        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['page0']);
+    });
 });

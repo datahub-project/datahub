@@ -57,6 +57,16 @@ export type AddNodeOptions = {
     placement?: 'start' | 'end';
 };
 
+export type AppendRootNodesOptions = {
+    /**
+     * Missing-platform prefetch can return a root the user just created or moved.
+     * Keep that local pin so the next page-0 reload does not drop it when a
+     * different root already represents the platform. Global scroll pages omit
+     * this and clear the pin once search has caught up.
+     */
+    preserveLocalPlacement?: boolean;
+};
+
 interface DocumentTreeContextType {
     // Tree state
     nodes: Map<string, DocumentTreeNode>;
@@ -73,7 +83,7 @@ interface DocumentTreeContextType {
     deleteNode: (urn: string) => void;
     addNode: (node: DocumentTreeNode, options?: AddNodeOptions) => void;
     setNodeChildren: (parentUrn: string | null, children: DocumentTreeNode[]) => void;
-    appendRootNodes: (nodes: DocumentTreeNode[]) => void;
+    appendRootNodes: (nodes: DocumentTreeNode[], options?: AppendRootNodesOptions) => void;
     appendNodeChildren: (parentUrn: string, nodes: DocumentTreeNode[]) => void;
 
     // Batch initialization (for loading root documents or initial data)
@@ -350,8 +360,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Append additional root nodes (used by infinite-scroll pagination of the root list).
     // Dedupes against current rootUrns to avoid double-rendering when a refetch overlaps.
-    const appendRootNodes = useCallback((newNodes: DocumentTreeNode[]) => {
-        newNodes.forEach((node) => localRootPlacementsRef.current.delete(node.urn));
+    // Global scroll pages clear local pins; platform-section prefetch must not.
+    const appendRootNodes = useCallback((newNodes: DocumentTreeNode[], options?: AppendRootNodesOptions) => {
+        if (!options?.preserveLocalPlacement) {
+            newNodes.forEach((node) => localRootPlacementsRef.current.delete(node.urn));
+        }
         setRootUrns((prev) => {
             const existingSet = new Set(prev);
             const newUrns = newNodes.filter((n) => !existingSet.has(n.urn)).map((n) => n.urn);

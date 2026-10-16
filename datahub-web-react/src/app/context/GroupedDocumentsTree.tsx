@@ -34,6 +34,12 @@ type Props = {
     suppressSelectionScroll?: boolean;
     onCreateChild?: (parentUrn: string) => void;
     onSelect: (urn: string) => void;
+    /**
+     * Open document moved between domain groups. Parent remounts this tree
+     * (`domainGroupsRefreshKey`) so expanded group searches refetch. The
+     * selected-document overlay only hides the move while that doc stays open.
+     */
+    onDocumentMovedBetweenGroups?: () => void;
 };
 
 export default function GroupedDocumentsTree({
@@ -42,6 +48,7 @@ export default function GroupedDocumentsTree({
     suppressSelectionScroll = false,
     onCreateChild,
     onSelect,
+    onDocumentMovedBetweenGroups,
 }: Props) {
     const { t } = useTranslation('misc');
     const entityRegistry = useEntityRegistry();
@@ -77,7 +84,11 @@ export default function GroupedDocumentsTree({
         previousActiveGroupKeyRef.current = nextKey;
         if (!shouldRefetchDocumentDomainGroups(previousKey, nextKey)) return;
         refetch();
-    }, [activeGroup, refetch]);
+        // Header refetch is not enough: expanded group pages stay cached by group
+        // key. Remounting drops them so selecting another document cannot put the
+        // moved doc back in the group it left.
+        onDocumentMovedBetweenGroups?.();
+    }, [activeGroup, onDocumentMovedBetweenGroups, refetch]);
 
     /**
      * Groups start collapsed: each expanded group runs its own paginated search,
