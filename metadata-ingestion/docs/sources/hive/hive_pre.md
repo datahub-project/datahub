@@ -153,8 +153,9 @@ extraInitContainers:
     command: ["/bin/bash", "-c"]
     args:
       - |
+        set -e
         kinit -kt /etc/kerberos/keytab/user.keytab user@YOUR.REALM
-        klist # Fail fast if kinit failed
+        klist # Confirm the ticket cache is populated
     env:
       - name: KRB5CCNAME
         value: FILE:/tmp/krb5cc/krb5cc_default
@@ -204,7 +205,7 @@ source:
         kerberos_service_name: hive
 ```
 
-> **Note**: Hive Kerberos authentication also needs the `kerberos` Python package, which the `hive` plugin does not include. Add `kerberos` to the ingestion source's `extra_pip_requirements`; without it the source fails with an error asking you to `pip install kerberos`. The package builds against the system Kerberos libraries (e.g. `libkrb5-dev`), so confirm your executor image provides them. The `hive-metastore` plugin already bundles `kerberos`.
+> **Note**: Hive Kerberos authentication also needs the `kerberos` Python package, which the `hive` plugin does not include. Add `kerberos` to the ingestion source's `extra_pip_requirements`; without it the source fails with an error asking you to `pip install kerberos`. The package builds against the system Kerberos libraries (e.g. `libkrb5-dev`), so confirm your executor image provides them. Locked-down executor images do not allow installing extra packages at all; in that case use an image that already includes `kerberos`. The `hive-metastore` plugin already bundles `kerberos`.
 
 **TGT lifetime**: Kerberos TGTs typically expire after 10 hours, which is sufficient for most
 ingestion runs. The init container runs `kinit` once and nothing renews the ticket afterwards, so an

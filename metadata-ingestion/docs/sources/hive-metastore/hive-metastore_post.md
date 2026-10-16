@@ -146,8 +146,9 @@ extraInitContainers:
     command: ["/bin/bash", "-c"]
     args:
       - |
+        set -e
         kinit -kt /etc/kerberos/keytab/user.keytab user@YOUR.REALM
-        klist # Fail fast if kinit failed
+        klist # Confirm the ticket cache is populated
     env:
       - name: KRB5CCNAME
         value: FILE:/tmp/krb5cc/krb5cc_default
@@ -576,6 +577,9 @@ Same as the Hive connector:
   in both `extraInitContainers.volumeMounts` and `extraVolumeMounts`.
 - **Verify keytab secret**: Run `kubectl get secret executor-krb5-keytab -o yaml` and confirm the
   `user.keytab` key is present.
+- **Check `fsGroup`**: If the init container logs show `Permission denied` reading the keytab,
+  confirm `podSecurityContext.fsGroup: 1000` is set in your Helm values. Without it the `0440`
+  keytab is unreadable by the non-root executor user.
 - **Run `klist`**: Add `klist` as the last command in the init container `args` — it exits non-zero
   if the ticket cache is empty, causing the pod to fail fast rather than silently.
 - **Check `kerberos_qop`**: Ensure the `kerberos_qop` value in your recipe matches
