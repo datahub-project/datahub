@@ -1230,14 +1230,16 @@ Fine-grained upstream column URNs are rewritten the same way. Fine-grained downs
 
 | Field      | Required | Type         | Default | Description                                                                                                    |
 | ---------- | -------- | ------------ | ------- | -------------------------------------------------------------------------------------------------------------- |
-| `platform` | ✅       | string       |         | Platform name written onto every upstream dataset URN, for example `fabric`.                                   |
-| `rules`    |          | list[object] | `[]`    | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace. |
+| `platform` | ✅       | string       |           | Platform name written onto every upstream dataset URN, for example `fabric`.                                   |
+| `rules`    |          | list[object] | `[]`      | Ordered find-and-replace rules. Each object has `find` and `replace`. Matching is a literal substring replace. |
+| `mode`     |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.    |
 
 ```yaml
 transformers:
   - type: "rewrite_upstream_urns"
     config:
       platform: fabric
+      mode: replace
       rules:
         - find: src_lakehouse
           replace: workspace-id.item-id

@@ -1,9 +1,10 @@
 import copy
+from enum import auto
 from typing import List, Optional, cast
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.emitter.mce_builder import (
     Aspect,
     make_data_platform_urn,
@@ -14,11 +15,18 @@ from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
 )
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import UpstreamClass, UpstreamLineageClass
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 _PLATFORM_URN_PREFIX = "urn:li:dataPlatform:"
+
+
+class RewriteUpstreamMode(ConfigEnum):
+    """Whether a rewritten upstream replaces the original or is added beside it."""
+
+    REPLACE = auto()
+    ADD = auto()
 
 
 class RewriteUpstreamUrnRule(ConfigModel):
@@ -47,6 +55,11 @@ class RewriteUpstreamUrnsConfig(ConfigModel):
         description="Find-and-replace rules applied to the dataset name, in list order. "
         "Each rule sees the name produced by the previous rule. Matching is a literal "
         "substring replace, not a regular expression.",
+    )
+    mode: RewriteUpstreamMode = Field(
+        default=RewriteUpstreamMode.REPLACE,
+        description="replace overwrites each upstream URN. add keeps the original "
+        "upstream and also emits the rewritten URN.",
     )
 
     @field_validator("platform")
@@ -92,14 +105,37 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
             return None
 
         lineage = cast(UpstreamLineageClass, copy.deepcopy(aspect))
-        for upstream in lineage.upstreams:
-            upstream.dataset = self._rewrite_urn(upstream.dataset)
+        lineage.upstreams = self._rewrite_upstreams(lineage.upstreams)
         for fine_grained in lineage.fineGrainedLineages or []:
             if fine_grained.upstreams:
-                fine_grained.upstreams = [
-                    self._rewrite_urn(urn) for urn in fine_grained.upstreams
-                ]
+                fine_grained.upstreams = self._rewrite_urn_list(fine_grained.upstreams)
         return cast(Aspect, lineage)
+
+    def _rewrite_upstreams(self, upstreams: List[UpstreamClass]) -> List[UpstreamClass]:
+        rewritten = []
+        for upstream in upstreams:
+            new_urn = self._rewrite_urn(upstream.dataset)
+            if (
+                self.config.mode == RewriteUpstreamMode.ADD
+                and new_urn != upstream.dataset
+            ):
+                rewritten.append(upstream)
+                added = copy.deepcopy(upstream)
+                added.dataset = new_urn
+                rewritten.append(added)
+            else:
+                upstream.dataset = new_urn
+                rewritten.append(upstream)
+        return rewritten
+
+    def _rewrite_urn_list(self, urns: List[str]) -> List[str]:
+        rewritten = []
+        for urn in urns:
+            new_urn = self._rewrite_urn(urn)
+            if self.config.mode == RewriteUpstreamMode.ADD and new_urn != urn:
+                rewritten.append(urn)
+            rewritten.append(new_urn)
+        return rewritten
 
     def _rewrite_urn(self, urn: str) -> str:
         try:

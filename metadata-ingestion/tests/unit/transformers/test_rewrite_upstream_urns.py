@@ -22,9 +22,10 @@ UPSTREAM = make_dataset_urn("mssql", "src_lakehouse.gold.bridge_table")
 def _transformer(
     platform: str = "fabric",
     rules: list | None = None,
+    mode: str = "replace",
 ) -> RewriteUpstreamUrns:
     config = RewriteUpstreamUrnsConfig.model_validate(
-        {"platform": platform, "rules": rules or []}
+        {"platform": platform, "rules": rules or [], "mode": mode}
     )
     return RewriteUpstreamUrns(config, PipelineContext(run_id="test"))
 
@@ -123,6 +124,39 @@ def test_empty_find_is_rejected():
         RewriteUpstreamUrnsConfig.model_validate(
             {"platform": "fabric", "rules": [{"find": "", "replace": "x"}]}
         )
+
+
+def test_add_mode_keeps_the_original_upstream_and_appends_the_rewritten_one():
+    transformer = _transformer(
+        mode="add",
+        rules=[{"find": "src_lakehouse", "replace": "workspace-id.item-id"}],
+    )
+    downstream_field = make_schema_field_urn(DOWNSTREAM, "fund_id")
+    upstream_field = make_schema_field_urn(UPSTREAM, "fund_id")
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[upstream_field],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[downstream_field],
+            )
+        ],
+    )
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    amended = make_dataset_urn("fabric", "workspace-id.item-id.gold.bridge_table")
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert [upstream.dataset for upstream in rewritten.upstreams] == [UPSTREAM, amended]
+    fine_grained = rewritten.fineGrainedLineages
+    assert fine_grained is not None
+    assert fine_grained[0].upstreams == [
+        upstream_field,
+        make_schema_field_urn(amended, "fund_id"),
+    ]
+    assert fine_grained[0].downstreams == [downstream_field]
 
 
 def test_platform_urn_is_reduced_to_its_name():
