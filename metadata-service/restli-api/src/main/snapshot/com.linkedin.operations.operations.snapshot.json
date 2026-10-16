@@ -98,16 +98,13 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
-      "Searchable" : {
-        "searchTier" : 2
-      }
+      "Searchable" : { }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -186,8 +183,7 @@
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD",
-        "searchTier" : 4
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "inputs",
@@ -278,8 +274,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Chart Type",
-        "searchTier" : 3
+        "filterNameOverride" : "Chart Type"
       }
     }, {
       "name" : "access",
@@ -299,8 +294,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level",
-        "searchTier" : 4
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -725,8 +719,7 @@
           "fieldType" : "URN",
           "filterNameOverride" : "Tagged With",
           "hasValuesFieldName" : "hasTags",
-          "queryByDefault" : true,
-          "searchTier" : 2
+          "queryByDefault" : true
         }
       }
     } ],
@@ -990,8 +983,7 @@
         "fieldType" : "URN",
         "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
-        "queryByDefault" : false,
-        "searchTier" : 2
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -1214,8 +1206,7 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "description",
@@ -1224,8 +1215,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
-        "sanitizeRichText" : true,
-        "searchTier" : 2
+        "sanitizeRichText" : true
       }
     }, {
       "name" : "charts",
@@ -1336,8 +1326,7 @@
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD",
-        "searchTier" : 4
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "access",
@@ -1347,8 +1336,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level",
-        "searchTier" : 4
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -1374,8 +1362,7 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "description",
@@ -1385,8 +1372,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
-        "sanitizeRichText" : true,
-        "searchTier" : 2
+        "sanitizeRichText" : true
       }
     }, {
       "name" : "project",
@@ -1395,8 +1381,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : false,
-        "searchTier" : 3
+        "queryByDefault" : false
       }
     }, {
       "name" : "created",
@@ -1452,8 +1437,7 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "description",
@@ -1463,8 +1447,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
-        "sanitizeRichText" : true,
-        "searchTier" : 2
+        "sanitizeRichText" : true
       }
     }, {
       "name" : "type",
@@ -1900,8 +1883,7 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "qualifiedName",
@@ -1913,8 +1895,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "qualifiedName",
-        "searchTier" : 1
+        "searchLabel" : "qualifiedName"
       }
     }, {
       "name" : "description",
@@ -1924,8 +1905,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
-        "sanitizeRichText" : true,
-        "searchTier" : 2
+        "sanitizeRichText" : true
       }
     }, {
       "name" : "uri",
@@ -2080,8 +2060,7 @@
       "type" : "string",
       "doc" : "Definition of business node",
       "Searchable" : {
-        "fieldType" : "TEXT",
-        "searchTier" : 2
+        "fieldType" : "TEXT"
       }
     }, {
       "name" : "parentNode",
@@ -2108,8 +2087,7 @@
         "fieldName" : "displayName",
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "id",
@@ -2147,16 +2125,14 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "definition",
       "type" : "string",
       "doc" : "Definition of business term.",
       "Searchable" : {
-        "fieldType" : "TEXT",
-        "searchTier" : 2
+        "fieldType" : "TEXT"
       }
     }, {
       "name" : "parentNode",
@@ -2218,8 +2194,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true,
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "email",
@@ -2268,8 +2243,7 @@
       "doc" : "A description of the group.",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL",
-        "searchTier" : 2
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "slack",
@@ -2428,8 +2402,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "queryByDefault" : true,
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "searchLabel" : "entityName"
       }
     }, {
       "name" : "email",
@@ -2438,8 +2411,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true,
-        "searchTier" : 1
+        "queryByDefault" : true
       }
     }, {
       "name" : "title",
@@ -3265,8 +3237,7 @@
                 "boostScore" : 0.1,
                 "fieldName" : "editedFieldDescriptions",
                 "fieldType" : "TEXT",
-                "sanitizeRichText" : true,
-                "searchTier" : 2
+                "sanitizeRichText" : true
               }
             }, {
               "name" : "globalTags",
@@ -3397,8 +3368,7 @@
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
-          "searchLabel" : "entityName",
-          "searchTier" : 1
+          "searchLabel" : "entityName"
         }
       } ],
       "Aspect" : {
@@ -3467,8 +3437,7 @@
           "fieldName" : "id",
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
-          "searchLabel" : "entityName",
-          "searchTier" : 1
+          "searchLabel" : "entityName"
         }
       }, {
         "name" : "origin",
@@ -3788,8 +3757,7 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldType" : "WORD_GRAM",
-          "queryByDefault" : true,
-          "searchTier" : 1
+          "queryByDefault" : true
         }
       }, {
         "name" : "description",
@@ -3799,8 +3767,7 @@
         "Searchable" : {
           "fieldType" : "TEXT",
           "hasValuesFieldName" : "hasDescription",
-          "sanitizeRichText" : true,
-          "searchTier" : 2
+          "sanitizeRichText" : true
         }
       }, {
         "name" : "date",
@@ -4085,8 +4052,7 @@
           "enableAutocomplete" : true,
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
-          "searchLabel" : "entityName",
-          "searchTier" : 1
+          "searchLabel" : "entityName"
         }
       }, {
         "name" : "description",

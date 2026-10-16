@@ -26,7 +26,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
     "searchLabel": "entityName"
   }
   title: string
@@ -37,7 +36,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
     "sanitizeRichText": true
   }
   description: string
@@ -140,8 +138,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
    */
   @Searchable = {
-    "fieldType": "KEYWORD",
-    "searchTier": 4
+    "fieldType": "KEYWORD"
   }
   dashboardUrl: optional Url
 
@@ -151,8 +148,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Access Level",
-    "searchTier": 4
+    "filterNameOverride": "Access Level"
   }
   access: optional AccessLevel
 
