@@ -111,8 +111,8 @@ _DATASPHERE_PLATFORM = "sap-datasphere"
 # folder for a model on that path (and most are private/embedded models created by a
 # data import, which have no standalone folder at all). Without an explicit browse path,
 # GMS derives one by splitting the dotted dataset name (`t.4.<hash>:<hash>`) into a
-# meaningless `t` > `4` tree. Group all models under a single canonical root instead,
-# mirroring SAC's own built-in "Models" folder.
+# meaningless `t` > `4` tree. Group all models under a single synthetic "Models" root
+# instead. SAC has no such folder — the connector invents this root.
 _MODEL_BROWSE_ROOT = "Models"
 
 
@@ -215,7 +215,8 @@ class SACSourceConfig(
             "browse path whose built-in root folder has already been canonicalized (e.g. "
             "`Public/...`), not SAC's raw localized `ancestorPath`; write rules against "
             "the canonical `public_root_folder_name` value rather than a language-specific "
-            "root such as `Öffentlich`."
+            "root such as `Öffentlich`. Only story and application browse paths are "
+            "matched; model browse paths (the synthetic `Models` root) are not filtered."
         ),
     )
 
@@ -561,8 +562,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        # Emit an explicit browse path so models do not fall back to the dotted-name
-        # default (a `t` > `4` tree derived from the SAC namespace).
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=BrowsePathsClass(paths=[f"/{self.platform}/{_MODEL_BROWSE_ROOT}"]),
