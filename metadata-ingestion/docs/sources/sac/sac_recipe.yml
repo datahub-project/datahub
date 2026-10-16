@@ -25,6 +25,14 @@ source:
             allow:
                 - .*
 
+        # SAC returns its built-in public root folder in each resource's browse path
+        # localized to the resource language (e.g. "Public" / "Öffentlich"). The connector
+        # rewrites that first segment to this canonical label so all public content shares
+        # one browse tree; set to null to keep the raw localized name.
+        public_root_folder_name: Public
+
+        # folder_pattern is matched against the canonicalized browse path, so write rules
+        # against public_root_folder_name (e.g. Public/...) rather than a localized root.
         folder_pattern:
             allow:
                 - .*

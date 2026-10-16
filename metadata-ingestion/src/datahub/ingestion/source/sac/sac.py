@@ -256,6 +256,17 @@ class SACSourceConfig(
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
+    @field_validator("public_root_folder_name", mode="after")
+    @classmethod
+    def _reject_blank_public_root_folder_name(cls, v: Optional[str]) -> Optional[str]:
+        # null disables canonicalization; a blank label would instead rewrite the root to
+        # an empty segment (e.g. "/sac//Folder 1"), so treat it as a config typo.
+        if v is not None and not v.strip():
+            raise ValueError(
+                "public_root_folder_name must be a non-empty string, or null to disable canonicalization"
+            )
+        return v
+
 
 @dataclass
 class SACSourceReport(StaleEntityRemovalSourceReport):
@@ -789,16 +800,35 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             ancestor_path_raw = entity.get("ancestorPath")
             if ancestor_path_raw:
+                # Without a browse path the resource skips the folder_pattern check below,
+                # so warn instead of swallowing a malformed ancestorPath silently.
+                ancestors: Optional[List[str]] = None
                 try:
+                    parsed = json.loads(ancestor_path_raw)
+                except json.JSONDecodeError as e:
+                    self.report.warning(
+                        title="Unparseable SAC ancestor path",
+                        message="Resource has no browse path and is not matched against folder_pattern",
+                        context=f"resource_id={resource_id}",
+                        exc=e,
+                    )
+                else:
+                    if isinstance(parsed, list):
+                        ancestors = parsed
+                    else:
+                        self.report.warning(
+                            title="Unexpected SAC ancestor path shape",
+                            message="Resource has no browse path and is not matched against folder_pattern",
+                            context=f"resource_id={resource_id}, ancestorPath={ancestor_path_raw!r}",
+                        )
+
+                if ancestors is not None:
                     ancestors = _canonicalize_ancestor_folders(
-                        json.loads(ancestor_path_raw),
-                        self.config.public_root_folder_name,
+                        ancestors, self.config.public_root_folder_name
                     )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
                     )
-                except json.JSONDecodeError:
-                    pass
 
             if ancestor_path and not self.config.folder_pattern.allowed(ancestor_path):
                 continue
@@ -1223,8 +1253,8 @@ def _canonicalize_ancestor_folders(
     # display name localized to the resource's language. Rewriting it to a single
     # canonical label keeps the same physical root from fanning out into one
     # browse-path tree per tenant language. User-created sub-folders are not localized,
-    # so only the first segment is touched.
-    if not ancestors or not public_root_folder_name:
+    # so only the first segment is touched; only an explicit null disables the rewrite.
+    if not ancestors or public_root_folder_name is None:
         return ancestors
 
     return [public_root_folder_name, *ancestors[1:]]

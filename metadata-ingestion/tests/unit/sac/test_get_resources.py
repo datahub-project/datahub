@@ -1,0 +1,150 @@
+from typing import Dict, List, Optional, Tuple
+
+import pytest
+from pydantic import ValidationError
+from requests_mock import Mocker
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
+from datahub.ingestion.source.sac.sac_common import Resource
+
+_TENANT_URL = "http://tenant"
+_TOKEN_URL = "http://tenant.authentication/oauth/token"
+
+# Same physical public root, returned localized: story as "Public", application as "Öffentlich".
+_STORY_RESOURCE_ID = "LXTH4JCE36EOYLU41PIINLYPU9XRYM26"
+_APPLICATION_RESOURCE_ID = "EOYLU41PIILXTH4JCE36NLYPU9XRYM26"
+
+
+def _resource_entity(
+    resource_id: str, ancestor_path_raw: Optional[str]
+) -> Dict[str, object]:
+    entity: Dict[str, object] = {
+        "resourceId": resource_id,
+        "name": f"Name {resource_id}",
+        "resourceType": "STORY",
+        "resourceSubtype": "",
+        "storyId": f"STORY:t.4:{resource_id}",
+        "createdTime": "/Date(1667544309783)/",
+        "createdBy": "JOHN_DOE",
+        "modifiedBy": "JOHN_DOE",
+        "modifiedTime": "/Date(1673067981272)/",
+        "isMobile": 0,
+        "openURL": f"/sap/fpa/ui/tenants/3c44c/bo/story/{resource_id}",
+    }
+    if ancestor_path_raw is not None:
+        entity["ancestorPath"] = ancestor_path_raw
+    return entity
+
+
+def _get_resources(
+    requests_mock: Mocker,
+    resources: List[Tuple[str, Optional[str]]],
+    **config_overrides: object,
+) -> Tuple[SACSource, List[Resource]]:
+    requests_mock.post(_TOKEN_URL, json={"access_token": "token", "expires_in": 3599})
+    requests_mock.get(
+        f"{_TENANT_URL}/api/v1/Resources",
+        json={"d": {"results": [_resource_entity(rid, ap) for rid, ap in resources]}},
+    )
+    for resource_id, _ in resources:
+        escaped = resource_id.replace("'", "''")
+        requests_mock.get(
+            f"{_TENANT_URL}/api/v1/Resources('{escaped}')/resourceModels",
+            json={"d": {"results": []}},
+        )
+    requests_mock.get(f"{_TENANT_URL}/api/v1/dataimport/models", json={"models": []})
+
+    config = SACSourceConfig(
+        tenant_url=_TENANT_URL,
+        token_url=_TOKEN_URL,
+        client_id="foo",
+        client_secret="bar",
+        **config_overrides,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-unit"))
+    return source, list(source.get_resources())
+
+
+_BOTH_ROOTS: List[Tuple[str, Optional[str]]] = [
+    (_STORY_RESOURCE_ID, '["Public","Folder 1","Folder 2"]'),
+    (_APPLICATION_RESOURCE_ID, '["Öffentlich","Folder 1","Folder 2"]'),
+]
+
+
+def test_folder_pattern_matches_canonicalized_root(requests_mock):
+    # folder_pattern runs after canonicalization, so a Public rule matches both the
+    # English-rooted story and the German-rooted application.
+    _, resources = _get_resources(
+        requests_mock,
+        _BOTH_ROOTS,
+        folder_pattern={"allow": ["Public/Folder 1/.*"]},
+    )
+
+    assert {resource.resource_id for resource in resources} == {
+        _STORY_RESOURCE_ID,
+        _APPLICATION_RESOURCE_ID,
+    }
+    assert all(
+        resource.ancestor_path == "Public/Folder 1/Folder 2" for resource in resources
+    )
+
+
+def test_folder_pattern_against_localized_root_matches_nothing(requests_mock):
+    # Both roots canonicalize to "Public", so a rule targeting "Öffentlich" matches nothing.
+    _, resources = _get_resources(
+        requests_mock,
+        _BOTH_ROOTS,
+        folder_pattern={"allow": ["Öffentlich/.*"]},
+    )
+
+    assert resources == []
+
+
+def test_disabling_canonicalization_preserves_localized_root(requests_mock):
+    # With public_root_folder_name=null the German resource keeps its "Öffentlich" root.
+    _, resources = _get_resources(
+        requests_mock,
+        _BOTH_ROOTS,
+        public_root_folder_name=None,
+        folder_pattern={"allow": ["Öffentlich/.*"]},
+    )
+
+    assert {resource.resource_id for resource in resources} == {
+        _APPLICATION_RESOURCE_ID
+    }
+    assert resources[0].ancestor_path == "Öffentlich/Folder 1/Folder 2"
+
+
+def test_unparseable_ancestor_path_warns_and_drops_browse_path(requests_mock):
+    source, resources = _get_resources(
+        requests_mock, [(_STORY_RESOURCE_ID, '["Public",')]
+    )
+
+    assert len(resources) == 1
+    assert resources[0].ancestor_path is None
+    assert [w.title for w in source.report.warnings] == [
+        "Unparseable SAC ancestor path"
+    ]
+
+
+def test_non_list_ancestor_path_warns_and_drops_browse_path(requests_mock):
+    source, resources = _get_resources(requests_mock, [(_STORY_RESOURCE_ID, '{"a":1}')])
+
+    assert len(resources) == 1
+    assert resources[0].ancestor_path is None
+    assert [w.title for w in source.report.warnings] == [
+        "Unexpected SAC ancestor path shape"
+    ]
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_blank_public_root_folder_name_rejected(value):
+    with pytest.raises(ValidationError):
+        SACSourceConfig(
+            tenant_url=_TENANT_URL,
+            token_url=_TOKEN_URL,
+            client_id="foo",
+            client_secret="bar",
+            public_root_folder_name=value,
+        )
