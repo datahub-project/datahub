@@ -18,7 +18,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -252,6 +255,69 @@ public class MigrateAspectsStepTest {
     assertFalse(batch.getItems().isEmpty());
     MCPItem item = (MCPItem) batch.getItems().iterator().next();
     assertFalse(item.getHeader(HTTP_HEADER_IF_VERSION_MATCH).isPresent());
+  }
+
+  @Test
+  public void testRowsFromANewerSchemaVersionAreLeftAsStored() {
+    // After a rollback the sweep also selects rows a newer version wrote (schemaVersion above this
+    // version's); rewriting them would drop what only that version understands.
+    assertEquals(migratedUrns(), List.of("urn:li:corpuser:alice"));
+  }
+
+  @Test
+  public void testRowsFromANewerSchemaVersionAreMigratedAsBeforeWhenStrict() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      assertEquals(migratedUrns(), List.of("urn:li:corpuser:newer", "urn:li:corpuser:alice"));
+    } finally {
+      UnknownDataHandlings.reset();
+    }
+  }
+
+  private List<String> migratedUrns() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+    SystemMetadata newerSchema = SystemMetadataUtils.createDefaultSystemMetadata();
+    newerSchema.setSchemaVersion(99L);
+    EbeanAspectV2 newer =
+        new EbeanAspectV2(
+            "urn:li:corpuser:newer",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"newer\"}",
+            new Timestamp(1_000L),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(newerSchema));
+    EbeanAspectV2 current =
+        new EbeanAspectV2(
+            "urn:li:corpuser:alice",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"alice\"}",
+            new Timestamp(2_000L),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder()
+                .delegateStream(Stream.of(newer, current))
+                .build());
+    AtomicReference<AspectsBatchImpl> capturedBatch = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              capturedBatch.set(inv.getArgument(1));
+              return null;
+            })
+        .when(mockEntityService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), anyBoolean());
+
+    UpgradeStepResult result = buildStep(Map.of("corpUserKey", 2L)).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    return capturedBatch.get().getItems().stream()
+        .map(item -> item.getUrn().toString())
+        .collect(Collectors.toList());
   }
 
   @Test
