@@ -13,6 +13,7 @@ from typing_extensions import LiteralString
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     DataBricksPlatformDetail,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
     SupportedDataPlatform,
+    lookup_fabric_sql_endpoint,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
@@ -270,6 +272,21 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
+def _schema_table_from_mssql_name(
+    name: str, platform_instance: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    if platform_instance:
+        prefix = platform_instance + "."
+        if name.lower().startswith(prefix.lower()):
+            name = name[len(prefix) :]
+    parts = [part for part in name.split(".") if part]
+    if len(parts) >= 2:
+        return parts[-2], parts[-1]
+    if len(parts) == 1:
+        return "dbo", parts[0]
+    return None, None
+
+
 def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
     pbi_columns: Optional[List[Column]],
@@ -406,6 +423,86 @@ class AbstractLineage(ABC):
             args[0] if len(args) > 0 else None,
             args[1] if len(args) > 1 else None,
         )
+
+    def _retarget_fabric_sql_endpoint(self, lineage: Lineage, server: str) -> Lineage:
+        detail = lookup_fabric_sql_endpoint(
+            self.config.fabric_sql_endpoint_to_fabric_onelake, server
+        )
+        if detail is None or not lineage.upstreams:
+            return lineage
+
+        platform_instance = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.MS_SQL.value,
+                data_platform_server=server,
+            )
+        ).platform_instance
+
+        def rewrite(urn: str) -> str:
+            if "urn:li:dataPlatform:mssql," not in urn:
+                return urn
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception as exc:
+                logger.debug(
+                    "Could not parse mssql URN for Fabric SQL endpoint retarget: %s (%s)",
+                    urn,
+                    exc,
+                )
+                return urn
+            schema_name, table_name = _schema_table_from_mssql_name(
+                parsed.name, platform_instance
+            )
+            if not table_name:
+                return urn
+            return make_onelake_urn(
+                workspace_id=detail.workspace_id,
+                item_id=detail.item_id,
+                table_name=table_name,
+                schema_name=schema_name,
+                env=detail.env,
+                platform_instance=detail.platform_instance,
+            )
+
+        rewritten = 0
+        upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            urn = rewrite(upstream.urn)
+            if urn == upstream.urn:
+                upstreams.append(upstream)
+                continue
+            rewritten += 1
+            upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                    urn=urn,
+                )
+            )
+
+        column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=[
+                        ColumnRef(table=rewrite(col_ref.table), column=col_ref.column)
+                        for col_ref in col_info.upstreams
+                    ],
+                    logic=col_info.logic,
+                )
+            )
+
+        if rewritten:
+            logger.info(
+                "SQL endpoint %s retargeted %s upstream(s) to fabric-onelake "
+                "%s.%s for table %s",
+                server,
+                rewritten,
+                detail.workspace_id,
+                detail.item_id,
+                self.table.full_name,
+            )
+        return Lineage(upstreams=upstreams, column_lineage=column_lineage)
 
     @staticmethod
     def create_reference_table(
@@ -1643,7 +1740,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         if query:
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
-                return Lineage(
+                lineage = Lineage(
                     upstreams=self.create_urn_using_old_parser(
                         query=query,
                         db_name=database,
@@ -1651,17 +1748,19 @@ class MSSqlLineage(TwoStepDataAccessPattern):
                     ),
                     column_lineage=[],
                 )
+            else:
+                lineage = self.parse_custom_sql(
+                    query=query,
+                    database=database,
+                    server=server,
+                    schema=MSSqlLineage.DEFAULT_SCHEMA,
+                )
+        else:
+            # It is a regular case of MS-SQL
+            logger.debug("Handling with regular case")
+            lineage = self.two_level_access_pattern(data_access_func_detail)
 
-            return self.parse_custom_sql(
-                query=query,
-                database=database,
-                server=server,
-                schema=MSSqlLineage.DEFAULT_SCHEMA,
-            )
-
-        # It is a regular case of MS-SQL
-        logger.debug("Handling with regular case")
-        return self.two_level_access_pattern(data_access_func_detail)
+        return self._retarget_fabric_sql_endpoint(lineage, server)
 
 
 class MSSqlMultiDatabaseLineage(AbstractLineage):
@@ -1709,14 +1808,17 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            ],
-            column_lineage=column_lineage,
+        return self._retarget_fabric_sql_endpoint(
+            Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=self.get_platform_pair(),
+                        urn=urn,
+                    )
+                ],
+                column_lineage=column_lineage,
+            ),
+            server,
         )
 
 
@@ -2129,7 +2231,7 @@ class OdbcLineage(AbstractLineage):
             # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
             result = self._apply_table_platform_override(result, dsn)
 
-        return result
+        return self._retarget_fabric_sql_endpoint(result, server_name)
 
     @staticmethod
     def _transform_lineage_urns(
@@ -2363,14 +2465,17 @@ class OdbcLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=platform_pair,
-                    urn=urn,
-                )
-            ],
-            column_lineage=column_lineage,
+        return self._retarget_fabric_sql_endpoint(
+            Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=platform_pair,
+                        urn=urn,
+                    )
+                ],
+                column_lineage=column_lineage,
+            ),
+            server_name,
         )
 
     @staticmethod

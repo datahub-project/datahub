@@ -49,6 +49,15 @@ source:
           platform_instance: contoso-tenant  # Fabric tenant/platform instance
           env: PROD
 
+    # Fabric SQL analytics endpoint hosts (Sql.Database / ODBC), not OneLake paths.
+    # item_id is the lakehouse or warehouse GUID.
+    fabric_sql_endpoint_to_fabric_onelake:
+      contoso.datawarehouse.fabric.microsoft.com:
+        workspace_id: ff23fbe3-7418-42f8-a675-9f10eb2b78cb
+        item_id: 2afa2dbd-555b-48c8-b082-35d94f4b7836
+        platform_instance: contoso-tenant
+        env: PROD
+
     # Need admin_api, only ingest workspace that are modified since...
     modified_since: "2023-02-10T00:00:00.0000000Z"
 
