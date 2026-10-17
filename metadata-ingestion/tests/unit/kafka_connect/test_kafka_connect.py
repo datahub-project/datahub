@@ -6,6 +6,8 @@ import jpype
 import jpype.imports
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
 # Import the classes we're testing
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -14,6 +16,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+    get_connector_external_url,
     get_dataset_name,
     has_three_level_hierarchy,
 )
@@ -33,6 +36,7 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
 )
+from datahub.metadata.schema_classes import DataFlowInfoClass
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 
 logger = logging.getLogger(__name__)
@@ -5608,3 +5612,124 @@ class TestPlatformCloudEnvironmentDetection:
         assert "user_events" in target_datasets
         assert "order_events" in target_datasets
         assert "system_events" in target_datasets
+
+
+class TestConnectorExternalUrl:
+    """Test the Confluent Cloud console URL emitted on the connector DataFlow."""
+
+    CLOUD_ENV_ID = "env-xxxxx"
+    CLOUD_CLUSTER_ID = "lkc-xxxxx"
+
+    def cloud_config(self, **overrides: Any) -> KafkaConnectSourceConfig:
+        """Config for a Confluent Cloud deployment with both ids set."""
+        values: Dict[str, Any] = {
+            "confluent_cloud_environment_id": self.CLOUD_ENV_ID,
+            "confluent_cloud_cluster_id": self.CLOUD_CLUSTER_ID,
+            "username": "test-api-key",
+            "password": "test-api-secret",
+        }
+        values.update(overrides)
+        return KafkaConnectSourceConfig(**values)
+
+    def manifest(self, connector_type: str, name: str = "s3-sink") -> ConnectorManifest:
+        return ConnectorManifest(
+            name=name,
+            type=connector_type,
+            config={"connector.class": "S3_SINK"},
+            tasks=[],
+        )
+
+    def test_cloud_sink_connector_url(self) -> None:
+        """Sink connectors get a console URL under the /sinks/ path."""
+        url = get_connector_external_url(
+            self.cloud_config(), self.manifest("sink", "my-sink")
+        )
+
+        assert url == (
+            f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
+            f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sinks/my-sink"
+        )
+
+    def test_cloud_source_connector_url(self) -> None:
+        """Source connectors get a console URL under the /sources/ path."""
+        url = get_connector_external_url(
+            self.cloud_config(), self.manifest("source", "my-source")
+        )
+
+        assert url == (
+            f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
+            f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sources/my-source"
+        )
+
+    def test_connector_name_is_url_encoded(self) -> None:
+        """Connector names are escaped so they cannot break out of the path."""
+        url = get_connector_external_url(
+            self.cloud_config(), self.manifest("sink", "sink with/space")
+        )
+
+        assert url is not None
+        assert url.endswith("/connectors/sinks/sink%20with%2Fspace")
+
+    def test_unknown_connector_type_has_no_url(self) -> None:
+        """An unrecognised connector type yields no URL rather than a guess."""
+        assert (
+            get_connector_external_url(self.cloud_config(), self.manifest("unknown"))
+            is None
+        )
+
+    def test_self_hosted_has_no_url(self) -> None:
+        """Self-hosted deployments emit nothing - connect_uri may hold secrets."""
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+
+        assert get_connector_external_url(config, self.manifest("sink")) is None
+
+    def test_cloud_without_ids_has_no_url(self) -> None:
+        """Confluent Cloud detected from connect_uri alone lacks the ids."""
+        config = KafkaConnectSourceConfig(
+            connect_uri=(
+                "https://api.confluent.cloud/connect/v1"
+                f"/environments/{self.CLOUD_ENV_ID}/clusters/{self.CLOUD_CLUSTER_ID}"
+            ),
+            username="test-api-key",
+            password="test-api-secret",
+        )
+
+        assert config.is_confluent_cloud() is True
+        assert config.confluent_cloud_environment_id is None
+        assert get_connector_external_url(config, self.manifest("sink")) is None
+
+    def _flow_info(self, config: KafkaConnectSourceConfig) -> DataFlowInfoClass:
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        with patch("requests.Session.get") as mock_get:
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = []
+            mock_get.return_value = mock_response
+            source = KafkaConnectSource(config, Mock())
+
+        workunit = source.construct_flow_workunit(self.manifest("sink", "my-sink"))
+        mcp = workunit.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        aspect = mcp.aspect
+        assert isinstance(aspect, DataFlowInfoClass)
+        return aspect
+
+    def test_flow_workunit_carries_external_url(self) -> None:
+        """The DataFlow aspect for a Cloud connector carries the console URL."""
+        aspect = self._flow_info(self.cloud_config())
+
+        assert aspect.externalUrl == (
+            f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
+            f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sinks/my-sink"
+        )
+
+    def test_flow_workunit_has_no_external_url_when_self_hosted(self) -> None:
+        """Self-hosted DataFlows are unchanged - no externalUrl is set."""
+        aspect = self._flow_info(
+            KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        )
+
+        assert aspect.externalUrl is None
