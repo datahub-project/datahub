@@ -163,22 +163,21 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           Map<String, String> indexState = entry.getValue();
 
           // A fill in flight, or one that failed, is caught up once it completes and the row is
-          // COMPLETED. A verdict recorded while it was failed must not survive the replan: that
-          // status lives on this upgrade result, which the replan does not clear, and honoring it
-          // would skip the catch-up of the rebuilt index. Leave the row without a catch-up status
-          // until then so that pass does not find it already terminal.
+          // COMPLETED. A verdict or resume cursor recorded while it was failed must not survive the
+          // replan: both live on this upgrade result, which the replan does not clear, and a cursor
+          // would skip the start of the rebuilt index's window. Leave the row without either until
+          // then so that pass does not find it already terminal or partway through.
           IncrementalReindexState.Status phase1Status =
               IncrementalReindexState.getStatus(phase1State, indexName).orElse(null);
           if (fillNotReady(phase1Status)) {
-            Optional<CatchUpStatus> stale =
-                IncrementalReindexState.getCatchUpStatus(catchUpState, indexName);
-            if (stale.isPresent() && stale.get().isTerminal()) {
+            Map<String, String> cleared =
+                IncrementalReindexState.clearCatchUpStatus(catchUpState, indexName);
+            if (!cleared.equals(catchUpState)) {
               log.info(
-                  "Index {} is not ready for catch-up ({}); dropping catch-up status {}",
+                  "Index {} is not ready for catch-up ({}); dropping its catch-up progress",
                   indexName,
-                  phase1Status,
-                  stale.get());
-              catchUpState = IncrementalReindexState.clearCatchUpStatus(catchUpState, indexName);
+                  phase1Status);
+              catchUpState = cleared;
               persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.IN_PROGRESS);
             } else {
               log.info(

@@ -233,7 +233,35 @@ public final class IncrementalReindexState {
       }
     }
     clearedIndices.forEach(indexName -> removeResumeCursors(merged, indexName));
+    // A cursor whose index no longer has a catch-up status was cleared from the in-memory map.
+    // Drop it here too, so the previous result cannot copy it back. A cursor for an index whose
+    // status is still carried stays, even when this map does not repeat the key.
+    String cursorSuffix = SEPARATOR + CATCH_UP_LAST_URN;
+    merged
+        .keySet()
+        .removeIf(
+            key ->
+                key.endsWith(cursorSuffix)
+                    && !updated.containsKey(key)
+                    && !updated.containsKey(
+                        key(indexOwningResumeCursor(key, updated), CATCH_UP_STATUS)));
     return merged;
+  }
+
+  /**
+   * Index that owns a resume cursor key. The key is {@code index.lastUrn} or {@code
+   * index.entity.lastUrn}. An index name may itself contain the separator, so a status still
+   * carried for the longer name wins.
+   */
+  private static String indexOwningResumeCursor(
+      @Nonnull String cursorKey, @Nonnull Map<String, String> updated) {
+    String body =
+        cursorKey.substring(0, cursorKey.length() - (SEPARATOR + CATCH_UP_LAST_URN).length());
+    int dot = body.lastIndexOf(SEPARATOR);
+    if (dot < 0 || updated.containsKey(key(body, CATCH_UP_STATUS))) {
+      return body;
+    }
+    return body.substring(0, dot);
   }
 
   /** Resume cursors for one index: {@code index.lastUrn} and {@code index.<entity>.lastUrn}. */

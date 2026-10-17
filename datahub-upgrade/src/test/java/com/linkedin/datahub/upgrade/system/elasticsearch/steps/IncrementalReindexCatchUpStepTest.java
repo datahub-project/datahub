@@ -587,6 +587,27 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
+  public void testFailedFillDropsAResumeCursorLeftWithoutAVerdict() {
+    Map<String, String> phase1State = failedFill(INDEX_NAME);
+    Map<String, String> catchUpState = new HashMap<>();
+    // A crashed replay checkpoints the cursor before it records a verdict.
+    catchUpState.put(INDEX_NAME + ".lastUrn", "urn:li:dataset:stale");
+    catchUpState.put(INDEX_NAME + ".dataset.lastUrn", "urn:li:dataset:stale-type");
+    catchUpState.put("chartindex_v2.lastUrn", "urn:li:chart:kept");
+    stubUpgradeResults(phase1State, catchUpState, DataHubUpgradeState.IN_PROGRESS);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
+    Map<String, String> persisted = lastPersistedCatchUpResult();
+    assertEquals(IncrementalReindexState.getCatchUpStatus(persisted, INDEX_NAME), Optional.empty());
+    assertFalse(persisted.containsKey(INDEX_NAME + ".lastUrn"));
+    assertFalse(persisted.containsKey(INDEX_NAME + ".dataset.lastUrn"));
+    assertEquals(persisted.get("chartindex_v2.lastUrn"), "urn:li:chart:kept");
+  }
+
+  @Test
   public void testCatchUpRunsOnceAFailedFillHasCompleted() {
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
