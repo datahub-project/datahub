@@ -1,14 +1,20 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Sequence
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    pattern_verdict,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
@@ -16,6 +22,7 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     GCPValidationError,
     validate_project_label_list,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -26,6 +33,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Probe kinds. Only Project is a DataHub subtype (the one Dataplex emits for
+# project containers); the others are Dataplex's own levels, because DataHub
+# emits no entity for an entry group and an FQN is a second name for an entry.
+DATAPLEX_PROJECT_KIND = str(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+DATAPLEX_ENTRY_GROUP_KIND = "EntryGroup"
+DATAPLEX_ENTRY_KIND = "Entry"
+# An entry is filtered twice, on two different strings -- its resource name
+# (entries.pattern) and its FQN (entries.fqn_pattern) -- and a kind resolves to
+# one pattern, so the FQN is its own kind. Both must include for ingestion to
+# keep the entry (DataplexEntriesProcessor._report_and_should_process_entry).
+DATAPLEX_ENTRY_FQN_KIND = "EntryFqn"
+DATAPLEX_ASPECT_TYPE_KIND = "AspectType"
 
 DEFAULT_LINEAGE_LOCATIONS = [
     "us",
@@ -74,14 +94,34 @@ DEFAULT_LINEAGE_LOCATIONS = [
 ]
 
 
+_SPANNER_ENTRY_GROUP = "@spanner"
+
+
+def _looks_like_spanner(ctx: VerdictContext) -> bool:
+    """Whether a judged entry is one ingestion reads via search_entries.
+
+    Judged on what the caller has: the FQN (spanner:...), the entry type a
+    `probe run entries` record carries, or the @spanner system entry group.
+    """
+    entry_type = ctx.attributes.get("entry_type", "")
+    return (
+        ctx.name.startswith("spanner:")
+        or "spanner" in entry_type
+        or any(
+            f"/entryGroups/{_SPANNER_ENTRY_GROUP}" in p
+            for p in (ctx.name, *ctx.parent_path)
+        )
+    )
+
+
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
 
-    pattern: AllowDenyPattern = Field(
+    pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Dataplex entry names to filter in ingestion.",
     )
-    fqn_pattern: AllowDenyPattern = Field(
+    fqn_pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_FQN_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Dataplex fully-qualified names to filter in ingestion.",
     )
@@ -90,7 +130,7 @@ class EntriesFilterConfig(ConfigModel):
 class EntryGroupFilterConfig(ConfigModel):
     """Filter configuration for Dataplex entry groups."""
 
-    pattern: AllowDenyPattern = Field(
+    pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_GROUP_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for entry group resource names to include/exclude.",
     )
@@ -273,7 +313,9 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    aspect_type_pattern: AllowDenyPattern = Field(
+    aspect_type_pattern: Annotated[
+        AllowDenyPattern, Filters(DATAPLEX_ASPECT_TYPE_KIND)
+    ] = Field(
         default=AllowDenyPattern(deny=["datahub-.*"]),
         description="Regex allow/deny patterns matched against Dataplex aspect type "
         "names to decide which aspects are flattened into DataHub custom properties. "
@@ -521,6 +563,135 @@ class DataplexConfig(
                 "'export_config.bucket_base_name' as a fallback."
             )
         return self
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports the Dataplex and Resource Manager gRPC
+        # clients, which `probe filter` and `recipe describe` never need.
+        from datahub.ingestion.source.dataplex.dataplex_probe import (
+            DataplexMetadataProbe,
+        )
+
+        return DataplexMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """What contains each kind, outermost first.
+
+        API mode lists entries per (project, location) and per entry group,
+        dropping a group before listing its entries (process_entries), so an
+        entry is judged under both. The export modes read entries from GCS and
+        never apply the entry-group pattern (process_exported_entries), so there
+        the group above an entry decides nothing and is not judged (the
+        project above it is judged by probe_verdict_override instead). An aspect
+        type is matched wherever an aspect appears, including aspects whose
+        type lives in a Google-owned project, so nothing contains it.
+        """
+        if kind == DATAPLEX_ASPECT_TYPE_KIND:
+            return ()
+        leaves = (DATAPLEX_ENTRY_KIND, DATAPLEX_ENTRY_FQN_KIND)
+        if kind in leaves and self.extraction_method != "api":
+            return ()
+        return ancestors_in(
+            (DATAPLEX_PROJECT_KIND, DATAPLEX_ENTRY_GROUP_KIND), kind, leaves
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Verdicts a single pattern cannot state.
+
+        Explicit project_ids replace project_id_pattern outright
+        (resolve_gcp_projects), so a listed project is read and any other is
+        not, whatever the pattern says. In the export modes the entry group
+        above an entry decides nothing (process_exported_entries), but `export`
+        is still scoped to the resolved projects (run_exports), so there the
+        project above an entry is judged here, where the ancestor chain cannot
+        reach it past the group.
+        """
+        if ctx.kind == DATAPLEX_PROJECT_KIND:
+            # A `probe run projects` record was listed with project_labels
+            # applied; a bare name was not.
+            return self._probe_project_verdict(
+                ctx.name, ctx, labels_checked=bool(ctx.attributes)
+            )
+        if ctx.kind == DATAPLEX_ENTRY_GROUP_KIND:
+            return self._probe_entry_group_verdict(ctx)
+        if ctx.kind in (DATAPLEX_ENTRY_KIND, DATAPLEX_ENTRY_FQN_KIND):
+            return self._probe_entry_verdict(ctx)
+        return None
+
+    def _probe_entry_group_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Included wherever ingestion reads a group's entries without the
+        group pattern, so an entry below it is not dropped by parent exclusion
+        (which the framework applies after this override, and only by kind)."""
+        if self.extraction_method != "api":
+            ctx.warn(
+                f"extraction_method is '{self.extraction_method}', which reads "
+                f"entries from a metadata export and does not apply "
+                f"filter_config.entry_groups.pattern; filter entries with "
+                f"filter_config.entries instead"
+            )
+            return Verdict.include()
+        if not ctx.name.endswith(f"/entryGroups/{_SPANNER_ENTRY_GROUP}"):
+            return None
+        if pattern_verdict(self, ctx.pattern_field, ctx.target).included:
+            return None
+        ctx.warn(
+            f"filter_config.entry_groups.pattern denies {_SPANNER_ENTRY_GROUP}, "
+            f"but Spanner entries are read through search_entries, which does "
+            f"not apply it, so they are ingested anyway; filter them with "
+            f"filter_config.entries instead"
+        )
+        return Verdict.include()
+
+    def _probe_project_verdict(
+        self, project: str, ctx: VerdictContext, *, labels_checked: bool
+    ) -> Optional[Verdict]:
+        if self.project_ids:
+            if not self.project_id_pattern.is_allow_all():
+                ctx.warn(
+                    "project_ids is set, so ingestion reads exactly those "
+                    "projects and project_id_pattern is not consulted"
+                )
+            if project in self.project_ids:
+                return Verdict.include()
+            return Verdict.exclude("project_ids")
+        if self.project_labels and not labels_checked:
+            # Labels narrow the Resource Manager search before the pattern
+            # runs, and neither a bare name nor an entry record carries them.
+            ctx.warn(
+                f"project_labels is set, and '{project}' was not listed with "
+                f"them applied, so it was judged by project_id_pattern alone; "
+                f"list projects with `probe run projects` (which applies the "
+                f"labels) and judge that output with --from-run"
+            )
+        return None
+
+    def _probe_entry_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if self.extraction_method == "api" and _looks_like_spanner(ctx):
+            ctx.warn(
+                "Spanner entries are read through search_entries, which does "
+                "not apply filter_config.entry_groups.pattern; only the entry "
+                "and project filters decide them"
+            )
+        if self.extraction_method == "read_export":
+            ctx.warn(
+                "extraction_method is 'read_export', so the export you point "
+                "at decides which projects are present; project_ids, "
+                "project_labels and project_id_pattern are not applied to entries"
+            )
+            return None
+        if self.extraction_method != "export" or not ctx.parent_path:
+            return None
+        project = ctx.parent_path[0]
+        verdict = self._probe_project_verdict(
+            project, ctx, labels_checked=False
+        ) or pattern_verdict(self, "project_id_pattern", project)
+        if verdict.included:
+            return None
+        ctx.warn(
+            f"the containing {DATAPLEX_PROJECT_KIND} '{project}' is excluded by "
+            f"{verdict.excluded_by}, so the metadata export never includes it"
+        )
+        return verdict
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         """Get credentials dictionary for authentication."""

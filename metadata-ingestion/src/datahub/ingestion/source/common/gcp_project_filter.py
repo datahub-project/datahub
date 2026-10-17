@@ -1,14 +1,15 @@
 import logging
 import re
-from typing import FrozenSet, List, Optional, Protocol
+from typing import Annotated, FrozenSet, Iterator, List, Optional, Protocol
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud.resourcemanager_v3 import ProjectsClient
 from pydantic import BaseModel, Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,13 @@ class GcpProjectFilterConfig(ConfigModel):
             "Filter projects by labels in `key:value` format. Applied before project_id_pattern."
         ),
     )
-    project_id_pattern: AllowDenyPattern = Field(
+    # Declared here rather than per connector: every consumer filters GCP
+    # projects on this field (is_project_allowed), and "Project" is the
+    # container subtype they emit. A connector redeclaring the field would drop
+    # the annotation, since pydantic v2 replaces inherited field metadata.
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex allow/deny pattern for GCP project ids.",
     )
@@ -144,6 +151,42 @@ def is_project_allowed(filter_config: ProjectFilterProtocol, project_id: str) ->
     return filter_config.project_id_pattern.allowed(project_id)
 
 
+def _iter_projects(
+    projects_client: ProjectsClient, query: Optional[str] = None
+) -> Iterator[GcpProject]:
+    """Projects from Resource Manager `search_projects`, one page at a time, so
+    a caller that needs only the first few stops the pager early."""
+    pages = (
+        projects_client.search_projects(query=query)
+        if query is not None
+        else projects_client.search_projects()
+    )
+    for project in pages:
+        if getattr(project, "project_id", None):
+            display_name = getattr(project, "display_name", None)
+            yield GcpProject(
+                id=project.project_id,
+                name=display_name if display_name else project.project_id,
+            )
+
+
+def _iter_projects_by_labels(
+    labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
+) -> Iterator[GcpProject]:
+    if projects_client is None:
+        projects_client = ProjectsClient()
+    labels_query = " OR ".join([f"labels.{label}" for label in labels])
+    return _iter_projects(projects_client, labels_query)
+
+
+def _iter_all_projects(
+    projects_client: Optional[ProjectsClient] = None,
+) -> Iterator[GcpProject]:
+    if projects_client is None:
+        projects_client = ProjectsClient()
+    return _iter_projects(projects_client)
+
+
 def _search_projects_by_labels(
     labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
 ) -> List[GcpProject]:
@@ -153,22 +196,7 @@ def _search_projects_by_labels(
     Note: GCP API errors are caught by the calling function (resolve_gcp_projects)
     which wraps all project resolution logic in a try-except block.
     """
-    if projects_client is None:
-        projects_client = ProjectsClient()
-    labels_query = " OR ".join([f"labels.{label}" for label in labels])
-    projects: List[GcpProject] = []
-
-    for project in projects_client.search_projects(query=labels_query):
-        if getattr(project, "project_id", None):
-            display_name = getattr(project, "display_name", None)
-            projects.append(
-                GcpProject(
-                    id=project.project_id,
-                    name=display_name if display_name else project.project_id,
-                )
-            )
-
-    return projects
+    return list(_iter_projects_by_labels(labels, projects_client))
 
 
 def _search_all_projects(
@@ -181,19 +209,7 @@ def _search_all_projects(
     does not require a `parent` argument and only requires `resourcemanager.projects.get`
     on each candidate project — no folder/org-level grant is needed.
     """
-    if projects_client is None:
-        projects_client = ProjectsClient()
-    projects: List[GcpProject] = []
-    for project in projects_client.search_projects():
-        if getattr(project, "project_id", None):
-            display_name = getattr(project, "display_name", None)
-            projects.append(
-                GcpProject(
-                    id=project.project_id,
-                    name=display_name if display_name else project.project_id,
-                )
-            )
-    return projects
+    return list(_iter_all_projects(projects_client))
 
 
 def resolve_gcp_projects(
