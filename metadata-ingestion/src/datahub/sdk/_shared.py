@@ -262,6 +262,21 @@ class HasPlatformInstance(Entity):
             )
         )
 
+    def _set_status_after_platform_instance(self) -> None:
+        """Write status(removed=False) right after an instance-scoped dataPlatformInstance.
+
+        For entity types whose URN carries no platform instance, policies scoped by
+        instance read the stored dataPlatformInstance. Without a status of its own,
+        the entity later gets the auto-status PATCH, which the server authorizes as
+        an edit and can check before an asynchronously written instance is stored.
+        An UPSERT here is authorized as a create and makes auto-status skip the entity.
+        """
+        if (
+            self.platform_instance is not None
+            and self._get_aspect(models.StatusClass) is None
+        ):
+            self._set_aspect(models.StatusClass(removed=False))
+
     @property
     def platform(self) -> Optional[DataPlatformUrn]:
         dataPlatform = self._get_aspect(models.DataPlatformInstanceClass)

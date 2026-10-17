@@ -250,3 +250,12 @@ def test_client_get_mlmodel() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(model_urn)
+
+
+def test_mlmodel_status_follows_platform_instance() -> None:
+    with_instance = MLModel(id="m", platform="mlflow", platform_instance="inst")
+    names = [mcp.aspectName for mcp in with_instance.as_mcps()]
+    assert names[names.index("dataPlatformInstance") + 1] == "status"
+
+    without_instance = MLModel(id="m", platform="mlflow")
+    assert "status" not in [mcp.aspectName for mcp in without_instance.as_mcps()]
