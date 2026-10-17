@@ -78,6 +78,7 @@ entities:
       - versionInfo
       - dataJobInfo
       - dataJobInputOutput
+      - repositoryLineage
       - editableDataJobProperties
       - ownership
       - status
@@ -105,6 +106,7 @@ entities:
       - deprecation
       - versionInfo
       - dataFlowInfo
+      - repositoryLineage
       - editableDataFlowProperties
       - ownership
       - status

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -38,6 +39,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.repository.RepositoryLineage;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
@@ -84,6 +86,9 @@ public class LineageServiceTest {
       "urn:li:metric:(urn:li:dataPlatform:looker,kpi.churn,PROD)";
   private static final String METRIC_URN_3 =
       "urn:li:metric:(urn:li:dataPlatform:looker,kpi.nps,PROD)";
+  private static final String DATAFLOW_URN_1 = "urn:li:dataFlow:(airflow,test,prod)";
+  private static final String REPOSITORY_URN_1 = "urn:li:repository:github.acme/repo1";
+  private static final String REPOSITORY_URN_2 = "urn:li:repository:github.acme/repo2";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
@@ -100,6 +105,9 @@ public class LineageServiceTest {
   private Urn metricUrn1;
   private Urn metricUrn2;
   private Urn metricUrn3;
+  private Urn dataFlowUrn1;
+  private Urn repositoryUrn1;
+  private Urn repositoryUrn2;
 
   @BeforeMethod
   public void setupTest() {
@@ -122,6 +130,9 @@ public class LineageServiceTest {
     metricUrn1 = UrnUtils.getUrn(METRIC_URN_1);
     metricUrn2 = UrnUtils.getUrn(METRIC_URN_2);
     metricUrn3 = UrnUtils.getUrn(METRIC_URN_3);
+    dataFlowUrn1 = UrnUtils.getUrn(DATAFLOW_URN_1);
+    repositoryUrn1 = UrnUtils.getUrn(REPOSITORY_URN_1);
+    repositoryUrn2 = UrnUtils.getUrn(REPOSITORY_URN_2);
 
     _lineageService = new LineageService(_mockClient);
   }
@@ -720,6 +731,255 @@ public class LineageServiceTest {
     proposal.setChangeType(ChangeType.UPSERT);
     Mockito.verify(_mockClient, Mockito.times(1))
         .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
+  // Adds a repository upstream alongside a dataset upstream -- verifies the mixed list is split
+  // correctly: the dataset goes to DataJobInputOutput, the repository goes to RepositoryLineage,
+  // and both proposals are ingested independently.
+  @Test
+  public void testUpdateDataJobUpstreamLineageWithRepositoryAdd() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(true);
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))))
+        .thenReturn(null);
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME))))
+        .thenReturn(null);
+
+    final List<Urn> upstreamUrnsToAdd = Arrays.asList(datasetUrn2, repositoryUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    // Only input* fields get set by the upstream-only path -- output* fields are handled by a
+    // separate method (buildDataJobDownstreamLineageProposal) and stay unset here, not empty.
+    final DataJobInputOutput expectedDataJobInputOutput = new DataJobInputOutput();
+    expectedDataJobInputOutput.setInputDatasets(new DatasetUrnArray());
+    final EdgeArray expectedInputDatasetEdges = new EdgeArray();
+    addNewEdge(datasetUrn2, datajobUrn1, expectedInputDatasetEdges);
+    expectedDataJobInputOutput.setInputDatasetEdges(expectedInputDatasetEdges);
+    expectedDataJobInputOutput.setInputDatajobs(new DataJobUrnArray());
+    expectedDataJobInputOutput.setInputDatajobEdges(new EdgeArray());
+    final MetadataChangeProposal dataJobProposal = new MetadataChangeProposal();
+    dataJobProposal.setEntityUrn(datajobUrn1);
+    dataJobProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
+    dataJobProposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    dataJobProposal.setAspect(GenericRecordUtils.serializeAspect(expectedDataJobInputOutput));
+    dataJobProposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(dataJobProposal), eq(false));
+
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1)));
+  }
+
+  // Existing repositoryLineage has repo1 and repo2; removing repo1 should leave only repo2.
+  @Test
+  public void testUpdateDataJobUpstreamLineageWithRepositoryRemove() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(true);
+
+    RepositoryLineage existingRepositoryLineage =
+        createRepositoryLineage(datajobUrn1, Arrays.asList(repositoryUrn1, repositoryUrn2));
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(datajobUrn1)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.REPOSITORY_LINEAGE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(existingRepositoryLineage.data()))))));
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(repositoryUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.singletonList(repositoryUrn1);
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn2)));
+  }
+
+  // No repository urn involved at all -- the repositoryLineage aspect should never be read or
+  // written, only the existing DataJobInputOutput path should run.
+  @Test
+  public void testUpdateDataJobUpstreamLineageRepositoryOnlyLeavesInputOutputAlone()
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(true);
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME))))
+        .thenReturn(null);
+
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext,
+        datajobUrn1,
+        Collections.singletonList(repositoryUrn1),
+        Collections.emptyList(),
+        actorUrn);
+
+    // A repository-only edit must not read or rewrite dataJobInputOutput at all.
+    Mockito.verify(_mockClient, Mockito.never())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_JOB_ENTITY_NAME),
+            eq(datajobUrn1),
+            eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal ->
+                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(proposal.getAspectName())),
+            eq(false));
+
+    verifyRepositoryLineageProposal(
+        datajobUrn1,
+        Constants.DATA_JOB_ENTITY_NAME,
+        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1)));
+  }
+
+  @Test
+  public void testUpdateDataJobUpstreamLineageSkipsRepositoryWriteWhenNoRepositoryInvolved()
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))))
+        .thenReturn(null);
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    Mockito.verify(
+            _mockClient,
+            Mockito.never()
+                .description(
+                    "repositoryLineage should never be read when no repository urn is involved"))
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_JOB_ENTITY_NAME),
+            eq(datajobUrn1),
+            eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME)));
+  }
+
+  // dataFlow has no dataset/dataJob-shaped input/output aspect -- its only valid upstream type is
+  // Repository, written straight to repositoryLineage.
+  @Test
+  public void testUpdateDataFlowUpstreamLineage() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(true);
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_FLOW_ENTITY_NAME),
+                eq(dataFlowUrn1),
+                eq(ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME))))
+        .thenReturn(null);
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(repositoryUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDataFlowUpstreamLineage(
+        opContext, dataFlowUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    verifyRepositoryLineageProposal(
+        dataFlowUrn1,
+        Constants.DATA_FLOW_ENTITY_NAME,
+        createRepositoryLineage(dataFlowUrn1, Collections.singletonList(repositoryUrn1)));
+  }
+
+  @Test
+  public void testFailUpdateDataFlowUpstreamLineageWithInvalidRemoveEdge() throws Exception {
+    final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn1);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataFlowUpstreamLineage(
+                opContext, dataFlowUrn1, Collections.emptyList(), upstreamUrnsToRemove, actorUrn));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(any(OperationContext.class), any(), eq(false));
+  }
+
+  @Test
+  public void testFailUpdateDataFlowUpstreamLineageWithInvalidEdge() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+
+    // dataFlow can't have a dataset upstream of it -- only repositories are valid
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataFlowUpstreamLineage(
+                opContext, dataFlowUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
+  }
+
+  @Test
+  public void testFailUpdateDataFlowUpstreamLineageWithMissingUrn() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(repositoryUrn1)))
+        .thenReturn(false);
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(repositoryUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataFlowUpstreamLineage(
+                opContext, dataFlowUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
+  }
+
+  /** Asserts exactly one repositoryLineage UPSERT carrying {@code expected} was ingested. */
+  private void verifyRepositoryLineageProposal(
+      Urn entityUrn, String entityType, RepositoryLineage expected) throws Exception {
+    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
+    repositoryProposal.setEntityUrn(entityUrn);
+    repositoryProposal.setEntityType(entityType);
+    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
+    repositoryProposal.setAspect(GenericRecordUtils.serializeAspect(expected));
+    repositoryProposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(repositoryProposal), eq(false));
+  }
+
+  private RepositoryLineage createRepositoryLineage(Urn entityUrn, List<Urn> inputEdgesToAdd) {
+    final RepositoryLineage repositoryLineage = new RepositoryLineage();
+    final EdgeArray inputEdges = new EdgeArray();
+    for (Urn repositoryUrn : inputEdgesToAdd) {
+      addNewEdge(repositoryUrn, entityUrn, inputEdges);
+    }
+    repositoryLineage.setInputEdges(inputEdges);
+    return repositoryLineage;
   }
 
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
