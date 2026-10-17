@@ -33,7 +33,8 @@ public final class SearchFieldResolver {
     SORT,
     RANGE,
     EXACT,
-    FULL_TEXT
+    FULL_TEXT,
+    CONTAIN
   }
 
   private final Map<String, Field> fields;
@@ -173,6 +174,27 @@ public final class SearchFieldResolver {
         : field.getPath();
   }
 
+  /**
+   * Analyzed subfields of a text-only label. A contains filter matches these fields. An indexed
+   * label contains on its keyword path instead.
+   */
+  @Nonnull
+  public List<String> analyzedPaths(@Nonnull String fieldName) {
+    Field field = resolve(fieldName, Intent.CONTAIN);
+    if (field.isIndexed()) {
+      throw new IllegalArgumentException(
+          "Search V3 field '" + fieldName + "' contains on its keyword field");
+    }
+    List<String> paths = new ArrayList<>();
+    if (field.getSubfields().contains(V3SearchFields.TEXT)) {
+      paths.add(field.getPath() + "." + V3SearchFields.TEXT);
+    }
+    if (field.getSubfields().contains(V3SearchFields.STEMMED)) {
+      paths.add(field.getPath() + "." + V3SearchFields.STEMMED);
+    }
+    return List.copyOf(paths);
+  }
+
   @Nonnull
   public Set<String> sourceFields(@Nonnull String fieldName) {
     return resolve(fieldName, Intent.FILTER).getSourceFields();
@@ -248,16 +270,21 @@ public final class SearchFieldResolver {
       FieldMapping resolvedRoot =
           Optional.ofNullable(root).orElseGet(() -> FieldMapping.root(Type.KEYWORD));
       EnumSet<Intent> intents = EnumSet.noneOf(Intent.class);
+      boolean analyzed =
+          subfields.contains(V3SearchFields.TEXT) || subfields.contains(V3SearchFields.STEMMED);
       if (resolvedRoot.isIndex()) {
         intents.add(Intent.FILTER);
         intents.add(Intent.EXACT);
         intents.add(Intent.RANGE);
+        intents.add(Intent.CONTAIN);
+      } else if (analyzed) {
+        intents.add(Intent.CONTAIN);
       }
       if (resolvedRoot.isDocValues()) {
         intents.add(Intent.FACET);
         intents.add(Intent.SORT);
       }
-      if (subfields.contains(V3SearchFields.TEXT) || subfields.contains(V3SearchFields.STEMMED)) {
+      if (analyzed) {
         intents.add(Intent.FULL_TEXT);
       }
       return new Field(

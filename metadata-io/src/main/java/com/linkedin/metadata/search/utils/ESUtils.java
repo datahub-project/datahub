@@ -75,6 +75,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -637,7 +638,20 @@ public class ESUtils {
             && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
             && v3FieldResolver.contains(criterion.getField());
     final Criterion effectiveCriterion;
-    if (resolvedForV3) {
+    if (resolvedForV3 && criterion.getCondition() == Condition.CONTAIN) {
+      SearchFieldResolver.Field containField =
+          v3FieldResolver.resolve(criterion.getField(), Intent.CONTAIN);
+      if (!containField.isIndexed()) {
+        return buildAnalyzedContainsQuery(
+            criterion.getField(), v3FieldResolver.analyzedPaths(criterion.getField()), criterion);
+      }
+      effectiveCriterion =
+          buildCriterion(
+              v3FieldResolver.exactPath(criterion.getField(), Intent.CONTAIN),
+              criterion.getCondition(),
+              criterion.isNegated(),
+              criterion.hasValues() ? criterion.getValues() : null);
+    } else if (resolvedForV3) {
       Intent intent =
           RANGE_QUERY_CONDITIONS.contains(criterion.getCondition()) ? Intent.RANGE : Intent.FILTER;
       effectiveCriterion =
@@ -1177,6 +1191,24 @@ public class ESUtils {
               .caseInsensitive(true));
     }
     return boolQuery;
+  }
+
+  /**
+   * A contains filter on a text-only label matches each analyzed subfield. Every token must match,
+   * and any subfield is enough. Multiple values stay in disjunction, as a keyword wildcard does.
+   */
+  @Nonnull
+  private static QueryBuilder buildAnalyzedContainsQuery(
+      @Nonnull String queryName, @Nonnull List<String> paths, @Nonnull Criterion criterion) {
+    BoolQueryBuilder values = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    for (String value : criterion.getValues()) {
+      BoolQueryBuilder fields = QueryBuilders.boolQuery().minimumShouldMatch(1);
+      for (String path : paths) {
+        fields.should(QueryBuilders.matchQuery(path, value.trim()).operator(Operator.AND));
+      }
+      values.should(fields);
+    }
+    return values.queryName(queryName);
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(

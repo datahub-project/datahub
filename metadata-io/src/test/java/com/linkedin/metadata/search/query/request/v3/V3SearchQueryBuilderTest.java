@@ -656,6 +656,36 @@ public class V3SearchQueryBuilderTest {
     assertEquals(structured.queryString(), "tags:pii");
   }
 
+  /** A source name of a text-only label uses the label's analyzed fields, the same as CONTAIN. */
+  @Test
+  public void testStructuredQuerySourceNameUsesContainAnalyzedFields() {
+    QueryBuilder query =
+        builder(null)
+            .buildQuery(
+                OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "fieldDescriptions:warehouse", true);
+
+    Set<String> texts =
+        find(query, QueryStringQueryBuilder.class).stream()
+            .map(QueryStringQueryBuilder::queryString)
+            .collect(Collectors.toSet());
+    assertTrue(texts.contains("description.text:warehouse"), texts.toString());
+    assertTrue(texts.contains("description.stemmed:warehouse"), texts.toString());
+    assertFalse(texts.contains("fieldDescriptions:warehouse"), texts.toString());
+  }
+
+  /** A source name of an indexed label uses the keyword path CONTAIN would wildcard. */
+  @Test
+  public void testStructuredQuerySourceNameUsesContainKeywordPath() {
+    QueryStringQueryBuilder structured =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "fieldPaths:user_id", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(structured.queryString(), "columns.keyword:user_id");
+  }
+
   /** A space after the field colon is valid query-string syntax and must keep the split. */
   @Test
   public void testFieldedStructuredQueryAllowsSpaceAfterColon() {

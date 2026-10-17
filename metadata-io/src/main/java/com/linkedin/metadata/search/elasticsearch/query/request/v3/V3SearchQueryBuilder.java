@@ -1694,7 +1694,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       }
       // query_string ignores fields() when the query names a field, so the same fielded text must
       // not run on both clauses. Property fields stay lenient; every other field stays strict.
-      result = StructuredQueryRouting.build(sanitizedQuery, shared, properties);
+      result =
+          StructuredQueryRouting.build(sanitizedQuery, shared, properties, resolver(entitySpecs));
     }
     return result;
   }

@@ -878,6 +878,32 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testV3ContainOnTextOnlyLabelMatchesAnalyzedFields() {
+    String description =
+        v3Filter(buildCriterion("description", Condition.CONTAIN, "data warehouse"));
+    assertTrue(description.contains("\"description.text\""), description);
+    assertTrue(description.contains("\"description.stemmed\""), description);
+    assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertFalse(description.contains("wildcard"), description);
+
+    String fieldDescriptions =
+        v3Filter(buildCriterion("fieldDescriptions", Condition.CONTAIN, "data warehouse"));
+    assertTrue(fieldDescriptions.contains("\"description.text\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description.stemmed\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"fieldDescriptions\""), fieldDescriptions);
+    assertFalse(fieldDescriptions.contains("wildcard"), fieldDescriptions);
+  }
+
+  @Test
+  public void testV3ContainOnKeywordLabelStaysOnKeyword() {
+    String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
+    assertTrue(query.contains("columns.keyword"), query);
+    assertTrue(query.contains("wildcard"), query);
+    assertTrue(query.contains("*user_id*"), query);
+    assertFalse(query.contains("description.text"), query);
+  }
+
+  @Test
   public void testV3DescriptionSupportsExistenceButRejectsFacetsAndSorts() {
     Filter existenceFilter =
         new Filter()
@@ -974,6 +1000,23 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
+  }
+
+  private String v3Filter(Criterion criterion) {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+    return SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            filter,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            V3_READ_CONFIG.getEntityIndex(),
+            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+        .toString();
   }
 
   private SearchFieldResolver cachedV3Resolver(EntityIndexConfiguration entityIndex) {
