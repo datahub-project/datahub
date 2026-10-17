@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
@@ -14,12 +15,16 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,9 +48,19 @@ public class V3SearchDocumentProjector {
 
   public ObjectNode newEntityDocument(
       @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    return newEntityDocument(urn, entitySpec, null);
+  }
+
+  public ObjectNode newEntityDocument(
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nullable final EntityRegistry entityRegistry) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
     document.put(URN_FIELD, urn.toString());
     document.put(ENTITY_TYPE_FIELD, entitySpec.getName());
+    if (entityRegistry != null) {
+      putParsedUrnName(document, urn, entityRegistry);
+    }
     return document;
   }
 
@@ -69,12 +84,27 @@ public class V3SearchDocumentProjector {
 
     final Optional<ObjectNode> previousSearchDocument =
         transformPreviousAspect(opContext, urn, aspectSpec, previousAspect, event);
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      searchDocument.ifPresent(
+          document ->
+              StructuredPropertyUrnIdentity.project(
+                  opContext, document, event.getRecordTemplate()));
+      if (previousAspect != null) {
+        previousSearchDocument.ifPresent(
+            document -> StructuredPropertyUrnIdentity.project(opContext, document, previousAspect));
+      }
+    }
     final ObjectNode projectedFields =
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
     final Set<String> sharedHasValues =
         placeSharedHasValues(event.getEntitySpec(), aspectSpec, projectedFields);
+    final EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    final List<EntitySpec> indexGroup =
+        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(event.getEntitySpec()));
+    final ParsedUrnNames parsedUrnNames =
+        parsedUrnNames(entityRegistry, aspectSpec, projectedFields, indexGroup);
 
     return Optional.of(
         buildProjectedAspect(
@@ -83,6 +113,8 @@ public class V3SearchDocumentProjector {
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
             sharedHasValues,
+            parsedUrnNames,
+            event.getUrn(),
             opContext));
   }
 
@@ -90,6 +122,22 @@ public class V3SearchDocumentProjector {
       @Nonnull final ObjectNode document, @Nonnull final ProjectedAspect projectedAspect) {
     copyFields(projectedAspect.rootFields(), document);
     if (projectedAspect.rootOnly()) {
+      // Searchable values stay at the root. Parsed-name keywords still live under the aspect so
+      // copy_to can rebuild a label after another aspect is updated.
+      final ObjectNode sources = JsonNodeFactory.instance.objectNode();
+      projectedAspect
+          .aspectFields()
+          .fieldNames()
+          .forEachRemaining(
+              name -> {
+                if (name.endsWith(V3SearchFields.PARSED_URN_SUFFIX)) {
+                  sources.set(name, projectedAspect.aspectFields().get(name).deepCopy());
+                }
+              });
+      if (!sources.isEmpty()) {
+        getOrCreateObject(document, MappingConstants.ASPECTS_FIELD_NAME)
+            .set(projectedAspect.aspectName(), sources);
+      }
       return;
     }
 
@@ -206,9 +254,69 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * Uses the boolean {@code setSearchableValue} already wrote when this field declares one.
-   * Otherwise the source field it wrote is populated when that value is present.
+   * Parsed name of each URN field on this aspect. The document's own URN is not included. An empty
+   * array clears a name the field no longer contributes. Fields whose parsed name occupies the root
+   * label are listed in {@link ParsedUrnNames#rootFields()}.
    */
+  @Nonnull
+  private static ParsedUrnNames parsedUrnNames(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields,
+      @Nonnull final List<EntitySpec> indexGroup) {
+    final Map<String, ArrayNode> names = new LinkedHashMap<>();
+    final Set<String> rootFields = new LinkedHashSet<>();
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+        continue;
+      }
+      final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      final Set<String> found = new LinkedHashSet<>();
+      collectUrnText(projectedFields.get(annotation.getFieldName()), entityRegistry, found);
+      names.put(V3SearchFields.parsedUrnField(annotation.getFieldName()), arrayOf(found));
+      if (V3SearchFields.clearsRootForUrnLabel(fieldSpec, indexGroup)) {
+        rootFields.add(annotation.getFieldName());
+      }
+    }
+    return new ParsedUrnNames(names, rootFields);
+  }
+
+  @Nonnull
+  private static ArrayNode arrayOf(@Nonnull final Set<String> values) {
+    final ArrayNode array = JsonNodeFactory.instance.arrayNode();
+    values.forEach(array::add);
+    return array;
+  }
+
+  private static void collectUrnText(
+      @Nullable final JsonNode value,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Set<String> identities) {
+    if (value == null || value.isNull()) {
+      return;
+    }
+    if (value.isArray()) {
+      value.forEach(item -> collectUrnText(item, entityRegistry, identities));
+      return;
+    }
+    if (value.isObject()) {
+      collectUrnText(value.get("urn"), entityRegistry, identities);
+      return;
+    }
+    if (!value.isTextual() || !value.asText().startsWith("urn:")) {
+      return;
+    }
+    try {
+      final String identity =
+          UrnSearchIdentity.identity(Urn.createFromString(value.asText()), entityRegistry);
+      if (!identity.isEmpty()) {
+        identities.add(identity);
+      }
+    } catch (URISyntaxException exception) {
+      // A value that only looks like a URN stays exact and contributes no full-text identity.
+    }
+  }
+
   private static boolean sourcePopulated(
       @Nonnull final SearchableAnnotation annotation, @Nonnull final ObjectNode projectedFields) {
     final Optional<String> declared = annotation.getHasValuesFieldName();
@@ -235,6 +343,8 @@ public class V3SearchDocumentProjector {
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
       @Nonnull final Set<String> sharedHasValues,
+      @Nonnull final ParsedUrnNames parsedUrns,
+      @Nonnull final Urn urn,
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
@@ -250,15 +360,39 @@ public class V3SearchDocumentProjector {
       }
     }
     addSystemMetadata(opContext, aspectFields, systemMetadata);
+    // Kept on the aspect so a later partial update of another aspect does not replace it.
+    // An empty array clears a name this field no longer contributes.
+    parsedUrns
+        .names()
+        .forEach(
+            (fieldName, values) -> {
+              aspectFields.set(fieldName, values);
+            });
+    // A URN label is an object filled by copy_to. Clear a previously stored string.
+    for (String fieldName : parsedUrns.rootFields()) {
+      rootFields.putNull(fieldName);
+    }
 
     if (SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectName)) {
       // Vectors stay under _aspects; UpdateIndicesV3Strategy lifts them to the root only for
       // entities with semantic search enabled, whose V3 index maps a root embeddings field.
-      return new ProjectedAspect(
-          aspectName, JsonNodeFactory.instance.objectNode(), aspectFields, false);
+      final ObjectNode semanticRoot = JsonNodeFactory.instance.objectNode();
+      putParsedUrnName(semanticRoot, urn, opContext.getEntityRegistry());
+      return new ProjectedAspect(aspectName, semanticRoot, aspectFields, false);
     }
 
+    putParsedUrnName(rootFields, urn, opContext.getEntityRegistry());
     return new ProjectedAspect(aspectName, rootFields, aspectFields, rootOnly);
+  }
+
+  private static void putParsedUrnName(
+      @Nonnull final ObjectNode rootFields,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final String identity = UrnSearchIdentity.identity(urn, entityRegistry);
+    if (!identity.isEmpty()) {
+      rootFields.put(MappingConstants.URN_NAME_FIELD, identity);
+    }
   }
 
   private static void addSystemMetadata(
@@ -276,6 +410,9 @@ public class V3SearchDocumentProjector {
       throw propagate("Failed to serialize system metadata for V3 projected aspect", e);
     }
   }
+
+  private record ParsedUrnNames(
+      @Nonnull Map<String, ArrayNode> names, @Nonnull Set<String> rootFields) {}
 
   private static RuntimeException propagate(
       @Nonnull final String message, @Nonnull final Exception exception) {

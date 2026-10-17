@@ -92,6 +92,9 @@ public class SearchableAnnotation {
 
   Optional<Boolean> v3IncludeSystemModifiedAt;
 
+  /** Search V3 override of {@link #queryByDefault}. Absent means V3 uses the top-level flag. */
+  Optional<Boolean> v3QueryByDefault;
+
   /**
    * Search V3 root and label subfields. Explicit {@code v3.mappings} replace the fallback derived
    * from {@link #fieldType}. {@code _aspects} does not read this list.
@@ -149,6 +152,7 @@ public class SearchableAnnotation {
         true,
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
         FieldMapping.fallback(fieldType, hasSearchDestination(searchLabel, entityFieldName)));
   }
 
@@ -158,14 +162,17 @@ public class SearchableAnnotation {
    */
   @Nonnull
   public SearchableAnnotation resolvedForV3() {
-    if (v3Searchable && v3SearchLabel.isEmpty() && v3IncludeSystemModifiedAt.isEmpty()) {
+    if (v3Searchable
+        && v3SearchLabel.isEmpty()
+        && v3IncludeSystemModifiedAt.isEmpty()
+        && v3QueryByDefault.isEmpty()) {
       return this;
     }
     final boolean includeModified = v3IncludeSystemModifiedAt.orElse(includeSystemModifiedAt);
     return new SearchableAnnotation(
         fieldName,
         fieldType,
-        queryByDefault,
+        v3QueryByDefault.orElse(queryByDefault),
         enableAutocomplete,
         addToFilters,
         addHasValuesToFilters,
@@ -185,6 +192,7 @@ public class SearchableAnnotation {
         eagerGlobalOrdinals,
         sanitizeRichText,
         v3Searchable,
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         v3Mappings);
@@ -278,8 +286,12 @@ public class SearchableAnnotation {
     final Optional<Boolean> v3IncludeSystemModifiedAt =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "includeSystemModifiedAt", Boolean.class));
+    final Optional<Boolean> v3QueryByDefault =
+        v3Overlay.flatMap(
+            overlay -> AnnotationUtils.getField(overlay, "queryByDefault", Boolean.class));
     final Optional<String> entityFieldName =
         AnnotationUtils.getField(map, "entityFieldName", String.class);
+    final boolean queryByDefaultResolved = getQueryByDefault(queryByDefault, resolvedFieldType);
     final boolean hasSearchDestination = hasSearchDestination(v3SearchLabel, entityFieldName);
     final List<FieldMapping> v3Mappings =
         v3Searchable
@@ -312,7 +324,7 @@ public class SearchableAnnotation {
     return new SearchableAnnotation(
         fieldName.orElse(schemaFieldName),
         resolvedFieldType,
-        getQueryByDefault(queryByDefault, resolvedFieldType),
+        queryByDefaultResolved,
         enableAutocomplete.orElse(false),
         addToFilters.orElse(false),
         addHasValuesToFilters.orElse(false),
@@ -334,6 +346,7 @@ public class SearchableAnnotation {
         v3Searchable,
         v3SearchLabel,
         v3IncludeSystemModifiedAt,
+        v3QueryByDefault,
         v3Mappings);
   }
 

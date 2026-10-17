@@ -16,12 +16,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.FabricType;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -69,9 +76,85 @@ public class V3SearchDocumentProjectorTest {
     when(event.getAuditStamp()).thenReturn(auditStamp);
     when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(aspectSpec.getName()).thenReturn("datasetProperties");
+    when(aspectSpec.getSearchableFieldSpecs()).thenReturn(List.of());
     when(entitySpec.getName()).thenReturn("dataset");
     when(entitySpec.getKeyAspectName()).thenReturn("datasetKey");
     when(auditStamp.getTime()).thenReturn(123L);
+  }
+
+  @Test
+  public void testAnnotatedUrnReferencesProjectIdentityOnTheAspect() throws Exception {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    V3SearchDocumentProjector realProjector = new V3SearchDocumentProjector(transformer);
+    EntityRegistry registry = opContext.getEntityRegistry();
+
+    EntitySpec chart = registry.getEntitySpec("chart");
+    GlobalTags tags = new GlobalTags();
+    tags.setTags(new TagAssociationArray(new TagAssociation().setTag(new TagUrn("Confidential"))));
+    when(event.getUrn()).thenReturn(UrnUtils.getUrn("urn:li:chart:(looker,orders)"));
+    when(event.getAspectName()).thenReturn("globalTags");
+    when(event.getAspectSpec()).thenReturn(chart.getAspectSpec("globalTags"));
+    when(event.getEntitySpec()).thenReturn(chart);
+    when(event.getRecordTemplate()).thenReturn(tags);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(event.getSystemMetadata()).thenReturn(null);
+
+    V3SearchDocumentProjector.ProjectedAspect tagsProjection =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+    assertEquals(
+        tagsProjection.aspectFields().get("tags__urn_name").get(0).asText(), "Confidential");
+    assertEquals(tagsProjection.aspectFields().get("tags__urn_name").size(), 1);
+    assertTrue(tagsProjection.rootFields().get("tags").isNull());
+    assertEquals(tagsProjection.rootFields().get("urn_name").asText(), "looker orders");
+
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    DatasetKey datasetKey =
+        new DatasetKey()
+            .setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:hive"))
+            .setName("sales.orders")
+            .setOrigin(FabricType.PROD);
+    when(event.getUrn())
+        .thenReturn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.orders,PROD)"));
+    when(event.getAspectName()).thenReturn("datasetKey");
+    when(event.getAspectSpec()).thenReturn(dataset.getAspectSpec("datasetKey"));
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getRecordTemplate()).thenReturn(datasetKey);
+
+    V3SearchDocumentProjector.ProjectedAspect datasetProjection =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+    assertEquals(
+        datasetProjection.aspectFields().get("platform__urn_name").get(0).asText(), "hive");
+    assertEquals(datasetProjection.aspectFields().get("platform__urn_name").size(), 1);
+    assertTrue(
+        datasetProjection.aspectFields().get("platform").asText().contains("dataPlatform:hive"));
+    assertTrue(datasetProjection.rootFields().get("platform").isNull());
+    assertTrue(datasetProjection.rootFields().path("urnName").isMissingNode());
+    assertEquals(datasetProjection.rootFields().get("urn_name").asText(), "sales.orders");
+    assertTrue(datasetProjection.rootFields().path("name").isMissingNode());
+
+    EntitySpec schemaField = registry.getEntitySpec("schemaField");
+    SchemaFieldKey schemaFieldKey =
+        new SchemaFieldKey()
+            .setParent(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.orders,PROD)"))
+            .setFieldPath("[version=2.0].[type=string].order_id");
+    when(event.getUrn())
+        .thenReturn(
+            UrnUtils.getUrn(
+                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,sales.orders,PROD),[version=2.0].[type=string].order_id)"));
+    when(event.getAspectName()).thenReturn("schemaFieldKey");
+    when(event.getAspectSpec()).thenReturn(schemaField.getAspectSpec("schemaFieldKey"));
+    when(event.getEntitySpec()).thenReturn(schemaField);
+    when(event.getRecordTemplate()).thenReturn(schemaFieldKey);
+
+    V3SearchDocumentProjector.ProjectedAspect fieldProjection =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+    assertEquals(
+        fieldProjection.aspectFields().get("parent__urn_name").get(0).asText(), "sales.orders");
+    assertEquals(fieldProjection.aspectFields().get("parent__urn_name").size(), 1);
+    assertTrue(fieldProjection.rootFields().get("parent").isNull());
+    assertEquals(fieldProjection.rootFields().get("urn_name").asText(), "order_id");
   }
 
   @Test
@@ -194,6 +277,7 @@ public class V3SearchDocumentProjectorTest {
     OperationContext failingContext = mock(OperationContext.class);
     ObjectMapper objectMapper = mock(ObjectMapper.class);
     when(failingContext.getObjectMapper()).thenReturn(objectMapper);
+    when(failingContext.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     when(event.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("run-1"));
     when(searchDocumentTransformer.transformAspect(

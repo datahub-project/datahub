@@ -37,7 +37,22 @@ public class V3SearchFieldsTest {
   public void testDatasetFullTextFieldsAndTheirSources() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
 
-    assertEquals(fields.keySet(), Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, COLUMNS, OTHER));
+    assertEquals(
+        fields.keySet(),
+        Set.of(
+            ENTITY_NAME,
+            QUALIFIED_NAME,
+            DESCRIPTION,
+            COLUMNS,
+            OTHER,
+            "tags",
+            "glossaryTerms",
+            "platform",
+            "container",
+            "domains",
+            "dataProduct",
+            "platformInstance",
+            "applications"));
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
     assertTrue(
@@ -55,9 +70,18 @@ public class V3SearchFieldsTest {
         fields.toString());
     assertTrue(
         fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
-    assertFalse(fields.containsKey("tags"), fields.toString());
-    assertFalse(fields.containsKey("glossaryTerms"), fields.toString());
-    assertTrue(fields.get(OTHER).contains("platform"), fields.toString());
+    assertEquals(fields.get("tags"), List.of("tags"), fields.toString());
+    assertTrue(
+        V3SearchFields.storedParsedNameFields(List.of(dataset()))
+            .get("tags")
+            .contains("_aspects.globalTags.tags__urn_name"),
+        V3SearchFields.storedParsedNameFields(List.of(dataset())).toString());
+    assertEquals(fields.get("glossaryTerms"), List.of("glossaryTerms"), fields.toString());
+    assertEquals(fields.get("platform"), List.of("platform"), fields.toString());
+    assertEquals(fields.get("container"), List.of("container"), fields.toString());
+    assertEquals(fields.get("domains"), List.of(), fields.toString());
+    assertFalse(fields.containsKey("owners"), fields.toString());
+    assertFalse(fields.get(OTHER).contains("platform"), fields.toString());
     assertFalse(fields.get(OTHER).contains("tags"), fields.toString());
     // A field that feeds a named shared field does not also land in other
     assertTrue(
@@ -95,11 +119,11 @@ public class V3SearchFieldsTest {
         V3SearchFields.matchedFieldSources(V3SearchFields.fullTextFields(List.of(dataset())));
     assertTrue(
         datasetSources.containsAll(List.of("name", "editedName")), datasetSources.toString());
-    assertFalse(datasetSources.contains("tags"), datasetSources.toString());
-    assertFalse(datasetSources.contains("glossaryTerms"), datasetSources.toString());
+    assertTrue(datasetSources.contains("tags"), datasetSources.toString());
+    assertTrue(datasetSources.contains("glossaryTerms"), datasetSources.toString());
+    assertTrue(datasetSources.contains("platform"), datasetSources.toString());
     assertTrue(
-        datasetSources.stream()
-            .noneMatch(List.of("customProperties", "platform", "domains")::contains),
+        datasetSources.stream().noneMatch(List.of("customProperties", "domains")::contains),
         datasetSources.toString());
 
     Map<String, List<String>> documentFields =

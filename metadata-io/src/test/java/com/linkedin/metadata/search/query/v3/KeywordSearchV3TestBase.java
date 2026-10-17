@@ -1299,7 +1299,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         CUSTOMERS);
   }
 
-  /** Exact-only URN labels do not enter full text, but remain filterable by their full value. */
+  /**
+   * A tag URN contributes its id to full text and stays filterable by the complete URN. URN
+   * structure does not match.
+   */
   @Test
   public void testExactUrnLabelDoesNotMatchComponent() {
     assertUrns(
@@ -1308,6 +1311,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                 List.of(CHART_ENTITY_NAME),
                 "confidential",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS_CHART);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(CHART_ENTITY_NAME),
+                "dataPlatform",
                 null,
                 null,
                 0,
@@ -1324,6 +1339,60 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS_CHART);
+  }
+
+  /**
+   * Dataset full text uses the dataset name. The platform field contributes the platform name.
+   * Fabric and the dataset URN's structure do not match.
+   */
+  @Test
+  public void testDatasetNameMatchesWithoutPlatformOrFabric() {
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "sales.orders",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "hive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "PROD",
+                null,
+                null,
+                0,
+                10)
+            .getEntities());
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "dataPlatform",
+                null,
+                null,
+                0,
+                10)
+            .getEntities());
   }
 
   /** A queryByDefault: false field is filterable but a plain full-text query skips it. */
@@ -1449,10 +1518,33 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTopHit(ENTITY_TYPES, "orders", ORDERS);
     // Fully qualified name, here the dataset key id
     assertTopHit(ENTITY_TYPES, "sales.orders", ORDERS);
+    assertTopHit(ENTITY_TYPES, "SALES.ORDERS", ORDERS);
     assertTopHit(ENTITY_TYPES, ORDERS.toString(), ORDERS);
-    // A URN that differs in case or is cut short still matches, as on V2
-    assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
-    assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
+    // URN structure is not full text, so a differently cased or truncated URN does not match.
+    assertTrue(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                ENTITY_TYPES,
+                ORDERS.toString().replace("sales.orders", "SALES.ORDERS"),
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .isEmpty());
+    assertTrue(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                ENTITY_TYPES,
+                "urn:li:dataset:(urn:li:dataPlatform:hive,sales",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .isEmpty());
     // Search operators are plain text: "-archive" does not exclude the title holding it
     assertTrue(
         searchService

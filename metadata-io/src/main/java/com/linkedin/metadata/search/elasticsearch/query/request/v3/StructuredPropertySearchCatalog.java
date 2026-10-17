@@ -23,6 +23,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
@@ -172,16 +173,23 @@ public final class StructuredPropertySearchCatalog {
         config.hasCopyTo()
             ? config.getCopyTo().stream().filter(name -> name != null && !name.isBlank()).toList()
             : List.of();
+    String fieldPath =
+        V3SearchFields.STRUCTURED_PROPERTIES
+            + "."
+            + toElasticsearchFieldName(propertyUrn, definition);
+    String fullTextPath =
+        logicalValueType == LogicalValueType.URN
+            ? fieldPath + StructuredPropertyUrnIdentity.FIELD_SUFFIX
+            : fieldPath;
     return Optional.of(
         new IndexedProperty(
-            V3SearchFields.STRUCTURED_PROPERTIES
-                + "."
-                + toElasticsearchFieldName(propertyUrn, definition),
+            fieldPath,
             definition.getEntityTypes(),
             config.isQueryByDefault(),
             textWeight,
             stemmedWeight(config, textWeight),
-            copyTo));
+            copyTo,
+            fullTextPath));
   }
 
   private float textWeight(@Nonnull DataHubSearchConfig config) {
@@ -201,7 +209,8 @@ public final class StructuredPropertySearchCatalog {
 
   /**
    * One opted-in property. {@code fieldPath} is {@code structuredProperties.<field>}, the name a
-   * field configuration uses. Weights are before the partial factor.
+   * field configuration uses. {@code fullTextPath} is that field for a string or rich text value,
+   * and the identity sibling for a URN. Weights are before the partial factor.
    */
   public record IndexedProperty(
       @Nonnull String fieldPath,
@@ -209,7 +218,8 @@ public final class StructuredPropertySearchCatalog {
       boolean queryByDefault,
       float textWeight,
       float stemmedWeight,
-      @Nonnull List<String> copyTo) {
+      @Nonnull List<String> copyTo,
+      @Nonnull String fullTextPath) {
 
     public boolean appliesTo(@Nonnull Collection<EntitySpec> entitySpecs) {
       return entitySpecs.stream()

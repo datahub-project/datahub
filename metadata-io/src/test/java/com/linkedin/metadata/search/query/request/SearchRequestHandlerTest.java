@@ -778,7 +778,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("platform_urn"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
 
     SearchRequestHandler v3Handler =
@@ -791,13 +791,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TEST_SEARCH_SERVICE_CONFIG);
     String valueCounts =
         v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
-    assertTrue(valueCounts.contains("\"field\":\"platform.keyword\""), valueCounts);
+    assertTrue(valueCounts.contains("\"field\":\"platform_urn\""), valueCounts);
     String keywordValueCounts =
         v3Handler
             .getAggregationRequest(operationContext, "platform.keyword", null, 10)
             .source()
             .toString();
-    assertTrue(keywordValueCounts.contains("\"field\":\"platform.keyword\""), keywordValueCounts);
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform_urn\""), keywordValueCounts);
   }
 
   /**
@@ -842,7 +842,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("platform_urn"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
     // V3 stores the registry entity name in _entityType, a keyword field without a subfield
     assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
@@ -891,7 +891,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         v3Or(
             buildCriterion("description", Condition.EQUAL, "daily revenue"),
             buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
-    assertTrue(either.contains("platform.keyword"), either);
+    assertTrue(either.contains("platform_urn"), either);
     assertTrue(either.contains("urn:li:dataPlatform:hive"), either);
     assertFalse(either.contains("daily revenue"), either);
     assertMatchNone(either);
