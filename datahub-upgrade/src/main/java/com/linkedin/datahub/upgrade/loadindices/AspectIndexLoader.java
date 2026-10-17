@@ -219,6 +219,9 @@ public class AspectIndexLoader {
 
         if (!mclBatch.isEmpty()) {
           writeBatchWithRetry(opContext, mclBatch, reportFunction, writer, 0);
+          // The listener may checkpoint this page. Drain first, so that cursor names only
+          // documents the bulk processor has acknowledged.
+          updateIndicesService.flushAndWait();
           totalProcessed += page.size();
           // Rows arrive in key order, so a URN change is a new document.
           for (EbeanAspectV2 aspect : page) {

@@ -1498,7 +1498,7 @@ public class LoadIndicesStepTest {
       fail("Expected final flush failure");
     } catch (RuntimeException expected) {
     }
-    verify(mockUpdateIndicesService).flushAndWait();
+    verify(mockUpdateIndicesService, times(2)).flushAndWait();
   }
 
   @Test
@@ -1892,6 +1892,17 @@ public class LoadIndicesStepTest {
         "testUser");
     List<long[]> batches = new ArrayList<>();
     List<String> lastUrns = new ArrayList<>();
+    AspectIndexLoader.BatchListener listener = mock(AspectIndexLoader.BatchListener.class);
+    doAnswer(
+            invocation -> {
+              lastUrns.add(invocation.getArgument(0));
+              long rows = invocation.getArgument(1);
+              long urns = invocation.getArgument(2);
+              batches.add(new long[] {rows, urns});
+              return null;
+            })
+        .when(listener)
+        .onBatch(any(), anyLong(), anyLong());
 
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 2;
@@ -1903,10 +1914,7 @@ public class LoadIndicesStepTest {
             mockOperationContext,
             args,
             msg -> null,
-            (lastUrn, rows, urns) -> {
-              lastUrns.add(lastUrn);
-              batches.add(new long[] {rows, urns});
-            },
+            listener,
             mockUpdateIndicesService::handleChangeEvents);
 
     assertEquals(result.rowsProcessed, 4);
@@ -1916,6 +1924,15 @@ public class LoadIndicesStepTest {
     assertEquals(batches.get(1)[0], 4L);
     assertEquals(batches.get(1)[1], 3L);
     assertEquals(lastUrns.get(1), "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleDataset3,PROD)");
+    // Each page is drained before it is reported, then the run drains once more on the way out.
+    var ordered = inOrder(mockUpdateIndicesService, listener);
+    ordered.verify(mockUpdateIndicesService).handleChangeEvents(any(), any());
+    ordered.verify(mockUpdateIndicesService).flushAndWait();
+    ordered.verify(listener).onBatch(any(), eq(2L), anyLong());
+    ordered.verify(mockUpdateIndicesService).handleChangeEvents(any(), any());
+    ordered.verify(mockUpdateIndicesService).flushAndWait();
+    ordered.verify(listener).onBatch(any(), eq(4L), eq(3L));
+    ordered.verify(mockUpdateIndicesService).flushAndWait();
   }
 
   @Test
@@ -1939,10 +1956,11 @@ public class LoadIndicesStepTest {
       assertEquals(e.rowsProcessed(), 1L);
       assertEquals(e.lastUrn(), checkpointed.get(0));
     }
-    // One batch landed and was reported before the run stopped; the drain still happens.
+    // The reported batch was drained before the listener ran. The exit drain runs after the
+    // deadline.
     assertEquals(checkpointed.size(), 1);
     verify(mockUpdateIndicesService, times(1)).handleChangeEvents(any(), any());
-    verify(mockUpdateIndicesService).flushAndWait();
+    verify(mockUpdateIndicesService, times(2)).flushAndWait();
   }
 
   @Test
