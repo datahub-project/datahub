@@ -8,6 +8,24 @@ By default the connector emits all ingested entities under the `mongodb` data pl
 
 Switching an existing recipe to `platform: documentdb` will generate new `documentdb` dataset and container URNs; the previously emitted `mongodb` URNs will need to be cleaned up via stateful ingestion (if enabled) or manually soft-deleted.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against the server without running ingestion. For MongoDB it
+offers `databases` and `collections` (one database's collections and views):
+
+```shell
+datahub recipe probe methods --recipe mongodb_recipe.yml
+datahub recipe probe run databases --recipe mongodb_recipe.yml
+datahub recipe probe run collections --recipe mongodb_recipe.yml --database my_db
+```
+
+The probe connects with the client ingestion builds (`connect_uri`, credentials, `authMechanism` and
+`options`, TLS included) and lists names only: it never reads documents or samples. It lists what
+ingestion skips too, so `probe filter` can explain it: the system databases `admin`, `config` and
+`local` are always excluded, `system.*` collections are excluded while `excludeSystemCollections` is
+set, and `collection_pattern` is matched against `database.collection`, so pass the database as
+`--parent` when judging collection names.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

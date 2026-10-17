@@ -1287,6 +1287,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "subtype_modifier": [
@@ -1394,6 +1400,12 @@
           "description": "By default, platform_instance will use the AWS account id",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
@@ -1412,6 +1424,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         }
@@ -1825,6 +1843,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2970,6 +2994,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3204,6 +3234,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3713,6 +3749,12 @@
         {
           "capability": "TAGS",
           "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4361,6 +4403,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4487,6 +4535,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4944,6 +4998,12 @@
         {
           "capability": "TAGS",
           "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },

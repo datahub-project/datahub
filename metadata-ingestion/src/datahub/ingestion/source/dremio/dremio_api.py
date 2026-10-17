@@ -28,18 +28,15 @@ from datahub.ingestion.source.dremio.dremio_models import (
     DremioJobState,
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.dremio.dremio_selection import (
+    DREMIO_SYSTEM_TABLES_PATTERN,
+    container_verdict,
+)
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
-
-DREMIO_SYSTEM_TABLES_PATTERN = [
-    r"^information_schema$",
-    r"^sys$",
-    r"^information_schema\..*",
-    r"^sys\..*",
-]
 
 # Defensive ceiling on the LIMIT we ever issue per page. Dremio's REST job-results
 # endpoint paginates without a documented total-row cap (it streams 500-row pages
@@ -102,52 +99,7 @@ class DremioFilter:
         else:
             full_path_components = schema_path
 
-        if not full_path_components:
-            return True
-
-        full_schema_name = ".".join(full_path_components).lower()
-
-        if not self.config.include_system_tables and not AllowDenyPattern(
-            deny=DREMIO_SYSTEM_TABLES_PATTERN
-        ).allowed(full_schema_name):
-            return False
-
-        if len(full_path_components) == 1:
-            container_name = full_path_components[0]
-
-            if self.config.schema_pattern.allowed(container_name):
-                return True
-
-            # Allow root containers that are prefixes of hierarchical patterns
-            for pattern in self.config.schema_pattern.allow:
-                if "." in pattern and pattern.lower().startswith(
-                    container_name.lower() + "."
-                ):
-                    deny_only = AllowDenyPattern(
-                        allow=[".*"],
-                        deny=self.config.schema_pattern.deny,
-                    )
-                    if deny_only.allowed(container_name):
-                        return True
-            return False
-        else:
-            current_path = full_schema_name
-
-            if self.config.schema_pattern.allowed(current_path):
-                return True
-
-            # Allow intermediate paths for open-ended patterns (ending with .*)
-            for pattern in self.config.schema_pattern.allow:
-                if pattern.endswith(".*"):
-                    pattern_prefix = pattern[:-2]
-                    if pattern_prefix.lower().startswith(current_path.lower() + "."):
-                        deny_only = AllowDenyPattern(
-                            allow=[".*"],
-                            deny=self.config.schema_pattern.deny,
-                        )
-                        if deny_only.allowed(current_path):
-                            return True
-            return False
+        return container_verdict(self.config, full_path_components).included
 
     def is_dataset_allowed(
         self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
@@ -448,6 +400,16 @@ class DremioAPIOperations:
                 raise DremioAPIException(
                     f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
                 ) from e
+
+    def get_or_raise(self, url: str) -> object:
+        """A GET that raises requests.HTTPError on an error status. `get`
+        returns an error body as if it were the answer, so a caller that must
+        tell a refused read from an empty one uses this instead."""
+        response = self.session.get(
+            self.base_url + url, verify=self._verify, timeout=self._timeout
+        )
+        response.raise_for_status()
+        return response.json()
 
     def get(self, url: str) -> Dict:
         """Send a GET request to the Dremio API.

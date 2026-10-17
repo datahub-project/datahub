@@ -189,6 +189,20 @@ You can set partition explicitly with `partition.partition_datetime` property if
 - For materialized views, lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.
 - For materialized views, DataHub can report the number of rows **currently materialized** (and the materialized size) as dataset statistics. This is sourced from BigQuery catalog metadata (`tables.get`) and does not require `profiling.enabled`; it can differ from `SELECT COUNT(*)` on the underlying base tables. The same call also populates the view's last-modified time, so enabling this affects `lastModified` in dataset properties as well as the stats panel. This is **opt-in** (`include_materialized_view_stats`, default `false`); views excluded by `profile_pattern` (or `view_pattern`) are skipped entirely — no metadata call is made for them. Set `include_materialized_view_stats: true` to enable these per-view metadata calls (capped at 1000 materialized views per dataset).
 
+#### Probe support (`bigquery-queries`)
+
+The `bigquery-queries` source supports `datahub recipe probe`, connecting with its `connection` block.
+
+- `probe run sql` runs one read-only `SELECT` over named `INFORMATION_SCHEMA` views such as `<dataset>.INFORMATION_SCHEMA.TABLES`. Use it to list datasets and tables. `INFORMATION_SCHEMA.JOBS` is refused, because it holds the text of user queries.
+- `probe filter` needs no connection. It judges names the way this source judges each table in the query log, as `project.dataset.table` with shard suffixes and decorators normalized. Pass the project and dataset with `--parent`; when `project_ids` lists one project, the dataset alone is enough.
+
+| `--kind`  | Judged by                                                                                |
+| --------- | ---------------------------------------------------------------------------------------- |
+| `Project` | `project_ids` when set, else `project_id_pattern`                                        |
+| `Schema`  | `dataset_pattern`, against `project.dataset` when `match_fully_qualified_names` is on    |
+| `Table`   | `table_pattern`; a dataset starting with `temp_table_dataset_prefix` excludes it first   |
+| `View`    | as `Table`: this source does not tell views from tables, so `view_pattern` has no effect |
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

@@ -326,20 +326,29 @@ class DremioSQLQueries:
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
     @staticmethod
-    def pattern_condition(
-        patterns: Union[str, List[str]], field: str, allow: bool = True
-    ) -> str:
-        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
+    def pushed_patterns(
+        patterns: Union[str, List[str]], allow: bool = True
+    ) -> List[str]:
+        """The regexes `pattern_condition` puts in its REGEXP_LIKE, upper-cased;
+        empty when it adds no condition. Shared with dremio_selection, which
+        judges a dataset as this condition does."""
         if not patterns:
-            return ""
+            return []
 
         if isinstance(patterns, str):
             patterns = [patterns.upper()]
 
         if ".*" in patterns and allow:
-            return ""
+            return []
 
-        patterns = [p.upper() for p in patterns if p != ".*"]
+        return [p.upper() for p in patterns if p != ".*"]
+
+    @staticmethod
+    def pattern_condition(
+        patterns: Union[str, List[str]], field: str, allow: bool = True
+    ) -> str:
+        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
+        patterns = DremioSQLQueries.pushed_patterns(patterns, allow=allow)
         if not patterns:
             return ""
 

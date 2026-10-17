@@ -9,7 +9,17 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 import pydantic
 from typing_extensions import Self
@@ -22,9 +32,14 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    support_status,
+)
 from datahub.ingestion.api.report import Report
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -82,6 +97,13 @@ from datahub.utilities.file_backed_collections import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.verdicts import (
+        ClassifyContext,
+        Verdict,
+        VerdictContext,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +222,32 @@ class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
 ):
     connection: SnowflakeConnectionConfig
+
+    # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
+    # Each imports snowflake_queries_probe lazily, so ingestion never loads the
+    # probe framework.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.snowflake.snowflake_queries_probe import (
+            SnowflakeQueriesMetadataProbe,
+        )
+
+        return SnowflakeQueriesMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.ancestor_kinds(kind)
+
+    def probe_match_target(self, ctx: "ClassifyContext") -> Optional[str]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.match_target(self, ctx)
+
+    def probe_verdict_override(self, ctx: "VerdictContext") -> Optional["Verdict"]:
+        from datahub.ingestion.source.snowflake import snowflake_queries_probe
+
+        return snowflake_queries_probe.verdict(self, ctx)
 
 
 @dataclass
@@ -1141,6 +1189,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
 @support_status(SupportStatus.GA)
 @config_class(SnowflakeQueriesSourceConfig)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
         self.ctx = ctx
