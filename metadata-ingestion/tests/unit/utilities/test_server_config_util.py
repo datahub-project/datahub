@@ -344,6 +344,20 @@ def test_datahub_cloud_feature(sample_config):
     assert config.supports_feature(ServiceFeature.DATAHUB_CLOUD) is False
 
 
+@pytest.mark.parametrize(
+    "flag_value, expected",
+    [(True, True), (False, False), (None, False)],
+)
+def test_document_info_patch_feature(sample_config, flag_value, expected):
+    config_dict = dict(sample_config)
+    if flag_value is not None:
+        config_dict["documentInfoPatchCapable"] = flag_value
+
+    config = RestServiceConfig(raw_config=config_dict)
+
+    assert config.supports_feature(ServiceFeature.DOCUMENT_INFO_PATCH) is expected
+
+
 def test_str_and_repr(sample_config):
     """Test string representation of the config."""
     config = RestServiceConfig(raw_config=sample_config)

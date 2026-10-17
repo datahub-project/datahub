@@ -31,6 +31,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.document_info_patch import (
+    supports_document_info_patch,
+)
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
@@ -327,6 +330,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             config=config.document_mapping,
             source_type="confluence",
         )
+        self.patch_document_info = supports_document_info_patch(ctx.graph)
 
         # Initialize chunking/embedding sub-component
         from datahub.ingestion.source.unstructured.chunking_config import (
@@ -901,7 +905,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         if browse_path_v2:
             doc._set_aspect(browse_path_v2)
 
-        yield from doc.as_workunits()
+        yield from doc.as_workunits(patch_document_info=self.patch_document_info)
         self.report.folders_ingested += 1
 
     def _create_document_entity(
@@ -1059,7 +1063,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             doc._set_aspect(browse_path_v2)
 
         # Emit all workunits from the Document
-        for workunit in doc.as_workunits():
+        for workunit in doc.as_workunits(patch_document_info=self.patch_document_info):
             yield workunit
 
         # Generate embeddings inline using ChunkingSource

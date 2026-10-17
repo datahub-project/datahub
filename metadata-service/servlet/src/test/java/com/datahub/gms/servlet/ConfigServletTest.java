@@ -325,6 +325,7 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     assertTrue(config.path("retention").asBoolean());
     assertTrue(config.path("statefulIngestionCapable").asBoolean());
     assertTrue(config.path("patchCapable").asBoolean());
+    assertTrue(config.path("documentInfoPatchCapable").asBoolean());
     assertNotNull(config.path("timeZone").asText());
 
     // Progressive disclosure
