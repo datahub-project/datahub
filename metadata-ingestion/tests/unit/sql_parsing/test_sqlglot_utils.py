@@ -9,7 +9,11 @@ from datahub.sql_parsing import sqlglot_utils
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import QueryType, get_dialect_str
+from datahub.sql_parsing.sql_parsing_common import (
+    DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    QueryType,
+    get_dialect_str,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     sqlglot_lineage,
@@ -72,6 +76,32 @@ def test_mysql_compatible_dialects():
     # lineage parsing silently produces nothing.
     for platform in ["mysql", "mariadb", "tidb"]:
         assert is_dialect_instance(get_dialect(platform), "mysql")
+
+
+def test_mysql_dialect_preserves_identifier_case():
+    # The dialect string must not carry a lowercase normalization strategy. Folding
+    # case during parsing collapses the exact/lower/mixed URN candidates that
+    # SchemaResolver probes afterwards, so a table stored as
+    # `my_schema.MixedCaseTable` becomes unreachable.
+    for platform in ["mysql", "mariadb", "tidb"]:
+        assert get_dialect_str(platform) == "mysql"
+
+
+def test_mysql_derived_dialects_use_case_insensitive_cols():
+    # is_dialect_instance matches on the sqlglot dialect class, so adding "mysql" to
+    # DIALECTS_WITH_CASE_INSENSITIVE_COLS also reaches the MySQL-derived dialects.
+    # That reach is intended, but it is wide, so pin it: a future narrowing should
+    # have to update this list deliberately.
+    for platform in ["mysql", "mariadb", "tidb", "starrocks", "doris", "singlestore"]:
+        assert is_dialect_instance(
+            get_dialect(platform), DIALECTS_WITH_CASE_INSENSITIVE_COLS
+        ), platform
+
+    # Dialects that fold case in their own catalog must stay out of it.
+    for platform in ["postgres", "trino"]:
+        assert not is_dialect_instance(
+            get_dialect(platform), DIALECTS_WITH_CASE_INSENSITIVE_COLS
+        ), platform
 
 
 def test_query_types():
