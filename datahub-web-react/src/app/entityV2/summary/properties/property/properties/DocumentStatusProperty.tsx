@@ -13,22 +13,43 @@ import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document, DocumentState } from '@types';
 
-const StatusSelectWrapper = styled.div``;
+const PUBLISHED_LIFECYCLE_STAGE_URN = 'urn:li:lifecycleStageType:PUBLISHED';
+const DRAFT_LIFECYCLE_STAGE_URN = 'urn:li:lifecycleStageType:DRAFT';
+const UNPUBLISHED_LIFECYCLE_STAGE_URN = 'urn:li:lifecycleStageType:UNPUBLISHED';
 
-const statusOptions = [
+const STATUS_OPTIONS = [
     {
         get label() {
             return i18next.t('entity.profile.summary:documentStatus.published');
         },
-        value: DocumentState.Published,
+        value: PUBLISHED_LIFECYCLE_STAGE_URN,
     },
     {
         get label() {
             return i18next.t('entity.profile.summary:documentStatus.draft');
         },
-        value: DocumentState.Unpublished,
+        value: DRAFT_LIFECYCLE_STAGE_URN,
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentStatus.unpublished');
+        },
+        value: UNPUBLISHED_LIFECYCLE_STAGE_URN,
     },
 ];
+
+function legacyStateToLifecycleUrn(state: DocumentState | null | undefined): string | null {
+    if (state === DocumentState.Published) return PUBLISHED_LIFECYCLE_STAGE_URN;
+    if (state === DocumentState.Unpublished) return UNPUBLISHED_LIFECYCLE_STAGE_URN;
+    return null;
+}
+
+function urnToLabel(urn: string | null | undefined): string | null {
+    const option = STATUS_OPTIONS.find((o) => o.value === urn);
+    return option?.label ?? null;
+}
+
+const StatusSelectWrapper = styled.div``;
 
 export default function DocumentStatusProperty(props: PropertyComponentProps) {
     const { t } = useTranslation('entity.profile.summary');
@@ -36,42 +57,43 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
     const document = entityData as Document;
     const refetch = useRefetch();
     const { canEditState } = useDocumentPermissions(urn);
-    const { updateStatus } = useUpdateDocument();
+    const { updateLifecycleStage } = useUpdateDocument();
 
-    const serverStatus = document?.info?.status?.state;
-    const [optimisticStatus, setOptimisticStatus] = useState<DocumentState | undefined>(serverStatus);
+    // Prefer lifecycle stage URN from generic status aspect; fall back to legacy field
+    const lifecycleUrn = (document as any)?.status?.lifecycleStage?.urn as string | null | undefined;
+    const legacyState = document?.info?.status?.state;
+    const serverStageUrn = lifecycleUrn ?? legacyStateToLifecycleUrn(legacyState);
 
-    // Sync optimistic state with server state when it changes
+    const [optimisticStageUrn, setOptimisticStageUrn] = useState<string | null | undefined>(serverStageUrn);
+
     useEffect(() => {
-        setOptimisticStatus(serverStatus);
-    }, [serverStatus]);
+        setOptimisticStageUrn(serverStageUrn);
+    }, [serverStageUrn]);
 
     const handleStatusChange = async (values: string[]) => {
-        const newStatus = values[0] as DocumentState;
-        const previousStatus = optimisticStatus;
+        const newStageUrn = values[0] ?? null;
+        const previousStageUrn = optimisticStageUrn;
 
-        // Optimistically update the UI immediately
-        setOptimisticStatus(newStatus);
+        setOptimisticStageUrn(newStageUrn);
 
         try {
-            await updateStatus({
+            await updateLifecycleStage({
                 urn,
-                state: newStatus,
+                lifecycleStageUrn: newStageUrn,
             });
             await refetch();
         } catch (error) {
-            // Revert to previous status if the mutation fails
-            console.error('[DocumentStatusProperty] Update failed, reverting to:', previousStatus);
-            setOptimisticStatus(previousStatus);
+            console.error('[DocumentStatusProperty] Update failed, reverting to:', previousStageUrn);
+            setOptimisticStageUrn(previousStageUrn);
         }
     };
 
     const renderValue = () => {
-        if (!optimisticStatus) return <span>-</span>;
+        const label = urnToLabel(optimisticStageUrn);
+        if (!label) return <span>-</span>;
 
         if (!canEditState) {
-            const displayLabel = statusOptions.find((o) => o.value === optimisticStatus)?.label ?? optimisticStatus;
-            return <Text>{displayLabel}</Text>;
+            return <Text>{label}</Text>;
         }
 
         return (
@@ -79,10 +101,10 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
                 <Tooltip title={t('documentStatus.publishTooltip')} placement="top">
                     <div data-testid="document-status-select">
                         <SimpleSelect
-                            values={[optimisticStatus]}
+                            values={optimisticStageUrn ? [optimisticStageUrn] : []}
                             onUpdate={handleStatusChange}
                             isDisabled={false}
-                            options={statusOptions}
+                            options={STATUS_OPTIONS}
                             size="sm"
                             width="fit-content"
                             showClear={false}
@@ -96,7 +118,7 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
     return (
         <BaseProperty
             {...props}
-            values={optimisticStatus ? [optimisticStatus] : []}
+            values={optimisticStageUrn ? [optimisticStageUrn] : []}
             renderValue={renderValue}
             maxValues={1}
         />
