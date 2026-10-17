@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
     DatasetProfileClass,
     EspressoSchemaClass,
+    GenericAspectClass,
     KafkaSchemaClass,
     KeyValueSchemaClass,
     MySqlDDLClass,
@@ -113,6 +114,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
+            if lineage_patch := wu.get_json_patch_aspect(UpstreamLineageClass):
+                self.ensure_upstream_lineage_patch_size(urn, lineage_patch)
             yield wu
 
     def ensure_dataset_profile_size(
@@ -467,6 +470,51 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         upstream_lineage.fineGrainedLineages = (
             accepted_fine_grained_lineages if accepted_fine_grained_lineages else None
         )
+
+    def ensure_upstream_lineage_patch_size(
+        self, entity_urn: str, patch_aspect: GenericAspectClass
+    ) -> None:
+        # The patch is sent as an escaped JSON string inside the MCP; measure it that way.
+        if len(json.dumps(patch_aspect.value.decode())) < self.schema_size_constraint:
+            return
+        operations = json.loads(patch_aspect.value)
+        # Skip removes, whole-list replaces and wrapped patches: dropping an operation
+        # would keep lineage the source deleted.
+        if not isinstance(operations, list) or any(
+            operation.get("op") != "add"
+            or operation.get("path") in ("/upstreams", "/fineGrainedLineages")
+            for operation in operations
+        ):
+            return
+        sizes = [len(json.dumps(json.dumps(operation))) for operation in operations]
+
+        # Adds to different fields are independent, so reordering them is safe.
+        def is_upstream(operation: Dict[str, object]) -> bool:
+            return str(operation.get("path", "")).startswith("/upstreams")
+
+        accepted = []
+        total_size = 0
+        for i in sorted(
+            range(len(operations)), key=lambda i: not is_upstream(operations[i])
+        ):
+            if total_size + sizes[i] >= self.schema_size_constraint:
+                break
+            accepted.append(operations[i])
+            total_size += sizes[i]
+
+        num_upstreams = sum(map(is_upstream, operations))
+        num_accepted_upstreams = sum(map(is_upstream, accepted))
+        self._maybe_warn_upstream_lineage(
+            entity_urn, num_upstreams - num_accepted_upstreams, "upstream datasets"
+        )
+        self._maybe_warn_upstream_lineage(
+            entity_urn,
+            len(operations) - len(accepted) - num_upstreams + num_accepted_upstreams,
+            "fine-grained lineage edges",
+        )
+        self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
+
+        patch_aspect.value = json.dumps(accepted).encode()
 
     def _query_properties_serialized_size(
         self, query_properties: QueryPropertiesClass
