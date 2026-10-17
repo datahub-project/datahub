@@ -8,7 +8,9 @@ from typing import List, Optional
 import click
 from click.shell_completion import CompletionItem
 from click_default_group import DefaultGroup
+from pydantic import Field
 
+from datahub.cli import config_utils
 from datahub.cli.config_utils import (
     DATAHUB_ROOT_FOLDER,
     DatahubConfig,
@@ -39,14 +41,30 @@ class SqliteLiteConfigWrapper(SqliteLiteConfig):
     file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.db")
 
 
-class LiteCliConfig(DatahubConfig):
-    lite: LiteLocalConfig = LiteLocalConfig(
-        type=DEFAULT_LITE_IMPL, config=SqliteLiteConfigWrapper().model_dump()
+def _get_default_lite_config() -> LiteLocalConfig:
+    return LiteLocalConfig(
+        type=DEFAULT_LITE_IMPL,
+        config=SqliteLiteConfigWrapper(
+            file=os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.db")
+        ).model_dump(),
     )
+
+
+class LiteCliConfig(DatahubConfig):
+    lite: LiteLocalConfig = Field(default_factory=_get_default_lite_config)
 
 
 def get_lite_config() -> LiteLocalConfig:
     client_config_dict = get_raw_client_config()
+    if client_config_dict is None:
+        if os.path.exists(config_utils.DATAHUB_CONFIG_PATH):
+            raise click.ClickException(
+                f"Refusing to use malformed "
+                f"{config_utils.CONDENSED_DATAHUB_CONFIG_PATH}."
+            )
+        return _get_default_lite_config()
+    if isinstance(client_config_dict, dict) and "lite" in client_config_dict:
+        return LiteLocalConfig.model_validate(client_config_dict["lite"])
     lite_config = LiteCliConfig.model_validate(client_config_dict)
     return lite_config.lite
 
@@ -322,6 +340,8 @@ def search(
 
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
     cli_config = get_raw_client_config()
+    if cli_config is None:
+        cli_config = {}
     assert isinstance(cli_config, dict)
     cli_config["lite"] = lite_config.model_dump()
     persist_raw_datahub_config(cli_config)
@@ -343,6 +363,12 @@ def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
             f"Failed to find a registered lite implementation for {type}. "
             f"Valid values are {sorted(lite_registry.mapping)}"
         )
+    raw_config = get_raw_client_config()
+    if raw_config is None and os.path.exists(config_utils.DATAHUB_CONFIG_PATH):
+        raise click.ClickException(
+            f"Refusing to overwrite malformed "
+            f"{config_utils.CONDENSED_DATAHUB_CONFIG_PATH}."
+        )
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
@@ -350,8 +376,8 @@ def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     if file:
         new_lite_config_dict["config"]["file"] = file
     new_lite_config = LiteLocalConfig.model_validate(new_lite_config_dict)
-    if lite_config != new_lite_config:
-        if click.confirm(
+    if not raw_config or lite_config != new_lite_config:
+        if not raw_config or click.confirm(
             f"Will replace datahub lite config {lite_config} with {new_lite_config}"
         ):
             write_lite_config(new_lite_config)
